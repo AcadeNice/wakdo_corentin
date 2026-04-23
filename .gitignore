@@ -1,0 +1,67 @@
+# === Secrets ===
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# === BYAN — plateforme (moteur), masquee ===
+# Le code moteur des agents n'est pas part du rendu RNCP.
+# La methodologie appliquee (CLAUDE.md + rules + hooks) reste dans .claude/
+# pour transparence vis-a-vis du jury.
+_byan/
+_byan-output/
+
+# === Claude Code — on garde UNIQUEMENT la methodologie ===
+# VISIBLE : .claude/CLAUDE.md (constitution projet)
+# VISIBLE : .claude/rules/ (fact-check, merise-agile, ELO trust, etc.)
+# IGNORE : tout le reste (agents, skills, hooks, config perso, etat local)
+.claude/*
+!.claude/CLAUDE.md
+!.claude/rules/
+
+# === MCP config (potentiellement tokens) ===
+.mcp.json
+
+# === PHP / Composer (non utilise mais safety) ===
+vendor/
+composer.lock
+composer.phar
+
+# === Tests ===
+.phpunit.result.cache
+/tests/_output/
+/tests/_support/_generated/
+
+# === OS ===
+.DS_Store
+Thumbs.db
+
+# === IDE ===
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# === Logs ===
+*.log
+/logs/
+
+# === Data / Uploads / Backups ===
+/backups/
+/src/public/uploads/
+/data/
+
+# === Build artifacts ===
+/dist/
+/build/
+/public/build/
+
+# === Node (au cas ou) ===
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# === Docker volumes locaux ===
+/docker-data/
