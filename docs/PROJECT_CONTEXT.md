@@ -310,7 +310,8 @@ Reseaux :
 | Cr 4.c.1-3 | POO + heritage + namespaces | `BaseModel` -> `Product`, `BaseController` -> `AdminController`, PSR-4 |
 | Cr 4.d.1-3 | MVC | `src/Models/`, `src/Views/`, `src/Controllers/`, separation stricte |
 | Cr 4.e.1-3 | Securite | PDO prepared (anti-SQLi), sessions regeneration, role-based middleware |
-| Cr 4.f.1-4 | Git + collaboration | Commits Conventional, branches feat/*, PR descriptions, squash merge |
+| Cr 4.f.2 | Maitrise outil collaboratif (artefact) | Commits Conventional, branches `feat/*`, PR descriptions, squash merge, hooks Git |
+| Cr 4.f.1, 4.f.3, 4.f.4 | Soft skills (evalues a l'oral) | Partage de savoir-faire (4.f.1), auto-evaluation avant PR (4.f.3), compte-rendu de la participation individuelle (4.f.4) — demontres pendant la soutenance |
 | Cr 4.g.1-4 | Preparation livraison | PHPUnit tests verts, pas d'erreur en prod, testee deployee |
 
 ### Bloc 5

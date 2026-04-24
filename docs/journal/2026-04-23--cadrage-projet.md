@@ -144,9 +144,9 @@ Configure via l'UI GitHub (Settings -> Rules -> Rulesets). Les 4 rules activees 
 
 ## Criteres RNCP couverts
 
-- **Bloc 2 - Cr 4.f.1** : Git et GitHub utilises, repo public accessible au jury.
-- **Bloc 2 - Cr 4.f.2** : Branches `main` et `dev` protegees, flow `feat/*` -> `dev` -> `main` impose.
-- **Bloc 2 - Cr 4.f.4** : Conventional Commits definis dans `docs/PROJECT_CONTEXT.md` section 9 (a faire appliquer par hook en Task #3).
+- **Bloc 2 - Cr 4.f.2** : Maitrise de l'outil collaboratif — Git et GitHub utilises, repo public accessible au jury, branches `main` et `dev` protegees, flow `feat/*` -> `dev` -> `main` impose, Conventional Commits definis dans `docs/PROJECT_CONTEXT.md` section 9 (a faire appliquer par hook en Task #3).
+
+> Note : le libelle officiel du Cr 4.f.1 (*« mobilise et transmet son savoir, participe activement a la collaboration »*) et du Cr 4.f.4 (*« rendre compte de sa participation individuelle au travail collectif »*) designent des soft skills evaluees a l'oral, et non la mise en place de Git — qui releve du Cr 4.f.2. Cette correction a ete appliquee apres lecture integrale du referentiel (source : `docs/_ref/rncp-37805-referentiel.pdf` page 11-12).
 - **Bloc 5 - Cr 7.a.1** : Analyse de l'infra cible documentee (section 5 du PC).
 - **Bloc 5 - Cr 7.d.1** : Architecture serveur decrite (reseau `admin_proxy` + reseau interne + 4 services).
 
