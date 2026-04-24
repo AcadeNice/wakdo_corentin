@@ -564,7 +564,100 @@ Preparer des **questions frequentes** :
 
 ---
 
-## 17. Regles invariantes
+## 17. Transparence methodologie et usage d'assistants IA
+
+Ce projet a ete developpe avec l'appui de **BYAN (Builder of YAN)**, un systeme d'agents IA custom applicant la methodologie **Merise Agile enrichie de 64 Mantras** (voir `.claude/CLAUDE.md` et `.claude/rules/`).
+
+Cette section documente l'usage d'outils d'IA generative dans la conduite du projet, la delimitation precise de ce que l'IA fait et ne fait pas, et les dispositifs de tracabilite mis en place pour le jury.
+
+### 17.1 Base d'autorisation
+
+Le centre de formation Acadenice autorise explicitement l'usage d'assistants IA pour la realisation du projet de certification. La presente section formalise cet usage pour assurer la tracabilite vis-a-vis du jury RNCP.
+
+Principe directeur : **toute decision structurante du projet est prise par l'auteur**. L'IA peut rediger, challenger, relire, proposer — elle ne choisit pas a la place de l'auteur.
+
+### 17.2 Outils utilises
+
+| Outil | Role | Depuis |
+|---|---|---|
+| **BYAN (Builder of YAN)** | Meta-framework methodologique : Merise Agile + TDD + 64 Mantras + fact-check scientifique + ELO trust. Oriente la demarche projet. | 2026-04-23 |
+| **Claude Code** (Opus 4.7, Sonnet 4.6) | Interface d'interaction : redaction, co-programmation, lecture code, execution de commandes shell sous supervision. | 2026-04-23 |
+
+La configuration des outils est versionnee et visible dans `.claude/CLAUDE.md` et `.claude/rules/*.md`.
+
+L'auteur peut recourir ponctuellement a d'autres outils IA (completion IDE, assistants tiers). Leur usage respecte le meme cadre de scope defini en 17.3 et 17.4.
+
+### 17.3 Scope — ce que l'IA fait
+
+- **Redaction de texte** : documents de cadrage, retrospectives de session (`docs/journal/`), commentaires techniques, messages de commit. Supervise et valide par l'auteur avant versioning.
+- **Co-programmation** : proposition de code PHP, JavaScript, CSS, SQL, Dockerfile, YAML. Lu, teste et valide par l'auteur avant commit.
+- **Relecture critique** : challenge des choix techniques via le protocole fact-check (`.claude/rules/fact-check.md`) et le mantra "Challenge Before Confirm".
+- **Execution de commandes shell** sous autorisation explicite de l'auteur via le mecanisme de permissions Claude Code.
+- **Generation de tests unitaires** PHPUnit, revus par l'auteur.
+- **Assistance au debug** : lecture de logs, proposition d'hypotheses, test des correctifs.
+- **Redaction de la couche `docs/notes/`** (non versionnee) : fiches techniques destinees a la revision de l'oral.
+
+### 17.4 Scope — ce que l'IA ne fait pas
+
+- **Decisions d'architecture** : tranchees par l'auteur. L'IA propose des alternatives, l'auteur choisit.
+- **Choix du scope fonctionnel** : defini par l'auteur a partir du brief RNCP. L'IA n'ajoute ni ne retire de fonctionnalite sans instruction explicite.
+- **Modelisation Merise** (MCD, MCT, MLD) : formalisation produite par l'IA a partir du dictionnaire de donnees et des user stories ; arbitrage, validation et corrections par l'auteur. Chaque cardinalite, chaque relation et chaque transition de statut est validee par l'auteur avant integration. Le livrable final reflete ses decisions.
+- **Validation des livrables** : reservee au jury. L'IA n'emet pas de jugement final sur la conformite RNCP.
+- **Deploiements** : declenchement humain uniquement, y compris sur `make init` local. Aucune action sur environnement serveur sans instruction explicite.
+- **Commit en son nom** : aucun trailer `Co-Authored-By: Claude...` n'est appose sur les commits. Voir section 17.7.
+- **Decisions de securite critiques** : tous les choix de type hash mdp, CORS, RBAC, politique sessions sont valides par l'auteur meme si l'IA en propose la mise en oeuvre.
+
+### 17.5 Dispositifs de tracabilite versionnes (visibles jury)
+
+Fichiers committes dans le repo qui rendent la methodologie observable :
+
+- `.claude/CLAUDE.md` : constitution du projet pour les agents Claude Code.
+- `.claude/rules/` : les protocoles appliques au projet :
+  - `fact-check.md` — exigence de sources pour tout claim technique absolu.
+  - `merise-agile.md` — methodologie Merise + TDD + mantras.
+  - `elo-trust.md` — calibration de l'intensite du challenge selon l'expertise auto-declaree.
+  - `hermes-dispatcher.md` — routage entre specialistes.
+  - `byan-api.md` et `byan-agents.md` — reference ecosysteme.
+- `docs/PROJECT_CONTEXT.md` (le present document) : source de verite projet, injectee comme contexte aux agents.
+- `docs/journal/` : retrospectives de session et de feature, format standardise, destinees a la preparation de l'oral et a la tracabilite jury.
+
+### 17.6 Ce qui n'est pas versionne (et pourquoi)
+
+| Categorie | Chemin | Raison |
+|---|---|---|
+| Moteur BYAN (code des agents) | `_byan/`, `_byan-output/` | Non pertinent pour le rendu RNCP. La methodologie qui s'en sert est visible dans `.claude/rules/`. |
+| Configuration personnelle Claude | `.claude/` sauf `CLAUDE.md` et `rules/` | Etat local, logs conversations, config machine. Non pertinent et potentiellement sensible. |
+| Notes techniques personnelles | `docs/notes/` | Supports de revision rediges par l'IA pour l'auteur. Ne font pas partie du livrable. Exclus pour eviter toute ambiguite sur ce qui est "de la main du candidat". |
+| Notes de session | `docs/SESSION_*.md` | Documents de continuite entre sessions de travail. Usage personnel. |
+
+### 17.7 Politique de commit
+
+- **Conventional Commits** appliques (voir section 9).
+- **Aucun `Co-Authored-By`** ajoute automatiquement, y compris par les outils IA. Raison : plusieurs outils IA peuvent etre utilises au fil du projet ; tagger un modele specifique serait reducteur, et des commits rediges sans assistance porteraient faussement le tag par defaut. La transparence de la methodologie vit dans la presente section et dans les `.claude/rules/`, pas dans les metadonnees de commit.
+- **Messages de commit rediges ou co-rediges avec assistance IA** : aucune obligation de le signaler individuellement, la section 17 vaut declaration globale.
+
+### 17.8 Declaration d'honnetete intellectuelle
+
+L'auteur declare que :
+
+1. Chaque decision d'architecture, de stack, de scope et de design documentee dans ce document a ete prise par lui, apres examen des alternatives proposees ou rappelees par l'IA.
+2. Chaque ligne de code committee a ete lue, comprise et validee par lui.
+3. Chaque contrainte du referentiel RNCP a ete lue directement dans la source officielle, pas seulement resumee par l'IA.
+4. Les sections des documents redigees avec assistance IA sont des sections techniques ou de synthese (pas des sections de choix personnel) ; leur contenu factuel est verifie avant commit.
+5. Si le jury demande a voir l'auteur raisonner sans assistance sur un sujet du projet (live-coding, explication orale, modification en direct), l'auteur est en mesure de le faire.
+
+### 17.9 Protocoles de controle interne
+
+Deux mecanismes sont en place pour garantir la rigueur :
+
+- **Fact-check scientifique** (`.claude/rules/fact-check.md`) : l'IA doit sourcer tout claim technique absolu (`toujours`, `jamais`, `plus rapide`) par une source L1-L2 (spec officielle, benchmark, CVE). Les claims non sources sont marques `[HYPOTHESIS]` ou `[REASONING]`.
+- **ELO trust** (`.claude/rules/elo-trust.md`) : systeme 0-1000 par domaine technique qui adapte l'intensite du challenge. Un claim dans un domaine ou le score est bas declenche explication pedagogique ; dans un domaine haut, l'IA va droit au but. L'auteur peut declarer son niveau initial par domaine.
+
+Ces deux protocoles rendent les interactions IA tracables et auditables a posteriori via les logs Claude Code.
+
+---
+
+## 18. Regles invariantes
 
 Ces regles tiennent lieu de garde-fous pendant toute la duree du projet. Les enfreindre demande une mise a jour explicite de ce document.
 
@@ -581,4 +674,4 @@ Ces regles tiennent lieu de garde-fous pendant toute la duree du projet. Les enf
 
 ---
 
-*Document vivant — version 1.0 — 2026-04-23. A mettre a jour a chaque decision structurante.*
+*Document vivant — version 1.1 — 2026-04-24 (ajout section 17 transparence IA). A mettre a jour a chaque decision structurante.*
