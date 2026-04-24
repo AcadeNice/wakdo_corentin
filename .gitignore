@@ -65,3 +65,6 @@ yarn-error.log
 
 # === Docker volumes locaux ===
 /docker-data/
+
+# === Notes techniques personnelles (revisions oral, non versionnees) ===
+/docs/notes/
