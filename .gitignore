@@ -49,6 +49,10 @@ Thumbs.db
 /logs/
 
 # === Data / Uploads / Backups ===
+# /var/ : contient /var/backups/ (bind-mount des dumps BDD du conteneur cron)
+# et tout futur artefact run-time (caches persistes, logs).
+# Voir docs/notes/docker-volumes-vs-bind-mounts.md pour la strategie.
+/var/
 /backups/
 /src/public/uploads/
 /data/

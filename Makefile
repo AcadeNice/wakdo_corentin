@@ -164,8 +164,16 @@ seed: ## Charge les donnees de demo [a venir]
 	@echo "[seed] Pas encore implemente. Les seeds seront dans db/seeds/."
 
 .PHONY: backup
-backup: ## Genere un dump SQL horodate dans ./backups/ [a venir]
-	@echo "[backup] Pas encore implemente. Voir scripts/backup-db.sh a venir."
+backup: ## Declenche un dump SQL horodate immediat (via le container cron)
+	@mkdir -p ./var/backups
+	@echo "[backup] Execution manuelle de /scripts/backup-db.sh dans wakdo-cron..."
+	@$(COMPOSE) exec -T $(SERVICE_CRON) /scripts/backup-db.sh
+	@echo "[backup] Dernier dump :"
+	@ls -lh ./var/backups/ | tail -n 1
+
+.PHONY: backup-ls
+backup-ls: ## Liste les dumps SQL presents dans ./var/backups/
+	@ls -lh ./var/backups/ 2>/dev/null || echo "[backup-ls] Pas de backups (./var/backups/ vide ou inexistant)."
 
 # === Tests ===
 
