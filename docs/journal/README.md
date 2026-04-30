@@ -29,6 +29,7 @@ Les fichiers sont ordonnes chronologiquement par leur nom.
 |---|---|---|---|
 | 2026-04-23 | [cadrage-projet](2026-04-23--cadrage-projet.md) | Analyse brief RNCP, decisions d'architecture, bootstrap Git | `main` (commit initial) |
 | 2026-04-24 | [infra-docker](2026-04-24--infra-docker.md) | Stack Docker complete (compose + 4 services), referentiel RNCP integre, cross-check mappings Cr 4.f | `feat/infra-docker` |
+| 2026-04-30 | [smoke-test-infra](2026-04-30--smoke-test-infra.md) | Smoke test bout-en-bout sur serveur reel : fusion .env, switch FQDN sur stark.a3n.fr, subnet explicite RFC 1918, fix init cron + healthz | `feat/infra-docker` |
 
 *Mis a jour a chaque nouvelle entree.*
 
