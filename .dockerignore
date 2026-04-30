@@ -1,0 +1,77 @@
+#
+# Fichiers exclus du contexte de build Docker.
+# Reduit le temps de build et evite de faire entrer des fichiers sensibles
+# ou non pertinents dans les couches d'image.
+#
+
+# === Git ===
+.git
+.gitignore
+.gitattributes
+.githooks
+
+# === CI/CD ===
+.github
+
+# === Methodologie / outils dev ===
+.claude
+_byan
+_byan-output
+.mcp.json
+
+# === Documentation et notes ===
+docs
+README.md
+*.md
+
+# === Secrets locaux ===
+.env
+.env.local
+.env.*.local
+
+# === Tests (pas dans image de prod) ===
+tests
+phpunit.xml
+phpunit.phar
+.phpunit.result.cache
+
+# === Scripts locaux ===
+scripts
+Makefile
+
+# === Composer (non utilise mais safety) ===
+vendor
+composer.lock
+composer.phar
+composer.json
+
+# === Node (au cas ou) ===
+node_modules
+npm-debug.log
+yarn-error.log
+
+# === IDE ===
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# === OS ===
+.DS_Store
+Thumbs.db
+
+# === Logs / backups / volumes locaux ===
+*.log
+logs
+backups
+docker-data
+data
+
+# === Build artifacts ===
+dist
+build
+
+# === Docker lui-meme ===
+docker-compose.yml
+docker-compose.*.yml

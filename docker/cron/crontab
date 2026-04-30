@@ -1,0 +1,29 @@
+# Wakdo - crontab du conteneur wakdo-cron
+#
+# Fenetre de maintenance : 01h30 -> 09h30 (service client 10h00 -> 01h00).
+# Toutes les heures sont en Europe/Paris (CRON_TIMEZONE dans .env).
+# Format : m h dom mon dow command
+#
+# Les scripts ecrivent leurs logs dans /proc/1/fd/2 pour que docker logs
+# remonte la sortie. Les erreurs doivent faire un exit != 0 pour que crond
+# les signale.
+
+# Minuit-45 : decalage du tout debut de fenetre, mais apres que le dernier
+# ticket de soiree soit parti en cuisine. Ne fait rien pour l'instant.
+# Garde en template pour une future invalidation de cache.
+# 45 0 * * * /scripts/purge-cache.sh 2>&1
+
+# 03h00 : dump BDD complet, compresse et rotate (garde 14 derniers).
+0 3 * * * /scripts/backup-db.sh 2>&1
+
+# Toutes les 15 min pendant la fenetre de maintenance : purge des sessions
+# PHP expirees cote BDD (pas les sessions systeme qui sont en /tmp du conteneur
+# wakdo-app, donc ephemeres par nature). A activer quand la table sessions
+# existera (P2). En l'etat, template.
+# */15 2-9 * * * /scripts/purge-expired-sessions.sh 2>&1
+
+# 04h30 : agregations statistiques (top produits, CA par heure, etc.).
+# Template, a activer quand les tables stats existeront (P3-P4).
+# 30 4 * * * /scripts/aggregate-stats.sh 2>&1
+
+# Ligne vide finale requise par certaines implementations cron.
