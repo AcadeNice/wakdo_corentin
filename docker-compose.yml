@@ -38,6 +38,18 @@ networks:
     # de sortir sur internet (pour telecharger des packages au build et pour
     # de potentiels appels API externes futurs). L'isolation vient du fait
     # qu'aucun port hote n'est binde ici.
+    #
+    # Subnet explicite (RFC 1918) : l'auto-allocateur Docker du daemon hote
+    # est sature (15 /16 + 15 /20 deja alloues par d'autres stacks), il ne
+    # peut plus creer de reseau bridge sans subnet explicite. 192.168.148.0/24
+    # est dans le gap libre 192.168.144-159 (256 IP, largement suffisant pour
+    # 4 services), aucune collision avec les /24 acquagest voisins (150/154/
+    # 155/157). Choix defendable : right-sizing + isolation des fluctuations
+    # d'allocation auto sur cet hote mutualise.
+    ipam:
+      driver: default
+      config:
+        - subnet: 192.168.148.0/24
 
   # Reseau du reverse proxy (Traefik) pre-existant sur l'hote.
   # Son nom est configurable via REVERSE_PROXY_NETWORK dans .env pour
@@ -222,6 +234,11 @@ services:
       dockerfile: Dockerfile
     container_name: wakdo-cron
     restart: unless-stopped
+    # init: true -> Docker injecte tini comme PID 1. dcron exige un init
+    # parent pour pouvoir setpgid() sur ses jobs (sinon "Operation not
+    # permitted" en boucle car un PID 1 sans init ne peut pas changer les
+    # groupes de processus). Cf. busybox-utils issue tracker.
+    init: true
 
     environment:
       # Credentials BDD pour mysqldump (lecture seule via USER applicatif,

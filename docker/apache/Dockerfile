@@ -27,6 +27,15 @@ COPY mpm.conf   /usr/local/apache2/conf/extra/wakdo-mpm.conf
 # bind-mounte en dev. Sans ca, Apache refuse de demarrer.
 RUN mkdir -p /var/www/html/public
 
+# Fichier statique servi par le vhost healthz (Alias /healthz). Evite
+# le RewriteRule [R=200] qui declenche le template ErrorDocument d'Apache
+# et pollue le body de la reponse.
+# Place dans /usr/local/apache2/htdocs/ et non /var/www/html/ : ce dernier
+# est bind-monte depuis ./src au runtime (cf. docker-compose.yml), ce qui
+# masquerait le fichier copie ici. /usr/local/apache2/htdocs/ est un chemin
+# Apache natif jamais bind-monte.
+COPY healthz.txt /usr/local/apache2/htdocs/healthz.txt
+
 # Healthcheck : vhost par defaut (0.0.0.0:80) doit repondre.
 # Le endpoint /healthz est defini dans vhost.conf, repond 200 "ok".
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
