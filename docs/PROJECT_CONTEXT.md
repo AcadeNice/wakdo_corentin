@@ -122,10 +122,10 @@ Client                Borne (Bloc 1)           API (Bloc 2)          BDD
 
 | FQDN | Role | Bloc | Auth |
 |---|---|---|---|
-| `corentin-wakdo.acadenice.fr` | Borne client (kiosk tactile) | Bloc 1 | Public |
-| `corentin-wakdo-admin.acadenice.fr` | Back-office + API REST (sous `/api/*`) | Bloc 2 | Sessions (back-office) + tokens (API ecriture) |
+| `corentin-wakdo.stark.a3n.fr` | Borne client (kiosk tactile) | Bloc 1 | Public |
+| `corentin-wakdo-admin.stark.a3n.fr` | Back-office + API REST (sous `/api/*`) | Bloc 2 | Sessions (back-office) + tokens (API ecriture) |
 
-**CORS** : la borne (`corentin-wakdo.acadenice.fr`) consomme l'API (`corentin-wakdo-admin.acadenice.fr/api/*`). Headers CORS explicites avec origine precise (pas de wildcard `*`), argumentable comme durcissement securite face au jury.
+**CORS** : la borne (`corentin-wakdo.stark.a3n.fr`) consomme l'API (`corentin-wakdo-admin.stark.a3n.fr/api/*`). Headers CORS explicites avec origine precise (pas de wildcard `*`), argumentable comme durcissement securite face au jury.
 
 ### Services Docker
 
@@ -462,7 +462,7 @@ Buffer : ~20 h pour imprevus. Cible effective : ~240 h sur 20 semaines = **12 h/
 ### Par bloc
 
 **Bloc 1 :**
-- App front deployee et fonctionnelle sur `https://corentin-wakdo.acadenice.fr`
+- App front deployee et fonctionnelle sur `https://corentin-wakdo.stark.a3n.fr`
 - Code source Git accessible au jury
 - Validator W3C screenshot (HTML + CSS verts)
 - Checklist RGAA auto-evaluee
@@ -474,7 +474,7 @@ Buffer : ~20 h pour imprevus. Cible effective : ~240 h sur 20 semaines = **12 h/
 - **MLD** (`docs/merise/mld.md`)
 - **Schema fonctionnel** de l'app (`docs/architecture/functional-schema.md`)
 - **BDD** deployee (dump SQL dans `db/migrations/` + script init)
-- App back-office deployee sur `https://corentin-wakdo-admin.acadenice.fr`
+- App back-office deployee sur `https://corentin-wakdo-admin.stark.a3n.fr`
 - Documentation API (OpenAPI minimal ou README API)
 
 **Bloc 5 :**

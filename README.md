@@ -5,8 +5,8 @@ Borne de commande pour restauration rapide. Projet de certification RNCP 37805 (
 **Statut** : en developpement actif. Soutenance prevue septembre 2026.
 
 **Sites exposes cibles** :
-- `https://corentin-wakdo.acadenice.fr` — Borne client (Bloc 1 Front)
-- `https://corentin-wakdo-admin.acadenice.fr` — Back-office + API REST (Bloc 2)
+- `https://corentin-wakdo.stark.a3n.fr` — Borne client (Bloc 1 Front)
+- `https://corentin-wakdo-admin.stark.a3n.fr` — Back-office + API REST (Bloc 2)
 
 ---
 
@@ -66,7 +66,7 @@ Detail et justifications : `docs/PROJECT_CONTEXT.md` section 6.
 ## Architecture
 
 ```
-      corentin-wakdo.acadenice.fr         corentin-wakdo-admin.acadenice.fr
+      corentin-wakdo.stark.a3n.fr         corentin-wakdo-admin.stark.a3n.fr
                  |                                      |
                  +--------------+-----------------------+
                                 |
