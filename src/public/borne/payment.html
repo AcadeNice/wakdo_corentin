@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="description" content="Wakdo - Choisissez votre mode de paiement">
+    <title>Wakdo - Paiement</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body class="payment-page">
+
+    <!--
+        payment.html — Payment method selection.
+        MVP: both buttons simulate payment and redirect to confirmation.html.
+        No real payment integration (kiosk demo — out of scope permanently).
+    -->
+
+    <header class="site-header">
+        <a
+            class="site-header__back"
+            href="cart.html"
+            aria-label="Retour au panier"
+        >
+            &#8592; Panier
+        </a>
+        <img
+            class="site-header__logo"
+            src="assets/images/ui/logo.png"
+            alt="Wakdo"
+        >
+        <span class="mode-badge site-header__mode" data-mode-badge aria-label="Mode de consommation">Sur place</span>
+    </header>
+
+    <main class="payment-main" aria-label="Choix du mode de paiement">
+
+        <h1 class="payment-main__heading">Comment souhaitez-vous payer ?</h1>
+
+        <!-- Mini order recap injected by inline script using localStorage -->
+        <div class="payment-recap" id="payment-recap" aria-label="Recapitulatif de commande">
+            <!-- Filled by inline module below -->
+        </div>
+
+        <div class="payment-methods" role="group" aria-label="Modes de paiement">
+
+            <!--
+                Carte bancaire — simulates payment for MVP.
+                Both methods redirect to confirmation.html.
+            -->
+            <button
+                class="payment-choice"
+                id="pay-card"
+                type="button"
+                aria-label="Payer par carte bancaire"
+            >
+                <!-- Card SVG icon (inline, no external dependency) -->
+                <svg class="payment-choice__icon" viewBox="0 0 64 64" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="4" y="14" width="56" height="36" rx="6" ry="6" fill="#FFC72C"/>
+                    <rect x="4" y="24" width="56" height="8" fill="#1A1A1A"/>
+                    <rect x="12" y="36" width="16" height="6" rx="2" fill="#fff"/>
+                </svg>
+                <span class="payment-choice__label">Carte bancaire</span>
+            </button>
+
+            <!-- Especes -->
+            <button
+                class="payment-choice"
+                id="pay-cash"
+                type="button"
+                aria-label="Payer en especes"
+            >
+                <!-- Cash SVG icon (inline) -->
+                <svg class="payment-choice__icon" viewBox="0 0 64 64" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="4" y="20" width="56" height="32" rx="4" ry="4" fill="#FFC72C"/>
+                    <circle cx="32" cy="36" r="8" fill="#fff"/>
+                    <circle cx="32" cy="36" r="4" fill="#FFC72C"/>
+                    <rect x="8" y="12" width="48" height="6" rx="2" fill="#E6A800"/>
+                </svg>
+                <span class="payment-choice__label">Especes</span>
+            </button>
+
+        </div>
+
+    </main>
+
+    <script type="module">
+        import { getTotalCents, formatPrice, getCart } from './assets/js/state.js';
+        import { getMode } from './assets/js/state.js';
+
+        /* Show mini recap */
+        const recap    = document.getElementById('payment-recap');
+        const total    = getTotalCents();
+        const items    = getCart();
+        const mode     = getMode() === 'a-emporter' ? 'A emporter' : 'Sur place';
+
+        if (recap) {
+            if (!items.length) {
+                /* Guard: redirect back to cart if somehow empty */
+                window.location.href = 'cart.html';
+            } else {
+                recap.innerHTML = `
+                    <p class="payment-recap__mode">${mode}</p>
+                    <p class="payment-recap__items">${items.length} article${items.length > 1 ? 's' : ''}</p>
+                    <p class="payment-recap__total">Total : <strong>${formatPrice(total)}</strong></p>
+                `;
+            }
+        }
+
+        /* Both payment methods redirect to confirmation — MVP simulation */
+        function simulatePay() {
+            window.location.href = 'confirmation.html';
+        }
+
+        document.getElementById('pay-card').addEventListener('click', simulatePay);
+        document.getElementById('pay-cash').addEventListener('click', simulatePay);
+    </script>
+
+    <script type="module" src="assets/js/nav.js"></script>
+</body>
+</html>
