@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="description" content="Wakdo - Detail du produit">
+    <title>Wakdo - Produit</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body class="product-page">
+
+    <!--
+        product.html — Product detail screen.
+        Reads ?id=<int>&category=<slug>.
+        JS (page-product.js) fetches the product, renders detail and handles
+        the "Ajouter au panier" action.
+        Menu composition is shown as a fixed note (MVP: no composition selection).
+    -->
+
+    <header class="site-header">
+        <a
+            id="back-to-products"
+            class="site-header__back"
+            href="products.html"
+            aria-label="Retour a la liste des produits"
+        >
+            &#8592; Retour
+        </a>
+        <img
+            class="site-header__logo"
+            src="assets/images/ui/logo.png"
+            alt="Wakdo"
+        >
+        <a
+            class="site-header__cart"
+            href="cart.html"
+            aria-label="Voir le panier"
+        >
+            <span class="cart-icon" aria-hidden="true">&#128722;</span>
+            <span class="cart-badge" data-cart-count hidden aria-live="polite">0</span>
+            <span class="sr-only">Panier</span>
+        </a>
+    </header>
+
+    <main class="product-main" aria-label="Detail du produit">
+
+        <!-- Error block: hidden unless fetch fails or id invalid -->
+        <p id="product-error" class="product-error" hidden role="alert"></p>
+
+        <!--
+            Container filled by page-product.js.
+            The JS replaces innerHTML once data is ready.
+        -->
+        <div id="product-detail" class="product-detail" aria-live="polite">
+            <!-- Skeleton placeholder visible during fetch -->
+            <div class="product-detail__skeleton" aria-hidden="true"></div>
+        </div>
+
+    </main>
+
+    <script type="module" src="assets/js/nav.js"></script>
+    <script type="module" src="assets/js/page-product.js"></script>
+</body>
+</html>
