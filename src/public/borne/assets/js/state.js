@@ -60,17 +60,32 @@ export function setCart(items) {
 
 /**
  * Appends a product or menu to the cart.
- * If an identical item (same id + type) already exists, increments quantity.
- * @param {{ id: number, type: string, categorie: string, libelle: string, prix_cents: number, quantite: number, image: string }} item
+ *
+ * For simple products (type !== 'menu'), merges with an existing line
+ * of the same id — matching real kiosk behavior where two identical
+ * sandwiches become one line with qty 2.
+ *
+ * For composed menus, each call always creates a new line because two
+ * menus with identical base id may have different compositions (different
+ * burger options, sizes, sauces). This prevents silent composition loss.
+ *
+ * Item shapes:
+ *   Simple:  { id, type, categorie, libelle, prix_cents, quantite, image }
+ *   Menu:    { ...above, composition: {...}, supplement_cents: number }
+ *
+ * @param {Object} item
  */
 export function addToCart(item) {
     const cart = getCart();
-    const existing = cart.find(c => c.id === item.id && c.type === item.type);
-    if (existing) {
-        existing.quantite += item.quantite ?? 1;
-    } else {
-        cart.push({ quantite: 1, ...item });
+    if (item.type !== 'menu') {
+        const existing = cart.find(c => c.id === item.id && c.type === item.type);
+        if (existing) {
+            existing.quantite += item.quantite ?? 1;
+            setCart(cart);
+            return;
+        }
     }
+    cart.push({ quantite: 1, ...item });
     setCart(cart);
 }
 
@@ -110,12 +125,27 @@ export function clearCart() {
 /* --- Totals -------------------------------------------------------------- */
 
 /**
- * Returns the sum of (quantite * prix_cents) for all items in the cart.
- * Result is in integer centimes, TTC before any display formatting.
+ * Computes the line total in centimes for a menu item including size supplements.
+ * For simple product items the caller should use (prix_cents * quantite) directly.
+ * @param {{ prix_cents: number, supplement_cents: number, quantite: number }} item
+ * @returns {number}
+ */
+export function computeMenuLineCents(item) {
+    return (item.prix_cents + (item.supplement_cents ?? 0)) * item.quantite;
+}
+
+/**
+ * Returns the sum of all line totals in centimes.
+ * Menu items include their size supplements; simple items do not carry supplements.
  * @returns {number}
  */
 export function getTotalCents() {
-    return getCart().reduce((sum, item) => sum + item.prix_cents * item.quantite, 0);
+    return getCart().reduce((sum, item) => {
+        if (item.type === 'menu') {
+            return sum + computeMenuLineCents(item);
+        }
+        return sum + item.prix_cents * item.quantite;
+    }, 0);
 }
 
 /* --- Formatting helpers -------------------------------------------------- */
