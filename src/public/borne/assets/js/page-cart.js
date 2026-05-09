@@ -2,8 +2,14 @@
  * page-cart.js — Shopping cart screen.
  *
  * Displays all cart lines with quantity controls and totals.
+ * Handles two item shapes:
+ *   - Simple product: { id, type, libelle, prix_cents, quantite, image }
+ *   - Composed menu:  { ...above, composition: {...}, supplement_cents: number }
  *
- * TVA: 10% (taux normal restauration, France 2024 — simplification MVPp).
+ * Menu lines render a composition breakdown beneath the product name.
+ * Simple product lines render as before (no composition block).
+ *
+ * TVA: 10% (taux normal restauration, France 2024 — simplification MVP).
  * TODO: verify exact applicable TVA rate with an accountant in P3.
  *       The real rate depends on sur-place vs a-emporter, alcohol content, etc.
  *
@@ -11,7 +17,7 @@
  * requires prices shown to end-consumers to include all taxes.
  */
 
-import { getCart, removeFromCart, updateQuantity, getTotalCents, clearCart, formatPrice } from './state.js';
+import { getCart, removeFromCart, updateQuantity, getTotalCents, computeMenuLineCents, clearCart, formatPrice } from './state.js';
 import { refreshCartBadge } from './nav.js';
 
 /* TVA rate used for display breakdown only — stored prices are already TTC */
@@ -38,14 +44,16 @@ function renderCart() {
         return;
     }
 
-    emptyBlock.hidden   = false; /* keep structure; toggle via class */
     emptyBlock.hidden   = true;
     summaryBlock.hidden = false;
     if (payBtn) payBtn.disabled = false;
 
     cartList.innerHTML = '';
     items.forEach((item, index) => {
-        const lineTotalCents = item.prix_cents * item.quantite;
+        const isMenu = item.type === 'menu';
+        const lineTotalCents = isMenu
+            ? computeMenuLineCents(item)
+            : item.prix_cents * item.quantite;
 
         const row = document.createElement('li');
         row.className = 'cart-line';
@@ -60,7 +68,8 @@ function renderCart() {
             >
             <div class="cart-line__info">
                 <span class="cart-line__name">${item.libelle}</span>
-                <span class="cart-line__unit-price">${formatPrice(item.prix_cents)} / unite</span>
+                <span class="cart-line__unit-price">${formatPrice(item.prix_cents)} / unite${isMenu && (item.supplement_cents ?? 0) > 0 ? ` + ${formatPrice(item.supplement_cents)} suppl.` : ''}</span>
+                ${isMenu && item.composition ? renderCompositionBlock(item) : ''}
             </div>
             <div class="cart-line__qty" role="group" aria-label="Quantite de ${item.libelle}">
                 <button
@@ -126,6 +135,39 @@ function renderCart() {
     if (totalTTC) totalTTC.textContent = formatPrice(ttcCents);
     if (totalHT)  totalHT.textContent  = formatPrice(htCents);
     if (totalTVA) totalTVA.textContent = formatPrice(tvaCents);
+}
+
+/**
+ * Builds the composition breakdown HTML for a menu cart line.
+ * Renders burger (with personalisation options), accompagnement with taille,
+ * boisson with taille, sauce, and the supplement summary if applicable.
+ *
+ * @param {Object} item — cart item with type === 'menu' and composition object
+ * @returns {string} HTML string
+ */
+function renderCompositionBlock(item) {
+    const c = item.composition;
+    if (!c) return '';
+
+    const burgerOpts = c.burger.options && c.burger.options.length
+        ? ` (${c.burger.options.map(o => o === 'sans-oignon' ? 'sans oignon' : 'avec fromage').join(', ')})`
+        : '';
+
+    const accompTailleLabel = c.accompagnement.taille === 'G' ? ' grande' : ' normale';
+    const boissonTailleLabel = c.boisson.taille === 'G' ? ' grande' : ' normale';
+
+    const nbGrandes = (c.accompagnement.taille === 'G' ? 1 : 0) + (c.boisson.taille === 'G' ? 1 : 0);
+    const supplTotal = item.supplement_cents ?? 0;
+
+    return `
+        <ul class="cart-line__composition" aria-label="Composition du menu">
+            <li class="cart-line__comp-item">+ ${c.burger.libelle}${burgerOpts}</li>
+            <li class="cart-line__comp-item">+ ${c.accompagnement.libelle}${accompTailleLabel}</li>
+            <li class="cart-line__comp-item">+ ${c.boisson.libelle}${boissonTailleLabel}</li>
+            <li class="cart-line__comp-item">+ ${c.sauce.libelle}</li>
+            ${supplTotal > 0 ? `<li class="cart-line__comp-suppl">Supplement ${nbGrandes} grande(s) : +${formatPrice(supplTotal)}</li>` : ''}
+        </ul>
+    `;
 }
 
 if (abandonBtn) {
