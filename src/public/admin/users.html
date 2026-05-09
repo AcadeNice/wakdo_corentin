@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Utilisateurs — Wakdo Admin</title>
+    <link rel="stylesheet" href="assets/css/admin.css">
+</head>
+<body>
+<div class="admin-layout">
+
+    <!-- Topbar -->
+    <header class="topbar">
+        <div class="topbar-logo">
+            <img src="assets/images/logo.png" alt="Wakdo">
+            <div>
+                <span class="topbar-logo-text">Wakdo</span>
+                <span class="topbar-logo-sub">Administration</span>
+            </div>
+        </div>
+        <div class="topbar-search">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <input type="text" placeholder="Rechercher un utilisateur...">
+        </div>
+        <div class="topbar-actions">
+            <div class="topbar-user">
+                <button class="topbar-user-btn" id="userMenuBtn" type="button">
+                    <div class="topbar-user-avatar">CJ</div>
+                    <div>
+                        <div class="topbar-user-name">Corentin J.</div>
+                        <div class="topbar-user-role">Administrateur</div>
+                    </div>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </button>
+                <div class="dropdown-menu" id="userMenu">
+                    <a href="#">Mon profil</a>
+                    <a href="#">Parametres</a>
+                    <div class="divider"></div>
+                    <button class="danger" type="button">Se deconnecter</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Sidebar -->
+    <nav class="sidebar">
+        <div class="sidebar-section">
+            <div class="sidebar-section-label">Vue d'ensemble</div>
+            <a href="dashboard.html" class="sidebar-item">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect></svg>
+                Tableau de bord
+            </a>
+        </div>
+        <div class="sidebar-section">
+            <div class="sidebar-section-label">Catalogue</div>
+            <a href="catalogue.html" class="sidebar-item sidebar-item-sub">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
+                Categories
+            </a>
+            <a href="catalogue.html" class="sidebar-item sidebar-item-sub">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
+                Produits
+            </a>
+            <a href="catalogue.html" class="sidebar-item sidebar-item-sub">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"></path><rect x="9" y="3" width="6" height="4" rx="2"></rect></svg>
+                Menus
+            </a>
+        </div>
+        <div class="sidebar-section">
+            <div class="sidebar-section-label">Operations</div>
+            <a href="commandes.html" class="sidebar-item">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
+                Commandes
+            </a>
+            <a href="cuisine.html" class="sidebar-item">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path><line x1="6" y1="1" x2="6" y2="4"></line><line x1="10" y1="1" x2="10" y2="4"></line><line x1="14" y1="1" x2="14" y2="4"></line></svg>
+                Cuisine
+            </a>
+        </div>
+        <div class="sidebar-section">
+            <div class="sidebar-section-label">Administration</div>
+            <a href="users.html" class="sidebar-item active">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                Utilisateurs
+            </a>
+            <a href="#" class="sidebar-item">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                Roles
+            </a>
+            <a href="#" class="sidebar-item">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"></path></svg>
+                Parametres
+            </a>
+        </div>
+    </nav>
+
+    <!-- Content -->
+    <main class="content">
+        <div class="page-header">
+            <div>
+                <h1 class="page-title">Utilisateurs</h1>
+                <p class="page-subtitle">Comptes et droits d'acces au back-office</p>
+            </div>
+            <div class="page-actions">
+                <button class="btn btn-primary" type="button">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    Nouvel utilisateur
+                </button>
+            </div>
+        </div>
+
+        <div class="toolbar">
+            <div class="toolbar-left">
+                <div class="search-field">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    <input type="text" placeholder="Nom, email..." id="userSearch">
+                </div>
+                <select class="filter-select">
+                    <option value="">Tous les roles</option>
+                    <option value="admin">Administrateur</option>
+                    <option value="manager">Manager</option>
+                    <option value="preparation">Preparation</option>
+                    <option value="accueil">Accueil</option>
+                </select>
+                <select class="filter-select">
+                    <option value="">Tous les statuts</option>
+                    <option value="active">Actif</option>
+                    <option value="inactive">Inactif</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <div class="table-wrapper">
+                <table id="userTable">
+                    <thead>
+                        <tr>
+                            <th class="sortable" data-col="0">Nom / Email <span class="sort-icon">&#8597;</span></th>
+                            <th class="sortable" data-col="1">Role <span class="sort-icon">&#8597;</span></th>
+                            <th>Statut</th>
+                            <th class="sortable" data-col="3">Derniere connexion <span class="sort-icon">&#8597;</span></th>
+                            <th style="width:50px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>
+                                <div class="d-flex align-center gap-8">
+                                    <div class="topbar-user-avatar" style="width:30px;height:30px;font-size:12px;">CJ</div>
+                                    <div>
+                                        <div class="fw-600">Corentin Jog</div>
+                                        <div class="text-sm text-muted">corentin@wakdo.fr</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td><span class="pill pill-info">Administrateur</span></td>
+                            <td><span class="pill pill-success">Actif</span></td>
+                            <td class="muted">09/05/2026 13:42</td>
+                            <td>
+                                <div class="action-menu">
+                                    <button class="action-menu-btn" type="button">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+                                    </button>
+                                    <div class="action-menu-dropdown">
+                                        <a href="#">Modifier</a>
+                                        <button type="button">Reinitialiser mdp</button>
+                                        <div class="divider"></div>
+                                        <button class="danger" type="button">Desactiver</button>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div class="d-flex align-center gap-8">
+                                    <div class="topbar-user-avatar" style="width:30px;height:30px;font-size:12px;background:#E5E7EB;color:#4A4A4A;">ML</div>
+                                    <div>
+                                        <div class="fw-600">Marie Laurent</div>
+                                        <div class="text-sm text-muted">marie.laurent@wakdo.fr</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td><span class="pill pill-warning">Manager</span></td>
+                            <td><span class="pill pill-success">Actif</span></td>
+                            <td class="muted">09/05/2026 10:15</td>
+                            <td>
+                                <div class="action-menu">
+                                    <button class="action-menu-btn" type="button">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+                                    </button>
+                                    <div class="action-menu-dropdown">
+                                        <a href="#">Modifier</a>
+                                        <button type="button">Reinitialiser mdp</button>
+                                        <div class="divider"></div>
+                                        <button class="danger" type="button">Desactiver</button>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div class="d-flex align-center gap-8">
+                                    <div class="topbar-user-avatar" style="width:30px;height:30px;font-size:12px;background:#E5E7EB;color:#4A4A4A;">AD</div>
+                                    <div>
+                                        <div class="fw-600">Ahmed Diallo</div>
+                                        <div class="text-sm text-muted">ahmed.diallo@wakdo.fr</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td><span class="pill pill-neutral">Preparation</span></td>
+                            <td><span class="pill pill-success">Actif</span></td>
+                            <td class="muted">09/05/2026 11:00</td>
+                            <td>
+                                <div class="action-menu">
+                                    <button class="action-menu-btn" type="button">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+                                    </button>
+                                    <div class="action-menu-dropdown">
+                                        <a href="#">Modifier</a>
+                                        <button type="button">Reinitialiser mdp</button>
+                                        <div class="divider"></div>
+                                        <button class="danger" type="button">Desactiver</button>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div class="d-flex align-center gap-8">
+                                    <div class="topbar-user-avatar" style="width:30px;height:30px;font-size:12px;background:#E5E7EB;color:#4A4A4A;">SP</div>
+                                    <div>
+                                        <div class="fw-600">Sophie Petit</div>
+                                        <div class="text-sm text-muted">sophie.petit@wakdo.fr</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td><span class="pill pill-neutral">Accueil</span></td>
+                            <td><span class="pill pill-success">Actif</span></td>
+                            <td class="muted">09/05/2026 09:58</td>
+                            <td>
+                                <div class="action-menu">
+                                    <button class="action-menu-btn" type="button">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+                                    </button>
+                                    <div class="action-menu-dropdown">
+                                        <a href="#">Modifier</a>
+                                        <button type="button">Reinitialiser mdp</button>
+                                        <div class="divider"></div>
+                                        <button class="danger" type="button">Desactiver</button>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div class="d-flex align-center gap-8">
+                                    <div class="topbar-user-avatar" style="width:30px;height:30px;font-size:12px;background:#F3F4F6;color:#9CA3AF;">TM</div>
+                                    <div>
+                                        <div class="fw-600" style="color:var(--color-text-muted);">Thomas Martin</div>
+                                        <div class="text-sm text-muted">thomas.martin@wakdo.fr</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td><span class="pill pill-neutral">Preparation</span></td>
+                            <td><span class="pill pill-neutral">Inactif</span></td>
+                            <td class="muted">02/04/2026 17:30</td>
+                            <td>
+                                <div class="action-menu">
+                                    <button class="action-menu-btn" type="button">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+                                    </button>
+                                    <div class="action-menu-dropdown">
+                                        <a href="#">Modifier</a>
+                                        <button type="button">Reactiver</button>
+                                        <div class="divider"></div>
+                                        <button class="danger" type="button">Supprimer</button>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="pagination">
+                <span class="pagination-info">5 utilisateurs</span>
+                <div class="pagination-controls">
+                    <button class="pagination-btn active" type="button">1</button>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="assets/js/admin.js"></script>
+</body>
+</html>
