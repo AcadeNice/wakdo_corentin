@@ -1,0 +1,86 @@
+{
+    "menus": [
+        { "id": 1,  "nom": "Menu Le 280",                     "prix": 880,  "image": "assets/images/produits/burgers/280.png",                          "type": "menu" },
+        { "id": 2,  "nom": "Menu Big Tasty",                  "prix": 1060, "image": "assets/images/produits/burgers/big-tasty-1-viande.png",            "type": "menu" },
+        { "id": 3,  "nom": "Menu Big Tasty Bacon",            "prix": 1090, "image": "assets/images/produits/burgers/big-tasty-bacon-1-viande.png",      "type": "menu" },
+        { "id": 4,  "nom": "Menu Big Mac",                    "prix": 800,  "image": "assets/images/produits/burgers/bigmac.png",                        "type": "menu" },
+        { "id": 5,  "nom": "Menu CBO",                        "prix": 1090, "image": "assets/images/produits/burgers/cbo.png",                           "type": "menu" },
+        { "id": 6,  "nom": "Menu MC Chicken",                 "prix": 930,  "image": "assets/images/produits/burgers/mcchicken.png",                     "type": "menu" },
+        { "id": 7,  "nom": "Menu MC Crispy",                  "prix": 720,  "image": "assets/images/produits/burgers/mccrispy.png",                      "type": "menu" },
+        { "id": 8,  "nom": "Menu MC Fish",                    "prix": 720,  "image": "assets/images/produits/burgers/mcfish.png",                        "type": "menu" },
+        { "id": 9,  "nom": "Menu Royal Bacon",                "prix": 705,  "image": "assets/images/produits/burgers/royalbacon.png",                    "type": "menu" },
+        { "id": 10, "nom": "Menu Royal Cheese",               "prix": 640,  "image": "assets/images/produits/burgers/royalcheese.png",                   "type": "menu" },
+        { "id": 11, "nom": "Menu Royal Deluxe",               "prix": 740,  "image": "assets/images/produits/burgers/royaldeluxe.png",                   "type": "menu" },
+        { "id": 12, "nom": "Menu Signature BBQ Beef 2 viandes","prix": 1350,"image": "assets/images/produits/burgers/signature-bbq-beef-2-viandes.png",  "type": "menu" },
+        { "id": 13, "nom": "Menu Signature Beef BBQ",         "prix": 1190, "image": "assets/images/produits/burgers/signature-beef-bbq-burger-1-viande.png", "type": "menu" }
+    ],
+    "burgers": [
+        { "id": 14, "nom": "Le 280",                  "prix": 680,  "image": "assets/images/produits/burgers/280.png",                          "type": "produit" },
+        { "id": 15, "nom": "Big Tasty",               "prix": 860,  "image": "assets/images/produits/burgers/big-tasty-1-viande.png",            "type": "produit" },
+        { "id": 16, "nom": "Big Tasty Bacon",         "prix": 890,  "image": "assets/images/produits/burgers/big-tasty-bacon-1-viande.png",      "type": "produit" },
+        { "id": 17, "nom": "Big Mac",                 "prix": 600,  "image": "assets/images/produits/burgers/bigmac.png",                        "type": "produit" },
+        { "id": 18, "nom": "CBO",                     "prix": 890,  "image": "assets/images/produits/burgers/cbo.png",                           "type": "produit" },
+        { "id": 19, "nom": "MC Chicken",              "prix": 730,  "image": "assets/images/produits/burgers/mcchicken.png",                     "type": "produit" },
+        { "id": 20, "nom": "MC Crispy",               "prix": 530,  "image": "assets/images/produits/burgers/mccrispy.png",                      "type": "produit" },
+        { "id": 21, "nom": "MC Fish",                 "prix": 485,  "image": "assets/images/produits/burgers/mcfish.png",                        "type": "produit" },
+        { "id": 22, "nom": "Royal Bacon",             "prix": 510,  "image": "assets/images/produits/burgers/royalbacon.png",                    "type": "produit" },
+        { "id": 23, "nom": "Royal Cheese",            "prix": 440,  "image": "assets/images/produits/burgers/royalcheese.png",                   "type": "produit" },
+        { "id": 24, "nom": "Royal Deluxe",            "prix": 540,  "image": "assets/images/produits/burgers/royaldeluxe.png",                   "type": "produit" },
+        { "id": 25, "nom": "Signature BBQ Beef 2 viandes","prix": 1140,"image": "assets/images/produits/burgers/signature-bbq-beef-2-viandes.png","type": "produit" },
+        { "id": 26, "nom": "Signature Beef BBQ",      "prix": 1030, "image": "assets/images/produits/burgers/signature-beef-bbq-burger-1-viande.png","type": "produit" }
+    ],
+    "boissons": [
+        { "id": 27, "nom": "Coca Cola",           "prix": 190, "image": "assets/images/produits/boissons/coca-cola.png",                    "type": "produit" },
+        { "id": 28, "nom": "Coca Sans Sucres",    "prix": 190, "image": "assets/images/produits/boissons/coca-sans-sucres.png",             "type": "produit" },
+        { "id": 29, "nom": "Eau",                 "prix": 100, "image": "assets/images/produits/boissons/eau.png",                          "type": "produit" },
+        { "id": 30, "nom": "Fanta Orange",        "prix": 190, "image": "assets/images/produits/boissons/fanta.png",                        "type": "produit" },
+        { "id": 31, "nom": "Ice Tea Peche",       "prix": 190, "image": "assets/images/produits/boissons/ice-tea-peche.png",                "type": "produit" },
+        { "id": 32, "nom": "Ice Tea Citron",      "prix": 190, "image": "assets/images/produits/boissons/the-vert-citron-sans-sucres.png",  "type": "produit" },
+        { "id": 33, "nom": "Jus d'Orange",        "prix": 210, "image": "assets/images/produits/boissons/jus-orange.png",                  "type": "produit" },
+        { "id": 34, "nom": "Jus de Pommes Bio",   "prix": 230, "image": "assets/images/produits/boissons/jus-pomme-bio.png",               "type": "produit" }
+    ],
+    "frites": [
+        { "id": 35, "nom": "Petite Frite",    "prix": 145, "image": "assets/images/produits/frites/petite-frite.png",    "type": "produit" },
+        { "id": 36, "nom": "Moyenne Frite",   "prix": 275, "image": "assets/images/produits/frites/moyenne-frite.png",   "type": "produit" },
+        { "id": 37, "nom": "Grande Frite",    "prix": 350, "image": "assets/images/produits/frites/grande-frite.png",    "type": "produit" },
+        { "id": 38, "nom": "Potatoes",        "prix": 215, "image": "assets/images/produits/frites/potatoes.png",        "type": "produit" },
+        { "id": 39, "nom": "Grande Potatoes", "prix": 340, "image": "assets/images/produits/frites/grande-potatoes.png", "type": "produit" }
+    ],
+    "encas": [
+        { "id": 40, "nom": "Cheeseburger", "prix": 260,  "image": "assets/images/produits/encas/cheeseburger.png", "type": "produit" },
+        { "id": 41, "nom": "Croc MCdo",    "prix": 320,  "image": "assets/images/produits/encas/croc-mc-do.png",   "type": "produit" },
+        { "id": 42, "nom": "Nuggets x4",   "prix": 420,  "image": "assets/images/produits/encas/nuggets-4.png",    "type": "produit" },
+        { "id": 43, "nom": "Nuggets x20",  "prix": 1300, "image": "assets/images/produits/encas/nuggets-20.png",   "type": "produit" }
+    ],
+    "desserts": [
+        { "id": 44, "nom": "Brownie",                  "prix": 260, "image": "assets/images/produits/desserts/brownies.png",                    "type": "produit" },
+        { "id": 45, "nom": "Cheesecake Chocolat M&M's","prix": 310, "image": "assets/images/produits/desserts/cheesecake-choconuts-m&m-s.png",  "type": "produit" },
+        { "id": 46, "nom": "Cheesecake Fraise",        "prix": 310, "image": "assets/images/produits/desserts/cheesecake-fraise.png",            "type": "produit" },
+        { "id": 47, "nom": "Cookie",                   "prix": 320, "image": "assets/images/produits/desserts/cookie.png",                      "type": "produit" },
+        { "id": 48, "nom": "Donut",                    "prix": 260, "image": "assets/images/produits/desserts/doghnut.png",                     "type": "produit" },
+        { "id": 49, "nom": "Macarons",                 "prix": 270, "image": "assets/images/produits/desserts/macarons.png",                    "type": "produit" },
+        { "id": 50, "nom": "MC Fleury",                "prix": 440, "image": "assets/images/produits/desserts/mcfleury.png",                    "type": "produit" },
+        { "id": 51, "nom": "Muffin",                   "prix": 360, "image": "assets/images/produits/desserts/muffin.png",                     "type": "produit" },
+        { "id": 52, "nom": "Sunday",                   "prix": 100, "image": "assets/images/produits/desserts/sunday.png",                     "type": "produit" }
+    ],
+    "sauces": [
+        { "id": 53, "nom": "Classic Barbecue", "prix": 70, "image": "assets/images/produits/sauces/classic-barbecue.png",   "type": "produit" },
+        { "id": 54, "nom": "Classic Moutarde", "prix": 70, "image": "assets/images/produits/sauces/classic-moutarde.png",   "type": "produit" },
+        { "id": 55, "nom": "Creamy Deluxe",    "prix": 70, "image": "assets/images/produits/sauces/cremy-deluxe.png",       "type": "produit" },
+        { "id": 56, "nom": "Ketchup",          "prix": 70, "image": "assets/images/produits/sauces/ketchup.png",            "type": "produit" },
+        { "id": 57, "nom": "Chinoise",         "prix": 70, "image": "assets/images/produits/sauces/sauce-chinoise.png",     "type": "produit" },
+        { "id": 58, "nom": "Curry",            "prix": 70, "image": "assets/images/produits/sauces/sauce-curry.png",        "type": "produit" },
+        { "id": 59, "nom": "Pommes Frites",    "prix": 70, "image": "assets/images/produits/sauces/sauce-pommes-frite.png", "type": "produit" }
+    ],
+    "salades": [
+        { "id": 60, "nom": "Petite Salade",    "prix": 330, "image": "assets/images/produits/salades/petite-salade.png",        "type": "produit" },
+        { "id": 61, "nom": "Cesar Classic",    "prix": 880, "image": "assets/images/produits/salades/salade-classic-caesar.png","type": "produit" },
+        { "id": 62, "nom": "Italienne Mozza",  "prix": 880, "image": "assets/images/produits/salades/salade-italian-mozza.png", "type": "produit" }
+    ],
+    "wraps": [
+        { "id": 63, "nom": "MC Wrap Chevre",       "prix": 310, "image": "assets/images/produits/wraps/mcwrap-chevre.png",      "type": "produit" },
+        { "id": 64, "nom": "MC Wrap Poulet Bacon", "prix": 330, "image": "assets/images/produits/wraps/mcwrap-poulet-bacon.png","type": "produit" },
+        { "id": 65, "nom": "Ptit Wrap Chevre",     "prix": 260, "image": "assets/images/produits/wraps/ptit-wrap-chevre.png",   "type": "produit" },
+        { "id": 66, "nom": "Ptit Wrap Ranch",      "prix": 260, "image": "assets/images/produits/wraps/ptit-wrap-ranch.png",    "type": "produit" }
+    ]
+}
