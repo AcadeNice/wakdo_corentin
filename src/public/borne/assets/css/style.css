@@ -436,3 +436,822 @@ button {
         flex-direction: column;
     }
 }
+
+/* ============================================================
+   7. SHARED COMPONENTS — header extensions + badges + buttons
+   ============================================================ */
+
+/* Cart link in header (products / product / cart pages) */
+.site-header__cart {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    border-radius: var(--radius-sm);
+    transition: background var(--transition-fast);
+    font-size: 1.6rem;
+    color: var(--color-text-primary);
+    text-decoration: none;
+}
+
+.site-header__cart:hover,
+.site-header__cart:focus-visible {
+    background: rgba(255, 199, 44, 0.18);
+    outline: none;
+}
+
+.cart-icon {
+    line-height: 1;
+}
+
+.cart-badge {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 4px;
+    border-radius: var(--radius-pill);
+    background: var(--color-brand-red);
+    color: #fff;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-bold);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+
+/* Mode badge — shown in header for context */
+.mode-badge {
+    display: inline-block;
+    padding: var(--space-1) var(--space-3);
+    background: var(--color-brand-yellow);
+    border-radius: var(--radius-pill);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-brand-dark);
+    white-space: nowrap;
+}
+
+.site-header__mode {
+    /* Keeps mode badge aligned right in the header flex */
+    margin-left: auto;
+}
+
+/* Minimal header variant (confirmation page — no back button) */
+.site-header--minimal {
+    justify-content: center;
+}
+
+/* Primary / secondary button primitives reused across pages */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    padding: var(--space-4) var(--space-6);
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-bold);
+    text-decoration: none;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition:
+        background var(--transition-fast),
+        border-color var(--transition-fast),
+        box-shadow var(--transition-fast),
+        transform var(--transition-fast);
+    -webkit-tap-highlight-color: transparent;
+    /* Generous tap target for kiosk touch */
+    min-height: 64px;
+}
+
+.btn--primary {
+    background: var(--color-brand-yellow);
+    color: var(--color-brand-dark);
+}
+
+.btn--primary:hover,
+.btn--primary:focus-visible {
+    background: var(--color-brand-yellow-dk);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(255, 199, 44, 0.40);
+    transform: translateY(-1px);
+}
+
+.btn--primary:active {
+    transform: translateY(0);
+    box-shadow: none;
+}
+
+.btn--primary:disabled,
+.btn--primary[aria-disabled="true"] {
+    background: var(--color-border-default);
+    color: var(--color-text-muted);
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+    pointer-events: none;
+}
+
+.btn--secondary {
+    background: var(--color-bg-card);
+    color: var(--color-text-primary);
+    border-color: var(--color-border-default);
+}
+
+.btn--secondary:hover,
+.btn--secondary:focus-visible {
+    border-color: var(--color-border-active);
+    outline: none;
+}
+
+.btn--large {
+    font-size: var(--font-size-lg);
+    padding: var(--space-5) var(--space-8);
+    min-height: 80px;
+}
+
+/* ============================================================
+   8. COMPONENT — PRODUCTS LIST (products.html)
+   ============================================================ */
+
+.products-page {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--color-bg-page);
+}
+
+.products-main {
+    flex: 1;
+    padding: var(--space-6);
+}
+
+.products-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-5);
+    gap: var(--space-4);
+    flex-wrap: wrap;
+}
+
+.products-main__heading {
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+}
+
+.products-error {
+    color: var(--color-brand-red);
+    font-size: var(--font-size-md);
+    margin-bottom: var(--space-5);
+}
+
+.products-empty {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-md);
+    padding: var(--space-8) 0;
+    text-align: center;
+}
+
+/* Product grid — 3 columns on kiosk portrait */
+.products-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-5);
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+/*
+ * product-card — clickable card linking to product detail.
+ * The <a> is the grid child; using display:flex so image + text stack.
+ */
+.product-card {
+    display: flex;
+    flex-direction: column;
+    background: var(--color-bg-card);
+    border: 2px solid var(--color-border-default);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-card);
+    overflow: hidden;
+    transition:
+        border-color var(--transition-fast),
+        box-shadow var(--transition-fast),
+        transform var(--transition-fast);
+    -webkit-tap-highlight-color: transparent;
+    text-decoration: none;
+    color: inherit;
+}
+
+.product-card:hover,
+.product-card:focus-visible {
+    border-color: var(--color-border-active);
+    box-shadow: 0 0 0 3px rgba(255, 199, 44, 0.35), var(--shadow-card);
+    outline: none;
+    transform: translateY(-3px);
+}
+
+.product-card:active {
+    transform: translateY(0);
+    box-shadow: var(--shadow-card);
+}
+
+.product-card__image-wrap {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    background: var(--color-bg-page);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.product-card__image {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    padding: var(--space-3);
+}
+
+.product-card__body {
+    padding: var(--space-3) var(--space-4) var(--space-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    flex: 1;
+}
+
+.product-card__name {
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+    line-height: 1.3;
+}
+
+.product-card__price {
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-brand-dark);
+}
+
+/* ============================================================
+   9. COMPONENT — PRODUCT DETAIL (product.html)
+   ============================================================ */
+
+.product-page {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--color-bg-page);
+}
+
+.product-main {
+    flex: 1;
+    padding: var(--space-6);
+    max-width: 800px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.product-error {
+    color: var(--color-brand-red);
+    font-size: var(--font-size-md);
+    padding: var(--space-5);
+}
+
+.product-detail {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+}
+
+.product-detail__skeleton {
+    /* Placeholder shown while JS loads data */
+    width: 100%;
+    height: 300px;
+    background: var(--color-bg-card);
+    border-radius: var(--radius-md);
+    animation: skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes skeleton-pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.4; }
+}
+
+.product-detail__image-wrap {
+    width: 100%;
+    max-width: 480px;
+    margin: 0 auto;
+    background: var(--color-bg-card);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-card);
+    overflow: hidden;
+    aspect-ratio: 1 / 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.product-detail__image {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    padding: var(--space-5);
+}
+
+.product-detail__info {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.product-detail__name {
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+    line-height: 1.2;
+}
+
+.product-detail__price {
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-brand-dark);
+}
+
+.product-detail__composition {
+    background: var(--color-bg-card);
+    border-left: 4px solid var(--color-brand-yellow);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    padding: var(--space-4) var(--space-5);
+}
+
+.product-detail__composition-title {
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-bold);
+    margin-bottom: var(--space-2);
+    color: var(--color-text-primary);
+}
+
+.product-detail__composition-text {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    line-height: 1.5;
+}
+
+.product-detail__add {
+    width: 100%;
+    margin-top: var(--space-2);
+}
+
+/* ============================================================
+   10. COMPONENT — CART (cart.html)
+   ============================================================ */
+
+.cart-page {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--color-bg-page);
+}
+
+.cart-main {
+    flex: 1;
+    padding: var(--space-6);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+    max-width: 900px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.cart-main__heading {
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+}
+
+.cart-empty {
+    text-align: center;
+    padding: var(--space-10) var(--space-6);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-5);
+}
+
+.cart-empty__message {
+    font-size: var(--font-size-lg);
+    color: var(--color-text-secondary);
+}
+
+.cart-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+/* One cart line */
+.cart-line {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    background: var(--color-bg-card);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-card);
+    padding: var(--space-3) var(--space-4);
+}
+
+.cart-line__image {
+    width: 72px;
+    height: 72px;
+    object-fit: contain;
+    flex-shrink: 0;
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-page);
+}
+
+.cart-line__info {
+    flex: 1;
+    min-width: 0;
+}
+
+.cart-line__name {
+    display: block;
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.cart-line__unit-price {
+    display: block;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+}
+
+/* Quantity controls */
+.cart-line__qty {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-shrink: 0;
+}
+
+.qty-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-sm);
+    border: 2px solid var(--color-border-default);
+    background: var(--color-bg-card);
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: border-color var(--transition-fast), background var(--transition-fast);
+    /* Large tap target for kiosk */
+}
+
+.qty-btn:hover,
+.qty-btn:focus-visible {
+    border-color: var(--color-border-active);
+    background: rgba(255, 199, 44, 0.10);
+    outline: none;
+}
+
+.qty-value {
+    min-width: 32px;
+    text-align: center;
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-bold);
+}
+
+.cart-line__total {
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+    flex-shrink: 0;
+    min-width: 80px;
+    text-align: right;
+}
+
+.cart-line__remove {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: var(--space-2);
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background var(--transition-fast);
+}
+
+.cart-line__remove:hover,
+.cart-line__remove:focus-visible {
+    background: rgba(218, 2, 14, 0.10);
+    outline: none;
+}
+
+/* Order summary block */
+.cart-summary {
+    background: var(--color-bg-card);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-card);
+    padding: var(--space-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.cart-summary__line {
+    display: flex;
+    justify-content: space-between;
+    font-size: var(--font-size-base);
+    color: var(--color-text-secondary);
+}
+
+.cart-summary__line--total {
+    padding-top: var(--space-3);
+    border-top: 2px solid var(--color-border-default);
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+}
+
+/* Cart action row */
+.cart-actions {
+    display: flex;
+    gap: var(--space-4);
+    justify-content: space-between;
+    flex-wrap: wrap;
+    padding-bottom: var(--space-8);
+}
+
+.cart-actions .btn {
+    flex: 1 1 200px;
+}
+
+/* ============================================================
+   11. COMPONENT — PAYMENT (payment.html)
+   ============================================================ */
+
+.payment-page {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--color-bg-page);
+}
+
+.payment-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: var(--space-8) var(--space-6);
+    gap: var(--space-8);
+}
+
+.payment-main__heading {
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+    text-align: center;
+}
+
+.payment-recap {
+    background: var(--color-bg-card);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-card);
+    padding: var(--space-5) var(--space-6);
+    text-align: center;
+    width: 100%;
+    max-width: 480px;
+}
+
+.payment-recap__mode {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    margin-bottom: var(--space-1);
+}
+
+.payment-recap__items {
+    font-size: var(--font-size-base);
+    color: var(--color-text-secondary);
+    margin-bottom: var(--space-2);
+}
+
+.payment-recap__total {
+    font-size: var(--font-size-lg);
+    color: var(--color-text-primary);
+}
+
+/* Two payment method buttons side by side */
+.payment-methods {
+    display: flex;
+    gap: var(--space-6);
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+    max-width: 640px;
+}
+
+.payment-choice {
+    flex: 1 1 220px;
+    min-height: 220px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-4);
+    padding: var(--space-6);
+    background: var(--color-bg-card);
+    border: 2px solid var(--color-border-default);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-card);
+    cursor: pointer;
+    transition:
+        border-color var(--transition-fast),
+        box-shadow var(--transition-fast),
+        transform var(--transition-fast);
+    -webkit-tap-highlight-color: transparent;
+    font-family: inherit;
+}
+
+.payment-choice:hover,
+.payment-choice:focus-visible {
+    border-color: var(--color-border-active);
+    box-shadow: 0 0 0 3px rgba(255, 199, 44, 0.35), var(--shadow-card);
+    outline: none;
+    transform: translateY(-3px);
+}
+
+.payment-choice:active {
+    transform: translateY(0);
+    box-shadow: var(--shadow-card);
+}
+
+.payment-choice__icon {
+    width: 80px;
+    height: 80px;
+}
+
+.payment-choice__label {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+    text-align: center;
+}
+
+/* ============================================================
+   12. COMPONENT — CONFIRMATION (confirmation.html)
+   ============================================================ */
+
+.confirmation-page {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--color-bg-page);
+}
+
+.confirmation-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-8) var(--space-6);
+    gap: var(--space-8);
+}
+
+.confirmation-banner {
+    background: var(--color-bg-card);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-overlay);
+    padding: var(--space-8);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-5);
+    text-align: center;
+    max-width: 560px;
+    width: 100%;
+}
+
+.confirmation-banner__check {
+    width: 96px;
+    height: 96px;
+    /* Subtle entrance animation */
+    animation: check-pop 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes check-pop {
+    from { transform: scale(0.5); opacity: 0; }
+    to   { transform: scale(1);   opacity: 1; }
+}
+
+.confirmation-banner__title {
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+}
+
+.confirmation-banner__sub {
+    font-size: var(--font-size-md);
+    color: var(--color-text-secondary);
+}
+
+.confirmation-banner__number-block {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    background: var(--color-bg-page);
+    border-radius: var(--radius-md);
+    padding: var(--space-4) var(--space-6);
+    min-width: 200px;
+}
+
+.confirmation-banner__number-label {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.confirmation-banner__number {
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-brand-dark);
+    letter-spacing: 0.04em;
+}
+
+.confirmation-banner__total {
+    font-size: var(--font-size-base);
+    color: var(--color-text-secondary);
+}
+
+.confirmation-banner__delay {
+    font-size: var(--font-size-base);
+    color: var(--color-text-secondary);
+}
+
+.confirmation-new-order {
+    /* Full-width CTA on kiosk portrait */
+    min-width: 320px;
+}
+
+/* ============================================================
+   13. RESPONSIVE EXTENSIONS — new pages
+   ============================================================ */
+
+@media (max-width: 700px) {
+    .products-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .cart-line {
+        flex-wrap: wrap;
+        gap: var(--space-3);
+    }
+
+    .cart-line__info {
+        flex: 1 1 calc(100% - 80px);
+    }
+
+    .payment-methods {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+
+@media (max-width: 480px) {
+    .products-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: var(--space-3);
+    }
+
+    .products-main {
+        padding: var(--space-4);
+    }
+
+    .cart-main {
+        padding: var(--space-4);
+    }
+}
