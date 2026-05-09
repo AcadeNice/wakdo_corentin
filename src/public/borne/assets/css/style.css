@@ -1255,3 +1255,431 @@ button {
         padding: var(--space-4);
     }
 }
+
+/* ============================================================
+   14. COMPONENT — MENU COMPOSER MODAL (product.html, type=menu)
+   ============================================================ */
+
+/*
+ * Overlay dims the page content while the composer is open.
+ * z-index 200 sits above the sticky header (z-index 100).
+ */
+.composer-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-4);
+    /* Subtle fade-in so the overlay does not feel abrupt */
+    animation: composer-fade-in var(--transition-base) both;
+}
+
+@keyframes composer-fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+/* White container centred inside the overlay */
+.composer-container {
+    background: var(--color-bg-card);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-overlay);
+    width: 100%;
+    max-width: 1080px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    /* Slide-up entrance from maquette aesthetic */
+    animation: composer-slide-up var(--transition-base) both;
+}
+
+@keyframes composer-slide-up {
+    from { transform: translateY(32px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+}
+
+/* ---------- Header ------------------------------------------ */
+
+.composer-header {
+    padding: var(--space-5) var(--space-6) var(--space-4);
+    border-bottom: 1px solid var(--color-border-default);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    flex-shrink: 0;
+}
+
+.composer-title {
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+}
+
+/* Progress indicator */
+.composer-progress {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+}
+
+.composer-progress__text {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    white-space: nowrap;
+    min-width: 6rem;
+}
+
+.composer-progress__bar {
+    flex: 1;
+    height: 6px;
+    background: var(--color-bg-page);
+    border-radius: var(--radius-pill);
+    overflow: hidden;
+}
+
+.composer-progress__fill {
+    height: 100%;
+    background: var(--color-brand-yellow);
+    border-radius: var(--radius-pill);
+    transition: width var(--transition-base);
+}
+
+/* ---------- Body -------------------------------------------- */
+
+.composer-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--space-5) var(--space-6);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+    /* Visible focus outline inside scrollable area */
+    outline: none;
+}
+
+.composer-step__subtitle {
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+}
+
+/* ---------- Selectable card grid ----------------------------- */
+
+.composer-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: var(--space-4);
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+/*
+ * composer-card — button variant of the product card.
+ * Displays image + name (+ price for burgers).
+ * Uses aria-pressed to expose selection state to assistive tech.
+ */
+.composer-card {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-3) var(--space-4);
+    background: var(--color-bg-card);
+    border: 2px solid var(--color-border-default);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-card);
+    cursor: pointer;
+    text-align: center;
+    transition:
+        border-color var(--transition-fast),
+        box-shadow var(--transition-fast),
+        transform var(--transition-fast);
+    -webkit-tap-highlight-color: transparent;
+}
+
+.composer-card:hover,
+.composer-card:focus-visible {
+    border-color: var(--color-border-active);
+    box-shadow: 0 0 0 3px rgba(255, 199, 44, 0.35), var(--shadow-card);
+    outline: none;
+    transform: translateY(-2px);
+}
+
+.composer-card:active {
+    transform: translateY(0);
+}
+
+/* Selected state — mirrors aria-pressed=true */
+.composer-card--selected {
+    border-color: var(--color-border-active);
+    box-shadow: 0 0 0 3px rgba(255, 199, 44, 0.45), var(--shadow-card);
+    background: rgba(255, 199, 44, 0.06);
+}
+
+.composer-card__image {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    object-fit: contain;
+    max-height: 120px;
+    border-radius: var(--radius-sm);
+}
+
+.composer-card__name {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+    line-height: 1.3;
+}
+
+.composer-card__price {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+}
+
+/* ---------- Personalisation checkboxes ----------------------- */
+
+.composer-options {
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-md);
+    padding: var(--space-4) var(--space-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.composer-options__legend {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-secondary);
+    padding: 0 var(--space-2);
+}
+
+.composer-option-label {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    font-size: var(--font-size-base);
+    color: var(--color-text-primary);
+    cursor: pointer;
+}
+
+.composer-option-label input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    accent-color: var(--color-brand-yellow);
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+/* ---------- Taille toggle ------------------------------------ */
+
+.composer-taille {
+    display: flex;
+    gap: var(--space-3);
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.composer-taille__btn {
+    flex: 1 1 160px;
+    padding: var(--space-3) var(--space-4);
+    border: 2px solid var(--color-border-default);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-card);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+    cursor: pointer;
+    transition:
+        border-color var(--transition-fast),
+        background var(--transition-fast),
+        box-shadow var(--transition-fast);
+    -webkit-tap-highlight-color: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    min-height: 56px;
+}
+
+.composer-taille__btn:hover,
+.composer-taille__btn:focus-visible {
+    border-color: var(--color-border-active);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(255, 199, 44, 0.25);
+}
+
+/* Active/selected taille button */
+.composer-taille__btn--active {
+    border-color: var(--color-brand-yellow);
+    background: rgba(255, 199, 44, 0.10);
+}
+
+/* Supplement price hint inside the Grande button */
+.composer-taille__price-hint {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-normal);
+    color: var(--color-text-muted);
+    background: var(--color-bg-page);
+    padding: 2px var(--space-2);
+    border-radius: var(--radius-pill);
+}
+
+/* ---------- Recap (step 5) ----------------------------------- */
+
+.composer-recap {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+
+.composer-recap__line {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    font-size: var(--font-size-base);
+    color: var(--color-text-primary);
+    border-bottom: 1px solid var(--color-border-default);
+}
+
+.composer-recap__line:last-child {
+    border-bottom: none;
+}
+
+.composer-recap__icon {
+    color: var(--color-brand-yellow);
+    font-size: var(--font-size-xs);
+    flex-shrink: 0;
+}
+
+.composer-recap__label {
+    flex: 1;
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+}
+
+.composer-recap__opts {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+}
+
+.composer-recap__taille {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.composer-recap__suppl {
+    font-size: var(--font-size-sm);
+    color: var(--color-brand-yellow-dk);
+    font-weight: var(--font-weight-bold);
+}
+
+/* Totals block below the recap list */
+.composer-recap__totals {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-4) var(--space-4) 0;
+}
+
+.composer-recap__base,
+.composer-recap__suppl-total {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.composer-recap__total-line {
+    font-size: var(--font-size-lg);
+    color: var(--color-text-primary);
+}
+
+/* ---------- Footer ------------------------------------------ */
+
+.composer-footer {
+    flex-shrink: 0;
+    padding: var(--space-4) var(--space-6);
+    border-top: 1px solid var(--color-border-default);
+    background: var(--color-bg-card);
+}
+
+.composer-footer__row {
+    display: flex;
+    gap: var(--space-4);
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+}
+
+.composer-footer__cancel {
+    /* Pushed to the left so it is visually separated from the nav buttons */
+    margin-right: auto;
+}
+
+/* ---------- Cart line composition display -------------------- */
+
+.cart-line__composition {
+    list-style: none;
+    padding: var(--space-1) 0 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.cart-line__comp-item {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    line-height: 1.4;
+}
+
+.cart-line__comp-suppl {
+    font-size: var(--font-size-xs);
+    color: var(--color-brand-yellow-dk);
+    font-weight: var(--font-weight-bold);
+    line-height: 1.4;
+    padding-top: var(--space-1);
+}
+
+/* ---------- Responsive — narrow screens --------------------- */
+
+@media (max-width: 600px) {
+    .composer-grid {
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        gap: var(--space-3);
+    }
+
+    .composer-container {
+        max-height: 95vh;
+    }
+
+    .composer-header,
+    .composer-body,
+    .composer-footer {
+        padding-left: var(--space-4);
+        padding-right: var(--space-4);
+    }
+
+    .composer-footer__row {
+        flex-direction: column-reverse;
+        align-items: stretch;
+    }
+
+    .composer-footer__cancel {
+        margin-right: 0;
+    }
+}
