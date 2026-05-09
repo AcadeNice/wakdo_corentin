@@ -1,0 +1,57 @@
+<mxfile host="app.diagrams.net" agent="claude-code-byan" type="device">
+  <diagram name="MCD - RBAC" id="mcd-rbac">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="826" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="user" value="&lt;b&gt;USER&lt;/b&gt;&lt;hr&gt;id : INT (PK)&lt;br&gt;email : VARCHAR (UNIQUE, RFC 5321)&lt;br&gt;password_hash : VARCHAR (argon2id)&lt;br&gt;nom : VARCHAR&lt;br&gt;prenom : VARCHAR&lt;br&gt;role_id : INT (FK)&lt;br&gt;est_actif : BOOLEAN&lt;br&gt;last_login_at : DATETIME" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;verticalAlign=top;fontSize=12;spacingLeft=8;spacingTop=4" vertex="1" parent="1">
+          <mxGeometry x="60" y="80" width="280" height="200" as="geometry" />
+        </mxCell>
+
+        <mxCell id="role" value="&lt;b&gt;ROLE&lt;/b&gt;&lt;hr&gt;id : INT (PK)&lt;br&gt;code : VARCHAR (UNIQUE)&lt;br&gt;libelle : VARCHAR&lt;br&gt;description : TEXT&lt;br&gt;est_actif : BOOLEAN" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;verticalAlign=top;fontSize=12;spacingLeft=8;spacingTop=4" vertex="1" parent="1">
+          <mxGeometry x="440" y="80" width="280" height="160" as="geometry" />
+        </mxCell>
+
+        <mxCell id="permission" value="&lt;b&gt;PERMISSION&lt;/b&gt;&lt;hr&gt;id : INT (PK)&lt;br&gt;code : VARCHAR (UNIQUE, resource.action)&lt;br&gt;libelle : VARCHAR&lt;br&gt;description : TEXT" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;verticalAlign=top;fontSize=12;spacingLeft=8;spacingTop=4" vertex="1" parent="1">
+          <mxGeometry x="820" y="80" width="280" height="160" as="geometry" />
+        </mxCell>
+
+        <mxCell id="role_permission" value="&lt;b&gt;ROLE_PERMISSION&lt;/b&gt; &lt;i&gt;(associative)&lt;/i&gt;&lt;hr&gt;role_id : INT (PK, FK)&lt;br&gt;permission_id : INT (PK, FK)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;verticalAlign=top;fontSize=12;spacingLeft=8;spacingTop=4;dashed=1" vertex="1" parent="1">
+          <mxGeometry x="630" y="440" width="300" height="120" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_user_role" value="a_pour_role" style="endArrow=none;html=1;fontSize=12;fontStyle=2;edgeStyle=orthogonalEdgeStyle;rounded=0" edge="1" parent="1" source="user" target="role">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_user_role_a" value="(1,1)" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;fontStyle=1;fillColor=#ffffff;strokeColor=none" vertex="1" connectable="0" parent="e_user_role">
+          <mxGeometry x="-0.85" relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="e_user_role_b" value="(0,N)" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;fontStyle=1;fillColor=#ffffff;strokeColor=none" vertex="1" connectable="0" parent="e_user_role">
+          <mxGeometry x="0.85" relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="e_role_rp" value="possede" style="endArrow=none;html=1;fontSize=12;fontStyle=2;edgeStyle=orthogonalEdgeStyle;rounded=0" edge="1" parent="1" source="role" target="role_permission">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_role_rp_a" value="(0,N)" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;fontStyle=1;fillColor=#ffffff;strokeColor=none" vertex="1" connectable="0" parent="e_role_rp">
+          <mxGeometry x="-0.85" relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="e_role_rp_b" value="(1,1)" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;fontStyle=1;fillColor=#ffffff;strokeColor=none" vertex="1" connectable="0" parent="e_role_rp">
+          <mxGeometry x="0.85" relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="e_perm_rp" value="assignee_a" style="endArrow=none;html=1;fontSize=12;fontStyle=2;edgeStyle=orthogonalEdgeStyle;rounded=0" edge="1" parent="1" source="permission" target="role_permission">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_perm_rp_a" value="(0,N)" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;fontStyle=1;fillColor=#ffffff;strokeColor=none" vertex="1" connectable="0" parent="e_perm_rp">
+          <mxGeometry x="-0.85" relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="e_perm_rp_b" value="(1,1)" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;fontStyle=1;fillColor=#ffffff;strokeColor=none" vertex="1" connectable="0" parent="e_perm_rp">
+          <mxGeometry x="0.85" relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
