@@ -1,0 +1,438 @@
+/*
+ * Wakdo — Design system for the kiosk front (Bloc 1)
+ *
+ * Tokens extracted from the school maquette PDF:
+ *   - Brand yellow  : #FFC72C  (M arches / button fills / card borders active)
+ *   - Brand red     : #DA020E  (nav arrows in maquette — kept for potential future use)
+ *   - Neutral dark  : #1A1A1A  (headings, primary text)
+ *   - Neutral mid   : #4A4A4A  (body copy)
+ *   - Neutral light : #F5F5F5  (page backgrounds, card backgrounds)
+ *   - White         : #FFFFFF  (overlays, cards)
+ *   - Border radius : 12px (cards), 8px (buttons)
+ *   - Card border   : 2px solid #FFC72C when selected / active
+ *
+ * Kiosk target: 1080x1920 portrait (touch screen).
+ * Font stack: system-ui fallback — school font is not available as a web asset.
+ * OpenDys is loaded conditionally for accessibility (RGAA Cr 1.c.4).
+ */
+
+/* ============================================================
+   1. CSS CUSTOM PROPERTIES (design tokens)
+   ============================================================ */
+
+:root {
+    /* Brand palette */
+    --color-brand-yellow:    #FFC72C;
+    --color-brand-yellow-dk: #E6A800; /* darker shade for focus/hover contrast */
+    --color-brand-red:       #DA020E;
+    --color-brand-dark:      #1A1A1A;
+
+    /* Neutral palette */
+    --color-text-primary:    #1A1A1A;
+    --color-text-secondary:  #4A4A4A;
+    --color-text-muted:      #767676; /* min WCAG AA contrast on white */
+    --color-bg-page:         #F5F5F5;
+    --color-bg-card:         #FFFFFF;
+    --color-border-default:  #D1D1D1;
+    --color-border-active:   #FFC72C;
+
+    /* Typography */
+    --font-family-base:  system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+    --font-size-xs:      0.75rem;   /* 12px */
+    --font-size-sm:      0.875rem;  /* 14px */
+    --font-size-base:    1rem;      /* 16px */
+    --font-size-md:      1.25rem;   /* 20px */
+    --font-size-lg:      1.5rem;    /* 24px */
+    --font-size-xl:      2rem;      /* 32px */
+    --font-size-2xl:     2.5rem;    /* 40px */
+    --font-weight-normal: 400;
+    --font-weight-bold:   700;
+
+    /* Spacing scale (8px base) */
+    --space-1:  0.25rem;  /*  4px */
+    --space-2:  0.5rem;   /*  8px */
+    --space-3:  0.75rem;  /* 12px */
+    --space-4:  1rem;     /* 16px */
+    --space-5:  1.5rem;   /* 24px */
+    --space-6:  2rem;     /* 32px */
+    --space-8:  3rem;     /* 48px */
+    --space-10: 4rem;     /* 64px */
+
+    /* Border radius */
+    --radius-sm:   6px;
+    --radius-md:   12px;
+    --radius-lg:   20px;
+    --radius-pill: 9999px;
+
+    /* Shadows */
+    --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.10);
+    --shadow-overlay: 0 4px 32px rgba(0, 0, 0, 0.18);
+
+    /* Transitions */
+    --transition-fast: 150ms ease;
+    --transition-base: 250ms ease;
+}
+
+/* ============================================================
+   2. RESET & BASE
+   ============================================================ */
+
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    font-size: 16px;
+    /* touch-action on html prevents accidental pinch-zoom on kiosk */
+    touch-action: manipulation;
+}
+
+body {
+    font-family: var(--font-family-base);
+    font-size: var(--font-size-base);
+    color: var(--color-text-primary);
+    background-color: var(--color-bg-page);
+    line-height: 1.5;
+    min-height: 100vh;
+}
+
+img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+}
+
+a {
+    color: inherit;
+    text-decoration: none;
+}
+
+ul, ol {
+    list-style: none;
+}
+
+button {
+    cursor: pointer;
+    font-family: inherit;
+    border: none;
+    background: none;
+}
+
+/* ============================================================
+   3. UTILITY CLASSES
+   ============================================================ */
+
+.sr-only {
+    /* Screen-reader only — visually hidden but accessible (RGAA) */
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* ============================================================
+   4. COMPONENT — WELCOME SCREEN (index.html)
+   ============================================================ */
+
+/*
+ * Layout: full-viewport, background photo, centered white card.
+ * The maquette shows the M logo arches as a background image (mc-landing-banner.png).
+ * The white card floats left-center in the maquette; on 1080x1920 portrait we center it.
+ */
+
+.welcome {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-6);
+    overflow: hidden;
+}
+
+.welcome__bg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    z-index: 0;
+}
+
+.welcome__card {
+    position: relative;
+    z-index: 1;
+    background: var(--color-bg-card);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-overlay);
+    padding: var(--space-8) var(--space-8);
+    max-width: 700px;
+    width: 100%;
+}
+
+.welcome__greeting {
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--space-5);
+    line-height: 1.2;
+}
+
+.welcome__question {
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--space-6);
+    line-height: 1.4;
+}
+
+.welcome__choices {
+    display: flex;
+    gap: var(--space-5);
+    flex-wrap: wrap;
+}
+
+.choice-btn {
+    flex: 1 1 200px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-5) var(--space-4);
+    background: var(--color-bg-card);
+    border: 2px solid var(--color-border-default);
+    border-radius: var(--radius-md);
+    transition:
+        border-color var(--transition-fast),
+        box-shadow var(--transition-fast),
+        transform var(--transition-fast);
+    -webkit-tap-highlight-color: transparent; /* suppress blue flash on mobile tap */
+    min-height: 200px;
+    justify-content: center;
+}
+
+.choice-btn:hover,
+.choice-btn:focus-visible {
+    border-color: var(--color-border-active);
+    box-shadow: 0 0 0 3px rgba(255, 199, 44, 0.35);
+    outline: none;
+    /* slight lift gives tactile feedback on kiosk screen */
+    transform: translateY(-2px);
+}
+
+.choice-btn:active {
+    transform: translateY(0);
+    box-shadow: none;
+}
+
+.choice-btn__image {
+    width: 120px;
+    height: 120px;
+    object-fit: contain;
+}
+
+.choice-btn__label {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+    text-align: center;
+}
+
+/* ============================================================
+   5. COMPONENT — CATEGORIES SCREEN (categories.html)
+   ============================================================ */
+
+/*
+ * Layout: header bar at top with logo, then a full-page category grid.
+ * The maquette shows categories as a horizontal scrollable strip at the top
+ * of the product-list screen. Here we present them as a full-page grid
+ * (intermediate screen before the product list, P5 scope).
+ * 3-column grid on portrait kiosk (1080px wide).
+ */
+
+.categories-page {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--color-bg-page);
+}
+
+/* ---------- header ---------- */
+
+.site-header {
+    background: var(--color-bg-card);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    padding: var(--space-4) var(--space-6);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    /* Sticky so the logo stays visible while user scrolls categories */
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.site-header__logo {
+    height: 56px;
+    width: auto;
+}
+
+.site-header__back {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-secondary);
+    padding: var(--space-2) var(--space-4);
+    border: 2px solid var(--color-border-default);
+    border-radius: var(--radius-sm);
+    transition: border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.site-header__back:hover,
+.site-header__back:focus-visible {
+    border-color: var(--color-border-active);
+    color: var(--color-text-primary);
+    outline: none;
+}
+
+/* ---------- main content area ---------- */
+
+.categories-main {
+    flex: 1;
+    padding: var(--space-6) var(--space-6) var(--space-10);
+}
+
+.categories-main__heading {
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--space-2);
+}
+
+.categories-main__sub {
+    font-size: var(--font-size-base);
+    color: var(--color-text-secondary);
+    margin-bottom: var(--space-6);
+}
+
+/* ---------- category grid ---------- */
+
+.category-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-5);
+}
+
+/*
+ * Each category card is a link (<a>) styled as a card.
+ * Large tap target (min 160px) for kiosk touch use.
+ */
+.category-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-5) var(--space-4);
+    background: var(--color-bg-card);
+    border: 2px solid var(--color-border-default);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-card);
+    transition:
+        border-color var(--transition-fast),
+        box-shadow var(--transition-fast),
+        transform var(--transition-fast);
+    -webkit-tap-highlight-color: transparent;
+    min-height: 220px;
+    justify-content: center;
+    text-align: center;
+}
+
+.category-card:hover,
+.category-card:focus-visible {
+    border-color: var(--color-border-active);
+    box-shadow: 0 0 0 3px rgba(255, 199, 44, 0.35), var(--shadow-card);
+    outline: none;
+    transform: translateY(-3px);
+}
+
+.category-card:active {
+    transform: translateY(0);
+    box-shadow: var(--shadow-card);
+}
+
+.category-card__image {
+    width: 140px;
+    height: 140px;
+    object-fit: contain;
+}
+
+.category-card__label {
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+    /* Capitalize first letter to match maquette label style */
+    text-transform: capitalize;
+}
+
+/* ============================================================
+   6. RESPONSIVE — kiosk portrait 1080px is primary target.
+   Desktop landscape / smaller tablets get a simplified layout.
+   ============================================================ */
+
+/* Landscape / wide desktop: welcome card can be wider */
+@media (min-width: 1080px) {
+    .welcome__card {
+        max-width: 820px;
+        padding: var(--space-10) var(--space-10);
+    }
+
+    .choice-btn__image {
+        width: 150px;
+        height: 150px;
+    }
+
+    .category-grid {
+        /* 4 columns on very wide screens so the grid uses the space */
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+/* Narrow screens (phones, small tablets) */
+@media (max-width: 600px) {
+    .welcome__card {
+        padding: var(--space-5) var(--space-4);
+    }
+
+    .welcome__greeting {
+        font-size: var(--font-size-xl);
+    }
+
+    .welcome__question {
+        font-size: var(--font-size-base);
+    }
+
+    .category-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .categories-main {
+        padding: var(--space-4);
+    }
+}
+
+/* Portrait kiosk explicit — enforce single-column choice layout below 480px */
+@media (max-width: 480px) {
+    .welcome__choices {
+        flex-direction: column;
+    }
+}
