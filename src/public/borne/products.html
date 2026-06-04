@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="description" content="Wakdo - Produits de la categorie selectionnee">
+    <title>Wakdo - Produits</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body class="products-page">
+
+    <!--
+        products.html — List of products in a category.
+        Category is determined at runtime from ?category=<id>.
+        JS (page-products.js) fetches data/produits.json and renders cards.
+        In P4: swap fetch URL in data.js to point to GET /api/products?category=<slug>.
+    -->
+
+    <header class="site-header">
+        <a
+            id="back-to-categories"
+            class="site-header__back"
+            href="categories.html"
+            aria-label="Retour aux categories"
+        >
+            &#8592; Categories
+        </a>
+        <img
+            class="site-header__logo"
+            src="assets/images/ui/logo.png"
+            alt="Wakdo"
+        >
+        <a
+            class="site-header__cart"
+            href="cart.html"
+            aria-label="Voir le panier"
+        >
+            <span class="cart-icon" aria-hidden="true">&#128722;</span>
+            <span class="cart-badge" data-cart-count hidden aria-live="polite">0</span>
+            <span class="sr-only">Panier</span>
+        </a>
+    </header>
+
+    <main class="products-main" aria-label="Liste des produits">
+
+        <div class="products-header">
+            <!--
+                Heading is updated by page-products.js once the category
+                data is loaded — default text shown during load.
+            -->
+            <h1 id="products-heading" class="products-main__heading">Nos produits</h1>
+            <span class="mode-badge" data-mode-badge aria-label="Mode de consommation">Sur place</span>
+        </div>
+
+        <!-- Error block: hidden by default, shown if fetch fails -->
+        <p id="products-error" class="products-error" hidden role="alert"></p>
+
+        <ul id="products-grid" class="products-grid" aria-label="Grille de produits">
+            <!-- Product cards injected by page-products.js -->
+        </ul>
+
+    </main>
+
+    <script type="module" src="assets/js/nav.js"></script>
+    <script type="module" src="assets/js/page-products.js"></script>
+</body>
+</html>

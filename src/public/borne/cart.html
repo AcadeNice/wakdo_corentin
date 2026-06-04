@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="description" content="Wakdo - Votre panier">
+    <title>Wakdo - Panier</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body class="cart-page">
+
+    <!--
+        cart.html — Shopping cart.
+        page-cart.js renders all cart lines, handles qty controls and removal.
+
+        TVA: 10% (restauration France 2024 — simplified rate).
+        TODO: verify exact rate with accountant in P3 — actual rate depends
+        on sur-place vs a-emporter and product type (alcohol, etc.).
+
+        The stored prices are TTC. HT is back-calculated at display time only.
+    -->
+
+    <header class="site-header">
+        <a
+            class="site-header__back"
+            href="categories.html"
+            aria-label="Continuer mes achats"
+        >
+            &#8592; Continuer
+        </a>
+        <img
+            class="site-header__logo"
+            src="assets/images/ui/logo.png"
+            alt="Wakdo"
+        >
+        <span class="mode-badge site-header__mode" data-mode-badge aria-label="Mode de consommation">Sur place</span>
+    </header>
+
+    <main class="cart-main" aria-label="Votre panier">
+
+        <h1 class="cart-main__heading">Votre panier</h1>
+
+        <!-- Empty cart state -->
+        <div id="cart-empty" class="cart-empty" hidden>
+            <p class="cart-empty__message">Votre panier est vide.</p>
+            <a class="btn btn--secondary" href="categories.html">Decouvrir nos produits</a>
+        </div>
+
+        <!-- Cart lines -->
+        <ul id="cart-list" class="cart-list" aria-label="Lignes du panier">
+            <!-- Filled by page-cart.js -->
+        </ul>
+
+        <!-- Order summary -->
+        <aside id="cart-summary" class="cart-summary" hidden aria-label="Recapitulatif de commande">
+            <div class="cart-summary__line">
+                <span>Total HT</span>
+                <span id="total-ht">—</span>
+            </div>
+            <div class="cart-summary__line">
+                <!-- TVA 10% — taux restauration FR 2024 (simplifie, voir commentaire ci-dessus) -->
+                <span>TVA (10%)</span>
+                <span id="total-tva">—</span>
+            </div>
+            <div class="cart-summary__line cart-summary__line--total">
+                <span>Total TTC</span>
+                <strong id="total-ttc">—</strong>
+            </div>
+        </aside>
+
+        <!-- Actions -->
+        <div class="cart-actions">
+            <button
+                id="abandon-btn"
+                class="btn btn--secondary"
+                type="button"
+                aria-label="Abandonner la commande et retourner aux categories"
+            >
+                Abandonner
+            </button>
+            <a
+                id="pay-btn"
+                class="btn btn--primary"
+                href="payment.html"
+                role="button"
+                aria-label="Passer au paiement"
+                aria-disabled="true"
+            >
+                Valider ma commande
+            </a>
+        </div>
+
+    </main>
+
+    <script type="module" src="assets/js/nav.js"></script>
+    <script type="module" src="assets/js/page-cart.js"></script>
+</body>
+</html>
