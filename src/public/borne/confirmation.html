@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="description" content="Wakdo - Commande confirmee">
+    <title>Wakdo - Confirmation</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body class="confirmation-page">
+
+    <!--
+        confirmation.html — Order confirmed screen.
+        Order number: "WK-" + Date.now().toString(36).toUpperCase()
+        Cart is cleared on page load by page-confirmation.js.
+    -->
+
+    <header class="site-header site-header--minimal">
+        <img
+            class="site-header__logo"
+            src="assets/images/ui/logo.png"
+            alt="Wakdo"
+        >
+    </header>
+
+    <main class="confirmation-main" aria-label="Confirmation de commande">
+
+        <div class="confirmation-banner" role="status" aria-live="polite">
+
+            <!-- Checkmark SVG (inline, no external dependency) -->
+            <svg class="confirmation-banner__check" viewBox="0 0 80 80" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="40" cy="40" r="38" fill="#FFC72C"/>
+                <polyline points="22,40 34,54 58,28" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+
+            <h1 class="confirmation-banner__title">Commande confirmee !</h1>
+
+            <p class="confirmation-banner__sub">Votre commande est en preparation</p>
+
+            <div class="confirmation-banner__number-block">
+                <span class="confirmation-banner__number-label">Votre numero de commande</span>
+                <strong class="confirmation-banner__number" id="order-number" aria-live="polite">—</strong>
+            </div>
+
+            <p class="confirmation-banner__total">
+                Montant regle : <strong id="order-total">—</strong>
+            </p>
+
+            <p class="confirmation-banner__delay">
+                Temps d'attente estime : <strong>5 - 10 minutes</strong>
+            </p>
+
+        </div>
+
+        <button
+            id="new-order-btn"
+            class="btn btn--primary btn--large confirmation-new-order"
+            type="button"
+            aria-label="Demarrer une nouvelle commande"
+        >
+            Nouvelle commande
+        </button>
+
+    </main>
+
+    <script type="module" src="assets/js/page-confirmation.js"></script>
+</body>
+</html>

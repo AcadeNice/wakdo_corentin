@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!--
+        noindex: this kiosk is not a public website; no SEO indexing needed.
+        nofollow: prevents link-following by bots reaching the kiosk URL.
+    -->
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="description" content="Borne de commande Wakdo - choisissez votre mode de consommation">
+    <title>Wakdo - Bienvenue</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+    <!--
+        Welcome / landing screen.
+        Matches maquette page 1: background photo, white card, two choice buttons.
+        Navigation is purely HTML <a> links — no JS required for this screen.
+    -->
+    <main class="welcome" aria-label="Ecran d'accueil Wakdo">
+
+        <!--
+            mc-landing-banner.png is the background photo (M arches + food).
+            alt="" because it is purely decorative — the content lives in the card.
+        -->
+        <img
+            class="welcome__bg"
+            src="assets/images/ui/mc-landing-banner.png"
+            alt=""
+            aria-hidden="true"
+        >
+
+        <section class="welcome__card" aria-labelledby="welcome-heading">
+            <h1 class="welcome__greeting" id="welcome-heading">Bonjour,</h1>
+            <p class="welcome__question">
+                Souhaitez-vous consommer votre menu sur place<br>
+                ou preferez-vous l'emporter&nbsp;?
+            </p>
+
+            <nav class="welcome__choices" aria-label="Mode de consommation">
+                <!--
+                    href passes the choice via query string.
+                    The categories page reads it to display the correct mode label.
+                    No JS required for the navigation itself.
+                -->
+                <a
+                    class="choice-btn"
+                    href="categories.html?mode=sur-place"
+                    role="button"
+                    aria-label="Commander sur place"
+                >
+                    <img
+                        class="choice-btn__image"
+                        src="assets/images/ui/illustration-sur-place.png"
+                        alt="Table et chaises - Sur place"
+                    >
+                    <span class="choice-btn__label">Sur Place</span>
+                </a>
+
+                <a
+                    class="choice-btn"
+                    href="categories.html?mode=a-emporter"
+                    role="button"
+                    aria-label="Commander a emporter"
+                >
+                    <img
+                        class="choice-btn__image"
+                        src="assets/images/ui/illustration-a-emporter.png"
+                        alt="Sac a emporter"
+                    >
+                    <span class="choice-btn__label">A Emporter</span>
+                </a>
+            </nav>
+        </section>
+
+    </main>
+
+</body>
+</html>
