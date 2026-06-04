@@ -1,598 +1,611 @@
-# Modele Conceptuel des Traitements (MCT) - Wakdo
+# Model of Conceptual Treatments (MCT) — Wakdo
 
-**Phase Merise** : P1 - Conception, etape 3 (apres MCD)
-**Statut** : v0.1
-**Date** : 2026-05-21
-**Branche** : `feat/p1-conception`
-**Auteur methodologie** : BYAN
-
----
-
-## 1. Objet du document
-
-Le MCT (Modele Conceptuel des Traitements) decrit les **operations metier** du domaine Wakdo
-sous la forme canonique Merise : **evenement declencheur -> operation -> resultat emis**.
-
-Il repond a la question : que se passe-t-il dans le domaine, et quand ?
-Il ne repond pas a la question : qui fait quoi, sur quel poste, dans quel ordre organisationnel
-(cette dimension est volontairement omise - le MOT est saute, raccourci agile assume, coheret
-avec le cadre RNCP solo).
-
-Le MCT couvre :
-- Le parcours commande de bout en bout (borne kiosk, comptoir, drive)
-- La gestion du catalogue (manager/admin)
-- La gestion des utilisateurs et roles (admin)
-- La connexion au back-office (tous acteurs back)
-
-**Acteurs identifies** :
-
-| Acteur | Code | Interface |
-|--------|------|-----------|
-| Client (borne) | CLIENT | Kiosk tactile (public, non authentifie) |
-| Accueil | ACCUEIL | Back-office, role `accueil` |
-| Preparation (cuisine) | CUISINE | Back-office, role `preparation` |
-| Manager / Administrateur | ADMIN | Back-office, role `admin` |
-| Systeme | SYS | Logique interne API / PHP |
-
-**Cross-reference MCD** : chaque operation manipule des entites du MCD (section 9). Le MCT est
-construit en coherence avec la machine a etats de `commande.statut` :
-
-```
-pending_payment -> paid -> preparing -> ready -> delivered
-      |             |           |          |
-      +-------------+-----------+----------+-> cancelled (depuis tout etat non remis)
-```
+**Merise phase** : P1 - Conception, step 3 (after MCD)
+**Version** : v0.2 — prod-like, 4-state machine
+**Date** : 2026-06-04
+**Branch** : `feat/p1-conception`
+**Status** : prod-like — all D1-D8 + stock decisions applied (see `docs/notes/revue-alignement-p1.md` §7)
+**Author** : BYAN (methodology layer)
 
 ---
 
-## 2. Conventions de representation
+## 1. Purpose
 
-### Format d'une operation
+The MCT (Model of Conceptual Treatments) describes the **business operations** of the Wakdo
+domain in the canonical Merise form: **triggering event -> operation -> emitted result**.
+
+It answers the question: what happens in the domain, and when?
+It does not answer: who does what, on which workstation, in which organisational order
+(the MOT level is intentionally skipped — agile shortcut, consistent with the solo RNCP
+framework).
+
+The MCT covers:
+- The order lifecycle end-to-end (kiosk, counter, drive)
+- Catalogue management (manager / admin)
+- User and role management (admin)
+- Back-office authentication (all back-office actors)
+
+**Identified actors**:
+
+| Actor | Code | Interface |
+|-------|------|-----------|
+| Customer (kiosk) | CUSTOMER | Touch kiosk (public, unauthenticated) |
+| Counter staff | COUNTER | Back-office, role `counter` |
+| Drive staff | DRIVE | Back-office, role `drive` |
+| Kitchen staff | KITCHEN | Back-office, role `kitchen` (read-only on orders) |
+| Manager | MANAGER | Back-office, role `manager` |
+| Administrator | ADMIN | Back-office, role `admin` |
+| System | SYS | Internal API / PHP logic |
+
+**MCD cross-reference**: each operation references entities from the MCD (section 14).
+The MCT is consistent with the `customer_order.status` state machine:
 
 ```
-[EVENEMENT(S) DECLENCHEUR(S)]
+pending_payment -> paid -> delivered
+      |              |
+      +--------------+-----------> cancelled (from any non-terminal state)
+```
+
+**Dropped states** (compared to v0.1): `preparing` and `ready` are removed.
+Rationale: in a fast-food context the kitchen display (KDS) is a visual system; staff read
+the ticket and act. The single staff gesture is "deliver". KPI is total time
+`delivered_at - paid_at` (SLA approx. 10 min). KDS colour coding is computed from
+`now - paid_at`; no additional stored state is required.
+
+**Dropped operations** (compared to v0.1): `MARK_IN_PREPARATION` (`MARQUER_EN_PREPARATION`)
+and `MARK_READY` (`MARQUER_PRETE`) are removed because their intermediate states no longer
+exist. `DELIVER_ORDER` becomes the sole status-advancing action for counter/drive staff.
+
+---
+
+## 2. Representation conventions
+
+### Operation format
+
+```
+[TRIGGERING EVENT(S)]
         |
-        | [REGLE DE SYNCHRONISATION / CONDITION]
+        | [SYNCHRONISATION RULE / CONDITION]
         v
    ( OPERATION )
         |
         v
-[RESULTAT(S) EMIS]
+[EMITTED RESULT(S)]
 ```
 
-**Synchronisations** :
-- `ET` : tous les evenements doivent etre presents simultanement pour declencher l'operation
-- `OU` : l'un quelconque des evenements suffit
+**Synchronisations**:
+- `AND`: all events must be present simultaneously to trigger the operation.
+- `OR`: any one of the events is sufficient.
 
-**Conditions** : exprimees entre crochets `[condition]` sur l'arc entrant.
+**Conditions**: expressed in square brackets `[condition]` on the incoming arc.
 
-### Notation textuelle adoptee
+### Textual notation
 
-Pour chaque operation, le document presente :
-- **Evenement(s) declencheur(s)** : ce qui arrive et provoque l'operation
-- **Acteur(s)** : qui est a l'origine (OU qui valide)
-- **Synchronisation** : `ET` / `OU` si plusieurs evenements, condition
-- **Operation** : nom de l'operation, description de ce qu'elle fait
-- **Entites MCD touchees** : lecture (R) ou ecriture (W) sur les entites du MCD
-- **Resultat(s)** : ce qui est emis ou produit a l'issue de l'operation
-
----
-
-## 3. Domaine 1 - Parcours commande (borne kiosk)
-
-Ce domaine couvre le cycle de vie d'une commande initiee depuis la borne client.
-
-### 3.1 Charger le catalogue
-
-| Champ | Valeur |
-|-------|--------|
-| **Evenement declencheur** | Le client ouvre la borne (connexion au kiosk) |
-| **Acteur** | CLIENT |
-| **Synchronisation** | Aucune (evenement unique) |
-| **Condition** | La borne est en service (dans la plage horaire 10h00-01h00) |
-| **Operation** | CHARGER_CATALOGUE |
-| **Description** | Recuperation de la liste des categories actives, des produits disponibles et des menus disponibles pour affichage sur la borne |
-| **Entites MCD** | R : `categorie` (est_actif=1), `produit` (est_disponible=1), `menu` (est_disponible=1), `menu_produit` |
-| **Resultat** | Catalogue charge, borne affiche la page d'accueil |
+For each operation the document provides:
+- **Triggering event(s)**: what occurs and causes the operation.
+- **Actor(s)**: who initiates (or validates).
+- **Synchronisation**: `AND` / `OR` if multiple events, plus condition.
+- **Operation**: name and description of what it does.
+- **MCD entities touched**: read (R) or write (W).
+- **Result(s)**: what is emitted or produced.
 
 ---
 
-### 3.2 Composer le panier
+## 3. Domain 1 — Order lifecycle (kiosk)
 
-| Champ | Valeur |
-|-------|--------|
-| **Evenement declencheur** | Le client selectionne un produit ou un menu sur la borne |
-| **Acteur** | CLIENT |
-| **Synchronisation** | Evenement repetable (OU : ajout produit, ajout menu, modification quantite, suppression item) |
-| **Condition** | Le produit ou menu selectionne est disponible (`est_disponible=1`) |
-| **Operation** | COMPOSER_PANIER |
-| **Description** | Construction du panier en memoire : ajout d'un article (produit unitaire ou menu), avec eventuellement une option de taille (+0,50 EUR sur accompagnements et boissons), recalcul du total TTC. Le panier est une structure volatile cote client ; aucune ecriture en BDD a ce stade. |
-| **Entites MCD** | R : `produit`, `menu`, `menu_produit` - W : aucune (etat volatile front) |
-| **Resultat** | Panier mis a jour, total recalcule, affichage recapitulatif |
+### 3.1 LOAD_CATALOGUE
 
----
-
-### 3.3 Valider et passer la commande
-
-| Champ | Valeur |
-|-------|--------|
-| **Evenements declencheurs** | 1. Client confirme le panier (appui sur "Valider") ET 2. Client saisit son numero de commande |
-| **Acteur** | CLIENT |
-| **Synchronisation** | ET (les deux actions sont requises) |
-| **Condition** | Le panier contient au moins 1 article. Le numero saisi est non vide. |
-| **Operation** | PASSER_COMMANDE |
-| **Description** | Creation de la commande en base : insertion d'une ligne `commande` avec statut `pending_payment`, snapshot du total HT/TVA/TTC au taux en vigueur, source `kiosk`. Creation des lignes `ligne_commande` avec snapshot des libelles et prix. Le systeme genere le numero de commande au format `K-YYYY-MM-DD-NNN`. Le client saisit ensuite son numero de commande (substitut de paiement dans le cadre RNCP) : la commande passe au statut `paid`. La transition `pending_payment -> paid` est atomique dans cette operation. |
-| **Entites MCD** | R : `produit`, `menu` (snapshot prix/libelle) - W : `commande` (INSERT statut `pending_payment`, puis UPDATE statut `paid`), `ligne_commande` (INSERT N lignes), `commande_event` (INSERT 2 events : `CREATED` user_id=NULL puis `PAID` user_id=NULL — kiosk = auto-validation, pas d'equipier) |
-| **Resultat** | Commande creee (statut `paid` en fin d'operation), numero affiche au client, evenement COMMANDE_CREEE emis vers le domaine preparation |
+| Field | Value |
+|-------|-------|
+| **Triggering event** | Customer opens the kiosk (connection to the kiosk endpoint) |
+| **Actor** | CUSTOMER |
+| **Synchronisation** | None (single event) |
+| **Condition** | The kiosk is in service (within business hours 10:00-01:00) |
+| **Operation** | LOAD_CATALOGUE |
+| **Description** | Retrieval of active categories, available products, and available menus (with their slots and eligible options) for display on the kiosk screen. |
+| **MCD entities** | R: `category` (is_active=1), `product` (is_available=1), `menu` (is_available=1), `menu_slot`, `menu_slot_option`, `ingredient` (is_active=1), `allergen`, `ingredient_allergen` |
+| **Result** | Catalogue loaded; kiosk displays the home screen |
 
 ---
 
-### 3.4 Confirmer la commande au client
+### 3.2 COMPOSE_CART
 
-| Champ | Valeur |
-|-------|--------|
-| **Evenement declencheur** | COMMANDE_CREEE (retour API 201 apres PASSER_COMMANDE) |
-| **Acteur** | SYS |
-| **Synchronisation** | Aucune |
-| **Condition** | La reponse API contient un id, un numero et un statut `paid` (la transition `pending_payment -> paid` s'est executee dans PASSER_COMMANDE) |
-| **Operation** | AFFICHER_CONFIRMATION |
-| **Description** | Affichage de l'ecran de confirmation sur la borne avec le numero de commande. La borne se reinitialise ensuite pour le client suivant. |
-| **Entites MCD** | R : aucune nouvelle lecture BDD (les donnees sont dans la reponse API) |
-| **Resultat** | Ecran de confirmation affiche, borne disponible pour la commande suivante |
-
----
-
-## 4. Domaine 2 - Parcours commande (comptoir et drive)
-
-Ce domaine couvre la saisie manuelle d'une commande par un equipier accueil pour un client
-au comptoir ou au drive.
-
-### 4.1 Saisir une commande manuelle
-
-| Champ | Valeur |
-|-------|--------|
-| **Evenement declencheur** | L'equipier accueil initie une nouvelle commande depuis le back-office |
-| **Acteur** | ACCUEIL |
-| **Synchronisation** | Aucune |
-| **Condition** | L'acteur est authentifie et possede la permission `commande.create`. La source est `comptoir` ou `drive`. |
-| **Operation** | SAISIR_COMMANDE_MANUELLE |
-| **Description** | Composition du panier via le back-office : selection de produits et menus, choix du mode de consommation, choix de la source (`comptoir` ou `drive`). Logique identique a PASSER_COMMANDE cote kiosk, a la difference que l'acteur est un equipier authentifie. La transition `pending_payment -> paid` est atomique dans cette operation (l'equipier valide le paiement du client). |
-| **Entites MCD** | R : `produit`, `menu`, `menu_produit` - W : `commande` (INSERT statut `pending_payment`, puis UPDATE statut `paid`, source `comptoir` ou `drive`), `ligne_commande` (INSERT), `commande_event` (INSERT 2 events : `CREATED` user_id=acteur puis `PAID` user_id=acteur) |
-| **Resultat** | Commande creee (statut `paid` en fin d'operation), numero imprime ou annonce au client |
+| Field | Value |
+|-------|-------|
+| **Triggering event** | Customer selects a product or a menu on the kiosk |
+| **Actor** | CUSTOMER |
+| **Synchronisation** | Repeatable event (OR: add product, add menu, change quantity, remove item, choose menu slot, choose format Normal/Maxi, add/remove ingredient modifier) |
+| **Condition** | The selected product or menu has `is_available=1` |
+| **Operation** | COMPOSE_CART |
+| **Description** | In-memory cart construction: add an item (standalone product or menu), select slot products (`order_item_selection`), optionally modify ingredients (`order_item_modifier`), choose Normal or Maxi format for menus, recalculate TTC total. The cart is a volatile client-side structure; no database write at this stage. |
+| **MCD entities** | R: `product`, `menu`, `menu_slot`, `menu_slot_option`, `ingredient`, `product_ingredient` — W: none (volatile front-end state) |
+| **Result** | Cart updated, total recalculated, summary displayed |
 
 ---
 
-## 5. Domaine 3 - Preparation (cuisine)
+### 3.3 CREATE_ORDER
 
-### 5.1 Consulter les commandes a preparer
-
-| Champ | Valeur |
-|-------|--------|
-| **Evenement declencheur** | L'equipier cuisine accede a sa vue ou rafraichit la liste |
-| **Acteur** | CUISINE |
-| **Synchronisation** | Aucune |
-| **Condition** | L'acteur est authentifie et possede la permission `commande.read`. |
-| **Operation** | LISTER_COMMANDES_A_PREPARER |
-| **Description** | Lecture des commandes de statut `paid` triees par `created_at` croissant (heure de passage croissante, tous canaux confondus). Affichage du numero, du contenu (lignes avec libelle snapshot), et de la source (kiosk/comptoir/drive). |
-| **Entites MCD** | R : `commande` (statut=`paid`), `ligne_commande` |
-| **Resultat** | Liste des commandes en attente de preparation affichee, triee par heure croissante |
+| Field | Value |
+|-------|-------|
+| **Triggering events** | 1. Customer confirms cart (presses "Validate") AND 2. Customer enters their order number (RNCP payment substitute) |
+| **Actor** | CUSTOMER |
+| **Synchronisation** | AND (both actions required) |
+| **Condition** | Cart contains at least 1 item. The order number entered is non-empty. |
+| **Operation** | CREATE_ORDER |
+| **Description** | Atomic order creation: INSERT `customer_order` with status `pending_payment`, source `kiosk`, snapshot of HT/VAT/TTC totals (computed line by line using `vat_rate` snapshotted per item). INSERT `order_item` lines with `label_snapshot`, `unit_price_cents_snapshot`, `vat_rate_snapshot`. INSERT `order_item_selection` for each slot filled in a menu item. INSERT `order_item_modifier` for each ingredient modification. Decrement `ingredient.stock_quantity` for each ingredient consumed (adjusted by modifiers: remove => no decrement; add => extra decrement); INSERT one `stock_movement` row of type `sale` per affected ingredient unit. Stock decrements and order insert are within the same transaction. After the customer enters their order number, the status transitions `pending_payment -> paid` within the same transaction; `paid_at` is set. The system generates the order number in format `K-YYYY-MM-DD-NNN`. |
+| **MCD entities** | R: `product`, `menu`, `ingredient`, `product_ingredient` (snapshot) — W: `customer_order` (INSERT status `pending_payment` then UPDATE status `paid`, `paid_at`), `order_item` (INSERT N lines), `order_item_selection` (INSERT per menu slot chosen), `order_item_modifier` (INSERT per modification), `ingredient` (UPDATE stock_quantity), `stock_movement` (INSERT type `sale` per unit) |
+| **Result** | Order created (status `paid` at end of operation), order number displayed to customer, logical event ORDER_CREATED emitted toward the preparation domain |
 
 ---
 
-### 5.2 Marquer une commande en preparation
+### 3.4 DISPLAY_CONFIRMATION
 
-| Champ | Valeur |
-|-------|--------|
-| **Evenement declencheur** | L'equipier cuisine clique sur "Prendre en charge" pour une commande |
-| **Acteur** | CUISINE |
-| **Synchronisation** | Aucune |
-| **Condition** | La commande est au statut `paid`. L'acteur possede la permission `commande.update`. |
-| **Operation** | MARQUER_EN_PREPARATION |
-| **Description** | Transition de statut `paid` -> `preparing` sur la commande. Mise a jour de `updated_at`. La commande disparait de la file "a preparer" et passe dans la file "en preparation". |
-| **Entites MCD** | W : `commande` (UPDATE statut `paid` -> `preparing`), `commande_event` (INSERT event `PREPARING_STARTED` user_id=acteur) |
-| **Resultat** | Commande au statut `preparing`, evenement COMMANDE_EN_PREPARATION emis |
-
----
-
-### 5.3 Marquer une commande prete
-
-| Champ | Valeur |
-|-------|--------|
-| **Evenement declencheur** | L'equipier cuisine clique sur "Pret" pour une commande en preparation |
-| **Acteur** | CUISINE |
-| **Synchronisation** | Aucune |
-| **Condition** | La commande est au statut `preparing`. L'acteur possede la permission `commande.update`. |
-| **Operation** | MARQUER_PRETE |
-| **Description** | Transition de statut `preparing` -> `ready`. Mise a jour de `updated_at`. La commande est desormais visible pour l'accueil qui peut la remettre au client. |
-| **Entites MCD** | W : `commande` (UPDATE statut `preparing` -> `ready`), `commande_event` (INSERT event `READY` user_id=acteur) |
-| **Resultat** | Commande au statut `ready`, evenement COMMANDE_PRETE emis vers l'accueil |
+| Field | Value |
+|-------|-------|
+| **Triggering event** | ORDER_CREATED (API response 201 after CREATE_ORDER) |
+| **Actor** | SYS |
+| **Synchronisation** | None |
+| **Condition** | API response contains an id, an order_number and status `paid` |
+| **Operation** | DISPLAY_CONFIRMATION |
+| **Description** | Display of the confirmation screen on the kiosk with the order number. The kiosk then resets for the next customer. |
+| **MCD entities** | R: none (data is in the API response) |
+| **Result** | Confirmation screen displayed; kiosk available for next order |
 
 ---
 
-## 6. Domaine 4 - Remise au client (accueil)
+## 4. Domain 2 — Order lifecycle (counter and drive)
 
-### 6.1 Consulter les commandes pretes
+### 4.1 CREATE_COUNTER_ORDER
 
-| Champ | Valeur |
-|-------|--------|
-| **Evenement declencheur** | L'equipier accueil accede a sa vue ou rafraichit la liste |
-| **Acteur** | ACCUEIL |
-| **Synchronisation** | Aucune |
-| **Condition** | L'acteur est authentifie et possede la permission `commande.read`. |
-| **Operation** | LISTER_COMMANDES_PRETES |
-| **Description** | Lecture des commandes de statut `ready`. Affichage du numero de commande, contenu, source. |
-| **Entites MCD** | R : `commande` (statut=`ready`), `ligne_commande` |
-| **Resultat** | Liste des commandes pretes affichee |
-
----
-
-### 6.2 Declarer une commande livree
-
-| Champ | Valeur |
-|-------|--------|
-| **Evenements declencheurs** | 1. La commande est au statut `ready` ET 2. L'equipier accueil clique sur "Livree" |
-| **Acteur** | ACCUEIL |
-| **Synchronisation** | ET |
-| **Condition** | La commande est au statut `ready`. L'acteur possede la permission `commande.update`. |
-| **Operation** | DECLARER_LIVREE |
-| **Description** | Transition de statut `ready` -> `delivered`. Fin du cycle de vie de la commande. La commande passe en historique. |
-| **Entites MCD** | W : `commande` (UPDATE statut `ready` -> `delivered`), `commande_event` (INSERT event `DELIVERED` user_id=acteur) |
-| **Resultat** | Commande au statut `delivered`, cycle de vie termine |
+| Field | Value |
+|-------|-------|
+| **Triggering event** | A counter or drive staff member initiates a new order from the back-office |
+| **Actor** | COUNTER or DRIVE |
+| **Synchronisation** | None |
+| **Condition** | The actor is authenticated and holds permission `order.create`. The `source` is `counter` or `drive` (auto-tagged from `role.order_source`). |
+| **Operation** | CREATE_COUNTER_ORDER |
+| **Description** | Manual order composition via the back-office: select products and menus, choose service mode (`dine_in`/`takeaway`/`drive`), fill menu slots, add ingredient modifiers. Identical creation logic to CREATE_ORDER (snapshot, stock decrement in same transaction, atomic `pending_payment -> paid` transition). The `source` is auto-tagged from `role.order_source` (counter -> `counter`, drive -> `drive`). Order number format: `C-YYYY-MM-DD-NNN` (counter) or `D-YYYY-MM-DD-NNN` (drive). Cross-constraint: if `source = 'drive'` then `service_mode = 'drive'` (verified at creation). |
+| **MCD entities** | R: `product`, `menu`, `menu_slot`, `menu_slot_option`, `ingredient`, `product_ingredient` — W: `customer_order` (INSERT status `pending_payment` then UPDATE status `paid`, `paid_at`), `order_item`, `order_item_selection`, `order_item_modifier`, `ingredient` (stock decrement), `stock_movement` (INSERT type `sale`) |
+| **Result** | Order created (status `paid`), order number communicated to customer |
 
 ---
 
-## 7. Domaine 5 - Annulation
+## 5. Domain 3 — Preparation display (kitchen)
 
-### 7.1 Annuler une commande
+### 5.1 LIST_ORDERS_DISPLAY
 
-| Champ | Valeur |
-|-------|--------|
-| **Evenement declencheur** | Un acteur autorise demande l'annulation d'une commande |
-| **Acteur** | ACCUEIL ou ADMIN |
-| **Synchronisation** | Aucune |
-| **Condition** | La commande est dans un statut annulable : `pending_payment`, `paid`, `preparing` ou `ready`. Seuls les statuts finaux `delivered` et `cancelled` ne peuvent pas transitionner vers `cancelled` : une commande reste annulable tant qu'elle n'a pas ete remise au client (modification, annulation ou remboursement). L'acteur possede la permission `commande.cancel`. |
-| **Operation** | ANNULER_COMMANDE |
-| **Description** | Transition du statut courant vers `cancelled`. Mise a jour de `updated_at`. La commande reste en base pour l'historique et les stats (pas de suppression physique). |
-| **Entites MCD** | W : `commande` (UPDATE statut -> `cancelled`), `commande_event` (INSERT event `CANCELLED` user_id=acteur, `payload` peut contenir la raison) |
-| **Resultat** | Commande au statut `cancelled`, visible dans l'historique admin |
-
----
-
-## 8. Domaine 6 - Gestion du catalogue (admin)
-
-### 8.1 Creer un produit
-
-| Champ | Valeur |
-|-------|--------|
-| **Evenement declencheur** | L'admin soumet le formulaire de creation de produit |
-| **Acteur** | ADMIN |
-| **Synchronisation** | Aucune |
-| **Condition** | L'acteur possede la permission `produit.create`. La categorie ciblee existe et est active. Le libelle est non vide. Le prix est strictement positif. |
-| **Operation** | CREER_PRODUIT |
-| **Description** | Insertion d'un nouveau produit en base avec sa categorie, son libelle, son prix en centimes, son image (upload optionnel). `est_disponible` a `1` par defaut. |
-| **Entites MCD** | R : `categorie` (validation FK) - W : `produit` (INSERT) |
-| **Resultat** | Produit cree, retour a la liste des produits |
+| Field | Value |
+|-------|-------|
+| **Triggering event** | Kitchen staff accesses or refreshes the preparation display |
+| **Actor** | KITCHEN (or COUNTER, DRIVE, ADMIN) |
+| **Synchronisation** | None |
+| **Condition** | The actor is authenticated and holds permission `order.read`. |
+| **Operation** | LIST_ORDERS_DISPLAY |
+| **Description** | Read `customer_order` rows with status `paid`, filtered by sources visible to the actor's role (from `role_visible_source`): kitchen sees all sources; counter sees kiosk+counter; drive sees drive. Orders are sorted by `paid_at` ascending (oldest first). For each order, display: order number, source, content (`order_item` with `label_snapshot`, `quantity`, format, slot selections, ingredient modifiers). KDS colour is computed from `now - paid_at` against the SLA threshold (approx. 10 min), not stored. Kitchen staff performs no status transition — this is a read-only operation. |
+| **MCD entities** | R: `customer_order` (status=`paid`), `order_item`, `order_item_selection`, `order_item_modifier`, `role_visible_source` |
+| **Result** | Preparation display list shown, sorted by payment time ascending |
 
 ---
 
-### 8.2 Modifier un produit
+## 6. Domain 4 — Delivery to customer
 
-| Champ | Valeur |
-|-------|--------|
-| **Evenement declencheur** | L'admin soumet le formulaire de modification d'un produit existant |
-| **Acteur** | ADMIN |
-| **Synchronisation** | Aucune |
-| **Condition** | L'acteur possede la permission `produit.update`. Le produit existe. Les nouvelles valeurs respectent les contraintes (prix > 0, libelle non vide). |
-| **Operation** | MODIFIER_PRODUIT |
-| **Description** | Mise a jour des colonnes modifiables (`libelle`, `description`, `prix_ttc_cents`, `image_path`, `est_disponible`, `ordre`, `categorie_id`). Les snapshots deja stockes dans `ligne_commande` ne sont pas affectes (integrite historique garantie par le design). |
-| **Entites MCD** | W : `produit` (UPDATE) |
-| **Resultat** | Produit mis a jour, liste produits rafraichie |
+### 6.1 DELIVER_ORDER
 
----
-
-### 8.3 Supprimer un produit
-
-| Champ | Valeur |
-|-------|--------|
-| **Evenement declencheur** | L'admin confirme la suppression d'un produit |
-| **Acteur** | ADMIN |
-| **Synchronisation** | Aucune |
-| **Condition** | L'acteur possede la permission `produit.delete`. Le produit n'est pas compose dans un menu actif (FK `menu_produit.produit_id` avec ON DELETE RESTRICT). Verification prealable requise. |
-| **Operation** | SUPPRIMER_PRODUIT |
-| **Description** | Suppression physique du produit si aucune contrainte FK ne bloque. Si le produit est reference dans un menu, la suppression est bloquee (RESTRICT en base). La consequence metier est que l'admin doit d'abord retirer le produit de tous les menus qui le contiennent. |
-| **Entites MCD** | W : `produit` (DELETE - bloque si reference dans `menu_produit`) |
-| **Resultat** | Produit supprime OU erreur "produit utilise dans un menu" |
+| Field | Value |
+|-------|-------|
+| **Triggering events** | 1. The order is at status `paid` AND 2. Counter or drive staff clicks "Delivered" |
+| **Actor** | COUNTER or DRIVE |
+| **Synchronisation** | AND |
+| **Condition** | The order has status `paid`. The actor holds permission `order.deliver`. The actor's role is consistent with the order source (counter staff handles kiosk+counter orders; drive staff handles drive orders — filtered by role_visible_source). |
+| **Operation** | DELIVER_ORDER |
+| **Description** | Single-gesture transition `paid -> delivered`. Sets `delivered_at = NOW()`. The order moves to history. This operation replaces the v0.1 two-step sequence (mark-ready then deliver); the kitchen's visual confirmation (KDS) is sufficient before this action. |
+| **MCD entities** | W: `customer_order` (UPDATE status `paid` -> `delivered`, `delivered_at = NOW()`) |
+| **Result** | Order at status `delivered`, lifecycle complete |
 
 ---
 
-### 8.4 Creer un menu
+## 7. Domain 5 — Cancellation
 
-| Champ | Valeur |
-|-------|--------|
-| **Evenement declencheur** | L'admin soumet le formulaire de creation de menu avec sa composition |
-| **Acteur** | ADMIN |
-| **Synchronisation** | Aucune |
-| **Condition** | L'acteur possede la permission `menu.create`. Le libelle est non vide. Le prix est strictement positif. Au moins un produit de role `burger` est associe (contrainte metier : un menu sans burger n'a pas de sens). |
-| **Operation** | CREER_MENU |
-| **Description** | Insertion du menu (`menu`) puis insertion des lignes de composition (`menu_produit`) : pour chaque produit selectionne, un enregistrement avec son role (burger, accompagnement, boisson, sauce) et sa position. |
-| **Entites MCD** | R : `produit` (validation des composants), `categorie` - W : `menu` (INSERT), `menu_produit` (INSERT N lignes) |
-| **Resultat** | Menu cree avec sa composition, visible sur la borne |
+### 7.1 CANCEL_ORDER
 
----
-
-### 8.5 Modifier un menu
-
-| Champ | Valeur |
-|-------|--------|
-| **Evenement declencheur** | L'admin soumet le formulaire de modification d'un menu existant |
-| **Acteur** | ADMIN |
-| **Synchronisation** | Aucune |
-| **Condition** | L'acteur possede la permission `menu.update`. Le menu existe. La composition modifiee conserve au moins un produit de role `burger`. |
-| **Operation** | MODIFIER_MENU |
-| **Description** | Mise a jour des colonnes du menu. Si la composition est modifiee : suppression de toutes les lignes `menu_produit` pour ce menu puis reinsertion (pattern delete-and-reinsert, plus simple que le diff ligne a ligne). Les snapshots deja commandes ne sont pas affectes. |
-| **Entites MCD** | W : `menu` (UPDATE), `menu_produit` (DELETE + INSERT) |
-| **Resultat** | Menu mis a jour |
+| Field | Value |
+|-------|-------|
+| **Triggering event** | An authorised actor requests cancellation of an order |
+| **Actor** | COUNTER, DRIVE, or ADMIN |
+| **Synchronisation** | None |
+| **Condition** | The order exists. `customer_order.status` is in `['pending_payment', 'paid']`. Terminal statuses `delivered` and `cancelled` cannot transition to `cancelled`. The actor holds permission `order.cancel`. |
+| **Operation** | CANCEL_ORDER |
+| **Description** | Transition from current status to `cancelled`. Sets `cancelled_at = NOW()`. The order is retained in the database for history and stats (no physical deletion). If the current status is `paid`, stock is re-credited: for each ingredient consumed by the order (accounting for modifiers), `ingredient.stock_quantity` is incremented; one `stock_movement` row of type `cancellation` is inserted per affected ingredient unit. Stock re-credit and status update are within the same transaction. |
+| **MCD entities** | R: `order_item`, `order_item_modifier`, `ingredient`, `product_ingredient` — W: `customer_order` (UPDATE status -> `cancelled`, `cancelled_at = NOW()`), `ingredient` (UPDATE stock_quantity, conditional on status `paid`), `stock_movement` (INSERT type `cancellation`, conditional on status `paid`) |
+| **Result** | Order at status `cancelled`, visible in admin history |
 
 ---
 
-### 8.6 Supprimer un menu
+## 8. Domain 6 — Catalogue management
 
-| Champ | Valeur |
-|-------|--------|
-| **Evenement declencheur** | L'admin confirme la suppression d'un menu |
-| **Acteur** | ADMIN |
-| **Synchronisation** | Aucune |
-| **Condition** | L'acteur possede la permission `menu.delete`. La suppression d'un menu ne bloque pas les `ligne_commande` historiques (FK avec ON DELETE RESTRICT sur `ligne_commande.menu_id`). Verification prealable requise. |
-| **Operation** | SUPPRIMER_MENU |
-| **Description** | Suppression en cascade des lignes `menu_produit` (ON DELETE CASCADE), puis suppression du menu si aucune `ligne_commande` historique ne le reference. |
-| **Entites MCD** | W : `menu_produit` (DELETE CASCADE), `menu` (DELETE - bloque si reference dans `ligne_commande`) |
-| **Resultat** | Menu supprime OU erreur "menu present dans des commandes historiques" |
+### 8.1 CREATE_PRODUCT
 
----
-
-### 8.7 Gerer les categories
-
-| Champ | Valeur |
-|-------|--------|
-| **Evenement declencheur** | L'admin cree, modifie ou desactive une categorie |
-| **Acteur** | ADMIN |
-| **Synchronisation** | OU (create, update, desactivation) |
-| **Condition** | L'acteur possede la permission `categorie.manage`. Pour une desactivation : les produits et menus de la categorie sont desactives en cascade applicative (pas de FK CASCADE ici, logique PHP). |
-| **Operation** | GERER_CATEGORIE |
-| **Description** | CRUD sur l'entite `categorie`. La desactivation d'une categorie (`est_actif=0`) masque ses produits de la borne sans suppression physique. La suppression physique est bloquee si des produits ou menus y sont rattaches (ON DELETE RESTRICT). |
-| **Entites MCD** | W : `categorie` (INSERT / UPDATE / DELETE conditionnel) |
-| **Resultat** | Categorie creee / mise a jour / desactivee |
+| Field | Value |
+|-------|-------|
+| **Triggering event** | Admin or manager submits the product creation form |
+| **Actor** | ADMIN or MANAGER |
+| **Synchronisation** | None |
+| **Condition** | Actor holds permission `product.create`. Target category exists and `is_active=1`. `name` is non-empty. `price_cents > 0`. |
+| **Operation** | CREATE_PRODUCT |
+| **Description** | INSERT a new `product` with its category, name, price in cents, VAT rate in per-mille (`vat_rate`: 100=10%, 55=5.5%, default 100), optional image path. `is_available=1` by default. |
+| **MCD entities** | R: `category` (FK validation) — W: `product` (INSERT) |
+| **Result** | Product created, redirect to product list |
 
 ---
 
-## 9. Domaine 7 - Gestion des utilisateurs et roles (admin)
+### 8.2 UPDATE_PRODUCT
 
-### 9.1 Creer un utilisateur
-
-| Champ | Valeur |
-|-------|--------|
-| **Evenement declencheur** | L'admin soumet le formulaire de creation d'utilisateur |
-| **Acteur** | ADMIN |
-| **Synchronisation** | Aucune |
-| **Condition** | L'acteur possede la permission `user.create`. L'email n'existe pas deja en base. Un role valide est selectionne. |
-| **Operation** | CREER_USER |
-| **Description** | Insertion de l'utilisateur avec hash du mot de passe (argon2id). L'email est unique. Le `role_id` est obligatoire (FK NOT NULL). |
-| **Entites MCD** | R : `role` (validation FK) - W : `user` (INSERT) |
-| **Resultat** | Utilisateur cree, peut se connecter au back-office |
+| Field | Value |
+|-------|-------|
+| **Triggering event** | Admin or manager submits the product update form |
+| **Actor** | ADMIN or MANAGER |
+| **Synchronisation** | None |
+| **Condition** | Actor holds permission `product.update`. Product exists. New values respect constraints (`price_cents > 0`, non-empty name). |
+| **Operation** | UPDATE_PRODUCT |
+| **Description** | UPDATE modifiable columns (`name`, `description`, `price_cents`, `vat_rate`, `image_path`, `is_available`, `display_order`, `category_id`). Snapshots already stored in `order_item` are not affected (historical integrity guaranteed by design). |
+| **MCD entities** | W: `product` (UPDATE) |
+| **Result** | Product updated, product list refreshed |
 
 ---
 
-### 9.2 Modifier un utilisateur
+### 8.3 DELETE_PRODUCT
 
-| Champ | Valeur |
-|-------|--------|
-| **Evenement declencheur** | L'admin soumet le formulaire de modification |
-| **Acteur** | ADMIN |
-| **Synchronisation** | Aucune |
-| **Condition** | L'acteur possede la permission `user.update`. L'utilisateur existe. Si le mot de passe est fourni, il est rehache. |
-| **Operation** | MODIFIER_USER |
-| **Description** | Mise a jour des champs modifiables (`nom`, `prenom`, `email`, `role_id`, `est_actif`). Si un nouveau mot de passe est saisi, il remplace le hash existant. |
-| **Entites MCD** | W : `user` (UPDATE) |
-| **Resultat** | Utilisateur mis a jour |
-
----
-
-### 9.3 Desactiver un utilisateur
-
-| Champ | Valeur |
-|-------|--------|
-| **Evenement declencheur** | L'admin clique sur "Desactiver" pour un utilisateur |
-| **Acteur** | ADMIN |
-| **Synchronisation** | Aucune |
-| **Condition** | L'acteur possede la permission `user.update`. L'admin ne peut pas se desactiver lui-meme (protection applicative). |
-| **Operation** | DESACTIVER_USER |
-| **Description** | Mise a jour de `est_actif=0`. La session active de l'utilisateur est invalidee au prochain acces (verification `est_actif` dans le middleware d'authentification). L'utilisateur n'est pas supprime, son historique reste tracable. |
-| **Entites MCD** | W : `user` (UPDATE est_actif=0) |
-| **Resultat** | Utilisateur desactive, acces back-office bloque |
+| Field | Value |
+|-------|-------|
+| **Triggering event** | Admin confirms deletion of a product |
+| **Actor** | ADMIN |
+| **Synchronisation** | None |
+| **Condition** | Actor holds permission `product.delete`. Product is not a slot option in any `menu_slot_option` (FK `ON DELETE RESTRICT`). Product is not referenced in any `order_item` historical line (FK `ON DELETE RESTRICT`). Preliminary check required. |
+| **Operation** | DELETE_PRODUCT |
+| **Description** | Physical deletion of the product if no FK constraint blocks. If the product is referenced in a menu slot or historical order line, deletion is blocked. The recommended alternative is to deactivate (`is_available=0`). Also blocks if the product is the `burger_product_id` of any `menu`. |
+| **MCD entities** | W: `product` (DELETE — blocked if referenced in `menu_slot_option`, `order_item`, or `menu.burger_product_id`) |
+| **Result** | Product deleted OR error "product in use" |
 
 ---
 
-### 9.4 Gerer la matrice role-permissions
+### 8.4 CREATE_MENU
 
-| Champ | Valeur |
-|-------|--------|
-| **Evenement declencheur** | L'admin modifie l'assignation des permissions pour un role |
-| **Acteur** | ADMIN |
-| **Synchronisation** | Aucune |
-| **Condition** | L'acteur possede la permission `role.manage`. Les permissions selectionnees existent en base. |
-| **Operation** | GERER_MATRICE_RBAC |
-| **Description** | Mise a jour de la table `role_permission` pour un role donne : suppression des anciennes assignations et insertion des nouvelles (pattern delete-and-reinsert). Les permissions elles-memes sont statiques (declarees en migration, non modifiables via UI). |
-| **Entites MCD** | R : `role`, `permission` - W : `role_permission` (DELETE + INSERT) |
-| **Resultat** | Matrice RBAC mise a jour, prise en effet au prochain acces des utilisateurs portant ce role |
-
----
-
-## 10. Domaine 8 - Authentification back-office
-
-### 10.1 Se connecter au back-office
-
-| Champ | Valeur |
-|-------|--------|
-| **Evenement declencheur** | Un acteur soumet le formulaire de connexion |
-| **Acteur** | ACCUEIL / CUISINE / ADMIN |
-| **Synchronisation** | Aucune |
-| **Condition** | L'email existe en base. Le mot de passe correspond au hash argon2id. L'utilisateur est actif (`est_actif=1`). |
-| **Operation** | AUTHENTIFIER_USER |
-| **Description** | Verification des identifiants. Si valides : regeneration de l'identifiant de session (protection contre la fixation de session), stockage du `user_id` et du `role_id` en session, mise a jour de `last_login_at`. Idle timeout : 4h. Absolute timeout : 10h. |
-| **Entites MCD** | R : `user` (verification), `role` (chargement permissions) - W : `user` (UPDATE last_login_at) |
-| **Resultat** | Session ouverte, redirection vers la vue correspondant au role |
+| Field | Value |
+|-------|-------|
+| **Triggering event** | Admin or manager submits the menu creation form with its slot configuration |
+| **Actor** | ADMIN or MANAGER |
+| **Synchronisation** | None |
+| **Condition** | Actor holds permission `menu.create`. `name` is non-empty. `price_normal_cents > 0`, `price_maxi_cents > 0`. `burger_product_id` references an existing product. At least one slot is defined with at least one option. |
+| **Operation** | CREATE_MENU |
+| **Description** | Transaction: INSERT `menu` (with `burger_product_id`, `price_normal_cents`, `price_maxi_cents`), then INSERT `menu_slot` rows (one per slot: drink, side, sauce...), then INSERT `menu_slot_option` rows (eligible products per slot). |
+| **MCD entities** | R: `product` (burger FK validation, slot options validation), `category` — W: `menu` (INSERT), `menu_slot` (INSERT), `menu_slot_option` (INSERT) |
+| **Result** | Menu created with its slot configuration, visible on the kiosk |
 
 ---
 
-### 10.2 Se deconnecter du back-office
+### 8.5 UPDATE_MENU
 
-| Champ | Valeur |
-|-------|--------|
-| **Evenement declencheur** | L'acteur clique sur "Deconnexion" ou la session expire |
-| **Acteur** | ACCUEIL / CUISINE / ADMIN / SYS (expiration) |
-| **Synchronisation** | OU |
-| **Condition** | Une session valide est ouverte |
-| **Operation** | DECONNECTER_USER |
-| **Description** | Destruction de la session PHP (`session_destroy()`). La session est supprimee cote serveur. Le cookie de session est invalide. |
-| **Entites MCD** | Aucune ecriture en base (la gestion de session est en PHP natif, hors BDD pour MVP) |
-| **Resultat** | Session detruite, redirection vers la page de connexion |
+| Field | Value |
+|-------|-------|
+| **Triggering event** | Admin or manager submits the menu update form |
+| **Actor** | ADMIN or MANAGER |
+| **Synchronisation** | None |
+| **Condition** | Actor holds permission `menu.update`. Menu exists. Updated configuration preserves at least one slot with at least one option. |
+| **Operation** | UPDATE_MENU |
+| **Description** | UPDATE `menu` columns. If slot configuration is modified: DELETE all `menu_slot_option` rows for this menu's slots, DELETE `menu_slot` rows, then re-INSERT (delete-and-reinsert pattern, atomic in transaction). Snapshots in `order_item` are not affected. |
+| **MCD entities** | W: `menu` (UPDATE), `menu_slot` (DELETE + INSERT), `menu_slot_option` (DELETE + INSERT) |
+| **Result** | Menu updated |
 
 ---
 
-## 11. Machine a etats de commande.statut
+### 8.6 DELETE_MENU
 
-Synthese des transitions couvertes par les operations du MCT.
+| Field | Value |
+|-------|-------|
+| **Triggering event** | Admin confirms deletion of a menu |
+| **Actor** | ADMIN |
+| **Synchronisation** | None |
+| **Condition** | Actor holds permission `menu.delete`. Menu is not referenced in any `order_item` historical line (FK `ON DELETE RESTRICT`). Preliminary check required. |
+| **Operation** | DELETE_MENU |
+| **Description** | If no `order_item` references this menu: DELETE `menu_slot_option` (CASCADE from `menu_slot`), DELETE `menu_slot` (CASCADE from `menu`), DELETE `menu`. If historical references exist, propose deactivation (`is_available=0`) instead. |
+| **MCD entities** | W: `menu_slot_option` (DELETE CASCADE), `menu_slot` (DELETE CASCADE), `menu` (DELETE — blocked if referenced in `order_item`) |
+| **Result** | Menu deleted OR error "menu present in historical orders" |
+
+---
+
+### 8.7 MANAGE_CATEGORY
+
+| Field | Value |
+|-------|-------|
+| **Triggering event** | Admin or manager creates, updates, or deactivates a category |
+| **Actor** | ADMIN or MANAGER |
+| **Synchronisation** | OR (create, update, deactivation) |
+| **Condition** | Actor holds permission `category.manage`. For deactivation: products and menus in the category are not auto-deactivated in DB (no CASCADE on `is_active`); the application layer proposes deactivating child products/menus. |
+| **Operation** | MANAGE_CATEGORY |
+| **Description** | CRUD on `category`. Deactivation (`is_active=0`) hides the category and its products from the kiosk without physical deletion. Physical deletion is blocked if products or menus reference this category (FK `ON DELETE RESTRICT`). |
+| **MCD entities** | W: `category` (INSERT / UPDATE / conditional DELETE) |
+| **Result** | Category created / updated / deactivated |
+
+---
+
+### 8.8 MANAGE_INGREDIENT
+
+| Field | Value |
+|-------|-------|
+| **Triggering event** | Admin or manager creates, updates, or deactivates an ingredient; or manages product composition (`product_ingredient`) or allergen mapping (`ingredient_allergen`) |
+| **Actor** | ADMIN or MANAGER |
+| **Synchronisation** | OR (create ingredient, update ingredient, update composition, update allergen mapping) |
+| **Condition** | Actor holds permission `ingredient.manage`. |
+| **Operation** | MANAGE_INGREDIENT |
+| **Description** | CRUD on `ingredient` (name, unit, pack_size, pack_label, low_stock_threshold, is_active). Manage `product_ingredient` composition (quantity_normal, quantity_maxi, is_removable, is_addable, extra_price_cents) for any product. Manage `ingredient_allergen` mapping (14 EU regulated allergens). Deactivating an ingredient (`is_active=0`) hides it from the configurator without deletion. Physical deletion of `ingredient` is blocked if referenced in `product_ingredient` (FK `ON DELETE RESTRICT`) or `stock_movement` (FK `ON DELETE RESTRICT`). |
+| **MCD entities** | R: `product` (FK validation), `allergen` (FK validation) — W: `ingredient` (INSERT/UPDATE/DELETE conditional), `product_ingredient` (INSERT/UPDATE/DELETE), `ingredient_allergen` (INSERT/DELETE) |
+| **Result** | Ingredient / composition / allergen mapping updated |
+
+---
+
+## 9. Domain 7 — Stock management
+
+### 9.1 RESTOCK
+
+| Field | Value |
+|-------|-------|
+| **Triggering event** | Manager or admin records a delivery of ingredient packs |
+| **Actor** | MANAGER or ADMIN |
+| **Synchronisation** | None |
+| **Condition** | Actor holds permission `stock.manage`. Ingredient exists and `is_active=1`. Number of packs `N >= 1`. |
+| **Operation** | RESTOCK |
+| **Description** | UPDATE `ingredient.stock_quantity += N * pack_size`. INSERT one `stock_movement` row: type `restock`, delta `+= N * pack_size`, `user_id` of the actor, optional `note` (e.g. delivery reference). Both writes are in the same transaction. |
+| **MCD entities** | R: `ingredient` — W: `ingredient` (UPDATE stock_quantity), `stock_movement` (INSERT type `restock`) |
+| **Result** | Stock incremented, movement logged |
+
+---
+
+### 9.2 INVENTORY_COUNT
+
+| Field | Value |
+|-------|-------|
+| **Triggering event** | A staff member or manager records the result of a physical inventory count |
+| **Actor** | KITCHEN, COUNTER, DRIVE, MANAGER, or ADMIN |
+| **Synchronisation** | None |
+| **Condition** | Actor holds permission `stock.count`. Ingredient exists. Physical count `actual_quantity >= 0`. |
+| **Operation** | INVENTORY_COUNT |
+| **Description** | Compute `delta = actual_quantity - ingredient.stock_quantity` (may be negative or positive). UPDATE `ingredient.stock_quantity = actual_quantity`. INSERT one `stock_movement` row: type `inventory_correction`, delta = computed discrepancy, `user_id` of the actor, optional `note`. Both writes in the same transaction. |
+| **MCD entities** | R: `ingredient` (read current stock_quantity) — W: `ingredient` (UPDATE stock_quantity), `stock_movement` (INSERT type `inventory_correction`) |
+| **Result** | Stock reconciled to physical count, discrepancy logged |
+
+---
+
+### 9.3 READ_STOCK
+
+| Field | Value |
+|-------|-------|
+| **Triggering event** | An authorised actor accesses the stock view |
+| **Actor** | KITCHEN, COUNTER, DRIVE, MANAGER, or ADMIN |
+| **Synchronisation** | None |
+| **Condition** | Actor holds permission `stock.read`. |
+| **Operation** | READ_STOCK |
+| **Description** | Read `ingredient` list with current `stock_quantity`, `low_stock_threshold`, `pack_size`, `pack_label`. Low-stock alert computed at display time: `stock_quantity <= low_stock_threshold`. Optional: read `stock_movement` history for a given ingredient, filtered by date range. |
+| **MCD entities** | R: `ingredient`, `stock_movement` (optional history) |
+| **Result** | Stock list displayed with low-stock indicators |
+
+---
+
+## 10. Domain 8 — User and role management (admin)
+
+### 10.1 CREATE_USER
+
+| Field | Value |
+|-------|-------|
+| **Triggering event** | Admin submits the user creation form |
+| **Actor** | ADMIN |
+| **Synchronisation** | None |
+| **Condition** | Actor holds permission `user.create`. Email does not already exist in `user.email` (UNIQUE constraint). A valid and active `role_id` is selected. |
+| **Operation** | CREATE_USER |
+| **Description** | INSERT user with argon2id password hash. Email is unique. `role_id` is mandatory (FK NOT NULL). `is_active=1` by default. `last_login_at=NULL` at creation. |
+| **MCD entities** | R: `role` (FK validation) — W: `user` (INSERT) |
+| **Result** | User created, can log into the back-office |
+
+---
+
+### 10.2 UPDATE_USER
+
+| Field | Value |
+|-------|-------|
+| **Triggering event** | Admin submits the user update form |
+| **Actor** | ADMIN |
+| **Synchronisation** | None |
+| **Condition** | Actor holds permission `user.update`. User exists. If a new password is provided, it is re-hashed. |
+| **Operation** | UPDATE_USER |
+| **Description** | UPDATE modifiable fields (`first_name`, `last_name`, `email`, `role_id`, `is_active`). If a new password is supplied, it replaces the existing hash (argon2id rehash). |
+| **MCD entities** | W: `user` (UPDATE) |
+| **Result** | User updated |
+
+---
+
+### 10.3 DEACTIVATE_USER
+
+| Field | Value |
+|-------|-------|
+| **Triggering event** | Admin clicks "Deactivate" for a user |
+| **Actor** | ADMIN |
+| **Synchronisation** | None |
+| **Condition** | Actor holds permission `user.deactivate`. Admin cannot deactivate their own account (application-level protection). |
+| **Operation** | DEACTIVATE_USER |
+| **Description** | UPDATE `is_active=0`. The user's active session is invalidated on next access (middleware checks `is_active=1` on each authenticated request). User is not deleted; history remains traceable. |
+| **MCD entities** | W: `user` (UPDATE is_active=0) |
+| **Result** | User deactivated, back-office access blocked |
+
+---
+
+### 10.4 MANAGE_RBAC
+
+| Field | Value |
+|-------|-------|
+| **Triggering event** | Admin modifies permission assignments for a role, or creates / updates a custom role |
+| **Actor** | ADMIN |
+| **Synchronisation** | OR (update role permissions, create custom role, update role attributes) |
+| **Condition** | Actor holds permission `role.manage`. Selected permissions exist in the `permission` catalogue. |
+| **Operation** | MANAGE_RBAC |
+| **Description** | Update `role_permission` for a given role: DELETE existing assignments, INSERT new ones (delete-and-reinsert, atomic in transaction). Permissions themselves are static (declared in migration, not modifiable via UI). Also covers: CREATE/UPDATE custom `role` (code, label, description, default_route, order_source), UPDATE `role_visible_source` (visible dashboard sources for the role). RBAC architecture rule: application code tests permissions, not role names — adding a new role with correct permissions requires no code change. |
+| **MCD entities** | R: `role`, `permission` — W: `role_permission` (DELETE + INSERT), `role` (INSERT/UPDATE for custom roles), `role_visible_source` (INSERT/DELETE) |
+| **Result** | RBAC matrix updated, effective immediately for new requests of users bearing this role |
+
+---
+
+## 11. Domain 9 — Stats and KPI
+
+### 11.1 READ_STATS
+
+| Field | Value |
+|-------|-------|
+| **Triggering event** | Manager or admin accesses the stats dashboard |
+| **Actor** | MANAGER or ADMIN |
+| **Synchronisation** | None |
+| **Condition** | Actor holds permission `stats.read`. |
+| **Operation** | READ_STATS |
+| **Description** | Aggregate queries on `customer_order` and `order_item`. Key aggregations: order count and revenue (TTC) by `service_day` (computed with CASE WHEN HOUR(created_at) < 10 THEN DATE(created_at) - INTERVAL 1 DAY ELSE DATE(created_at) END; cutoff at 10:00); top products by `label_snapshot` COUNT in `order_item`; cancellation rate; average delivery time `delivered_at - paid_at`; breakdown by `source` and `service_mode`. Queries exclude cancelled orders from revenue sums but include them in volume counts. No additional stored column for `service_day`; computation at query time. |
+| **MCD entities** | R: `customer_order`, `order_item` |
+| **Result** | Stats dashboard displayed |
+
+---
+
+## 12. Domain 10 — Back-office authentication
+
+### 12.1 AUTHENTICATE_USER
+
+| Field | Value |
+|-------|-------|
+| **Triggering event** | An actor submits the login form |
+| **Actor** | COUNTER / DRIVE / KITCHEN / MANAGER / ADMIN |
+| **Synchronisation** | None |
+| **Condition** | Email exists in database. Password matches argon2id hash. User `is_active=1`. |
+| **Operation** | AUTHENTICATE_USER |
+| **Description** | Credential verification. If valid: session ID regeneration (protection against session fixation), storage of `user_id` and `role_id` in session, UPDATE `last_login_at`. Idle timeout: 4h. Absolute timeout: 10h. Redirect to `role.default_route`. |
+| **MCD entities** | R: `user` (verification), `role` (load permissions, default_route), `role_permission` — W: `user` (UPDATE last_login_at) |
+| **Result** | Session opened, redirect to role-specific default view |
+
+---
+
+### 12.2 LOGOUT_USER
+
+| Field | Value |
+|-------|-------|
+| **Triggering event** | Actor clicks "Logout" OR session expires |
+| **Actor** | COUNTER / DRIVE / KITCHEN / MANAGER / ADMIN / SYS (expiry) |
+| **Synchronisation** | OR |
+| **Condition** | A valid session is open |
+| **Operation** | LOGOUT_USER |
+| **Description** | PHP session destruction (`session_destroy()`). Session deleted server-side. Session cookie invalidated. |
+| **MCD entities** | No database write (session management is in PHP native, outside DB for this project) |
+| **Result** | Session destroyed, redirect to login page |
+
+---
+
+## 13. State machine — customer_order.status
+
+Summary of transitions covered by MCT operations.
 
 ```
-                  [CLIENT / ACCUEIL]
-                  PASSER_COMMANDE
-                  SAISIR_COMMANDE_MANUELLE
-                        |
-                        v
-              [ pending_payment ]  (commande composee, paiement en attente)
-                        |
-          [CLIENT / ACCUEIL] paiement confirme
-          (atomique dans PASSER_COMMANDE / SAISIR_COMMANDE_MANUELLE)
-                        |
-                        v
-                   [ paid ]
-                        |
-          [CUISINE] MARQUER_EN_PREPARATION
-                        |
-                        v
-                  [ preparing ]
-                        |
-              [CUISINE] MARQUER_PRETE
-                        |
-                        v
-                   [ ready ]
-                        |
-            [ACCUEIL] DECLARER_LIVREE
-                        |
-                        v
-                  [ delivered ]  (terminal, non annulable)
+               [CUSTOMER / COUNTER / DRIVE]
+               CREATE_ORDER
+               CREATE_COUNTER_ORDER
+                      |
+                      v
+           [ pending_payment ]  (order composed, payment pending)
+                      |
+    [CUSTOMER / COUNTER / DRIVE] payment confirmed
+    (atomic within CREATE_ORDER / CREATE_COUNTER_ORDER)
+                      |
+                      v
+                 [ paid ]
+                      |
+      [COUNTER / DRIVE] DELIVER_ORDER
+                      |
+                      v
+               [ delivered ]  (terminal, cannot be cancelled)
 
 
-  Depuis pending_payment / paid / preparing / ready :
-  [ACCUEIL ou ADMIN] ANNULER_COMMANDE
-                        |
-                        v
-                  [ cancelled ]  (terminal)
+  From pending_payment / paid:
+  [COUNTER, DRIVE, or ADMIN] CANCEL_ORDER
+                      |
+                      v
+               [ cancelled ]  (terminal)
 ```
 
-**Note sur la transition `pending_payment -> paid`** : dans le cadre RNCP, le paiement est
-remplace par la saisie du numero de commande par le client (borne) ou par la validation de
-l'equipier (comptoir/drive). La transition est atomique au sein des operations PASSER_COMMANDE
-et SAISIR_COMMANDE_MANUELLE. Le statut `pending_payment` est visible en base le temps de la
-transaction, et le statut final stocke est `paid`. Ce decoupage en deux etats reflete la
-semantique metier (le client compose SA commande, PUIS il paie) et preserve la capacite
-d'evolution vers un paiement reel sans migration destructive.
+**Note on the `pending_payment -> paid` transition**: in the RNCP context, payment is
+replaced by the customer entering their order number (kiosk) or by staff validation
+(counter/drive). The transition is atomic within CREATE_ORDER and CREATE_COUNTER_ORDER.
+The `pending_payment` status is not observable outside the transaction.
+
+**Dropped from v0.1**: `preparing` and `ready` states; `MARK_IN_PREPARATION` and `MARK_READY`
+operations. Kitchen staff have a read-only view of `paid` orders (LIST_ORDERS_DISPLAY). The
+single delivery action (DELIVER_ORDER) collapses the v0.1 three-step sequence into one gesture.
 
 ---
 
-## 12. Tableau de synthese des operations
+## 14. Operations summary table
 
-| # | Operation | Domaine | Acteur | Entites W | Entites R |
-|---|-----------|---------|--------|-----------|-----------|
-| 1 | CHARGER_CATALOGUE | Commande kiosk | CLIENT | - | categorie, produit, menu, menu_produit |
-| 2 | COMPOSER_PANIER | Commande kiosk | CLIENT | - (volatile) | produit, menu, menu_produit |
-| 3 | PASSER_COMMANDE | Commande kiosk | CLIENT | commande, ligne_commande, commande_event | produit, menu |
-| 4 | AFFICHER_CONFIRMATION | Commande kiosk | SYS | - | - |
-| 5 | SAISIR_COMMANDE_MANUELLE | Commande comptoir/drive | ACCUEIL | commande, ligne_commande, commande_event | produit, menu, menu_produit |
-| 6 | LISTER_COMMANDES_A_PREPARER | Preparation | CUISINE | - | commande, ligne_commande |
-| 7 | MARQUER_EN_PREPARATION | Preparation | CUISINE | commande, commande_event | - |
-| 8 | MARQUER_PRETE | Preparation | CUISINE | commande, commande_event | - |
-| 9 | LISTER_COMMANDES_PRETES | Remise client | ACCUEIL | - | commande, ligne_commande |
-| 10 | DECLARER_LIVREE | Remise client | ACCUEIL | commande, commande_event | - |
-| 11 | ANNULER_COMMANDE | Annulation | ACCUEIL / ADMIN | commande, commande_event | - |
-| 12 | CREER_PRODUIT | Catalogue | ADMIN | produit | categorie |
-| 13 | MODIFIER_PRODUIT | Catalogue | ADMIN | produit | - |
-| 14 | SUPPRIMER_PRODUIT | Catalogue | ADMIN | produit | menu_produit |
-| 15 | CREER_MENU | Catalogue | ADMIN | menu, menu_produit | produit, categorie |
-| 16 | MODIFIER_MENU | Catalogue | ADMIN | menu, menu_produit | - |
-| 17 | SUPPRIMER_MENU | Catalogue | ADMIN | menu_produit, menu | ligne_commande |
-| 18 | GERER_CATEGORIE | Catalogue | ADMIN | categorie | produit, menu |
-| 19 | CREER_USER | RBAC | ADMIN | user | role |
-| 20 | MODIFIER_USER | RBAC | ADMIN | user | - |
-| 21 | DESACTIVER_USER | RBAC | ADMIN | user | - |
-| 22 | GERER_MATRICE_RBAC | RBAC | ADMIN | role_permission | role, permission |
-| 23 | AUTHENTIFIER_USER | Auth | ALL BACK | user | user, role |
-| 24 | DECONNECTER_USER | Auth | ALL BACK | - | - |
+| # | Operation | Domain | Actor | W Entities | R Entities |
+|---|-----------|--------|-------|------------|------------|
+| 1 | LOAD_CATALOGUE | Order kiosk | CUSTOMER | — | category, product, menu, menu_slot, menu_slot_option, ingredient, allergen, ingredient_allergen |
+| 2 | COMPOSE_CART | Order kiosk | CUSTOMER | — (volatile) | product, menu, menu_slot, menu_slot_option, ingredient, product_ingredient |
+| 3 | CREATE_ORDER | Order kiosk | CUSTOMER | customer_order, order_item, order_item_selection, order_item_modifier, ingredient, stock_movement | product, menu, ingredient, product_ingredient |
+| 4 | DISPLAY_CONFIRMATION | Order kiosk | SYS | — | — |
+| 5 | CREATE_COUNTER_ORDER | Order counter/drive | COUNTER/DRIVE | customer_order, order_item, order_item_selection, order_item_modifier, ingredient, stock_movement | product, menu, menu_slot, menu_slot_option, ingredient, product_ingredient |
+| 6 | LIST_ORDERS_DISPLAY | Preparation | KITCHEN/COUNTER/DRIVE/ADMIN | — | customer_order, order_item, order_item_selection, order_item_modifier, role_visible_source |
+| 7 | DELIVER_ORDER | Delivery | COUNTER/DRIVE | customer_order | — |
+| 8 | CANCEL_ORDER | Cancellation | COUNTER/DRIVE/ADMIN | customer_order, ingredient, stock_movement | order_item, order_item_modifier, ingredient, product_ingredient |
+| 9 | CREATE_PRODUCT | Catalogue | ADMIN/MANAGER | product | category |
+| 10 | UPDATE_PRODUCT | Catalogue | ADMIN/MANAGER | product | — |
+| 11 | DELETE_PRODUCT | Catalogue | ADMIN | product | menu_slot_option, order_item, menu |
+| 12 | CREATE_MENU | Catalogue | ADMIN/MANAGER | menu, menu_slot, menu_slot_option | product, category |
+| 13 | UPDATE_MENU | Catalogue | ADMIN/MANAGER | menu, menu_slot, menu_slot_option | — |
+| 14 | DELETE_MENU | Catalogue | ADMIN | menu_slot_option, menu_slot, menu | order_item |
+| 15 | MANAGE_CATEGORY | Catalogue | ADMIN/MANAGER | category | product, menu |
+| 16 | MANAGE_INGREDIENT | Catalogue | ADMIN/MANAGER | ingredient, product_ingredient, ingredient_allergen | product, allergen |
+| 17 | RESTOCK | Stock | MANAGER/ADMIN | ingredient, stock_movement | ingredient |
+| 18 | INVENTORY_COUNT | Stock | KITCHEN/COUNTER/DRIVE/MANAGER/ADMIN | ingredient, stock_movement | ingredient |
+| 19 | READ_STOCK | Stock | KITCHEN/COUNTER/DRIVE/MANAGER/ADMIN | — | ingredient, stock_movement |
+| 20 | CREATE_USER | RBAC | ADMIN | user | role |
+| 21 | UPDATE_USER | RBAC | ADMIN | user | — |
+| 22 | DEACTIVATE_USER | RBAC | ADMIN | user | — |
+| 23 | MANAGE_RBAC | RBAC | ADMIN | role_permission, role, role_visible_source | role, permission |
+| 24 | READ_STATS | Stats | MANAGER/ADMIN | — | customer_order, order_item |
+| 25 | AUTHENTICATE_USER | Auth | ALL BACK | user | user, role, role_permission |
+| 26 | LOGOUT_USER | Auth | ALL BACK | — | — |
 
-**Total : 24 operations** couvrant la totalite du cycle de vie metier Wakdo.
-
----
-
-## 13. Cross-validation MCT -> MCD (mantra #34)
-
-Verification que chaque entite du MCD participe a au moins une operation du MCT.
-
-| Entite MCD | Operations qui la lisent | Operations qui l'ecrivent | Couverture |
-|------------|--------------------------|--------------------------|------------|
-| `categorie` | 1, 12, 15, 18 | 18 | OK |
-| `produit` | 1, 2, 3, 5, 12, 14 | 12, 13, 14 | OK |
-| `menu` | 1, 2, 3, 5, 15, 17 | 15, 16, 17 | OK |
-| `menu_produit` | 1, 2, 5, 14 | 15, 16, 17 | OK |
-| `commande` | 6, 9 | 3, 5, 7, 8, 10, 11 | OK |
-| `ligne_commande` | 6, 9, 17 | 3, 5 | OK |
-| `commande_event` | - (lecture via SELECT historique non listee comme operation) | 3, 5, 7, 8, 10, 11 | OK |
-| `user` | 23 | 19, 20, 21, 23 | OK |
-| `role` | 19, 22, 23 | 22 | OK |
-| `permission` | 22 | - (statique, migration) | OK (*) |
-| `role_permission` | - | 22 | OK |
-
-(*) `permission` est en lecture seule via les operations MCT : ses valeurs sont declarees en
-migration SQL et ne sont pas modifiables via UI (RBAC statique cote permissions, dynamique
-cote roles). Cette decision est documentee dans le MCD section 4.3.
-
-**Conclusion** : 11/11 entites couvertes. Coherence MCT <-> MCD validee.
+**Total: 26 operations** covering the complete Wakdo business lifecycle.
 
 ---
 
-## 14. Points d'incoherence detectes et signalement
+## 15. MCT -> MCD cross-validation (mantra #34)
 
-Les points suivants necessite une attention ou une decision de l'auteur :
+Verification that each MCD entity participates in at least one MCT operation.
 
-### 14.1 Divergence `commande.statut` entre dictionnaire et PROJECT_CONTEXT - RESOLUE
+| MCD entity | Operations that read | Operations that write | Coverage |
+|------------|---------------------|----------------------|----------|
+| `category` | 1, 9, 12, 15 | 15 | OK |
+| `product` | 1, 2, 3, 5, 9, 11, 12 | 9, 10, 11 | OK |
+| `menu` | 1, 2, 3, 5, 12, 14 | 12, 13, 14 | OK |
+| `menu_slot` | 1, 2, 5 | 12, 13, 14 | OK |
+| `menu_slot_option` | 1, 2, 5, 11 | 12, 13, 14 | OK |
+| `ingredient` | 1, 2, 3, 5, 8, 16, 17, 18, 19 | 3, 5, 8, 16, 17, 18 | OK |
+| `product_ingredient` | 2, 3, 5, 8 | 16 | OK |
+| `allergen` | 1 | — (static seed) | OK (*) |
+| `ingredient_allergen` | 1 | 16 | OK |
+| `customer_order` | 6, 8, 24 | 3, 5, 7, 8 | OK |
+| `order_item` | 6, 8, 14, 24 | 3, 5 | OK |
+| `order_item_selection` | 6 | 3, 5 | OK |
+| `order_item_modifier` | 6, 8 | 3, 5 | OK |
+| `user` | 25 | 20, 21, 22, 25 | OK |
+| `role` | 20, 23, 25 | 23 | OK |
+| `role_visible_source` | 6 | 23 | OK |
+| `permission` | 23 | — (static seed) | OK (*) |
+| `role_permission` | 25 | 23 | OK |
+| `stock_movement` | 19 | 3, 5, 8, 17, 18 | OK |
 
-- **Machine canonique retenue** : `pending_payment -> paid -> preparing -> ready -> delivered` (transitions nominales) ; `cancelled` atteignable depuis tout etat non remis (`pending_payment`, `paid`, `preparing`, `ready`), pour couvrir modification, annulation et remboursement client.
-- **Arbitrage** : la regle metier confirmee impose deux phases successives : le client compose sa commande (statut `pending_payment`), puis il paie (statut `paid`). PROJECT_CONTEXT utilisait un terme `pending` simplifie qui ne refletait pas cette distinction. La machine canonique du dictionnaire est la source de verite. La transition `pending_payment -> paid` est atomique dans les operations PASSER_COMMANDE et SAISIR_COMMANDE_MANUELLE dans le cadre RNCP (substitut de paiement = saisie du numero). Ce point est considere comme clos.
+(*) `allergen` and `permission` are read-only at the MCT level: their values are declared
+in seed migrations and are not modifiable via the UI. `allergen` is managed indirectly
+via `ingredient_allergen` in MANAGE_INGREDIENT.
 
-### 14.2 Absence d'acteur `user` lie a `commande` - RESOLUE (2026-05-28)
-
-**Decision actee** : pas de colonne `user_id` directe sur `commande`, mais une table d'audit dediee `commande_event` (cf. dictionnaire 3.7, MCD 4.2.bis). Pattern event sourcing simplifie. Chaque operation qui modifie `commande.statut` insere une ligne dans `commande_event` avec l'utilisateur a l'origine de la transition (NULL si auto-validation kiosk). Tracabilite complete sans denormalisation lourde sur `commande`.
-
-### 14.3 Colonne `source` absente de `commande` dans le dictionnaire - RESOLUE (2026-05-28)
-
-**Decision actee** : ajout d'une colonne `source ENUM('kiosk','comptoir','drive')` sur `commande`, en plus de `mode_consommation`. Les deux dimensions sont **distinctes** :
-- `source` = canal de saisie (kiosk / comptoir / drive) - input
-- `mode_consommation` = mode de consommation fiscal (sur_place / a_emporter / drive) - output
-
-Contrainte croisee : `source = drive` implique `mode_consommation = drive` (verifiee au MLT lors de la creation de commande). Pour `kiosk` et `comptoir`, les deux dimensions sont independantes. Documente dans le dictionnaire notes 8 et 9.
-
-### 14.4 Stats et `service_day`
-
-PROJECT_CONTEXT documente une logique `service_day` (section 2). Le MCT ne couvre pas
-l'agregation des stats (cron 04h30). Ce traitement est volontairement hors scope MCT (c'est
-un traitement technique automatise, pas un traitement metier interactif). Il sera documente
-dans le MLT (section cron).
+**Conclusion**: 19/19 entities covered. MCT <-> MCD consistency validated.
