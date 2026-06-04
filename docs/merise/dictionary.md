@@ -167,8 +167,9 @@ Transaction client : 1 commande = 1 panier valide a un instant donne.
 |---|---|---|---|---|---|
 | `id` | INT UNSIGNED | NO | AUTO_INCREMENT | PK | |
 | `numero` | VARCHAR(20) | NO | - | UNIQUE | format humain ex : `K-2026-04-30-001`, genere a la creation |
-| `mode_consommation` | ENUM('sur_place','a_emporter','drive') | NO | - | - | impacte la TVA et le flux operationnel |
-| `statut` | ENUM('pending_payment','paid','preparing','ready','delivered','cancelled') | NO | 'pending_payment' | INDEX | machine a etats (cf. MCT a venir) |
+| `source` | ENUM('kiosk','comptoir','drive') | NO | - | INDEX | canal de saisie de la commande (cf. note 8) |
+| `mode_consommation` | ENUM('sur_place','a_emporter','drive') | NO | - | - | mode de consommation fiscal et operationnel (impacte la TVA, cf. note 9) |
+| `statut` | ENUM('pending_payment','paid','preparing','ready','delivered','cancelled') | NO | 'pending_payment' | INDEX | machine a etats (cf. MCT) |
 | `total_ht_cents` | INT UNSIGNED | NO | - | CHECK >= 0 | snapshot calcule a la validation |
 | `total_tva_cents` | INT UNSIGNED | NO | - | CHECK >= 0 | snapshot |
 | `total_ttc_cents` | INT UNSIGNED | NO | - | CHECK > 0 | snapshot, doit valoir total_ht_cents + total_tva_cents (verification au MLT) |
@@ -217,7 +218,36 @@ Argumentaire jury : integrite des donnees comptables.
 
 ---
 
-### 3.7 `user`
+### 3.7 `commande_event`
+
+Journal d'audit append-only : 1 ligne par changement d'etat d'une commande. Pattern
+event sourcing simplifie (cf. note 10). Trace **qui** a fait **quoi**, **quand**, sur quelle
+commande, avec quel contexte. Aucun update / delete autorise (immuable).
+
+| Attribut | Type | NULL | Defaut | Contrainte | Notes |
+|---|---|---|---|---|---|
+| `id` | INT UNSIGNED | NO | AUTO_INCREMENT | PK | |
+| `commande_id` | INT UNSIGNED | NO | - | FK -> `commande(id)`, ON DELETE CASCADE | si la commande disparait, son journal aussi |
+| `event_type` | ENUM('CREATED','PAID','PREPARING_STARTED','READY','DELIVERED','CANCELLED') | NO | - | INDEX | type d'evenement, aligne sur la machine a etats |
+| `from_statut` | ENUM('pending_payment','paid','preparing','ready','delivered','cancelled') | YES | NULL | - | statut avant transition (NULL pour CREATED) |
+| `to_statut` | ENUM('pending_payment','paid','preparing','ready','delivered','cancelled') | NO | - | - | statut apres transition |
+| `user_id` | INT UNSIGNED | YES | NULL | FK -> `user(id)`, ON DELETE SET NULL | NULL si auto-validation kiosk ou system event ; sinon = equipier qui a declenche |
+| `payload` | JSON | YES | NULL | - | contexte additionnel : raison annulation, methode paiement, montant rembourse, etc. |
+| `created_at` | DATETIME | NO | CURRENT_TIMESTAMP | INDEX | timestamp immuable de l'evenement |
+
+**Cle primaire** : `id`.
+
+**Index supplementaires** :
+- `(commande_id, created_at)` pour requete "historique d'une commande"
+- `(user_id, created_at)` pour requete "actions d'un equipier sur une periode"
+
+**Volume** : ~5-8 events par commande (1 CREATED + 1 PAID + 1 PREPARING + 1 READY + 1 DELIVERED, plus eventuels CANCELLED). Sur 6 mois, ~50k-80k lignes.
+
+**ON DELETE SET NULL sur `user_id`** : si un user est supprime (rare, cf. soft delete), les events restent (audit preserve) mais l'attribution est perdue. Le brief peut imposer `ON DELETE RESTRICT` si l'integrite de l'audit est critique.
+
+---
+
+### 3.8 `user`
 
 Utilisateur du back-office (admin, manager, equipier) - **pas** les clients de la borne, qui
 ne sont pas authentifies.
@@ -242,7 +272,7 @@ total = 254 (incluant le `@`). VARCHAR(254) est la valeur conforme spec.
 
 ---
 
-### 3.8 `role`
+### 3.9 `role`
 
 Roles utilisables dans le back-office (RBAC). Creables / modifiables / desactivables depuis
 l'UI admin (les permissions sont statiques, declarees en migration).
@@ -262,7 +292,7 @@ via UI admin sans deploiement.
 
 ---
 
-### 3.9 `permission`
+### 3.10 `permission`
 
 Permissions granulaires assignables aux roles (ex : `produit.create`, `commande.read`).
 
@@ -279,7 +309,7 @@ commande, stats).
 
 ---
 
-### 3.10 `role_permission` (jointure)
+### 3.11 `role_permission` (jointure)
 
 Mapping N-N entre roles et permissions.
 
@@ -295,149 +325,9 @@ permissions, les autres roles un sous-ensemble).
 
 ---
 
-## 4. Diagramme entites-relations (preview MCD)
+## 4. Notes de modelisation
 
-Diagramme rendu en Mermaid (visible directement dans GitHub et la plupart des viewers
-markdown). La syntaxe `erDiagram` cible Merise : entites + cardinalites min/max.
-
-```mermaid
-erDiagram
-    CATEGORIE {
-        int id PK
-        varchar libelle "UNIQUE"
-        varchar slug "UNIQUE"
-        varchar image_path
-        smallint ordre
-        boolean est_actif
-        datetime created_at
-        datetime updated_at
-    }
-
-    PRODUIT {
-        int id PK
-        int categorie_id FK
-        varchar libelle
-        text description
-        int prix_ttc_cents "centimes"
-        varchar image_path
-        boolean est_disponible
-        smallint ordre
-        datetime created_at
-        datetime updated_at
-    }
-
-    MENU {
-        int id PK
-        int categorie_id FK
-        varchar libelle
-        text description
-        int prix_ttc_cents "centimes"
-        varchar image_path
-        boolean est_disponible
-        smallint ordre
-        datetime created_at
-        datetime updated_at
-    }
-
-    MENU_PRODUIT {
-        int menu_id PK_FK
-        int produit_id PK_FK
-        enum role "burger|accompagnement|boisson|sauce|dessert"
-        smallint position
-    }
-
-    COMMANDE {
-        int id PK
-        varchar numero "UNIQUE"
-        enum mode_consommation "sur_place|a_emporter|drive"
-        enum statut "pending_payment|paid|preparing|ready|delivered|cancelled"
-        int total_ht_cents
-        int total_tva_cents
-        int total_ttc_cents
-        smallint tva_taux_pourmille
-        datetime paye_a
-        datetime created_at
-        datetime updated_at
-    }
-
-    LIGNE_COMMANDE {
-        int id PK
-        int commande_id FK
-        enum type_item "produit|menu"
-        int produit_id FK_nullable
-        int menu_id FK_nullable
-        varchar libelle_snapshot
-        int prix_unitaire_ttc_cents_snapshot
-        smallint quantite
-        datetime created_at
-    }
-
-    USER {
-        int id PK
-        varchar email "UNIQUE - RFC 5321"
-        varchar password_hash "argon2id"
-        varchar nom
-        varchar prenom
-        int role_id FK
-        boolean est_actif
-        datetime last_login_at
-        datetime created_at
-        datetime updated_at
-    }
-
-    ROLE {
-        int id PK
-        varchar code "UNIQUE"
-        varchar libelle
-        text description
-        boolean est_actif
-        datetime created_at
-        datetime updated_at
-    }
-
-    PERMISSION {
-        int id PK
-        varchar code "UNIQUE - resource.action"
-        varchar libelle
-        text description
-        datetime created_at
-    }
-
-    ROLE_PERMISSION {
-        int role_id PK_FK
-        int permission_id PK_FK
-    }
-
-    CATEGORIE ||--o{ PRODUIT : "regroupe"
-    CATEGORIE ||--o{ MENU : "regroupe"
-    MENU ||--|{ MENU_PRODUIT : "compose"
-    PRODUIT ||--o{ MENU_PRODUIT : "fait_partie_de"
-    COMMANDE ||--|{ LIGNE_COMMANDE : "contient"
-    LIGNE_COMMANDE }o--o| PRODUIT : "refere_si_type_produit"
-    LIGNE_COMMANDE }o--o| MENU : "refere_si_type_menu"
-    USER }o--|| ROLE : "a_pour_role"
-    ROLE ||--o{ ROLE_PERMISSION : "possede"
-    PERMISSION ||--o{ ROLE_PERMISSION : "assignee_a"
-```
-
-### Lecture des cardinalites Mermaid
-
-| Notation | Signification |
-|---|---|
-| `\|\|--o{` | exactement 1 -> 0 ou plusieurs |
-| `\|\|--\|{` | exactement 1 -> 1 ou plusieurs (au moins 1 obligatoire) |
-| `}o--\|\|` | 0 ou plusieurs -> exactement 1 |
-| `}o--o\|` | 0 ou plusieurs -> 0 ou 1 (relation optionnelle) |
-
-**Cardinalites cles** :
-- `MENU ||--|{ MENU_PRODUIT` : un menu doit avoir au moins 1 entree de composition (regle metier : un menu vide n'a pas de sens)
-- `COMMANDE ||--|{ LIGNE_COMMANDE` : une commande sans ligne ne devrait pas exister (controle au MLT)
-- `LIGNE_COMMANDE }o--o| PRODUIT` et `}o--o| MENU` : la ligne ne pointe que sur l'un des deux selon `type_item` (polymorphisme)
-- `USER }o--|| ROLE` : un user doit avoir un role (`role_id` NOT NULL FK)
-
----
-
-## 5. Notes de modelisation
+> Le diagramme entites-relations et les justifications de cardinalites sont documentes dans [`mcd.md`](mcd.md) (diagrammes drawio des 4 sous-domaines + recapitulatif global). Le dictionnaire ne dedouble pas cette vue pour eviter d'avoir deux sources de verite divergeantes.
 
 ### Note 1 - Pourquoi `INT UNSIGNED` en centimes pour les prix
 
@@ -522,9 +412,93 @@ Choix retenu : 2 colonnes + 2 FKs + contrainte CHECK. Cout : 1 colonne supplemen
   la source ecole (max observe : 41 chars). Marge 3x.
 - `slug` : VARCHAR(60) - coherent avec les conventions URL kebab-case courantes.
 
+### Note 8 - `source` vs `mode_consommation` (separation canal / fiscalite)
+
+Deux dimensions distinctes que la modelisation Wakdo separe explicitement :
+
+| | `source` | `mode_consommation` |
+|---|---|---|
+| Nature | canal de saisie de la commande (input) | mode de consommation (output) |
+| Valeurs | kiosk, comptoir, drive | sur_place, a_emporter, drive |
+| Decision metier | qui a saisi la commande, authentification, analytics | TVA applicable, gestion capacite salle |
+
+Les deux dimensions sont independantes pour `kiosk` et `comptoir` (un client a la borne peut choisir sur_place OU a_emporter ; idem au comptoir). Le `drive` est le seul cas ou les deux dimensions sont identiques : `source=drive` implique `mode_consommation=drive`.
+
+Cette contrainte croisee est verifiee a l'ecriture (MLT - precondition de l'operation `creer_commande`). En SQL elle pourrait etre exprimee par un CHECK : `CHECK (source != 'drive' OR mode_consommation = 'drive')`.
+
+### Note 9 - TVA en restauration rapide chez Wakdo
+
+Wakdo est un fast-food, pas un restaurant a service a table : quel que soit le `mode_consommation`, tout est servi en emballages papier (sur plateau pour `sur_place`, en sac pour `a_emporter` et `drive`). La distinction `sur_place` vs `a_emporter` ne porte donc pas sur le service mais sur :
+
+- **TVA applicable** : 10% pour la consommation immediate sur place, 5,5% pour les produits a emporter destines a la consommation differee (cf. service-public.fr article F31407, 2024)
+- **Occupation salle** : le client `sur_place` consomme une place assise (utile si une feature capacite est ajoutee plus tard)
+
+Le taux de TVA est snapshote dans `commande.tva_taux_pourmille` au moment de la transaction pour preserver l'integrite historique si la legislation evolue.
+
+### Note 10 - Pattern event sourcing simplifie via `commande_event`
+
+Plutot que d'ajouter des colonnes `saisi_par_id`, `valide_par_id`, `prepare_par_id`, `livre_par_id` sur `commande` (denormalisation lourde, 4 FKs), Wakdo retient une table d'audit dediee `commande_event` (cf. entite 3.7).
+
+**Principe** : `commande` porte uniquement l'**etat courant** (`statut`). Chaque transition d'etat insere une ligne dans `commande_event` (append-only, immuable). Pour reconstituer l'historique d'une commande : `SELECT * FROM commande_event WHERE commande_id = ? ORDER BY created_at`.
+
+**Avantages** :
+- Tracabilite complete sans charger `commande` de colonnes peu remplies
+- Extensible : ajouter un nouveau type d'evenement (REFUNDED, RECLAIMED, ...) = ajouter une valeur a l'ENUM `event_type`, sans migration intrusive
+- Compatible avec analytics fines : "temps moyen entre PAID et READY par equipier" via JOIN sur `(user_id, event_type)`
+
+**Couts assumes** :
+- Pattern d'ecriture systematique a respecter : chaque service qui modifie `commande.statut` doit aussi inserer dans `commande_event`. A encapsuler dans un repository pour eviter les oublis.
+- Volume table x5-x8 par rapport a `commande`
+- Requete "qui a saisi cette commande" demande un join (pas de denormalisation `saisi_par_id` directe)
+
+Si le cout SQL devient penible plus tard, on pourra dupliquer `saisi_par_id` sur `commande` comme colonne denormalisee, sans changer le pattern event.
+
+**Defendable a l'oral** comme "audit log applicatif" ou "event sourcing simplifie", aligne sur les pratiques de tracabilite des SI en production.
+
+### Note 11 - Stockage des images : path en VARCHAR vs BLOB en DB
+
+Les colonnes `image_path` (entites `categorie`, `produit`, `menu`) stockent un **chemin relatif** au public root (ex : `/uploads/produits/burger-classique.jpg`), pas un chemin absolu serveur. Le PHP resout via un prefixe configure dans `.env` (`UPLOAD_DIR=public/uploads`).
+
+#### Pourquoi pas un BLOB en BDD ?
+
+L'alternative consistant a stocker les images en LONGBLOB dans MariaDB a ete consideree puis ecartee :
+
+| Critere | `image_path` VARCHAR (retenu) | BLOB en DB |
+|---|---|---|
+| Performance kiosk | Apache sert le fichier en ms (cache OS) | PHP lit la DB + streame, latence multipliee |
+| Cache HTTP | ETag, Last-Modified, cache browser, CDN natifs | A reimplementer cote PHP |
+| Backup BDD | Quelques Mo (paths uniquement) | Croissance Go (66 produits x ~200 Ko + variantes responsive) |
+| Replication / dump | Rapide | Lente, ralentit les ACK |
+| Pipeline image | `convert`, `webp`, optimisation = outils filesystem standards | A reinventer en PHP |
+| Cout cloud (si migration) | Storage S3-like cheap | BDD storage cher |
+
+Pour un MVP fast-food avec borne tactile reactive, le filesystem est le choix par defaut documente dans la litterature web (cf. references). Le BLOB en DB se justifie pour des cas specifiques (fichiers sensibles avec acces controle par ligne, garantie ACID sur le contenu) qui ne s'appliquent pas a un catalogue produit public.
+
+#### Le "leak" de path n'en est pas un
+
+Argument souvent entendu : "stocker un chemin en DB expose la structure du serveur". Analyse :
+
+- `image_path` contient un chemin **relatif** (`/uploads/produits/...`), pas absolu.
+- Cette URL est par definition **publique** : la borne kiosk affiche `<img src="/uploads/produits/burger.jpg">` que n'importe quel visiteur voit dans le HTML.
+- Pour acceder a la colonne `image_path` en DB, un attaquant doit deja avoir une breche DB (SQLi, credentials voles). A ce stade il a deja toutes les donnees metier (commandes, password_hash, etc.) ; connaitre `/uploads/produits/` est l'info la moins critique de la DB.
+
+#### Les vrais risques securite filesystem (traites par ailleurs)
+
+1. **Path traversal a l'upload** : valider que le nom de fichier upload passe par `basename()` + regex `^[a-z0-9_-]+\.(jpg|png|webp)$` cote service admin.
+2. **MIME type spoof** : verifier le vrai MIME via `finfo_file()` (extension `.jpg` ne suffit pas). Desactiver l'execution PHP dans `/uploads/` via Apache (`php_flag engine off` + `FilesMatch .(php|phtml|phar)$ deny`).
+3. **Stockage hors-webroot pour les fichiers sensibles** : pas applicable au catalogue public, mais regle de principe pour PDF de facturation, exports stats, etc.
+4. **Validation taille** : `UPLOAD_MAX_SIZE_MB` dans `.env` + verification PHP cote upload.
+5. **Nom non-predictible pour fichiers sensibles** : UUID au lieu du nom metier si l'image contient des donnees sensibles. Pas applicable a un catalogue public.
+
+#### Sources
+
+- OWASP File Upload Cheat Sheet (section "Filesystem storage")
+- MariaDB Knowledge Base - LONGBLOB performance considerations
+- Apache HTTP Server documentation - `mod_xsendfile` et serving static content
+
 ---
 
-## 6. A faire au prochain sprint (MCD)
+## 5. A faire au prochain sprint (MCD)
 
 - Tracer le MCD avec les cardinalites precises (entites + associations + roles + cardinalites
   min/max)
