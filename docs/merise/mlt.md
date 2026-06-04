@@ -1,588 +1,637 @@
-# Modele Logique des Traitements (MLT) - Wakdo
+# Model of Logical Treatments (MLT) — Wakdo
 
-**Phase Merise** : P1 - Conception, etape 4 (derive du MCT)
-**Statut** : v0.1
-**Date** : 2026-05-21
-**Branche** : `feat/p1-conception`
-**Auteur methodologie** : BYAN
-
----
-
-## 1. Objet du document
-
-Le MLT (Modele Logique des Traitements) raffine chaque operation du MCT en precisant :
-- les **preconditions** (ce qui doit etre vrai avant l'execution)
-- les **regles de traitement** (validations, calculs, logique metier)
-- les **postconditions** (l'etat garanti apres succes)
-- les **sorties** (donnees produites ou evenements emis)
-
-Il fait le lien entre le MCT (niveau conceptuel) et l'implementation PHP/SQL (niveau physique).
-Toutes les references aux entites/attributs sont celles du dictionnaire de donnees
-(`docs/merise/dictionary.md`) et du MCD (`docs/merise/mcd.md`).
-
-**Conventions de ce document** :
-- `[PRE]` : precondition - doit etre satisfaite pour que l'operation s'execute
-- `[RG]` : regle de gestion - logique metier appliquee pendant l'execution
-- `[POST]` : postcondition - etat de la base garanti apres succes
-- `[OUT]` : sortie - donnee ou evenement produit
-- `[ERR]` : cas d'erreur - sortie alternative si une condition echoue
+**Merise phase** : P1 - Conception, step 4 (derived from MCT)
+**Version** : v0.2 — prod-like, 4-state machine
+**Date** : 2026-06-04
+**Branch** : `feat/p1-conception`
+**Status** : prod-like — all D1-D8 + stock decisions applied (see `docs/notes/revue-alignement-p1.md` §7)
+**Author** : BYAN (methodology layer)
 
 ---
 
-## 2. Domaine 1 - Parcours commande (borne kiosk)
+## 1. Purpose
 
-### 2.1 CHARGER_CATALOGUE
+The MLT (Model of Logical Treatments) refines each MCT operation by specifying:
+- **preconditions** — what must be true before execution
+- **business rules** — validation, computation, business logic
+- **postconditions** — the state guaranteed after success
+- **outputs** — produced data or emitted events
+- **error cases** — alternative outputs when a condition fails
 
-**Correspond a MCT section 3.1**
+It bridges the MCT (conceptual level) and the PHP/SQL implementation (physical level).
+All entity/attribute references use the names from `docs/merise/dictionary.md` (English,
+snake_case). All monetary amounts are in integer cents.
 
-| Tag | Contenu |
+**Tag conventions**:
+- `[PRE]` — precondition; must be satisfied for the operation to execute
+- `[RG]` — business rule (regle de gestion); logic applied during execution
+- `[POST]` — postcondition; database state guaranteed after success
+- `[OUT]` — output; data or event produced
+- `[ERR]` — error case; alternative output when a condition fails
+
+---
+
+## 2. Transverse business rules
+
+These rules apply to multiple operations and are centralised here to avoid repetition.
+
+| Rule code | Label | Operations concerned |
+|-----------|-------|----------------------|
+| **RG-T01** | CSRF token verified on every back-office POST/PUT/DELETE form | AUTH, all admin ops |
+| **RG-T02** | Session active + `user.is_active = 1` verified on each authenticated request | All domains 3-10 |
+| **RG-T03** | Permission verified via `role_permission` before executing operation | All domains 3-10 |
+| **RG-T04** | All monetary amounts are manipulated in integer cents; EUR conversion at output only | 3.3, 4.1, 8.1, 8.4 |
+| **RG-T05** | Snapshots (`label_snapshot`, `unit_price_cents_snapshot`, `vat_rate_snapshot`) on `order_item` are not modified after INSERT (historical integrity of placed orders — design guarantee) | 3.3, 4.1, 8.2, 8.5 |
+| **RG-T06** | All SQL queries use PDO with prepared statements; no user data concatenated into SQL | All operations |
+| **RG-T07** | Status transition UPDATE statements include `AND status = <expected_status>` in the WHERE clause (optimistic concurrency protection against double transition) | 6.1, 7.1 |
+| **RG-T08** | Operations touching multiple tables execute in an atomic database transaction; partial failure triggers full rollback | 3.3, 4.1, 7.1, 8.4, 9.1, 9.2 |
+| **RG-T09** | Cross-constraint on `customer_order`: `source = 'drive'` implies `service_mode = 'drive'`; verified at order creation. Materialisable as a MariaDB CHECK: `CHECK (source != 'drive' OR service_mode = 'drive')`. | 3.3, 4.1 |
+| **RG-T10** | VAT computation is line-by-line: each `order_item` carries its own `vat_rate_snapshot` (per-mille integer snapshotted from `product.vat_rate`). Order totals (`total_ht_cents`, `total_vat_cents`, `total_ttc_cents`) are the sum of line-level amounts. | 3.3, 4.1 |
+| **RG-T11** | Stock decrements at the `pending_payment -> paid` transition and re-credits at `paid -> cancelled` are within the same database transaction as the status update (no orphan decrement). | 3.3, 4.1, 7.1 |
+| **RG-T12** | Dashboard filter by source: each role's visible sources are read from `role_visible_source`; the query uses `WHERE customer_order.source IN (role_visible_sources)`. | 6.1 |
+
+---
+
+## 3. Domain 1 — Order lifecycle (kiosk)
+
+### 3.1 LOAD_CATALOGUE
+
+**Corresponds to MCT section 3.1**
+
+| Tag | Content |
 |-----|---------|
-| **[PRE-1]** | La requete provient d'un client sur la borne (endpoint public, pas d'authentification requise) |
-| **[PRE-2]** | La plage horaire courante est comprise dans la fenetre de service (10h00-01h00) ; hors fenetre, la borne affiche un message de fermeture |
-| **[RG-1]** | Lecture de toutes les `categorie` avec `est_actif = 1`, ordonnees par `categorie.ordre ASC` |
-| **[RG-2]** | Pour chaque categorie, lecture des `produit` avec `est_disponible = 1` et `categorie_id = categorie.id`, ordonnes par `produit.ordre ASC` |
-| **[RG-3]** | Lecture de tous les `menu` avec `est_disponible = 1`, avec jointure sur `menu_produit` pour la composition (roles et positions) |
-| **[RG-4]** | Les prix sont retournes en centimes (INT) ; la conversion en EUR est effectuee cote front |
-| **[POST-1]** | Aucune ecriture en base. L'etat de la base est inchange. |
-| **[OUT-1]** | Reponse JSON : `{data: {categories: [...], produits: {...}, menus: [...]}}` |
-| **[ERR-1]** | Si la BDD est inaccessible : reponse `{data: null, error: {code: "DB_ERROR", message: "..."}}` et le front bascule sur le JSON fallback statique |
+| **[PRE-1]** | Request originates from the kiosk endpoint (public, no authentication required) |
+| **[PRE-2]** | Current time is within the service window (10:00-01:00); outside the window the kiosk displays a closed message |
+| **[RG-1]** | Read all `category` rows with `is_active = 1`, ordered by `category.display_order ASC` |
+| **[RG-2]** | For each category, read `product` rows with `is_available = 1` and matching `category_id`, ordered by `product.display_order ASC` |
+| **[RG-3]** | Read all `menu` rows with `is_available = 1`; for each menu, load `menu_slot` rows ordered by `menu_slot.display_order ASC`; for each slot, load eligible products via `menu_slot_option JOIN product` (where `product.is_available = 1`) |
+| **[RG-4]** | For each product, compute allergens by joining `product_ingredient -> ingredient_allergen -> allergen` (no manual re-entry per product) |
+| **[RG-5]** | For each product with `product_ingredient` rows, load `ingredient` composition (for the configurator) |
+| **[RG-6]** | Prices are returned in integer cents; EUR conversion is performed client-side |
+| **[POST-1]** | No database write; database state unchanged |
+| **[OUT-1]** | JSON response: `{data: {categories: [...], products: {...}, menus: [{..., slots: [{..., options: [...]}]}]}}` |
+| **[ERR-1]** | DB unreachable: response `{data: null, error: {code: "DB_ERROR"}}` and front-end falls back to static JSON |
 
 ---
 
-### 2.2 COMPOSER_PANIER
+### 3.2 COMPOSE_CART
 
-**Correspond a MCT section 3.2**
+**Corresponds to MCT section 3.2**
 
-| Tag | Contenu |
+| Tag | Content |
 |-----|---------|
-| **[PRE-1]** | Le catalogue a ete charge en memoire front (CHARGER_CATALOGUE effectue) |
-| **[PRE-2]** | L'article selectionne (produit ou menu) est present dans le catalogue charge et a `est_disponible = 1` |
-| **[RG-1]** | Le panier est une structure en memoire JavaScript (tableau d'items). Aucune persistance BDD a ce stade. |
-| **[RG-2]** | Chaque item du panier contient : `type` (`produit` ou `menu`), `item_id`, `libelle`, `prix_unitaire_ttc_cents`, `quantite`, `options` (taille si applicable) |
-| **[RG-3]** | Option grande taille : si `type = 'produit'` et le produit appartient aux categories `frites` ou `boissons`, l'option `grande_taille` ajoute 50 centimes au `prix_unitaire_ttc_cents` de cet item |
-| **[RG-4]** | Si un item de meme `(type, item_id, options)` existe deja dans le panier, sa quantite est incrementee plutot qu'un nouvel item est ajoute |
-| **[RG-5]** | Le total du panier est recalcule apres chaque modification : `SUM(prix_unitaire_ttc_cents * quantite)` sur tous les items |
-| **[POST-1]** | Aucune ecriture en base. Etat panier en memoire mis a jour. |
-| **[OUT-1]** | Affichage du recapitulatif panier avec le total TTC |
-| **[ERR-1]** | Si un produit est passe a `est_disponible = 0` entre le chargement du catalogue et la validation, la verification se produit a l'etape PASSER_COMMANDE (validation serveur) |
+| **[PRE-1]** | Catalogue loaded into front-end memory (LOAD_CATALOGUE completed) |
+| **[PRE-2]** | Selected item (product or menu) is present in the loaded catalogue with `is_available = 1` |
+| **[RG-1]** | Cart is a JavaScript in-memory structure (array of items); no database persistence at this stage |
+| **[RG-2]** | Each item contains: `type` (`product` or `menu`), `item_id`, `label`, `unit_price_cents` (snapshot from catalogue), `quantity`, `format` (`normal` or `maxi`, for menus), `slot_selections` (array of `{menu_slot_id, product_id, label}` for menu items), `modifiers` (array of `{ingredient_id, action, extra_price_cents}`) |
+| **[RG-3]** | Format Normal/Maxi (menu items only): `normal` uses `menu.price_normal_cents`; `maxi` uses `menu.price_maxi_cents`. No individual component price change is stored; the price differential is at menu level. |
+| **[RG-4]** | Ingredient modifier rules: `action = 'remove'` requires `is_removable = 1` on `product_ingredient` (free); `action = 'add'` requires `is_addable = 1` (may carry `extra_price_cents`). These constraints are verified at cart composition time against the loaded catalogue. |
+| **[RG-5]** | If an item with the same `(type, item_id, format, slot_selections, modifiers)` already exists in the cart, its quantity is incremented rather than adding a new item |
+| **[RG-6]** | Cart total recomputed after each change: `SUM(unit_price_cents * quantity + modifier_extras)` across all items |
+| **[POST-1]** | No database write; cart in-memory state updated |
+| **[OUT-1]** | Cart summary displayed with TTC total |
+| **[ERR-1]** | If a product becomes `is_available = 0` between catalogue load and order submission, the server-side validation in CREATE_ORDER catches it |
 
 ---
 
-### 2.3 PASSER_COMMANDE
+### 3.3 CREATE_ORDER
 
-**Correspond a MCT section 3.3**
+**Corresponds to MCT section 3.3**
 
-| Tag | Contenu |
+| Tag | Content |
 |-----|---------|
-| **[PRE-1]** | Le panier contient au moins 1 item (`items.length >= 1`) |
-| **[PRE-2]** | Le numero de commande saisi par le client est non vide (validation front) |
-| **[PRE-3]** | Le body JSON POST est valide (schema validation cote API) |
-| **[RG-1]** | Pour chaque item du panier, le systeme verifie en base que le produit ou menu est encore `est_disponible = 1`. Si un item n'est plus disponible, la commande est rejetee avec un message liste des articles indisponibles. |
-| **[RG-2]** | Determination du `tva_taux_pourmille` selon `mode_consommation` : `sur_place` = 1000 (10%), `a_emporter` = 550 (5,5%), `drive` = 550 (5,5%). Ref : service-public.fr article F31407 |
-| **[RG-3]** | Calcul des montants (tout en centimes, entiers) : `total_ttc_cents = SUM(prix_unitaire_ttc_cents * quantite)` ; `total_ht_cents = ROUND(total_ttc_cents * 1000 / (1000 + tva_taux_pourmille))` ; `total_tva_cents = total_ttc_cents - total_ht_cents` |
-| **[RG-4]** | Generation du numero de commande : format `K-YYYY-MM-DD-NNN` ou NNN est le compteur du jour de service courant (SELECT COUNT + 1 sur le `service_day` en cours, avec verrou pour eviter les doublons en concurrence) |
-| **[RG-5]** | Insertion atomique (transaction) : INSERT `commande` puis INSERT N lignes `ligne_commande`. En cas d'echec partiel, rollback complet. |
-| **[RG-6]** | Les snapshots `libelle_snapshot` et `prix_unitaire_ttc_cents_snapshot` sont copies depuis les entites courantes au moment de l'insertion (integrite historique). Ces valeurs ne sont pas modifiees apres insertion. |
-| **[RG-7]** | La commande est inseree avec `statut = 'pending_payment'`. Une fois le numero de commande saisi par le client (substitut de paiement RNCP), le statut est mis a jour en `paid` dans la meme transaction. La transition `pending_payment -> paid` est atomique : aucun autre acteur ne peut observer le statut `pending_payment`. |
-| **[POST-1]** | Une ligne `commande` existe en base avec `statut = 'paid'`, `source = 'kiosk'`, tous les montants calcules. La phase `pending_payment` n'est pas observable en dehors de la transaction. |
-| **[POST-2]** | `N` lignes `ligne_commande` existent en base, referençant chacune soit un `produit_id` soit un `menu_id` (contrainte d'exclusivite verifiee) |
-| **[POST-3]** | `commande.numero` est unique en base (contrainte UNIQUE sur la colonne) |
-| **[OUT-1]** | Reponse HTTP 201 : `{data: {id: int, numero: string, statut: 'paid'}}` |
-| **[OUT-2]** | Evenement logique COMMANDE_CREEE disponible pour le domaine preparation (la vue preparation se rafraichit - polling ou push selon implementation) |
-| **[ERR-1]** | Panier vide : HTTP 422, `{error: {code: "EMPTY_CART"}}` |
-| **[ERR-2]** | Article indisponible : HTTP 422, `{error: {code: "ITEM_UNAVAILABLE", items: [...]}}` |
-| **[ERR-3]** | Erreur BDD / timeout : HTTP 500 avec rollback, `{error: {code: "DB_ERROR"}}` |
+| **[PRE-1]** | Cart contains at least 1 item (`items.length >= 1`) |
+| **[PRE-2]** | Order number entered by customer is non-empty (front-end validation) |
+| **[PRE-3]** | POST JSON body is valid (schema validation at API layer) |
+| **[RG-1]** | Server-side availability check: for each item, verify `product.is_available = 1` or `menu.is_available = 1`. If any item is unavailable, reject with list of unavailable articles. |
+| **[RG-2 — service_day]** | `service_day` for a given order is computed at query time as: `CASE WHEN HOUR(created_at) < 10 THEN DATE(created_at) - INTERVAL 1 DAY ELSE DATE(created_at) END`. Cutoff is 10:00. This is NOT stored as a column — computed at query time only. The v0.1 formula with `INTERVAL 4 HOUR 30 MINUTE` was incorrect and is dropped. |
+| **[RG-3 — order number]** | Order number format: `K-YYYY-MM-DD-NNN` where NNN is the sequential counter for the current service_day for the `kiosk` source (SELECT COUNT + 1 with a table-level lock or serialised insert to avoid duplicate generation under concurrency). Source is `kiosk` (set by the kiosk endpoint, derived from the public entry point). |
+| **[RG-4 — VAT by line]** | For each `order_item`: `vat_rate_snapshot` is copied from `product.vat_rate`. Line amounts: `unit_ttc = unit_price_cents_snapshot`; `unit_ht = ROUND(unit_ttc * 1000 / (1000 + vat_rate_snapshot))`; `unit_vat = unit_ttc - unit_ht`. Order totals: `total_ttc_cents = SUM(unit_ttc * quantity)` across all lines; `total_ht_cents = SUM(unit_ht * quantity)`; `total_vat_cents = total_ttc_cents - total_ht_cents`. Invariant: `total_ttc_cents = total_ht_cents + total_vat_cents` (verified before INSERT). |
+| **[RG-5 — atomic transaction]** | All writes within one database transaction: (1) INSERT `customer_order` (status `pending_payment`, source `kiosk`, service_mode from cart, computed totals); (2) INSERT `order_item` rows (label_snapshot, unit_price_cents_snapshot, vat_rate_snapshot, quantity, format, item_type, product_id or menu_id); (3) INSERT `order_item_selection` rows for each slot filled in a menu item (order_item_id, menu_slot_id, product_id, label_snapshot); (4) INSERT `order_item_modifier` rows for each ingredient modification (order_item_id, ingredient_id, action, extra_price_cents snapshot); (5) for each ingredient consumed: compute units = `(order_item.format = 'maxi' ? product_ingredient.quantity_maxi : product_ingredient.quantity_normal) * order_item.quantity`, adjusted by modifiers (remove => no decrement for that ingredient; add => extra decrement); UPDATE `ingredient.stock_quantity -= units`; INSERT `stock_movement` (type `sale`, delta = -units, order_id, user_id = NULL for kiosk); (6) UPDATE `customer_order` SET status = `paid`, `paid_at = NOW()`. All six steps commit together or roll back entirely. |
+| **[RG-6 — cross-constraint]** | Source `kiosk` implies no particular service_mode constraint; the customer selects `dine_in` or `takeaway`. The drive cross-constraint (RG-T09) does not apply to kiosk-originated orders. |
+| **[RG-7 — immutability]** | After INSERT, `label_snapshot`, `unit_price_cents_snapshot`, and `vat_rate_snapshot` are not modified even if the source product is later renamed or repriced (see RG-T05). |
+| **[POST-1]** | One `customer_order` row exists with `status = 'paid'`, `source = 'kiosk'`, all totals computed, `paid_at` set. The `pending_payment` phase is not observable outside the transaction. |
+| **[POST-2]** | N `order_item` rows exist, each referencing either a `product_id` (item_type='product') or a `menu_id` (item_type='menu') — exclusivity constraint verified. |
+| **[POST-3]** | `customer_order.order_number` is unique in the database (UNIQUE constraint). |
+| **[POST-4]** | `ingredient.stock_quantity` decremented for each consumed ingredient unit; one `stock_movement` row of type `sale` per affected ingredient. |
+| **[OUT-1]** | HTTP 201: `{data: {id: int, order_number: string, status: 'paid'}}` |
+| **[OUT-2]** | Logical event ORDER_CREATED available for preparation domain (preparation display refreshes via polling or server push depending on implementation) |
+| **[ERR-1]** | Empty cart: HTTP 422, `{error: {code: "EMPTY_CART"}}` |
+| **[ERR-2]** | Unavailable item: HTTP 422, `{error: {code: "ITEM_UNAVAILABLE", items: [...]}}` |
+| **[ERR-3]** | DB error / timeout: HTTP 500 with rollback, `{error: {code: "DB_ERROR"}}` |
 
 ---
 
-### 2.4 AFFICHER_CONFIRMATION
+### 3.4 DISPLAY_CONFIRMATION
 
-**Correspond a MCT section 3.4**
+**Corresponds to MCT section 3.4**
 
-| Tag | Contenu |
+| Tag | Content |
 |-----|---------|
-| **[PRE-1]** | La reponse API PASSER_COMMANDE a retourne HTTP 201 avec un objet `{id, numero, statut}` |
-| **[RG-1]** | Le numero de commande est affiche en grand sur l'ecran de confirmation |
-| **[RG-2]** | Apres un delai configurable (suggestion : 15 secondes), la borne se reinitialise automatiquement pour le client suivant |
-| **[POST-1]** | Aucune ecriture en base |
-| **[OUT-1]** | Ecran de confirmation affiche avec le numero |
-| **[ERR-1]** | Si la reponse API est en erreur : affichage d'un message d'erreur generic et proposition de recommencer |
+| **[PRE-1]** | CREATE_ORDER returned HTTP 201 with `{id, order_number, status: 'paid'}` |
+| **[RG-1]** | Order number displayed prominently on the confirmation screen |
+| **[RG-2]** | After a configurable delay (suggestion: 15 seconds), the kiosk auto-resets for the next customer |
+| **[POST-1]** | No database write |
+| **[OUT-1]** | Confirmation screen displayed with order number |
+| **[ERR-1]** | If API response is an error: generic error message displayed with option to retry |
 
 ---
 
-## 3. Domaine 2 - Parcours commande (comptoir et drive)
+## 4. Domain 2 — Order lifecycle (counter and drive)
 
-### 3.1 SAISIR_COMMANDE_MANUELLE
+### 4.1 CREATE_COUNTER_ORDER
 
-**Correspond a MCT section 4.1**
+**Corresponds to MCT section 4.1**
 
-| Tag | Contenu |
+| Tag | Content |
 |-----|---------|
-| **[PRE-1]** | L'acteur est authentifie (session valide, `est_actif = 1`) |
-| **[PRE-2]** | L'acteur possede la permission `commande.create` (verifiee via `role_permission`) |
-| **[PRE-3]** | Le panier compose contient au moins 1 article |
-| **[RG-1]** | Logique de creation identique a PASSER_COMMANDE (RG-1 a RG-7), a la difference suivante : la `source` est `comptoir` ou `drive` selon le canal selectionne par l'equipier. La meme sequence `pending_payment -> paid` est appliquee de facon atomique dans la transaction. |
-| **[RG-2]** | Le `mode_consommation` est saisi par l'equipier (sur_place / a_emporter / drive) |
-| **[RG-3]** | Le format du numero de commande est identique : `K-YYYY-MM-DD-NNN` (meme generateur, meme compteur du jour de service) |
-| **[POST-1]** | Une ligne `commande` existe en base avec `statut = 'paid'`, `source = 'comptoir'` ou `'drive'`. Le statut `pending_payment` est transitoire et non observable hors transaction. |
-| **[POST-2]** | `N` lignes `ligne_commande` existent, avec snapshots |
-| **[OUT-1]** | Confirmation affichee dans le back-office, numero de commande communique au client |
-| **[ERR-1]** | Memes cas d'erreur que PASSER_COMMANDE (ERR-1, ERR-2, ERR-3) |
+| **[PRE-1]** | Actor is authenticated (valid session, `user.is_active = 1`) |
+| **[PRE-2]** | Actor holds permission `order.create` (verified via `role_permission`) |
+| **[PRE-3]** | Cart contains at least 1 item |
+| **[RG-1]** | Creation logic identical to CREATE_ORDER (RG-1 through RG-7 apply), with the following differences: `source` is auto-tagged from `role.order_source` (counter role -> `counter`, drive role -> `drive`); `service_mode` is selected by the staff member (`dine_in` / `takeaway` / `drive`); `user_id` is set to the authenticated user's id in `stock_movement` rows (instead of NULL for kiosk). |
+| **[RG-2 — cross-constraint]** | If `source = 'drive'` then `service_mode` must be `'drive'` (RG-T09); verified before INSERT. HTTP 422 if violated. |
+| **[RG-3 — order number]** | Format: `C-YYYY-MM-DD-NNN` for counter source; `D-YYYY-MM-DD-NNN` for drive source. Sequential NNN counter is per source per service_day. |
+| **[RG-4 — stock]** | Same stock decrement logic as CREATE_ORDER RG-5; `stock_movement.user_id` is set to the authenticated staff member's id. |
+| **[POST-1]** | One `customer_order` row with `status = 'paid'`, `source = 'counter'` or `'drive'`, `paid_at` set. |
+| **[POST-2]** | N `order_item` rows with snapshots. Slot selections and modifiers written identically to kiosk flow. |
+| **[POST-3]** | Stock decremented; movements logged with actor `user_id`. |
+| **[OUT-1]** | HTTP 201: `{data: {id: int, order_number: string, status: 'paid'}}`. Order number communicated to customer. |
+| **[ERR-1]** | Same error cases as CREATE_ORDER (ERR-1, ERR-2, ERR-3) |
+| **[ERR-2]** | Cross-constraint violation (`source = drive` but `service_mode != drive`): HTTP 422, `{error: {code: "INVALID_SERVICE_MODE"}}` |
 
 ---
 
-## 4. Domaine 3 - Preparation (cuisine)
+## 5. Domain 3 — Preparation display (kitchen)
 
-### 4.1 LISTER_COMMANDES_A_PREPARER
+### 5.1 LIST_ORDERS_DISPLAY
 
-**Correspond a MCT section 5.1**
+**Corresponds to MCT section 5.1**
 
-| Tag | Contenu |
+| Tag | Content |
 |-----|---------|
-| **[PRE-1]** | L'acteur est authentifie, `est_actif = 1`, role `preparation` ou `admin` |
-| **[PRE-2]** | L'acteur possede la permission `commande.read` |
-| **[RG-1]** | Requete : `SELECT commande.*, ligne_commande.* FROM commande JOIN ligne_commande ON ... WHERE commande.statut = 'paid' ORDER BY commande.created_at ASC` |
-| **[RG-2]** | Tous les canaux sont confondus (kiosk + comptoir + drive) |
-| **[RG-3]** | Pour chaque commande, les lignes sont affichees avec `libelle_snapshot` et `quantite` (les snapshots sont utilises, pas de re-jointure sur produit/menu) |
-| **[POST-1]** | Aucune ecriture en base |
-| **[OUT-1]** | Liste des commandes au statut `paid`, ordonnee par heure croissante |
+| **[PRE-1]** | Actor is authenticated, `is_active = 1` |
+| **[PRE-2]** | Actor holds permission `order.read` |
+| **[RG-1 — source filter]** | Retrieve visible sources for the actor's role: `SELECT source FROM role_visible_source WHERE role_id = :role_id`. Kitchen sees all three; counter sees `kiosk` and `counter`; drive sees `drive`. |
+| **[RG-2 — query]** | `SELECT customer_order.*, order_item.* FROM customer_order JOIN order_item ON order_item.order_id = customer_order.id WHERE customer_order.status = 'paid' AND customer_order.source IN (:visible_sources) ORDER BY customer_order.paid_at ASC` |
+| **[RG-3 — item detail]** | For each order line of type `menu`, also load `order_item_selection` rows (slot choices). For all lines, load `order_item_modifier` rows (ingredient modifications). Display uses snapshots (`label_snapshot`, `quantity`, `format`); no re-join on `product` or `menu` tables needed. |
+| **[RG-4 — KDS colour]** | Colour indicator computed at render time: `elapsed = NOW() - customer_order.paid_at`; green if elapsed < SLA threshold (configurable, approx. 10 min); amber if approaching; red if exceeded. Not stored; computed client-side or in PHP before response. |
+| **[RG-5 — read only]** | Kitchen staff perform no status transition from this view. No UPDATE is issued by this operation. |
+| **[POST-1]** | No database write |
+| **[OUT-1]** | List of orders with status `paid`, filtered by role, sorted by `paid_at` ascending, with full item detail (selections, modifiers, KDS colour) |
 
 ---
 
-### 4.2 MARQUER_EN_PREPARATION
+## 6. Domain 4 — Delivery to customer
 
-**Correspond a MCT section 5.2**
+### 6.1 DELIVER_ORDER
 
-| Tag | Contenu |
+**Corresponds to MCT section 6.1**
+
+| Tag | Content |
 |-----|---------|
-| **[PRE-1]** | L'acteur est authentifie, permission `commande.update` |
-| **[PRE-2]** | La commande ciblee existe et son `statut = 'paid'` |
-| **[RG-1]** | `UPDATE commande SET statut = 'preparing', updated_at = NOW() WHERE id = :id AND statut = 'paid'` |
-| **[RG-2]** | La clause `AND statut = 'paid'` dans le UPDATE protege contre les mises a jour concurrentes (si deux equipiers cliquent simultanement, seul le premier reussit - le second recoit 0 rows affected) |
-| **[POST-1]** | `commande.statut = 'preparing'`, `commande.updated_at` mis a jour |
-| **[OUT-1]** | HTTP 200 ou redirection avec message de succes. La commande disparait de la liste "a preparer" et apparait dans la liste "en preparation". |
-| **[ERR-1]** | Si `statut != 'paid'` au moment du UPDATE (concurrence) : HTTP 409 `{error: {code: "INVALID_TRANSITION"}}` |
+| **[PRE-1]** | Actor is authenticated, holds permission `order.deliver` |
+| **[PRE-2]** | Targeted order exists and `status = 'paid'` |
+| **[PRE-3]** | Order source is in the actor's visible sources (verified via `role_visible_source`) |
+| **[RG-1]** | `UPDATE customer_order SET status = 'delivered', delivered_at = NOW(), updated_at = NOW() WHERE id = :id AND status = 'paid'` |
+| **[RG-2 — concurrency]** | The `AND status = 'paid'` clause in the UPDATE protects against concurrent double-delivery: if two staff members click simultaneously, only the first succeeds (second receives 0 rows affected). |
+| **[RG-3]** | `delivered` is a terminal status: no further transition is defined from this status (application constraint, not enforced as a DB trigger). |
+| **[POST-1]** | `customer_order.status = 'delivered'`, `delivered_at` set, lifecycle complete. Order passes to history. |
+| **[OUT-1]** | HTTP 200 with confirmation. Order disappears from the `paid` queue. |
+| **[ERR-1]** | Invalid transition (status was not `paid` when UPDATE executed — concurrency): HTTP 409, `{error: {code: "INVALID_TRANSITION"}}` |
+| **[ERR-2]** | Order source not in actor's visible sources: HTTP 403, `{error: {code: "FORBIDDEN"}}` |
 
 ---
 
-### 4.3 MARQUER_PRETE
+## 7. Domain 5 — Cancellation
 
-**Correspond a MCT section 5.3**
+### 7.1 CANCEL_ORDER
 
-| Tag | Contenu |
+**Corresponds to MCT section 7.1**
+
+| Tag | Content |
 |-----|---------|
-| **[PRE-1]** | L'acteur est authentifie, permission `commande.update` |
-| **[PRE-2]** | La commande ciblee existe et son `statut = 'preparing'` |
-| **[RG-1]** | `UPDATE commande SET statut = 'ready', updated_at = NOW() WHERE id = :id AND statut = 'preparing'` |
-| **[RG-2]** | Meme protection contre la concurrence que MARQUER_EN_PREPARATION |
-| **[POST-1]** | `commande.statut = 'ready'`, `commande.updated_at` mis a jour |
-| **[OUT-1]** | La commande devient visible dans la vue "pretes" de l'accueil |
-| **[ERR-1]** | Transition invalide : HTTP 409 `{error: {code: "INVALID_TRANSITION"}}` |
+| **[PRE-1]** | Actor is authenticated, holds permission `order.cancel` |
+| **[PRE-2]** | Targeted order exists |
+| **[PRE-3]** | `customer_order.status` is in `['pending_payment', 'paid']`. Terminal statuses `delivered` and `cancelled` cannot transition to `cancelled`. |
+| **[RG-1 — status update]** | `UPDATE customer_order SET status = 'cancelled', cancelled_at = NOW(), updated_at = NOW() WHERE id = :id AND status IN ('pending_payment', 'paid')` |
+| **[RG-2 — concurrency]** | The `AND status IN (...)` clause protects against concurrent cancellation (see RG-T07). |
+| **[RG-3 — stock re-credit — conditional]** | Re-credit applies only if the order was at status `paid` before cancellation. Orders at `pending_payment` had not yet decremented stock (the decrement occurs at the `paid` transition). For each `order_item` line of a `paid` order, recompute ingredient units consumed: `(order_item.format = 'maxi' ? product_ingredient.quantity_maxi : product_ingredient.quantity_normal) * order_item.quantity`, adjusted by `order_item_modifier` rows (remove modifier -> ingredient was not decremented, so no re-credit; add modifier -> ingredient had extra decrement, so extra re-credit). UPDATE `ingredient.stock_quantity += units`. INSERT `stock_movement` (type `cancellation`, delta = +units, order_id, user_id of actor). |
+| **[RG-4 — transaction]** | Status update and stock re-credit (when applicable) execute in the same database transaction (RG-T11). |
+| **[RG-5 — history]** | Order is not physically deleted; retained for history and stats. Cancelled orders are excluded from revenue totals but included in volume counts in READ_STATS. `order_item` rows are not deleted (ON DELETE CASCADE is not triggered); they allow reconstruction of what was ordered. |
+| **[POST-1]** | `customer_order.status = 'cancelled'`, `cancelled_at` set, terminal state. |
+| **[POST-2]** | If prior status was `paid`: `ingredient.stock_quantity` re-credited; one `stock_movement` row of type `cancellation` per affected ingredient. |
+| **[OUT-1]** | HTTP 200 with cancellation confirmation |
+| **[ERR-1]** | Attempt to cancel a delivered or already cancelled order: HTTP 422, `{error: {code: "CANNOT_CANCEL_IN_STATE", current_status: "..."}}` |
+| **[ERR-2]** | Concurrent cancellation (0 rows affected by UPDATE): HTTP 409, `{error: {code: "INVALID_TRANSITION"}}` |
 
 ---
 
-## 5. Domaine 4 - Remise au client (accueil)
+## 8. Domain 6 — Catalogue management
 
-### 5.1 LISTER_COMMANDES_PRETES
+### 8.1 CREATE_PRODUCT
 
-**Correspond a MCT section 6.1**
+**Corresponds to MCT section 8.1**
 
-| Tag | Contenu |
+| Tag | Content |
 |-----|---------|
-| **[PRE-1]** | L'acteur est authentifie, permission `commande.read` |
-| **[RG-1]** | `SELECT commande.*, ligne_commande.* FROM commande JOIN ligne_commande ON ... WHERE commande.statut = 'ready' ORDER BY commande.updated_at ASC` |
-| **[RG-2]** | Tri par `updated_at` croissant : les commandes pretes depuis le plus longtemps apparaissent en premier |
-| **[POST-1]** | Aucune ecriture en base |
-| **[OUT-1]** | Liste des commandes au statut `ready` |
+| **[PRE-1]** | Actor authenticated, holds permission `product.create` |
+| **[PRE-2]** | `category_id` references an existing category with `is_active = 1` |
+| **[RG-1]** | Form validation: `name` non-empty, `price_cents > 0`, `category_id` valid, `vat_rate` in `(55, 100)` |
+| **[RG-2]** | Image upload (optional): validate MIME type (JPEG, PNG, WEBP), max size configurable (suggestion: 2 MB), store under `UPLOAD_DIR/products/`, record relative path in `image_path` |
+| **[RG-3]** | `is_available = 1` by default at INSERT |
+| **[RG-4]** | `display_order` set to `MAX(display_order) + 1` for the target category, or 0 if first product |
+| **[POST-1]** | One `product` row in the database with all valid fields |
+| **[OUT-1]** | Redirect to category product list with success message |
+| **[ERR-1]** | Validation failure: inline field errors displayed |
+| **[ERR-2]** | Invalid image (type or size): specific error message |
 
 ---
 
-### 5.2 DECLARER_LIVREE
+### 8.2 UPDATE_PRODUCT
 
-**Correspond a MCT section 6.2**
+**Corresponds to MCT section 8.2**
 
-| Tag | Contenu |
+| Tag | Content |
 |-----|---------|
-| **[PRE-1]** | L'acteur est authentifie, permission `commande.update` |
-| **[PRE-2]** | La commande ciblee existe et son `statut = 'ready'` |
-| **[RG-1]** | `UPDATE commande SET statut = 'delivered', updated_at = NOW() WHERE id = :id AND statut = 'ready'` |
-| **[RG-2]** | `delivered` est un statut terminal : aucune transition n'est prevue depuis ce statut (contrainte applicative, non enfoercee en base) |
-| **[POST-1]** | `commande.statut = 'delivered'`. Cycle de vie termine. La commande passe dans l'historique. |
-| **[OUT-1]** | Confirmation de livraison affichee |
-| **[ERR-1]** | Transition invalide : HTTP 409 `{error: {code: "INVALID_TRANSITION"}}` |
+| **[PRE-1]** | Actor authenticated, holds permission `product.update` |
+| **[PRE-2]** | Target `product.id` exists |
+| **[RG-1]** | Same validations as CREATE_PRODUCT on modified fields |
+| **[RG-2]** | If a new image is uploaded, the old image file is deleted from the filesystem (volume cleanup) |
+| **[RG-3]** | `label_snapshot`, `unit_price_cents_snapshot`, `vat_rate_snapshot` in historical `order_item` rows are not modified (see RG-T05) |
+| **[POST-1]** | `product` updated, `updated_at` refreshed |
+| **[OUT-1]** | Redirect to product list with success message |
 
 ---
 
-## 6. Domaine 5 - Annulation
+### 8.3 DELETE_PRODUCT
 
-### 6.1 ANNULER_COMMANDE
+**Corresponds to MCT section 8.3**
 
-**Correspond a MCT section 7.1**
-
-| Tag | Contenu |
+| Tag | Content |
 |-----|---------|
-| **[PRE-1]** | L'acteur est authentifie, permission `commande.cancel` |
-| **[PRE-2]** | La commande ciblee existe |
-| **[PRE-3]** | `commande.statut` est dans `['pending_payment', 'paid', 'preparing', 'ready']`. Seuls les statuts finaux `delivered` et `cancelled` ne permettent pas la transition vers `cancelled` : une commande reste annulable tant qu'elle n'a pas ete remise (modification, annulation ou remboursement a la demande du client). |
-| **[RG-1]** | `UPDATE commande SET statut = 'cancelled', updated_at = NOW() WHERE id = :id AND statut IN ('pending_payment', 'paid', 'preparing', 'ready')` |
-| **[RG-2]** | La commande n'est pas supprimee physiquement : elle reste en base pour l'historique et les stats (les commandes annulees sont exclues du CA mais comptees dans les volumes). |
-| **[RG-3]** | Les lignes `ligne_commande` ne sont pas supprimees (ON DELETE CASCADE n'est pas declenche) : elles permettent de savoir ce qui avait ete commande. |
-| **[POST-1]** | `commande.statut = 'cancelled'`, etat terminal |
-| **[OUT-1]** | Confirmation d'annulation |
-| **[ERR-1]** | Tentative d'annulation d'une commande deja remise ou annulee (`delivered`, `cancelled`) : HTTP 422 `{error: {code: "CANNOT_CANCEL_IN_STATE"}}` |
-| **[ERR-2]** | Transition invalide (concurrence) : HTTP 409 `{error: {code: "INVALID_TRANSITION"}}` |
+| **[PRE-1]** | Actor authenticated, holds permission `product.delete` |
+| **[PRE-2]** | Target `product.id` exists |
+| **[RG-1]** | Pre-check (PHP): is the product referenced in `menu_slot_option.product_id`? If yes, display blocking message listing the menus. |
+| **[RG-2]** | Pre-check (PHP): is the product the `burger_product_id` of any `menu`? If yes, block with message to delete or reassign the menu first. |
+| **[RG-3]** | Pre-check (PHP): is the product referenced in `order_item.product_id` (historical orders)? FK `ON DELETE RESTRICT` blocks at DB level. Recommended response: propose deactivation (`is_available=0`) rather than deletion. |
+| **[RG-4]** | FK constraints (`menu_slot_option.product_id ON DELETE RESTRICT`, `order_item.product_id ON DELETE RESTRICT`) enforce the constraint even if the PHP check is bypassed. |
+| **[POST-1]** | Product deleted if no FK constraint was blocking |
+| **[OUT-1]** | Redirect to product list with success message |
+| **[ERR-1]** | Product in menu slot: HTTP 422 or inline message with blocking menu list |
+| **[ERR-2]** | Product in historical orders: message proposing deactivation instead |
 
 ---
 
-## 7. Domaine 6 - Gestion du catalogue (admin)
+### 8.4 CREATE_MENU
 
-### 7.1 CREER_PRODUIT
+**Corresponds to MCT section 8.4**
 
-**Correspond a MCT section 8.1**
-
-| Tag | Contenu |
+| Tag | Content |
 |-----|---------|
-| **[PRE-1]** | L'acteur est authentifie, permission `produit.create` |
-| **[PRE-2]** | Le `categorie_id` fourni correspond a une `categorie` existante et active |
-| **[RG-1]** | Validation du formulaire : `libelle` non vide, `prix_ttc_cents > 0`, `categorie_id` valide |
-| **[RG-2]** | Si une image est uploadee : validation du type MIME (JPEG, PNG, WEBP uniquement), taille max configurable (suggestion : 2 Mo), stockage dans le volume `wakdo_uploads`, enregistrement du chemin relatif dans `image_path` |
-| **[RG-3]** | `est_disponible = 1` par defaut a l'insertion |
-| **[RG-4]** | `ordre` est affecte a la valeur MAX(ordre) + 1 pour la categorie ciblee, ou 0 si premiere insertion |
-| **[POST-1]** | Un enregistrement `produit` existe en base avec tous les champs valides |
-| **[OUT-1]** | Redirection vers la liste des produits de la categorie, message de succes |
-| **[ERR-1]** | Validation echouee : affichage des erreurs de champ inline |
-| **[ERR-2]** | Image invalide (type ou taille) : message d'erreur specifique |
+| **[PRE-1]** | Actor authenticated, holds permission `menu.create` |
+| **[PRE-2]** | `burger_product_id` references an existing, available product |
+| **[PRE-3]** | At least one `menu_slot` is defined with at least one `menu_slot_option` |
+| **[RG-1]** | Validation: `name` non-empty, `price_normal_cents > 0`, `price_maxi_cents > 0`, `burger_product_id` valid, all `product_id` values in slot options exist |
+| **[RG-2]** | Transaction: INSERT `menu`, then INSERT `menu_slot` rows (name, slot_type, is_required, display_order), then INSERT `menu_slot_option` rows (menu_slot_id, product_id) |
+| **[RG-3]** | Valid `slot_type` values (from dictionary ENUM): `drink`, `side`, `sauce`, `dessert`, `extra` |
+| **[POST-1]** | One `menu` row, N `menu_slot` rows, M `menu_slot_option` rows in the database |
+| **[OUT-1]** | Redirect to menu list with success message |
+| **[ERR-1]** | Invalid configuration (no slot, no option): business error message |
+| **[ERR-2]** | Slot option product unavailable: warning (menu can be created; product availability is checked at order time) |
 
 ---
 
-### 7.2 MODIFIER_PRODUIT
+### 8.5 UPDATE_MENU
 
-**Correspond a MCT section 8.2**
+**Corresponds to MCT section 8.5**
 
-| Tag | Contenu |
+| Tag | Content |
 |-----|---------|
-| **[PRE-1]** | L'acteur est authentifie, permission `produit.update` |
-| **[PRE-2]** | Le `produit.id` cible existe en base |
-| **[RG-1]** | Memes validations que CREER_PRODUIT sur les champs modifies |
-| **[RG-2]** | Si une nouvelle image est uploadee, l'ancienne image est supprimee du filesystem (nettoyage du volume) |
-| **[RG-3]** | Les `libelle_snapshot` et `prix_unitaire_ttc_cents_snapshot` dans les `ligne_commande` historiques ne sont pas modifies par ce traitement (integrite des commandes passees) |
-| **[POST-1]** | `produit` mis a jour, `updated_at` rafraichi |
-| **[OUT-1]** | Redirection vers la liste, message de succes |
+| **[PRE-1]** | Actor authenticated, holds permission `menu.update` |
+| **[PRE-2]** | Target `menu.id` exists |
+| **[RG-1]** | Same validations as CREATE_MENU on modified fields |
+| **[RG-2]** | If slot configuration is modified: `DELETE FROM menu_slot_option WHERE menu_slot_id IN (SELECT id FROM menu_slot WHERE menu_id = :id)`, then `DELETE FROM menu_slot WHERE menu_id = :id`, then re-INSERT (delete-and-reinsert pattern, atomic in transaction) |
+| **[RG-3]** | `label_snapshot` values in historical `order_item_selection` rows are not affected (see RG-T05) |
+| **[POST-1]** | `menu` updated; `menu_slot` and `menu_slot_option` rebuilt |
+| **[OUT-1]** | Redirect with success message |
 
 ---
 
-### 7.3 SUPPRIMER_PRODUIT
+### 8.6 DELETE_MENU
 
-**Correspond a MCT section 8.3**
+**Corresponds to MCT section 8.6**
 
-| Tag | Contenu |
+| Tag | Content |
 |-----|---------|
-| **[PRE-1]** | L'acteur est authentifie, permission `produit.delete` |
-| **[PRE-2]** | Le `produit.id` cible existe en base |
-| **[RG-1]** | Verification prealable (PHP) : le produit est-il reference dans `menu_produit` ? Si oui, afficher un message "Ce produit est utilise dans X menu(s) : [liste]. Retirez-le d'abord des menus." et bloquer. |
-| **[RG-2]** | La FK `menu_produit.produit_id` est definie avec `ON DELETE RESTRICT` en base : meme si la verification applicative est contournee, la base bloque la suppression. |
-| **[RG-3]** | Si le produit est reference dans des `ligne_commande` historiques (FK `ON DELETE RESTRICT`), la suppression est egalement bloquee. Gestion recommandee : desactiver le produit (`est_disponible = 0`) plutot que le supprimer. |
-| **[POST-1]** | Si aucune contrainte : le produit est supprime de la base |
-| **[OUT-1]** | Redirection vers la liste, message de succes |
-| **[ERR-1]** | Produit utilise dans un menu : HTTP 422 ou affichage inline avec liste des menus bloquants |
-| **[ERR-2]** | Produit dans des commandes historiques : message "Ce produit a deja ete commande. Desactivez-le plutot que de le supprimer." |
+| **[PRE-1]** | Actor authenticated, holds permission `menu.delete` |
+| **[PRE-2]** | Target `menu.id` exists |
+| **[RG-1]** | Pre-check (PHP): is the menu referenced in `order_item.menu_id`? FK `ON DELETE RESTRICT`. If yes, propose deactivation (`is_available=0`) instead of deletion. |
+| **[RG-2]** | If no historical reference: DELETE `menu` triggers CASCADE to `menu_slot` (which cascades to `menu_slot_option`) |
+| **[POST-1]** | `menu`, its `menu_slot` rows, and its `menu_slot_option` rows deleted |
+| **[OUT-1]** | Redirect with success message |
+| **[ERR-1]** | Menu in historical orders: message proposing deactivation instead |
 
 ---
 
-### 7.4 CREER_MENU
+### 8.7 MANAGE_CATEGORY
 
-**Correspond a MCT section 8.4**
+**Corresponds to MCT section 8.7**
 
-| Tag | Contenu |
+| Tag | Content |
 |-----|---------|
-| **[PRE-1]** | L'acteur est authentifie, permission `menu.create` |
-| **[PRE-2]** | Au moins un produit de role `burger` est inclus dans la composition |
-| **[PRE-3]** | Tous les `produit_id` de la composition existent et sont `est_disponible = 1` |
-| **[RG-1]** | Validation : `libelle` non vide, `prix_ttc_cents > 0`, composition valide (au moins burger) |
-| **[RG-2]** | Transaction : INSERT `menu`, puis INSERT N lignes `menu_produit` avec `menu_id`, `produit_id`, `role`, `position` |
-| **[RG-3]** | Les roles valides pour `menu_produit.role` sont : `burger`, `accompagnement`, `boisson`, `sauce`, `dessert` (ENUM en base) |
-| **[POST-1]** | Un enregistrement `menu` et ses lignes `menu_produit` existent en base |
-| **[OUT-1]** | Redirection vers la liste des menus, message de succes |
-| **[ERR-1]** | Composition invalide (pas de burger) : message d'erreur metier |
-| **[ERR-2]** | Produit de la composition indisponible : avertissement (le menu peut etre cree avec ce produit, mais sera potentiellement affiche comme "incomplet" sur la borne) |
+| **[PRE-1]** | Actor authenticated, holds permission `category.manage` |
+| **[RG-CREATE]** | `name` and `slug` non-empty and unique in the database; `display_order` set to MAX + 1 |
+| **[RG-UPDATE]** | UPDATE `name`, `slug`, `image_path`, `display_order`, `is_active` |
+| **[RG-DEACTIVATE]** | Deactivation (`is_active=0`) does not auto-deactivate child products/menus in the DB (no CASCADE on `is_active`). PHP layer proposes to the admin to also deactivate child products/menus, or the kiosk filter on `category.is_active = 1` implicitly hides them. |
+| **[RG-DELETE]** | Physical deletion blocked if `product.category_id` or `menu.category_id` references this category (FK `ON DELETE RESTRICT`). Propose deactivation. |
+| **[POST-CREATE]** | New `category` row in database |
+| **[POST-UPDATE]** | `category` updated, `updated_at` refreshed |
+| **[OUT-1]** | Confirmation, redirect to category list |
 
 ---
 
-### 7.5 MODIFIER_MENU
+### 8.8 MANAGE_INGREDIENT
 
-**Correspond a MCT section 8.5**
+**Corresponds to MCT section 8.8**
 
-| Tag | Contenu |
+| Tag | Content |
 |-----|---------|
-| **[PRE-1]** | L'acteur est authentifie, permission `menu.update` |
-| **[PRE-2]** | Le `menu.id` cible existe |
-| **[RG-1]** | Memes validations que CREER_MENU sur les champs modifies |
-| **[RG-2]** | Si la composition est modifiee : `DELETE FROM menu_produit WHERE menu_id = :id`, puis INSERT des nouvelles lignes (pattern delete-and-reinsert, atomique en transaction) |
-| **[RG-3]** | Les snapshots dans `ligne_commande` ne sont pas affectes |
-| **[POST-1]** | `menu` mis a jour, composition `menu_produit` reconstruite |
-| **[OUT-1]** | Redirection, message de succes |
+| **[PRE-1]** | Actor authenticated, holds permission `ingredient.manage` |
+| **[RG-CREATE-ING]** | `name` non-empty and UNIQUE; `unit` non-empty; `pack_size >= 1`; `low_stock_threshold >= 0`; `stock_quantity` defaults to 0 at creation |
+| **[RG-UPDATE-ING]** | UPDATE `name`, `unit`, `pack_size`, `pack_label`, `low_stock_threshold`, `is_active` |
+| **[RG-DEACTIVATE-ING]** | `is_active=0` hides ingredient from configurator. Physical deletion blocked if referenced in `product_ingredient` (FK `ON DELETE RESTRICT`) or `stock_movement` (FK `ON DELETE RESTRICT`). |
+| **[RG-COMPOSITION]** | UPDATE `product_ingredient`: for each ingredient in a product's recipe, set `quantity_normal`, `quantity_maxi`, `is_removable`, `is_addable`, `extra_price_cents`. Delete-and-reinsert pattern within transaction. |
+| **[RG-ALLERGEN]** | Manage `ingredient_allergen`: INSERT or DELETE `(ingredient_id, allergen_id)` pairs. Allergen list is read-only (14 rows fixed by EU regulation 1169/2011). |
+| **[POST-1]** | `ingredient` / `product_ingredient` / `ingredient_allergen` rows updated |
+| **[OUT-1]** | Confirmation, redirect to ingredient list or product composition form |
 
 ---
 
-### 7.6 SUPPRIMER_MENU
+## 9. Domain 7 — Stock management
 
-**Correspond a MCT section 8.6**
+### 9.1 RESTOCK
 
-| Tag | Contenu |
+**Corresponds to MCT section 9.1**
+
+| Tag | Content |
 |-----|---------|
-| **[PRE-1]** | L'acteur est authentifie, permission `menu.delete` |
-| **[PRE-2]** | Le `menu.id` cible existe |
-| **[RG-1]** | Verification prealable : le menu est-il reference dans des `ligne_commande` historiques ? FK `ON DELETE RESTRICT`. Si oui, proposer la desactivation (`est_disponible = 0`) plutot que la suppression. |
-| **[RG-2]** | Si aucune `ligne_commande` ne le reference : DELETE du menu (cascade automatique sur `menu_produit` via `ON DELETE CASCADE`) |
-| **[POST-1]** | Menu et ses lignes `menu_produit` supprimes |
-| **[OUT-1]** | Redirection, message de succes |
-| **[ERR-1]** | Menu present dans des commandes historiques : message "Ce menu a deja ete commande. Desactivez-le plutot que de le supprimer." |
+| **[PRE-1]** | Actor authenticated, holds permission `stock.manage` |
+| **[PRE-2]** | Target ingredient exists and `is_active = 1` |
+| **[PRE-3]** | Number of packs `N >= 1` |
+| **[RG-1]** | `delta = N * ingredient.pack_size` |
+| **[RG-2]** | Transaction: `UPDATE ingredient SET stock_quantity = stock_quantity + :delta WHERE id = :id`; INSERT `stock_movement` (ingredient_id, movement_type=`restock`, delta=+delta, order_id=NULL, user_id=actor, note=optional) |
+| **[RG-3]** | `stock_movement` is append-only: no UPDATE or DELETE on this table (corrections are new rows) |
+| **[POST-1]** | `ingredient.stock_quantity` incremented by `delta`. One `stock_movement` row of type `restock` inserted. |
+| **[OUT-1]** | Confirmation with new stock level displayed |
 
 ---
 
-### 7.7 GERER_CATEGORIE
+### 9.2 INVENTORY_COUNT
 
-**Correspond a MCT section 8.7**
+**Corresponds to MCT section 9.2**
 
-| Tag | Contenu |
+| Tag | Content |
 |-----|---------|
-| **[PRE-1]** | L'acteur est authentifie, permission `categorie.manage` |
-| **[RG-CREATE]** | `libelle` et `slug` non vides et uniques en base. `ordre` affecte a MAX + 1. |
-| **[RG-UPDATE]** | Mises a jour de `libelle`, `slug`, `image_path`, `ordre`, `est_actif` |
-| **[RG-DEACTIVATE]** | La desactivation d'une categorie (`est_actif = 0`) ne desactive pas automatiquement les produits/menus enfants en base (pas de CASCADE sur `est_actif`). La logique PHP doit proposer a l'admin de desactiver aussi les produits/menus enfants, ou la borne filtre `categorie.est_actif = 1` ce qui masque de facto les produits de la categorie. |
-| **[RG-DELETE]** | Suppression physique bloquee si des `produit` ou `menu` ont `categorie_id = categorie.id` (FK `ON DELETE RESTRICT`). Proposer la desactivation. |
-| **[POST-CREATE]** | Nouveau enregistrement `categorie` en base |
-| **[POST-UPDATE]** | `categorie` mis a jour, `updated_at` rafraichi |
-| **[OUT-1]** | Confirmation, retour a la liste des categories |
+| **[PRE-1]** | Actor authenticated, holds permission `stock.count` |
+| **[PRE-2]** | Target ingredient exists |
+| **[PRE-3]** | `actual_quantity >= 0` (physical count is non-negative) |
+| **[RG-1]** | `delta = actual_quantity - ingredient.stock_quantity` (may be negative if actual < theoretical) |
+| **[RG-2]** | Transaction: `UPDATE ingredient SET stock_quantity = :actual_quantity WHERE id = :id`; INSERT `stock_movement` (ingredient_id, movement_type=`inventory_correction`, delta=computed, order_id=NULL, user_id=actor, note=optional) |
+| **[RG-3]** | `delta = 0` is a valid correction (physical count matches theoretical); a movement row is still inserted for audit completeness |
+| **[POST-1]** | `ingredient.stock_quantity = actual_quantity`. One `stock_movement` row of type `inventory_correction` inserted. |
+| **[OUT-1]** | Confirmation with reconciled stock level and discrepancy displayed |
 
 ---
 
-## 8. Domaine 7 - Gestion des utilisateurs et roles (admin)
+### 9.3 READ_STOCK
 
-### 8.1 CREER_USER
+**Corresponds to MCT section 9.3**
 
-**Correspond a MCT section 9.1**
-
-| Tag | Contenu |
+| Tag | Content |
 |-----|---------|
-| **[PRE-1]** | L'acteur est authentifie, permission `user.create` |
-| **[PRE-2]** | L'email fourni n'existe pas dans `user.email` (contrainte UNIQUE) |
-| **[PRE-3]** | Le `role_id` fourni correspond a un `role` existant et actif |
-| **[RG-1]** | Validation : `email` conforme RFC 5321 (validation PHP `FILTER_VALIDATE_EMAIL`), `nom` et `prenom` non vides, `role_id` valide |
-| **[RG-2]** | Hash du mot de passe : `password_hash($password, PASSWORD_ARGON2ID)`. Longueur min du mot de passe : 8 caracteres. |
-| **[RG-3]** | `est_actif = 1` par defaut |
-| **[RG-4]** | `last_login_at = NULL` a la creation |
-| **[POST-1]** | Enregistrement `user` en base avec `password_hash` argon2id, `role_id` valide |
-| **[OUT-1]** | Redirection vers la liste des utilisateurs, message de succes |
-| **[ERR-1]** | Email deja existant : message "Cet email est deja utilise" |
-| **[ERR-2]** | Mot de passe trop court : message de validation inline |
+| **[PRE-1]** | Actor authenticated, holds permission `stock.read` |
+| **[RG-1]** | `SELECT * FROM ingredient WHERE is_active = 1 ORDER BY name ASC` |
+| **[RG-2]** | Low-stock alert computed at render time: `stock_quantity <= low_stock_threshold` -> flag `low_stock: true` in response. Not stored as a column. |
+| **[RG-3]** | Optional movement history for a given ingredient: `SELECT * FROM stock_movement WHERE ingredient_id = :id ORDER BY created_at DESC LIMIT :n` |
+| **[POST-1]** | No database write |
+| **[OUT-1]** | Ingredient list with `stock_quantity`, `low_stock_threshold`, `pack_size`, `pack_label`, `low_stock` flag |
 
 ---
 
-### 8.2 MODIFIER_USER
+## 10. Domain 8 — User and role management
 
-**Correspond a MCT section 9.2**
+### 10.1 CREATE_USER
 
-| Tag | Contenu |
+**Corresponds to MCT section 10.1**
+
+| Tag | Content |
 |-----|---------|
-| **[PRE-1]** | L'acteur est authentifie, permission `user.update` |
-| **[PRE-2]** | Le `user.id` cible existe |
-| **[RG-1]** | Si un nouveau mot de passe est fourni (champ non vide) : rehachage via `PASSWORD_ARGON2ID` et remplacement du hash existant |
-| **[RG-2]** | Si le mot de passe n'est pas modifie (champ vide) : le hash existant est conserve sans modification |
-| **[RG-3]** | L'email peut etre modifie sous contrainte UNIQUE (verification avant UPDATE) |
-| **[POST-1]** | `user` mis a jour, `updated_at` rafraichi |
-| **[OUT-1]** | Redirection, message de succes |
+| **[PRE-1]** | Actor authenticated, holds permission `user.create` |
+| **[PRE-2]** | Email does not already exist in `user.email` (UNIQUE constraint) |
+| **[PRE-3]** | `role_id` references an existing, active role |
+| **[RG-1]** | Validation: `email` conforms to RFC 5321 (PHP `FILTER_VALIDATE_EMAIL`), `first_name` and `last_name` non-empty, `role_id` valid |
+| **[RG-2]** | Password hash: `password_hash($password, PASSWORD_ARGON2ID)`. Minimum password length: 8 characters. |
+| **[RG-3]** | `is_active = 1` by default; `last_login_at = NULL` at creation |
+| **[POST-1]** | One `user` row with argon2id `password_hash`, valid `role_id` |
+| **[OUT-1]** | Redirect to user list with success message |
+| **[ERR-1]** | Duplicate email: message "This email is already in use" |
+| **[ERR-2]** | Password too short: inline validation message |
 
 ---
 
-### 8.3 DESACTIVER_USER
+### 10.2 UPDATE_USER
 
-**Correspond a MCT section 9.3**
+**Corresponds to MCT section 10.2**
 
-| Tag | Contenu |
+| Tag | Content |
 |-----|---------|
-| **[PRE-1]** | L'acteur est authentifie, permission `user.update` |
-| **[PRE-2]** | L'acteur ne cible pas son propre compte (protection : `$targetUserId !== $currentUserId`) |
-| **[RG-1]** | `UPDATE user SET est_actif = 0, updated_at = NOW() WHERE id = :id` |
-| **[RG-2]** | La session eventuellemement active de cet utilisateur sera invalidee au prochain acces : le middleware verifie `user.est_actif = 1` a chaque requete authentifiee |
-| **[POST-1]** | `user.est_actif = 0`. L'utilisateur ne peut plus se connecter. Son historique reste intact. |
-| **[OUT-1]** | Redirection, message de succes |
-| **[ERR-1]** | Tentative d'auto-desactivation : HTTP 403 `{error: {code: "SELF_DEACTIVATION_FORBIDDEN"}}` |
+| **[PRE-1]** | Actor authenticated, holds permission `user.update` |
+| **[PRE-2]** | Target `user.id` exists |
+| **[RG-1]** | If a new password is supplied (non-empty field): rehash via `PASSWORD_ARGON2ID` and replace existing hash |
+| **[RG-2]** | If password field is empty: existing hash is preserved unchanged |
+| **[RG-3]** | Email update subject to UNIQUE constraint (pre-check before UPDATE) |
+| **[POST-1]** | `user` updated, `updated_at` refreshed |
+| **[OUT-1]** | Redirect with success message |
 
 ---
 
-### 8.4 GERER_MATRICE_RBAC
+### 10.3 DEACTIVATE_USER
 
-**Correspond a MCT section 9.4**
+**Corresponds to MCT section 10.3**
 
-| Tag | Contenu |
+| Tag | Content |
 |-----|---------|
-| **[PRE-1]** | L'acteur est authentifie, permission `role.manage` |
-| **[PRE-2]** | Le `role.id` cible existe |
-| **[PRE-3]** | Les `permission_id` soumis existent tous en base |
-| **[RG-1]** | Transaction : `DELETE FROM role_permission WHERE role_id = :id`, puis INSERT des nouvelles lignes `(role_id, permission_id)` pour chaque permission selectionnee |
-| **[RG-2]** | Les permissions ne sont pas modifiables via cette operation : elles sont uniquement lues pour construire le formulaire de selection |
-| **[RG-3]** | La modification prend effet immediatement pour les nouvelles requetes ; les sessions actives des users portant ce role verront la modification au prochain acces (la session stocke le `role_id` mais les permissions sont rechargees depuis la base a chaque verification) |
-| **[POST-1]** | La table `role_permission` reflete exactement les permissions selectionnees pour ce role |
-| **[OUT-1]** | Redirection, message de succes |
+| **[PRE-1]** | Actor authenticated, holds permission `user.deactivate` |
+| **[PRE-2]** | Actor is not targeting their own account (`$targetUserId !== $currentUserId`) |
+| **[RG-1]** | `UPDATE user SET is_active = 0, updated_at = NOW() WHERE id = :id` |
+| **[RG-2]** | The user's potentially active session is invalidated on next request: middleware checks `user.is_active = 1` on each authenticated request |
+| **[POST-1]** | `user.is_active = 0`; user cannot log in; history remains intact |
+| **[OUT-1]** | Redirect with success message |
+| **[ERR-1]** | Self-deactivation attempt: HTTP 403, `{error: {code: "SELF_DEACTIVATION_FORBIDDEN"}}` |
 
 ---
 
-## 9. Domaine 8 - Authentification back-office
+### 10.4 MANAGE_RBAC
 
-### 9.1 AUTHENTIFIER_USER
+**Corresponds to MCT section 10.4**
 
-**Correspond a MCT section 10.1**
-
-| Tag | Contenu |
+| Tag | Content |
 |-----|---------|
-| **[PRE-1]** | Le formulaire de connexion a ete soumis avec un email et un mot de passe |
-| **[PRE-2]** | Le token CSRF du formulaire est valide (protection anti-CSRF) |
-| **[RG-1]** | Lookup : `SELECT * FROM user WHERE email = :email AND est_actif = 1 LIMIT 1` |
-| **[RG-2]** | Verification du mot de passe : `password_verify($password, $user->password_hash)`. Si echec : meme message d'erreur generic que si l'email n'existe pas (protection contre l'enumeration d'emails). |
-| **[RG-3]** | Si succes : `session_regenerate(true)` (regeneration de l'ID de session, protection contre la fixation de session) |
-| **[RG-4]** | Stockage en session : `$_SESSION['user_id']`, `$_SESSION['role_id']`, `$_SESSION['logged_in_at']` |
-| **[RG-5]** | Mise a jour : `UPDATE user SET last_login_at = NOW() WHERE id = :id` |
-| **[RG-6]** | Timeouts de session : idle timeout 4h (detection via timestamp de derniere activite en session), absolute timeout 10h (detection via `logged_in_at`) |
-| **[POST-1]** | Session PHP ouverte avec `user_id` et `role_id`. `user.last_login_at` mis a jour. |
-| **[OUT-1]** | Redirection vers la vue par defaut du role (preparation -> file d'attente, accueil -> commandes pretes, admin -> dashboard) |
-| **[ERR-1]** | Identifiants incorrects ou compte inactif : message generic "Email ou mot de passe incorrect" (pas de distinction pour eviter l'enumeration) |
-| **[ERR-2]** | Token CSRF invalide : HTTP 403 |
+| **[PRE-1]** | Actor authenticated, holds permission `role.manage` |
+| **[PRE-2]** | Target `role.id` exists (for permission update) or role fields are valid (for role creation) |
+| **[PRE-3]** | All submitted `permission_id` values exist in the `permission` catalogue |
+| **[RG-1 — permissions]** | Transaction: `DELETE FROM role_permission WHERE role_id = :id`; INSERT new `(role_id, permission_id)` pairs for each selected permission |
+| **[RG-2]** | Permissions are not modifiable via this operation: they are read-only to populate the selection form. Permission catalogue is frozen at seed. |
+| **[RG-3]** | Effect is immediate for new requests; sessions of users bearing this role see the change on the next permission check (sessions store `role_id`; permissions are reloaded from DB on each check). |
+| **[RG-4 — custom role]** | Creating a custom role: INSERT `role` (code UNIQUE, label, description, default_route nullable, order_source nullable); INSERT `role_visible_source` rows as needed. |
+| **[RG-5 — order_source]** | `role.order_source` controls the auto-tagging of `customer_order.source` when this role creates an order. NULL for admin and manager (they can create on behalf of any channel). |
+| **[POST-1]** | `role_permission` reflects exactly the selected permissions for this role |
+| **[OUT-1]** | Redirect with success message |
 
 ---
 
-### 9.2 DECONNECTER_USER
+## 11. Domain 9 — Stats and KPI
 
-**Correspond a MCT section 10.2**
+### 11.1 READ_STATS
 
-| Tag | Contenu |
+**Corresponds to MCT section 11.1**
+
+| Tag | Content |
 |-----|---------|
-| **[PRE-1]** | Une session valide est ouverte (`session_id()` non vide, `$_SESSION['user_id']` present) |
-| **[RG-1]** | `$_SESSION = []` (vider les donnees de session) |
-| **[RG-2]** | Si le cookie de session existe, l'expirer : `setcookie(session_name(), '', time() - 3600, '/', '', true, true)` |
+| **[PRE-1]** | Actor authenticated, holds permission `stats.read` |
+| **[RG-1 — service_day]** | `service_day` expression used in all stats aggregations: `CASE WHEN HOUR(customer_order.created_at) < 10 THEN DATE(customer_order.created_at) - INTERVAL 1 DAY ELSE DATE(customer_order.created_at) END`. Cutoff at 10:00. No stored column. The v0.1 formula with `INTERVAL 4 HOUR 30 MINUTE` is dropped. |
+| **[RG-2 — revenue]** | Revenue queries filter `status != 'cancelled'`; they sum `total_ttc_cents` from `customer_order`. Cancelled orders are excluded from revenue but appear in volume counts with `status = 'cancelled'` filter. |
+| **[RG-3 — top products]** | `SELECT label_snapshot, SUM(quantity) AS total_sold FROM order_item JOIN customer_order ON ... WHERE customer_order.status != 'cancelled' GROUP BY label_snapshot ORDER BY total_sold DESC LIMIT 10` |
+| **[RG-4 — delivery time KPI]** | Average delivery time: `AVG(TIMESTAMPDIFF(SECOND, paid_at, delivered_at))` on orders with `status = 'delivered'`. SLA reference approx. 10 min (configurable). |
+| **[RG-5 — breakdown]** | Breakdowns available by `source` (kiosk/counter/drive) and `service_mode` (dine_in/takeaway/drive) for capacity planning. `service_mode` carries no fiscal role (see dictionary note 9). |
+| **[POST-1]** | No database write |
+| **[OUT-1]** | Stats dashboard data: revenue by service_day, order counts, top products, cancellation rate, average delivery time, breakdown by source/service_mode |
+
+---
+
+## 12. Domain 10 — Back-office authentication
+
+### 12.1 AUTHENTICATE_USER
+
+**Corresponds to MCT section 12.1**
+
+| Tag | Content |
+|-----|---------|
+| **[PRE-1]** | Login form submitted with email and password |
+| **[PRE-2]** | CSRF token of the form is valid (anti-CSRF protection) |
+| **[RG-1]** | Lookup: `SELECT * FROM user WHERE email = :email AND is_active = 1 LIMIT 1` |
+| **[RG-2]** | Password verification: `password_verify($password, $user->password_hash)`. On failure: same generic error whether the email does not exist or the password is wrong (protection against email enumeration). |
+| **[RG-3]** | On success: `session_regenerate(true)` (session ID regeneration, protection against session fixation) |
+| **[RG-4]** | Session storage: `$_SESSION['user_id']`, `$_SESSION['role_id']`, `$_SESSION['logged_in_at']` |
+| **[RG-5]** | UPDATE: `UPDATE user SET last_login_at = NOW() WHERE id = :id` |
+| **[RG-6]** | Session timeouts: idle timeout 4h (detection via last-activity timestamp in session); absolute timeout 10h (detection via `logged_in_at`) |
+| **[RG-7]** | Redirect target is `role.default_route` (dynamic; no hardcoded role name in routing logic) |
+| **[POST-1]** | PHP session open with `user_id` and `role_id`; `user.last_login_at` updated |
+| **[OUT-1]** | Redirect to `role.default_route` |
+| **[ERR-1]** | Incorrect credentials or inactive account: generic message "Email or password incorrect" (no distinction to prevent enumeration) |
+| **[ERR-2]** | Invalid CSRF token: HTTP 403 |
+
+---
+
+### 12.2 LOGOUT_USER
+
+**Corresponds to MCT section 12.2**
+
+| Tag | Content |
+|-----|---------|
+| **[PRE-1]** | Valid session open (`session_id()` non-empty, `$_SESSION['user_id']` present) |
+| **[RG-1]** | `$_SESSION = []` (clear session data) |
+| **[RG-2]** | If session cookie exists, expire it: `setcookie(session_name(), '', time() - 3600, '/', '', true, true)` |
 | **[RG-3]** | `session_destroy()` |
-| **[POST-1]** | Session PHP detruite. Aucun acces authentifie possible avec l'ancien cookie. |
-| **[OUT-1]** | Redirection vers la page de connexion |
+| **[POST-1]** | PHP session destroyed; no authenticated access possible with the old cookie |
+| **[OUT-1]** | Redirect to login page |
 
 ---
 
-## 10. Traitements automatises - Crons (hors interactions utilisateur)
+## 13. Automated treatments — Crons (outside user interactions)
 
-Ces traitements sont executes par le service `wakdo-cron` (container Alpine + PHP CLI) dans
-la fenetre de maintenance 01h30-09h30 (hors service actif). Ils sont hors scope MCT
-(traitements techniques, pas de declencheur utilisateur) mais sont documentes ici pour
-coherence avec PROJECT_CONTEXT section 7 (Bloc 5 DevOps).
+These treatments are executed by the `wakdo-cron` service container in the maintenance
+window 01:30-09:30 (outside active service). They are outside the MCT scope (technical
+treatments, no user trigger) but are documented here for consistency with PROJECT_CONTEXT.
 
-### 10.1 Agregation des stats (cron 04h30)
+### 13.1 Stats aggregation (cron 04:30)
 
-| Tag | Contenu |
+| Tag | Content |
 |-----|---------|
-| **[TRIGGER]** | Cron : `30 4 * * *` |
-| **[RG-1]** | Calcul du `service_day` ecoule : `J-1` si execution a 04h30 (dans la fenetre 01h-10h du jour J, le `service_day` a agregger est J-1) |
-| **[RG-2]** | `service_day` pour une commande : `CASE WHEN HOUR(created_at) < 10 THEN DATE(created_at - INTERVAL 1 DAY) ELSE DATE(created_at) END` |
-| **[RG-3]** | Agregations calculees par `service_day` : nombre de commandes, CA TTC (somme `total_ttc_cents` des commandes `statut != 'cancelled'`), top produits (par `libelle_snapshot`, COUNT occurrences dans `ligne_commande`) |
-| **[POST-1]** | Stats disponibles pour la vue dashboard admin (requetes directes sur `commande` filtrees par `service_day` ou table d'agregation si implementee) |
+| **[TRIGGER]** | Cron: `30 4 * * *` |
+| **[RG-1]** | `service_day` to aggregate: computed per order (see RG-1 of READ_STATS). At 04:30 the service_day in progress is the previous calendar day. |
+| **[RG-2]** | Aggregations by `service_day`: order count, TTC revenue (sum `total_ttc_cents` where `status != 'cancelled'`), top products (by `label_snapshot`, COUNT in `order_item`) |
+| **[POST-1]** | Stats available for admin dashboard (direct queries on `customer_order` filtered by `service_day`, or an aggregation table if implemented) |
 
-### 10.2 Purge des sessions expirees (cron toutes les 15 min)
+### 13.2 Expired sessions purge (cron every 15 min)
 
-| Tag | Contenu |
+| Tag | Content |
 |-----|---------|
-| **[TRIGGER]** | Cron : `*/15 * * * *` |
-| **[RG-1]** | Si les sessions PHP sont stockees en fichiers (defaut) : `find /tmp/sessions -mmin +240 -delete` (suppression des fichiers de session vieux de plus de 4h) |
-| **[RG-2]** | Si les sessions sont en base (option) : `DELETE FROM php_sessions WHERE updated_at < NOW() - INTERVAL 4 HOUR` |
-| **[POST-1]** | Sessions expirees supprimees. Les utilisateurs inactifs depuis plus de 4h seront forces a se reconnecter. |
+| **[TRIGGER]** | Cron: `*/15 * * * *` |
+| **[RG-1]** | File-based sessions (default): `find /tmp/sessions -mmin +240 -delete` |
+| **[RG-2]** | DB-based sessions (option): `DELETE FROM php_sessions WHERE updated_at < NOW() - INTERVAL 4 HOUR` |
+| **[POST-1]** | Expired sessions deleted; users inactive for more than 4h are forced to re-login |
 
-### 10.3 Backup BDD (cron 03h00)
+### 13.3 DB backup (cron 03:00)
 
-| Tag | Contenu |
+| Tag | Content |
 |-----|---------|
-| **[TRIGGER]** | Cron : `0 3 * * *` |
-| **[RG-1]** | `mysqldump` de la base `wakdo` vers un fichier date dans le volume backup |
-| **[RG-2]** | Retention : conservation des 7 derniers dumps (suppression des plus anciens) |
-| **[POST-1]** | Dump SQL disponible pour restauration |
+| **[TRIGGER]** | Cron: `0 3 * * *` |
+| **[RG-1]** | `mysqldump` of the `wakdo` database to a dated file in the backup volume |
+| **[RG-2]** | Retention: keep the last 7 dumps; delete older ones |
+| **[POST-1]** | SQL dump available for restoration |
 
 ---
 
-## 11. Tableau recapitulatif des regles de gestion transverses
+## 14. State machine — consistency recap (MLT)
 
-Ces regles s'appliquent a plusieurs operations et sont centralisees ici pour eviter la
-repetition.
+Summary of `customer_order.status` transitions covered in the MLT, with corresponding
+operations, SQL condition, concurrency protection, and phase timestamp set.
 
-| Code RG | Libelle | Operations concernees |
-|---------|---------|----------------------|
-| **RG-T01** | Verification CSRF sur tous les formulaires POST/PUT/DELETE du back-office | AUTH, toutes ops admin |
-| **RG-T02** | Verification session active + `est_actif = 1` sur chaque requete authentifiee | Toutes ops domaines 2-7 |
-| **RG-T03** | Verification permission via `role_permission` avant execution de l'operation | Toutes ops domaines 2-7 |
-| **RG-T04** | Tous les montants monetaires sont manipules en centimes (INT). Conversion EUR uniquement en sortie. | 2.3, 3.1, 7.1, 7.4 |
-| **RG-T05** | Les snapshots (`libelle_snapshot`, `prix_unitaire_ttc_cents_snapshot`) ne sont pas modifies apres insertion dans `ligne_commande` (integrite historique des commandes). | 2.3, 7.2, 7.5 |
-| **RG-T06** | Toutes les requetes SQL passent par PDO avec prepared statements. Aucune concatenation de donnees utilisateur dans une requete SQL. | Toutes operations |
-| **RG-T07** | Les transitions de statut `commande` incluent `AND statut = <statut_attendu>` dans la clause WHERE pour proteger contre les mises a jour concurrentes | 4.2, 4.3, 5.2, 6.1 |
-| **RG-T08** | Les operations de creation/modification de catalogue ou users se font en transaction atomique quand elles touchent plusieurs tables | 2.3, 7.4, 7.5, 8.4 |
-| **RG-T09** | Contrainte croisee `(source, mode_consommation)` sur `commande` : si `source = 'drive'`, alors `mode_consommation = 'drive'` (verification a la creation). Materialisable en CHECK SQL : `CHECK (source != 'drive' OR mode_consommation = 'drive')`. | 2.3, 3.1 |
-| **RG-T10** | Toute operation qui modifie `commande.statut` doit aussi inserer une ligne dans `commande_event` dans la meme transaction (event_type aligne sur la transition, from_statut, to_statut, user_id de l'acteur ou NULL si auto, payload JSON optionnel). Append-only : aucun UPDATE / DELETE applicatif. A encapsuler dans un repository pour eviter les oublis. | 2.3, 3.1, 4.2, 4.3, 5.2, 6.1 |
+| Transition | MLT operation | SQL condition | Concurrency protection | Phase timestamp set |
+|------------|--------------|---------------|------------------------|---------------------|
+| `-> pending_payment` (creation) | CREATE_ORDER (3.3), CREATE_COUNTER_ORDER (4.1) | INSERT with status `pending_payment` | Atomic transaction | `created_at` |
+| `pending_payment -> paid` | CREATE_ORDER (3.3), CREATE_COUNTER_ORDER (4.1) | UPDATE in same transaction | Atomic transaction | `paid_at` |
+| `paid -> delivered` | DELIVER_ORDER (6.1) | `WHERE status = 'paid'` | AND status in WHERE | `delivered_at` |
+| `pending_payment/paid -> cancelled` | CANCEL_ORDER (7.1) | `WHERE status IN ('pending_payment', 'paid')` | AND status IN WHERE | `cancelled_at` |
 
----
+Terminal statuses (no further transition defined from these states): `delivered`, `cancelled`.
 
-## 12. Coherence avec la machine a etats (recap MLT)
-
-Synthese des transitions de statut `commande` couvertes par le MLT, avec les operations MLT
-correspondantes et les protections associees.
-
-| Transition | Operation MLT | Condition SQL | Protection concurrence | Event audit insere |
-|------------|---------------|---------------|------------------------|--------------------|
-| `-> pending_payment` (creation) | PASSER_COMMANDE (2.3), SAISIR_COMMANDE_MANUELLE (3.1) | INSERT avec statut `pending_payment` | Transaction atomique | `CREATED` |
-| `pending_payment -> paid` (paiement) | PASSER_COMMANDE (2.3), SAISIR_COMMANDE_MANUELLE (3.1) | UPDATE dans la meme transaction | Transaction atomique | `PAID` |
-| `paid -> preparing` | MARQUER_EN_PREPARATION (4.2) | `WHERE statut = 'paid'` | AND statut dans WHERE | `PREPARING_STARTED` |
-| `preparing -> ready` | MARQUER_PRETE (4.3) | `WHERE statut = 'preparing'` | AND statut dans WHERE | `READY` |
-| `ready -> delivered` | DECLARER_LIVREE (5.2) | `WHERE statut = 'ready'` | AND statut dans WHERE | `DELIVERED` |
-| `pending_payment/paid/preparing/ready -> cancelled` | ANNULER_COMMANDE (6.1) | `WHERE statut IN ('pending_payment', 'paid', 'preparing', 'ready')` | AND statut dans WHERE | `CANCELLED` |
-
-Statuts terminaux (aucune transition prevue depuis ce statut) : `delivered`, `cancelled`.
-
-Note : la transition `pending_payment -> paid` est interne a l'operation de creation et non
-observable par les autres acteurs. Le statut `pending_payment` ne sera visible dans aucune file
-d'attente metier (preparation, accueil) : ces vues filtrent sur `paid`, `preparing`, `ready`.
+**Dropped from v0.1**:
+- `paid -> preparing` and `preparing -> ready` transitions — intermediate states removed.
+- MARQUER_EN_PREPARATION (v0.1 MLT section 4.2) — dropped.
+- MARQUER_PRETE (v0.1 MLT section 4.3) — dropped.
+- `preparing` and `ready` in the cancellable state set — the cancellable set is now
+  `['pending_payment', 'paid']` only.
+- `commande_event` table and v0.1 RG-T10 — replaced by phase timestamps on `customer_order`.
 
 ---
 
-## 13. Points d'incoherence signales et arbitrages attendus
+## 15. Residual notes and open points
 
-Ces points ont ete identifies lors de la construction du MLT. Ils reprennent et completent
-les points signales au MCT section 14.
+### 15.1 `service_day` — not materialised as a column
 
-### 13.1 Colonne `source` vs `mode_consommation` sur `commande` - RESOLU (2026-05-28)
+The `service_day` computation is documented (RG-2 of CREATE_ORDER, RG-1 of READ_STATS):
+`CASE WHEN HOUR(created_at) < 10 THEN DATE(created_at) - INTERVAL 1 DAY ELSE DATE(created_at) END`
+(cutoff 10:00). It is computed at query time, not stored. For high-frequency stats queries,
+a MariaDB generated column `VIRTUAL` or `STORED` could be added at DDL time to avoid
+per-row recomputation, but this is not a blocker for the RNCP scope.
+The v0.1 formula with `INTERVAL 4 HOUR 30 MINUTE` was incorrect and is dropped.
 
-**Decision actee** : ajout d'une colonne `source ENUM('kiosk','comptoir','drive')` sur `commande`, en plus de `mode_consommation`. Deux dimensions distinctes maintenues :
+### 15.2 `order_item_modifier` for menu items
 
-- `mode_consommation` (sur_place / a_emporter / drive) : visee fiscale, determine le taux de TVA (10% sur_place, 5,5% a_emporter en restauration rapide FR)
-- `source` (kiosk / comptoir / drive) : visee operationnelle, trace le canal de saisie
+For a menu line (`item_type='menu'`), modifiers target the fixed burger identified via
+`order_item.menu_id -> menu.burger_product_id`. The constraint that modifiers reference
+only ingredients belonging to the burger's `product_ingredient` is enforced at the
+application layer, not at the DB FK layer (see dictionary note 10). This is a known
+trade-off: a multi-column FK or a DB trigger would be needed to enforce it at DB level.
+Documenting it as an application invariant is the retained approach for this project scope.
 
-**Contrainte croisee** : `source = drive` implique `mode_consommation = drive`. Pour `kiosk` et `comptoir`, les deux dimensions sont independantes. Verifiee dans la regle [RG-T09] ci-dessous (section 11).
+### 15.3 Order number NNN counter — concurrency
 
-Dictionnaire et MCD amendes (cf. dictionary 3.5 + notes 8/9, MCD 4.2).
-
-### 13.2 Tracabilite acteur sur `commande` - RESOLU (2026-05-28)
-
-**Decision actee** : pas de colonnes `created_by_user_id` / `prepared_by_user_id` etc. directes sur `commande`. A la place, **table d'audit dediee `commande_event`** (cf. dictionary 3.7, MCD 4.2.bis, dictionary note 10). Pattern event sourcing simplifie.
-
-- Append-only : aucun UPDATE / DELETE applicatif sur `commande_event`
-- Chaque operation qui modifie `commande.statut` insere une ligne avec event_type, from_statut, to_statut, user_id (NULL si auto), payload (JSON nullable)
-- Tracabilite complete sans denormalisation
-
-Pattern d'ecriture documente dans la regle [RG-T10] (section 11).
-
-### 13.3 Statut `pending_payment` - RESOLU
-
-Le statut `pending_payment` est maintenu dans la machine canonique. Il represente la phase
-de composition de la commande avant paiement, conformement a la regle metier confirmee
-(le client compose sa commande, PUIS il paie). La transition `pending_payment -> paid` est
-atomique dans les operations de creation, ce statut est donc non observable par les files
-d'attente metier. Il est reserve pour une evolution vers un paiement reel asynchrone sans
-migration destructive de l'ENUM. Ce point est clos.
-
-### 13.4 (Information) `service_day` non persiste en colonne
-
-PROJECT_CONTEXT documente la logique `service_day` (section 2). Elle n'est pas
-materialisee comme colonne dans le dictionnaire. Pour les requetes de stats frequentes,
-une colonne calculee (colonne generee MariaDB, syntaxe `AS (expression) VIRTUAL/STORED`)
-pourrait etre envisagee au DDL pour eviter de recalculer a chaque requete. Non bloquant pour MVP.
+The sequential NNN counter per `(source, service_day)` could produce duplicates under
+high concurrency if implemented naively as `SELECT COUNT + 1`. The recommended
+implementation at DDL/code time is either: (a) a table-level advisory lock around the
+count-and-insert sequence; or (b) a dedicated sequence table with an atomic increment.
+The UNIQUE constraint on `order_number` provides the last-resort guard (INSERT would fail
+and the application retries). This is not a blocker for the RNCP demo volume.
