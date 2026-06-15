@@ -229,7 +229,7 @@ Reseaux :
 - Authentification sessions securisees (hash bcrypt/argon2, protection CSRF, fixation session) — duree de session adaptee a un poste complet d'equipier (idle timeout 4h, absolute timeout 10h)
 - 5 roles RBAC seed : `admin`, `manager`, `kitchen`, `counter`, `drive` (RBAC permission-driven, 23 permissions figees au seed ; roles personnalises possibles)
 - **Admin** : CRUD complet catalogue (+ suppressions), gestion utilisateurs, roles et permissions (RBAC), stats
-- **Manager** : catalogue (create/update), stock (reappro + inventaire), statistiques ; pas d'acces utilisateurs ni RBAC
+- **Manager** : catalogue (create/update), stock (reappro + inventaire), statistiques ; utilisateurs en **lecture seule** (`user.read`, pas de creation/modification/desactivation), pas d'acces RBAC
 - **Kitchen** : file des commandes `paid` triee par `paid_at` croissant, en **lecture seule** (KDS visuel) ; inventaire
 - **Counter** / **Drive** : saisir une commande (comptoir / drive-thru via casque/intercom), bouton "declarer livree" (geste unique `paid -> delivered`), annuler ; `source` auto-tague depuis `role.order_source` ; inventaire
 - Upload images produits (validation type MIME + taille + stockage dans volume `wakdo_uploads`)
