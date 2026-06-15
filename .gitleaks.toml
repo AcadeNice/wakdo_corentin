@@ -1,0 +1,31 @@
+# Wakdo - configuration gitleaks (secret-scan)
+#
+# Utilise par :
+#   - le hook pre-commit local (defense en profondeur)
+#   - le job CI Forgejo Actions (.forgejo/workflows/, lot D) sur chaque PR -> dev
+#
+# Principe : etendre le jeu de regles par defaut de gitleaks, puis ne tolerer
+# QUE les faux positifs explicitement justifies ci-dessous (placeholders de doc).
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Faux positifs documentes - placeholders de configuration, jamais des secrets reels"
+
+# Fichiers de template / doc : ne contiennent que des placeholders RFC 2606 / change_me.
+paths = [
+  '''\.env\.example$''',
+  '''\.gitleaks\.toml$''',
+  '''docs/.*\.md$''',
+]
+
+# Valeurs placeholder explicites tolerees ou qu'elles apparaissent.
+regexes = [
+  '''change_me_strong_password''',
+  '''change_me_root_password''',
+  '''example\.com''',
+]
+
+# Note : le vrai .env est gitignore et ne doit jamais etre commite. Ce scan est
+# une defense en profondeur, pas un substitut a l'hygiene .gitignore.
