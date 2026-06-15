@@ -75,7 +75,7 @@ abstract class AdminController extends AuthenticatedController
 
     protected function userDirectory(): UserDirectory
     {
-        return new UserDirectory($this->database);
+        return new UserDirectory($this->db());
     }
 
     /**

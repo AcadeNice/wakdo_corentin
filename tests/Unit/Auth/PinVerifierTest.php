@@ -93,6 +93,36 @@ final class PinVerifierTest extends TestCase
         self::assertFalse($this->verifier()->verify(7, ''));
     }
 
+    public function testResolveActingUserReturnsIdentityWhenPinMatches(): void
+    {
+        $this->db->actingUserRow = ['id' => 7, 'role_id' => 4, 'pin_hash' => $this->hasher->hash('4729')];
+
+        self::assertSame(['id' => 7, 'role_id' => 4], $this->verifier()->resolveActingUser('staff@wakdo.local', '4729'));
+        // Garde RG-T13 : la resolution filtre is_active = 1 (retirer le predicat
+        // ferait echouer ce cas, comme pour verify()).
+        self::assertStringContainsString('is_active = 1', $this->db->reads[0]['sql']);
+    }
+
+    public function testResolveActingUserNullWhenPinWrong(): void
+    {
+        $this->db->actingUserRow = ['id' => 7, 'role_id' => 4, 'pin_hash' => $this->hasher->hash('4729')];
+
+        self::assertNull($this->verifier()->resolveActingUser('staff@wakdo.local', '0000'));
+    }
+
+    public function testResolveActingUserNullWhenEmailUnknown(): void
+    {
+        $this->db->actingUserRow = null;
+
+        self::assertNull($this->verifier()->resolveActingUser('ghost@wakdo.local', '4729'));
+    }
+
+    public function testResolveActingUserNullWhenInputEmpty(): void
+    {
+        self::assertNull($this->verifier()->resolveActingUser('', '4729'));
+        self::assertNull($this->verifier()->resolveActingUser('staff@wakdo.local', ''));
+    }
+
     public function testMeetsLengthPolicy(): void
     {
         $verifier = $this->verifier();

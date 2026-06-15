@@ -120,6 +120,28 @@ final class FakeDatabase implements DatabaseInterface
     /** Resultat de UserRepository::pinIsSet() (true = un PIN est defini). */
     public bool $userPinSet = false;
 
+    /**
+     * Lignes renvoyees par ProductRepository::all().
+     *
+     * @var list<array<string, mixed>>
+     */
+    public array $productsRows = [];
+
+    /**
+     * Ligne renvoyee par ProductRepository::find() ; null = introuvable.
+     *
+     * @var array<string, mixed>|null
+     */
+    public ?array $productRow = null;
+
+    /**
+     * Ligne renvoyee pour PinVerifier::resolveActingUser (id, role_id, pin_hash) ;
+     * null = email inconnu/inactif.
+     *
+     * @var array<string, mixed>|null
+     */
+    public ?array $actingUserRow = null;
+
     /** Si non nul, execute() leve cette exception (simulation panne DB / violation de contrainte). */
     public ?Throwable $failOnExecute = null;
 
@@ -131,6 +153,15 @@ final class FakeDatabase implements DatabaseInterface
 
     /** @var list<string> */
     public array $transactionEvents = [];
+
+    /**
+     * Journal ordonne entrelacant ecritures et bornes de transaction, pour
+     * verifier qu'une ecriture (ex. audit_log) tombe bien ENTRE begin et commit
+     * (atomicite RG-T08), ce que deux listes disjointes ne prouvent pas.
+     *
+     * @var list<string>
+     */
+    public array $eventLog = [];
 
     public function fetch(string $sql, array $params = []): ?array
     {
@@ -176,6 +207,16 @@ final class FakeDatabase implements DatabaseInterface
             return $this->userPinSet ? ['id' => 1] : null;
         }
 
+        // Exige is_active = 1 (garde RG-T13) : retirer le predicat en production
+        // ferait virer au rouge les tests de resolveActingUser.
+        if (str_contains($sql, 'pin_hash FROM user WHERE email') && str_contains($sql, 'is_active = 1')) {
+            return $this->actingUserRow;
+        }
+
+        if (str_contains($sql, 'FROM product WHERE id = :id')) {
+            return $this->productRow;
+        }
+
         if (str_contains($sql, 'FROM category WHERE id = :id')) {
             return $this->categoryRow;
         }
@@ -207,6 +248,10 @@ final class FakeDatabase implements DatabaseInterface
             return $this->categoriesRows;
         }
 
+        if (str_contains($sql, 'FROM product p JOIN category')) {
+            return $this->productsRows;
+        }
+
         if (str_contains($sql, 'SELECT p.code FROM role_permission')) {
             if (!$this->roleActive) {
                 return [];
@@ -225,6 +270,7 @@ final class FakeDatabase implements DatabaseInterface
         }
 
         $this->writes[] = ['sql' => $sql, 'params' => $params];
+        $this->eventLog[] = 'write:' . substr($sql, 0, 24);
 
         return $this->executeRowCount;
     }
@@ -232,12 +278,15 @@ final class FakeDatabase implements DatabaseInterface
     public function transaction(callable $fn): void
     {
         $this->transactionEvents[] = 'begin';
+        $this->eventLog[] = 'begin';
 
         try {
             $fn($this);
             $this->transactionEvents[] = 'commit';
+            $this->eventLog[] = 'commit';
         } catch (\Throwable $exception) {
             $this->transactionEvents[] = 'rollback';
+            $this->eventLog[] = 'rollback';
 
             throw $exception;
         }

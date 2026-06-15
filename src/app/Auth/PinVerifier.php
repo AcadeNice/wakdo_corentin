@@ -64,6 +64,41 @@ final class PinVerifier
     }
 
     /**
+     * Modele "identifiant equipier + PIN" (RG-T13) : sur un poste a session
+     * partagee, l'individu qui realise l'action sensible se ré-authentifie par
+     * email + PIN. Resout l'utilisateur ACTIF par email, verifie le PIN contre son
+     * pin_hash, et renvoie son identite {id, role_id} (l'acteur ecrit dans
+     * audit_log) ou null. Email/PIN absent ou inconnu : verify leurre (timing).
+     *
+     * @return array{id: int, role_id: int}|null
+     */
+    public function resolveActingUser(string $email, string $pin): ?array
+    {
+        if ($pin === '' || $email === '') {
+            $this->hasher->verifyDecoy($pin);
+
+            return null;
+        }
+
+        $row = $this->db->fetch(
+            'SELECT id, role_id, pin_hash FROM user WHERE email = :email AND is_active = 1 LIMIT 1',
+            ['email' => $email],
+        );
+
+        $hash = is_string($row['pin_hash'] ?? null) ? (string) $row['pin_hash'] : '';
+
+        if ($hash === '' || !$this->hasher->verify($pin, $hash)) {
+            if ($hash === '') {
+                $this->hasher->verifyDecoy($pin);
+            }
+
+            return null;
+        }
+
+        return ['id' => (int) ($row['id'] ?? 0), 'role_id' => (int) ($row['role_id'] ?? 0)];
+    }
+
+    /**
      * Politique de PIN a verifier cote serveur avant de hacher un nouveau PIN
      * (P3, definition du PIN) : chiffres ASCII uniquement, bornes min ET max
      * (RG-T18). ctype_digit garantit le charset numerique, ce qui rend strlen

@@ -18,6 +18,7 @@ use App\Controllers\HealthController;
 use App\Controllers\HomeController;
 use App\Controllers\MeController;
 use App\Controllers\PasswordResetController;
+use App\Controllers\ProductController;
 use App\Controllers\ProfileController;
 use App\Core\Autoloader;
 use App\Core\Config;
@@ -78,6 +79,16 @@ try {
     // Profil self-service : definition du PIN d'action sensible (RG-T13).
     $router->add('GET', '/admin/profile/pin', [ProfileController::class, 'showPin']);
     $router->add('POST', '/admin/profile/pin', [ProfileController::class, 'updatePin']);
+
+    // CRUD Produits (product.read/create/update/delete). PIN equipier + audit sur
+    // changement prix/TVA (update) et suppression (delete).
+    $router->add('GET', '/admin/products', [ProductController::class, 'index']);
+    $router->add('GET', '/admin/products/new', [ProductController::class, 'create']);
+    $router->add('POST', '/admin/products', [ProductController::class, 'store']);
+    $router->add('GET', '/admin/products/{id}/edit', [ProductController::class, 'edit']);
+    $router->add('POST', '/admin/products/{id}', [ProductController::class, 'update']);
+    $router->add('GET', '/admin/products/{id}/delete', [ProductController::class, 'confirmDelete']);
+    $router->add('POST', '/admin/products/{id}/delete', [ProductController::class, 'destroy']);
 
     $response = $router->dispatch(Request::fromGlobals());
     $response->send();

@@ -1,0 +1,360 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Tests\Unit\Admin;
+
+use PHPUnit\Framework\TestCase;
+use App\Auth\Csrf;
+use App\Auth\SessionManager;
+use App\Controllers\ProductController;
+use App\Core\Config;
+use App\Core\Database;
+use App\Core\DatabaseInterface;
+use App\Core\Request;
+use App\Tests\Support\FakeDatabase;
+
+/**
+ * Sous-classe de test : grace au seam db(), une seule surcharge DB suffit ;
+ * sessionManager() injecte la session test.
+ */
+final class TestProductController extends ProductController
+{
+    public function __construct(
+        Request $request,
+        Config $config,
+        Database $database,
+        private readonly SessionManager $testSession,
+        private readonly FakeDatabase $fakeDb,
+    ) {
+        parent::__construct($request, $config, $database);
+    }
+
+    protected function sessionManager(): SessionManager
+    {
+        return $this->testSession;
+    }
+
+    protected function db(): DatabaseInterface
+    {
+        return $this->fakeDb;
+    }
+}
+
+final class ProductControllerTest extends TestCase
+{
+    /** @var list<string> */
+    private array $touchedKeys = [];
+
+    private SessionManager $session;
+    private string $csrf = '';
+
+    protected function setUp(): void
+    {
+        $this->setEnv('SESSION_LIFETIME_IDLE', '14400');
+        $this->setEnv('SESSION_LIFETIME_ABSOLUTE', '36000');
+        $this->setEnv('STAFF_PIN_MIN_LENGTH', '4');
+        $this->setEnv('STAFF_PIN_MAX_LENGTH', '12');
+        $this->setEnv('ARGON2_MEMORY_COST', '1024');
+        $this->setEnv('ARGON2_TIME_COST', '1');
+        $this->setEnv('ARGON2_THREADS', '1');
+
+        $this->session = new SessionManager(new Config(), true);
+        $now = time();
+        $this->session->set('user_id', 1);
+        $this->session->set('role_id', 1);
+        $this->session->set('logged_in_at', $now - 100);
+        $this->session->set('last_activity', $now - 50);
+        $this->csrf = Csrf::token($this->session);
+    }
+
+    protected function tearDown(): void
+    {
+        foreach ($this->touchedKeys as $key) {
+            putenv($key);
+        }
+        $this->touchedKeys = [];
+    }
+
+    private function setEnv(string $key, string $value): void
+    {
+        $this->touchedKeys[] = $key;
+        putenv($key . '=' . $value);
+    }
+
+    private function permittedDb(): FakeDatabase
+    {
+        $db = new FakeDatabase();
+        $db->guardUserRow = ['is_active' => 1];
+        $db->userDisplayRow = ['first_name' => 'Corentin', 'last_name' => 'J', 'role_label' => 'Administrateur'];
+        $db->canResult = true;
+        $db->permissionCodes = ['product.read', 'product.create', 'product.update', 'product.delete'];
+        $db->categoryRow = ['id' => 3, 'name' => 'Burgers'];   // categoryExists -> true
+        return $db;
+    }
+
+    private function get(string $path): Request
+    {
+        return new Request('GET', $path, [], [], '', '203.0.113.5');
+    }
+
+    /**
+     * @param array<string, string> $form
+     */
+    private function post(array $form, string $path): Request
+    {
+        return new Request('POST', $path, [], ['content-type' => 'application/x-www-form-urlencoded'], http_build_query($form), '203.0.113.5');
+    }
+
+    private function controller(Request $request, FakeDatabase $db): TestProductController
+    {
+        return new TestProductController($request, new Config(), new Database(new Config()), $this->session, $db);
+    }
+
+    /**
+     * @param array<string, string> $overrides
+     * @return array<string, string>
+     */
+    private function validForm(array $overrides = []): array
+    {
+        return array_merge([
+            '_csrf' => $this->csrf,
+            'category_id' => '3',
+            'name' => 'Big Mac',
+            'price_cents' => '590',
+            'vat_rate' => '100',
+            'display_order' => '1',
+            'is_available' => '1',
+        ], $overrides);
+    }
+
+    private function actingPin(FakeDatabase $db): void
+    {
+        // Equipier dont le PIN '4729' est valide (modele identifiant + PIN).
+        $db->actingUserRow = ['id' => 9, 'role_id' => 4, 'pin_hash' => (new \App\Auth\PasswordHasher(new Config()))->hash('4729')];
+    }
+
+    public function testIndexRequiresProductRead(): void
+    {
+        $db = $this->permittedDb();
+        $db->canResult = false;
+
+        self::assertSame(403, $this->controller($this->get('/admin/products'), $db)->index()->status());
+    }
+
+    public function testIndexListsProducts(): void
+    {
+        $db = $this->permittedDb();
+        $db->productsRows = [
+            ['id' => 1, 'category_id' => 3, 'name' => 'Big Mac', 'price_cents' => 590, 'vat_rate' => 100, 'is_available' => 1, 'category_name' => 'Burgers'],
+        ];
+
+        $response = $this->controller($this->get('/admin/products'), $db)->index();
+        self::assertSame(200, $response->status());
+        self::assertStringContainsString('Big Mac', $response->body());
+        self::assertStringContainsString('Nouveau produit', $response->body());
+    }
+
+    public function testStoreCreatesWithoutPin(): void
+    {
+        $db = $this->permittedDb();
+        $response = $this->controller($this->post($this->validForm(), '/admin/products'), $db)->store();
+
+        self::assertSame(302, $response->status());
+        self::assertTrue($db->wrote('INSERT INTO product'));
+        self::assertFalse($db->wrote('INSERT INTO audit_log')); // create = pas d'action sensible
+        self::assertSame('Produit cree.', $this->session->get('_flash'));
+    }
+
+    public function testStoreValidationErrorNoWrite(): void
+    {
+        $db = $this->permittedDb();
+        $response = $this->controller($this->post($this->validForm(['name' => '', 'price_cents' => '0']), '/admin/products'), $db)->store();
+
+        self::assertSame(422, $response->status());
+        self::assertFalse($db->wrote('INSERT INTO product'));
+    }
+
+    public function testUpdateWithoutPriceChangeNeedsNoPin(): void
+    {
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 5, 'category_id' => 3, 'name' => 'Old', 'description' => null, 'price_cents' => 590, 'vat_rate' => 100, 'image_path' => null, 'is_available' => 1, 'display_order' => 1];
+
+        // Nom change, prix/TVA inchanges -> pas de PIN, pas d'audit.
+        $response = $this->controller($this->post($this->validForm(['name' => 'Renamed']), '/admin/products/5'), $db)->update(['id' => '5']);
+
+        self::assertSame(302, $response->status());
+        self::assertTrue($db->wrote('UPDATE product SET'));
+        self::assertFalse($db->wrote('INSERT INTO audit_log'));
+        self::assertSame([], $db->transactionEvents);
+    }
+
+    public function testUpdatePriceChangeRequiresPin(): void
+    {
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 5, 'category_id' => 3, 'name' => 'Big Mac', 'description' => null, 'price_cents' => 590, 'vat_rate' => 100, 'image_path' => null, 'is_available' => 1, 'display_order' => 1];
+
+        // Prix change sans email/PIN -> 422, pas de mise a jour.
+        $response = $this->controller($this->post($this->validForm(['price_cents' => '620']), '/admin/products/5'), $db)->update(['id' => '5']);
+
+        self::assertSame(422, $response->status());
+        self::assertStringContainsString('PIN', $response->body());
+        self::assertFalse($db->wrote('UPDATE product SET'));
+        // PIN echoue trace (detectabilite du brute-force, RG-T14).
+        self::assertSame(['pin.failed'], $db->auditActions());
+    }
+
+    public function testUpdateVatChangeRequiresPin(): void
+    {
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 5, 'category_id' => 3, 'name' => 'Big Mac', 'description' => null, 'price_cents' => 590, 'vat_rate' => 100, 'image_path' => null, 'is_available' => 1, 'display_order' => 1];
+
+        // Prix inchange (590), TVA 100 -> 55 : sensible -> PIN requis.
+        $response = $this->controller($this->post($this->validForm(['vat_rate' => '55']), '/admin/products/5'), $db)->update(['id' => '5']);
+
+        self::assertSame(422, $response->status());
+        self::assertFalse($db->wrote('UPDATE product SET'));
+    }
+
+    public function testUpdateVatChangeWithValidPinAudits(): void
+    {
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 5, 'category_id' => 3, 'name' => 'Big Mac', 'description' => null, 'price_cents' => 590, 'vat_rate' => 100, 'image_path' => null, 'is_available' => 1, 'display_order' => 1];
+        $this->actingPin($db);
+
+        $form = $this->validForm(['vat_rate' => '55', 'pin_email' => 'staff@wakdo.local', 'pin' => '4729']);
+        $response = $this->controller($this->post($form, '/admin/products/5'), $db)->update(['id' => '5']);
+
+        self::assertSame(302, $response->status());
+        self::assertSame(['begin', 'commit'], $db->transactionEvents);
+        $audit = $this->firstAudit($db);
+        self::assertNotNull($audit);
+        self::assertSame('product.update', $audit['params']['code'] ?? null);
+        self::assertStringContainsString('vat_rate 100 -> 55', (string) ($audit['params']['summary'] ?? ''));
+    }
+
+    public function testUpdatePriceChangeWithValidPinAuditsInTransaction(): void
+    {
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 5, 'category_id' => 3, 'name' => 'Big Mac', 'description' => null, 'price_cents' => 590, 'vat_rate' => 100, 'image_path' => null, 'is_available' => 1, 'display_order' => 1];
+        $this->actingPin($db);
+
+        $form = $this->validForm(['price_cents' => '620', 'pin_email' => 'staff@wakdo.local', 'pin' => '4729']);
+        $response = $this->controller($this->post($form, '/admin/products/5'), $db)->update(['id' => '5']);
+
+        self::assertSame(302, $response->status());
+        self::assertSame(['begin', 'commit'], $db->transactionEvents);
+        self::assertTrue($db->wrote('UPDATE product SET'));
+        // Acteur = utilisateur RESOLU PAR PIN (id 9, role 4), pas la session (id 1).
+        $audit = $this->firstAudit($db);
+        self::assertNotNull($audit);
+        self::assertSame('product.update', $audit['params']['code'] ?? null);
+        self::assertSame(9, $audit['params']['uid'] ?? null);
+        self::assertSame(4, $audit['params']['rid'] ?? null);
+        // Audit ecrit DANS la transaction (RG-T08), entre begin et commit.
+        $this->assertAuditWithinTransaction($db);
+    }
+
+    public function testEditNotFoundReturns404(): void
+    {
+        $db = $this->permittedDb();
+        $db->productRow = null;
+
+        self::assertSame(404, $this->controller($this->get('/admin/products/999/edit'), $db)->edit(['id' => '999'])->status());
+    }
+
+    public function testConfirmDeleteShowsPinForm(): void
+    {
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 5, 'name' => 'Big Mac'];
+
+        $response = $this->controller($this->get('/admin/products/5/delete'), $db)->confirmDelete(['id' => '5']);
+        self::assertSame(200, $response->status());
+        self::assertStringContainsString('name="pin"', $response->body());
+    }
+
+    public function testDestroyRequiresValidPin(): void
+    {
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 5, 'name' => 'Big Mac'];
+        $db->actingUserRow = null; // email/PIN invalide
+
+        $response = $this->controller($this->post(['_csrf' => $this->csrf, 'pin_email' => 'x@y.z', 'pin' => '0000'], '/admin/products/5/delete'), $db)->destroy(['id' => '5']);
+
+        self::assertSame(422, $response->status());
+        self::assertFalse($db->wrote('DELETE FROM product'));
+        self::assertSame(['pin.failed'], $db->auditActions());
+    }
+
+    public function testDestroyWithValidPinDeletesAndAudits(): void
+    {
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 5, 'name' => 'Big Mac'];
+        $this->actingPin($db);
+
+        $response = $this->controller($this->post(['_csrf' => $this->csrf, 'pin_email' => 'staff@wakdo.local', 'pin' => '4729'], '/admin/products/5/delete'), $db)->destroy(['id' => '5']);
+
+        self::assertSame(302, $response->status());
+        self::assertTrue($db->wrote('DELETE FROM product'));
+        $audit = $this->firstAudit($db);
+        self::assertNotNull($audit);
+        self::assertSame('product.delete', $audit['params']['code'] ?? null);
+        self::assertSame(9, $audit['params']['uid'] ?? null);   // acteur = PIN, pas la session (1)
+        self::assertSame(4, $audit['params']['rid'] ?? null);
+        $this->assertAuditWithinTransaction($db);
+    }
+
+    public function testDestroyReferencedReturns422(): void
+    {
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 5, 'name' => 'Big Mac'];
+        $this->actingPin($db);
+        $db->failOnExecute = new \PDOException('fk', 23000); // FK RESTRICT a la suppression
+
+        $response = $this->controller($this->post(['_csrf' => $this->csrf, 'pin_email' => 'staff@wakdo.local', 'pin' => '4729'], '/admin/products/5/delete'), $db)->destroy(['id' => '5']);
+
+        self::assertSame(422, $response->status());
+        self::assertStringContainsString('reference', $response->body());
+    }
+
+    public function testStoreRejectsInvalidCsrf(): void
+    {
+        $db = $this->permittedDb();
+        $response = $this->controller($this->post($this->validForm(['_csrf' => 'wrong']), '/admin/products'), $db)->store();
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($db->wrote('INSERT INTO product'));
+    }
+
+    /**
+     * @return array{sql: string, params: array<string|int, mixed>}|null
+     */
+    private function firstAudit(FakeDatabase $db): ?array
+    {
+        foreach ($db->writes as $write) {
+            if (str_contains($write['sql'], 'INSERT INTO audit_log')) {
+                return $write;
+            }
+        }
+
+        return null;
+    }
+
+    private function assertAuditWithinTransaction(FakeDatabase $db): void
+    {
+        $log = $db->eventLog;
+        $begin = array_search('begin', $log, true);
+        $commit = array_search('commit', $log, true);
+        $auditAt = null;
+        foreach ($log as $i => $event) {
+            if (str_contains($event, 'INSERT INTO audit_log')) {
+                $auditAt = $i;
+            }
+        }
+
+        self::assertIsInt($begin);
+        self::assertIsInt($commit);
+        self::assertNotNull($auditAt);
+        self::assertTrue($begin < $auditAt && $auditAt < $commit, 'audit_log doit etre ecrit entre begin et commit');
+    }
+}

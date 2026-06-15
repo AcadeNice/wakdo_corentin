@@ -8,6 +8,7 @@ use App\Auth\Authorizer;
 use App\Auth\SessionGuard;
 use App\Auth\SessionManager;
 use App\Core\Controller;
+use App\Core\DatabaseInterface;
 
 /**
  * Base des controleurs proteges : fournit la session, la garde de session
@@ -24,13 +25,23 @@ abstract class AuthenticatedController extends Controller
         return new SessionManager($this->config);
     }
 
+    /**
+     * Acces aux donnees via l'interface. Centralise le seam pour que toutes les
+     * dependances DB (garde, autorisation, repositories, transactions, audit)
+     * passent par un point unique surchargeable en test.
+     */
+    protected function db(): DatabaseInterface
+    {
+        return $this->database;
+    }
+
     protected function sessionGuard(): SessionGuard
     {
-        return new SessionGuard($this->sessionManager(), $this->database, $this->config);
+        return new SessionGuard($this->sessionManager(), $this->db(), $this->config);
     }
 
     protected function authorizer(): Authorizer
     {
-        return new Authorizer($this->database);
+        return new Authorizer($this->db());
     }
 }
