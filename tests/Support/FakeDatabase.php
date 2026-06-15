@@ -55,6 +55,34 @@ final class FakeDatabase implements DatabaseInterface
      */
     public ?array $guardUserRow = null;
 
+    /** Resultat de Authorizer::can() (true = permission accordee). */
+    public bool $canResult = false;
+
+    /** Etat role.is_active modelise pour can()/permissionsFor() ; false => rien accorde. */
+    public bool $roleActive = true;
+
+    /**
+     * Trace des lectures (fetch/fetchAll) pour asserter les parametres lies
+     * (ex. liaison par code de permission, RG-T03), pendant que $writes trace les ecritures.
+     *
+     * @var list<array{sql: string, params: array<string|int, mixed>}>
+     */
+    public array $reads = [];
+
+    /**
+     * Codes de permission renvoyes par Authorizer::permissionsFor().
+     *
+     * @var list<string>
+     */
+    public array $permissionCodes = [];
+
+    /**
+     * Ligne role renvoyee pour la lecture du code de role (/api/me) ; null = absent.
+     *
+     * @var array<string, mixed>|null
+     */
+    public ?array $roleRow = null;
+
     /** Si non nul, execute() leve cette exception (simulation panne DB -> fail-closed). */
     public ?RuntimeException $failOnExecute = null;
 
@@ -66,6 +94,8 @@ final class FakeDatabase implements DatabaseInterface
 
     public function fetch(string $sql, array $params = []): ?array
     {
+        $this->reads[] = ['sql' => $sql, 'params' => $params];
+
         if (str_contains($sql, 'FROM user u JOIN role')) {
             return $this->userRow;
         }
@@ -82,6 +112,14 @@ final class FakeDatabase implements DatabaseInterface
             return $this->guardUserRow;
         }
 
+        if (str_contains($sql, 'SELECT 1 AS granted FROM role_permission')) {
+            return ($this->canResult && $this->roleActive) ? ['granted' => 1] : null;
+        }
+
+        if (str_contains($sql, 'FROM role r WHERE r.id')) {
+            return $this->roleRow;
+        }
+
         if (str_contains($sql, 'SELECT lockout_until FROM login_throttle')) {
             return ['lockout_until' => $this->ipLockoutUntil];
         }
@@ -95,6 +133,16 @@ final class FakeDatabase implements DatabaseInterface
 
     public function fetchAll(string $sql, array $params = []): array
     {
+        $this->reads[] = ['sql' => $sql, 'params' => $params];
+
+        if (str_contains($sql, 'SELECT p.code FROM role_permission')) {
+            if (!$this->roleActive) {
+                return [];
+            }
+
+            return array_map(static fn (string $code): array => ['code' => $code], $this->permissionCodes);
+        }
+
         return [];
     }
 

@@ -14,6 +14,7 @@ use App\Auth\SessionManager;
 use App\Controllers\AuthController;
 use App\Controllers\HealthController;
 use App\Controllers\HomeController;
+use App\Controllers\MeController;
 use App\Controllers\PasswordResetController;
 use App\Core\Autoloader;
 use App\Core\Config;
@@ -56,6 +57,9 @@ try {
     $router->add('POST', '/forgot_password', [PasswordResetController::class, 'submitRequest']);
     $router->add('GET', '/reset_password', [PasswordResetController::class, 'showConfirm']);
     $router->add('POST', '/reset_password', [PasswordResetController::class, 'submitConfirm']);
+
+    // RBAC : identite + permissions de la session courante (gardee par SessionGuard).
+    $router->add('GET', '/api/me', [MeController::class, 'show']);
 
     $response = $router->dispatch(Request::fromGlobals());
     $response->send();

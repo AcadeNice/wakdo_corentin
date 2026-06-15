@@ -99,6 +99,13 @@ Autres regles :
 | POST | `/forgot_password` | public + CSRF | HTML (neutre) | envoi du lien (mlt 12.3) |
 | GET | `/reset_password` | public (token en query) | HTML | formulaire nouveau mot de passe |
 | POST | `/reset_password` | public + CSRF | 302 / HTML | confirmation (mlt 12.3) |
+| GET | `/api/me` | session | JSON | identite + permissions du compte courant (RG-6/RG-T02/RG-T03) |
+
+`/api/me` est le premier consommateur reel de `SessionGuard` (RG-6 idle/absolu + RG-T02
+is_active) et d'`Authorizer` (RG-T03, permissions rechargees depuis la base). Reponse :
+`{ "data": { "user_id", "role_id", "role_code", "permissions": [...] } }` ; `401 AUTH_REQUIRED`
+si la session est absente, expiree ou le compte desactive. Les autorisations par operation
+(et le PIN des actions sensibles, RG-T13) se cablent quand les operations existent (P3).
 
 ### 5.2 API kiosk - lecture catalogue + commande (prevu P4, public)
 
