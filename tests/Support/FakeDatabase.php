@@ -117,8 +117,14 @@ final class FakeDatabase implements DatabaseInterface
     /** Resultat de CategoryRepository::slugExists(). */
     public bool $categorySlugTaken = false;
 
+    /** Resultat de UserRepository::pinIsSet() (true = un PIN est defini). */
+    public bool $userPinSet = false;
+
     /** Si non nul, execute() leve cette exception (simulation panne DB / violation de contrainte). */
     public ?Throwable $failOnExecute = null;
+
+    /** Nombre de lignes affectees renvoye par execute() (1 par defaut). */
+    public int $executeRowCount = 1;
 
     /** @var list<array{sql: string, params: array<string|int, mixed>}> */
     public array $writes = [];
@@ -164,6 +170,10 @@ final class FakeDatabase implements DatabaseInterface
         // renverrait null et le test verify-true virerait au rouge (garde RG-T13).
         if (str_contains($sql, 'SELECT pin_hash FROM user WHERE id') && str_contains($sql, 'is_active = 1')) {
             return $this->pinUserRow;
+        }
+
+        if (str_contains($sql, 'FROM user WHERE id = :id AND pin_hash IS NOT NULL')) {
+            return $this->userPinSet ? ['id' => 1] : null;
         }
 
         if (str_contains($sql, 'FROM category WHERE id = :id')) {
@@ -216,7 +226,7 @@ final class FakeDatabase implements DatabaseInterface
 
         $this->writes[] = ['sql' => $sql, 'params' => $params];
 
-        return 1;
+        return $this->executeRowCount;
     }
 
     public function transaction(callable $fn): void

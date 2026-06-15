@@ -18,6 +18,7 @@ use App\Controllers\HealthController;
 use App\Controllers\HomeController;
 use App\Controllers\MeController;
 use App\Controllers\PasswordResetController;
+use App\Controllers\ProfileController;
 use App\Core\Autoloader;
 use App\Core\Config;
 use App\Core\Database;
@@ -73,6 +74,10 @@ try {
     $router->add('GET', '/admin/categories/{id}/edit', [CategoryController::class, 'edit']);
     $router->add('POST', '/admin/categories/{id}', [CategoryController::class, 'update']);
     $router->add('POST', '/admin/categories/{id}/toggle', [CategoryController::class, 'toggle']);
+
+    // Profil self-service : definition du PIN d'action sensible (RG-T13).
+    $router->add('GET', '/admin/profile/pin', [ProfileController::class, 'showPin']);
+    $router->add('POST', '/admin/profile/pin', [ProfileController::class, 'updatePin']);
 
     $response = $router->dispatch(Request::fromGlobals());
     $response->send();
