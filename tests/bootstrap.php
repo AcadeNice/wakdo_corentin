@@ -8,6 +8,6 @@ declare(strict_types=1);
  * (src/public/admin/index.php). Les tests resolvent ainsi App\... via PSR-4.
  */
 
-require __DIR__ . '/../src/Core/Autoloader.php';
+require __DIR__ . '/../src/app/Core/Autoloader.php';
 
 App\Core\Autoloader::register();

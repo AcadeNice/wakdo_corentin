@@ -31,7 +31,7 @@ abstract class Controller
     }
 
     /**
-     * Rend une vue PHP sous src/Views/<name>.php avec ses donnees extraites.
+     * Rend une vue PHP sous src/app/Views/<name>.php avec ses donnees extraites.
      *
      * Le rendu est bufferise puis injecte dans le layout via la variable
      * $content, ce qui permet aux vues de rester de simples fragments.

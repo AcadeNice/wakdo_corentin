@@ -7,8 +7,8 @@ namespace App\Core;
 /**
  * PSR-4 autoloader manuel, sans Composer (exigence "from scratch" Cr 4.c.3).
  *
- * Mappe le prefixe de namespace racine "App\" sur le dossier src/.
- * Exemple : App\Core\Router -> {src}/Core/Router.php
+ * Mappe le prefixe de namespace racine "App\" sur le dossier src/app/.
+ * Exemple : App\Core\Router -> {src/app}/Core/Router.php
  */
 final class Autoloader
 {
@@ -17,8 +17,8 @@ final class Autoloader
     /**
      * Enregistre l'autoloader aupres de la pile SPL.
      *
-     * La racine src/ est calculee depuis l'emplacement de ce fichier
-     * (src/Core/Autoloader.php) : dirname(__DIR__) remonte de Core/ a src/.
+     * La racine src/app/ est calculee depuis l'emplacement de ce fichier
+     * (src/app/Core/Autoloader.php) : dirname(__DIR__) remonte de Core/ a src/app/.
      * Aucun chemin code en dur, donc portable host/conteneur.
      */
     public static function register(): void

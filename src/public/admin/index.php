@@ -21,7 +21,7 @@ use App\Core\Router;
 
 // src/public/admin/index.php : __DIR__ = src/public/admin ; remonter de deux
 // niveaux (admin -> public -> src) pour atteindre la racine src/.
-require dirname(__DIR__, 2) . '/Core/Autoloader.php';
+require dirname(__DIR__, 2) . '/app/Core/Autoloader.php';
 Autoloader::register();
 
 // En-tetes de securite poses tot, valables sur toute reponse y compris une 500.
