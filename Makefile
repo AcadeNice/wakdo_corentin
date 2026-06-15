@@ -156,12 +156,12 @@ wait-db: ## Attend que la base de donnees accepte les connexions (timeout 60s)
 	@echo "[wait-db] OK"
 
 .PHONY: migrate
-migrate: ## Applique les migrations SQL en attente [a venir]
-	@echo "[migrate] Pas encore implemente. Les migrations seront dans db/migrations/."
+migrate: ## Applique les migrations SQL en attente (db/migrations/)
+	@bash db/migrate.sh
 
 .PHONY: seed
-seed: ## Charge les donnees de demo [a venir]
-	@echo "[seed] Pas encore implemente. Les seeds seront dans db/seeds/."
+seed: ## Charge les donnees de demo (db/seeds/)
+	@bash db/seed.sh
 
 .PHONY: backup
 backup: ## Declenche un dump SQL horodate immediat (via le container cron)
@@ -210,6 +210,21 @@ clean: ## Stop + suppression containers + volumes (DESTRUCTIF, demande confirmat
 .PHONY: clean-force
 clean-force: ## Version non interactive de clean (pour CI uniquement)
 	@$(COMPOSE) down -v
+
+# === Documentation ===
+
+.PHONY: docs-render
+docs-render: ## Regenere les diagrammes Mermaid (docs/**/_diagrams/*.mmd -> *.svg)
+	@echo "[docs-render] Recherche des sources Mermaid sous docs/..."
+	@count=0; \
+	for src in $$(find docs -name '*.mmd' -path '*/_diagrams/*'); do \
+		out="$${src%.mmd}.svg"; \
+		echo "  $$src -> $$out"; \
+		npx -y -p @mermaid-js/mermaid-cli mmdc -i "$$src" -o "$$out" >/dev/null 2>&1 \
+			|| { echo "[docs-render] ECHEC sur $$src"; exit 1; }; \
+		count=$$((count + 1)); \
+	done; \
+	echo "[docs-render] $$count diagramme(s) genere(s)."
 
 # === Hooks Git ===
 
