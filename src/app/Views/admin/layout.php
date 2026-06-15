@@ -18,6 +18,7 @@ declare(strict_types=1);
  * @var list<string> $permissions
  * @var string       $csrfToken
  * @var string       $activeNav
+ * @var string|null  $flash
  */
 
 $pageTitle = htmlspecialchars($title ?? 'Wakdo Admin', ENT_QUOTES, 'UTF-8');
@@ -129,6 +130,10 @@ $navClass = static function (string $code, string $current): string {
     </nav>
 
     <main class="content">
+        <?php $flashMessage = isset($flash) && is_string($flash) ? $flash : null; ?>
+        <?php if ($flashMessage !== null && $flashMessage !== ''): ?>
+            <div class="flash" role="status"><?= htmlspecialchars($flashMessage, ENT_QUOTES, 'UTF-8') ?></div>
+        <?php endif; ?>
         <?= $content ?? '' ?>
     </main>
 </div>

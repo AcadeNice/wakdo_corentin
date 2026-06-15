@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Support;
 
 use App\Core\DatabaseInterface;
-use RuntimeException;
+use Throwable;
 
 /**
  * Double de test de DatabaseInterface : aucune connexion reelle. Les lectures
@@ -97,8 +97,28 @@ final class FakeDatabase implements DatabaseInterface
      */
     public ?array $userDisplayRow = null;
 
-    /** Si non nul, execute() leve cette exception (simulation panne DB -> fail-closed). */
-    public ?RuntimeException $failOnExecute = null;
+    /**
+     * Lignes renvoyees par CategoryRepository::all().
+     *
+     * @var list<array<string, mixed>>
+     */
+    public array $categoriesRows = [];
+
+    /**
+     * Ligne renvoyee par CategoryRepository::find() ; null = introuvable.
+     *
+     * @var array<string, mixed>|null
+     */
+    public ?array $categoryRow = null;
+
+    /** Resultat de CategoryRepository::nameExists(). */
+    public bool $categoryNameTaken = false;
+
+    /** Resultat de CategoryRepository::slugExists(). */
+    public bool $categorySlugTaken = false;
+
+    /** Si non nul, execute() leve cette exception (simulation panne DB / violation de contrainte). */
+    public ?Throwable $failOnExecute = null;
 
     /** @var list<array{sql: string, params: array<string|int, mixed>}> */
     public array $writes = [];
@@ -146,6 +166,18 @@ final class FakeDatabase implements DatabaseInterface
             return $this->pinUserRow;
         }
 
+        if (str_contains($sql, 'FROM category WHERE id = :id')) {
+            return $this->categoryRow;
+        }
+
+        if (str_contains($sql, 'FROM category WHERE name = :name')) {
+            return $this->categoryNameTaken ? ['id' => 1] : null;
+        }
+
+        if (str_contains($sql, 'FROM category WHERE slug = :slug')) {
+            return $this->categorySlugTaken ? ['id' => 1] : null;
+        }
+
         if (str_contains($sql, 'SELECT lockout_until FROM login_throttle')) {
             return ['lockout_until' => $this->ipLockoutUntil];
         }
@@ -160,6 +192,10 @@ final class FakeDatabase implements DatabaseInterface
     public function fetchAll(string $sql, array $params = []): array
     {
         $this->reads[] = ['sql' => $sql, 'params' => $params];
+
+        if (str_contains($sql, 'FROM category ORDER BY')) {
+            return $this->categoriesRows;
+        }
 
         if (str_contains($sql, 'SELECT p.code FROM role_permission')) {
             if (!$this->roleActive) {

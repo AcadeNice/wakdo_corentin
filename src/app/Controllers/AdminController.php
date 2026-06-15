@@ -67,6 +67,7 @@ abstract class AdminController extends AuthenticatedController
             'permissions'     => $this->authorizer()->permissionsFor($roleId),
             'csrfToken'       => Csrf::token($this->sessionManager()),
             'activeNav'       => '',
+            'flash'           => $this->takeFlash(),
         ];
 
         return $this->view($name, $data + $context, $status);
@@ -75,5 +76,26 @@ abstract class AdminController extends AuthenticatedController
     protected function userDirectory(): UserDirectory
     {
         return new UserDirectory($this->database);
+    }
+
+    /**
+     * Message de confirmation a afficher apres une redirection (pose avant le 302,
+     * consomme au rendu suivant). Stocke en session pour survivre a la redirection.
+     */
+    protected function setFlash(string $message): void
+    {
+        $this->sessionManager()->set('_flash', $message);
+    }
+
+    private function takeFlash(): ?string
+    {
+        $flash = $this->sessionManager()->get('_flash');
+        if ($flash === null) {
+            return null;
+        }
+
+        $this->sessionManager()->set('_flash', null);
+
+        return is_string($flash) ? $flash : null;
     }
 }

@@ -12,6 +12,7 @@ declare(strict_types=1);
 
 use App\Auth\SessionManager;
 use App\Controllers\AuthController;
+use App\Controllers\CategoryController;
 use App\Controllers\DashboardController;
 use App\Controllers\HealthController;
 use App\Controllers\HomeController;
@@ -64,6 +65,14 @@ try {
 
     // Back-office (P3) : pages rendues serveur sous /admin, gardees par SessionGuard.
     $router->add('GET', '/admin/dashboard', [DashboardController::class, 'index']);
+
+    // CRUD Categories (permission category.manage). Pas de suppression dure : toggle is_active.
+    $router->add('GET', '/admin/categories', [CategoryController::class, 'index']);
+    $router->add('GET', '/admin/categories/new', [CategoryController::class, 'create']);
+    $router->add('POST', '/admin/categories', [CategoryController::class, 'store']);
+    $router->add('GET', '/admin/categories/{id}/edit', [CategoryController::class, 'edit']);
+    $router->add('POST', '/admin/categories/{id}', [CategoryController::class, 'update']);
+    $router->add('POST', '/admin/categories/{id}/toggle', [CategoryController::class, 'toggle']);
 
     $response = $router->dispatch(Request::fromGlobals());
     $response->send();
