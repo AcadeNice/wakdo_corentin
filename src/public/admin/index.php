@@ -1,34 +1,53 @@
 <?php
+
 declare(strict_types=1);
 
-// Stub pour debloquer le routage Apache + valider la chaine FastCGI vers PHP-FPM.
-// Sera remplace par le front controller MVC en phase P2 (src/Core/Router.php a venir).
+/**
+ * Front controller du vhost admin (back-office + API sous /api).
+ *
+ * Apache reecrit toute requete non-fichier vers ce fichier (RewriteRule ^ index.php).
+ * Le REQUEST_URI arrive intact (pas de prefixe strippe), donc le routeur voit
+ * "/", "/api/health", etc.
+ */
 
-header('Content-Type: text/html; charset=utf-8');
+use App\Controllers\HealthController;
+use App\Controllers\HomeController;
+use App\Core\Autoloader;
+use App\Core\Config;
+use App\Core\Database;
+use App\Core\Request;
+use App\Core\Response;
+use App\Core\Router;
+
+// src/public/admin/index.php : __DIR__ = src/public/admin ; remonter de deux
+// niveaux (admin -> public -> src) pour atteindre la racine src/.
+require dirname(__DIR__, 2) . '/Core/Autoloader.php';
+Autoloader::register();
+
+// En-tetes de securite poses tot, valables sur toute reponse y compris une 500.
+header('X-Content-Type-Options: nosniff');
 header('X-Robots-Tag: noindex, nofollow');
 
-$phpVersion = htmlspecialchars(PHP_VERSION, ENT_QUOTES, 'UTF-8');
-$now = htmlspecialchars(date('Y-m-d H:i:s'), ENT_QUOTES, 'UTF-8');
-?><!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="robots" content="noindex, nofollow">
-    <title>Wakdo - back-office</title>
-    <style>
-        body { font-family: system-ui, sans-serif; margin: 2rem; color: #222; }
-        img { max-height: 80px; }
-        small { color: #666; }
-        code { background: #f4f4f4; padding: 0.1em 0.3em; border-radius: 3px; }
-    </style>
-</head>
-<body>
-    <h1>Wakdo - back-office</h1>
-    <p>En construction.</p>
-    <p><small>Phase P1 - conception Merise en cours. Le back-office sera implemente en phases P2 a P4.</small></p>
-    <hr>
-    <p><small>Diagnostic FastCGI : PHP <code><?= $phpVersion ?></code> repond a <code><?= $now ?></code>.</small></p>
-    <p><small>TODO P2 : assets partages (logo, images produits) via Apache Alias entre les 2 vhosts.</small></p>
-</body>
-</html>
+$config = new Config();
+date_default_timezone_set($config->timezone());
+
+try {
+    // Acces BDD paresseux : la connexion n'est ouverte qu'au premier query(),
+    // donc la home back-office reste servie meme base indisponible.
+    $database = new Database($config);
+
+    $router = new Router($config, $database);
+    $router->add('GET', '/', [HomeController::class, 'index']);
+    $router->add('GET', '/api/health', [HealthController::class, 'index']);
+
+    $response = $router->dispatch(Request::fromGlobals());
+    $response->send();
+} catch (Throwable $exception) {
+    // En debug on remonte le message pour iterer ; en prod, reponse generique
+    // pour ne rien divulguer de la pile interne (information disclosure).
+    $payload = $config->isDebug()
+        ? ['data' => null, 'error' => ['code' => 'INTERNAL_ERROR', 'message' => $exception->getMessage()]]
+        : ['data' => null, 'error' => ['code' => 'INTERNAL_ERROR', 'message' => 'Internal server error']];
+
+    (new Response())->json($payload, 500)->send();
+}

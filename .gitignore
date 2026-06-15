@@ -28,8 +28,11 @@ vendor/
 composer.lock
 composer.phar
 
-# === Tests ===
+# === Tests / Analyse statique (tooling via .phar autonome, sans Composer) ===
 .phpunit.result.cache
+.phpunit.cache/
+/phpunit.phar
+/phpstan.phar
 /tests/_output/
 /tests/_support/_generated/
 
