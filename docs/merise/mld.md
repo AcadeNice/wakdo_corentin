@@ -1,10 +1,10 @@
 # Logical Data Model (MLD) — Wakdo
 
 **Merise phase** : P1 - Conception, step 5 (after MCD, MCT, MLT)
-**Version** : v0.2 — prod-like, 19 tables
-**Date** : 2026-06-04
+**Version** : v0.2 — prod-like, 21 tables (19 prod-like + security-by-design layer)
+**Date** : 2026-06-04 (security-by-design additions 2026-06-11)
 **Branch** : `feat/p1-conception`
-**Status** : prod-like — all D1-D8 + stock decisions applied (see `docs/notes/revue-alignement-p1.md` §7)
+**Status** : prod-like — all D1-D8 + stock decisions applied (see `docs/notes/revue-alignement-p1.md` §7); security-by-design layer (audit_log + accountability/auth columns) in progress
 **Author** : BYAN (methodology layer)
 
 ---
@@ -93,7 +93,7 @@ in addition to the composite FK PK. Applied to `product_ingredient`.
 
 ---
 
-## 4. Relational schema (19 tables)
+## 4. Relational schema (21 tables)
 
 Tables are ordered by dependency (no-FK tables first, then tables that depend on them).
 
@@ -245,14 +245,16 @@ No timestamps. Pure join table.
 ### 4.6 `ingredient`
 
 ```
-ingredient (id, name, unit, stock_quantity, pack_size, [pack_label],
-            low_stock_threshold, is_active, created_at, updated_at)
+ingredient (id, name, unit, stock_quantity, stock_capacity, pack_size, [pack_label],
+            low_stock_pct, critical_stock_pct, is_active, created_at, updated_at)
 
   PK  : id
   UK  : name
-  CHK : stock_quantity >= 0
+  CHK : stock_capacity > 0
   CHK : pack_size > 0
-  CHK : low_stock_threshold >= 0
+  CHK : low_stock_pct BETWEEN 0 AND 100
+  CHK : critical_stock_pct BETWEEN 0 AND 100
+  CHK : critical_stock_pct < low_stock_pct
 ```
 
 | Column | Type | NULL | Notes |
@@ -260,15 +262,37 @@ ingredient (id, name, unit, stock_quantity, pack_size, [pack_label],
 | `id` | INT UNSIGNED AUTO_INCREMENT | NO | PK |
 | `name` | VARCHAR(120) | NO | Unique name, e.g. "Sesame Bun" |
 | `unit` | VARCHAR(40) | NO | Packaging unit label (free-form, not ENUM) |
-| `stock_quantity` | INT NOT NULL DEFAULT 0 | NO | Current stock. Signed INT to detect negative (alert) |
+| `stock_quantity` | INT NOT NULL DEFAULT 0 | NO | Current stock. Signed INT that may go negative when sales outrun counted stock (oversell magnitude, surfaced to managers); the system does not block an order on stock |
+| `stock_capacity` | INT NOT NULL | NO | Reference "full" level in units = the 100% used to compute the stock percentage; CHECK > 0 also guards the percentage division against divide-by-zero |
 | `pack_size` | SMALLINT UNSIGNED NOT NULL DEFAULT 1 | NO | Units per restocking pack |
 | `pack_label` | VARCHAR(80) | YES | Human label of the pack |
-| `low_stock_threshold` | SMALLINT UNSIGNED NOT NULL DEFAULT 0 | NO | Alert threshold |
+| `low_stock_pct` | SMALLINT UNSIGNED NOT NULL DEFAULT 10 | NO | Warning band, percent of capacity (CHECK BETWEEN 0 AND 100) |
+| `critical_stock_pct` | SMALLINT UNSIGNED NOT NULL DEFAULT 5 | NO | Auto-out-of-stock floor, percent of capacity (CHECK BETWEEN 0 AND 100; table CHECK `critical_stock_pct < low_stock_pct`) |
 | `is_active` | TINYINT(1) NOT NULL DEFAULT 1 | NO | Deactivate obsolete ingredients |
 | `created_at` | DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP | NO | Audit |
 | `updated_at` | DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP | NO | Audit |
 
 No FK. Root table for the Ingredients & Stock sub-domain.
+
+**Percentage-based stock model**: the stock state is computed (NOT stored) as
+`stock_pct = ROUND(stock_quantity / stock_capacity * 100)`. Two bands derive from it:
+`LOW` when `stock_quantity <= stock_capacity * low_stock_pct/100`, and
+`CRITICAL` when `stock_quantity <= stock_capacity * critical_stock_pct/100`.
+Three-band behaviour: above `low` = normal; between `critical` and `low` = orderable
+plus manager alert (the manager either pulls the product via `product.is_available=0`, or
+restocks to clear the alert); at or below `critical` = auto out-of-stock (computed, rule
+RG-T21). `stock_quantity` is signed and may go negative; the system does not block an order
+on stock, so a negative value records the oversell magnitude for managers.
+
+**Computed availability (rule RG-T21)**: a product is effectively orderable when
+`product.is_available = 1` AND each non-removable (`is_removable=0`) ingredient in its
+`product_ingredient` has `stock_quantity > stock_capacity * critical_stock_pct/100`. At the
+critical band a product auto-goes out-of-stock with no write and no cascade; a manual pull
+(`product.is_available=0`) is a hard override; a restock above the critical band makes the
+product orderable again on its own; a removable/optional ingredient at the critical band does
+not block the product (only its add-on becomes unavailable). The dashboard distinguishes a
+manual pull (`is_available=0`) from a stock-driven OOS (`is_available=1` but a required
+ingredient is critical).
 
 ---
 
@@ -382,8 +406,10 @@ No FK. Root table for RBAC.
 ### 4.11 `user`
 
 ```
-user (id, email, password_hash, first_name, last_name, #role_id,
-      is_active, [last_login_at], created_at, updated_at)
+user (id, email, password_hash, [pin_hash], first_name, last_name, #role_id,
+      is_active, [last_login_at], failed_login_attempts, [last_failed_login_at],
+      [lockout_until], [password_reset_token_hash], [password_reset_expires_at],
+      [anonymized_at], created_at, updated_at)
 
   PK  : id
   UK  : email
@@ -394,18 +420,31 @@ user (id, email, password_hash, first_name, last_name, #role_id,
 | Column | Type | NULL | Notes |
 |---|---|---|---|
 | `id` | INT UNSIGNED AUTO_INCREMENT | NO | PK |
-| `email` | VARCHAR(254) | NO | RFC 5321 max length |
+| `email` | VARCHAR(254) | NO | RFC 5321 max length. PII (RGPD anonymisation, see below) |
 | `password_hash` | VARCHAR(255) | NO | argon2id hash |
-| `first_name` | VARCHAR(60) | NO | |
-| `last_name` | VARCHAR(60) | NO | |
+| `pin_hash` | VARCHAR(255) | YES | argon2id hash of the per-staff PIN (sensitive-action authorisation). Security-by-design |
+| `first_name` | VARCHAR(60) | NO | PII |
+| `last_name` | VARCHAR(60) | NO | PII |
 | `role_id` | INT UNSIGNED | NO | FK -> role |
 | `is_active` | TINYINT(1) NOT NULL DEFAULT 1 | NO | Deactivation without deletion |
 | `last_login_at` | DATETIME | YES | Audit, dormant account detection |
+| `failed_login_attempts` | SMALLINT UNSIGNED NOT NULL DEFAULT 0 | NO | Brute-force counter (degressive throttling) |
+| `last_failed_login_at` | DATETIME | YES | Timestamp of last failed login |
+| `lockout_until` | DATETIME | YES | End of current throttling window (backoff, not indefinite lock) |
+| `password_reset_token_hash` | VARCHAR(255) | YES | Hash of the reset token (not the raw token) |
+| `password_reset_expires_at` | DATETIME | YES | Reset token expiry |
+| `anonymized_at` | DATETIME | YES | RGPD tombstone marker; PII nulled/replaced when set |
 | `created_at` | DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP | NO | Audit |
 | `updated_at` | DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP | NO | Audit |
 
 **ON DELETE RESTRICT** on `role_id`: a role cannot be deleted while users hold it.
 Deactivate the role first (`is_active = 0`), then reassign users before deleting.
+
+**RGPD anonymisation** (security-by-design, dict. note 13): the right to erasure is honoured by
+anonymising, not hard-deleting. `email` becomes a unique non-identifying placeholder
+(`anon-<id>@wakdo.invalid`, RFC 2606 reserved domain — preserves the UNIQUE constraint),
+`first_name`/`last_name` are cleared, `password_hash`/`pin_hash` are invalidated, `is_active=0`,
+`anonymized_at = NOW()`. The row persists so `audit_log` and `stock_movement` FKs stay valid.
 
 ---
 
@@ -488,13 +527,16 @@ No timestamps. Pure join table.
 ### 4.15 `customer_order`
 
 ```
-customer_order (id, order_number, source, service_mode, status,
+customer_order (id, order_number, [idempotency_key], source, [#acting_user_id],
+                service_mode, status,
                 total_ht_cents, total_vat_cents, total_ttc_cents,
                 [paid_at], [delivered_at], [cancelled_at],
                 created_at, updated_at)
 
   PK  : id
   UK  : order_number
+  UK  : idempotency_key
+  FK  : acting_user_id -> user(id) ON DELETE SET NULL
   IDX : (status, created_at)
   IDX : (source, created_at)
   IDX : created_at
@@ -509,7 +551,9 @@ customer_order (id, order_number, source, service_mode, status,
 |---|---|---|---|
 | `id` | INT UNSIGNED AUTO_INCREMENT | NO | PK |
 | `order_number` | VARCHAR(20) | NO | Format `K/C/D-YYYY-MM-DD-NNN` by channel |
+| `idempotency_key` | VARCHAR(36) | YES | Client UUID, UNIQUE; deduplicates retried POST (security-by-design) |
 | `source` | ENUM('kiosk','counter','drive') | NO | Input channel |
+| `acting_user_id` | INT UNSIGNED | YES | FK -> user; counter/drive staff under PIN; NULL for kiosk |
 | `service_mode` | ENUM('dine_in','takeaway','drive') | NO | Consumption mode (stats only, no fiscal role) |
 | `status` | ENUM('pending_payment','paid','delivered','cancelled') NOT NULL DEFAULT 'pending_payment' | NO | 4-state machine |
 | `total_ht_cents` | INT UNSIGNED | NO | Ex-VAT total snapshot |
@@ -521,8 +565,11 @@ customer_order (id, order_number, source, service_mode, status,
 | `created_at` | DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP | NO | Used as `service_day` base |
 | `updated_at` | DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP | NO | Audit |
 
-No FK toward `user`: staff attribution is not stored on the order. Operational accountability
-is covered by `stock_movement.user_id` for stock actions.
+**Staff attribution (security-by-design)**: `acting_user_id` (FK -> `user`, ON DELETE SET NULL)
+records the counter/drive staff who took the order under PIN; NULL for anonymous kiosk orders.
+Kiosk orders stay anonymous by design. `stock_movement.user_id` covers attribution of stock
+actions. `idempotency_key` (UNIQUE, nullable) deduplicates a retried `POST /api/orders`
+(multiple NULLs allowed by the UNIQUE index, so non-idempotent legacy paths are tolerated).
 
 **4-state machine**: `pending_payment -> paid -> delivered` (+ `cancelled`). States `preparing`
 and `ready` are dropped (decision D4). KPI: `delivered_at - paid_at` (target SLA ~10 min).
@@ -693,6 +740,76 @@ No `updated_at`. Immutable append-only table.
 
 ---
 
+### 4.20 `audit_log`
+
+Append-only log of sensitive back-office actions (security-by-design, dict. 3.20).
+
+```
+audit_log (id, [#actor_user_id], [#actor_role_id], action_code,
+           [entity_type], [entity_id], [summary], [details], created_at)
+
+  PK  : id
+  FK  : actor_user_id -> user(id) ON DELETE SET NULL
+  FK  : actor_role_id -> role(id) ON DELETE SET NULL
+  IDX : (actor_user_id, created_at)
+  IDX : (entity_type, entity_id)
+  IDX : (action_code, created_at)
+```
+
+| Column | Type | NULL | Notes |
+|---|---|---|---|
+| `id` | INT UNSIGNED AUTO_INCREMENT | NO | PK |
+| `actor_user_id` | INT UNSIGNED | YES | FK -> user; acting staff (PIN-captured) or NULL if not attributable |
+| `actor_role_id` | INT UNSIGNED | YES | FK -> role; denormalised role context (survives user anonymisation) |
+| `action_code` | VARCHAR(60) | NO | MCT operation / permission code, e.g. `product.update`, `order.cancel` |
+| `entity_type` | VARCHAR(40) | YES | Affected table name |
+| `entity_id` | INT UNSIGNED | YES | PK of the affected row |
+| `summary` | VARCHAR(255) | YES | Short non-personal change description |
+| `details` | JSON | YES | Optional before/after diff (field names for user-targeted actions, not PII values) |
+| `created_at` | DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP | NO | Immutable timestamp |
+
+**ON DELETE SET NULL** on both FKs: the trail is preserved when a user is anonymised/removed
+or a role deleted; only the link is severed (the denormalised `actor_role_id` keeps the role
+context even after user anonymisation).
+
+**Immutability rule**: no UPDATE or DELETE at application layer. **Retention**: a scheduled
+cron purge removes rows older than the retention window (~12 months, legitimate-interest /
+fiscal traceability), decoupled from the user PII lifecycle (dict. note 13).
+
+No `updated_at`. Immutable append-only table.
+
+---
+
+### 4.21 `login_throttle`
+
+Per-source-IP brute-force throttle (security-by-design). Complements the per-account counter
+already on `user` (`failed_login_attempts` / `lockout_until`).
+
+```
+login_throttle (id, ip_address, failed_attempts, window_started_at,
+                [lockout_until], last_attempt_at)
+
+  PK  : id
+  UK  : ip_address
+  IDX : lockout_until
+```
+
+| Column | Type | NULL | Notes |
+|---|---|---|---|
+| `id` | INT UNSIGNED AUTO_INCREMENT | NO | PK |
+| `ip_address` | VARCHAR(45) | NO | Source IP, one row per IP, upserted; 45 chars holds a full IPv6 literal. UNIQUE |
+| `failed_attempts` | SMALLINT UNSIGNED NOT NULL DEFAULT 0 | NO | Consecutive failed logins from this IP in the current window |
+| `window_started_at` | DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP | NO | Start of the current counting window |
+| `lockout_until` | DATETIME | YES | End of the degressive backoff window; NULL = not throttled |
+| `last_attempt_at` | DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP | NO | Timestamp of the last failed attempt |
+
+No FK: an IP is not a modelled entity. Append/upsert by IP; the window resets when expired. A
+daily cron purges rows with no active lockout whose `last_attempt_at` is older than 24h.
+
+No `updated_at`: rows are upserted by IP, not edited through a UI.
+
+---
+
 ## 5. Referential integrity summary
 
 | FK column | References | ON DELETE | Rationale |
@@ -722,6 +839,9 @@ No `updated_at`. Immutable append-only table.
 | `stock_movement.ingredient_id` | `ingredient(id)` | RESTRICT | Ingredient with history cannot be deleted |
 | `stock_movement.order_id` | `customer_order(id)` | SET NULL | Audit preserved, order link lost |
 | `stock_movement.user_id` | `user(id)` | SET NULL | Audit preserved, user attribution lost |
+| `customer_order.acting_user_id` | `user(id)` | SET NULL | Staff attribution preserved as anonymised principal; order kept |
+| `audit_log.actor_user_id` | `user(id)` | SET NULL | Audit trail preserved on user anonymisation; only the link is severed |
+| `audit_log.actor_role_id` | `role(id)` | SET NULL | Role context kept until role deletion; denormalised so it survives user anonymisation |
 
 **Key used**: CASCADE = child has no meaning without parent; RESTRICT = parent deletion
 blocked while children exist; SET NULL = child is preserved, only the link is severed.
@@ -736,9 +856,11 @@ blocked while children exist; SET NULL = child is preserved, only the link is se
 | `product` | `vat_rate IN (55, 100)` | Only two legal VAT rates for this model |
 | `menu` | `price_normal_cents > 0` | Same as product |
 | `menu` | `price_maxi_cents > 0` | Same |
-| `ingredient` | `stock_quantity >= 0` | Negative stock is an alert, not a valid state |
+| `ingredient` | `stock_capacity > 0` | The 100% reference must be positive; also guards the percentage division against divide-by-zero |
 | `ingredient` | `pack_size > 0` | Pack size of zero makes restock logic incoherent |
-| `ingredient` | `low_stock_threshold >= 0` | Threshold cannot be negative |
+| `ingredient` | `low_stock_pct BETWEEN 0 AND 100` | Warning band is a percent of capacity |
+| `ingredient` | `critical_stock_pct BETWEEN 0 AND 100` | Auto-out-of-stock floor is a percent of capacity |
+| `ingredient` | `critical_stock_pct < low_stock_pct` | Critical floor sits below the warning band |
 | `product_ingredient` | `quantity_normal > 0` | Recipe quantity of zero is meaningless |
 | `product_ingredient` | `quantity_maxi >= quantity_normal` | Maxi consumes at least as much as Normal (side/drink more, burger/sauce equal) |
 | `product_ingredient` | `extra_price_cents >= 0` | No negative surcharge |
@@ -776,6 +898,10 @@ MCT / MLT.
 | `stock_movement` | `(movement_type, created_at)` | Stats: cancellations per week, restocks per month |
 | `role_permission` | `permission_id` | Reverse query: "which roles have this permission?" |
 | `user` | `(is_active, role_id)` | Login check + permission resolution |
+| `audit_log` | `(actor_user_id, created_at)` | Per-actor audit history |
+| `audit_log` | `(entity_type, entity_id)` | "what happened to this product/order/user?" |
+| `audit_log` | `(action_code, created_at)` | Audit by action type over a time range |
+| `login_throttle` | `lockout_until` | Daily cron purge of rows with no active lockout |
 
 **Indexes not added** (intentional):
 - `customer_order.order_number`: UK index is sufficient; no range query expected on this column.
@@ -787,7 +913,8 @@ MCT / MLT.
 
 ## 8. Cross-validation MLD <-> MCD
 
-Verification that all 19 MCD entities map to a table, and that all tables trace to the MCD.
+Verification that all 21 MCD entities (19 prod-like + 2 security-by-design) map to a table,
+and that all tables trace to the MCD.
 
 | MCD entity | MLD table | Mapping type | Notes |
 |---|---|---|---|
@@ -810,8 +937,14 @@ Verification that all 19 MCD entities map to a table, and that all tables trace 
 | `order_item_selection` (C17) | `order_item_selection` (4.17) | 1:1 entity | New entity (v0.2) |
 | `order_item_modifier` (C18) | `order_item_modifier` (4.18) | 1:1 entity | New entity (v0.2) |
 | `stock_movement` (C19) | `stock_movement` (4.19) | 1:1 entity | New entity (v0.2) |
+| `audit_log` (R5/R6) | `audit_log` (4.20) | 1:1 entity | New entity (security-by-design) |
+| `login_throttle` (R7) | `login_throttle` (4.21) | 1:1 entity | New entity (security-by-design) |
 
-**Result**: 19/19 entities mapped. No entity without a table; no table outside the MCD.
+**Result**: 21/21 entities mapped (19 prod-like + `audit_log` + `login_throttle`). No entity
+without a table; no table outside the MCD. New columns on existing tables: `user`
+(auth-lifecycle + `pin_hash` + `anonymized_at`), `customer_order` (`idempotency_key`,
+`acting_user_id`), `ingredient` (`stock_capacity`, `low_stock_pct`, `critical_stock_pct`;
+`low_stock_threshold` repurposed).
 
 **Dropped from v0.1**: `commande_event` (replaced by `paid_at`, `delivered_at`, `cancelled_at`
 phase timestamps on `customer_order` — decision 2.A); `menu_produit` fixed-composition model
@@ -842,8 +975,11 @@ phase timestamps on `customer_order` — decision 2.A); `menu_produit` fixed-com
 | `order_item_selection` | ~300k | 150 bytes | ~45 MB |
 | `order_item_modifier` | ~150k | 80 bytes | ~12 MB |
 | `stock_movement` | ~500k | 180 bytes | ~90 MB |
+| `audit_log` | ~5k-10k | 200 bytes | ~2 MB |
+| `login_throttle` | ~100-1k | 80 bytes | < 1 MB |
 
-**Estimated total**: ~190 MB data + ~60-80 MB for indexes = ~250-270 MB over 6 months.
+**Estimated total**: ~190 MB data + ~60-80 MB for indexes = ~250-270 MB over 6 months
+(`audit_log` is negligible: sensitive actions are orders of magnitude rarer than orders).
 Manageable on the MariaDB container (`wakdo_db_data` named volume in `docker-compose.yml`).
 
 `stock_movement` is the highest-volume table (~5-15 rows per order across all ingredients).
@@ -889,6 +1025,11 @@ history; it will carry meaningful write amplification at scale.
    - `order_item_selection` (depends on `order_item`, `menu_slot`, `product`)
    - `order_item_modifier` (depends on `order_item`, `ingredient`)
    - `stock_movement` (depends on `ingredient`, `customer_order`, `user`)
+   - `audit_log` (depends on `user`, `role`)
+   - `login_throttle` (no FK, can be created at any point)
+
+   Note: `customer_order` now carries `acting_user_id -> user`, so `user` must be created
+   before `customer_order` (already the case: the RBAC block precedes `customer_order`).
 
 2. **Seed** (`db/seeds/0001_demo_data.sql`):
    - 9 categories + 53 products + 13 menus from JSON sources (`docs/merise/_sources/`)

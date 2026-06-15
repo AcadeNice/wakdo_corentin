@@ -1,0 +1,51 @@
+erDiagram
+    category {
+        int id PK
+        varchar name
+        varchar slug
+        varchar image_path
+        smallint display_order
+        tinyint is_active
+    }
+    product {
+        int id PK
+        int category_id FK
+        varchar name
+        text description
+        int price_cents
+        smallint vat_rate
+        varchar image_path
+        tinyint is_available
+        smallint display_order
+    }
+    menu {
+        int id PK
+        int category_id FK
+        int burger_product_id FK
+        varchar name
+        text description
+        int price_normal_cents
+        int price_maxi_cents
+        varchar image_path
+        tinyint is_available
+        smallint display_order
+    }
+    menu_slot {
+        int id PK
+        int menu_id FK
+        varchar name
+        enum slot_type
+        tinyint is_required
+        smallint display_order
+    }
+    menu_slot_option {
+        int menu_slot_id FK
+        int product_id FK
+    }
+
+    category ||--o{ product : "groups"
+    category ||--o{ menu : "groups"
+    menu ||--|| product : "anchors (burger_product_id)"
+    menu ||--o{ menu_slot : "defines_slot"
+    menu_slot ||--o{ menu_slot_option : "lists"
+    product ||--o{ menu_slot_option : "is_eligible_for"

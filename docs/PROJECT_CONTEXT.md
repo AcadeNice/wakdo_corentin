@@ -26,12 +26,19 @@ Wakdo est une **borne de commande tactile** pour un restaurant de restauration r
 
 ### Acteurs
 
-| Acteur | Role | Interface |
+| Acteur | Role RBAC | Interface |
 |---|---|---|
-| **Client** | Passe sa commande sur la borne | Borne tactile (Bloc 1) |
-| **Accueil** | Saisit commandes au **comptoir** (client au guichet) ou au **drive** (client en voiture via intercom + casque equipier), remet les commandes livrees aux clients | Back-office (Bloc 2) |
-| **Preparation** | Voit les commandes a preparer triees par heure croissante, les declare "preparees" | Back-office (Bloc 2) |
-| **Administration** | CRUD sur donnees (produits, menus, prix, images) + gestion utilisateurs + stats | Back-office (Bloc 2) |
+| **Client** | (non authentifie) | Borne tactile (Bloc 1, canal `kiosk`) |
+| **Counter** | `counter` | Back-office : saisit les commandes au **comptoir**, les remet au client, peut annuler |
+| **Drive** | `drive` | Back-office : saisit les commandes au **drive** (intercom + casque), les remet, peut annuler |
+| **Kitchen** | `kitchen` | Back-office : voit la file des commandes `paid` triees par `paid_at` croissant, en **lecture seule** (KDS visuel, aucune transition) |
+| **Manager** | `manager` | Back-office : catalogue (create/update), stock/reappro, statistiques |
+| **Administration** | `admin` | Back-office : catalogue complet (+ suppressions), gestion utilisateurs, roles et permissions (RBAC), stats |
+
+> Modele v0.2 : 5 roles RBAC (`admin`, `manager`, `kitchen`, `counter`, `drive`)
+> + Customer non authentifie. RBAC permission-driven (le code teste une
+> permission, pas un nom de role) ; catalogue de 23 permissions fige au seed.
+> Voir `docs/merise/dictionary.md` 3.15-3.18 et `docs/uml/use-cases.md`.
 
 ### Processus metier cle
 
@@ -46,21 +53,21 @@ Client                Borne (Bloc 1)           API (Bloc 2)          BDD
   │                       │─POST /api/orders─────▶│───INSERT──────────▶│
   │                       │◀──────────201─────────│                    │
   │─recupere au comptoir  │                       │                    │
-                          Preparation voit commande pending
-                          → declare "preparee"
-                          Accueil voit commande prete
-                          → declare "livree"
+                          Kitchen voit la file des commandes paid (lecture seule, KDS)
+                          Counter / Drive remettent au client
+                          → declarent "livree" (geste unique paid -> delivered)
 ```
 
 ### Regles metier (MCT - a modeliser en Merise)
 
-- Un **menu** = burger + accompagnement (frites OU salade) + boisson + sauce
-- Les **accompagnements** et **boissons** ont **2 tailles** (normale / grande)
-- **Grande taille** = +0,50 € sur le prix de base
-- Une **commande** a un **numero** saisi par le client (remplace le paiement dans le cadre de l'exam)
-- Statuts commande : `pending` -> `preparing` -> `ready` -> `delivered` (ou `cancelled`)
+- Un **menu** = burger fixe + slots a choix (boisson, accompagnement, sauce). Modele relationnel `menu_slot` + `menu_slot_option` (voir `dictionary.md` 3.4-3.5)
+- Format **Normal / Maxi** au niveau du menu (deux prix : `price_normal_cents`, `price_maxi_cents`) ; le Maxi agrandit accompagnement + boisson uniquement
+- **Personnalisation des ingredients** (retirer = gratuit, ajouter = supplement) sur les sandwichs composes, via le configurateur (`ingredient`, `product_ingredient`, `order_item_modifier`)
+- **TVA portee par le produit** (`vat_rate` : 10% defaut, 5,5% contenant conservable), calculee ligne par ligne et snapshotee sur `order_item` (fact-check BOFiP, voir `dictionary.md` note 9)
+- Une **commande** a un **numero** saisi par le client, prefixe par canal `K`/`C`/`D` (remplace le paiement dans le cadre de l'exam)
+- Statuts commande (machine a **4 etats**) : `pending_payment` -> `paid` -> `delivered` (+ `cancelled`). La transition `pending_payment -> paid` est **atomique** a la creation (saisie du numero = substitut de paiement). `cancelled` est atteignable depuis `pending_payment` et `paid` (pas depuis `delivered`). Plus de `preparing` / `ready` : la cuisine est en lecture seule, la remise est un geste unique
 - **Source commande** (trace sur chaque commande) : `kiosk` (borne autonome) | `counter` (comptoir) | `drive` (drive-thru)
-- La preparation voit les commandes triees par **heure de livraison croissante** (tous canaux confondus)
+- Le canal de prepa (`kitchen`/`counter`/`drive`) voit la file des commandes `paid` triee par `paid_at` **croissant**, filtree par `role_visible_source` (kitchen voit tout ; counter voit kiosk+counter ; drive voit drive)
 - **Horaires service** : 10h00 → 01h00 du matin (service continu 15h, pas de fermeture intermediaire)
 - **Pas de notion de "session de service" a modeliser** : les equipiers se relaient, chacun se connecte a sa prise de poste et se deconnecte a la fin. Pas de "shift" a tracer dans la BDD (hors scope RNCP)
 - **Fenetre de maintenance systeme** : 01h30 → 09h30 (crons lourds, backups, agregations) — evite toute interference avec le service actif
@@ -187,8 +194,8 @@ Reseaux :
 | TLS | Let's Encrypt via Traefik | auto | `acme.json` existant |
 | Conteneurisation | Docker + docker compose | v2 | Cr 7.c |
 | Orchestration locale | Makefile | — | Cr 7.b (script) + Cr 7.c.4 (une commande) |
-| CI/CD | GitHub Actions | — | Cr 7.d |
-| Versioning | Git + GitHub | — | Cr 4.f (collaboration) |
+| CI/CD | Forgejo Actions (act_runner auto-heberge) | — | Cr 7.d |
+| Versioning | Git + Forgejo auto-heberge (push-mirror GitHub) | — | Cr 4.f (collaboration) |
 | Hooks Git | pre-commit + commit-msg | versionnes dans `.githooks/` | Conventional Commits |
 
 ---
@@ -220,10 +227,11 @@ Reseaux :
 
 **IN scope — Back-office :**
 - Authentification sessions securisees (hash bcrypt/argon2, protection CSRF, fixation session) — duree de session adaptee a un poste complet d'equipier (idle timeout 4h, absolute timeout 10h)
-- 3 roles RBAC : `admin`, `preparation`, `accueil`
-- **Admin** : CRUD categories, produits (nom, description, prix, image, dispo), menus (composition + options), utilisateurs
-- **Preparation** : liste commandes a preparer triees par heure livraison croissante, bouton "declarer preparee"
-- **Accueil** : saisir commande manuellement (comptoir ou drive-thru via casque/intercom), bouton "declarer livree" ; champ `source` enregistre sur chaque commande (`counter` ou `drive`)
+- 5 roles RBAC seed : `admin`, `manager`, `kitchen`, `counter`, `drive` (RBAC permission-driven, 23 permissions figees au seed ; roles personnalises possibles)
+- **Admin** : CRUD complet catalogue (+ suppressions), gestion utilisateurs, roles et permissions (RBAC), stats
+- **Manager** : catalogue (create/update), stock (reappro + inventaire), statistiques ; pas d'acces utilisateurs ni RBAC
+- **Kitchen** : file des commandes `paid` triee par `paid_at` croissant, en **lecture seule** (KDS visuel) ; inventaire
+- **Counter** / **Drive** : saisir une commande (comptoir / drive-thru via casque/intercom), bouton "declarer livree" (geste unique `paid -> delivered`), annuler ; `source` auto-tague depuis `role.order_source` ; inventaire
 - Upload images produits (validation type MIME + taille + stockage dans volume `wakdo_uploads`)
 - Historique commandes par statut
 - Stats de base (commandes du jour, CA jour, produits top)
@@ -261,9 +269,10 @@ Reseaux :
   - `0 3 * * *` — backup BDD quotidien a 03h00 (entre fin service 01h et ouverture 10h)
   - `*/15 * * * *` — purge sessions expirees toutes les 15 min (leger, peut tourner en service)
   - `30 4 * * *` — agregation stats commandes a 04h30 sur le **jour de service** ecoule (10h J-1 → 01h J)
-- **CI GitHub Actions** : lint PHP + PHPUnit sur PR -> dev
-- **CD GitHub Actions** : deploy auto sur merge main (SSH + pull + `make rebuild`)
-- `.env.example` documente, secrets hors du repo
+- **CI Forgejo Actions** (act_runner auto-heberge) : lint PHP + PHPStan + PHPUnit + secret-scan (gitleaks) sur PR -> dev
+- **CD Forgejo Actions** : deploy auto sur merge main (SSH + pull + `make rebuild`)
+- `.env.example` documente (parametres securite : argon2id, lockout, seuils throttle, retention RGPD), secrets hors du repo
+- `php.ini` durci (expose_php off, session cookies httponly/secure/samesite, upload limite)
 - Healthcheck Traefik + readiness probes
 - Logs centralises (stdout des conteneurs)
 - Documentation deploiement + architecture (schemas dans `docs/`)
@@ -327,8 +336,8 @@ Reseaux :
 | Cr 7.c.3 | App conteneurisee complete | 4 services (web, app, db, cron) |
 | Cr 7.c.4 | **Une ligne de commande** | `make init` lance toute la stack + migrate + seed |
 | Cr 7.d.1 | Architecture serveur | Traefik reverse + reseaux segmentes documentes |
-| Cr 7.d.2 | Tests avant deploy | CI PHPUnit + lint sur PR |
-| Cr 7.d.3 | Integration/deploiement continus | GitHub Actions deploy automatique sur merge main |
+| Cr 7.d.2 | Tests avant deploy | CI PHPUnit + PHPStan + secret-scan sur PR (Forgejo Actions) |
+| Cr 7.d.3 | Integration/deploiement continus | Forgejo Actions deploy automatique sur merge main |
 
 ---
 
@@ -344,13 +353,13 @@ main            ← production (tag vX.Y.Z sur chaque release)
     fix/*       ← corrections
     refactor/*  ← refactos
     docs/*      ← doc seulement
-    ci/*        ← GitHub Actions
+    ci/*        ← Forgejo Actions
     db/*        ← migrations / schema BDD
     chore/*     ← tooling, config
     test/*      ← ajout de tests
 ```
 
-Les branches `main` et `dev` sont **protegees** cote GitHub. Pas de commit direct autorise. Hook pre-commit local les bloque egalement.
+Les branches `main` et `dev` sont **protegees** cote Forgejo (push direct interdit, force-push bloque, PR obligatoire via l'API `branch_protections`). Hook pre-commit local les bloque egalement.
 
 **Flow :**
 1. `git checkout -b feat/menu-composition` (depuis `dev`)
@@ -432,9 +441,10 @@ Les branches `main` et `dev` sont **protegees** cote GitHub. Pas de commit direc
 | 10 | Service cron dedie | Cr 7.b.3 explicite + realiste prod |
 | 11 | Makefile avec `make init` | Cr 7.c.4 + demonstration DevOps |
 | 12 | Conventional Commits + hooks | Cr 4.f.x + discipline de versioning |
-| 13 | Branches feat/* -> dev -> main | Pipeline propre pour jury, GitHub PR trace |
-| 14 | CI/CD GitHub Actions | Cr 7.d explicite dans referentiel |
+| 13 | Branches feat/* -> dev -> main | Pipeline propre pour jury, PR tracee (Forgejo, mirror GitHub) |
+| 14 | CI/CD Forgejo Actions (act_runner auto-heberge) | Cr 7.d explicite ; forge + CI maitrisees de bout en bout (argument Bloc 5) |
 | 15 | RGPD implemente minimal | Cr 3.d.1-4 evaluees meme projet ecole |
+| 16 | Security-by-design (threat model STRIDE + classification donnees) | Audit Cr 7.a ; stock en %, throttle brute-force, retention RGPD documentes en amont du code |
 
 ---
 
@@ -442,18 +452,18 @@ Les branches `main` et `dev` sont **protegees** cote GitHub. Pas de commit direc
 
 | Phase | Scope | Budget (h) | Deadline intermediaire |
 |---|---|---|---|
-| **P0 - Setup** | PC, arborescence, Docker, hooks, CI squelette, init Git/GitHub | 20 | Semaine 1 |
-| **P1 - Conception Merise** | Dictionnaire, MCD, MCT, MLD, schemas fonctionnels, DDL | 30 | Semaine 3 |
+| **P0 - Setup** | PC, arborescence, Docker, hooks, CI squelette, migration Forgejo + act_runner | 22 | Semaine 1 |
+| **P1 - Conception Merise + Security-by-design** | Dictionnaire, MCD, MCT, MLD, schemas fonctionnels, DDL, threat model STRIDE + classification donnees + sequence securite | 38 | Semaine 3 |
 | **P2 - Back squelette** | POO base (Core, Router, Autoloader, DB), auth + roles | 30 | Semaine 6 |
 | **P3 - Back CRUD admin** | Produits, menus, utilisateurs, views | 40 | Semaine 10 |
 | **P4 - API REST** | Endpoints + CORS + tests | 20 | Semaine 12 |
 | **P5 - Front borne** | Integration maquette, Ajax, accessibilite, responsive | 60 | Semaine 16 |
 | **P6 - Tests + finition** | PHPUnit, tests E2E borne, corrections | 25 | Semaine 18 |
-| **P7 - DevOps finalisation** | CI/CD deploy auto, crons, docs argumentation | 20 | Semaine 19 |
+| **P7 - DevOps finalisation** | Forgejo Actions CI/CD (PHPUnit + PHPStan + secret-scan + deploy auto), crons, SECURITY.md, docs argumentation | 22 | Semaine 19 |
 | **P8 - Prep soutenance** | README pour jury, schemas finaux, repetitions, modifs en direct | 15 | Semaine 20 |
-| **TOTAL** | | **260** | **Semaine 20 = fin aout 2026** |
+| **TOTAL** | | **272** | **Semaine 20 = fin aout 2026** |
 
-Buffer : ~20 h pour imprevus. Cible effective : ~240 h sur 20 semaines = **12 h/semaine**.
+Buffer : ~8 h pour imprevus. Cible effective : ~264 h sur 20 semaines = **~13 h/semaine**.
 
 ---
 
@@ -481,7 +491,7 @@ Buffer : ~20 h pour imprevus. Cible effective : ~240 h sur 20 semaines = **12 h/
 - `docker-compose.yml` commente
 - Dockerfiles customs commentes
 - `Makefile` avec `make help`
-- `.github/workflows/` avec CI + CD
+- `.forgejo/workflows/` avec CI (PHPUnit + PHPStan + secret-scan) + CD
 - Crontab documente
 - Script de backup/restore teste
 - Architecture serveur decrite (`docs/architecture/deployment.md`)
@@ -675,4 +685,138 @@ Ces regles tiennent lieu de garde-fous pendant toute la duree du projet. Les enf
 
 ---
 
-*Document vivant — version 1.1 — 2026-04-24 (ajout section 17 transparence IA). A mettre a jour a chaque decision structurante.*
+## 19. Security threat model and data classification
+
+Cette section formalise la couche **security-by-design** ajoutee au modele Merise v0.2
+(voir `docs/merise/dictionary.md` note 13, `docs/merise/mlt.md` section 2 pour les regles
+transverses RG-T13 a RG-T21). Elle se lit a deux niveaux : un **registre des risques** de
+synthese pour une lecture gestion, suivi d'une **analyse STRIDE par element** pour la
+profondeur technique, puis une **matrice de classification des donnees** en 4 niveaux. Tous
+les claims securite sont rattaches a un mecanisme concret (une regle RG-T, une colonne, une
+entite) plutot qu'enonces comme des absolus.
+
+### 19.1 Perimetre et frontieres de confiance
+
+Le systeme expose cinq frontieres de confiance (trust boundaries), correspondant aux points
+d'entree analyses ci-dessous :
+
+- **E1 — Borne kiosk (public anonyme)** : `POST /api/orders`, consultation du catalogue.
+  Aucune authentification ; la borne est anonyme par conception (les commandes kiosk ont
+  `customer_order.acting_user_id = NULL`). Surface la plus exposee, donc traitee sans
+  hypothese de confiance sur l'entree.
+- **E2 — Back-office admin (staff authentifie, poste partage + PIN par equipier)** : CRUD
+  catalogue/menus/ingredients, RBAC, gestion utilisateurs, stock, annulation de commande,
+  stats. Session partagee par poste pour le flux courant ; un PIN par equipier
+  (`user.pin_hash`) re-autorise l'ensemble sensible (RG-T13).
+- **E3 — Surface d'authentification** : login (`AUTHENTICATE_USER`, op 25, `mlt.md` 12.1) et
+  reinitialisation de mot de passe (`RESET_PASSWORD`, op 28, `mlt.md` 12.3).
+- **E4 — Couche donnees / BDD** : acces PDO, requetes preparees (RG-T06), allowlists
+  (RG-T16/RG-T17), integrite transactionnelle (RG-T08/RG-T11), snapshots immuables (RG-T05).
+- **E5 — Stock / inventaire** : decrement de vente, reappro, comptage d'inventaire, avec un
+  journal append-only `stock_movement` et attribution de l'acteur ; la correction d'inventaire
+  est PIN-gated (RG-T13, `mlt.md` 9.2) car elle peut masquer de la demarque (shrinkage).
+
+Hors perimetre de cette section : la securite reseau/infra (Traefik, segmentation Docker,
+TLS), couverte en section 5 ; le durcissement CORS, couvert en section 5.
+
+### 19.2 Registre des risques (risk register)
+
+Synthese gestion. Likelihood et residual risk sont evalues a dire d'expert pour ce projet
+fictif (`[REASONING]`, non quantifies par benchmark) ; chaque mitigation cite une regle RG-T
+et/ou une entite reelle du modele.
+
+| # | Actif | Menace | Impact | Likelihood | Mitigation (regle / entite) | Risque residuel |
+|---|---|---|---|---|---|---|
+| R1 | Recette (cash) sur commande payee | Un equipier annule une commande `paid` pour detourner l'encaissement (fraude interne) | Fort | Moyenne | `CANCEL_ORDER` (`mlt.md` 7.1) PIN-gated (RG-T13) + ecriture `audit_log` dans la meme transaction (RG-T14, RG-T11) ; acteur capture via `audit_log.actor_user_id` | Faible — l'annulation reste possible mais devient nominative et tracee ; dissuasion plus que blocage |
+| R2 | `product.price_cents` / `vat_rate` / `role_id` | Falsification via un champ de formulaire injecte (mass-assignment) | Fort | Moyenne | Allowlist de colonnes par operation (RG-T16) sur `UPDATE_PRODUCT` (`mlt.md` 8.2) et `UPDATE_USER` (10.2) ; seules les colonnes autorisees sont bindees | Faible — les champs hors allowlist sont ignores ; un changement de prix reste audite (RG-T14) |
+| R3 | Comptes back-office (`user.password_hash`) | Brute-force sur le login staff | Moyen | Haute | Backoff degressif par compte (`user.failed_login_attempts` / `lockout_until`) + par IP (`login_throttle`, entite 21) ; gate avant verification (`mlt.md` 12.1 PRE-3, RG-8) | Faible — ralentissement sans lock indefini ; un service de 15h n'est pas bloque par une saisie maladroite |
+| R4 | Vues kiosk et admin (texte stocke) | XSS stocke via `product.name` / `ingredient.name` / `user.first_name` | Moyen | Moyenne | Echappement au rendu (RG-T15) : `htmlspecialchars(..., ENT_QUOTES)` cote admin, injection via `textContent` (pas `innerHTML`) cote kiosk vanilla-JS | Faible — l'echappement reduit le risque d'execution de script injecte |
+| R5 | `ingredient.stock_quantity` | Survente (oversell) sous concurrence multi-borne | Moyen | Moyenne | Decrement atomique auto-verrouillant (RG-T20) sans read-gate + disponibilite calculee (RG-T21) ; `stock_quantity` signe, la magnitude de survente est remontee aux managers | Moyen accepte — le systeme ne bloque pas une commande sur le stock ; la survente est mesuree, pas empechee (decision metier) |
+| R6 | Commande payee | Double-charge sur retry reseau de `POST /api/orders` | Moyen | Moyenne | Idempotence (RG-T19) : `customer_order.idempotency_key` UNIQUE ; un retry renvoie la commande existante au lieu d'en creer une seconde | Faible — la cle UNIQUE deduplique les rejeux ; depend d'une cle client correctement generee |
+| R7 | PII utilisateur (`user.email`/`first_name`/`last_name`) | Demande d'effacement RGPD non honoree, ou rupture de l'integrite referentielle a la suppression | Fort (conformite) | Faible | Anonymisation (`ERASE_USER_PII`, `mlt.md` 10.5) : la ligne est conservee, PII remplacees par un placeholder `anon-<id>@wakdo.invalid`, credentials invalides, `anonymized_at` pose ; `audit_log` retient sa propre fenetre | Faible — effacement et tracabilite coexistent ; les FK (`audit_log.actor_user_id`, `customer_order.acting_user_id`, `stock_movement.user_id`) restent valides |
+| R8 | Matrice RBAC (`role_permission`) | Elevation de privilege via modification de role non controlee | Fort | Faible | `MANAGE_RBAC` (`mlt.md` 10.4) PIN-gated (RG-T13) + `audit_log` du diff de permissions (RG-T14, RG-6) ; `role_id` derriere l'allowlist (RG-T16) | Faible — tout gain/perte de capacite est nominatif et trace |
+| R9 | `stock_movement` (demarque) | Correction d'inventaire masquant une demarque | Moyen | Moyenne | `INVENTORY_COUNT` (`mlt.md` 9.2) PIN-gated (RG-T13) ; le `user_id` capture par PIN est ecrit dans `stock_movement.user_id` (append-only) | Faible — la correction devient attribuable a une personne meme sur poste partage |
+
+### 19.3 Analyse STRIDE par element
+
+Un bloc par categorie STRIDE, mappe aux controles reels du modele (verifies contre
+`mlt.md` section 2).
+
+**Spoofing (usurpation d'identite).** L'authentification back-office repose sur argon2id
+(`user.password_hash`, `mlt.md` 12.1 RG-2) avec regeneration de session a la connexion
+(`session_regenerate(true)`, RG-3) pour contrer la fixation. Le login est enumeration-safe :
+meme erreur generique que l'email existe ou non, avec un `password_verify` leurre pour garder
+le timing comparable (RG-2). Sur un poste partage, un PIN par equipier (`user.pin_hash`,
+RG-T13) re-authentifie l'acteur reel pour les actions sensibles. La reinitialisation de mot de
+passe (`RESET_PASSWORD`, `mlt.md` 12.3) stocke le token hashe (`password_reset_token_hash`),
+n'envoie le token brut qu'une seule fois, l'expire a 1h et le rend a usage unique (RG-2/RG-3) ;
+la phase requete renvoie une reponse neutre identique que le compte existe ou non (RG-1,
+enumeration-safe). La borne kiosk est anonyme
+par conception, donc hors perimetre d'usurpation (pas de compte a usurper).
+
+**Tampering (alteration).** L'allowlist de mass-assignment (RG-T16) limite les colonnes
+bindees aux champs autorises par operation, protegeant `price_cents`, `vat_rate`, `role_id`,
+`is_active`, `status`. La validation cote serveur (RG-T18) re-verifie type, plage, longueur,
+appartenance ENUM et existence des FK independamment du client. Les requetes preparees PDO
+(RG-T06) traitent les valeurs hors de la chaine SQL, ce qui ferme l'injection SQL par valeur.
+Les identifiants SQL dynamiques (colonne et direction d'un `ORDER BY`/`GROUP BY`) sont resolus
+contre une allowlist fixe avant construction de la requete (RG-T17), car un identifiant ne
+peut pas etre bind comme une valeur.
+Les snapshots de commande (`order_item.label_snapshot`, `unit_price_cents_snapshot`,
+`vat_rate_snapshot`) sont immuables apres INSERT (RG-T05), preservant l'integrite historique
+des commandes placees. La re-validation serveur des modifiers (`mlt.md` 3.3 RG-9) rejette un
+`POST` forge ajoutant un ingredient non-`is_addable`.
+
+**Repudiation (deni d'action).** Le journal `audit_log` (entite 20, RG-T14) enregistre les
+actions sensibles non-stock avec `actor_user_id` (capture par PIN, RG-T13), `actor_role_id`
+(denormalise pour survivre a l'anonymisation), `action_code`, `entity_type`/`entity_id` et un
+`summary` non-personnel ; pas d'UPDATE/DELETE applicatif. L'attribution des commandes
+comptoir/drive passe par `customer_order.acting_user_id` (`mlt.md` 4.1 RG-5) et celle du stock
+par `stock_movement.user_id` (`mlt.md` 9.1/9.2). Les actions stock ne sont pas doublement
+journalisees : `stock_movement` (append-only) fournit deja la piste.
+
+**Information disclosure (divulgation).** La matrice de classification (19.4) borne ce qui
+sort des logs et des reponses API. Les erreurs d'auth sont generiques (RG-2, pas de
+distinction email inconnu / mot de passe faux). L'`audit_log` stocke des **noms de champs**
+modifies, pas les valeurs PII (`audit_log.details`, RG-T14). L'attribution de stock
+(`stock_movement.user_id`) n'est visible que pour manager/admin ; le staff de ligne voit les
+deltas sans l'identite de l'acteur (`mlt.md` 9.3 RG-4). Les credentials (`password_hash`,
+`pin_hash`, `password_reset_token_hash`) sont tenus hors logs et hors reponses API.
+
+**Denial of service.** Le throttling de login est degressif (backoff exponentiel plafonne)
+plutot qu'un lock indefini, dans les deux dimensions compte (`user.lockout_until`) et IP
+(`login_throttle.lockout_until`, `mlt.md` 12.1 RG-8) : une saisie maladroite ne bloque pas une
+cuisine en plein service de 15h continu. L'idempotence (RG-T19) absorbe les doubles-soumissions
+de retry reseau sur le kiosk anonyme. Le decrement de stock atomique (RG-T20) evite tout
+contentieux de verrou (pas de `SELECT ... FOR UPDATE`, pas d'ordre de deadlock).
+
+**Elevation of privilege.** Le RBAC est permission-driven : le code teste une permission, pas
+un nom de role (catalogue de 23 permissions fige au seed, `dictionary.md` 3.17). Les
+changements de role passent par `MANAGE_RBAC` (`mlt.md` 10.4) PIN-gated (RG-T13) et audites
+avec le diff de permissions (RG-T14, RG-6). `role_id` est derriere l'allowlist de
+mass-assignment (RG-T16) sur `UPDATE_USER` (10.2). Les permissions sont rechargees depuis la
+BDD a chaque verification (`mlt.md` 10.4 RG-3), donc un changement de droits prend effet sans
+re-login force.
+
+### 19.4 Matrice de classification des donnees (4 niveaux)
+
+Les 21 entites du modele (`dictionary.md` 3.1-3.21) sont reparties en quatre niveaux. La
+classification suit l'entite ; quelques colonnes sont surclassees explicitement (credentials,
+PII).
+
+| Niveau | Definition | Entites / colonnes | Regle de manipulation |
+|---|---|---|---|
+| **RESTRICTED** (secrets / credentials) | Secrets d'authentification ; tenus hors de toute exposition | Colonnes de `user` (14) : `password_hash`, `pin_hash`, `password_reset_token_hash` | Hors logs et hors reponses API ; argon2id ; invalides a l'anonymisation (`mlt.md` 10.5 RG-1) ; exclus de `audit_log.details` qui ne retient que des noms de champs (RG-T14) |
+| **CONFIDENTIAL** (PII, RGPD) | Donnees a caractere personnel d'un staff identifiable | Colonnes de `user` (14) : `email`, `first_name`, `last_name` | Sujet a l'anonymisation a l'effacement (`ERASE_USER_PII`, op 27) ; `audit_log` stocke les noms de champs, pas les valeurs ; echappement au rendu (RG-T15) |
+| **INTERNAL** (sensible metier) | Donnees d'exploitation, non publiques, a acces restreint par RBAC | `customer_order` (10), `order_item` (11), `order_item_selection` (12), `order_item_modifier` (13), `stock_movement` (19), `audit_log` (20), `login_throttle` (21, contient l'IP source), `role` (15), `permission` (17), `role_permission` (18), `role_visible_source` (16) ; sorties de stats (`READ_STATS`, op 24) | Acces filtre par permission (RG-T03) ; attribution stock visible manager/admin seulement (`mlt.md` 9.3 RG-4) ; integrite par snapshots (RG-T05) et transactions (RG-T08/RG-T11) |
+| **PUBLIC** (catalogue, face kiosk) | Donnees servies a la borne anonyme | `category` (1), `product` (2), `menu` (3), `menu_slot` (4), `menu_slot_option` (5), `ingredient` (6, nom + dispo calculee), `product_ingredient` (7), `allergen` (8), `ingredient_allergen` (9) | Lecture publique via `LOAD_CATALOGUE` (op 1) ; ecriture reservee admin/manager (RG-T03) ; texte echappe au rendu (RG-T15) ; disponibilite calculee (RG-T21) |
+
+**Couverture** : 21/21 entites classifiees (9 PUBLIC, 11 INTERNAL incluant les deux entites
+security-by-design `audit_log` et `login_throttle`, plus `user` dont les colonnes sont
+reparties entre RESTRICTED, CONFIDENTIAL et — pour `is_active`, `role_id`, `last_login_at`,
+les compteurs de throttle — INTERNAL). L'entite `user` (14) est la seule a porter trois
+niveaux simultanement, d'ou son traitement par colonne.
+
+---
+
+*Document vivant — version 1.3 — 2026-06-15 (drift GitHub -> Forgejo Actions corrige, CI securite PHPStan/secret-scan, planning rechiffre pour la couche security-by-design). A mettre a jour a chaque decision structurante.*

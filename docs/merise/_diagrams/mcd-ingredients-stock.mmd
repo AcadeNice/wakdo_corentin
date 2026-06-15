@@ -1,0 +1,61 @@
+erDiagram
+    product {
+        int id PK
+        varchar name
+    }
+    ingredient {
+        int id PK
+        varchar name
+        varchar unit
+        int stock_quantity
+        int stock_capacity
+        smallint pack_size
+        varchar pack_label
+        smallint low_stock_pct
+        smallint critical_stock_pct
+        tinyint is_active
+    }
+    product_ingredient {
+        int product_id FK
+        int ingredient_id FK
+        smallint quantity_normal
+        smallint quantity_maxi
+        tinyint is_removable
+        tinyint is_addable
+        int extra_price_cents
+    }
+    allergen {
+        int id PK
+        varchar code
+        varchar name
+        text description
+    }
+    ingredient_allergen {
+        int ingredient_id FK
+        int allergen_id FK
+    }
+    customer_order {
+        int id PK
+        varchar order_number
+    }
+    user {
+        int id PK
+        varchar email
+    }
+    stock_movement {
+        int id PK
+        int ingredient_id FK
+        enum movement_type
+        int delta
+        int order_id FK
+        int user_id FK
+        varchar note
+    }
+
+    product ||--o{ product_ingredient : "is_composed_of"
+    ingredient ||--o{ product_ingredient : "appears_in"
+    ingredient ||--o{ ingredient_allergen : "contains"
+    allergen ||--o{ ingredient_allergen : "is_present_in"
+    ingredient ||--o{ stock_movement : "decrements"
+    customer_order |o--o{ stock_movement : "triggers"
+    user |o--o{ stock_movement : "logs"

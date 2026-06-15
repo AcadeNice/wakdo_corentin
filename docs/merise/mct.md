@@ -1,10 +1,10 @@
 # Model of Conceptual Treatments (MCT) — Wakdo
 
 **Merise phase** : P1 - Conception, step 3 (after MCD)
-**Version** : v0.2 — prod-like, 4-state machine
-**Date** : 2026-06-04
+**Version** : v0.2 — prod-like, 4-state machine (+ security-by-design layer 2026-06-11)
+**Date** : 2026-06-04 (security-by-design additions 2026-06-11)
 **Branch** : `feat/p1-conception`
-**Status** : prod-like — all D1-D8 + stock decisions applied (see `docs/notes/revue-alignement-p1.md` §7)
+**Status** : prod-like — all D1-D8 + stock decisions applied (see `docs/notes/revue-alignement-p1.md` §7); security-by-design ops added (ERASE_USER_PII, RESET_PASSWORD, PIN-gated sensitive set, audit_log writes, auth throttling) — 28 operations
 **Author** : BYAN (methodology layer)
 
 ---
@@ -56,6 +56,17 @@ the ticket and act. The single staff gesture is "deliver". KPI is total time
 and `MARK_READY` (`MARQUER_PRETE`) are removed because their intermediate states no longer
 exist. `DELIVER_ORDER` becomes the sole status-advancing action for counter/drive staff.
 
+**Security-by-design layer (2026-06-11)**: two operations are added — `RESET_PASSWORD` (12.3)
+and `ERASE_USER_PII` (10.5, RGPD anonymisation). A subset of operations is **PIN-gated**:
+back-office sessions stay shared per workstation, but a per-staff PIN re-authorises the
+sensitive set — `CANCEL_ORDER` (7.1), `UPDATE_PRODUCT`/`DELETE_PRODUCT` (8.2/8.3),
+`DELETE_MENU` (8.6), `INVENTORY_COUNT` (9.2), user management (10.1-10.3), `MANAGE_RBAC`
+(10.4), `ERASE_USER_PII` (10.5). These non-stock actions append an immutable `audit_log` row
+(actor, action, target); stock actions record attribution in `stock_movement`. The treatment
+logic (PIN, audit, throttling, idempotency, atomic stock decrement, computed product
+availability) is specified in `mlt.md` (rules RG-T13-T21). This adds entities 20 `audit_log`
+and 21 `login_throttle` to the model.
+
 ---
 
 ## 2. Representation conventions
@@ -102,7 +113,7 @@ For each operation the document provides:
 | **Synchronisation** | None (single event) |
 | **Condition** | The kiosk is in service (within business hours 10:00-01:00) |
 | **Operation** | LOAD_CATALOGUE |
-| **Description** | Retrieval of active categories, available products, and available menus (with their slots and eligible options) for display on the kiosk screen. |
+| **Description** | Retrieval of active categories, available products, and available menus (with their slots and eligible options) for display on the kiosk screen. Product availability is COMPUTED: a product is orderable only if its `is_available` flag is set AND each non-removable (`is_removable=0`) ingredient in its `product_ingredient` is above the critical band (`stock_quantity > stock_capacity * critical_stock_pct/100`). See rule RG-T21 in `mlt.md`. |
 | **MCD entities** | R: `category` (is_active=1), `product` (is_available=1), `menu` (is_available=1), `menu_slot`, `menu_slot_option`, `ingredient` (is_active=1), `allergen`, `ingredient_allergen` |
 | **Result** | Catalogue loaded; kiosk displays the home screen |
 
@@ -337,7 +348,7 @@ For each operation the document provides:
 | **Synchronisation** | OR (create ingredient, update ingredient, update composition, update allergen mapping) |
 | **Condition** | Actor holds permission `ingredient.manage`. |
 | **Operation** | MANAGE_INGREDIENT |
-| **Description** | CRUD on `ingredient` (name, unit, pack_size, pack_label, low_stock_threshold, is_active). Manage `product_ingredient` composition (quantity_normal, quantity_maxi, is_removable, is_addable, extra_price_cents) for any product. Manage `ingredient_allergen` mapping (14 EU regulated allergens). Deactivating an ingredient (`is_active=0`) hides it from the configurator without deletion. Physical deletion of `ingredient` is blocked if referenced in `product_ingredient` (FK `ON DELETE RESTRICT`) or `stock_movement` (FK `ON DELETE RESTRICT`). |
+| **Description** | CRUD on `ingredient` (name, unit, pack_size, pack_label, stock_capacity, low_stock_pct, critical_stock_pct, is_active). Manage `product_ingredient` composition (quantity_normal, quantity_maxi, is_removable, is_addable, extra_price_cents) for any product. Manage `ingredient_allergen` mapping (14 EU regulated allergens). Deactivating an ingredient (`is_active=0`) hides it from the configurator without deletion. Physical deletion of `ingredient` is blocked if referenced in `product_ingredient` (FK `ON DELETE RESTRICT`) or `stock_movement` (FK `ON DELETE RESTRICT`). |
 | **MCD entities** | R: `product` (FK validation), `allergen` (FK validation) — W: `ingredient` (INSERT/UPDATE/DELETE conditional), `product_ingredient` (INSERT/UPDATE/DELETE), `ingredient_allergen` (INSERT/DELETE) |
 | **Result** | Ingredient / composition / allergen mapping updated |
 
@@ -384,7 +395,7 @@ For each operation the document provides:
 | **Synchronisation** | None |
 | **Condition** | Actor holds permission `stock.read`. |
 | **Operation** | READ_STOCK |
-| **Description** | Read `ingredient` list with current `stock_quantity`, `low_stock_threshold`, `pack_size`, `pack_label`. Low-stock alert computed at display time: `stock_quantity <= low_stock_threshold`. Optional: read `stock_movement` history for a given ingredient, filtered by date range. |
+| **Description** | Read `ingredient` list with current `stock_quantity`, `stock_capacity`, computed `stock_pct`, `low_stock_pct`, `critical_stock_pct`, `pack_size`, `pack_label`. Stock bands computed at display time: `low_stock` when `stock_quantity <= stock_capacity * low_stock_pct/100`, `critical_stock` when `stock_quantity <= stock_capacity * critical_stock_pct/100`. Optional: read `stock_movement` history for a given ingredient, filtered by date range. |
 | **MCD entities** | R: `ingredient`, `stock_movement` (optional history) |
 | **Result** | Stock list displayed with low-stock indicators |
 
@@ -452,6 +463,21 @@ For each operation the document provides:
 
 ---
 
+### 10.5 ERASE_USER_PII (security-by-design)
+
+| Field | Value |
+|-------|-------|
+| **Triggering event** | A RGPD erasure request is processed for a back-office user |
+| **Actor** | ADMIN (PIN-gated) |
+| **Synchronisation** | None |
+| **Condition** | Actor holds permission `user.update` and has re-authorised via PIN. Target user exists and is not already anonymised. |
+| **Operation** | ERASE_USER_PII |
+| **Description** | RGPD right-to-erasure honoured by **anonymisation**, not physical deletion: PII (`email`, `first_name`, `last_name`) is cleared/replaced by a non-identifying placeholder, credentials invalidated, `anonymized_at` set. The row persists so referential links (`stock_movement`, `customer_order`, `audit_log`) stay valid and resolve to an anonymised principal. See `mlt.md` 10.5 and dictionary note 13. |
+| **MCD entities** | W: `user` (UPDATE — PII cleared, `anonymized_at` set), `audit_log` (INSERT) |
+| **Result** | User anonymised; PII removed; accountability links preserved; one `audit_log` row recorded |
+
+---
+
 ## 11. Domain 9 — Stats and KPI
 
 ### 11.1 READ_STATS
@@ -478,11 +504,11 @@ For each operation the document provides:
 | **Triggering event** | An actor submits the login form |
 | **Actor** | COUNTER / DRIVE / KITCHEN / MANAGER / ADMIN |
 | **Synchronisation** | None |
-| **Condition** | Email exists in database. Password matches argon2id hash. User `is_active=1`. |
+| **Condition** | Account not in a throttling window (`lockout_until`). Email exists in database. Password matches argon2id hash. User `is_active=1`. |
 | **Operation** | AUTHENTICATE_USER |
-| **Description** | Credential verification. If valid: session ID regeneration (protection against session fixation), storage of `user_id` and `role_id` in session, UPDATE `last_login_at`. Idle timeout: 4h. Absolute timeout: 10h. Redirect to `role.default_route`. |
-| **MCD entities** | R: `user` (verification), `role` (load permissions, default_route), `role_permission` — W: `user` (UPDATE last_login_at) |
-| **Result** | Session opened, redirect to role-specific default view |
+| **Description** | Credential verification. If valid: session ID regeneration (protection against session fixation), storage of `user_id` and `role_id` in session, UPDATE `last_login_at`, reset of the login failure counter. On failure: increment `failed_login_attempts` and apply a degressive backoff (`lockout_until`), enumeration-safe generic error. Idle timeout: 4h. Absolute timeout: 10h. Redirect to `role.default_route`. See `mlt.md` 12.1. |
+| **MCD entities** | R: `user` (verification), `role` (load permissions, default_route), `role_permission`, `login_throttle` (the per-IP throttle gate) — W: `user` (UPDATE last_login_at, `failed_login_attempts`, `lockout_until`), `login_throttle` (upsert `failed_attempts`/`lockout_until` on failure, clear on success), `audit_log` (INSERT login success/failure) |
+| **Result** | Session opened, redirect to role-specific default view; or throttled failure logged |
 
 ---
 
@@ -498,6 +524,21 @@ For each operation the document provides:
 | **Description** | PHP session destruction (`session_destroy()`). Session deleted server-side. Session cookie invalidated. |
 | **MCD entities** | No database write (session management is in PHP native, outside DB for this project) |
 | **Result** | Session destroyed, redirect to login page |
+
+---
+
+### 12.3 RESET_PASSWORD (security-by-design)
+
+| Field | Value |
+|-------|-------|
+| **Triggering event** | A user requests a password reset, then confirms it via the emailed link |
+| **Actor** | COUNTER / DRIVE / KITCHEN / MANAGER / ADMIN |
+| **Synchronisation** | Sequential two-phase: request, then confirm |
+| **Condition** | Request: the submitted email is processed enumeration-safely (same neutral response whether or not it exists). Confirm: a valid, non-expired token is presented. |
+| **Operation** | RESET_PASSWORD |
+| **Description** | Request phase generates a random token, stores its hash + expiry, and e-mails the raw token once. Confirm phase validates the token hash + expiry, replaces `password_hash` (argon2id), clears the token, and resets the login failure counter. See `mlt.md` 12.3. |
+| **MCD entities** | W: `user` (UPDATE `password_reset_token_hash` + `password_reset_expires_at` on request; UPDATE `password_hash`, clear token, reset `failed_login_attempts`/`lockout_until` on confirm), `audit_log` (INSERT) |
+| **Result** | Password reset via a one-time, time-bound token; one `audit_log` row recorded |
 
 ---
 
@@ -573,8 +614,17 @@ single delivery action (DELIVER_ORDER) collapses the v0.1 three-step sequence in
 | 24 | READ_STATS | Stats | MANAGER/ADMIN | — | customer_order, order_item |
 | 25 | AUTHENTICATE_USER | Auth | ALL BACK | user | user, role, role_permission |
 | 26 | LOGOUT_USER | Auth | ALL BACK | — | — |
+| 27 | ERASE_USER_PII | RBAC | ADMIN | user, audit_log | user |
+| 28 | RESET_PASSWORD | Auth | ALL BACK | user, audit_log | user |
 
-**Total: 26 operations** covering the complete Wakdo business lifecycle.
+**Total: 28 operations** (26 prod-like + `ERASE_USER_PII` and `RESET_PASSWORD` from the
+security-by-design layer).
+
+**Audit log writes (security-by-design)**: the sensitive operations 7.1 (cancel), 8.2/8.3
+(product update/delete), 8.6 (menu delete), 10.1-10.5 (user/RBAC/erasure) and 12.1 (login)
+also write an `audit_log` row (W entity not repeated per row above to keep the table legible).
+Stock operations 9.1/9.2 record their attribution via `stock_movement.user_id`. PIN-gated set
+per `mlt.md` RG-T13.
 
 ---
 
@@ -603,9 +653,20 @@ Verification that each MCD entity participates in at least one MCT operation.
 | `permission` | 23 | — (static seed) | OK (*) |
 | `role_permission` | 25 | 23 | OK |
 | `stock_movement` | 19 | 3, 5, 8, 17, 18 | OK |
+| `audit_log` | (admin audit view) | 8, 10, 11, 14, 20, 21, 22, 23, 25, 27, 28 | OK |
+| `login_throttle` | 25 | 25 | OK |
 
 (*) `allergen` and `permission` are read-only at the MCT level: their values are declared
 in seed migrations and are not modifiable via the UI. `allergen` is managed indirectly
 via `ingredient_allergen` in MANAGE_INGREDIENT.
 
-**Conclusion**: 19/19 entities covered. MCT <-> MCD consistency validated.
+(**) `audit_log` (entity 20, security-by-design) is write-mostly: it is appended by the
+sensitive operations above and read through an admin audit view (a dedicated read operation
+can be formalised when the audit UI is specified at P3).
+
+(***) `login_throttle` (entity 21, security-by-design) is the per-source-IP brute-force
+throttle gate: it is read AND written (upserted) by `AUTHENTICATE_USER` (25). Its daily purge
+of stale rows is a cron, documented in `mlt.md`, outside MCT operation scope.
+
+**Conclusion**: 21/21 entities covered (19 prod-like + `audit_log` + `login_throttle`). MCT <-> MCD consistency
+validated.

@@ -1,0 +1,64 @@
+erDiagram
+    user {
+        int id PK
+        varchar email
+        varchar password_hash
+        varchar pin_hash
+        varchar first_name
+        varchar last_name
+        int role_id FK
+        tinyint is_active
+        datetime last_login_at
+        smallint failed_login_attempts
+        datetime lockout_until
+        datetime anonymized_at
+    }
+    role {
+        int id PK
+        varchar code
+        varchar label
+        text description
+        varchar default_route
+        enum order_source
+        tinyint is_active
+    }
+    role_visible_source {
+        int role_id FK
+        enum source
+    }
+    permission {
+        int id PK
+        varchar code
+        varchar label
+        text description
+    }
+    role_permission {
+        int role_id FK
+        int permission_id FK
+    }
+    audit_log {
+        int id PK
+        int actor_user_id FK
+        int actor_role_id FK
+        varchar action_code
+        varchar entity_type
+        int entity_id
+        varchar summary
+        json details
+        datetime created_at
+    }
+    login_throttle {
+        int id PK
+        varchar ip_address UK
+        smallint failed_attempts
+        datetime window_started_at
+        datetime lockout_until
+        datetime last_attempt_at
+    }
+
+    user }o--|| role : "holds"
+    role ||--o{ role_visible_source : "sees_source"
+    role ||--o{ role_permission : "grants"
+    permission ||--o{ role_permission : "granted_to"
+    user |o--o{ audit_log : "performs"
+    role |o--o{ audit_log : "context_of"

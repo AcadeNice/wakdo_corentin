@@ -1,10 +1,10 @@
 # Model of Logical Treatments (MLT) — Wakdo
 
 **Merise phase** : P1 - Conception, step 4 (derived from MCT)
-**Version** : v0.2 — prod-like, 4-state machine
-**Date** : 2026-06-04
+**Version** : v0.2 — prod-like, 4-state machine (+ security-by-design layer 2026-06-11)
+**Date** : 2026-06-04 (security-by-design additions 2026-06-11)
 **Branch** : `feat/p1-conception`
-**Status** : prod-like — all D1-D8 + stock decisions applied (see `docs/notes/revue-alignement-p1.md` §7)
+**Status** : prod-like — all D1-D8 + stock decisions applied (see `docs/notes/revue-alignement-p1.md` §7); security-by-design rules added (RG-T13-T21: PIN, audit, escaping, allowlists, idempotency, atomic decrement, computed product availability (RG-T21); ops RESET_PASSWORD, ERASE_USER_PII, auth throttling; per-IP throttle table `login_throttle`)
 **Author** : BYAN (methodology layer)
 
 ---
@@ -49,6 +49,15 @@ These rules apply to multiple operations and are centralised here to avoid repet
 | **RG-T10** | VAT computation is line-by-line: each `order_item` carries its own `vat_rate_snapshot` (per-mille integer snapshotted from `product.vat_rate`). Order totals (`total_ht_cents`, `total_vat_cents`, `total_ttc_cents`) are the sum of line-level amounts. | 3.3, 4.1 |
 | **RG-T11** | Stock decrements at the `pending_payment -> paid` transition and re-credits at `paid -> cancelled` are within the same database transaction as the status update (no orphan decrement). | 3.3, 4.1, 7.1 |
 | **RG-T12** | Dashboard filter by source: each role's visible sources are read from `role_visible_source`; the query uses `WHERE customer_order.source IN (role_visible_sources)`. | 6.1 |
+| **RG-T13** | **Sensitive-action PIN** (security-by-design): the set of sensitive operations requires a per-staff PIN re-authorisation before execution: verify the submitted PIN against `user.pin_hash` (`password_verify`, argon2id). On success the acting `user_id` is captured for the audit log; on failure the operation is rejected. Sensitive set: 7.1 (cancel), 8.2/8.3 (product update/delete), 8.6 (menu delete), 9.2 (inventory correction), 10.1/10.2/10.3 (user mgmt), 10.4 (RBAC), 10.5 (PII erasure). Sessions stay shared per workstation for the routine 95%. | 7.1, 8.2, 8.3, 8.6, 9.2, 10.1-10.5 |
+| **RG-T14** | **Audit log write**: non-stock sensitive operations append one immutable `audit_log` row in the same transaction as their effect: `actor_user_id` (from RG-T13 PIN), `actor_role_id`, `action_code` (permission/operation code), `entity_type` + `entity_id` of the affected row, `summary` (non-personal change description), `details` JSON (changed field **names** for user-targeted actions, not PII values). No UPDATE/DELETE on `audit_log`. Stock actions (9.1 restock, 9.2 inventory) record their attribution via `stock_movement.user_id` (PIN-captured), which already provides the append-only stock trail — they are not double-logged. | 7.1, 8.2, 8.3, 8.6, 10.1-10.5, 12.1 |
+| **RG-T15** | **Output escaping** (anti-XSS): free-text fields (`product.name`/`description`, `ingredient.name`, `user.first_name`/`last_name`, notes) are context-escaped at render. Server-rendered admin views use `htmlspecialchars($v, ENT_QUOTES, 'UTF-8')`; the vanilla-JS kiosk injects text via `textContent` (or an explicit escaper), not `innerHTML`. | All views rendering stored text |
+| **RG-T16** | **Mass-assignment allowlist**: INSERT/UPDATE statements bind only an explicit per-operation column allowlist from the request; extra/unknown fields are dropped. Prevents tampering with `price_cents`, `vat_rate`, `role_id`, `is_active`, `status` via injected form fields. | 8.1, 8.2, 8.4, 8.5, 10.1, 10.2 |
+| **RG-T17** | **Dynamic identifier allowlist**: column/direction tokens used in dynamic `ORDER BY` / `GROUP BY` are resolved against a fixed allowlist of column names before query build (RG-T06 covers values via bind parameters; SQL identifiers cannot be bound, so they are allowlisted). | 5.1, 9.3, 11.1 |
+| **RG-T18** | **Server-side validation and length bounds**: every input is re-validated server-side regardless of client checks — type, range, max length (matching the dictionary VARCHAR sizes), enum membership, FK existence. Client-side validation is a UX aid, not a trust boundary. | All write operations |
+| **RG-T19** | **Idempotency**: `POST /api/orders` carries a client-generated `idempotency_key` (UUID). Before creating, look it up on `customer_order.idempotency_key` (UNIQUE); if a row exists, return that order instead of creating a duplicate (replayed network retry). | 3.3, 4.1 |
+| **RG-T20** | **Atomic stock decrement**: during the `paid` transition, each affected `ingredient` is decremented with a single self-locking statement `UPDATE ingredient SET stock_quantity = stock_quantity - :units WHERE id = :id` — no preceding read-gate, no `SELECT ... FOR UPDATE`. Concurrent orders on the same ingredient apply their deltas without a lost update and without a deadlock-ordering concern. `stock_quantity` is signed and may go negative when sales outrun counted stock (oversell magnitude surfaced to managers); the decrement does not block on a floor. | 3.3, 4.1 |
+| **RG-T21** | **Computed product availability**: a product's effective orderability is computed, not stored. It is orderable when `product.is_available = 1` AND each non-removable (`is_removable = 0`) ingredient in its `product_ingredient` has `stock_quantity > stock_capacity * critical_stock_pct / 100`. At the critical band a required ingredient takes the product out-of-stock with no write and no cascade; restock above the critical band makes it orderable again on its own; a manual pull (`product.is_available = 0`) is a hard override; a removable/optional ingredient at the critical band does not block the product (only its add-on becomes unavailable). | 3.1, 3.3, 4.1, 5.1 |
 
 ---
 
@@ -107,10 +116,13 @@ These rules apply to multiple operations and are centralised here to avoid repet
 | **[RG-2 — service_day]** | `service_day` for a given order is computed at query time as: `CASE WHEN HOUR(created_at) < 10 THEN DATE(created_at) - INTERVAL 1 DAY ELSE DATE(created_at) END`. Cutoff is 10:00. This is NOT stored as a column — computed at query time only. The v0.1 formula with `INTERVAL 4 HOUR 30 MINUTE` was incorrect and is dropped. |
 | **[RG-3 — order number]** | Order number format: `K-YYYY-MM-DD-NNN` where NNN is the sequential counter for the current service_day for the `kiosk` source (SELECT COUNT + 1 with a table-level lock or serialised insert to avoid duplicate generation under concurrency). Source is `kiosk` (set by the kiosk endpoint, derived from the public entry point). |
 | **[RG-4 — VAT by line]** | For each `order_item`: `vat_rate_snapshot` is copied from `product.vat_rate`. Line amounts: `unit_ttc = unit_price_cents_snapshot`; `unit_ht = ROUND(unit_ttc * 1000 / (1000 + vat_rate_snapshot))`; `unit_vat = unit_ttc - unit_ht`. Order totals: `total_ttc_cents = SUM(unit_ttc * quantity)` across all lines; `total_ht_cents = SUM(unit_ht * quantity)`; `total_vat_cents = total_ttc_cents - total_ht_cents`. Invariant: `total_ttc_cents = total_ht_cents + total_vat_cents` (verified before INSERT). |
-| **[RG-5 — atomic transaction]** | All writes within one database transaction: (1) INSERT `customer_order` (status `pending_payment`, source `kiosk`, service_mode from cart, computed totals); (2) INSERT `order_item` rows (label_snapshot, unit_price_cents_snapshot, vat_rate_snapshot, quantity, format, item_type, product_id or menu_id); (3) INSERT `order_item_selection` rows for each slot filled in a menu item (order_item_id, menu_slot_id, product_id, label_snapshot); (4) INSERT `order_item_modifier` rows for each ingredient modification (order_item_id, ingredient_id, action, extra_price_cents snapshot); (5) for each ingredient consumed: compute units = `(order_item.format = 'maxi' ? product_ingredient.quantity_maxi : product_ingredient.quantity_normal) * order_item.quantity`, adjusted by modifiers (remove => no decrement for that ingredient; add => extra decrement); UPDATE `ingredient.stock_quantity -= units`; INSERT `stock_movement` (type `sale`, delta = -units, order_id, user_id = NULL for kiosk); (6) UPDATE `customer_order` SET status = `paid`, `paid_at = NOW()`. All six steps commit together or roll back entirely. |
+| **[RG-5 — atomic transaction]** | All writes within one database transaction: (1) INSERT `customer_order` (status `pending_payment`, source `kiosk`, service_mode from cart, computed totals); (2) INSERT `order_item` rows (label_snapshot, unit_price_cents_snapshot, vat_rate_snapshot, quantity, format, item_type, product_id or menu_id); (3) INSERT `order_item_selection` rows for each slot filled in a menu item (order_item_id, menu_slot_id, product_id, label_snapshot); (4) INSERT `order_item_modifier` rows for each ingredient modification (order_item_id, ingredient_id, action, extra_price_cents snapshot); (5) for each ingredient consumed: compute units = `(order_item.format = 'maxi' ? product_ingredient.quantity_maxi : product_ingredient.quantity_normal) * order_item.quantity`, adjusted by modifiers (remove => no decrement for that ingredient; add => extra decrement); apply the atomic decrement `UPDATE ingredient SET stock_quantity = stock_quantity - :units WHERE id = :id` (single self-locking statement, no preceding read-gate, RG-T20); `stock_quantity` is signed and may go negative (oversell magnitude, surfaced to managers) — the decrement does not gate on a floor; INSERT `stock_movement` (type `sale`, delta = -units, order_id, user_id = NULL for kiosk); (6) UPDATE `customer_order` SET status = `paid`, `paid_at = NOW()`. All six steps commit together or roll back entirely. |
 | **[RG-6 — cross-constraint]** | Source `kiosk` implies no particular service_mode constraint; the customer selects `dine_in` or `takeaway`. The drive cross-constraint (RG-T09) does not apply to kiosk-originated orders. |
 | **[RG-7 — immutability]** | After INSERT, `label_snapshot`, `unit_price_cents_snapshot`, and `vat_rate_snapshot` are not modified even if the source product is later renamed or repriced (see RG-T05). |
-| **[POST-1]** | One `customer_order` row exists with `status = 'paid'`, `source = 'kiosk'`, all totals computed, `paid_at` set. The `pending_payment` phase is not observable outside the transaction. |
+| **[RG-8 — idempotency]** | The body carries a client `idempotency_key` (UUID). Before any write, `SELECT id, order_number, status FROM customer_order WHERE idempotency_key = :key`. If found, skip creation and return that order (deduplicates a replayed retry — RG-T19). The key is stored on the new `customer_order` row. |
+| **[RG-9 — server-side modifier re-validation]** | The ingredient modifiers in the body are re-validated server-side against `product_ingredient`: an `action='remove'` requires `is_removable=1`; an `action='add'` requires `is_addable=1` and snapshots the current `extra_price_cents`. Client-side checks (3.2 RG-4) are not trusted; a crafted POST adding a non-addable ingredient is rejected (HTTP 422). |
+| **[RG-10 — atomic stock decrement]** | No operation gates on a stock read, so the decrement is a single atomic statement `UPDATE ingredient SET stock_quantity = stock_quantity - :units WHERE id = :id` (RG-T20). The row self-locks for the duration of the update, so concurrent kiosk orders on the same ingredient apply their deltas without a lost update and without a deadlock-ordering concern; `stock_quantity` is signed and may go negative (oversell magnitude surfaced to managers). |
+| **[POST-1]** | One `customer_order` row exists with `status = 'paid'`, `source = 'kiosk'`, all totals computed, `paid_at` set, `idempotency_key` stored. The `pending_payment` phase is not observable outside the transaction. |
 | **[POST-2]** | N `order_item` rows exist, each referencing either a `product_id` (item_type='product') or a `menu_id` (item_type='menu') — exclusivity constraint verified. |
 | **[POST-3]** | `customer_order.order_number` is unique in the database (UNIQUE constraint). |
 | **[POST-4]** | `ingredient.stock_quantity` decremented for each consumed ingredient unit; one `stock_movement` row of type `sale` per affected ingredient. |
@@ -152,7 +164,8 @@ These rules apply to multiple operations and are centralised here to avoid repet
 | **[RG-2 — cross-constraint]** | If `source = 'drive'` then `service_mode` must be `'drive'` (RG-T09); verified before INSERT. HTTP 422 if violated. |
 | **[RG-3 — order number]** | Format: `C-YYYY-MM-DD-NNN` for counter source; `D-YYYY-MM-DD-NNN` for drive source. Sequential NNN counter is per source per service_day. |
 | **[RG-4 — stock]** | Same stock decrement logic as CREATE_ORDER RG-5; `stock_movement.user_id` is set to the authenticated staff member's id. |
-| **[POST-1]** | One `customer_order` row with `status = 'paid'`, `source = 'counter'` or `'drive'`, `paid_at` set. |
+| **[RG-5 — staff attribution + decrement]** | `customer_order.acting_user_id` is set to the authenticated staff member's id (targeted accountability on counter/drive orders; kiosk orders stay NULL). Server-side modifier re-validation (3.3 RG-9), idempotency (RG-T19) and the atomic stock decrement (RG-T20) apply identically. No PIN is required to create an order (the `order.create` permission suffices); order creation is not in the sensitive-action set. |
+| **[POST-1]** | One `customer_order` row with `status = 'paid'`, `source = 'counter'` or `'drive'`, `paid_at` set, `acting_user_id` set. |
 | **[POST-2]** | N `order_item` rows with snapshots. Slot selections and modifiers written identically to kiosk flow. |
 | **[POST-3]** | Stock decremented; movements logged with actor `user_id`. |
 | **[OUT-1]** | HTTP 201: `{data: {id: int, order_number: string, status: 'paid'}}`. Order number communicated to customer. |
@@ -218,7 +231,8 @@ These rules apply to multiple operations and are centralised here to avoid repet
 | **[RG-3 — stock re-credit — conditional]** | Re-credit applies only if the order was at status `paid` before cancellation. Orders at `pending_payment` had not yet decremented stock (the decrement occurs at the `paid` transition). For each `order_item` line of a `paid` order, recompute ingredient units consumed: `(order_item.format = 'maxi' ? product_ingredient.quantity_maxi : product_ingredient.quantity_normal) * order_item.quantity`, adjusted by `order_item_modifier` rows (remove modifier -> ingredient was not decremented, so no re-credit; add modifier -> ingredient had extra decrement, so extra re-credit). UPDATE `ingredient.stock_quantity += units`. INSERT `stock_movement` (type `cancellation`, delta = +units, order_id, user_id of actor). |
 | **[RG-4 — transaction]** | Status update and stock re-credit (when applicable) execute in the same database transaction (RG-T11). |
 | **[RG-5 — history]** | Order is not physically deleted; retained for history and stats. Cancelled orders are excluded from revenue totals but included in volume counts in READ_STATS. `order_item` rows are not deleted (ON DELETE CASCADE is not triggered); they allow reconstruction of what was ordered. |
-| **[POST-1]** | `customer_order.status = 'cancelled'`, `cancelled_at` set, terminal state. |
+| **[RG-6 — PIN + audit]** | Cancellation is a sensitive money-handling action: it requires the per-staff PIN (RG-T13) and writes one `audit_log` row in the same transaction (RG-T14): `action_code='order.cancel'`, `entity_type='customer_order'`, `entity_id=:id`, `summary` with prior status and re-credited amount. |
+| **[POST-1]** | `customer_order.status = 'cancelled'`, `cancelled_at` set, terminal state. One `audit_log` row recorded with the acting staff. |
 | **[POST-2]** | If prior status was `paid`: `ingredient.stock_quantity` re-credited; one `stock_movement` row of type `cancellation` per affected ingredient. |
 | **[OUT-1]** | HTTP 200 with cancellation confirmation |
 | **[ERR-1]** | Attempt to cancel a delivered or already cancelled order: HTTP 422, `{error: {code: "CANNOT_CANCEL_IN_STATE", current_status: "..."}}` |
@@ -258,7 +272,8 @@ These rules apply to multiple operations and are centralised here to avoid repet
 | **[RG-1]** | Same validations as CREATE_PRODUCT on modified fields |
 | **[RG-2]** | If a new image is uploaded, the old image file is deleted from the filesystem (volume cleanup) |
 | **[RG-3]** | `label_snapshot`, `unit_price_cents_snapshot`, `vat_rate_snapshot` in historical `order_item` rows are not modified (see RG-T05) |
-| **[POST-1]** | `product` updated, `updated_at` refreshed |
+| **[RG-4 — PIN + audit + allowlist]** | A price/VAT change is a sensitive action: it requires the per-staff PIN (RG-T13) and writes one `audit_log` row (RG-T14) with `action_code='product.update'`, `entity_type='product'`, `entity_id=:id`, and a `summary` recording changed values (e.g. `price_cents 880 -> 920`). Only the allowlisted columns (`name`, `description`, `price_cents`, `vat_rate`, `image_path`, `is_available`, `display_order`, `category_id`) are bound from the request (RG-T16). |
+| **[POST-1]** | `product` updated, `updated_at` refreshed; one `audit_log` row recorded |
 | **[OUT-1]** | Redirect to product list with success message |
 
 ---
@@ -275,7 +290,8 @@ These rules apply to multiple operations and are centralised here to avoid repet
 | **[RG-2]** | Pre-check (PHP): is the product the `burger_product_id` of any `menu`? If yes, block with message to delete or reassign the menu first. |
 | **[RG-3]** | Pre-check (PHP): is the product referenced in `order_item.product_id` (historical orders)? FK `ON DELETE RESTRICT` blocks at DB level. Recommended response: propose deactivation (`is_available=0`) rather than deletion. |
 | **[RG-4]** | FK constraints (`menu_slot_option.product_id ON DELETE RESTRICT`, `order_item.product_id ON DELETE RESTRICT`) enforce the constraint even if the PHP check is bypassed. |
-| **[POST-1]** | Product deleted if no FK constraint was blocking |
+| **[RG-5 — PIN + audit]** | Deletion is a sensitive action: it requires the per-staff PIN (RG-T13) and writes one `audit_log` row (RG-T14) with `action_code='product.delete'`, `entity_type='product'`, `entity_id=:id`, `summary` capturing the product name before deletion (recorded before the row is removed). |
+| **[POST-1]** | Product deleted if no FK constraint was blocking; one `audit_log` row recorded |
 | **[OUT-1]** | Redirect to product list with success message |
 | **[ERR-1]** | Product in menu slot: HTTP 422 or inline message with blocking menu list |
 | **[ERR-2]** | Product in historical orders: message proposing deactivation instead |
@@ -327,7 +343,8 @@ These rules apply to multiple operations and are centralised here to avoid repet
 | **[PRE-2]** | Target `menu.id` exists |
 | **[RG-1]** | Pre-check (PHP): is the menu referenced in `order_item.menu_id`? FK `ON DELETE RESTRICT`. If yes, propose deactivation (`is_available=0`) instead of deletion. |
 | **[RG-2]** | If no historical reference: DELETE `menu` triggers CASCADE to `menu_slot` (which cascades to `menu_slot_option`) |
-| **[POST-1]** | `menu`, its `menu_slot` rows, and its `menu_slot_option` rows deleted |
+| **[RG-3 — PIN + audit]** | Deletion is a sensitive action: per-staff PIN (RG-T13) + one `audit_log` row (RG-T14), `action_code='menu.delete'`, `entity_type='menu'`, `entity_id=:id`, `summary` capturing the menu name before deletion. |
+| **[POST-1]** | `menu`, its `menu_slot` rows, and its `menu_slot_option` rows deleted; one `audit_log` row recorded |
 | **[OUT-1]** | Redirect with success message |
 | **[ERR-1]** | Menu in historical orders: message proposing deactivation instead |
 
@@ -357,8 +374,8 @@ These rules apply to multiple operations and are centralised here to avoid repet
 | Tag | Content |
 |-----|---------|
 | **[PRE-1]** | Actor authenticated, holds permission `ingredient.manage` |
-| **[RG-CREATE-ING]** | `name` non-empty and UNIQUE; `unit` non-empty; `pack_size >= 1`; `low_stock_threshold >= 0`; `stock_quantity` defaults to 0 at creation |
-| **[RG-UPDATE-ING]** | UPDATE `name`, `unit`, `pack_size`, `pack_label`, `low_stock_threshold`, `is_active` |
+| **[RG-CREATE-ING]** | `name` non-empty and UNIQUE; `unit` non-empty; `pack_size >= 1`; `stock_capacity >= 1` (the 100% reference); `low_stock_pct` and `critical_stock_pct` in 0-100 with `critical_stock_pct < low_stock_pct` (defaults 10 / 5); `stock_quantity` defaults to 0 at creation |
+| **[RG-UPDATE-ING]** | UPDATE `name`, `unit`, `pack_size`, `pack_label`, `stock_capacity`, `low_stock_pct`, `critical_stock_pct`, `is_active` |
 | **[RG-DEACTIVATE-ING]** | `is_active=0` hides ingredient from configurator. Physical deletion blocked if referenced in `product_ingredient` (FK `ON DELETE RESTRICT`) or `stock_movement` (FK `ON DELETE RESTRICT`). |
 | **[RG-COMPOSITION]** | UPDATE `product_ingredient`: for each ingredient in a product's recipe, set `quantity_normal`, `quantity_maxi`, `is_removable`, `is_addable`, `extra_price_cents`. Delete-and-reinsert pattern within transaction. |
 | **[RG-ALLERGEN]** | Manage `ingredient_allergen`: INSERT or DELETE `(ingredient_id, allergen_id)` pairs. Allergen list is read-only (14 rows fixed by EU regulation 1169/2011). |
@@ -398,7 +415,8 @@ These rules apply to multiple operations and are centralised here to avoid repet
 | **[RG-1]** | `delta = actual_quantity - ingredient.stock_quantity` (may be negative if actual < theoretical) |
 | **[RG-2]** | Transaction: `UPDATE ingredient SET stock_quantity = :actual_quantity WHERE id = :id`; INSERT `stock_movement` (ingredient_id, movement_type=`inventory_correction`, delta=computed, order_id=NULL, user_id=actor, note=optional) |
 | **[RG-3]** | `delta = 0` is a valid correction (physical count matches theoretical); a movement row is still inserted for audit completeness |
-| **[POST-1]** | `ingredient.stock_quantity = actual_quantity`. One `stock_movement` row of type `inventory_correction` inserted. |
+| **[RG-4 — PIN attribution]** | An inventory correction can mask shrinkage, so it requires the per-staff PIN (RG-T13). The PIN-captured `user_id` is written to `stock_movement.user_id`, making the correction attributable to a person even on a shared workstation. No separate `audit_log` row (the `stock_movement` trail already records it). |
+| **[POST-1]** | `ingredient.stock_quantity = actual_quantity`. One `stock_movement` row of type `inventory_correction` inserted with the acting `user_id`. |
 | **[OUT-1]** | Confirmation with reconciled stock level and discrepancy displayed |
 
 ---
@@ -411,10 +429,11 @@ These rules apply to multiple operations and are centralised here to avoid repet
 |-----|---------|
 | **[PRE-1]** | Actor authenticated, holds permission `stock.read` |
 | **[RG-1]** | `SELECT * FROM ingredient WHERE is_active = 1 ORDER BY name ASC` |
-| **[RG-2]** | Low-stock alert computed at render time: `stock_quantity <= low_stock_threshold` -> flag `low_stock: true` in response. Not stored as a column. |
+| **[RG-2]** | Stock bands computed at render time from the percentage thresholds: `low_stock: true` when `stock_quantity <= stock_capacity * low_stock_pct / 100`, `critical_stock: true` when `stock_quantity <= stock_capacity * critical_stock_pct / 100`; `stock_pct = ROUND(stock_quantity / stock_capacity * 100)` is also returned. Not stored as columns. |
 | **[RG-3]** | Optional movement history for a given ingredient: `SELECT * FROM stock_movement WHERE ingredient_id = :id ORDER BY created_at DESC LIMIT :n` |
+| **[RG-4 — attribution visibility]** | The `stock_movement.user_id` (who restocked / who corrected) is included for `manager`/`admin` only; line staff (`kitchen`/`counter`/`drive`) see the movement deltas without the actor identity. This limits intra-team exposure while preserving accountability for those who manage. The `details` allowlist is applied at the query/serialisation layer. |
 | **[POST-1]** | No database write |
-| **[OUT-1]** | Ingredient list with `stock_quantity`, `low_stock_threshold`, `pack_size`, `pack_label`, `low_stock` flag |
+| **[OUT-1]** | Ingredient list with `stock_quantity`, `stock_capacity`, computed `stock_pct`, `low_stock_pct`, `critical_stock_pct`, `pack_size`, `pack_label`, `low_stock` / `critical_stock` flags; movement history with actor visible to manager/admin only |
 
 ---
 
@@ -432,7 +451,8 @@ These rules apply to multiple operations and are centralised here to avoid repet
 | **[RG-1]** | Validation: `email` conforms to RFC 5321 (PHP `FILTER_VALIDATE_EMAIL`), `first_name` and `last_name` non-empty, `role_id` valid |
 | **[RG-2]** | Password hash: `password_hash($password, PASSWORD_ARGON2ID)`. Minimum password length: 8 characters. |
 | **[RG-3]** | `is_active = 1` by default; `last_login_at = NULL` at creation |
-| **[POST-1]** | One `user` row with argon2id `password_hash`, valid `role_id` |
+| **[RG-4 — PIN + audit + allowlist]** | Creating a back-office account is a sensitive action: per-staff PIN (RG-T13) + one `audit_log` row (RG-T14), `action_code='user.create'`, `entity_type='user'`, `entity_id=:new_id`, `details` recording the assigned `role_id` (field names/role, not the password). Only the allowlisted columns are bound (RG-T16): `email`, `first_name`, `last_name`, `role_id` (+ the hashed password); `is_active` and any other field are server-set, not request-bound. |
+| **[POST-1]** | One `user` row with argon2id `password_hash`, valid `role_id`; one `audit_log` row recorded |
 | **[OUT-1]** | Redirect to user list with success message |
 | **[ERR-1]** | Duplicate email: message "This email is already in use" |
 | **[ERR-2]** | Password too short: inline validation message |
@@ -450,7 +470,8 @@ These rules apply to multiple operations and are centralised here to avoid repet
 | **[RG-1]** | If a new password is supplied (non-empty field): rehash via `PASSWORD_ARGON2ID` and replace existing hash |
 | **[RG-2]** | If password field is empty: existing hash is preserved unchanged |
 | **[RG-3]** | Email update subject to UNIQUE constraint (pre-check before UPDATE) |
-| **[POST-1]** | `user` updated, `updated_at` refreshed |
+| **[RG-4 — PIN + audit + allowlist]** | Editing an account (incl. `role_id`, the privilege-escalation vector) is sensitive: per-staff PIN (RG-T13) + one `audit_log` row (RG-T14), `action_code='user.update'`, `entity_type='user'`, `entity_id=:id`, `details` listing changed field names (not values, no PII). Only the allowlisted columns are bound (RG-T16): `first_name`, `last_name`, `email`, `role_id`, `is_active` (+ optional password rehash). |
+| **[POST-1]** | `user` updated, `updated_at` refreshed; one `audit_log` row recorded |
 | **[OUT-1]** | Redirect with success message |
 
 ---
@@ -465,7 +486,8 @@ These rules apply to multiple operations and are centralised here to avoid repet
 | **[PRE-2]** | Actor is not targeting their own account (`$targetUserId !== $currentUserId`) |
 | **[RG-1]** | `UPDATE user SET is_active = 0, updated_at = NOW() WHERE id = :id` |
 | **[RG-2]** | The user's potentially active session is invalidated on next request: middleware checks `user.is_active = 1` on each authenticated request |
-| **[POST-1]** | `user.is_active = 0`; user cannot log in; history remains intact |
+| **[RG-3 — PIN + audit]** | Sensitive action: per-staff PIN (RG-T13) + one `audit_log` row (RG-T14), `action_code='user.deactivate'`, `entity_type='user'`, `entity_id=:id`. |
+| **[POST-1]** | `user.is_active = 0`; user cannot log in; history remains intact; one `audit_log` row recorded |
 | **[OUT-1]** | Redirect with success message |
 | **[ERR-1]** | Self-deactivation attempt: HTTP 403, `{error: {code: "SELF_DEACTIVATION_FORBIDDEN"}}` |
 
@@ -485,8 +507,28 @@ These rules apply to multiple operations and are centralised here to avoid repet
 | **[RG-3]** | Effect is immediate for new requests; sessions of users bearing this role see the change on the next permission check (sessions store `role_id`; permissions are reloaded from DB on each check). |
 | **[RG-4 — custom role]** | Creating a custom role: INSERT `role` (code UNIQUE, label, description, default_route nullable, order_source nullable); INSERT `role_visible_source` rows as needed. |
 | **[RG-5 — order_source]** | `role.order_source` controls the auto-tagging of `customer_order.source` when this role creates an order. NULL for admin and manager (they can create on behalf of any channel). |
-| **[POST-1]** | `role_permission` reflects exactly the selected permissions for this role |
+| **[RG-6 — PIN + audit change-log]** | RBAC changes are high-impact (privilege escalation): per-staff PIN (RG-T13) + one `audit_log` row (RG-T14) per change, `action_code='role.manage'`, `entity_type='role'`, `entity_id=:role_id`. Because permissions are rewritten delete-and-reinsert (RG-1), the `details` JSON records the **diff** — permission codes added and removed — computed before the rewrite, so the trail shows exactly which capabilities a role gained or lost and who granted them. |
+| **[POST-1]** | `role_permission` reflects exactly the selected permissions for this role; one `audit_log` row recorded with the permission diff |
 | **[OUT-1]** | Redirect with success message |
+
+---
+
+### 10.5 ERASE_USER_PII (RGPD anonymisation)
+
+**Security-by-design operation (no v0.1 / v0.2 MCT predecessor). Honours the RGPD right to
+erasure (Cr 3.d) without breaking referential integrity or the audit trail (dict. note 13).**
+
+| Tag | Content |
+|-----|---------|
+| **[PRE-1]** | Actor authenticated, holds permission `user.update` (erasure is an admin operation) |
+| **[PRE-2]** | Per-staff PIN verified (RG-T13) — sensitive action |
+| **[PRE-3]** | Target `user.id` exists and `anonymized_at IS NULL` (not already anonymised) |
+| **[RG-1 — anonymise, not delete]** | In one transaction: `UPDATE user SET email = CONCAT('anon-', id, '@wakdo.invalid'), first_name = '', last_name = '', password_hash = '', pin_hash = NULL, password_reset_token_hash = NULL, is_active = 0, anonymized_at = NOW() WHERE id = :id`. The placeholder domain is RFC 2606 reserved (`.invalid`), keeps `email` UNIQUE and non-identifying. |
+| **[RG-2 — preserve links]** | The row persists, so FKs pointing at it (`stock_movement.user_id`, `customer_order.acting_user_id`, `audit_log.actor_user_id`) stay valid and now resolve to an anonymised principal. Accountability for past actions is preserved in form (who-as-id) without retaining PII. |
+| **[RG-3 — audit]** | One `audit_log` row (RG-T14): `action_code='user.erase_pii'`, `entity_type='user'`, `entity_id=:id`. The `summary`/`details` record the erasure event and its legal basis, not the erased values. |
+| **[POST-1]** | `user` row anonymised: PII fields cleared/placeholdered, credentials invalidated, `anonymized_at` set, `is_active = 0`. Referential links intact. |
+| **[OUT-1]** | Confirmation; the user disappears from active lists, remains as an anonymised tombstone in history. |
+| **[ERR-1]** | Already anonymised: HTTP 409, `{error: {code: "ALREADY_ANONYMISED"}}` |
 
 ---
 
@@ -519,17 +561,21 @@ These rules apply to multiple operations and are centralised here to avoid repet
 |-----|---------|
 | **[PRE-1]** | Login form submitted with email and password |
 | **[PRE-2]** | CSRF token of the form is valid (anti-CSRF protection) |
+| **[PRE-3 — throttle gate]** | If the account is in a throttling window (`user.lockout_until IS NOT NULL AND lockout_until > NOW()`), reject with the generic error before any password check. Throttling is also keyed per source IP via the `login_throttle` table: if a row exists for the source IP with `lockout_until IS NOT NULL AND lockout_until > NOW()`, reject with the same generic error, so distributed attempts on many accounts are slowed too. |
 | **[RG-1]** | Lookup: `SELECT * FROM user WHERE email = :email AND is_active = 1 LIMIT 1` |
-| **[RG-2]** | Password verification: `password_verify($password, $user->password_hash)`. On failure: same generic error whether the email does not exist or the password is wrong (protection against email enumeration). |
+| **[RG-2]** | Password verification: `password_verify($password, $user->password_hash)`. On failure: same generic error whether the email does not exist or the password is wrong (protection against email enumeration). To keep timing comparable when the email is unknown, a dummy `password_verify` against a fixed decoy hash is run. |
 | **[RG-3]** | On success: `session_regenerate(true)` (session ID regeneration, protection against session fixation) |
 | **[RG-4]** | Session storage: `$_SESSION['user_id']`, `$_SESSION['role_id']`, `$_SESSION['logged_in_at']` |
 | **[RG-5]** | UPDATE: `UPDATE user SET last_login_at = NOW() WHERE id = :id` |
 | **[RG-6]** | Session timeouts: idle timeout 4h (detection via last-activity timestamp in session); absolute timeout 10h (detection via `logged_in_at`) |
 | **[RG-7]** | Redirect target is `role.default_route` (dynamic; no hardcoded role name in routing logic) |
-| **[POST-1]** | PHP session open with `user_id` and `role_id`; `user.last_login_at` updated |
+| **[RG-8 — failure handling, degressive backoff]** | On a failed verification, the per-account counter on `user`: `UPDATE user SET failed_login_attempts = failed_login_attempts + 1, last_failed_login_at = NOW()`, and once a threshold is reached (suggestion: 5) set `lockout_until = NOW() + INTERVAL (base * 2^(attempts - threshold)) SECOND`, capped (suggestion: cap a few minutes). In the same step, the per-IP dimension is recorded in the `login_throttle` table: upsert the row keyed on `ip_address` (insert if absent, else increment `failed_attempts`; reset the window when expired via `window_started_at`), update `last_attempt_at = NOW()`, and once the IP threshold is reached set `lockout_until` with the same degressive backoff. This is a degressive backoff, not an indefinite lock — it slows brute force without letting a fat-finger streak deny service to a kitchen mid-shift. Write one `audit_log` row (`action_code='auth.login_failed'`, `actor_user_id` if the email resolved, else NULL). |
+| **[RG-9 — success reset]** | On success, reset the per-account counter `failed_login_attempts = 0`, clear `lockout_until = NULL`, and also clear the per-IP `login_throttle` row for the source IP (reset `failed_attempts = 0`, `lockout_until = NULL`, restart `window_started_at`), then write one `audit_log` row (`action_code='auth.login_success'`, `actor_user_id`, `actor_role_id`). |
+| **[POST-1]** | PHP session open with `user_id` and `role_id`; `user.last_login_at` updated; `failed_login_attempts` reset |
 | **[OUT-1]** | Redirect to `role.default_route` |
-| **[ERR-1]** | Incorrect credentials or inactive account: generic message "Email or password incorrect" (no distinction to prevent enumeration) |
+| **[ERR-1]** | Incorrect credentials or inactive account: generic message "Email or password incorrect" (no distinction to prevent enumeration); failure counter incremented (RG-8) |
 | **[ERR-2]** | Invalid CSRF token: HTTP 403 |
+| **[ERR-3]** | Account in throttling window (PRE-3): same generic message; the attempt does not reveal that the account exists or is locked |
 
 ---
 
@@ -548,7 +594,21 @@ These rules apply to multiple operations and are centralised here to avoid repet
 
 ---
 
-## 13. Automated treatments — Crons (outside user interactions)
+### 12.3 RESET_PASSWORD
+
+**Security-by-design operation (no v0.1 predecessor). Two phases: request, then confirm.**
+
+| Tag | Content |
+|-----|---------|
+| **[PRE-1]** | Request phase: a `user` submits the "forgot password" form with an email; CSRF token valid |
+| **[RG-1 — request, enumeration-safe]** | Look up the email. The same neutral response ("if the account exists, an email has been sent") is returned whether or not the email exists, to avoid account enumeration. |
+| **[RG-2 — token generation]** | If the email resolves to an active user: generate a cryptographically random token (e.g. 32 bytes from a CSPRNG); store its **hash** in `password_reset_token_hash` and `password_reset_expires_at = NOW() + INTERVAL 1 HOUR`. The **raw** token is sent once in the reset link (not stored in clear). |
+| **[PRE-2]** | Confirm phase: the user opens the reset link with the raw token and submits a new password; CSRF token valid |
+| **[RG-3 — confirm]** | Hash the submitted token and match it against `password_reset_token_hash` where `password_reset_expires_at > NOW()`. On match: `password_hash = password_hash($new, PASSWORD_ARGON2ID)` (min length 8), then clear `password_reset_token_hash = NULL` and `password_reset_expires_at = NULL`, and reset `failed_login_attempts = 0`, `lockout_until = NULL`. One-time use. |
+| **[RG-4 — audit]** | Write one `audit_log` row (RG-T14), `action_code='auth.password_reset'`, `actor_user_id = :id`. |
+| **[POST-1]** | Password replaced with a new argon2id hash; reset token consumed and cleared |
+| **[OUT-1]** | Confirmation; redirect to login |
+| **[ERR-1]** | Invalid or expired token: generic message inviting a new reset request (no detail on which condition failed) |
 
 These treatments are executed by the `wakdo-cron` service container in the maintenance
 window 01:30-09:30 (outside active service). They are outside the MCT scope (technical
@@ -580,6 +640,24 @@ treatments, no user trigger) but are documented here for consistency with PROJEC
 | **[RG-1]** | `mysqldump` of the `wakdo` database to a dated file in the backup volume |
 | **[RG-2]** | Retention: keep the last 7 dumps; delete older ones |
 | **[POST-1]** | SQL dump available for restoration |
+
+### 13.4 Audit log retention purge (cron daily)
+
+| Tag | Content |
+|-----|---------|
+| **[TRIGGER]** | Cron: `15 4 * * *` (maintenance window) |
+| **[RG-1]** | `DELETE FROM audit_log WHERE created_at < NOW() - INTERVAL :retention_months MONTH` (suggestion: 12 months, legitimate-interest / fiscal traceability — configurable in `.env`). |
+| **[RG-2]** | The window is decoupled from user PII lifecycle: anonymisation (10.5) removes PII immediately on request, while the audit trail ages out on its own schedule (dict. note 13). |
+| **[POST-1]** | `audit_log` rows older than the retention window removed; recent accountability preserved. |
+
+### 13.5 login_throttle purge (cron daily)
+
+| Tag | Content |
+|-----|---------|
+| **[TRIGGER]** | Cron: `45 4 * * *` (maintenance window) |
+| **[RG-1]** | `DELETE FROM login_throttle WHERE (lockout_until IS NULL OR lockout_until < NOW()) AND last_attempt_at < NOW() - INTERVAL 24 HOUR` — purge rows with no active lockout whose last failed attempt is older than 24h. |
+| **[RG-2]** | Rows still serving an active lockout are retained; the per-IP counter (S1) is bounded by this purge so the table does not grow unbounded from one-off attempts. |
+| **[POST-1]** | Stale `login_throttle` rows removed; active throttles and recent activity preserved. |
 
 ---
 

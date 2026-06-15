@@ -80,5 +80,3 @@ jobs:
           else
             echo "PHPUnit skipped: no tests/ + phpunit.xml yet (activates in P2)"
           fi
-
-# (CI pipeline validee le 2026-06-15 - test auto-merge)

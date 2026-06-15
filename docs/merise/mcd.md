@@ -1,10 +1,10 @@
 # Conceptual Data Model (MCD) — Wakdo
 
 **Merise phase** : P1 - Conception, step 2 (data dictionary first, mantra #33)
-**Version** : v0.2 — prod-like, 19 entities
-**Date** : 2026-06-04
+**Version** : v0.2 — prod-like, 21 entities (19 prod-like + security-by-design layer)
+**Date** : 2026-06-04 (security-by-design additions 2026-06-11)
 **Branch** : `feat/p1-conception`
-**Status** : prod-like — all D1-D8 + stock decisions applied (see `docs/notes/revue-alignement-p1.md` §7)
+**Status** : prod-like — all D1-D8 + stock decisions applied (see `docs/notes/revue-alignement-p1.md` §7); security-by-design layer (audit_log + accountability/auth columns) in progress
 **Author** : BYAN (methodology layer)
 
 ---
@@ -21,7 +21,7 @@ structure: how many X per Y, whether participation is mandatory, whether associa
 their own attributes.
 
 **Sources**:
-- `docs/merise/dictionary.md` (v0.2 — 19 entities, source of truth for all names, types, ENUMs)
+- `docs/merise/dictionary.md` (v0.2 — 21 entities, source of truth for all names, types, ENUMs)
 - `docs/notes/revue-alignement-p1.md` §7 (decision table D1-D8 + stock)
 - `docs/PROJECT_CONTEXT.md` (business rules: menu composition, order flow, RBAC, service modes)
 - `docs/merise/_sources/` (school data: 9 categories, 53 products, 13 menus)
@@ -62,7 +62,7 @@ N-N associations that carry their own attributes become **associative entities**
 
 ## 3. Decomposition by sub-domain
 
-The 19-entity model is split into 4 sub-domains for readability. Beyond approximately
+The 21-entity model is split into 4 sub-domains for readability. Beyond approximately
 5 entities, a single flat diagram becomes difficult to read; decomposition is the standard
 Merise practice for models of this size.
 
@@ -71,12 +71,21 @@ Merise practice for models of this size.
 | Catalogue | category, product, menu, menu_slot, menu_slot_option | 5 |
 | Ingredients & Stock | ingredient, product_ingredient, allergen, ingredient_allergen, stock_movement | 5 |
 | Order | customer_order, order_item, order_item_selection, order_item_modifier | 4 |
-| RBAC | user, role, role_visible_source, permission, role_permission | 5 |
+| RBAC & Audit | user, role, role_visible_source, permission, role_permission, audit_log, login_throttle | 7 |
 
-**Note on the absence of a global diagram**: a single 19-entity ER diagram would be
+> **Security-by-design layer (2026-06-11)**: `audit_log` (entity 20) is a cross-cutting,
+> append-only log of sensitive actions; it is placed in the RBAC & Audit sub-domain because
+> its references (`actor_user_id`, `actor_role_id`) are RBAC entities. `login_throttle`
+> (entity 21) is a per-source-IP brute-force throttle, keyed by IP and carrying no FK; it sits
+> in the same sub-domain because it guards the authentication path. New columns on existing
+> entities: `user` auth-lifecycle + `pin_hash` + `anonymized_at`, `customer_order.acting_user_id`
+> + `idempotency_key`. See dictionary note 13.
+
+**Note on the absence of a global diagram**: a single 21-entity ER diagram would be
 unreadable and unmaintainable. The sub-domain decomposition below is the intentional
-structural choice. The `.drawio` source files will be regenerated from this document as the
-single reference once the MCD is stabilised (regeneration tracked in `docs/notes/`).
+structural choice. Each sub-domain is a Mermaid `erDiagram` (authoritative, rendered
+natively) with a portable SVG render in `docs/merise/_diagrams/`; see section 11 for the
+sources and regeneration command.
 
 ---
 
@@ -174,15 +183,18 @@ erDiagram
         varchar name
         varchar unit
         int stock_quantity
+        int stock_capacity
         smallint pack_size
         varchar pack_label
-        smallint low_stock_threshold
+        smallint low_stock_pct
+        smallint critical_stock_pct
         tinyint is_active
     }
     product_ingredient {
         int product_id FK
         int ingredient_id FK
-        smallint quantity
+        smallint quantity_normal
+        smallint quantity_maxi
         tinyint is_removable
         tinyint is_addable
         int extra_price_cents
@@ -238,13 +250,15 @@ erDiagram
 
 ### 5.3 Notes on the Ingredients & Stock sub-domain
 
-**`product_ingredient` as an associative entity**: the N-N association between `product` and `ingredient` carries four attributes (`quantity`, `is_removable`, `is_addable`, `extra_price_cents`). It becomes a join table in the MLD with composite PK `(product_id, ingredient_id)`.
+**`product_ingredient` as an associative entity**: the N-N association between `product` and `ingredient` carries five attributes (`quantity_normal`, `quantity_maxi`, `is_removable`, `is_addable`, `extra_price_cents`). It becomes a join table in the MLD with composite PK `(product_id, ingredient_id)`.
 
 **`ingredient_allergen` as a pure join table**: no own attributes. The allergen set for a product is computed at query time by joining `product_ingredient -> ingredient_allergen -> allergen`; no manual per-product entry is needed.
 
 **`stock_movement` immutability**: this table is append-only. No UPDATE or DELETE is permitted at application layer. Corrections are new rows with `movement_type = 'inventory_correction'` and a signed `delta`.
 
-**Low-stock alert**: computed at display time (`stock_quantity <= low_stock_threshold`); no additional stored column.
+**Percentage-based stock model**: stock health is anchored on a per-ingredient `stock_capacity` (the 100% reference, `CHECK > 0`). `stock_quantity` is signed and may go negative when sales outrun counted stock; the system does not block an order on a low stock read. `stock_pct = ROUND(stock_quantity / stock_capacity * 100)` is computed, not stored. Two percentage thresholds drive a three-band behaviour: `low_stock_pct` (warning band, default 10%) and `critical_stock_pct` (auto-out-of-stock floor, default 5%), with the table-level invariant `critical_stock_pct < low_stock_pct`. Above the low band is normal; between critical and low the product stays orderable and a manager alert is raised (the manager either pulls the product via `product.is_available = 0` or restocks to clear the alert); at or below the critical band the product auto-goes out-of-stock (computed, see below).
+
+**Computed product availability (rule RG-T21, see `mlt.md`)**: effective orderability is derived, not stored. A product is orderable when `product.is_available = 1` AND each non-removable (`is_removable = 0`) ingredient in its `product_ingredient` has `stock_quantity > stock_capacity * critical_stock_pct / 100`. A required ingredient reaching the critical band makes the product auto-out-of-stock with no write and no cascade; a manual pull (`product.is_available = 0`) is a hard override; restock above the critical band makes the product orderable again on its own. A removable/optional ingredient at the critical band does not block the product (only its add-on becomes unavailable). The dashboard distinguishes a manual pull from a stock-driven OOS.
 
 ---
 
@@ -257,7 +271,9 @@ erDiagram
     customer_order {
         int id PK
         varchar order_number
+        varchar idempotency_key
         enum source
+        int acting_user_id FK
         enum service_mode
         enum status
         int total_ht_cents
@@ -358,6 +374,12 @@ the MLD).
 `preparing` and `ready` are dropped (decision D4, `revue-alignement-p1.md` §7). KPI timing is
 `delivered_at - paid_at`; KDS colour coding is computed from `NOW() - paid_at`.
 
+**Security-by-design columns (2026-06-11)**: `idempotency_key` (client UUID, UNIQUE)
+deduplicates a retried `POST /api/orders`. `acting_user_id` (FK -> `user`, ON DELETE SET NULL)
+records the counter/drive staff who took the order under PIN; NULL for anonymous kiosk orders.
+This adds a `customer_order |o--o| user : "taken_by"` association (cardinality: an order is
+taken by (0,1) user; a user takes (0,N) orders). See dictionary note 13.
+
 ---
 
 ## 7. Sub-domain: RBAC
@@ -370,11 +392,15 @@ erDiagram
         int id PK
         varchar email
         varchar password_hash
+        varchar pin_hash
         varchar first_name
         varchar last_name
         int role_id FK
         tinyint is_active
         datetime last_login_at
+        smallint failed_login_attempts
+        datetime lockout_until
+        datetime anonymized_at
     }
     role {
         int id PK
@@ -399,12 +425,37 @@ erDiagram
         int role_id FK
         int permission_id FK
     }
+    audit_log {
+        int id PK
+        int actor_user_id FK
+        int actor_role_id FK
+        varchar action_code
+        varchar entity_type
+        int entity_id
+        varchar summary
+        json details
+        datetime created_at
+    }
+    login_throttle {
+        int id PK
+        varchar ip_address UK
+        smallint failed_attempts
+        datetime window_started_at
+        datetime lockout_until
+        datetime last_attempt_at
+    }
 
     user }o--|| role : "holds"
     role ||--o{ role_visible_source : "sees_source"
     role ||--o{ role_permission : "grants"
     permission ||--o{ role_permission : "granted_to"
+    user |o--o{ audit_log : "performs"
+    role |o--o{ audit_log : "context_of"
 ```
+
+> `login_throttle` is a standalone entity with no association: it is keyed by source IP
+> (`ip_address UNIQUE`), not by a modelled actor, so it carries no FK and connects to no
+> other entity in the diagram.
 
 ### 7.2 Association cardinalities
 
@@ -414,6 +465,8 @@ erDiagram
 | R2 | sees_source | role | (0,N) | role_visible_source | (1,1) | A role may see 0 or more order sources on the preparation dashboard (admin/manager use a global view with no source filter). Each visibility row belongs to exactly one role. |
 | R3 | grants | role | (0,N) | role_permission | (1,1) | A role may have no permissions (a newly created role before assignment) or many. Each mapping row belongs to one role. |
 | R4 | granted_to | permission | (0,N) | role_permission | (1,1) | A permission may be granted to no roles yet (declared at seed, not yet distributed) or to several. Each mapping row references one permission. |
+| R5 | performs | user | (0,1) | audit_log | (0,N) | A sensitive action captured under PIN records its acting user; automated/non-attributable entries carry NULL. A user may have logged any number of actions. ON DELETE SET NULL preserves the trail on user anonymisation/removal. |
+| R6 | context_of | role | (0,1) | audit_log | (0,N) | Each audit row may denormalise the actor's role at action time (NULL allowed). A role may be the context of many audit rows. ON DELETE SET NULL preserves the trail. |
 
 ### 7.3 Notes on the RBAC sub-domain
 
@@ -430,11 +483,28 @@ erDiagram
 **Seed roles** (5 roles, frozen at DDL; extendable without code change):
 `admin`, `manager`, `kitchen`, `counter`, `drive`.
 
+**`audit_log` (security-by-design)**: append-only log of sensitive actions, immutable like
+`stock_movement`. Both FKs (`actor_user_id`, `actor_role_id`) are nullable with ON DELETE
+SET NULL, so the trail survives user anonymisation (RGPD) and role removal. The `actor_role_id`
+is denormalised on purpose: even if the user is later anonymised, the role context of the
+action is preserved. It carries no PII (the `details` JSON stores changed field names, not
+values for user-targeted actions). See dictionary 3.20 and note 13.
+
+**`login_throttle` (security-by-design)**: per-source-IP brute-force throttle, complementing
+the per-account counter already on `user` (`failed_login_attempts` / `lockout_until`). One row
+per IP (`ip_address VARCHAR(45) UNIQUE`, 45 chars to hold a full IPv6 literal), upserted on each
+failed login: `failed_attempts` counts consecutive failures from this IP in the current window,
+`window_started_at` marks the start of that window (which resets when expired), `lockout_until`
+holds the end of the degressive backoff (NULL = not throttled), `last_attempt_at` the timestamp
+of the last failed attempt. It has no FK (an IP is not a modelled entity) and no association. A
+daily cron purges rows with no active lockout whose `last_attempt_at` is older than 24h. See
+dictionary 3.21 and note 13.
+
 ---
 
 ## 8. Cross-validation MCD <-> dictionary
 
-Verification that all 19 dictionary entities appear in the MCD and vice versa.
+Verification that all 21 dictionary entities appear in the MCD and vice versa.
 
 | # | Dictionary entity (section 3) | Sub-domain in MCD | Present |
 |---|---|---|---|
@@ -457,17 +527,21 @@ Verification that all 19 dictionary entities appear in the MCD and vice versa.
 | 17 | `permission` (3.17) | RBAC | Yes |
 | 18 | `role_permission` (3.18) | RBAC | Yes |
 | 19 | `stock_movement` (3.19) | Ingredients & Stock | Yes |
+| 20 | `audit_log` (3.20) | RBAC & Audit | Yes |
+| 21 | `login_throttle` (3.21) | RBAC & Audit | Yes |
 
-**Result**: 19/19 entities traced. No entity from the dictionary is absent from the MCD.
-No entity in the MCD falls outside the dictionary.
+**Result**: 21/21 entities traced (19 prod-like + `audit_log` and `login_throttle`
+security-by-design). No entity from the dictionary is absent from the MCD. No entity in the MCD
+falls outside the dictionary.
 
 **Entities appearing in multiple sub-domains** (cross-domain shared entities):
 - `product`: Catalogue (sold item, slot eligibility) + Ingredients (recipe) + Order (line reference, slot choice)
 - `menu`: Catalogue (definition, slots) + Order (line reference)
 - `menu_slot`: Catalogue (slot definition) + Order (slot choices via `order_item_selection`)
 - `ingredient`: Ingredients (recipe, stock) + Order (modifiers)
-- `customer_order`: Order (order lifecycle) + Ingredients (stock movement trigger)
-- `user`: RBAC (authentication) + Ingredients (stock movement author)
+- `customer_order`: Order (order lifecycle) + Ingredients (stock movement trigger) + RBAC & Audit (taken_by staff via `acting_user_id`)
+- `user`: RBAC (authentication) + Ingredients (stock movement author) + Order (`acting_user_id` on counter/drive orders) + Audit (actor of `audit_log`)
+- `role`: RBAC (permissions, visible sources) + Audit (denormalised `actor_role_id` context on `audit_log`)
 
 This is expected in a normalised model. The sub-domain split is for readability; the actual
 relational schema is a unified graph.
@@ -518,16 +592,36 @@ Pre-validation: each entity participates in at least one treatment.
 | `permission` | Admin permission matrix management |
 | `role_permission` | Admin permission matrix management |
 | `stock_movement` | Automatic at `paid` transition; manual restock and inventory correction |
+| `audit_log` | Written by sensitive operations: UPDATE/DELETE product/menu (8.2/8.3/8.6), CANCEL_ORDER (7.1), RESTOCK/INVENTORY_COUNT (9.1/9.2), user ops (10.1-10.3), MANAGE_RBAC (10.4), and failed/successful logins (12.1) |
+| `login_throttle` | Read and written by AUTHENTICATE_USER (12.1): per-source-IP throttle upserted on each failed login, read to enforce the backoff window, purged by a daily cron |
 
 Cross-validation MCD <-> MCT (mantra #34) to be completed exhaustively in `mct.md`
-once the MCT is updated to the 4-state machine and 19-entity model.
+once the MCT incorporates the security-by-design operations (PIN-gated sensitive actions,
+audit writes, reset/lockout, anonymisation). The treatment-layer additions are tracked there.
 
 ---
 
-## 11. Note on .drawio diagram regeneration
+## 11. Diagram sources and regeneration
 
-The `.drawio` XML sources in `docs/merise/_diagrams/` reflect the v0.1 model (11 entities,
-French naming). They are scheduled for regeneration from this v0.2 MCD as a separate task.
-Until regenerated, this Markdown document is the authoritative conceptual model. The Mermaid
-`erDiagram` blocks in sections 4-7 render natively on GitHub and serve as the interim
-graphical reference.
+The authoritative graphical model is the set of Mermaid `erDiagram` blocks in sections 4-7,
+one per sub-domain. They render natively on Forgejo and GitHub. The MCD is decomposed by
+sub-domain on purpose: a single 21-entity diagram cannot be laid out without crossing
+relationship lines (intrinsic planarity limit, and `erDiagram` offers no manual layout
+control). Each sub-domain stays at 5-8 entities, which auto-layout handles cleanly. The
+integrated view across sub-domains is the cross-validation table in section 8.
+
+Portable SVG renders live in `docs/merise/_diagrams/` (for PDF export / offline viewing):
+
+| Sub-domain | Source | Render |
+|---|---|---|
+| Catalogue | `mcd-catalogue.mmd` | `mcd-catalogue.svg` |
+| Ingredients & Stock | `mcd-ingredients-stock.mmd` | `mcd-ingredients-stock.svg` |
+| Order | `mcd-order.mmd` | `mcd-order.svg` |
+| RBAC | `mcd-rbac.mmd` | `mcd-rbac.svg` |
+
+The `.mmd` files are extracted from the `erDiagram` blocks above; the `.svg` are produced by
+`make docs-render` (mmdc). If a block here changes, re-extract the matching `.mmd` and re-run
+`make docs-render`. The legacy v0.1 `.drawio` sources have been removed: drawio gave manual
+layout control but required hand-editing and did not render in the Markdown previews, whereas
+the decomposed Mermaid blocks are version-controlled, render everywhere, and stay in sync with
+this document.

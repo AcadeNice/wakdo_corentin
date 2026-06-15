@@ -1,0 +1,67 @@
+erDiagram
+    customer_order {
+        int id PK
+        varchar order_number
+        varchar idempotency_key
+        enum source
+        int acting_user_id FK
+        enum service_mode
+        enum status
+        int total_ht_cents
+        int total_vat_cents
+        int total_ttc_cents
+        datetime paid_at
+        datetime delivered_at
+        datetime cancelled_at
+    }
+    order_item {
+        int id PK
+        int order_id FK
+        enum item_type
+        int product_id FK
+        int menu_id FK
+        enum format
+        varchar label_snapshot
+        int unit_price_cents_snapshot
+        smallint vat_rate_snapshot
+        smallint quantity
+    }
+    order_item_selection {
+        int id PK
+        int order_item_id FK
+        int menu_slot_id FK
+        int product_id FK
+        varchar label_snapshot
+    }
+    order_item_modifier {
+        int id PK
+        int order_item_id FK
+        int ingredient_id FK
+        enum action
+        int extra_price_cents
+    }
+    product {
+        int id PK
+        varchar name
+    }
+    menu {
+        int id PK
+        varchar name
+    }
+    menu_slot {
+        int id PK
+        varchar name
+    }
+    ingredient {
+        int id PK
+        varchar name
+    }
+
+    customer_order ||--o{ order_item : "contains"
+    order_item }o--o| product : "references_product"
+    order_item }o--o| menu : "references_menu"
+    order_item ||--o{ order_item_selection : "fills_slot"
+    order_item ||--o{ order_item_modifier : "modifies_ingredient"
+    menu_slot ||--o{ order_item_selection : "slot_filled_by"
+    product ||--o{ order_item_selection : "chosen_for_slot"
+    ingredient ||--o{ order_item_modifier : "modified_by"
