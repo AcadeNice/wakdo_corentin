@@ -22,6 +22,10 @@ final class Request
         private readonly array $query,
         private readonly array $headers,
         private readonly string $rawBody,
+        // Adresse de la connexion TCP entrante (le proxy Traefik en frontal).
+        // Defaut vide pour conserver la compatibilite des appels a 5 arguments
+        // (tests existants). clientIp() s'en sert comme repli derriere X-Forwarded-For.
+        private readonly string $remoteAddr = '',
     ) {
     }
 
@@ -44,6 +48,7 @@ final class Request
             $query,
             self::extractHeaders(),
             (string) file_get_contents('php://input'),
+            (string) ($_SERVER['REMOTE_ADDR'] ?? ''),
         );
     }
 
@@ -141,5 +146,69 @@ final class Request
         $decoded = json_decode($this->rawBody, true);
 
         return is_array($decoded) ? $decoded : [];
+    }
+
+    /**
+     * Decode un corps application/x-www-form-urlencoded en map cle => valeur.
+     * Symetrique de json() : renvoie [] si le content-type n'est pas un
+     * formulaire urlencode, pour laisser la validation metier decider (pas de
+     * fatale ici). Le back-office se connecte par formulaire POST, pas par JSON.
+     *
+     * @return array<string, string>
+     */
+    public function formBody(): array
+    {
+        $contentType = $this->header('content-type') ?? '';
+
+        if (!str_starts_with($contentType, 'application/x-www-form-urlencoded')) {
+            return [];
+        }
+
+        parse_str($this->rawBody, $parsed);
+
+        // parse_str peut produire des valeurs tableau (cle[]=...) ; on ne retient
+        // que les scalaires convertis en chaine pour tenir le contrat strict
+        // array<string, string> (et neutraliser une cle de type "champ[]").
+        $form = [];
+        foreach ($parsed as $key => $value) {
+            if (is_scalar($value)) {
+                $form[(string) $key] = (string) $value;
+            }
+        }
+
+        return $form;
+    }
+
+    /**
+     * IP client reelle derriere le reverse proxy Traefik. REMOTE_ADDR est ici
+     * toujours l'adresse du proxy, donc on lit X-Forwarded-For et on retient le
+     * DERNIER hop : c'est celui ajoute par Traefik (proxy de confiance), tandis
+     * que les entrees de gauche sont fournies par le client et donc falsifiables.
+     * La valeur est validee par FILTER_VALIDATE_IP et bornee a 45 caracteres
+     * (taille de login_throttle.ip_address). Repli sur REMOTE_ADDR si l'en-tete
+     * est absent ou invalide ; sentinelle 0.0.0.0 en dernier recours.
+     *
+     * Hypothese de deploiement : un unique proxy de confiance (Traefik) est
+     * toujours en frontal. Sans lui, X-Forwarded-For serait falsifiable ; le
+     * verrou par compte (failed_login_attempts) reste alors le garde-fou.
+     */
+    public function clientIp(): string
+    {
+        $forwarded = $this->header('x-forwarded-for');
+
+        if ($forwarded !== null && $forwarded !== '') {
+            $hops = explode(',', $forwarded);
+            $candidate = trim((string) end($hops));
+
+            if (filter_var($candidate, FILTER_VALIDATE_IP) !== false) {
+                return substr($candidate, 0, 45);
+            }
+        }
+
+        if ($this->remoteAddr !== '' && filter_var($this->remoteAddr, FILTER_VALIDATE_IP) !== false) {
+            return substr($this->remoteAddr, 0, 45);
+        }
+
+        return '0.0.0.0';
     }
 }

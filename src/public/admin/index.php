@@ -10,8 +10,11 @@ declare(strict_types=1);
  * "/", "/api/health", etc.
  */
 
+use App\Auth\SessionManager;
+use App\Controllers\AuthController;
 use App\Controllers\HealthController;
 use App\Controllers\HomeController;
+use App\Controllers\PasswordResetController;
 use App\Core\Autoloader;
 use App\Core\Config;
 use App\Core\Database;
@@ -36,9 +39,23 @@ try {
     // donc la home back-office reste servie meme base indisponible.
     $database = new Database($config);
 
+    // Demarre la session du vhost admin avant le dispatch (effet de bord global,
+    // hors du Core stateless). Les controleurs y rattachent leur SessionManager.
+    (new SessionManager($config))->start();
+
     $router = new Router($config, $database);
     $router->add('GET', '/', [HomeController::class, 'index']);
     $router->add('GET', '/api/health', [HealthController::class, 'index']);
+
+    // Authentification back-office (mlt.md section 12). Le docroot du vhost admin
+    // etant src/public/admin, le Router voit "/login" (pas de prefixe "/admin").
+    $router->add('GET', '/login', [AuthController::class, 'showLogin']);
+    $router->add('POST', '/login', [AuthController::class, 'login']);
+    $router->add('POST', '/logout', [AuthController::class, 'logout']);
+    $router->add('GET', '/forgot_password', [PasswordResetController::class, 'showRequest']);
+    $router->add('POST', '/forgot_password', [PasswordResetController::class, 'submitRequest']);
+    $router->add('GET', '/reset_password', [PasswordResetController::class, 'showConfirm']);
+    $router->add('POST', '/reset_password', [PasswordResetController::class, 'submitConfirm']);
 
     $response = $router->dispatch(Request::fromGlobals());
     $response->send();

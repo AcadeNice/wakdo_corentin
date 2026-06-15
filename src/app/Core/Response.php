@@ -47,6 +47,24 @@ final class Response
         return $this;
     }
 
+    public function body(): string
+    {
+        return $this->body;
+    }
+
+    public function header(string $name): ?string
+    {
+        return $this->headers[$name] ?? null;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function headers(): array
+    {
+        return $this->headers;
+    }
+
     /**
      * @param array<string, string> $headers
      */

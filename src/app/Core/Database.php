@@ -6,6 +6,7 @@ namespace App\Core;
 
 use PDO;
 use PDOStatement;
+use Throwable;
 
 /**
  * Enveloppe PDO MariaDB, requetes preparees exclusivement (anti-SQLi, Cr 4.e.1).
@@ -14,7 +15,7 @@ use PDOStatement;
  * routes sans BDD (ex : la home back-office) fonctionnent meme si la base est
  * indisponible.
  */
-final class Database
+final class Database implements DatabaseInterface
 {
     private ?PDO $pdo = null;
 
@@ -90,5 +91,31 @@ final class Database
     public function execute(string $sql, array $params = []): int
     {
         return $this->query($sql, $params)->rowCount();
+    }
+
+    /**
+     * Execute $fn dans une transaction atomique (RG-T08) : begin -> $fn -> commit.
+     * Tout Throwable declenche un rollback complet puis est repropage : jamais
+     * d'ecriture partielle, jamais d'echec silencieux. Le retour est void (et non
+     * mixed) pour rester strictement type sous PHPStan ; $fn ecrit via le $this
+     * qui lui est passe (memes requetes preparees, meme connexion).
+     *
+     * @param callable(DatabaseInterface): void $fn
+     */
+    public function transaction(callable $fn): void
+    {
+        $pdo = $this->pdo();
+        $pdo->beginTransaction();
+
+        try {
+            $fn($this);
+            $pdo->commit();
+        } catch (Throwable $exception) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+
+            throw $exception;
+        }
     }
 }

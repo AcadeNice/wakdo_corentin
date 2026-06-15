@@ -135,6 +135,22 @@ services:
       SESSION_NAME: ${SESSION_NAME}
       CORS_ALLOWED_ORIGIN: ${CORS_ALLOWED_ORIGIN}
       PASSWORD_ALGO: ${PASSWORD_ALGO}
+      # Cout argon2id (password_hash) : aligne sur .env.example / OWASP. Sert au
+      # hash du mot de passe ET du PIN equipier (actions sensibles, P3).
+      ARGON2_MEMORY_COST: ${ARGON2_MEMORY_COST}
+      ARGON2_TIME_COST: ${ARGON2_TIME_COST}
+      ARGON2_THREADS: ${ARGON2_THREADS}
+      # Anti brute-force : backoff degressif par compte (user.lockout_until) et
+      # par IP source (table login_throttle). Voir mlt.md 12.1 RG-8/RG-9.
+      ACCOUNT_LOCKOUT_THRESHOLD: ${ACCOUNT_LOCKOUT_THRESHOLD}
+      ACCOUNT_LOCKOUT_BASE_SECONDS: ${ACCOUNT_LOCKOUT_BASE_SECONDS}
+      ACCOUNT_LOCKOUT_MAX_SECONDS: ${ACCOUNT_LOCKOUT_MAX_SECONDS}
+      IP_THROTTLE_WINDOW_SECONDS: ${IP_THROTTLE_WINDOW_SECONDS}
+      IP_THROTTLE_MAX_ATTEMPTS: ${IP_THROTTLE_MAX_ATTEMPTS}
+      # Longueur minimale du PIN equipier (actions sensibles, P3).
+      STAFF_PIN_MIN_LENGTH: ${STAFF_PIN_MIN_LENGTH}
+      # Expiration du token de reinitialisation de mot de passe (mlt.md 12.3).
+      PASSWORD_RESET_TTL: ${PASSWORD_RESET_TTL}
       UPLOAD_MAX_SIZE_MB: ${UPLOAD_MAX_SIZE_MB}
       UPLOAD_ALLOWED_MIME: ${UPLOAD_ALLOWED_MIME}
 
