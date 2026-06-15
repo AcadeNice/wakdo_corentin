@@ -90,6 +90,13 @@ final class FakeDatabase implements DatabaseInterface
      */
     public ?array $pinUserRow = null;
 
+    /**
+     * Ligne renvoyee pour UserDirectory::displayInfo (nom + libelle role) ; null = absent.
+     *
+     * @var array<string, mixed>|null
+     */
+    public ?array $userDisplayRow = null;
+
     /** Si non nul, execute() leve cette exception (simulation panne DB -> fail-closed). */
     public ?RuntimeException $failOnExecute = null;
 
@@ -102,6 +109,12 @@ final class FakeDatabase implements DatabaseInterface
     public function fetch(string $sql, array $params = []): ?array
     {
         $this->reads[] = ['sql' => $sql, 'params' => $params];
+
+        // Doit passer AVANT le lookup auth : la requete displayInfo contient aussi
+        // 'FROM user u JOIN role' mais selectionne 'AS role_label'.
+        if (str_contains($sql, 'AS role_label')) {
+            return $this->userDisplayRow;
+        }
 
         if (str_contains($sql, 'FROM user u JOIN role')) {
             return $this->userRow;

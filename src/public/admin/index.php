@@ -12,6 +12,7 @@ declare(strict_types=1);
 
 use App\Auth\SessionManager;
 use App\Controllers\AuthController;
+use App\Controllers\DashboardController;
 use App\Controllers\HealthController;
 use App\Controllers\HomeController;
 use App\Controllers\MeController;
@@ -60,6 +61,9 @@ try {
 
     // RBAC : identite + permissions de la session courante (gardee par SessionGuard).
     $router->add('GET', '/api/me', [MeController::class, 'show']);
+
+    // Back-office (P3) : pages rendues serveur sous /admin, gardees par SessionGuard.
+    $router->add('GET', '/admin/dashboard', [DashboardController::class, 'index']);
 
     $response = $router->dispatch(Request::fromGlobals());
     $response->send();

@@ -7,8 +7,9 @@ namespace App\Core;
 use RuntimeException;
 
 /**
- * Controleur de base. Toute la hierarchie de controleurs en herite
- * (BaseController -> ProductController, etc., demonstration heritage Cr 4.c.1).
+ * Controleur de base. Toute la hierarchie de controleurs en herite (demonstration
+ * heritage Cr 4.c.1) : Controller -> AuthenticatedController -> AdminController ->
+ * DashboardController (et les futurs CRUD), ou directement HomeController / HealthController.
  *
  * Recoit ses dependances par constructeur : la requete courante, la config et
  * l'acces BDD, injectes par le Router.
@@ -41,9 +42,18 @@ abstract class Controller
     protected function view(string $name, array $data = [], int $status = 200): Response
     {
         $content = $this->render($name, $data);
-        $html = $this->render('layout', $data + ['content' => $content]);
+        $html = $this->render($this->layoutName(), $data + ['content' => $content]);
 
         return (new Response())->html($html, $status);
+    }
+
+    /**
+     * Gabarit enveloppant les vues. Defaut : le layout minimal. Les controleurs
+     * back-office surchargent ce hook pour rendre dans le shell admin.
+     */
+    protected function layoutName(): string
+    {
+        return 'layout';
     }
 
     /**
