@@ -1,7 +1,7 @@
 # Modele Conceptuel de Donnees (MCD) — Wakdo
 
 **Phase Merise** : P1 - Conception, etape 2 (data dictionary first, mantra #33)
-**Version** : v0.2 — prod-like, 21 entites (19 prod-like + couche security-by-design)
+**Version** : v0.3 — prod-like, 22 entites (19 prod-like + couche security-by-design)
 **Date** : 2026-06-04 (ajouts security-by-design 2026-06-11)
 **Branche** : `feat/p1-conception`
 **Statut** : prod-like — toutes les decisions D1-D8 + stock appliquees (voir `docs/notes/revue-alignement-p1.md` §7) ; couche security-by-design (audit_log + colonnes imputabilite/auth) en cours
@@ -21,7 +21,7 @@ structure relationnelle : combien de X par Y, si la participation est obligatoir
 leurs propres attributs.
 
 **Sources** :
-- `docs/merise/dictionary.md` (v0.2 — 21 entites, source de verite pour tous les noms, types, ENUMs)
+- `docs/merise/dictionary.md` (v0.3 — 22 entites, source de verite pour tous les noms, types, ENUMs)
 - `docs/notes/revue-alignement-p1.md` §7 (table de decisions D1-D8 + stock)
 - `docs/PROJECT_CONTEXT.md` (regles metier : composition de menu, flux de commande, RBAC, modes de service)
 - `docs/merise/_sources/` (donnees de l'ecole : 9 categories, 53 produits, 13 menus)
@@ -62,7 +62,7 @@ Les associations N-N qui portent leurs propres attributs deviennent des **entite
 
 ## 3. Decomposition par sous-domaine
 
-Le modele de 21 entites est divise en 4 sous-domaines pour la lisibilite. Au-dela d'environ
+Le modele de 22 entites est divise en 4 sous-domaines pour la lisibilite. Au-dela d'environ
 5 entites, un diagramme plat unique devient difficile a lire ; la decomposition est la pratique
 Merise standard pour les modeles de cette taille.
 
@@ -71,17 +71,19 @@ Merise standard pour les modeles de cette taille.
 | Catalogue | category, product, menu, menu_slot, menu_slot_option | 5 |
 | Ingredients & Stock | ingredient, product_ingredient, allergen, ingredient_allergen, stock_movement | 5 |
 | Order | customer_order, order_item, order_item_selection, order_item_modifier | 4 |
-| RBAC & Audit | user, role, role_visible_source, permission, role_permission, audit_log, login_throttle | 7 |
+| RBAC & Audit | user, role, role_visible_source, permission, role_permission, audit_log, login_throttle, pin_throttle | 8 |
 
 > **Couche security-by-design (2026-06-11)** : `audit_log` (entite 20) est un journal transverse,
 > append-only des actions sensibles ; il est place dans le sous-domaine RBAC & Audit parce que
 > ses references (`actor_user_id`, `actor_role_id`) sont des entites RBAC. `login_throttle`
 > (entite 21) est un throttle anti-brute-force par IP source, indexe par IP et ne portant aucune FK ; il se situe
-> dans le meme sous-domaine parce qu'il protege le chemin d'authentification. Nouvelles colonnes sur des entites existantes :
+> dans le meme sous-domaine parce qu'il protege le chemin d'authentification. `pin_throttle` (entite 22,
+> RG-T22) est un throttle du PIN d'action sensible par utilisateur AGISSANT (FK `actor_user_id -> user`,
+> ON DELETE CASCADE), compteurs separes du login. Nouvelles colonnes sur des entites existantes :
 > `user` cycle de vie auth + `pin_hash` + `anonymized_at`, `customer_order.acting_user_id`
 > + `idempotency_key`. Voir note 13 du dictionnaire.
 
-**Note sur l'absence d'un diagramme global** : un unique diagramme ER de 21 entites serait
+**Note sur l'absence d'un diagramme global** : un unique diagramme ER de 22 entites serait
 illisible et impossible a maintenir. La decomposition par sous-domaine ci-dessous est le choix
 structurel intentionnel. Chaque sous-domaine est un `erDiagram` Mermaid (faisant autorite, rendu
 nativement) avec un rendu SVG portable dans `docs/merise/_diagrams/` ; voir la section 11 pour les
@@ -444,6 +446,14 @@ erDiagram
         datetime lockout_until
         datetime last_attempt_at
     }
+    pin_throttle {
+        int id PK
+        int actor_user_id FK,UK
+        smallint failed_attempts
+        datetime window_started_at
+        datetime lockout_until
+        datetime last_attempt_at
+    }
 
     user }o--|| role : "holds"
     role ||--o{ role_visible_source : "sees_source"
@@ -451,11 +461,14 @@ erDiagram
     permission ||--o{ role_permission : "granted_to"
     user |o--o{ audit_log : "performs"
     role |o--o{ audit_log : "context_of"
+    user ||--o{ pin_throttle : "pin_throttled_as"
 ```
 
 > `login_throttle` est une entite autonome sans association : elle est indexee par IP source
 > (`ip_address UNIQUE`), pas par un acteur modelise, donc elle ne porte aucune FK et ne se connecte a aucune
-> autre entite du diagramme.
+> autre entite du diagramme. `pin_throttle` (RG-T22), au contraire, est cle par l'utilisateur AGISSANT
+> (`actor_user_id UNIQUE`, FK -> `user` ON DELETE CASCADE) : c'est la dimension qui rend le throttle du PIN
+> non contournable par rotation d'email et sans collateral sur un poste partage.
 
 ### 7.2 Cardinalites des associations
 
@@ -467,6 +480,7 @@ erDiagram
 | R4 | granted_to | permission | (0,N) | role_permission | (1,1) | Une permission peut n'etre encore accordee a aucun role (declaree au seed, pas encore distribuee) ou a plusieurs. Chaque ligne de mapping reference une permission. |
 | R5 | performs | user | (0,1) | audit_log | (0,N) | Une action sensible capturee sous PIN enregistre son utilisateur agissant ; les entrees automatisees/non attribuables portent NULL. Un utilisateur peut avoir journalise un nombre quelconque d'actions. ON DELETE SET NULL preserve la trace lors de l'anonymisation/suppression de l'utilisateur. |
 | R6 | context_of | role | (0,1) | audit_log | (0,N) | Chaque ligne d'audit peut denormaliser le role de l'acteur au moment de l'action (NULL autorise). Un role peut etre le contexte de nombreuses lignes d'audit. ON DELETE SET NULL preserve la trace. |
+| R9 | pin_throttled_as | user | (1,1) | pin_throttle | (0,1) | Throttle du PIN d'action sensible (RG-T22) : au plus une ligne `pin_throttle` par utilisateur agissant (cle UNIQUE `actor_user_id`), creee au premier echec et upsertee ensuite. ON DELETE CASCADE : l'etat de throttle (ephemere) part avec le compte supprime/anonymise. |
 
 ### 7.3 Notes sur le sous-domaine RBAC
 
@@ -500,11 +514,19 @@ de la derniere tentative echouee. Elle n'a aucune FK (une IP n'est pas une entit
 cron quotidien purge les lignes sans lockout actif dont le `last_attempt_at` est plus ancien que 24h. Voir
 dictionnaire 3.21 et note 13.
 
+**`pin_throttle` (security-by-design, RG-T22)** : throttle du PIN d'action sensible, distinct du throttle
+de connexion. La dimension est l'utilisateur AGISSANT (l'identite de session qui soumet email+PIN), pas
+l'email cible (contournable par rotation) ni l'IP (qui penaliserait tous les equipiers d'un poste partage).
+Une ligne par acteur (`actor_user_id UNIQUE`, FK -> `user` ON DELETE CASCADE), upsertee a chaque echec hors
+verrou ; memes colonnes que `login_throttle` mais des bornes propres (PIN_THROTTLE_*, plus permissives).
+Compteurs physiquement separes du login : un echec de PIN n'incremente aucun compteur de connexion. Meme
+purge cron quotidienne. Association R9 (`user` 1 -- 0,N `pin_throttle`). Voir dictionnaire 3.22 et note 13.
+
 ---
 
 ## 8. Validation croisee MCD <-> dictionnaire
 
-Verification que les 21 entites du dictionnaire apparaissent dans le MCD et reciproquement.
+Verification que les 22 entites du dictionnaire apparaissent dans le MCD et reciproquement.
 
 | # | Entite du dictionnaire (section 3) | Sous-domaine dans le MCD | Presente |
 |---|---|---|---|
@@ -529,8 +551,9 @@ Verification que les 21 entites du dictionnaire apparaissent dans le MCD et reci
 | 19 | `stock_movement` (3.19) | Ingredients & Stock | Oui |
 | 20 | `audit_log` (3.20) | RBAC & Audit | Oui |
 | 21 | `login_throttle` (3.21) | RBAC & Audit | Oui |
+| 22 | `pin_throttle` (3.22) | RBAC & Audit | Oui |
 
-**Resultat** : 21/21 entites tracees (19 prod-like + `audit_log` et `login_throttle`
+**Resultat** : 22/22 entites tracees (19 prod-like + `audit_log`, `login_throttle` et `pin_throttle`
 security-by-design). Aucune entite du dictionnaire n'est absente du MCD. Aucune entite du MCD
 ne tombe en dehors du dictionnaire.
 
@@ -605,7 +628,7 @@ ecritures d'audit, reset/lockout, anonymisation). Les ajouts de la couche traite
 
 Le modele graphique faisant autorite est l'ensemble des blocs `erDiagram` Mermaid des sections 4-7,
 un par sous-domaine. Ils s'affichent nativement sur Forgejo et GitHub. Le MCD est decompose par
-sous-domaine a dessein : un unique diagramme de 21 entites ne peut etre dispose sans croisement de
+sous-domaine a dessein : un unique diagramme de 22 entites ne peut etre dispose sans croisement de
 lignes de relation (limite de planarite intrinseque, et `erDiagram` n'offre aucun controle de mise en page
 manuel). Chaque sous-domaine reste a 5-8 entites, ce que la mise en page automatique gere proprement. La
 vue integree a travers les sous-domaines est la table de validation croisee de la section 8.

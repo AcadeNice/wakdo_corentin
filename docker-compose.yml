@@ -150,6 +150,11 @@ services:
       # Bornes du PIN equipier (actions sensibles, P3) : longueur min ET max.
       STAFF_PIN_MIN_LENGTH: ${STAFF_PIN_MIN_LENGTH}
       STAFF_PIN_MAX_LENGTH: ${STAFF_PIN_MAX_LENGTH}
+      # Throttle du PIN d'action sensible (RG-T22) : compteurs SEPARES du login.
+      PIN_THROTTLE_THRESHOLD: ${PIN_THROTTLE_THRESHOLD}
+      PIN_THROTTLE_BASE_SECONDS: ${PIN_THROTTLE_BASE_SECONDS}
+      PIN_THROTTLE_MAX_SECONDS: ${PIN_THROTTLE_MAX_SECONDS}
+      PIN_THROTTLE_WINDOW_SECONDS: ${PIN_THROTTLE_WINDOW_SECONDS}
       # Expiration du token de reinitialisation de mot de passe (mlt.md 12.3).
       PASSWORD_RESET_TTL: ${PASSWORD_RESET_TTL}
       UPLOAD_MAX_SIZE_MB: ${UPLOAD_MAX_SIZE_MB}

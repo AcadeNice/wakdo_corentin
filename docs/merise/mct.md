@@ -668,5 +668,10 @@ peut etre formalisee lorsque l'UI d'audit sera specifiee en P3).
 il est lu ET ecrit (upserte) par `AUTHENTICATE_USER` (25). Sa purge quotidienne
 des lignes obsoletes est un cron, documente dans `mlt.md`, hors du perimetre des operations MCT.
 
-**Conclusion** : 21/21 entites couvertes (19 prod-like + `audit_log` + `login_throttle`). Coherence MCT <-> MCD
-validee.
+(****) `pin_throttle` (entite 22, security-by-design, RG-T22) est le verrou de throttling du PIN d'action
+sensible par utilisateur AGISSANT : il est lu (gate avant verification) ET ecrit (upserte sur echec, remis
+a zero sur succes) par les operations sensibles sous PIN (ex. UPDATE_PRODUCT prix/TVA, DELETE_PRODUCT). Sa
+purge quotidienne suit celle de `login_throttle` (cron, `mlt.md`), hors du perimetre des operations MCT.
+
+**Conclusion** : 22/22 entites couvertes (19 prod-like + `audit_log` + `login_throttle` + `pin_throttle`).
+Coherence MCT <-> MCD validee.

@@ -8,6 +8,7 @@ use PDOException;
 use App\Auth\Csrf;
 use App\Auth\GuardResult;
 use App\Auth\PasswordHasher;
+use App\Auth\PinThrottle;
 use App\Auth\PinVerifier;
 use App\Catalogue\CategoryRepository;
 use App\Catalogue\ProductRepository;
@@ -142,9 +143,22 @@ class ProductController extends AdminController
         }
 
         // Changement sensible : exige email + PIN (modele equipier + PIN, RG-T13).
+        // RG-T22 : verrou de throttle PIN par UTILISATEUR AGISSANT (session), evalue
+        // AVANT la verification argon2id. Un acteur verrouille recoit le MEME 422
+        // generique ; on paie un leurre de timing (parite avec le chemin mauvais-PIN)
+        // et on n'ecrit PAS de nouvelle ligne pin.failed (les echecs ayant arme le
+        // verrou sont deja audites : borne l'amplification de l'audit append-only).
+        $actorId = $guard->userId ?? 0;
+        if ($actorId > 0 && $this->pinThrottle()->isLocked($actorId)) {
+            $this->pinVerifier()->payTimingDecoy($form['pin'] ?? '');
+
+            return $this->renderForm($guard, $id, $form, ['pin' => 'Email ou PIN invalide (requis pour modifier prix/TVA).'], 422);
+        }
+
         $actor = $this->pinVerifier()->resolveActingUser(trim($form['pin_email'] ?? ''), $form['pin'] ?? '');
         if ($actor === null) {
             $this->logFailedPin(trim($form['pin_email'] ?? ''), $id);
+            $this->pinThrottle()->recordFailure($actorId);
 
             return $this->renderForm($guard, $id, $form, ['pin' => 'Email ou PIN invalide (requis pour modifier prix/TVA).'], 422);
         }
@@ -155,6 +169,12 @@ class ProductController extends AdminController
             (new ProductRepository($db))->update($id, $data);
             $this->writeAudit($db, 'product.update', $actor['id'], $actor['role_id'], $id, $summary);
         });
+
+        // PIN valide : reinitialise le compteur de throttle de l'acteur de SESSION
+        // (RG-T22), apres l'effet reussi. Cle = $actorId ($guard->userId), la meme
+        // qu'a l'increment ; surtout PAS $actor['id'] (l'equipier resolu par le PIN,
+        // un autre individu) sinon le compteur de l'agissant ne serait jamais purge.
+        $this->pinThrottle()->reset($actorId);
 
         $this->setFlash('Produit mis a jour (changement de prix/TVA trace).');
 
@@ -201,9 +221,19 @@ class ProductController extends AdminController
             return $this->notFound($guard);
         }
 
+        // RG-T22 : meme garde que update() (verrou par utilisateur agissant, AVANT
+        // la verification, leurre de timing, pas de pin.failed sous verrou actif).
+        $actorId = $guard->userId ?? 0;
+        if ($actorId > 0 && $this->pinThrottle()->isLocked($actorId)) {
+            $this->pinVerifier()->payTimingDecoy($form['pin'] ?? '');
+
+            return $this->renderDelete($guard, $id, $product, 'Email ou PIN invalide (requis pour supprimer).');
+        }
+
         $actor = $this->pinVerifier()->resolveActingUser(trim($form['pin_email'] ?? ''), $form['pin'] ?? '');
         if ($actor === null) {
             $this->logFailedPin(trim($form['pin_email'] ?? ''), $id);
+            $this->pinThrottle()->recordFailure($actorId);
 
             return $this->renderDelete($guard, $id, $product, 'Email ou PIN invalide (requis pour supprimer).');
         }
@@ -225,6 +255,11 @@ class ProductController extends AdminController
             throw $exception;
         }
 
+        // PIN valide et suppression effective : reinitialise le compteur de l'acteur
+        // de session (RG-T22, cle = $actorId). Apres le try/catch : non atteint si la
+        // FK a bloque (422), ce qui est benin (l'acteur n'est pas un attaquant).
+        $this->pinThrottle()->reset($actorId);
+
         $this->setFlash('Produit supprime.');
 
         return $this->redirect('/admin/products');
@@ -243,6 +278,11 @@ class ProductController extends AdminController
     protected function pinVerifier(): PinVerifier
     {
         return new PinVerifier($this->db(), $this->config, $this->passwordHasher());
+    }
+
+    protected function pinThrottle(): PinThrottle
+    {
+        return new PinThrottle($this->db(), $this->config);
     }
 
     protected function passwordHasher(): PasswordHasher
@@ -330,8 +370,11 @@ class ProductController extends AdminController
      * le brute-force d'attribution detectable/alertable (un pic de pin.failed pour
      * un email cible est visible en revue). Acteur inconnu (PIN non resolu).
      *
-     * NB : ce n'est PAS un verrou. Un throttling degressif du PIN (par compte/IP)
-     * reste a ajouter en hardening dedie (decision de schema, cf. SESSION_RESUME).
+     * NB : cette ligne d'audit n'est PAS le verrou. Le throttle degressif (par
+     * utilisateur agissant) est porte par PinThrottle / RG-T22 ; il ecrit une
+     * nouvelle ligne pin.failed UNIQUEMENT hors verrou actif (sous verrou, les
+     * echecs ayant arme le verrou sont deja audites), ce qui borne l'amplification
+     * de l'audit append-only (RG-T14).
      */
     private function logFailedPin(string $email, int $productId): void
     {

@@ -99,6 +99,18 @@ final class PinVerifier
     }
 
     /**
+     * Paie le cout de hachage d'un leurre argon2id sans verifier de PIN reel. Sert
+     * au chemin "acteur verrouille" (RG-T22) : quand le throttle bloque AVANT toute
+     * verification, on paie quand meme ce cout pour egaliser le timing avec le
+     * chemin mauvais-PIN. Sans lui, une reponse verrouillee reviendrait en
+     * microsecondes (aucun verify) et trahirait l'etat de verrou par la latence.
+     */
+    public function payTimingDecoy(string $pin): void
+    {
+        $this->hasher->verifyDecoy($pin);
+    }
+
+    /**
      * Politique de PIN a verifier cote serveur avant de hacher un nouveau PIN
      * (P3, definition du PIN) : chiffres ASCII uniquement, bornes min ET max
      * (RG-T18). ctype_digit garantit le charset numerique, ce qui rend strlen

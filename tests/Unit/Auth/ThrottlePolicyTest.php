@@ -130,4 +130,28 @@ final class ThrottlePolicyTest extends TestCase
         self::assertSame(60, $policy->lockoutSeconds(20));
         self::assertSame(120, $policy->lockoutSeconds(21));
     }
+
+    public function testFromConfigPinReadsPinKeysWithItsOwnBounds(): void
+    {
+        // RG-T22 : la dimension 'pin' a ses propres bornes (PIN_THROTTLE_*), distinctes
+        // du login, et volontairement plus permissives (base 30s, plafond 300s).
+        $this->setEnv('PIN_THROTTLE_THRESHOLD', '5');
+        $this->setEnv('PIN_THROTTLE_BASE_SECONDS', '30');
+        $this->setEnv('PIN_THROTTLE_MAX_SECONDS', '300');
+        // Cles du login mises a des valeurs differentes : si 'pin' les lisait par
+        // erreur, la courbe ci-dessous changerait.
+        $this->setEnv('ACCOUNT_LOCKOUT_THRESHOLD', '3');
+        $this->setEnv('ACCOUNT_LOCKOUT_BASE_SECONDS', '60');
+        $this->setEnv('ACCOUNT_LOCKOUT_MAX_SECONDS', '900');
+
+        $policy = ThrottlePolicy::fromConfig(new Config(), 'pin');
+
+        self::assertSame(0, $policy->lockoutSeconds(4));
+        self::assertSame(30, $policy->lockoutSeconds(5));
+        self::assertSame(60, $policy->lockoutSeconds(6));
+        self::assertSame(120, $policy->lockoutSeconds(7));
+        self::assertSame(240, $policy->lockoutSeconds(8));
+        self::assertSame(300, $policy->lockoutSeconds(9));   // plafond PIN (300), pas 480
+        self::assertSame(300, $policy->lockoutSeconds(40));  // plafond + garde anti-debordement
+    }
 }

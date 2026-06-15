@@ -326,13 +326,93 @@ final class ProductControllerTest extends TestCase
         self::assertFalse($db->wrote('INSERT INTO product'));
     }
 
+    public function testUpdateLockedActorReturnsGeneric422WithoutVerifyingOrAuditing(): void
+    {
+        // RG-T22 : acteur de session verrouille. Le verrou est evalue AVANT la
+        // verification ; meme un PIN valide est bloque, le 422 reste generique, et
+        // AUCUNE nouvelle ligne pin.failed n'est ecrite (borne anti-flood).
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 5, 'category_id' => 3, 'name' => 'Big Mac', 'description' => null, 'price_cents' => 590, 'vat_rate' => 100, 'image_path' => null, 'is_available' => 1, 'display_order' => 1];
+        $this->actingPin($db);                                  // PIN '4729' valide en base
+        $db->pinThrottleLockoutUntil = '2099-01-01 00:00:00';   // acteur verrouille
+
+        $form = $this->validForm(['price_cents' => '620', 'pin_email' => 'staff@wakdo.local', 'pin' => '4729']);
+        $response = $this->controller($this->post($form, '/admin/products/5'), $db)->update(['id' => '5']);
+
+        self::assertSame(422, $response->status());
+        self::assertStringContainsString('PIN', $response->body());
+        self::assertFalse($db->wrote('UPDATE product SET'));    // PIN valide mais verrou prioritaire
+        self::assertSame([], $db->auditActions());              // pas de pin.failed sous verrou
+    }
+
+    public function testUpdateWrongPinRecordsFailureOnSessionActor(): void
+    {
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 5, 'category_id' => 3, 'name' => 'Big Mac', 'description' => null, 'price_cents' => 590, 'vat_rate' => 100, 'image_path' => null, 'is_available' => 1, 'display_order' => 1];
+        $db->actingUserRow = null;                              // email/PIN invalide
+
+        $form = $this->validForm(['price_cents' => '620', 'pin_email' => 'ghost@wakdo.local', 'pin' => '0000']);
+        $response = $this->controller($this->post($form, '/admin/products/5'), $db)->update(['id' => '5']);
+
+        self::assertSame(422, $response->status());
+        self::assertSame(['pin.failed'], $db->auditActions());  // detectabilite preservee
+        // RG-T22 : le compteur est incremente sur l'AGISSANT (session id 1), pas sur
+        // l'email cible tente (qui serait contournable par rotation).
+        $upsert = $this->findWrite($db, 'INSERT INTO pin_throttle');
+        self::assertNotNull($upsert);
+        self::assertSame(1, $upsert['params']['uid'] ?? null);
+    }
+
+    public function testUpdateValidPinResetsThrottleOnSessionActorNotResolvedUser(): void
+    {
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 5, 'category_id' => 3, 'name' => 'Big Mac', 'description' => null, 'price_cents' => 590, 'vat_rate' => 100, 'image_path' => null, 'is_available' => 1, 'display_order' => 1];
+        $this->actingPin($db);
+
+        $form = $this->validForm(['price_cents' => '620', 'pin_email' => 'staff@wakdo.local', 'pin' => '4729']);
+        $response = $this->controller($this->post($form, '/admin/products/5'), $db)->update(['id' => '5']);
+
+        self::assertSame(302, $response->status());
+        // L'audit porte l'acteur RESOLU PAR PIN (id 9)...
+        $audit = $this->firstAudit($db);
+        self::assertSame(9, $audit['params']['uid'] ?? null);
+        // ...mais le reset du throttle porte l'acteur de SESSION (id 1), le seul qui
+        // a ete incremente. Confondre les deux laisserait le compteur de l'agissant
+        // jamais purge (must-fix de revue).
+        $reset = $this->findWrite($db, 'UPDATE pin_throttle SET failed_attempts = 0');
+        self::assertNotNull($reset);
+        self::assertSame(1, $reset['params']['uid'] ?? null);
+    }
+
+    public function testDestroyLockedActorReturnsGeneric422(): void
+    {
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 5, 'name' => 'Big Mac'];
+        $this->actingPin($db);
+        $db->pinThrottleLockoutUntil = '2099-01-01 00:00:00';
+
+        $response = $this->controller($this->post(['_csrf' => $this->csrf, 'pin_email' => 'staff@wakdo.local', 'pin' => '4729'], '/admin/products/5/delete'), $db)->destroy(['id' => '5']);
+
+        self::assertSame(422, $response->status());
+        self::assertFalse($db->wrote('DELETE FROM product'));
+        self::assertSame([], $db->auditActions());
+    }
+
     /**
      * @return array{sql: string, params: array<string|int, mixed>}|null
      */
     private function firstAudit(FakeDatabase $db): ?array
     {
+        return $this->findWrite($db, 'INSERT INTO audit_log');
+    }
+
+    /**
+     * @return array{sql: string, params: array<string|int, mixed>}|null
+     */
+    private function findWrite(FakeDatabase $db, string $needle): ?array
+    {
         foreach ($db->writes as $write) {
-            if (str_contains($write['sql'], 'INSERT INTO audit_log')) {
+            if (str_contains($write['sql'], $needle)) {
                 return $write;
             }
         }

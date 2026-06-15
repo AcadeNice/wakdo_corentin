@@ -142,6 +142,15 @@ final class FakeDatabase implements DatabaseInterface
      */
     public ?array $actingUserRow = null;
 
+    /**
+     * lockout_until renvoye pour la porte du throttle PIN (RG-T22, PinThrottle::isLocked) ;
+     * null = pas de verrou.
+     */
+    public ?string $pinThrottleLockoutUntil = null;
+
+    /** Compteur pin_throttle relu apres l'upsert (PinThrottle::recordFailure) ; 1 par defaut. */
+    public int $pinThrottleAttempts = 1;
+
     /** Si non nul, execute() leve cette exception (simulation panne DB / violation de contrainte). */
     public ?Throwable $failOnExecute = null;
 
@@ -227,6 +236,14 @@ final class FakeDatabase implements DatabaseInterface
 
         if (str_contains($sql, 'FROM category WHERE slug = :slug')) {
             return $this->categorySlugTaken ? ['id' => 1] : null;
+        }
+
+        if (str_contains($sql, 'lockout_until FROM pin_throttle')) {
+            return ['lockout_until' => $this->pinThrottleLockoutUntil];
+        }
+
+        if (str_contains($sql, 'failed_attempts FROM pin_throttle')) {
+            return ['failed_attempts' => $this->pinThrottleAttempts];
         }
 
         if (str_contains($sql, 'SELECT lockout_until FROM login_throttle')) {

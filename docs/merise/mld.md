@@ -1,7 +1,7 @@
 # Modele Logique de Donnees (MLD) — Wakdo
 
 **Phase Merise** : P1 - Conception, etape 5 (apres MCD, MCT, MLT)
-**Version** : v0.2 — prod-like, 21 tables (19 prod-like + couche security-by-design)
+**Version** : v0.3 — prod-like, 22 tables (19 prod-like + couche security-by-design)
 **Date** : 2026-06-04 (ajouts security-by-design 2026-06-11)
 **Branche** : `feat/p1-conception`
 **Statut** : prod-like — toutes les decisions D1-D8 + stock appliquees (voir `docs/notes/revue-alignement-p1.md` §7) ; couche security-by-design (audit_log + colonnes imputabilite/auth) en cours
@@ -93,14 +93,14 @@ en plus de la PK composite des FK. Applique a `product_ingredient`.
 
 ---
 
-## 4. Schema relationnel (21 tables)
+## 4. Schema relationnel (22 tables)
 
 Les tables sont ordonnees par dependance (tables sans FK d'abord, puis tables qui en dependent).
 
 ### Diagrammes relationnels (par sous-domaine)
 
 Le schema relationnel est presente sous forme de quatre vues Mermaid `erDiagram`, une par sous-domaine (meme
-decomposition que le MCD ; un unique diagramme de 21 tables ne se disposerait pas proprement). Elles different
+decomposition que le MCD ; un unique diagramme de 22 tables ne se disposerait pas proprement). Elles different
 du MCD : les entites associatives sont resolues en tables de jointure avec PK composites, le
 polymorphisme de `order_item` apparait sous forme de deux FK nullables (`product_id` / `menu_id`), et chaque
 cle etrangere est explicite. Les horodatages d'audit (`created_at` / `updated_at`) sont presents sur la plupart des
@@ -358,6 +358,14 @@ erDiagram
         datetime lockout_until
         datetime last_attempt_at
     }
+    pin_throttle {
+        int id PK
+        int actor_user_id FK,UK
+        smallint failed_attempts
+        datetime window_started_at
+        datetime lockout_until
+        datetime last_attempt_at
+    }
 
     role ||--o{ user : "role_id (RESTRICT)"
     role ||--o{ role_visible_source : "role_id (CASCADE)"
@@ -365,10 +373,12 @@ erDiagram
     permission ||--o{ role_permission : "permission_id (CASCADE)"
     user ||--o{ audit_log : "actor_user_id (SET NULL, nullable)"
     role ||--o{ audit_log : "actor_role_id (SET NULL, nullable)"
+    user ||--o{ pin_throttle : "actor_user_id (CASCADE)"
 ```
 
 > `login_throttle` n'a pas de FK (une IP n'est pas une entite modelisee) ; elle est autonome, cle par
-> `ip_address`.
+> `ip_address`. `pin_throttle` (RG-T22) est cle par `actor_user_id` (FK -> `user`, ON DELETE CASCADE) :
+> le throttle du PIN porte sur l'utilisateur AGISSANT, dimension distincte du login.
 
 ---
 
@@ -1083,6 +1093,37 @@ Pas de `updated_at` : les lignes sont upsertees par IP, pas editees via une UI.
 
 ---
 
+### 4.22 `pin_throttle`
+
+Throttle du PIN d'action sensible par utilisateur AGISSANT (security-by-design, RG-T22). Separe des
+compteurs de connexion (`user.failed_login_attempts` / `lockout_until` / `login_throttle`) : un echec de
+PIN n'incremente aucun compteur de login.
+
+```
+pin_throttle (id, actor_user_id, failed_attempts, window_started_at,
+              [lockout_until], last_attempt_at)
+
+  PK  : id
+  UK  : actor_user_id
+  IDX : lockout_until
+  FK  : actor_user_id -> user(id) ON DELETE CASCADE
+```
+
+| Colonne | Type | NULL | Notes |
+|---|---|---|---|
+| `id` | INT UNSIGNED AUTO_INCREMENT | NO | PK |
+| `actor_user_id` | INT UNSIGNED | NO | Utilisateur agissant (session), une ligne par acteur, upsertee. UNIQUE. FK -> `user(id)` ON DELETE CASCADE |
+| `failed_attempts` | SMALLINT UNSIGNED NOT NULL DEFAULT 0 | NO | Echecs de PIN consecutifs de cet acteur dans la fenetre courante |
+| `window_started_at` | DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP | NO | Debut de la fenetre de comptage courante |
+| `lockout_until` | DATETIME | YES | Fin de la fenetre de backoff degressif ; NULL = pas throttle |
+| `last_attempt_at` | DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP | NO | Horodatage de la derniere tentative echouee |
+
+FK ON DELETE CASCADE (contrairement a `login_throttle`) : la cle est un user back-office authentifie, donc
+supprimer/anonymiser le compte purge sa ligne de throttle. Append/upsert par acteur ; meme purge cron que
+`login_throttle`. Pas de `updated_at` (lignes upsertees, pas editees via une UI).
+
+---
+
 ## 5. Resume de l'integrite referentielle
 
 | Colonne FK | References | ON DELETE | Justification |
@@ -1115,6 +1156,7 @@ Pas de `updated_at` : les lignes sont upsertees par IP, pas editees via une UI.
 | `customer_order.acting_user_id` | `user(id)` | SET NULL | Attribution du personnel preservee comme principal anonymise ; commande conservee |
 | `audit_log.actor_user_id` | `user(id)` | SET NULL | Piste d'audit preservee a l'anonymisation de l'utilisateur ; seul le lien est rompu |
 | `audit_log.actor_role_id` | `role(id)` | SET NULL | Contexte de role conserve jusqu'a la suppression du role ; denormalise donc il survit a l'anonymisation de l'utilisateur |
+| `pin_throttle.actor_user_id` | `user(id)` | CASCADE | Etat de throttle ephemere : il part avec le compte agissant supprime/anonymise (contrairement a l'audit, permanent) |
 
 **Cle utilisee** : CASCADE = l'enfant n'a pas de sens sans le parent ; RESTRICT = la suppression du parent
 est bloquee tant que des enfants existent ; SET NULL = l'enfant est preserve, seul le lien est rompu.
@@ -1175,6 +1217,7 @@ MCT / MLT.
 | `audit_log` | `(entity_type, entity_id)` | "qu'est-il arrive a ce produit/commande/utilisateur ?" |
 | `audit_log` | `(action_code, created_at)` | Audit par type d'action sur une plage de temps |
 | `login_throttle` | `lockout_until` | Purge cron quotidienne des lignes sans verrouillage actif |
+| `pin_throttle` | `lockout_until` | Purge cron quotidienne des lignes sans verrouillage actif (RG-T22) |
 
 **Index non ajoutes** (intentionnel) :
 - `customer_order.order_number` : l'index UK suffit ; aucune requete de plage attendue sur cette colonne.
@@ -1186,7 +1229,7 @@ MCT / MLT.
 
 ## 8. Validation croisee MLD <-> MCD
 
-Verification que les 21 entites MCD (19 prod-like + 2 security-by-design) correspondent a une table,
+Verification que les 22 entites MCD (19 prod-like + 3 security-by-design) correspondent a une table,
 et que toutes les tables se rattachent au MCD.
 
 | Entite MCD | Table MLD | Type de mapping | Notes |
@@ -1212,8 +1255,9 @@ et que toutes les tables se rattachent au MCD.
 | `stock_movement` (C19) | `stock_movement` (4.19) | entite 1:1 | Nouvelle entite (v0.2) |
 | `audit_log` (R5/R6) | `audit_log` (4.20) | entite 1:1 | Nouvelle entite (security-by-design) |
 | `login_throttle` (R7) | `login_throttle` (4.21) | entite 1:1 | Nouvelle entite (security-by-design) |
+| `pin_throttle` (R9) | `pin_throttle` (4.22) | entite 1:1 | Nouvelle entite (security-by-design, RG-T22) |
 
-**Resultat** : 21/21 entites mappees (19 prod-like + `audit_log` + `login_throttle`). Aucune entite
+**Resultat** : 22/22 entites mappees (19 prod-like + `audit_log` + `login_throttle` + `pin_throttle`). Aucune entite
 sans table ; aucune table hors du MCD. Nouvelles colonnes sur les tables existantes : `user`
 (cycle de vie auth + `pin_hash` + `anonymized_at`), `customer_order` (`idempotency_key`,
 `acting_user_id`), `ingredient` (`stock_capacity`, `low_stock_pct`, `critical_stock_pct` ;
@@ -1250,6 +1294,7 @@ sur `customer_order` — decision 2.A) ; le modele de composition fixe `menu_pro
 | `stock_movement` | ~500k | 180 octets | ~90 MB |
 | `audit_log` | ~5k-10k | 200 octets | ~2 MB |
 | `login_throttle` | ~100-1k | 80 octets | < 1 MB |
+| `pin_throttle` | ~10-100 | 80 octets | < 1 MB (1 ligne par user back-office) |
 
 **Total estime** : ~190 MB de donnees + ~60-80 MB pour les index = ~250-270 MB sur 6 mois
 (`audit_log` est negligeable : les actions sensibles sont d'un ordre de grandeur plus rares que les commandes).
@@ -1300,6 +1345,7 @@ ingredient ; il portera une amplification d'ecriture significative a l'echelle.
    - `stock_movement` (depend de `ingredient`, `customer_order`, `user`)
    - `audit_log` (depend de `user`, `role`)
    - `login_throttle` (pas de FK, peut etre cree a n'importe quel moment)
+   - `pin_throttle` (FK `actor_user_id -> user`, donc apres le bloc `user`)
 
    Note : `customer_order` porte desormais `acting_user_id -> user`, donc `user` doit etre cree
    avant `customer_order` (deja le cas : le bloc RBAC precede `customer_order`).

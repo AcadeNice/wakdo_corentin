@@ -123,6 +123,17 @@ final class PinVerifierTest extends TestCase
         self::assertNull($this->verifier()->resolveActingUser('staff@wakdo.local', ''));
     }
 
+    public function testPayTimingDecoyHashesWithoutTouchingDatabase(): void
+    {
+        // Chemin "acteur verrouille" (RG-T22) : on paie le cout argon2id sans aucune
+        // lecture/ecriture DB, pour egaliser le timing avec le chemin mauvais-PIN
+        // sans introduire d'oracle (aucune requete = rien a observer).
+        $this->verifier()->payTimingDecoy('4729');
+
+        self::assertSame([], $this->db->reads);
+        self::assertSame([], $this->db->writes);
+    }
+
     public function testMeetsLengthPolicy(): void
     {
         $verifier = $this->verifier();

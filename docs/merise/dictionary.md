@@ -1,7 +1,7 @@
 # Dictionnaire de Donnees — Wakdo
 
 **Phase Merise** : P1 - Conception, etape 1 (dictionnaire de donnees d'abord, mantra #33)
-**Version** : v0.2 — prod-like, 21 entites (19 prod-like + couche security-by-design, incl. la nouvelle entite `login_throttle`)
+**Version** : v0.3 — prod-like, 22 entites (19 prod-like + couche security-by-design, incl. les entites `login_throttle` et `pin_throttle`)
 **Date** : 2026-06-04 (ajouts security-by-design 2026-06-11)
 **Branche** : `feat/p1-conception`
 **Statut** : prod-like — toutes les decisions D1-D8 + stock appliquees (voir `docs/notes/revue-alignement-p1.md` §7) ; couche security-by-design en cours (voir note 13)
@@ -616,6 +616,29 @@ que 24h.
 
 ---
 
+### 3.22 `pin_throttle`
+
+Throttle du PIN d'action sensible (RG-T22), complement de RG-T13. Une ligne par utilisateur AGISSANT
+(l'identite de session qui soumet email+PIN), STRICTEMENT SEPAREE des compteurs de connexion
+(`user.failed_login_attempts` / `login_throttle`) : un echec de PIN n'incremente aucun compteur de login.
+Ajout security-by-design (voir note 13).
+
+| Attribut | Type | NULL | Default | Contrainte | Notes |
+|---|---|---|---|---|---|
+| `id` | INT UNSIGNED | NO | AUTO_INCREMENT | PK | |
+| `actor_user_id` | INT UNSIGNED | NO | — | UNIQUE, FK -> `user(id)` ON DELETE CASCADE | l'utilisateur agissant (session), une ligne par acteur, upsertee |
+| `failed_attempts` | SMALLINT UNSIGNED | NO | 0 | — | echecs de PIN consecutifs de cet acteur dans la fenetre courante |
+| `window_started_at` | DATETIME | NO | CURRENT_TIMESTAMP | — | debut de la fenetre de comptage courante |
+| `lockout_until` | DATETIME | YES | NULL | — | fin de la fenetre de backoff degressif ; NULL = non throttle |
+| `last_attempt_at` | DATETIME | NO | CURRENT_TIMESTAMP | — | timestamp de la derniere tentative echouee |
+
+**FK ON DELETE CASCADE** (contrairement a `login_throttle`) : la cle est un utilisateur back-office
+authentifie, donc supprimer/anonymiser le compte purge proprement sa ligne de throttle. Memes bornes de
+backoff que RG-8 mais PROPRES au PIN (PIN_THROTTLE_*, plus permissives). Meme purge cron quotidienne que
+`login_throttle` (lignes sans lockout actif > 24h).
+
+---
+
 ## 4. Notes de modelisation
 
 ### Note 1 — Pourquoi `INT UNSIGNED` en centimes pour les prix
@@ -878,6 +901,12 @@ une surcharge forte ; un reapprovisionnement au-dessus de la bande critique rend
 sur `user`. Cela ajoute une seconde dimension de throttling, de sorte qu'une seule IP martelant de nombreux comptes soit
 ralentie independamment du compteur de n'importe quel compte. Un cron quotidien purge les lignes inactives et non verrouillees.
 
+**Throttle du PIN d'action sensible (par acteur).** `pin_throttle` (3.22) suit `failed_attempts` et
+`lockout_until` par utilisateur AGISSANT (l'identite de session qui valide une action sensible),
+dans une table separee des compteurs de connexion. La dimension est l'acteur (et non l'email cible,
+contournable par rotation, ni l'IP, qui penaliserait tous les equipiers d'un poste partage) ; le verrou
+est un backoff degressif aux bornes propres (PIN_THROTTLE_*). Meme purge cron que `login_throttle`. RG-T22.
+
 References : `docs/notes/revue-alignement-p1.md` §7 (decisions D), carte d'impact security-by-design
 (2026-06-11). Modele de menace et matrice de classification des donnees : `PROJECT_CONTEXT.md` §19 (a venir).
 
@@ -908,18 +937,19 @@ References : `docs/notes/revue-alignement-p1.md` §7 (decisions D), carte d'impa
 | 19 | `stock_movement` | audit | nouveau — journal d'audit de stock append-only |
 | 20 | `audit_log` | audit | nouveau (security-by-design) — journal append-only d'actions sensibles |
 | 21 | `login_throttle` | security | nouveau (security-by-design) - throttle anti-brute-force par IP |
+| 22 | `pin_throttle` | security | nouveau (security-by-design) - throttle du PIN d'action sensible par acteur (RG-T22) |
 
 **Retire de v0.1** : `commande_event` (remplace par les timestamps de phase sur `customer_order`),
 `menu_produit` (remplace par le modele `menu_slot` + `menu_slot_option`).
 
-**Total : 21 entites** (19 prod-like v0.2 + `audit_log` et `login_throttle` de la
-couche security-by-design).
+**Total : 22 entites** (19 prod-like v0.2 + `audit_log`, `login_throttle` et `pin_throttle`
+de la couche security-by-design).
 
 Le security-by-design ajoute aussi des colonnes (au-dela des deux nouvelles entites) : cycle de vie d'auth de `user` +
 `pin_hash` + `anonymized_at` (3.14), `customer_order.acting_user_id` + `idempotency_key` (3.10),
 et le modele de stock en pourcentage sur `ingredient` (3.6) — `stock_capacity`, `critical_stock_pct`,
 plus le renommage de `low_stock_threshold` en `low_stock_pct`. `login_throttle` (3.21) est la 21e
-entite. Voir note 13.
+entite et `pin_throttle` (3.22) la 22e. Voir note 13.
 
 ---
 
