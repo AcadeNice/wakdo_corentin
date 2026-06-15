@@ -58,30 +58,42 @@ jobs:
 
   static-tests:
     runs-on: docker
+    # COMPOSER-LESS (decision 4 / 5, PROJECT_CONTEXT.md) : PHPStan et PHPUnit
+    # tournent depuis leur .phar autonome telecharge ici, jamais via Composer.
+    # Versions epinglees pour des CI reproductibles (pas de "latest").
+    env:
+      PHPUNIT_VERSION: "11.5.2"
+      PHPSTAN_VERSION: "1.12.27"
     steps:
       - uses: actions/checkout@v4
       - name: PHPStan (guarded)
         run: |
-          if [ -f composer.json ] && [ -f phpstan.neon ]; then
-            echo "phpstan config detected - running"
-            apt-get update -qq && apt-get install -y -qq php-cli unzip git >/dev/null
-            curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
-            composer install --no-interaction --no-progress
-            vendor/bin/phpstan analyse --no-progress
-          else
-            echo "PHPStan skipped: no composer.json/phpstan.neon yet (activates in P2)"
+          set -eu
+          if [ ! -f phpstan.neon ]; then
+            echo "PHPStan skipped: no phpstan.neon yet (activates in P2)"
+            exit 0
           fi
+          echo "phpstan.neon detected - running PHPStan ${PHPSTAN_VERSION} via .phar"
+          apt-get update -qq && apt-get install -y -qq php-cli curl ca-certificates >/dev/null
+          # PHPUnit phar present pour que phpstan.neon (scanDirectories phar://phpunit.phar)
+          # resolve les symboles PHPUnit\Framework\* utilises sous tests/.
+          curl -sSL "https://phar.phpunit.de/phpunit-${PHPUNIT_VERSION}.phar" -o phpunit.phar
+          curl -sSL "https://github.com/phpstan/phpstan/releases/download/${PHPSTAN_VERSION}/phpstan.phar" -o phpstan.phar
+          php phpstan.phar --version
+          # memory_limit=-1 : l'analyse parallele depasse les 128M par defaut du php-cli.
+          php -d memory_limit=-1 phpstan.phar analyse --no-progress --error-format=raw
       - name: PHPUnit (guarded)
         run: |
-          if [ -d tests ] && [ -f phpunit.xml ]; then
-            echo "phpunit config detected - running"
-            apt-get update -qq && apt-get install -y -qq php-cli >/dev/null
-            if [ -f vendor/bin/phpunit ]; then vendor/bin/phpunit; \
-            elif [ -f phpunit.phar ]; then php phpunit.phar; \
-            else echo "phpunit binary missing despite config" && exit 1; fi
-          else
+          set -eu
+          if [ ! -d tests ] || [ ! -f phpunit.xml ]; then
             echo "PHPUnit skipped: no tests/ + phpunit.xml yet (activates in P2)"
+            exit 0
           fi
+          echo "phpunit.xml + tests/ detected - running PHPUnit ${PHPUNIT_VERSION} via .phar"
+          apt-get update -qq && apt-get install -y -qq php-cli curl ca-certificates >/dev/null
+          curl -sSL "https://phar.phpunit.de/phpunit-${PHPUNIT_VERSION}.phar" -o phpunit.phar
+          php phpunit.phar --version
+          php phpunit.phar -c phpunit.xml
 
   auto-merge:
     # Fusion automatique OPT-IN : poser le label `auto-merge` sur la PR.
