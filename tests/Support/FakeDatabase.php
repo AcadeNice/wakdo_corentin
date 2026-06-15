@@ -83,6 +83,13 @@ final class FakeDatabase implements DatabaseInterface
      */
     public ?array $roleRow = null;
 
+    /**
+     * Ligne user renvoyee pour la verification du PIN (RG-T13) ; null = absent/inactif.
+     *
+     * @var array<string, mixed>|null
+     */
+    public ?array $pinUserRow = null;
+
     /** Si non nul, execute() leve cette exception (simulation panne DB -> fail-closed). */
     public ?RuntimeException $failOnExecute = null;
 
@@ -118,6 +125,12 @@ final class FakeDatabase implements DatabaseInterface
 
         if (str_contains($sql, 'FROM role r WHERE r.id')) {
             return $this->roleRow;
+        }
+
+        // Exige le predicat is_active = 1 : si la production le retirait, le double
+        // renverrait null et le test verify-true virerait au rouge (garde RG-T13).
+        if (str_contains($sql, 'SELECT pin_hash FROM user WHERE id') && str_contains($sql, 'is_active = 1')) {
+            return $this->pinUserRow;
         }
 
         if (str_contains($sql, 'SELECT lockout_until FROM login_throttle')) {

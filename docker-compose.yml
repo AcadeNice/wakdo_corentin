@@ -147,8 +147,9 @@ services:
       ACCOUNT_LOCKOUT_MAX_SECONDS: ${ACCOUNT_LOCKOUT_MAX_SECONDS}
       IP_THROTTLE_WINDOW_SECONDS: ${IP_THROTTLE_WINDOW_SECONDS}
       IP_THROTTLE_MAX_ATTEMPTS: ${IP_THROTTLE_MAX_ATTEMPTS}
-      # Longueur minimale du PIN equipier (actions sensibles, P3).
+      # Bornes du PIN equipier (actions sensibles, P3) : longueur min ET max.
       STAFF_PIN_MIN_LENGTH: ${STAFF_PIN_MIN_LENGTH}
+      STAFF_PIN_MAX_LENGTH: ${STAFF_PIN_MAX_LENGTH}
       # Expiration du token de reinitialisation de mot de passe (mlt.md 12.3).
       PASSWORD_RESET_TTL: ${PASSWORD_RESET_TTL}
       UPLOAD_MAX_SIZE_MB: ${UPLOAD_MAX_SIZE_MB}
