@@ -1,0 +1,59 @@
+erDiagram
+    ingredient {
+        int id PK
+        varchar name UK
+        varchar unit
+        int stock_quantity
+        int stock_capacity
+        smallint pack_size
+        smallint low_stock_pct
+        smallint critical_stock_pct
+        tinyint is_active
+    }
+    product_ingredient {
+        int product_id PK,FK
+        int ingredient_id PK,FK
+        smallint quantity_normal
+        smallint quantity_maxi
+        tinyint is_removable
+        tinyint is_addable
+        int extra_price_cents
+    }
+    allergen {
+        int id PK
+        varchar code UK
+        varchar name
+    }
+    ingredient_allergen {
+        int ingredient_id PK,FK
+        int allergen_id PK,FK
+    }
+    stock_movement {
+        int id PK
+        int ingredient_id FK
+        enum movement_type
+        int delta
+        int order_id FK
+        int user_id FK
+        varchar note
+    }
+    product {
+        int id PK
+        varchar name
+    }
+    customer_order {
+        int id PK
+        varchar order_number
+    }
+    user {
+        int id PK
+        varchar email
+    }
+
+    product ||--o{ product_ingredient : "product_id (CASCADE)"
+    ingredient ||--o{ product_ingredient : "ingredient_id (RESTRICT)"
+    ingredient ||--o{ ingredient_allergen : "ingredient_id (CASCADE)"
+    allergen ||--o{ ingredient_allergen : "allergen_id (RESTRICT)"
+    ingredient ||--o{ stock_movement : "ingredient_id (RESTRICT)"
+    customer_order ||--o{ stock_movement : "order_id (SET NULL, nullable)"
+    user ||--o{ stock_movement : "user_id (SET NULL, nullable)"

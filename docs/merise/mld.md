@@ -97,6 +97,279 @@ in addition to the composite FK PK. Applied to `product_ingredient`.
 
 Tables are ordered by dependency (no-FK tables first, then tables that depend on them).
 
+### Relational diagrams (by sub-domain)
+
+The relational schema is shown as four Mermaid `erDiagram` views, one per sub-domain (same
+decomposition as the MCD; a single 21-table diagram would not lay out cleanly). These differ
+from the MCD: associative entities are resolved into join tables with composite PKs, the
+`order_item` polymorphism appears as two nullable FKs (`product_id` / `menu_id`), and every
+foreign key is explicit. Audit timestamps (`created_at` / `updated_at`) are present on most
+tables (see the per-table sections below) but omitted from the diagrams to keep them readable.
+Relationship labels carry the FK column and its `ON DELETE` behaviour. Cross-sub-domain FK
+targets are shown as stub tables (id + name). Portable SVG renders live in `_diagrams/`
+(`mld-catalogue.svg`, `mld-ingredients-stock.svg`, `mld-order.svg`, `mld-rbac.svg`).
+
+#### Catalogue
+
+```mermaid
+erDiagram
+    category {
+        int id PK
+        varchar name UK
+        varchar slug UK
+        smallint display_order
+        tinyint is_active
+    }
+    product {
+        int id PK
+        int category_id FK
+        varchar name
+        int price_cents
+        smallint vat_rate
+        tinyint is_available
+        smallint display_order
+    }
+    menu {
+        int id PK
+        int category_id FK
+        int burger_product_id FK
+        varchar name
+        int price_normal_cents
+        int price_maxi_cents
+        tinyint is_available
+        smallint display_order
+    }
+    menu_slot {
+        int id PK
+        int menu_id FK
+        varchar name
+        enum slot_type
+        tinyint is_required
+        smallint display_order
+    }
+    menu_slot_option {
+        int menu_slot_id PK,FK
+        int product_id PK,FK
+    }
+
+    category ||--o{ product : "category_id (RESTRICT)"
+    category ||--o{ menu : "category_id (RESTRICT)"
+    product ||--o{ menu : "burger_product_id (RESTRICT)"
+    menu ||--o{ menu_slot : "menu_id (CASCADE)"
+    menu_slot ||--o{ menu_slot_option : "menu_slot_id (CASCADE)"
+    product ||--o{ menu_slot_option : "product_id (RESTRICT)"
+```
+
+#### Ingredients & Stock
+
+```mermaid
+erDiagram
+    ingredient {
+        int id PK
+        varchar name UK
+        varchar unit
+        int stock_quantity
+        int stock_capacity
+        smallint pack_size
+        smallint low_stock_pct
+        smallint critical_stock_pct
+        tinyint is_active
+    }
+    product_ingredient {
+        int product_id PK,FK
+        int ingredient_id PK,FK
+        smallint quantity_normal
+        smallint quantity_maxi
+        tinyint is_removable
+        tinyint is_addable
+        int extra_price_cents
+    }
+    allergen {
+        int id PK
+        varchar code UK
+        varchar name
+    }
+    ingredient_allergen {
+        int ingredient_id PK,FK
+        int allergen_id PK,FK
+    }
+    stock_movement {
+        int id PK
+        int ingredient_id FK
+        enum movement_type
+        int delta
+        int order_id FK
+        int user_id FK
+        varchar note
+    }
+    product {
+        int id PK
+        varchar name
+    }
+    customer_order {
+        int id PK
+        varchar order_number
+    }
+    user {
+        int id PK
+        varchar email
+    }
+
+    product ||--o{ product_ingredient : "product_id (CASCADE)"
+    ingredient ||--o{ product_ingredient : "ingredient_id (RESTRICT)"
+    ingredient ||--o{ ingredient_allergen : "ingredient_id (CASCADE)"
+    allergen ||--o{ ingredient_allergen : "allergen_id (RESTRICT)"
+    ingredient ||--o{ stock_movement : "ingredient_id (RESTRICT)"
+    customer_order ||--o{ stock_movement : "order_id (SET NULL, nullable)"
+    user ||--o{ stock_movement : "user_id (SET NULL, nullable)"
+```
+
+#### Order
+
+```mermaid
+erDiagram
+    customer_order {
+        int id PK
+        varchar order_number UK
+        varchar idempotency_key UK
+        enum source
+        int acting_user_id FK
+        enum service_mode
+        enum status
+        int total_ht_cents
+        int total_vat_cents
+        int total_ttc_cents
+        datetime paid_at
+        datetime delivered_at
+        datetime cancelled_at
+    }
+    order_item {
+        int id PK
+        int order_id FK
+        enum item_type
+        int product_id FK
+        int menu_id FK
+        enum format
+        varchar label_snapshot
+        int unit_price_cents_snapshot
+        smallint vat_rate_snapshot
+        smallint quantity
+    }
+    order_item_selection {
+        int id PK
+        int order_item_id FK
+        int menu_slot_id FK
+        int product_id FK
+        varchar label_snapshot
+    }
+    order_item_modifier {
+        int id PK
+        int order_item_id FK
+        int ingredient_id FK
+        enum action
+        int extra_price_cents
+    }
+    user {
+        int id PK
+        varchar email
+    }
+    product {
+        int id PK
+        varchar name
+    }
+    menu {
+        int id PK
+        varchar name
+    }
+    menu_slot {
+        int id PK
+        varchar name
+    }
+    ingredient {
+        int id PK
+        varchar name
+    }
+
+    user ||--o{ customer_order : "acting_user_id (SET NULL, nullable)"
+    customer_order ||--o{ order_item : "order_id (CASCADE)"
+    product ||--o{ order_item : "product_id (RESTRICT, polymorphic)"
+    menu ||--o{ order_item : "menu_id (RESTRICT, polymorphic)"
+    order_item ||--o{ order_item_selection : "order_item_id (CASCADE)"
+    menu_slot ||--o{ order_item_selection : "menu_slot_id (RESTRICT)"
+    product ||--o{ order_item_selection : "product_id (RESTRICT)"
+    order_item ||--o{ order_item_modifier : "order_item_id (CASCADE)"
+    ingredient ||--o{ order_item_modifier : "ingredient_id (RESTRICT)"
+```
+
+#### RBAC & security
+
+```mermaid
+erDiagram
+    role {
+        int id PK
+        varchar code UK
+        varchar label
+        varchar default_route
+        enum order_source
+        tinyint is_active
+    }
+    user {
+        int id PK
+        varchar email UK
+        varchar password_hash
+        varchar pin_hash
+        varchar first_name
+        varchar last_name
+        int role_id FK
+        tinyint is_active
+        smallint failed_login_attempts
+        datetime lockout_until
+        datetime anonymized_at
+    }
+    role_visible_source {
+        int role_id PK,FK
+        enum source PK
+    }
+    permission {
+        int id PK
+        varchar code UK
+        varchar label
+    }
+    role_permission {
+        int role_id PK,FK
+        int permission_id PK,FK
+    }
+    audit_log {
+        int id PK
+        int actor_user_id FK
+        int actor_role_id FK
+        varchar action_code
+        varchar entity_type
+        int entity_id
+        varchar summary
+        json details
+        datetime created_at
+    }
+    login_throttle {
+        int id PK
+        varchar ip_address UK
+        smallint failed_attempts
+        datetime window_started_at
+        datetime lockout_until
+        datetime last_attempt_at
+    }
+
+    role ||--o{ user : "role_id (RESTRICT)"
+    role ||--o{ role_visible_source : "role_id (CASCADE)"
+    role ||--o{ role_permission : "role_id (CASCADE)"
+    permission ||--o{ role_permission : "permission_id (CASCADE)"
+    user ||--o{ audit_log : "actor_user_id (SET NULL, nullable)"
+    role ||--o{ audit_log : "actor_role_id (SET NULL, nullable)"
+```
+
+> `login_throttle` has no FK (an IP is not a modelled entity); it stands alone, keyed by
+> `ip_address`.
+
 ---
 
 ### 4.1 `category`

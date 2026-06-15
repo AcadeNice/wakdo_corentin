@@ -1,0 +1,61 @@
+erDiagram
+    role {
+        int id PK
+        varchar code UK
+        varchar label
+        varchar default_route
+        enum order_source
+        tinyint is_active
+    }
+    user {
+        int id PK
+        varchar email UK
+        varchar password_hash
+        varchar pin_hash
+        varchar first_name
+        varchar last_name
+        int role_id FK
+        tinyint is_active
+        smallint failed_login_attempts
+        datetime lockout_until
+        datetime anonymized_at
+    }
+    role_visible_source {
+        int role_id PK,FK
+        enum source PK
+    }
+    permission {
+        int id PK
+        varchar code UK
+        varchar label
+    }
+    role_permission {
+        int role_id PK,FK
+        int permission_id PK,FK
+    }
+    audit_log {
+        int id PK
+        int actor_user_id FK
+        int actor_role_id FK
+        varchar action_code
+        varchar entity_type
+        int entity_id
+        varchar summary
+        json details
+        datetime created_at
+    }
+    login_throttle {
+        int id PK
+        varchar ip_address UK
+        smallint failed_attempts
+        datetime window_started_at
+        datetime lockout_until
+        datetime last_attempt_at
+    }
+
+    role ||--o{ user : "role_id (RESTRICT)"
+    role ||--o{ role_visible_source : "role_id (CASCADE)"
+    role ||--o{ role_permission : "role_id (CASCADE)"
+    permission ||--o{ role_permission : "permission_id (CASCADE)"
+    user ||--o{ audit_log : "actor_user_id (SET NULL, nullable)"
+    role ||--o{ audit_log : "actor_role_id (SET NULL, nullable)"
