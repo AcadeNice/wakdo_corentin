@@ -17,6 +17,7 @@ use App\Controllers\DashboardController;
 use App\Controllers\HealthController;
 use App\Controllers\HomeController;
 use App\Controllers\MeController;
+use App\Controllers\MenuController;
 use App\Controllers\PasswordResetController;
 use App\Controllers\ProductController;
 use App\Controllers\ProfileController;
@@ -89,6 +90,19 @@ try {
     $router->add('POST', '/admin/products/{id}', [ProductController::class, 'update']);
     $router->add('GET', '/admin/products/{id}/delete', [ProductController::class, 'confirmDelete']);
     $router->add('POST', '/admin/products/{id}/delete', [ProductController::class, 'destroy']);
+
+    // CRUD Menus (menu.read/create/update/delete). Menu compose = burger de base +
+    // slots (menu_slot / menu_slot_option). PIN equipier + audit sur suppression
+    // (mlt 8.6) ; create/update sans PIN. {id} = un seul segment, pas de collision
+    // avec /toggle ni /delete.
+    $router->add('GET', '/admin/menus', [MenuController::class, 'index']);
+    $router->add('GET', '/admin/menus/new', [MenuController::class, 'create']);
+    $router->add('POST', '/admin/menus', [MenuController::class, 'store']);
+    $router->add('GET', '/admin/menus/{id}/edit', [MenuController::class, 'edit']);
+    $router->add('POST', '/admin/menus/{id}', [MenuController::class, 'update']);
+    $router->add('POST', '/admin/menus/{id}/toggle', [MenuController::class, 'toggle']);
+    $router->add('GET', '/admin/menus/{id}/delete', [MenuController::class, 'confirmDelete']);
+    $router->add('POST', '/admin/menus/{id}/delete', [MenuController::class, 'destroy']);
 
     $response = $router->dispatch(Request::fromGlobals());
     $response->send();

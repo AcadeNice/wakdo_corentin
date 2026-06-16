@@ -135,6 +135,30 @@ final class FakeDatabase implements DatabaseInterface
     public ?array $productRow = null;
 
     /**
+     * Ligne renvoyee par MenuRepository::find() ; null = introuvable.
+     *
+     * @var array<string, mixed>|null
+     */
+    public ?array $menuRow = null;
+
+    /**
+     * Lignes renvoyees par MenuRepository::all().
+     *
+     * @var list<array<string, mixed>>
+     */
+    public array $menusRows = [];
+
+    /**
+     * Lignes (LEFT JOIN slot/option) renvoyees par MenuRepository::slotsWithOptions().
+     *
+     * @var list<array<string, mixed>>
+     */
+    public array $menuSlotRows = [];
+
+    /** Resultat de MenuRepository::isReferencedByOrders() (true = reference par une commande). */
+    public bool $menuReferenced = false;
+
+    /**
      * Ligne renvoyee pour PinVerifier::resolveActingUser (id, role_id, pin_hash) ;
      * null = email inconnu/inactif.
      *
@@ -230,6 +254,14 @@ final class FakeDatabase implements DatabaseInterface
             return $this->categoryRow;
         }
 
+        if (str_contains($sql, 'FROM menu WHERE id = :id')) {
+            return $this->menuRow;
+        }
+
+        if (str_contains($sql, 'FROM order_item WHERE menu_id')) {
+            return $this->menuReferenced ? ['menu_id' => 1] : null;
+        }
+
         if (str_contains($sql, 'FROM category WHERE name = :name')) {
             return $this->categoryNameTaken ? ['id' => 1] : null;
         }
@@ -267,6 +299,14 @@ final class FakeDatabase implements DatabaseInterface
 
         if (str_contains($sql, 'FROM product p JOIN category')) {
             return $this->productsRows;
+        }
+
+        if (str_contains($sql, 'FROM menu m JOIN category')) {
+            return $this->menusRows;
+        }
+
+        if (str_contains($sql, 'FROM menu_slot s')) {
+            return $this->menuSlotRows;
         }
 
         if (str_contains($sql, 'SELECT p.code FROM role_permission')) {
