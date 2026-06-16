@@ -138,7 +138,6 @@ services:
       SESSION_LIFETIME_ABSOLUTE: ${SESSION_LIFETIME_ABSOLUTE}
       SESSION_NAME: ${SESSION_NAME}
       CORS_ALLOWED_ORIGIN: ${CORS_ALLOWED_ORIGIN}
-      PASSWORD_ALGO: ${PASSWORD_ALGO}
       # Cout argon2id (password_hash) : aligne sur .env.example / OWASP. Sert au
       # hash du mot de passe ET du PIN equipier (actions sensibles, P3).
       ARGON2_MEMORY_COST: ${ARGON2_MEMORY_COST}

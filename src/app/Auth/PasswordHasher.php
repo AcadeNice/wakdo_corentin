@@ -24,6 +24,9 @@ final class PasswordHasher
 
     public function hash(string $plain): string
     {
+        // argon2id en dur : choix security-by-design non configurable (pas de
+        // bascule runtime vers un algo plus faible). Seuls les couts sont lus de
+        // l'environnement (options()) ; il n'existe donc pas de var PASSWORD_ALGO.
         return password_hash($plain, PASSWORD_ARGON2ID, $this->options());
     }
 
