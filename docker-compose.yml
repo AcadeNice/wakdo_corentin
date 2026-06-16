@@ -93,6 +93,10 @@ services:
 
     volumes:
       - wakdo_db_data:/var/lib/mysql
+      # Scripts d'init MariaDB, executes UNIQUEMENT au premier demarrage sur
+      # volume vierge : durcit le privilege du user applicatif (moindre
+      # privilege, db/init/10-scope-app-user.sh). Lecture seule.
+      - ./db/init:/docker-entrypoint-initdb.d:ro
 
     networks:
       - wakdo_internal
