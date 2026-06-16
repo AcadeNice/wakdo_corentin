@@ -157,8 +157,14 @@ class ProductController extends AdminController
 
         $actor = $this->pinVerifier()->resolveActingUser(trim($form['pin_email'] ?? ''), $form['pin'] ?? '');
         if ($actor === null) {
-            $this->logFailedPin(trim($form['pin_email'] ?? ''), $id);
-            $this->pinThrottle()->recordFailure($actorId);
+            // RG-T08 : la trace pin.failed (RG-T14) et l'increment du throttle
+            // (RG-T22) sont ecrits dans UNE meme transaction (pas d'etat partiel
+            // si crash entre les deux ecritures).
+            $email = trim($form['pin_email'] ?? '');
+            $this->db()->transaction(function (DatabaseInterface $db) use ($email, $id, $actorId): void {
+                $this->logFailedPin($db, $email, $id);
+                $this->pinThrottle()->recordFailureWithin($db, $actorId);
+            });
 
             return $this->renderForm($guard, $id, $form, ['pin' => 'Email ou PIN invalide (requis pour modifier prix/TVA).'], 422);
         }
@@ -232,8 +238,13 @@ class ProductController extends AdminController
 
         $actor = $this->pinVerifier()->resolveActingUser(trim($form['pin_email'] ?? ''), $form['pin'] ?? '');
         if ($actor === null) {
-            $this->logFailedPin(trim($form['pin_email'] ?? ''), $id);
-            $this->pinThrottle()->recordFailure($actorId);
+            // RG-T08 : trace pin.failed (RG-T14) + increment throttle (RG-T22) dans
+            // UNE meme transaction (pas d'etat partiel si crash entre les deux).
+            $email = trim($form['pin_email'] ?? '');
+            $this->db()->transaction(function (DatabaseInterface $db) use ($email, $id, $actorId): void {
+                $this->logFailedPin($db, $email, $id);
+                $this->pinThrottle()->recordFailureWithin($db, $actorId);
+            });
 
             return $this->renderDelete($guard, $id, $product, 'Email ou PIN invalide (requis pour supprimer).');
         }
@@ -380,9 +391,9 @@ class ProductController extends AdminController
      * echecs ayant arme le verrou sont deja audites), ce qui borne l'amplification
      * de l'audit append-only (RG-T14).
      */
-    private function logFailedPin(string $email, int $productId): void
+    private function logFailedPin(DatabaseInterface $db, string $email, int $productId): void
     {
-        $this->db()->execute(
+        $db->execute(
             'INSERT INTO audit_log (actor_user_id, actor_role_id, action_code, entity_type, entity_id, summary) '
             . 'VALUES (:uid, :rid, :code, :etype, :eid, :summary)',
             [

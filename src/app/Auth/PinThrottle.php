@@ -75,47 +75,67 @@ final class PinThrottle
             return;
         }
 
+        // Variante autonome : ouvre sa propre transaction. Le controleur, lui,
+        // prefere recordFailureWithin() pour ecrire la trace pin.failed et cet
+        // increment dans UNE SEULE transaction (RG-T08).
+        $this->db->transaction(function (DatabaseInterface $db) use ($actorUserId, $now): void {
+            $this->recordFailureWithin($db, $actorUserId, $now);
+        });
+    }
+
+    /**
+     * Variante SANS transaction propre : suppose que l'appelant a deja ouvert une
+     * transaction (le controleur enveloppe la trace audit pin.failed (RG-T14) et
+     * cet increment dans la meme, RG-T08 : pas d'etat partiel si crash entre les
+     * deux). Memes effets que recordFailure : upsert atomique sous verrou de ligne,
+     * fenetre glissante reinitialisee en SQL, backoff degressif. Ne touche jamais
+     * user ni login_throttle (RG-T22).
+     */
+    public function recordFailureWithin(DatabaseInterface $db, int $actorUserId, ?int $now = null): void
+    {
+        if ($actorUserId <= 0) {
+            return;
+        }
+
         $now ??= time();
         $nowDt = date('Y-m-d H:i:s', $now);
         $windowSeconds = $this->config->int('PIN_THROTTLE_WINDOW_SECONDS', 900);
         $windowCutoff = date('Y-m-d H:i:s', $now - $windowSeconds);
         $policy = ThrottlePolicy::fromConfig($this->config, 'pin');
 
-        $this->db->transaction(function (DatabaseInterface $db) use ($actorUserId, $nowDt, $windowCutoff, $policy, $now): void {
-            // Increment ATOMIQUE cote SQL sous le verrou de ligne pris par l'upsert
-            // (anti lost-update sous POSTs concurrents). Placeholders distincts : en
-            // prepare reelle (EMULATE_PREPARES = false) un meme nom ne peut etre lie
-            // qu'une fois. Meme forme que AuthService (dimension IP).
-            $db->execute(
-                'INSERT INTO pin_throttle (actor_user_id, failed_attempts, window_started_at, last_attempt_at) '
-                . 'VALUES (:uid, 1, :now_i, :now_li) '
-                . 'ON DUPLICATE KEY UPDATE '
-                . 'failed_attempts = IF(window_started_at < :cutoff, 1, failed_attempts + 1), '
-                . 'window_started_at = IF(window_started_at < :cutoff2, :now_w, window_started_at), '
-                . 'last_attempt_at = :now_lu',
-                [
-                    'uid' => $actorUserId,
-                    'now_i' => $nowDt,
-                    'now_li' => $nowDt,
-                    'cutoff' => $windowCutoff,
-                    'cutoff2' => $windowCutoff,
-                    'now_w' => $nowDt,
-                    'now_lu' => $nowDt,
-                ],
-            );
+        // Increment ATOMIQUE cote SQL sous le verrou de ligne pris par l'upsert
+        // (anti lost-update sous POSTs concurrents). Placeholders distincts : en
+        // prepare reelle (EMULATE_PREPARES = false) un meme nom ne peut etre lie
+        // qu'une fois. Meme forme que AuthService (dimension IP).
+        $db->execute(
+            'INSERT INTO pin_throttle (actor_user_id, failed_attempts, window_started_at, last_attempt_at) '
+            . 'VALUES (:uid, 1, :now_i, :now_li) '
+            . 'ON DUPLICATE KEY UPDATE '
+            . 'failed_attempts = IF(window_started_at < :cutoff, 1, failed_attempts + 1), '
+            . 'window_started_at = IF(window_started_at < :cutoff2, :now_w, window_started_at), '
+            . 'last_attempt_at = :now_lu',
+            [
+                'uid' => $actorUserId,
+                'now_i' => $nowDt,
+                'now_li' => $nowDt,
+                'cutoff' => $windowCutoff,
+                'cutoff2' => $windowCutoff,
+                'now_w' => $nowDt,
+                'now_lu' => $nowDt,
+            ],
+        );
 
-            // Relit le compteur autoritaire (ligne deja verrouillee par cette tx)
-            // pour calculer le backoff en PHP, puis pose le verrou.
-            $row = $db->fetch('SELECT failed_attempts FROM pin_throttle WHERE actor_user_id = :uid', ['uid' => $actorUserId]);
-            $attempts = (int) ($row['failed_attempts'] ?? 1);
-            $lockSeconds = $policy->lockoutSeconds($attempts);
-            $lockUntil = $lockSeconds > 0 ? date('Y-m-d H:i:s', $now + $lockSeconds) : null;
+        // Relit le compteur autoritaire (ligne deja verrouillee par cette tx)
+        // pour calculer le backoff en PHP, puis pose le verrou.
+        $row = $db->fetch('SELECT failed_attempts FROM pin_throttle WHERE actor_user_id = :uid', ['uid' => $actorUserId]);
+        $attempts = (int) ($row['failed_attempts'] ?? 1);
+        $lockSeconds = $policy->lockoutSeconds($attempts);
+        $lockUntil = $lockSeconds > 0 ? date('Y-m-d H:i:s', $now + $lockSeconds) : null;
 
-            $db->execute(
-                'UPDATE pin_throttle SET lockout_until = :lock WHERE actor_user_id = :uid',
-                ['lock' => $lockUntil, 'uid' => $actorUserId],
-            );
-        });
+        $db->execute(
+            'UPDATE pin_throttle SET lockout_until = :lock WHERE actor_user_id = :uid',
+            ['lock' => $lockUntil, 'uid' => $actorUserId],
+        );
     }
 
     /**
