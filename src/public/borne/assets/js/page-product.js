@@ -16,7 +16,7 @@
  */
 
 import { findProduct } from './data.js';
-import { addToCart, formatPrice } from './state.js';
+import { addToCart, formatPrice, escHtml } from './state.js';
 import { refreshCartBadge } from './nav.js';
 import { openMenuComposer } from './page-product-menu.js';
 
@@ -59,18 +59,18 @@ async function renderProduct() {
             <div class="product-detail__image-wrap">
                 <img
                     class="product-detail__image"
-                    src="${product.image}"
-                    alt="${product.nom}"
+                    src="${escHtml(product.image)}"
+                    alt="${escHtml(product.nom)}"
                     onerror="this.src='assets/images/ui/logo.png'; this.alt='Image non disponible';"
                 >
             </div>
             <div class="product-detail__info">
-                <h1 class="product-detail__name">${product.nom}</h1>
+                <h1 class="product-detail__name">${escHtml(product.nom)}</h1>
                 <p class="product-detail__price">${formatPrice(product.prix)}</p>
                 <button
                     class="btn btn--primary btn--large product-detail__add"
                     id="add-to-cart-btn"
-                    aria-label="Ajouter ${product.nom} au panier"
+                    aria-label="Ajouter ${escHtml(product.nom)} au panier"
                     type="button"
                 >
                     Ajouter au panier

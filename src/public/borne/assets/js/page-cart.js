@@ -17,7 +17,7 @@
  * requires prices shown to end-consumers to include all taxes.
  */
 
-import { getCart, removeFromCart, updateQuantity, getTotalCents, computeMenuLineCents, clearCart, formatPrice } from './state.js';
+import { getCart, removeFromCart, updateQuantity, getTotalCents, computeMenuLineCents, clearCart, formatPrice, escHtml } from './state.js';
 import { refreshCartBadge } from './nav.js';
 
 /* TVA rate used for display breakdown only — stored prices are already TTC */
@@ -62,27 +62,27 @@ function renderCart() {
         row.innerHTML = `
             <img
                 class="cart-line__image"
-                src="${item.image}"
-                alt="${item.libelle}"
+                src="${escHtml(item.image)}"
+                alt="${escHtml(item.libelle)}"
                 onerror="this.src='assets/images/ui/logo.png'; this.alt='Image non disponible';"
             >
             <div class="cart-line__info">
-                <span class="cart-line__name">${item.libelle}</span>
+                <span class="cart-line__name">${escHtml(item.libelle)}</span>
                 <span class="cart-line__unit-price">${formatPrice(item.prix_cents)} / unite${isMenu && (item.supplement_cents ?? 0) > 0 ? ` + ${formatPrice(item.supplement_cents)} suppl.` : ''}</span>
                 ${isMenu && item.composition ? renderCompositionBlock(item) : ''}
             </div>
-            <div class="cart-line__qty" role="group" aria-label="Quantite de ${item.libelle}">
+            <div class="cart-line__qty" role="group" aria-label="Quantite de ${escHtml(item.libelle)}">
                 <button
                     class="qty-btn qty-btn--minus"
                     data-index="${index}"
-                    aria-label="Diminuer la quantite de ${item.libelle}"
+                    aria-label="Diminuer la quantite de ${escHtml(item.libelle)}"
                     type="button"
                 >-</button>
                 <span class="qty-value" aria-live="polite">${item.quantite}</span>
                 <button
                     class="qty-btn qty-btn--plus"
                     data-index="${index}"
-                    aria-label="Augmenter la quantite de ${item.libelle}"
+                    aria-label="Augmenter la quantite de ${escHtml(item.libelle)}"
                     type="button"
                 >+</button>
             </div>
@@ -90,7 +90,7 @@ function renderCart() {
             <button
                 class="cart-line__remove"
                 data-index="${index}"
-                aria-label="Supprimer ${item.libelle} du panier"
+                aria-label="Supprimer ${escHtml(item.libelle)} du panier"
                 type="button"
             >
                 <img src="assets/images/ui/trash.png" alt="" aria-hidden="true" width="24" height="24">
@@ -161,10 +161,10 @@ function renderCompositionBlock(item) {
 
     return `
         <ul class="cart-line__composition" aria-label="Composition du menu">
-            <li class="cart-line__comp-item">+ ${c.burger.libelle}${burgerOpts}</li>
-            <li class="cart-line__comp-item">+ ${c.accompagnement.libelle}${accompTailleLabel}</li>
-            <li class="cart-line__comp-item">+ ${c.boisson.libelle}${boissonTailleLabel}</li>
-            <li class="cart-line__comp-item">+ ${c.sauce.libelle}</li>
+            <li class="cart-line__comp-item">+ ${escHtml(c.burger.libelle)}${burgerOpts}</li>
+            <li class="cart-line__comp-item">+ ${escHtml(c.accompagnement.libelle)}${accompTailleLabel}</li>
+            <li class="cart-line__comp-item">+ ${escHtml(c.boisson.libelle)}${boissonTailleLabel}</li>
+            <li class="cart-line__comp-item">+ ${escHtml(c.sauce.libelle)}</li>
             ${supplTotal > 0 ? `<li class="cart-line__comp-suppl">Supplement ${nbGrandes} grande(s) : +${formatPrice(supplTotal)}</li>` : ''}
         </ul>
     `;

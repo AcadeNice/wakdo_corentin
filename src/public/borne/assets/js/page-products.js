@@ -7,7 +7,7 @@
  */
 
 import { getProductsByCategory, getCategoryById, CATEGORY_ID_TO_SLUG } from './data.js';
-import { formatPrice } from './state.js';
+import { formatPrice, escHtml } from './state.js';
 
 const params      = new URLSearchParams(window.location.search);
 const categoryId  = parseInt(params.get('category'), 10) || 1;
@@ -60,14 +60,14 @@ async function renderProducts() {
                 <div class="product-card__image-wrap">
                     <img
                         class="product-card__image"
-                        src="${product.image}"
-                        alt="${product.nom}"
+                        src="${escHtml(product.image)}"
+                        alt="${escHtml(product.nom)}"
                         loading="lazy"
                         onerror="this.src='assets/images/ui/logo.png'; this.alt='Image non disponible';"
                     >
                 </div>
                 <div class="product-card__body">
-                    <span class="product-card__name">${product.nom}</span>
+                    <span class="product-card__name">${escHtml(product.nom)}</span>
                     <span class="product-card__price">${formatPrice(product.prix)}</span>
                 </div>
             `;
