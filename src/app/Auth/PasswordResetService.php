@@ -38,6 +38,13 @@ final class PasswordResetService
         );
 
         if ($user === null) {
+            // Anti-enumeration (RG-2) : egaliser le profil du chemin email-inconnu
+            // avec celui du chemin email-connu (meme cout de generation de token +
+            // UNE ecriture), sans rien persister d'exploitable. Sans ce leurre, une
+            // reponse instantanee et zero ecriture trahissent qu'aucun compte ne
+            // correspond a l'email.
+            $this->payEnumerationDecoy($now);
+
             return;
         }
 
@@ -58,6 +65,26 @@ final class PasswordResetService
 
         $resetUrl = rtrim($baseUrl, '/') . '/reset_password?token=' . $rawToken;
         $this->mailer->sendPasswordReset($email, $resetUrl);
+    }
+
+    /**
+     * Leurre anti-enumeration du chemin email-inconnu : reproduit le cout CPU
+     * (generation d'un token CSPRNG + SHA-256) et UNE ecriture du chemin
+     * email-connu, mais cible id = 0 (aucune ligne affectee, rien persiste). Le
+     * temps de reponse et le nombre d'ecritures ne revelent plus l'existence
+     * d'un compte (parite avec requestReset cote email connu).
+     */
+    private function payEnumerationDecoy(int $now): void
+    {
+        $rawToken = bin2hex(random_bytes(32));
+        $tokenHash = hash('sha256', $rawToken);
+        $ttl = $this->config->int('PASSWORD_RESET_TTL', 3600);
+        $expiresAt = date('Y-m-d H:i:s', $now + $ttl);
+
+        $this->db->execute(
+            'UPDATE user SET password_reset_token_hash = :hash, password_reset_expires_at = :exp WHERE id = 0',
+            ['hash' => $tokenHash, 'exp' => $expiresAt],
+        );
     }
 
     /**

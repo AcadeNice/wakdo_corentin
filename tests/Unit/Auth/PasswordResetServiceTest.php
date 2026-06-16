@@ -57,13 +57,18 @@ final class PasswordResetServiceTest extends TestCase
         return new PasswordResetService($this->db, new Config(), $this->hasher, $this->mailer);
     }
 
-    public function testRequestUnknownEmailWritesNothingAndSendsNoMail(): void
+    public function testRequestUnknownEmailPaysDecoyWriteAndSendsNoMail(): void
     {
         $this->db->emailLookupRow = null;
 
         $this->service()->requestReset('ghost@wakdo.local', 'https://admin.wakdo.test', self::NOW);
 
-        self::assertSame([], $this->db->writes);
+        // Anti-enumeration : meme profil que le chemin email-connu (UNE ecriture
+        // de la meme forme), mais ciblant id = 0 -> rien persiste ; et aucun mail.
+        self::assertCount(1, $this->db->writes);
+        $decoy = $this->db->writes[0];
+        self::assertStringContainsString('password_reset_token_hash = :hash', $decoy['sql']);
+        self::assertStringContainsString('WHERE id = 0', $decoy['sql']);
         self::assertSame([], $this->mailer->sent);
     }
 

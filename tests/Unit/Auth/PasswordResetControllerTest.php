@@ -134,7 +134,10 @@ final class PasswordResetControllerTest extends TestCase
         self::assertSame(200, $response->status());
         self::assertStringContainsString('Si un compte', $response->body());
         self::assertSame([], $mailer->sent);
-        self::assertSame([], $db->writes);
+        // Anti-enumeration : un leurre (UPDATE no-op sur id = 0) aligne le profil
+        // d'ecritures sur le chemin email-connu ; rien n'est persiste.
+        self::assertCount(1, $db->writes);
+        self::assertStringContainsString('WHERE id = 0', $db->writes[0]['sql']);
     }
 
     public function testSubmitConfirmPasswordMismatchRendersError(): void
