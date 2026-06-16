@@ -160,6 +160,9 @@ final class DashboardControllerTest extends TestCase
         // Deconnexion = formulaire POST avec CSRF.
         self::assertStringContainsString('action="/logout"', $body);
         self::assertStringContainsString('name="_csrf"', $body);
+        // Le menu utilisateur rend la page self-service du PIN (decouvrable, pas
+        // seulement par URL directe).
+        self::assertStringContainsString('/admin/profile/pin', $body);
     }
 
     public function testForbiddenWhenPermissionDenied(): void

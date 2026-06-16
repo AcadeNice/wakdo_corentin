@@ -79,6 +79,8 @@ $navClass = static function (string $code, string $current): string {
                     </div>
                 </button>
                 <div class="dropdown-menu" id="userMenu">
+                    <a href="/admin/profile/pin">Mon PIN d'action sensible</a>
+                    <div class="divider"></div>
                     <form method="post" action="/logout">
                         <input type="hidden" name="_csrf" value="<?= $csrf ?>">
                         <button class="danger" type="submit">Se deconnecter</button>
