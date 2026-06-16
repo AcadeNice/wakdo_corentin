@@ -61,9 +61,32 @@ jobs:
     # COMPOSER-LESS (decision 4 / 5, PROJECT_CONTEXT.md) : PHPStan et PHPUnit
     # tournent depuis leur .phar autonome telecharge ici, jamais via Composer.
     # Versions epinglees pour des CI reproductibles (pas de "latest").
+    #
+    # Service MariaDB ephemere : le schema (db/migrations) et le seed (db/seeds)
+    # y sont appliques, puis PHPUnit tourne avec WAKDO_DB_TESTS=1 pour que les
+    # tests d'integration (tests/Integration/*DbTest) s'executent REELLEMENT.
+    # Sans base, ils s'auto-skippent et le SQL porteur de securite (throttle,
+    # RBAC is_active, audit in-transaction, FK) n'est jamais valide en CI.
+    # Identifiants ci-dessous : ephemeres, CI uniquement, jamais des secrets.
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: wakdo_test
+          MARIADB_USER: wakdo
+          MARIADB_PASSWORD: wakdo
     env:
       PHPUNIT_VERSION: "11.5.2"
       PHPSTAN_VERSION: "1.12.27"
+      # Connexion des tests d'integration au service `mariadb` ci-dessus
+      # (Database lit ces DB_* via getenv ; cf. src/app/Core/Database.php).
+      WAKDO_DB_TESTS: "1"
+      DB_HOST: mariadb
+      DB_PORT: "3306"
+      DB_NAME: wakdo_test
+      DB_USER: wakdo
+      DB_PASSWORD: wakdo
     steps:
       - uses: actions/checkout@v4
       - name: PHPStan (guarded)
@@ -82,7 +105,7 @@ jobs:
           php phpstan.phar --version
           # memory_limit=-1 : l'analyse parallele depasse les 128M par defaut du php-cli.
           php -d memory_limit=-1 phpstan.phar analyse --no-progress --error-format=raw
-      - name: PHPUnit (guarded)
+      - name: PHPUnit (guarded, avec tests d'integration DB)
         run: |
           set -eu
           if [ ! -d tests ] || [ ! -f phpunit.xml ]; then
@@ -90,10 +113,34 @@ jobs:
             exit 0
           fi
           echo "phpunit.xml + tests/ detected - running PHPUnit ${PHPUNIT_VERSION} via .phar"
-          apt-get update -qq && apt-get install -y -qq php-cli php-xml php-mbstring curl ca-certificates >/dev/null
+          # php-mysql = pilote pdo_mysql requis par les *DbTest ; mariadb-client
+          # pour appliquer schema + seed au service mariadb.
+          apt-get update -qq && apt-get install -y -qq php-cli php-xml php-mbstring php-mysql mariadb-client curl ca-certificates >/dev/null
+          # Attente active que le service MariaDB reponde (en plus du lien de service).
+          echo "Attente du service MariaDB ${DB_HOST}:${DB_PORT} ..."
+          ready=0
+          for i in $(seq 1 30); do
+            if mariadb -h"${DB_HOST}" -P"${DB_PORT}" -u"${DB_USER}" -p"${DB_PASSWORD}" -e "SELECT 1" "${DB_NAME}" >/dev/null 2>&1; then
+              echo "MariaDB pret (tentative ${i})."; ready=1; break
+            fi
+            sleep 2
+          done
+          [ "${ready}" = 1 ] || { echo "ERREUR: MariaDB injoignable apres 60s"; exit 1; }
+          # Schema (db/migrations) puis seed (db/seeds), ordre lexicographique.
+          for f in db/migrations/*.sql; do
+            echo "migrate $(basename "$f")"
+            mariadb -h"${DB_HOST}" -P"${DB_PORT}" -u"${DB_USER}" -p"${DB_PASSWORD}" "${DB_NAME}" < "$f"
+          done
+          for f in db/seeds/*.sql; do
+            echo "seed $(basename "$f")"
+            mariadb -h"${DB_HOST}" -P"${DB_PORT}" -u"${DB_USER}" -p"${DB_PASSWORD}" "${DB_NAME}" < "$f"
+          done
           curl -sSL "https://phar.phpunit.de/phpunit-${PHPUNIT_VERSION}.phar" -o phpunit.phar
           php phpunit.phar --version
-          php phpunit.phar -c phpunit.xml
+          # --fail-on-skipped : si un *DbTest s'auto-skippe (base injoignable), la
+          # CI echoue au lieu de masquer le trou derriere un vert. C'est le coeur
+          # du correctif : plus aucun skip silencieux des chemins securite.
+          php phpunit.phar -c phpunit.xml --fail-on-skipped
 
   auto-merge:
     # Fusion automatique OPT-IN : poser le label `auto-merge` sur la PR.
