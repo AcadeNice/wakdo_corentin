@@ -94,7 +94,7 @@ $navClass = static function (string $code, string $current): string {
             <a href="/admin/dashboard" class="<?= $navClass('dashboard', $active) ?>">Tableau de bord</a>
         </div>
 
-        <?php if ($can('product.read') || $can('menu.read') || $can('category.manage')): ?>
+        <?php if ($can('category.manage') || $can('product.read')): ?>
         <div class="sidebar-section">
             <div class="sidebar-section-label">Catalogue</div>
             <?php if ($can('category.manage')): ?>
@@ -103,30 +103,15 @@ $navClass = static function (string $code, string $current): string {
             <?php if ($can('product.read')): ?>
                 <a href="/admin/products" class="<?= $navClass('products', $active) ?>">Produits</a>
             <?php endif; ?>
-            <?php if ($can('menu.read')): ?>
-                <a href="/admin/menus" class="<?= $navClass('menus', $active) ?>">Menus</a>
-            <?php endif; ?>
         </div>
         <?php endif; ?>
 
-        <?php if ($can('order.read')): ?>
-        <div class="sidebar-section">
-            <div class="sidebar-section-label">Operations</div>
-            <a href="/admin/orders" class="<?= $navClass('orders', $active) ?>">Commandes</a>
-        </div>
-        <?php endif; ?>
-
-        <?php if ($can('user.read') || $can('role.manage')): ?>
-        <div class="sidebar-section">
-            <div class="sidebar-section-label">Administration</div>
-            <?php if ($can('user.read')): ?>
-                <a href="/admin/users" class="<?= $navClass('users', $active) ?>">Utilisateurs</a>
-            <?php endif; ?>
-            <?php if ($can('role.manage')): ?>
-                <a href="/admin/roles" class="<?= $navClass('roles', $active) ?>">Roles</a>
-            <?php endif; ?>
-        </div>
-        <?php endif; ?>
+        <?php /*
+            Items de nav volontairement absents tant que leur page n'existe pas
+            (un lien vers une route non enregistree renvoie un 404). A reactiver
+            avec leur route respective : Menus (menu.read), Commandes (order.read),
+            Utilisateurs (user.read), Roles (role.manage) -- P3 suite / P4.
+        */ ?>
     </nav>
 
     <main class="content">

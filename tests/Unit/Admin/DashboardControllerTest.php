@@ -150,10 +150,13 @@ final class DashboardControllerTest extends TestCase
         // Marqueur present UNIQUEMENT dans le fragment dashboard (absent du layout) :
         // verifie que le contenu est bien compose DANS le shell (pas un $content vide).
         self::assertStringContainsString('Bienvenue, Corentin J', $body);
-        // Navigation conditionnee aux permissions.
-        self::assertStringContainsString('/admin/products', $body);   // product.read present
-        self::assertStringContainsString('/admin/users', $body);      // user.read present
-        self::assertStringNotContainsString('/admin/roles', $body);   // role.manage absent
+        // Navigation conditionnee aux permissions : un lien n'apparait que si la
+        // permission est presente ET la page existe.
+        self::assertStringContainsString('/admin/products', $body);      // product.read present + page existante
+        // user.read est present, mais la page /admin/users n'existe pas encore :
+        // le lien est retire pour ne pas exposer un 404 (cf. layout.php).
+        self::assertStringNotContainsString('/admin/users', $body);
+        self::assertStringNotContainsString('/admin/roles', $body);      // pas de page + role.manage absent
         // Deconnexion = formulaire POST avec CSRF.
         self::assertStringContainsString('action="/logout"', $body);
         self::assertStringContainsString('name="_csrf"', $body);
