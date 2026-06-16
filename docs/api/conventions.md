@@ -29,7 +29,7 @@ Client (borne / navigateur back-office)
     -> wakdo-web (Apache, vhost selon le Host)
        - vhost kiosk  : DocumentRoot src/public/borne  (statique + futur appel /api)
        - vhost admin  : DocumentRoot src/public/admin
-         - fichier existant (login.html, *.css) : servi tel quel
+         - fichier existant (assets/ : css, js, images) : servi tel quel
          - sinon RewriteRule -> index.php (front controller)
     -> wakdo-app (PHP-FPM, via proxy FastCGI sur *.php)
        front controller -> Router -> Controller -> Response
