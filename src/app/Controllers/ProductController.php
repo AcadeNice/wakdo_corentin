@@ -240,6 +240,10 @@ class ProductController extends AdminController
 
         $name = (string) ($product['name'] ?? '');
 
+        // FK RESTRICT (order_item / menu / menu_slot_option / order_item_selection)
+        // -> PDOException 23000 -> 422 (catch ci-dessous). product_ingredient est
+        // CASCADE (recette possedee par le produit) : supprimee avec lui, jamais
+        // bloquante (cf. docblock ProductRepository).
         try {
             $this->db()->transaction(function (DatabaseInterface $db) use ($id, $actor, $name): void {
                 $deleted = (new ProductRepository($db))->delete($id);

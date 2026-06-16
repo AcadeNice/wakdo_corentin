@@ -8,10 +8,18 @@ use App\Core\DatabaseInterface;
 
 /**
  * Acces aux donnees de la table product (sous-domaine Catalogue). Suit le pattern
- * etabli par CategoryRepository. La suppression dure peut etre bloquee par des FK
- * RESTRICT (order_item, menu.burger_product_id, menu_slot_option,
- * order_item_selection) : le controleur attrape la violation (SQLSTATE 23000) ->
- * 422, plutot que de pre-tester chaque reference.
+ * etabli par CategoryRepository.
+ *
+ * Topologie des FK entrantes sur product(id) (db/migrations/0001) et effet sur la
+ * suppression dure :
+ *  - RESTRICT (bloquent la suppression) : order_item, menu.burger_product_id,
+ *    menu_slot_option, order_item_selection. Le controleur attrape la violation
+ *    (SQLSTATE 23000) -> 422, plutot que de pre-tester chaque reference.
+ *  - CASCADE : product_ingredient (la recette appartient au produit ; la
+ *    supprimer avec le produit est voulu). La suppression n'est donc PAS bloquee
+ *    par une recette existante. TODO (phase stock/recettes, table aujourd'hui
+ *    vide) : tracer le nombre de lignes product_ingredient cascade-supprimees
+ *    dans l'audit_log pour ne laisser aucune perte hors-trace.
  */
 final class ProductRepository
 {
