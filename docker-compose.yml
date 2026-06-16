@@ -266,14 +266,18 @@ services:
     init: true
 
     environment:
-      # Credentials BDD pour mysqldump (lecture seule via USER applicatif,
-      # PAS le root password). Le user applicatif doit avoir SELECT +
-      # LOCK TABLES + SHOW VIEW sur la BDD (migrations P2).
+      # Credentials BDD pour mysqldump et les purges. Le user applicatif est en
+      # moindre privilege (DML + SELECT/SHOW VIEW/TRIGGER/LOCK TABLES, jamais le
+      # root password ; cf. db/init/10-scope-app-user.sh).
       DB_HOST: ${DB_HOST}
       DB_PORT: ${DB_PORT}
       DB_NAME: ${DB_NAME}
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
+      # Retention des donnees (mlt.md 13.4/13.5). Defaut applique par les scripts
+      # ET ici, pour rester coherent si la var manque du .env.
+      AUDIT_LOG_RETENTION_DAYS: ${AUDIT_LOG_RETENTION_DAYS:-365}
+      THROTTLE_PURGE_AFTER_HOURS: ${THROTTLE_PURGE_AFTER_HOURS:-24}
       TZ: ${CRON_TIMEZONE:-Europe/Paris}
 
     volumes:
