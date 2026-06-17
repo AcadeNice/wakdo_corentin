@@ -55,9 +55,9 @@ Realisation avec l'assistance d'outils d'IA generative (Claude Code, BYAN), conf
 | Tests | PHPUnit | 11.x (`.phar` autonome, sans Composer) |
 | Front | HTML5 + CSS3 + JS ES6+ vanilla | — |
 | Conteneurisation | Docker + docker compose v2 | — |
-| Orchestration locale | Makefile | — |
-| CI/CD | GitHub Actions | — |
-| Versioning | Git + GitHub | Conventional Commits |
+| Orchestration locale | docker compose v2 (service one-shot `wakdo-migrate`) | — |
+| CI/CD | Forgejo Actions | — |
+| Versioning | Git + Forgejo (`git.acadenice.com`, miroir GitHub) | Conventional Commits |
 
 Detail et justifications : `docs/PROJECT_CONTEXT.md` section 6.
 
@@ -106,18 +106,21 @@ git clone git@github.com:AcadeNice/wakdo_corentin.git
 cd wakdo_corentin
 cp .env.example .env
 # Editer .env : DB_PASSWORD, DB_ROOT_PASSWORD, APP_URL_*, TRAEFIK_DOMAIN_*
-make init
+docker compose up -d
 ```
 
 > **Attention au `.env` pre-existant.** Si un fichier `.env` existe deja a la racine (tooling externe, autre plateforme installee dans le meme repertoire), **ne pas faire** `cp .env.example .env` — cela ecraserait les variables existantes. Faire un **merge manuel** a la place : ajouter les variables manquantes du template dans le `.env` actuel. Les prefixes de variables de ce projet (`APP_`, `DB_`, `SESSION_`, `CORS_`, `UPLOAD_`, `CRON_`, `TRAEFIK_`, `REVERSE_PROXY_`) sont disjoints de ceux utilises par des outils tiers courants, donc la cohabitation est safe.
 
-Critere RNCP Cr 7.c.4 couvert : une seule commande (`make init`) orchestre build, demarrage, attente BDD, migrations et seed.
+Critere RNCP Cr 7.c.4 couvert : une seule commande (`docker compose up -d`) lance la
+stack complete. Le service one-shot `wakdo-migrate` applique le schema (migrations)
+puis les donnees de reference (seed) avant que l'app ne serve ; `wakdo-app`/`wakdo-web`
+attendent sa completion (`depends_on: service_completed_successfully`). Migrations et
+seed sont idempotents (tables de suivi `schema_migrations` / `seeds_applied`).
+Detail : `docs/journal/2026-06-17--makefile-to-compose-migrate.md`.
 
-Services accessibles apres `make init` :
+Services accessibles apres `docker compose up -d` :
 - Borne : la valeur de `TRAEFIK_DOMAIN_KIOSK` dans `.env`
 - Admin + API : la valeur de `TRAEFIK_DOMAIN_ADMIN` dans `.env`
-
-Liste complete des cibles : `make help`.
 
 ### Installation Docker sur un hote neuf (Debian / Ubuntu)
 
@@ -153,13 +156,13 @@ docker network create mon_reseau_proxy
 # REVERSE_PROXY_NETWORK=mon_reseau_proxy
 ```
 
-Avant le premier `make init`, s'assurer que le reseau existe. Verification rapide :
+Avant le premier `docker compose up`, s'assurer que le reseau existe. Verification rapide :
 
 ```bash
 docker network inspect "$(grep ^REVERSE_PROXY_NETWORK .env | cut -d= -f2)"
 ```
 
-Si la commande retourne une erreur, soit adapter `REVERSE_PROXY_NETWORK` au nom du reseau utilise par votre proxy, soit creer le reseau manuellement. La cible `make init` echoue proprement avec un message d'aide si le reseau est introuvable.
+Si la commande retourne une erreur, soit adapter `REVERSE_PROXY_NETWORK` au nom du reseau utilise par votre proxy, soit creer le reseau manuellement (le reseau externe doit exister avant `docker compose up`).
 
 *Section mise a jour au fil de l'implementation (migrations reelles, seed, CI/CD deploiement).*
 
@@ -170,8 +173,8 @@ Si la commande retourne une erreur, soit adapter `REVERSE_PROXY_NETWORK` au nom 
 ```
 .
 |-- .claude/                     # Methodologie BYAN (visible jury : CLAUDE.md + rules/)
-|-- .github/
-|   `-- workflows/               # CI/CD GitHub Actions [a venir]
+|-- .forgejo/
+|   `-- workflows/               # CI Forgejo Actions (ci.yml : secret-scan, php-lint, static-tests, js-tests, auto-merge)
 |-- .githooks/                   # pre-commit + commit-msg [a venir]
 |-- docker/                      # Dockerfiles customs par service
 |   |-- apache/
@@ -199,7 +202,6 @@ Si la commande retourne une erreur, soit adapter `REVERSE_PROXY_NETWORK` au nom 
 |-- .env.example
 |-- .dockerignore
 |-- .gitignore
-|-- Makefile
 |-- docker-compose.yml
 `-- README.md
 ```
@@ -212,7 +214,7 @@ Si la commande retourne une erreur, soit adapter `REVERSE_PROXY_NETWORK` au nom 
 
 - **Commits** : Conventional Commits en anglais (`feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `ci`, `db`, `perf`, `style`). Format : `type(scope): description`. Voir `docs/PROJECT_CONTEXT.md` section 9.
 - **Branches** : `feat/*`, `fix/*`, `refactor/*`, `docs/*`, `ci/*`, `db/*`, `chore/*`, `test/*` depuis `dev`. Merge vers `dev` par PR squashee. Periodiquement `dev` -> `main` par PR avec tag semver.
-- `main` et `dev` sont proteges cote GitHub (PR requise, force push bloque, resolution des conversations requise).
+- `main` et `dev` sont proteges cote Forgejo (PR requise, force push bloque, checks requis : secret-scan / php-lint / static-tests).
 - Pas d'emoji dans le code, les commits ou les specs techniques (Mantra IA-23).
 
 *Sections detaillees (setup env de dev, lint, tests) : a completer au fil de l'implementation.*
@@ -227,7 +229,7 @@ Si la commande retourne une erreur, soit adapter `REVERSE_PROXY_NETWORK` au nom 
 
 ## Deploiement
 
-*Section a completer. Strategie cible : CI GitHub Actions sur PR vers `dev` (lint + PHPUnit), CD automatique sur merge vers `main` via SSH + `make rebuild`, voir `docs/PROJECT_CONTEXT.md` section 7 Bloc 5.*
+*Strategie : CI Forgejo Actions sur PR vers `dev`/`main` (secret-scan gitleaks, php-lint, static-tests PHPStan+PHPUnit, js-tests) avec auto-merge sur label + CI verte. CD : declenchement humain, redeploiement par `docker compose pull && docker compose up -d`. Voir `docs/PROJECT_CONTEXT.md` section 7 Bloc 5.*
 
 ---
 

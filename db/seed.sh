@@ -27,7 +27,7 @@ DB_ROOT_PASSWORD="$(grep -E '^DB_ROOT_PASSWORD=' "$ENV_FILE" | cut -d= -f2-)"
 
 db() { docker exec -i "$CONTAINER" mariadb -uroot -p"$DB_ROOT_PASSWORD" "$@"; }
 
-docker exec "$CONTAINER" true 2>/dev/null || { echo "ERREUR : conteneur $CONTAINER non demarre (make up)" >&2; exit 1; }
+docker exec "$CONTAINER" true 2>/dev/null || { echo "ERREUR : conteneur $CONTAINER non demarre (docker compose up -d)" >&2; exit 1; }
 
 if [ ! -d "$SEEDS_DIR" ]; then
   echo "[seed] aucun repertoire db/seeds/ - rien a charger"

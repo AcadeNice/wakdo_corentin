@@ -7,7 +7,9 @@
 # deja appliques, donc relancer ne rejoue que les nouvelles migrations.
 #
 # Cible : le service docker-compose `wakdo-db` (MariaDB). Lance depuis l'hote
-# (c'est ce que `make migrate` appellera). Identifiants lus dans .env.
+# (usage manuel / `--status`, identifiants lus dans .env). Au boot de la stack,
+# c'est le service `wakdo-migrate` (db/migrate-container.sh, via le reseau) qui
+# applique migrations + seed automatiquement.
 #
 # Usage :
 #   bash db/migrate.sh            # applique les migrations en attente
@@ -30,7 +32,7 @@ DB_ROOT_PASSWORD="$(grep -E '^DB_ROOT_PASSWORD=' "$ENV_FILE" | cut -d= -f2-)"
 db() { docker exec -i "$CONTAINER" mariadb -uroot -p"$DB_ROOT_PASSWORD" "$@"; }
 
 # Le conteneur doit etre en marche.
-docker exec "$CONTAINER" true 2>/dev/null || { echo "ERREUR : conteneur $CONTAINER non demarre (make up)" >&2; exit 1; }
+docker exec "$CONTAINER" true 2>/dev/null || { echo "ERREUR : conteneur $CONTAINER non demarre (docker compose up -d)" >&2; exit 1; }
 
 # Journal des migrations appliquees.
 db "$DB_NAME" -e "CREATE TABLE IF NOT EXISTS schema_migrations (

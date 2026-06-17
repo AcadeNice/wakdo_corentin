@@ -22,7 +22,7 @@ bash db/migrate.sh --status   # liste l'etat sans rien appliquer
 Le runner cible le conteneur `wakdo-db` et lit les identifiants dans `.env`
 (`DB_NAME`, `DB_ROOT_PASSWORD`). Il maintient une table `schema_migrations`
 (une ligne par fichier applique) : relancer ne rejoue que les nouvelles
-migrations. La cible `make migrate` est destinee a appeler ce script.
+migrations. La cible `bash db/migrate.sh` est destinee a appeler ce script.
 
 ## Conventions
 

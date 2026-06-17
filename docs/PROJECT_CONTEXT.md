@@ -113,13 +113,13 @@ Client                Borne (Bloc 1)           API (Bloc 2)          BDD
 
 **Un seul codebase, deux FQDN d'exposition publique.** Le front Bloc 1 et le back Bloc 2 coexistent dans la meme arborescence. Une bascule mode JSON-seuls (Bloc 1 isole) vs mode API-connecte doit rester possible via configuration.
 
-**Pourquoi pas strategie A (deux rendus isoles)** : le Bloc 5 DevOps impose une conteneurisation **unique** qui lance la stack complete avec `make init` en une commande (Cr 7.c.4). Deux codebases isolees seraient incoherentes avec cette exigence.
+**Pourquoi pas strategie A (deux rendus isoles)** : le Bloc 5 DevOps impose une conteneurisation **unique** qui lance la stack complete avec `docker compose up` en une commande (Cr 7.c.4). Deux codebases isolees seraient incoherentes avec cette exigence.
 
 ### Compatibilite evaluation par bloc
 
 - **Jury Bloc 1** : voit le front seul ; le front peut tomber en fallback sur JSON statiques fournis (`src/public/borne/data/*.json`) si l'API est indisponible.
 - **Jury Bloc 2** : voit le back-office + teste l'API via curl/Postman de maniere autonome, sans dependre du front.
-- **Jury Bloc 5** : lance `make init` ou `docker compose up`, verifie la CI/CD, les crons, l'archi, les scripts.
+- **Jury Bloc 5** : lance `docker compose up` ou `docker compose up`, verifie la CI/CD, les crons, l'archi, les scripts.
 
 ---
 
@@ -193,7 +193,7 @@ Reseaux :
 | Reverse proxy | Traefik (deja en place) | existant | `admin_proxy` network |
 | TLS | Let's Encrypt via Traefik | auto | `acme.json` existant |
 | Conteneurisation | Docker + docker compose | v2 | Cr 7.c |
-| Orchestration locale | Makefile | — | Cr 7.b (script) + Cr 7.c.4 (une commande) |
+| Orchestration locale | docker compose (service wakdo-migrate) | — | Cr 7.b (script) + Cr 7.c.4 (une commande) |
 | CI/CD | Forgejo Actions (act_runner auto-heberge) | — | Cr 7.d |
 | Versioning | Git + Forgejo auto-heberge (push-mirror GitHub) | — | Cr 4.f (collaboration) |
 | Hooks Git | pre-commit + commit-msg | versionnes dans `.githooks/` | Conventional Commits |
@@ -263,14 +263,14 @@ Reseaux :
 **IN scope :**
 - Dockerfile custom PHP-FPM avec extensions
 - `docker-compose.yml` orchestrant les 4 services (web, app, db, cron)
-- `Makefile` avec cible `make init` qui lance tout en une commande (Cr 7.c.4)
+- `docker compose up` lance toute la stack (service one-shot `wakdo-migrate` : migrations + seed idempotents) en une commande (Cr 7.c.4)
 - Scripts Bash d'automatisation (backup, deploy, migrate)
 - **Cron tab** avec au moins 3 jobs planifies dans la fenetre de maintenance (01h30-09h30) :
   - `0 3 * * *` — backup BDD quotidien a 03h00 (entre fin service 01h et ouverture 10h)
   - `*/15 * * * *` — purge sessions expirees toutes les 15 min (leger, peut tourner en service)
   - `30 4 * * *` — agregation stats commandes a 04h30 sur le **jour de service** ecoule (10h J-1 → 01h J)
 - **CI Forgejo Actions** (act_runner auto-heberge) : lint PHP + PHPStan + PHPUnit + secret-scan (gitleaks) sur PR -> dev
-- **CD Forgejo Actions** : deploy auto sur merge main (SSH + pull + `make rebuild`)
+- **CD Forgejo Actions** : deploy auto sur merge main (SSH + `docker compose pull && docker compose up -d`)
 - `.env.example` documente (parametres securite : argon2id, lockout, seuils throttle, retention RGPD), secrets hors du repo
 - `php.ini` durci (expose_php off, session cookies httponly/secure/samesite, upload limite)
 - Healthcheck Traefik + readiness probes
@@ -328,13 +328,13 @@ Reseaux :
 | Critere | Libelle court | Feature Wakdo couvrant |
 |---|---|---|
 | Cr 7.a.1-3 | Analyse infra + securite | Audit code + proposition automatisation documentee |
-| Cr 7.b.1 | Langage de script | Bash (deploy, backup) + Makefile |
-| Cr 7.b.2 | Automatisation fiabilisee | Makefile avec exit codes, retries, logs |
+| Cr 7.b.1 | Langage de script | Bash (db/*.sh migrate/seed, scripts/forgejo-*.sh, entrypoints, backup) |
+| Cr 7.b.2 | Automatisation fiabilisee | Scripts Bash (set -euo pipefail, exit codes, logs) + service compose wakdo-migrate idempotent |
 | Cr 7.b.3 | **Cron tab** | `wakdo-cron` service avec crontab : backup BDD, purge sessions, stats |
 | Cr 7.c.1 | VM operationnelle | Serveur existant Acadenice |
 | Cr 7.c.2 | OS conteneur installe | Docker Engine |
 | Cr 7.c.3 | App conteneurisee complete | 4 services (web, app, db, cron) |
-| Cr 7.c.4 | **Une ligne de commande** | `make init` lance toute la stack + migrate + seed |
+| Cr 7.c.4 | **Une ligne de commande** | `docker compose up` lance toute la stack + migrate + seed |
 | Cr 7.d.1 | Architecture serveur | Traefik reverse + reseaux segmentes documentes |
 | Cr 7.d.2 | Tests avant deploy | CI PHPUnit + PHPStan + secret-scan sur PR (Forgejo Actions) |
 | Cr 7.d.3 | Integration/deploiement continus | Forgejo Actions deploy automatique sur merge main |
@@ -439,7 +439,7 @@ Les branches `main` et `dev` sont **protegees** cote Forgejo (push direct interd
 | 8 | 2 FQDN | Separation claire borne publique / admin+API interne, defensible jury |
 | 9 | API sous `/api` sur le FQDN admin | Simplicite d'exploitation, CORS explicite gere |
 | 10 | Service cron dedie | Cr 7.b.3 explicite + realiste prod |
-| 11 | Makefile avec `make init` | Cr 7.c.4 + demonstration DevOps |
+| 11 | Orchestration `docker compose up` (service wakdo-migrate) | Cr 7.c.4 + demonstration DevOps |
 | 12 | Conventional Commits + hooks | Cr 4.f.x + discipline de versioning |
 | 13 | Branches feat/* -> dev -> main | Pipeline propre pour jury, PR tracee (Forgejo, mirror GitHub) |
 | 14 | CI/CD Forgejo Actions (act_runner auto-heberge) | Cr 7.d explicite ; forge + CI maitrisees de bout en bout (argument Bloc 5) |
@@ -490,7 +490,7 @@ Buffer : ~8 h pour imprevus. Cible effective : ~264 h sur 20 semaines = **~13 h/
 **Bloc 5 :**
 - `docker-compose.yml` commente
 - Dockerfiles customs commentes
-- `Makefile` avec `make help`
+- Orchestration via `docker compose` (service one-shot `wakdo-migrate` : migrate + seed)
 - `.forgejo/workflows/` avec CI (PHPUnit + PHPStan + secret-scan) + CD
 - Crontab documente
 - Script de backup/restore teste
@@ -500,7 +500,7 @@ Buffer : ~8 h pour imprevus. Cible effective : ~264 h sur 20 semaines = **~13 h/
 
 - **README.md** synthetique (quick start + liens docs)
 - **Presentation** (slides ou live) argumentant les choix
-- **Demo** live : borne + back-office + API (Postman/curl) + `make init`
+- **Demo** live : borne + back-office + API (Postman/curl) + `docker compose up`
 - **Capacite modification en direct** (Cr 4.a.1) : code structure pour permettre modifs sans casser
 
 ---
@@ -511,7 +511,7 @@ Buffer : ~8 h pour imprevus. Cible effective : ~264 h sur 20 semaines = **~13 h/
 |---|---|---|---|
 | Sous-estimation temps front (accessibilite RGAA stricte) | Haute | Moyen | 60 h budgetees + tests W3C/axe-core pendant le dev, pas a la fin |
 | Complexite MCT (statuts commande) mal modelisee | Moyenne | Fort | Valider MCT avec un pair ou prof avant d'implementer Bloc 2 |
-| Dockerfile PHP extensions manquantes decouvert tard | Moyenne | Faible | Tester `make up` + un vrai appel BDD des P0 |
+| Dockerfile PHP extensions manquantes decouvert tard | Moyenne | Faible | Tester `docker compose up -d` + un vrai appel BDD des P0 |
 | Conflit reseau Docker `wakdo_internal` existant | Faible | Faible | Verifie au setup, fallback nom `wakdo_backend` |
 | CORS mal configure bloque la borne | Moyenne | Moyen | Test immediat apres setup 2 FQDN |
 | Performance borne sur ecran tactile reel | Faible | Fort | Optimiser images + lazy loading + tests sur device tactile si possible |
@@ -614,7 +614,7 @@ L'auteur peut recourir ponctuellement a d'autres outils IA (completion IDE, assi
 - **Choix du scope fonctionnel** : defini par l'auteur a partir du brief RNCP. L'IA n'ajoute ni ne retire de fonctionnalite sans instruction explicite.
 - **Modelisation Merise** (MCD, MCT, MLD) : formalisation produite par l'IA a partir du dictionnaire de donnees et des user stories ; arbitrage, validation et corrections par l'auteur. Chaque cardinalite, chaque relation et chaque transition de statut est validee par l'auteur avant integration. Le livrable final reflete ses decisions.
 - **Validation des livrables** : reservee au jury. L'IA n'emet pas de jugement final sur la conformite RNCP.
-- **Deploiements** : declenchement humain uniquement, y compris sur `make init` local. Aucune action sur environnement serveur sans instruction explicite.
+- **Deploiements** : declenchement humain uniquement, y compris sur `docker compose up` local. Aucune action sur environnement serveur sans instruction explicite.
 - **Commit en son nom** : aucun trailer `Co-Authored-By: Claude...` n'est appose sur les commits. Voir section 17.7.
 - **Decisions de securite critiques** : tous les choix de type hash mdp, CORS, RBAC, politique sessions sont valides par l'auteur meme si l'IA en propose la mise en oeuvre.
 
