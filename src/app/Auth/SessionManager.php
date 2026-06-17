@@ -48,11 +48,12 @@ final class SessionManager
 
         // lifetime=0 : cookie de session ; les bornes idle 4h / absolue 10h sont
         // appliquees applicativement par SessionGuard (RG-6), pas par le cookie.
-        // secure+httponly+SameSite=Strict : back-office, aucune entree cross-site.
+        // secure (conditionnel HTTPS, cf. cookieSecure)+httponly+SameSite=Strict :
+        // back-office, aucune entree cross-site.
         session_set_cookie_params([
             'lifetime' => 0,
             'path' => '/',
-            'secure' => true,
+            'secure' => $this->cookieSecure(),
             'httponly' => true,
             'samesite' => 'Strict',
         ]);
@@ -147,7 +148,7 @@ final class SessionManager
                 setcookie($name, '', [
                     'expires' => time() - 3600,
                     'path' => '/',
-                    'secure' => true,
+                    'secure' => $this->cookieSecure(),
                     'httponly' => true,
                     'samesite' => 'Strict',
                 ]);
@@ -157,6 +158,28 @@ final class SessionManager
         if (session_status() === PHP_SESSION_ACTIVE) {
             session_destroy();
         }
+    }
+
+    /**
+     * Le cookie de session est marque Secure UNIQUEMENT sur une connexion HTTPS.
+     * En HTTP (dev / standalone local) un cookie Secure serait rejete par le
+     * navigateur et casserait la session. En prod, Traefik termine le TLS et
+     * transmet X-Forwarded-Proto=https ; l'app n'etant joignable que par ce proxy
+     * sur le reseau interne, cet en-tete est fiable ici.
+     */
+    private function cookieSecure(): bool
+    {
+        $forwarded = $_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '';
+        if (is_string($forwarded) && strtolower($forwarded) === 'https') {
+            return true;
+        }
+
+        $https = $_SERVER['HTTPS'] ?? '';
+        if (is_string($https) && $https !== '' && strtolower($https) !== 'off') {
+            return true;
+        }
+
+        return ((int) ($_SERVER['SERVER_PORT'] ?? 0)) === 443;
     }
 
     public function id(): string

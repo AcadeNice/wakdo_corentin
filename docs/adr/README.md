@@ -17,6 +17,7 @@ une decision revisee donne une nouvelle fiche qui *supersede* l'ancienne (statut
 | [0007](0007-rgpd-anonymisation-tombstone.md) | Effacement RGPD par anonymisation (tombstone), pas DELETE | Accepte |
 | [0008](0008-makefile-vers-compose-migrate.md) | Du Makefile a `docker compose up` (service wakdo-migrate) | Accepte |
 | [0009](0009-compose-standalone-et-prod-gitignore.md) | docker-compose.yml standalone + docker-compose.prod.yml gitignore | Accepte |
+| [0010](0010-cookie-secure-conditionnel-https.md) | Cookie de session Secure conditionnel au HTTPS | Accepte |
 
 ## Modele de fiche
 
