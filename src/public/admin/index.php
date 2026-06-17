@@ -23,6 +23,7 @@ use App\Controllers\PasswordResetController;
 use App\Controllers\ProductController;
 use App\Controllers\ProfileController;
 use App\Controllers\StatsController;
+use App\Controllers\RoleController;
 use App\Controllers\UserController;
 use App\Core\Autoloader;
 use App\Core\Config;
@@ -89,6 +90,14 @@ try {
     $router->add('POST', '/admin/users/{id}/reset-pin', [UserController::class, 'resetPin']);
     $router->add('GET', '/admin/users/{id}/erase', [UserController::class, 'confirmErase']);
     $router->add('POST', '/admin/users/{id}/erase', [UserController::class, 'erase']);
+
+    // RBAC (mlt 10.4, role.manage) : matrice roles x permissions + roles custom.
+    // Toute mutation = PIN equipier + audit (details = diff de permissions, RG-6).
+    $router->add('GET', '/admin/roles', [RoleController::class, 'index']);
+    $router->add('GET', '/admin/roles/new', [RoleController::class, 'create']);
+    $router->add('POST', '/admin/roles', [RoleController::class, 'store']);
+    $router->add('GET', '/admin/roles/{id}/edit', [RoleController::class, 'edit']);
+    $router->add('POST', '/admin/roles/{id}', [RoleController::class, 'update']);
 
     // CRUD Categories (permission category.manage). Pas de suppression dure : toggle is_active.
     $router->add('GET', '/admin/categories', [CategoryController::class, 'index']);

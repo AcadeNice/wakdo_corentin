@@ -238,6 +238,44 @@ final class FakeDatabase implements DatabaseInterface
     public array $rolesRows = [];
 
     /**
+     * Lignes renvoyees par RoleRepository::allRoles().
+     *
+     * @var list<array<string, mixed>>
+     */
+    public array $rolesAllRows = [];
+
+    /**
+     * Ligne renvoyee par RoleRepository::findRole() ; null = absent.
+     *
+     * @var array<string, mixed>|null
+     */
+    public ?array $roleManageRow = null;
+
+    /** Resultat de RoleRepository::codeExists(). */
+    public bool $roleCodeTaken = false;
+
+    /**
+     * Catalogue renvoye par RoleRepository::allPermissions().
+     *
+     * @var list<array<string, mixed>>
+     */
+    public array $permissionsRows = [];
+
+    /**
+     * Lignes {permission_id} renvoyees par RoleRepository::permissionIdsFor().
+     *
+     * @var list<array<string, mixed>>
+     */
+    public array $rolePermIds = [];
+
+    /**
+     * Lignes {source} renvoyees par RoleRepository::visibleSources().
+     *
+     * @var list<array<string, mixed>>
+     */
+    public array $roleSources = [];
+
+    /**
      * Allowlist optionnelle de codes de permission accordes (RG-T03). Si non nul,
      * can() repond par appartenance du :code lie a cette liste (permet de tester la
      * differenciation par permission, ex. RG-4 : stock.read sans stock.manage) ;
@@ -317,6 +355,15 @@ final class FakeDatabase implements DatabaseInterface
 
         if (str_contains($sql, 'FROM role WHERE id = :id AND is_active = 1')) {
             return $this->roleActiveExists ? ['id' => 1] : null;
+        }
+
+        // RBAC (RoleRepository) : findRole (7 colonnes) + codeExists (unicite).
+        if (str_contains($sql, 'order_source, is_active FROM role WHERE id = :id')) {
+            return $this->roleManageRow;
+        }
+
+        if (str_contains($sql, 'FROM role WHERE code = :code AND id <> :id')) {
+            return $this->roleCodeTaken ? ['id' => 1] : null;
         }
 
         if (str_contains($sql, 'LAST_INSERT_ID')) {
@@ -472,6 +519,26 @@ final class FakeDatabase implements DatabaseInterface
             return $this->movementsRows;
         }
 
+        // --- RBAC (RoleRepository) ---
+        if (str_contains($sql, 'FROM role ORDER BY id')) {
+            return $this->rolesAllRows;
+        }
+
+        if (str_contains($sql, 'FROM permission ORDER BY id')) {
+            return $this->permissionsRows;
+        }
+
+        if (str_contains($sql, 'permission_id FROM role_permission WHERE role_id')) {
+            return $this->rolePermIds;
+        }
+
+        if (str_contains($sql, 'FROM role_visible_source WHERE role_id')) {
+            return $this->roleSources;
+        }
+
+        // Sert Authorizer::permissionsFor ET RoleRepository::permissionCodesFor
+        // (meme requete 'SELECT p.code FROM role_permission rp JOIN permission p') :
+        // les deux renvoient $permissionCodes (le diff RBAC reutilise ce bouton).
         if (str_contains($sql, 'SELECT p.code FROM role_permission')) {
             if (!$this->roleActive) {
                 return [];
