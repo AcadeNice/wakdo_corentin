@@ -91,6 +91,11 @@ try {
     $router->add('POST', '/admin/products/{id}', [ProductController::class, 'update']);
     $router->add('GET', '/admin/products/{id}/delete', [ProductController::class, 'confirmDelete']);
     $router->add('POST', '/admin/products/{id}/delete', [ProductController::class, 'destroy']);
+    // Editeur de recette (composition product_ingredient). Permission ingredient.manage
+    // (composition), distincte du CRUD produit ; sans PIN. Debloque la dispo calculee
+    // RG-T21 et ferme la dette #27 (trace cascade a la suppression).
+    $router->add('GET', '/admin/products/{id}/recipe', [ProductController::class, 'recipeForm']);
+    $router->add('POST', '/admin/products/{id}/recipe', [ProductController::class, 'saveRecipe']);
 
     // CRUD Menus (menu.read/create/update/delete). Menu compose = burger de base +
     // slots (menu_slot / menu_slot_option). PIN equipier + audit sur suppression

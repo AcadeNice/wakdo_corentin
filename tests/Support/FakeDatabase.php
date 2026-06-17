@@ -184,6 +184,24 @@ final class FakeDatabase implements DatabaseInterface
     public array $movementsRows = [];
 
     /**
+     * Lignes renvoyees par ProductRepository::composition() (JOIN product_ingredient/ingredient).
+     *
+     * @var list<array<string, mixed>>
+     */
+    public array $compositionRows = [];
+
+    /**
+     * Lignes {product_id} renvoyees par ProductRepository::autoUnavailableIds()
+     * (produits en rupture automatique par le stock, RG-T21).
+     *
+     * @var list<array<string, mixed>>
+     */
+    public array $autoUnavailableRows = [];
+
+    /** Compteur renvoye par ProductRepository::compositionCount() (trace cascade #27). */
+    public int $productCompositionCount = 0;
+
+    /**
      * Allowlist optionnelle de codes de permission accordes (RG-T03). Si non nul,
      * can() repond par appartenance du :code lie a cette liste (permet de tester la
      * differenciation par permission, ex. RG-4 : stock.read sans stock.manage) ;
@@ -313,6 +331,10 @@ final class FakeDatabase implements DatabaseInterface
             return $this->ingredientRow;
         }
 
+        if (str_contains($sql, 'COUNT(*) AS n FROM product_ingredient')) {
+            return ['n' => $this->productCompositionCount];
+        }
+
         if (str_contains($sql, 'FROM category WHERE name = :name')) {
             return $this->categoryNameTaken ? ['id' => 1] : null;
         }
@@ -362,6 +384,16 @@ final class FakeDatabase implements DatabaseInterface
 
         if (str_contains($sql, 'FROM ingredient ORDER BY name')) {
             return $this->ingredientsRows;
+        }
+
+        // Composition d'un produit (recette) vs ensemble des produits en rupture
+        // auto : meme table jointe, distingues par la clause WHERE.
+        if (str_contains($sql, 'FROM product_ingredient pi') && str_contains($sql, 'is_removable = 0')) {
+            return $this->autoUnavailableRows;
+        }
+
+        if (str_contains($sql, 'FROM product_ingredient pi') && str_contains($sql, 'WHERE pi.product_id')) {
+            return $this->compositionRows;
         }
 
         if (str_contains($sql, 'FROM stock_movement WHERE ingredient_id')) {

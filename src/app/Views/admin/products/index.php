@@ -6,10 +6,13 @@ declare(strict_types=1);
  * Liste des produits (CRUD admin), injectee dans admin/layout.php. Texte echappe.
  *
  * @var array<int, array<string, mixed>> $products
+ * @var list<int>                        $autoUnavailable  ids en rupture auto (RG-T21)
  */
 
 /** @var array<int, array<string, mixed>> $rows */
 $rows = isset($products) && is_array($products) ? $products : [];
+/** @var list<int> $autoIds */
+$autoIds = isset($autoUnavailable) && is_array($autoUnavailable) ? array_map('intval', $autoUnavailable) : [];
 $esc = static fn (mixed $v): string => htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
 $euros = static fn (int $cents): string => number_format($cents / 100, 2, ',', ' ') . ' EUR';
 ?>
@@ -44,6 +47,7 @@ $euros = static fn (int $cents): string => number_format($cents / 100, 2, ',', '
                     <?php
                     $id = (int) ($row['id'] ?? 0);
                     $available = (int) ($row['is_available'] ?? 0) === 1;
+                    $autoRupture = in_array($id, $autoIds, true); // RG-T21 : stock-driven
                     $vat = (int) ($row['vat_rate'] ?? 100);
                     ?>
                     <tr>
@@ -52,14 +56,17 @@ $euros = static fn (int $cents): string => number_format($cents / 100, 2, ',', '
                         <td><?= $esc($euros((int) ($row['price_cents'] ?? 0))) ?></td>
                         <td class="muted"><?= $vat === 55 ? '5,5%' : '10%' ?></td>
                         <td>
-                            <?php if ($available): ?>
-                                <span class="pill pill-success">Disponible</span>
-                            <?php else: ?>
+                            <?php if (!$available): ?>
                                 <span class="pill pill-neutral">Indisponible</span>
+                            <?php elseif ($autoRupture): ?>
+                                <span class="pill pill-warning" title="Un ingredient requis est en rupture critique (RG-T21)">Rupture auto</span>
+                            <?php else: ?>
+                                <span class="pill pill-success">Disponible</span>
                             <?php endif; ?>
                         </td>
                         <td>
                             <a class="btn btn-secondary" href="/admin/products/<?= $id ?>/edit">Modifier</a>
+                            <a class="btn btn-secondary" href="/admin/products/<?= $id ?>/recipe">Recette</a>
                             <a class="btn btn-secondary" href="/admin/products/<?= $id ?>/delete">Supprimer</a>
                         </td>
                     </tr>

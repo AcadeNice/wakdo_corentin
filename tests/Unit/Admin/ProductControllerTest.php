@@ -398,6 +398,168 @@ final class ProductControllerTest extends TestCase
         self::assertSame([], $db->auditActions());
     }
 
+    // --- Editeur de recette (PR-B, product_ingredient, permission ingredient.manage) ---
+
+    public function testRecipeFormRequiresIngredientManage(): void
+    {
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 5, 'name' => 'Big Mac'];
+        $db->canResult = false; // ni ingredient.manage ni rien
+
+        self::assertSame(403, $this->controller($this->get('/admin/products/5/recipe'), $db)->recipeForm(['id' => '5'])->status());
+    }
+
+    public function testRecipeFormNotFound(): void
+    {
+        $db = $this->permittedDb();
+        $db->productRow = null;
+
+        self::assertSame(404, $this->controller($this->get('/admin/products/9/recipe'), $db)->recipeForm(['id' => '9'])->status());
+    }
+
+    public function testRecipeFormShowsCompositionAndPicker(): void
+    {
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 5, 'name' => 'Big Mac'];
+        $db->ingredientsRows = [$this->ingredientPick(7, 'Cheddar'), $this->ingredientPick(8, 'Cornichon')];
+        $db->compositionRows = [[
+            'product_id' => 5, 'ingredient_id' => 7, 'quantity_normal' => 2, 'quantity_maxi' => 3,
+            'is_removable' => 1, 'is_addable' => 0, 'extra_price_cents' => 0,
+            'ingredient_name' => 'Cheddar', 'ingredient_unit' => 'tranche',
+            'stock_quantity' => 50, 'stock_capacity' => 100, 'low_stock_pct' => 10, 'critical_stock_pct' => 5,
+        ]];
+
+        $response = $this->controller($this->get('/admin/products/5/recipe'), $db)->recipeForm(['id' => '5']);
+
+        self::assertSame(200, $response->status());
+        self::assertStringContainsString('Big Mac', $response->body());
+        self::assertStringContainsString('Cheddar', $response->body());   // picker + composition existante
+        self::assertStringContainsString('composition_json', $response->body());
+    }
+
+    public function testSaveRecipeReplacesCompositionInTransaction(): void
+    {
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 5, 'name' => 'Big Mac'];
+        $db->ingredientRow = ['id' => 7, 'name' => 'Cheddar']; // ingredientExists -> true
+        $json = (string) json_encode([[
+            'ingredient_id' => 7, 'quantity_normal' => 2, 'quantity_maxi' => 3,
+            'is_removable' => 1, 'is_addable' => 0, 'extra_price_cents' => 50,
+        ]]);
+
+        $response = $this->controller($this->post(['_csrf' => $this->csrf, 'composition_json' => $json], '/admin/products/5/recipe'), $db)->saveRecipe(['id' => '5']);
+
+        self::assertSame(302, $response->status());
+        self::assertSame(['begin', 'commit'], $db->transactionEvents);
+        self::assertTrue($db->wrote('DELETE FROM product_ingredient')); // delete-and-reinsert (RG-2)
+        $insert = $this->findWrite($db, 'INSERT INTO product_ingredient');
+        self::assertNotNull($insert);
+        self::assertSame(5, $insert['params']['product'] ?? null);
+        self::assertSame(7, $insert['params']['ingredient'] ?? null);
+        self::assertSame(2, $insert['params']['qn'] ?? null);
+        self::assertSame(3, $insert['params']['qm'] ?? null);
+        self::assertSame(50, $insert['params']['extra'] ?? null);
+    }
+
+    public function testSaveRecipeEmptyClearsComposition(): void
+    {
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 5, 'name' => 'Big Mac'];
+
+        // Composition vide : un produit peut n'avoir aucune recette definie -> on
+        // purge sans erreur (DELETE seul, aucun INSERT).
+        $response = $this->controller($this->post(['_csrf' => $this->csrf, 'composition_json' => '[]'], '/admin/products/5/recipe'), $db)->saveRecipe(['id' => '5']);
+
+        self::assertSame(302, $response->status());
+        self::assertTrue($db->wrote('DELETE FROM product_ingredient'));
+        self::assertFalse($db->wrote('INSERT INTO product_ingredient'));
+    }
+
+    public function testSaveRecipeRejectsMaxiBelowNormal(): void
+    {
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 5, 'name' => 'Big Mac'];
+        $db->ingredientRow = ['id' => 7, 'name' => 'Cheddar'];
+        $json = (string) json_encode([[
+            'ingredient_id' => 7, 'quantity_normal' => 3, 'quantity_maxi' => 1, // viole quantity_maxi >= quantity_normal
+            'is_removable' => 0, 'is_addable' => 0, 'extra_price_cents' => 0,
+        ]]);
+
+        $response = $this->controller($this->post(['_csrf' => $this->csrf, 'composition_json' => $json], '/admin/products/5/recipe'), $db)->saveRecipe(['id' => '5']);
+
+        self::assertSame(422, $response->status());
+        self::assertFalse($db->wrote('product_ingredient')); // aucun ecrit (validation RG-T18)
+    }
+
+    public function testSaveRecipeDropsUnknownIngredient(): void
+    {
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 5, 'name' => 'Big Mac'];
+        $db->ingredientRow = null; // ingredientExists -> false : ligne ignoree (allowlist)
+        $json = (string) json_encode([[
+            'ingredient_id' => 999, 'quantity_normal' => 1, 'quantity_maxi' => 1,
+            'is_removable' => 0, 'is_addable' => 0, 'extra_price_cents' => 0,
+        ]]);
+
+        $response = $this->controller($this->post(['_csrf' => $this->csrf, 'composition_json' => $json], '/admin/products/5/recipe'), $db)->saveRecipe(['id' => '5']);
+
+        self::assertSame(302, $response->status());
+        self::assertTrue($db->wrote('DELETE FROM product_ingredient'));
+        self::assertFalse($db->wrote('INSERT INTO product_ingredient')); // l'ingredient inconnu est filtre
+    }
+
+    public function testSaveRecipeRejectsInvalidCsrf(): void
+    {
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 5, 'name' => 'Big Mac'];
+
+        $response = $this->controller($this->post(['_csrf' => 'bad', 'composition_json' => '[]'], '/admin/products/5/recipe'), $db)->saveRecipe(['id' => '5']);
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($db->wrote('product_ingredient'));
+    }
+
+    public function testIndexFlagsStockDrivenRupture(): void
+    {
+        $db = $this->permittedDb();
+        $db->productsRows = [
+            ['id' => 1, 'category_id' => 3, 'name' => 'Big Mac', 'price_cents' => 590, 'vat_rate' => 100, 'is_available' => 1, 'category_name' => 'Burgers'],
+        ];
+        $db->autoUnavailableRows = [['product_id' => 1]]; // un ingredient requis en bande critique (RG-T21)
+
+        $response = $this->controller($this->get('/admin/products'), $db)->index();
+
+        self::assertSame(200, $response->status());
+        self::assertStringContainsString('Rupture auto', $response->body()); // distinct du retrait manuel
+    }
+
+    public function testDestroyTracesCascadedCompositionCount(): void
+    {
+        // Dette #27 : la suppression dure cascade product_ingredient (FK CASCADE) ;
+        // on trace combien de lignes de recette ont ete emportees, pour ne laisser
+        // aucune perte hors-trace dans l'audit_log.
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 5, 'name' => 'Big Mac'];
+        $db->productCompositionCount = 3;
+        $this->actingPin($db);
+
+        $response = $this->controller($this->post(['_csrf' => $this->csrf, 'pin_email' => 'staff@wakdo.local', 'pin' => '4729'], '/admin/products/5/delete'), $db)->destroy(['id' => '5']);
+
+        self::assertSame(302, $response->status());
+        $audit = $this->firstAudit($db);
+        self::assertNotNull($audit);
+        self::assertSame('product.delete', $audit['params']['code'] ?? null);
+        self::assertStringContainsString('3', (string) ($audit['params']['summary'] ?? '')); // nb de lignes cascade tracees
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function ingredientPick(int $id, string $name): array
+    {
+        return ['id' => $id, 'name' => $name, 'unit' => 'tranche', 'stock_quantity' => 50, 'stock_capacity' => 100, 'pack_size' => 1, 'pack_label' => null, 'low_stock_pct' => 10, 'critical_stock_pct' => 5, 'is_active' => 1];
+    }
+
     /**
      * @return array{sql: string, params: array<string|int, mixed>}|null
      */

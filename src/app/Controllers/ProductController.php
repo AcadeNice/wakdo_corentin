@@ -11,6 +11,7 @@ use App\Auth\PasswordHasher;
 use App\Auth\PinThrottle;
 use App\Auth\PinVerifier;
 use App\Catalogue\CategoryRepository;
+use App\Catalogue\IngredientRepository;
 use App\Catalogue\ProductRepository;
 use App\Core\DatabaseInterface;
 use App\Core\Response;
@@ -41,9 +42,12 @@ class ProductController extends AdminController
         }
 
         return $this->adminView('admin/products/index', [
-            'title'     => 'Produits - Wakdo Admin',
-            'activeNav' => 'products',
-            'products'  => $this->productRepository()->all(),
+            'title'           => 'Produits - Wakdo Admin',
+            'activeNav'       => 'products',
+            'products'        => $this->productRepository()->all(),
+            // Rupture AUTOMATIQUE par le stock (RG-T21), distincte du retrait manuel
+            // (is_available=0) : la vue signale les deux differemment.
+            'autoUnavailable' => $this->productRepository()->autoUnavailableIds(),
         ], $guard);
     }
 
@@ -251,15 +255,23 @@ class ProductController extends AdminController
 
         $name = (string) ($product['name'] ?? '');
 
+        // Dette #27 : product_ingredient (FK product_id CASCADE) sera emporte par la
+        // suppression. On compte AVANT (lecture hors transaction) pour tracer le
+        // nombre de lignes de recette cascade-supprimees dans le resume d'audit :
+        // aucune perte hors-trace dans le journal append-only.
+        $cascaded = $this->productRepository()->compositionCount($id);
+        $summary = 'Suppression produit: ' . $name
+            . ' (' . $cascaded . ' ligne(s) de recette cascade-supprimee(s))';
+
         // FK RESTRICT (order_item / menu / menu_slot_option / order_item_selection)
         // -> PDOException 23000 -> 409 Conflit (catch ci-dessous). product_ingredient
         // est CASCADE (recette possedee par le produit) : supprimee avec lui, jamais
         // bloquante (cf. docblock ProductRepository).
         try {
-            $this->db()->transaction(function (DatabaseInterface $db) use ($id, $actor, $name): void {
+            $this->db()->transaction(function (DatabaseInterface $db) use ($id, $actor, $summary): void {
                 $deleted = (new ProductRepository($db))->delete($id);
                 if ($deleted === 1) {
-                    $this->writeAudit($db, 'product.delete', $actor['id'], $actor['role_id'], $id, 'Suppression produit: ' . $name);
+                    $this->writeAudit($db, 'product.delete', $actor['id'], $actor['role_id'], $id, $summary);
                 }
             });
         } catch (PDOException $exception) {
@@ -280,9 +292,73 @@ class ProductController extends AdminController
         return $this->redirect('/admin/products');
     }
 
+    /**
+     * Editeur de recette (PR-B, mlt domaine recettes). Compose product_ingredient :
+     * la commandabilite est gardee par `ingredient.manage` (composition du produit),
+     * DISTINCTE de product.create/update/delete (CRUD produit). Aucun PIN : editer
+     * une recette n'est pas une action sensible RG-T13.
+     *
+     * @param array<string, string> $params
+     */
+    public function recipeForm(array $params): Response
+    {
+        $guard = $this->guard('ingredient.manage');
+        if ($guard instanceof Response) {
+            return $guard;
+        }
+
+        $id = (int) ($params['id'] ?? 0);
+        $product = $this->productRepository()->find($id);
+        if ($product === null) {
+            return $this->notFound($guard);
+        }
+
+        return $this->renderRecipe($guard, $id, $product, []);
+    }
+
+    /**
+     * @param array<string, string> $params
+     */
+    public function saveRecipe(array $params): Response
+    {
+        $guard = $this->guard('ingredient.manage');
+        if ($guard instanceof Response) {
+            return $guard;
+        }
+
+        $form = $this->request->formBody();
+        if (!Csrf::validate($this->sessionManager(), $form['_csrf'] ?? null)) {
+            return $this->invalidCsrf();
+        }
+
+        $id = (int) ($params['id'] ?? 0);
+        $product = $this->productRepository()->find($id);
+        if ($product === null) {
+            return $this->notFound($guard);
+        }
+
+        $errors = [];
+        $lines = $this->parseComposition($form['composition_json'] ?? '', $errors);
+        if ($errors !== []) {
+            return $this->renderRecipe($guard, $id, $product, $errors, 422);
+        }
+
+        // Composition vide autorisee : un produit peut n'avoir aucune recette
+        // definie (setComposition purge alors la table sans rien reinserer).
+        $this->productRepository()->setComposition($id, $lines);
+        $this->setFlash('Recette mise a jour.');
+
+        return $this->redirect('/admin/products');
+    }
+
     protected function productRepository(): ProductRepository
     {
         return new ProductRepository($this->db());
+    }
+
+    protected function ingredientRepository(): IngredientRepository
+    {
+        return new IngredientRepository($this->db());
     }
 
     protected function categoryRepository(): CategoryRepository
@@ -414,6 +490,96 @@ class ProductController extends AdminController
             . 'VALUES (:uid, :rid, :code, :etype, :eid, :summary)',
             ['uid' => $userId, 'rid' => $roleId, 'code' => $action, 'etype' => 'product', 'eid' => $entityId, 'summary' => $summary],
         );
+    }
+
+    /**
+     * Decode + valide la composition soumise en JSON (champ cache composition_json),
+     * RG-T18 (revalidation serveur) + RG-T16 (allowlist). Un ingredient inconnu est
+     * FILTRE (jamais une erreur bloquante) ; la PK composite impose un ingredient au
+     * plus une fois (dedup). Les bornes refletent les CHECK de table : quantity_normal
+     * >= 1, quantity_maxi >= quantity_normal, extra_price_cents >= 0. Composition vide
+     * = aucune ligne, sans erreur.
+     *
+     * @param array<string, string> $errors
+     * @return list<array{ingredient_id:int, quantity_normal:int, quantity_maxi:int, is_removable:int, is_addable:int, extra_price_cents:int}>
+     */
+    private function parseComposition(string $json, array &$errors): array
+    {
+        $json = trim($json);
+        if ($json === '' || $json === '[]') {
+            return [];
+        }
+
+        /** @var mixed $decoded */
+        $decoded = json_decode($json, true);
+        if (!is_array($decoded)) {
+            $errors['composition'] = 'Composition invalide.';
+
+            return [];
+        }
+
+        $lines = [];
+        $seen = [];
+        foreach ($decoded as $raw) {
+            if (!is_array($raw)) {
+                continue;
+            }
+
+            $ingredientId = is_numeric($raw['ingredient_id'] ?? null) ? (int) $raw['ingredient_id'] : 0;
+            if ($ingredientId <= 0 || !$this->productRepository()->ingredientExists($ingredientId)) {
+                continue; // ingredient inconnu : filtre (allowlist), pas une erreur
+            }
+            if (isset($seen[$ingredientId])) {
+                continue; // PK composite (product_id, ingredient_id) : un seul par ingredient
+            }
+
+            $qn = is_numeric($raw['quantity_normal'] ?? null) ? (int) $raw['quantity_normal'] : 0;
+            $qm = is_numeric($raw['quantity_maxi'] ?? null) ? (int) $raw['quantity_maxi'] : 0;
+            $extra = is_numeric($raw['extra_price_cents'] ?? null) ? (int) $raw['extra_price_cents'] : -1;
+
+            if ($qn < 1 || $qn > 65535) {
+                $errors['composition'] = 'La quantite normale doit etre un entier >= 1.';
+                continue;
+            }
+            if ($qm < $qn || $qm > 65535) {
+                $errors['composition'] = 'La quantite maxi doit etre >= la quantite normale.';
+                continue;
+            }
+            if ($extra < 0 || $extra > 4294967295) {
+                $errors['composition'] = 'Le supplement (en centimes) doit etre un entier >= 0.';
+                continue;
+            }
+
+            $seen[$ingredientId] = true;
+            $lines[] = [
+                'ingredient_id'     => $ingredientId,
+                'quantity_normal'   => $qn,
+                'quantity_maxi'     => $qm,
+                'is_removable'      => empty($raw['is_removable']) ? 0 : 1,
+                'is_addable'        => empty($raw['is_addable']) ? 0 : 1,
+                'extra_price_cents' => $extra,
+            ];
+        }
+
+        return $lines;
+    }
+
+    /**
+     * @param array<string, mixed> $product
+     * @param array<string, string> $errors
+     */
+    private function renderRecipe(GuardResult $guard, int $id, array $product, array $errors, int $status = 200): Response
+    {
+        return $this->adminView('admin/products/recipe', [
+            'title'       => 'Recette - ' . (string) ($product['name'] ?? '') . ' - Wakdo Admin',
+            'activeNav'   => 'products',
+            'productId'   => $id,
+            'productName' => (string) ($product['name'] ?? ''),
+            'ingredients' => $this->ingredientRepository()->all(),
+            'composition' => $this->productRepository()->composition($id),
+            'errors'      => $errors,
+            'csrfToken'   => Csrf::token($this->sessionManager()),
+        ], $guard, $status);
     }
 
     /**
