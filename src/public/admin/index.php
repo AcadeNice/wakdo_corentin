@@ -16,6 +16,7 @@ use App\Controllers\CategoryController;
 use App\Controllers\DashboardController;
 use App\Controllers\HealthController;
 use App\Controllers\HomeController;
+use App\Controllers\IngredientController;
 use App\Controllers\MeController;
 use App\Controllers\MenuController;
 use App\Controllers\PasswordResetController;
@@ -103,6 +104,24 @@ try {
     $router->add('POST', '/admin/menus/{id}/toggle', [MenuController::class, 'toggle']);
     $router->add('GET', '/admin/menus/{id}/delete', [MenuController::class, 'confirmDelete']);
     $router->add('POST', '/admin/menus/{id}/delete', [MenuController::class, 'destroy']);
+
+    // Stock / Ingredients (P3, mlt 8.8 + domaine 9). Permissions par operation :
+    // stock.read (liste/mouvements, tous roles) ; ingredient.manage (CRUD, sans PIN) ;
+    // stock.manage (reappro, sans PIN) ; stock.count (inventaire, + PIN). Pas d'audit_log
+    // (RG-T14) : l'attribution passe par stock_movement.user_id.
+    $router->add('GET', '/admin/ingredients', [IngredientController::class, 'index']);
+    $router->add('GET', '/admin/ingredients/new', [IngredientController::class, 'create']);
+    $router->add('POST', '/admin/ingredients', [IngredientController::class, 'store']);
+    $router->add('GET', '/admin/ingredients/{id}/edit', [IngredientController::class, 'edit']);
+    $router->add('POST', '/admin/ingredients/{id}', [IngredientController::class, 'update']);
+    $router->add('POST', '/admin/ingredients/{id}/toggle', [IngredientController::class, 'toggle']);
+    $router->add('GET', '/admin/ingredients/{id}/delete', [IngredientController::class, 'confirmDelete']);
+    $router->add('POST', '/admin/ingredients/{id}/delete', [IngredientController::class, 'destroy']);
+    $router->add('GET', '/admin/ingredients/{id}/restock', [IngredientController::class, 'restockForm']);
+    $router->add('POST', '/admin/ingredients/{id}/restock', [IngredientController::class, 'restock']);
+    $router->add('GET', '/admin/ingredients/{id}/inventory', [IngredientController::class, 'inventoryForm']);
+    $router->add('POST', '/admin/ingredients/{id}/inventory', [IngredientController::class, 'inventory']);
+    $router->add('GET', '/admin/ingredients/{id}/movements', [IngredientController::class, 'movements']);
 
     $response = $router->dispatch(Request::fromGlobals());
     $response->send();

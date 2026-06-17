@@ -111,6 +111,13 @@ $navClass = static function (string $code, string $current): string {
         </div>
         <?php endif; ?>
 
+        <?php if ($can('stock.read')): ?>
+        <div class="sidebar-section">
+            <div class="sidebar-section-label">Stock</div>
+            <a href="/admin/ingredients" class="<?= $navClass('stock', $active) ?>">Ingredients</a>
+        </div>
+        <?php endif; ?>
+
         <?php /*
             Items de nav volontairement absents tant que leur page n'existe pas
             (un lien vers une route non enregistree renvoie un 404). A reactiver

@@ -159,6 +159,41 @@ final class FakeDatabase implements DatabaseInterface
     public bool $menuReferenced = false;
 
     /**
+     * Ligne renvoyee pour IngredientRepository::find() et les lectures ciblees de
+     * restock/inventory (pack_size, stock_quantity) ; null = introuvable.
+     *
+     * @var array<string, mixed>|null
+     */
+    public ?array $ingredientRow = null;
+
+    /**
+     * Lignes renvoyees par IngredientRepository::all().
+     *
+     * @var list<array<string, mixed>>
+     */
+    public array $ingredientsRows = [];
+
+    /** Resultat de IngredientRepository::nameExists(). */
+    public bool $ingredientNameTaken = false;
+
+    /**
+     * Lignes renvoyees par IngredientRepository::movements().
+     *
+     * @var list<array<string, mixed>>
+     */
+    public array $movementsRows = [];
+
+    /**
+     * Allowlist optionnelle de codes de permission accordes (RG-T03). Si non nul,
+     * can() repond par appartenance du :code lie a cette liste (permet de tester la
+     * differenciation par permission, ex. RG-4 : stock.read sans stock.manage) ;
+     * sinon on retombe sur le bouton global $canResult.
+     *
+     * @var list<string>|null
+     */
+    public ?array $grantedCodes = null;
+
+    /**
      * Ligne renvoyee pour PinVerifier::resolveActingUser (id, role_id, pin_hash) ;
      * null = email inconnu/inactif.
      *
@@ -223,6 +258,12 @@ final class FakeDatabase implements DatabaseInterface
         }
 
         if (str_contains($sql, 'SELECT 1 AS granted FROM role_permission')) {
+            if ($this->grantedCodes !== null) {
+                $code = $params['code'] ?? null;
+
+                return (is_string($code) && in_array($code, $this->grantedCodes, true) && $this->roleActive) ? ['granted' => 1] : null;
+            }
+
             return ($this->canResult && $this->roleActive) ? ['granted' => 1] : null;
         }
 
@@ -260,6 +301,16 @@ final class FakeDatabase implements DatabaseInterface
 
         if (str_contains($sql, 'FROM order_item WHERE menu_id')) {
             return $this->menuReferenced ? ['menu_id' => 1] : null;
+        }
+
+        // Ingredient : nameExists (avant la route par id, qui ne matche pas
+        // 'WHERE name'), puis find() + lectures ciblees pack_size/stock_quantity.
+        if (str_contains($sql, 'FROM ingredient WHERE name = :name')) {
+            return $this->ingredientNameTaken ? ['id' => 1] : null;
+        }
+
+        if (str_contains($sql, 'FROM ingredient WHERE id = :id')) {
+            return $this->ingredientRow;
         }
 
         if (str_contains($sql, 'FROM category WHERE name = :name')) {
@@ -307,6 +358,14 @@ final class FakeDatabase implements DatabaseInterface
 
         if (str_contains($sql, 'FROM menu_slot s')) {
             return $this->menuSlotRows;
+        }
+
+        if (str_contains($sql, 'FROM ingredient ORDER BY name')) {
+            return $this->ingredientsRows;
+        }
+
+        if (str_contains($sql, 'FROM stock_movement WHERE ingredient_id')) {
+            return $this->movementsRows;
         }
 
         if (str_contains($sql, 'SELECT p.code FROM role_permission')) {
