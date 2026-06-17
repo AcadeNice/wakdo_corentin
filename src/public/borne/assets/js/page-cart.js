@@ -40,13 +40,15 @@ function renderCart() {
         cartList.innerHTML    = '';
         emptyBlock.hidden     = false;
         summaryBlock.hidden   = true;
-        if (payBtn) payBtn.disabled = true;
+        // pay-btn est un <a> : `.disabled` n'existe pas dessus, il faut piloter
+        // aria-disabled (sinon le bouton reste annonce desactive panier rempli).
+        if (payBtn) payBtn.setAttribute('aria-disabled', 'true');
         return;
     }
 
     emptyBlock.hidden   = true;
     summaryBlock.hidden = false;
-    if (payBtn) payBtn.disabled = false;
+    if (payBtn) payBtn.setAttribute('aria-disabled', 'false');
 
     cartList.innerHTML = '';
     items.forEach((item, index) => {

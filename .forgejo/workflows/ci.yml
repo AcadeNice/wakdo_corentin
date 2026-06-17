@@ -164,7 +164,10 @@ jobs:
             echo "JS tests skipped: no package.json + tests/js/ yet"
             exit 0
           fi
-          npm ci
+          # Skip le download des browsers Playwright : ce job ne fait que node:test+jsdom.
+          # (@playwright/test est en devDep pour l'E2E, mais ses browsers ne servent
+          # qu'a tests/e2e via le conteneur officiel.)
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm ci
           npm run test:js
 
   auto-merge:

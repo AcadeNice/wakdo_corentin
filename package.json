@@ -4,9 +4,11 @@
   "private": true,
   "description": "Wakdo - tests front borne (kiosk). Back-office PHP teste via PHPUnit (phpunit.phar). NB: pas de \"type\":\"module\" a la racine -> les .js du depot (hooks .claude, _byan, bin) restent CommonJS. L'ESM est declare localement la ou il s'applique (src/public/borne/assets/js, tests/js).",
   "scripts": {
-    "test:js": "node --test tests/js/"
+    "test:js": "node --test tests/js/",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
+    "@playwright/test": "1.49.1",
     "jsdom": "^26.0.0"
   }
 }
