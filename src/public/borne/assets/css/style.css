@@ -1437,6 +1437,122 @@ button {
     line-height: 1.3;
 }
 
+/* ============================================================
+ * Allergenes — bouton "i" + modale generale (14 INCO)
+ * Info reglementaire generale (pas un calcul par produit). La modale reutilise
+ * le pattern overlay du composer ; z-index 220 pour passer au-dessus de lui.
+ * ============================================================ */
+
+/* Le bouton "i" se superpose au coin de l'image de la carte. */
+.product-card__image-wrap {
+    position: relative;
+}
+
+.allergen-info-btn {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    border: 2px solid var(--color-brand-dark);
+    background: var(--color-bg-card);
+    color: var(--color-brand-dark);
+    font-weight: var(--font-weight-bold);
+    font-style: italic;
+    font-size: var(--font-size-base);
+    line-height: 1;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--shadow-overlay);
+}
+
+.product-card__image-wrap .allergen-info-btn {
+    position: absolute;
+    top: var(--space-2);
+    right: var(--space-2);
+    z-index: 2;
+}
+
+.product-detail__info .allergen-info-btn {
+    margin-top: var(--space-3);
+}
+
+.allergen-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: 220;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-4);
+    animation: composer-fade-in var(--transition-base) both;
+}
+
+.allergen-modal {
+    position: relative;
+    background: var(--color-bg-card);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-overlay);
+    width: 100%;
+    max-width: 640px;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: var(--space-6);
+    animation: composer-slide-up var(--transition-base) both;
+}
+
+.allergen-modal-close {
+    position: absolute;
+    top: var(--space-3);
+    right: var(--space-3);
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 50%;
+    border: none;
+    background: var(--color-bg-page);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-md);
+    cursor: pointer;
+}
+
+.allergen-modal-title {
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--space-2);
+}
+
+.allergen-modal-intro {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    margin-bottom: var(--space-4);
+}
+
+.allergen-modal-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: var(--space-2);
+}
+
+.allergen-modal-list li {
+    padding: var(--space-2) var(--space-3);
+    background: var(--color-bg-page);
+    border-radius: var(--radius-md);
+}
+
+.allergen-name {
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+}
+
+.allergen-desc {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
 .composer-card__price {
     font-size: var(--font-size-sm);
     color: var(--color-text-muted);

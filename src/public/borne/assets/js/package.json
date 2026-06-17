@@ -1,0 +1,4 @@
+{
+  "//": "Marque les scripts du kiosk comme ESM (import/export) pour Node (tests). Le navigateur les charge via <script type=module> independamment de ce fichier. Scoping local : evite d'imposer type:module a la racine (qui casserait les hooks CommonJS).",
+  "type": "module"
+}

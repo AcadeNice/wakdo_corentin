@@ -19,12 +19,18 @@
  * ----------------------------------------------------------------------- */
 const CATEGORIES_URL = 'data/categories.json';
 const PRODUCTS_URL   = 'data/produits.json';
+/* Liste fixe des 14 allergenes INCO (info generale, modale borne). TODO(P4):
+ * remplacer par '/api/allergens'. Le reste du fichier est API-agnostique. */
+const ALLERGENS_URL  = 'data/allergens.json';
 
 /** @type {Array|null} — in-memory cache to avoid repeated fetches */
 let _categoriesCache = null;
 
 /** @type {Object|null} */
 let _productsCache = null;
+
+/** @type {Array|null} */
+let _allergensCache = null;
 
 /**
  * Fetches and caches the categories list.
@@ -48,6 +54,18 @@ export async function loadProducts() {
     if (!res.ok) throw new Error(`Failed to load products: HTTP ${res.status}`);
     _productsCache = await res.json();
     return _productsCache;
+}
+
+/**
+ * Fetches and caches the 14 INCO allergens (general info modal).
+ * @returns {Promise<Array>}
+ */
+export async function loadAllergens() {
+    if (_allergensCache) return _allergensCache;
+    const res = await fetch(ALLERGENS_URL);
+    if (!res.ok) throw new Error(`Failed to load allergens: HTTP ${res.status}`);
+    _allergensCache = await res.json();
+    return _allergensCache;
 }
 
 /**

@@ -6,8 +6,9 @@
  * On product card click, navigates to product.html?id=<id>&category=<slug>.
  */
 
-import { getProductsByCategory, getCategoryById, CATEGORY_ID_TO_SLUG } from './data.js';
+import { getProductsByCategory, getCategoryById, CATEGORY_ID_TO_SLUG, loadAllergens } from './data.js';
 import { formatPrice, escHtml } from './state.js';
+import { buildAllergenInfoButton, openAllergenModal } from './allergens.js';
 
 const params      = new URLSearchParams(window.location.search);
 const categoryId  = parseInt(params.get('category'), 10) || 1;
@@ -49,6 +50,15 @@ async function renderProducts() {
             return;
         }
 
+        // Liste generale des allergenes (modale "i"). Chargee une fois, partagee par
+        // toutes les cartes ; un echec ne doit pas casser l'affichage produits.
+        let allergens = [];
+        try {
+            allergens = await loadAllergens();
+        } catch (e) {
+            console.error('loadAllergens error:', e);
+        }
+
         grid.innerHTML = '';
         products.forEach(product => {
             const card = document.createElement('a');
@@ -71,6 +81,12 @@ async function renderProducts() {
                     <span class="product-card__price">${formatPrice(product.prix)}</span>
                 </div>
             `;
+
+            // Bouton "i" allergenes superpose a l'image ; son clic ouvre la modale
+            // generale et ne declenche pas la navigation de la carte (stopPropagation).
+            const infoBtn = buildAllergenInfoButton(() => openAllergenModal(allergens));
+            card.querySelector('.product-card__image-wrap').appendChild(infoBtn);
+
             grid.appendChild(card);
         });
 

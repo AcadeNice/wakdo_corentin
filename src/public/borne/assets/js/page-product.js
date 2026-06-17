@@ -15,10 +15,11 @@
  *  3. Redirect to products.html?category=<slug>
  */
 
-import { findProduct } from './data.js';
+import { findProduct, loadAllergens } from './data.js';
 import { addToCart, formatPrice, escHtml } from './state.js';
 import { refreshCartBadge } from './nav.js';
 import { openMenuComposer } from './page-product-menu.js';
+import { buildAllergenInfoButton, openAllergenModal } from './allergens.js';
 
 const params       = new URLSearchParams(window.location.search);
 const productId    = parseInt(params.get('id'), 10);
@@ -77,6 +78,18 @@ async function renderProduct() {
                 </button>
             </div>
         `;
+
+        // Bouton "i" allergenes (modale generale) dans le bloc info de la fiche.
+        // Echec de chargement non bloquant : la fiche reste fonctionnelle.
+        try {
+            const allergens = await loadAllergens();
+            const info = container.querySelector('.product-detail__info');
+            if (info) {
+                info.appendChild(buildAllergenInfoButton(() => openAllergenModal(allergens)));
+            }
+        } catch (e) {
+            console.error('loadAllergens error:', e);
+        }
 
         document.getElementById('add-to-cart-btn').addEventListener('click', () => {
             addToCart({
