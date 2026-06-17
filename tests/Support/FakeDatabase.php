@@ -202,6 +202,42 @@ final class FakeDatabase implements DatabaseInterface
     public int $productCompositionCount = 0;
 
     /**
+     * Lignes renvoyees par UserRepository::all() (JOIN role).
+     *
+     * @var list<array<string, mixed>>
+     */
+    public array $usersRows = [];
+
+    /**
+     * Ligne renvoyee par UserRepository::find() (gestion des comptes) ; null = absent.
+     *
+     * @var array<string, mixed>|null
+     */
+    public ?array $userManageRow = null;
+
+    /** Resultat de UserRepository::emailExists(). */
+    public bool $userEmailTaken = false;
+
+    /** Resultat de UserRepository::activeRoleExists() (role existe ET actif). */
+    public bool $roleActiveExists = true;
+
+    /** Id renvoye par SELECT LAST_INSERT_ID() (create user/menu). */
+    public int $lastInsertId = 0;
+
+    /** Compteur renvoye par UserRepository::activeAdminCount() (garde dernier admin). */
+    public int $activeAdminCount = 0;
+
+    /** Resultat de UserRepository::isAdmin(). */
+    public bool $userIsAdmin = false;
+
+    /**
+     * Lignes {id,label} renvoyees par le select de roles (UserController::rolesForSelect).
+     *
+     * @var list<array<string, mixed>>
+     */
+    public array $rolesRows = [];
+
+    /**
      * Allowlist optionnelle de codes de permission accordes (RG-T03). Si non nul,
      * can() repond par appartenance du :code lie a cette liste (permet de tester la
      * differenciation par permission, ex. RG-4 : stock.read sans stock.manage) ;
@@ -257,6 +293,34 @@ final class FakeDatabase implements DatabaseInterface
         // 'FROM user u JOIN role' mais selectionne 'AS role_label'.
         if (str_contains($sql, 'AS role_label')) {
             return $this->userDisplayRow;
+        }
+
+        // --- Gestion des comptes (UserController/UserRepository) ---
+        // AVANT le lookup auth 'FROM user u JOIN role' : les agregats RBAC le
+        // contiennent aussi (COUNT admins, isAdmin), il faut les router en premier.
+        if (str_contains($sql, 'COUNT(*) AS n FROM user u JOIN role')) {
+            return ['n' => $this->activeAdminCount];
+        }
+
+        if (str_contains($sql, "WHERE u.id = :id AND r.code = 'admin'")) {
+            return $this->userIsAdmin ? ['id' => 1] : null;
+        }
+
+        // AVANT 'SELECT id FROM user WHERE email' (emailLookupRow) : unicite (exclut une id).
+        if (str_contains($sql, 'FROM user WHERE email = :email AND id <> :id')) {
+            return $this->userEmailTaken ? ['id' => 1] : null;
+        }
+
+        if (str_contains($sql, 'anonymized_at FROM user WHERE id')) {
+            return $this->userManageRow;
+        }
+
+        if (str_contains($sql, 'FROM role WHERE id = :id AND is_active = 1')) {
+            return $this->roleActiveExists ? ['id' => 1] : null;
+        }
+
+        if (str_contains($sql, 'LAST_INSERT_ID')) {
+            return ['id' => $this->lastInsertId];
         }
 
         if (str_contains($sql, 'FROM user u JOIN role')) {
@@ -394,6 +458,14 @@ final class FakeDatabase implements DatabaseInterface
 
         if (str_contains($sql, 'FROM product_ingredient pi') && str_contains($sql, 'WHERE pi.product_id')) {
             return $this->compositionRows;
+        }
+
+        if (str_contains($sql, 'FROM user u JOIN role r ON r.id = u.role_id')) {
+            return $this->usersRows;
+        }
+
+        if (str_contains($sql, 'FROM role WHERE is_active = 1 ORDER BY label')) {
+            return $this->rolesRows;
         }
 
         if (str_contains($sql, 'FROM stock_movement WHERE ingredient_id')) {

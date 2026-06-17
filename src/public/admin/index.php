@@ -23,6 +23,7 @@ use App\Controllers\PasswordResetController;
 use App\Controllers\ProductController;
 use App\Controllers\ProfileController;
 use App\Controllers\StatsController;
+use App\Controllers\UserController;
 use App\Core\Autoloader;
 use App\Core\Config;
 use App\Core\Database;
@@ -73,6 +74,21 @@ try {
     // Tableau de bord statistiques (stats.read) : landing du role manager. KPIs
     // catalogue + sante stock (RG-T21) ; KPIs de vente avec les commandes (P4).
     $router->add('GET', '/admin/stats', [StatsController::class, 'index']);
+
+    // Gestion des comptes (mlt domaine 10). user.read (liste) ; user.create/update/
+    // deactivate. TOUTES les mutations = PIN equipier + audit (RG-T13/14). {id} = un
+    // seul segment (pas de collision avec /edit, /deactivate, /reset-pin, /erase).
+    $router->add('GET', '/admin/users', [UserController::class, 'index']);
+    $router->add('GET', '/admin/users/new', [UserController::class, 'create']);
+    $router->add('POST', '/admin/users', [UserController::class, 'store']);
+    $router->add('GET', '/admin/users/{id}/edit', [UserController::class, 'edit']);
+    $router->add('POST', '/admin/users/{id}', [UserController::class, 'update']);
+    $router->add('GET', '/admin/users/{id}/deactivate', [UserController::class, 'confirmDeactivate']);
+    $router->add('POST', '/admin/users/{id}/deactivate', [UserController::class, 'deactivate']);
+    $router->add('GET', '/admin/users/{id}/reset-pin', [UserController::class, 'confirmResetPin']);
+    $router->add('POST', '/admin/users/{id}/reset-pin', [UserController::class, 'resetPin']);
+    $router->add('GET', '/admin/users/{id}/erase', [UserController::class, 'confirmErase']);
+    $router->add('POST', '/admin/users/{id}/erase', [UserController::class, 'erase']);
 
     // CRUD Categories (permission category.manage). Pas de suppression dure : toggle is_active.
     $router->add('GET', '/admin/categories', [CategoryController::class, 'index']);

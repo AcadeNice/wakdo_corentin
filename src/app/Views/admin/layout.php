@@ -125,11 +125,18 @@ $navClass = static function (string $code, string $current): string {
         </div>
         <?php endif; ?>
 
+        <?php if ($can('user.read')): ?>
+        <div class="sidebar-section">
+            <div class="sidebar-section-label">Administration</div>
+            <a href="/admin/users" class="<?= $navClass('users', $active) ?>">Utilisateurs</a>
+        </div>
+        <?php endif; ?>
+
         <?php /*
             Items de nav volontairement absents tant que leur page n'existe pas
             (un lien vers une route non enregistree renvoie un 404). A reactiver
-            avec leur route respective : Commandes (order.read), Utilisateurs
-            (user.read), Roles (role.manage) -- P3 suite / P4.
+            avec leur route respective : Commandes (order.read), Roles (role.manage)
+            -- lot RBAC / P4.
         */ ?>
     </nav>
 
