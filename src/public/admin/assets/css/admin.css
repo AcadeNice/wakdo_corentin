@@ -1173,3 +1173,38 @@ tbody td.mono {
 ::-webkit-scrollbar-thumb:hover {
     background: var(--color-text-muted);
 }
+
+/* ============================================================
+   Statistiques — cartes KPI (tableau de bord stats.read)
+   ============================================================ */
+.stats-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.stat-card {
+    background: var(--color-white);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem 1.5rem;
+}
+
+.stat-card__value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--color-text);
+    line-height: 1.1;
+}
+
+.stat-card__label {
+    font-weight: 600;
+    color: var(--color-text);
+    margin-top: 0.25rem;
+}
+
+.stat-card__sub {
+    font-size: 0.875rem;
+    margin-top: 0.125rem;
+}

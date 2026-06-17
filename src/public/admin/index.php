@@ -22,6 +22,7 @@ use App\Controllers\MenuController;
 use App\Controllers\PasswordResetController;
 use App\Controllers\ProductController;
 use App\Controllers\ProfileController;
+use App\Controllers\StatsController;
 use App\Core\Autoloader;
 use App\Core\Config;
 use App\Core\Database;
@@ -69,6 +70,9 @@ try {
 
     // Back-office (P3) : pages rendues serveur sous /admin, gardees par SessionGuard.
     $router->add('GET', '/admin/dashboard', [DashboardController::class, 'index']);
+    // Tableau de bord statistiques (stats.read) : landing du role manager. KPIs
+    // catalogue + sante stock (RG-T21) ; KPIs de vente avec les commandes (P4).
+    $router->add('GET', '/admin/stats', [StatsController::class, 'index']);
 
     // CRUD Categories (permission category.manage). Pas de suppression dure : toggle is_active.
     $router->add('GET', '/admin/categories', [CategoryController::class, 'index']);
