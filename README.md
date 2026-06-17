@@ -89,80 +89,41 @@ Reseaux, volumes, services et decoupage reseau interne / reseau proxy : voir `do
 
 ---
 
-## Quickstart
-
-Ce projet tourne **sur serveur derriere un reverse proxy Traefik** : pas de binding de ports hote, pas d'acces `localhost`. L'acces public se fait par FQDN HTTPS (TLS gere automatiquement par Traefik). Les environnements `dev`, `staging` et `prod` se distinguent par des FQDN et des fichiers `.env` separes.
-
-### Prerequis sur l'hote
-
-1. Docker Engine + docker compose v2 (voir ci-dessous)
-2. Un reverse proxy Traefik deja en place, avec un reseau Docker externe dedie. Le **nom du reseau** est configurable via la variable `REVERSE_PROXY_NETWORK` du `.env` (defaut : `admin_proxy` — convention de l'auteur). A adapter a votre infrastructure.
-3. Les FQDN cibles pointent en DNS vers l'hote
-
-### Sur un hote deja equipe (Docker + Traefik)
+## Quickstart (local)
 
 ```bash
 git clone git@github.com:AcadeNice/wakdo_corentin.git
 cd wakdo_corentin
 cp .env.example .env
-# Editer .env : DB_PASSWORD, DB_ROOT_PASSWORD, APP_URL_*, TRAEFIK_DOMAIN_*
 docker compose up -d
 ```
 
-> **Attention au `.env` pre-existant.** Si un fichier `.env` existe deja a la racine (tooling externe, autre plateforme installee dans le meme repertoire), **ne pas faire** `cp .env.example .env` — cela ecraserait les variables existantes. Faire un **merge manuel** a la place : ajouter les variables manquantes du template dans le `.env` actuel. Les prefixes de variables de ce projet (`APP_`, `DB_`, `SESSION_`, `CORS_`, `UPLOAD_`, `CRON_`, `TRAEFIK_`, `REVERSE_PROXY_`) sont disjoints de ceux utilises par des outils tiers courants, donc la cohabitation est safe.
+Une seule commande lance la stack complete (Cr 7.c.4) : le service one-shot
+`wakdo-migrate` applique les migrations puis le seed (idempotents, tables de suivi
+`schema_migrations` / `seeds_applied`) avant que l'app ne serve. Ensuite :
 
-Critere RNCP Cr 7.c.4 couvert : une seule commande (`docker compose up -d`) lance la
-stack complete. Le service one-shot `wakdo-migrate` applique le schema (migrations)
-puis les donnees de reference (seed) avant que l'app ne serve ; `wakdo-app`/`wakdo-web`
-attendent sa completion (`depends_on: service_completed_successfully`). Migrations et
-seed sont idempotents (tables de suivi `schema_migrations` / `seeds_applied`).
-Detail : `docs/journal/2026-06-17--makefile-to-compose-migrate.md`.
+- Borne : http://kiosk.localhost:8080
+- Admin + API : http://admin.localhost:8080
 
-Services accessibles apres `docker compose up -d` :
-- Borne : la valeur de `TRAEFIK_DOMAIN_KIOSK` dans `.env`
-- Admin + API : la valeur de `TRAEFIK_DOMAIN_ADMIN` dans `.env`
+`*.localhost` resout vers `127.0.0.1` nativement ; changer le port via `HTTP_PORT`
+dans `.env`. Le `.env.example` fonctionne tel quel en local (valeurs dev).
 
-### Installation Docker sur un hote neuf (Debian / Ubuntu)
+Docker non installe ? Voir https://docs.docker.com/engine/install/
 
-Procedure officielle detaillee : `https://docs.docker.com/engine/install/` (selectionner la distribution). Resume pour Debian stable :
+### Deploiement prod (derriere un reverse proxy Traefik)
 
-```bash
-sudo apt update
-sudo apt install -y ca-certificates curl
-sudo install -m 0755 -d /etc/apt/keyrings
-sudo curl -fsSL https://download.docker.com/linux/debian/gpg \
-  -o /etc/apt/keyrings/docker.asc
-sudo chmod a+r /etc/apt/keyrings/docker.asc
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] \
-  https://download.docker.com/linux/debian \
-  $(. /etc/os-release && echo $VERSION_CODENAME) stable" \
-  | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-sudo apt update
-sudo apt install -y docker-ce docker-ce-cli containerd.io \
-  docker-buildx-plugin docker-compose-plugin
-sudo usermod -aG docker $USER
-# Fermer et rouvrir la session pour activer le groupe docker
-```
-
-### Reseau externe du reverse proxy
-
-Le `docker-compose.yml` attend un reseau Docker externe deja existant sur l'hote, dont le nom est donne par la variable `REVERSE_PROXY_NETWORK` (defaut : `admin_proxy`).
-
-Si vous avez deja un Traefik en place, ce reseau a generalement ete cree par son propre stack. Adaptez la variable `REVERSE_PROXY_NETWORK` dans votre `.env` au nom utilise par votre proxy. Sinon, creez-le manuellement :
+Le repo ne ship que `docker-compose.yml` (standalone). En production derriere un
+reverse proxy, chaque hote maintient son **propre `docker-compose.prod.yml`**
+(gitignore, hors repo, comme `.env`) : meme stack, mais exposee via Traefik (reseau
+externe + labels TLS) au lieu d'un port hote.
 
 ```bash
-docker network create mon_reseau_proxy
-# puis dans .env :
-# REVERSE_PROXY_NETWORK=mon_reseau_proxy
+docker compose -f docker-compose.prod.yml up -d
 ```
 
-Avant le premier `docker compose up`, s'assurer que le reseau existe. Verification rapide :
-
-```bash
-docker network inspect "$(grep ^REVERSE_PROXY_NETWORK .env | cut -d= -f2)"
-```
-
-Si la commande retourne une erreur, soit adapter `REVERSE_PROXY_NETWORK` au nom du reseau utilise par votre proxy, soit creer le reseau manuellement (le reseau externe doit exister avant `docker compose up`).
+Avec un `.env` adapte : `APP_ENV=prod`, `APP_DEBUG=false`, mots de passe forts,
+`APP_HOST_*` / `APP_URL_*` / `CORS_ALLOWED_ORIGIN` en vrais FQDN HTTPS, et
+`REVERSE_PROXY_NETWORK` = reseau Docker du Traefik de l'hote (doit exister avant le up).
 
 *Section mise a jour au fil de l'implementation (migrations reelles, seed, CI/CD deploiement).*
 

@@ -1,87 +1,19 @@
-#
-# Wakdo - orchestration des 4 services de la stack (Bloc 5 DevOps, Cr 7.c.3 / 7.c.4).
-#
-# Services :
-#   wakdo-web   : Apache httpd, reverse proxy FastCGI -> wakdo-app, expose 80 via Traefik
-#   wakdo-app   : PHP-FPM 8.3, execute le code PHP back-office + API
-#   wakdo-db    : MariaDB 11.4, persistance des donnees metier
-#   wakdo-cron  : Alpine + dcron, backups nocturnes et taches planifiees
-#
-# Reseaux :
-#   default (nom = wakdo_internal) : bridge interne pour l'inter-service,
-#       non expose a l'hote. app/db/cron ne sont PAS joignables publiquement.
-#   <REVERSE_PROXY_NETWORK> : reseau externe (ex. traefik_proxy) partage
-#       avec le Traefik de l'hote. Seul wakdo-web y est attache.
-#
-# Volumes :
-#   wakdo_db_data  : named volume pour /var/lib/mysql (persistance BDD)
-#   wakdo_uploads  : named volume pour les uploads produits back-office
-#   ./var/backups  : bind-mount lecture-ecriture pour les dumps SQL
-#
-# Variables d'env consommees depuis .env : docker compose lit automatiquement le
-# fichier .env a la racine et fait l'expansion des ${...} ci-dessous.
-#
-# Persistance : `docker compose down` preserve les named volumes ; seul
-# `docker compose down -v` supprime les donnees.
-#
-
 name: wakdo
 
 networks:
-  # Reseau interne : isolement des services applicatifs.
-  # wakdo-app, wakdo-db et wakdo-cron n'y sont accessibles que via les autres
-  # conteneurs de la stack. Aucun port hote expose.
   wakdo_internal:
     driver: bridge
-    internal: false
-    # internal: false (par defaut) car wakdo-app et wakdo-cron ont besoin
-    # de sortir sur internet (pour telecharger des packages au build et pour
-    # de potentiels appels API externes futurs). L'isolation vient du fait
-    # qu'aucun port hote n'est binde ici.
-    #
-    # Subnet explicite (RFC 1918) : l'auto-allocateur Docker du daemon hote
-    # est sature (15 /16 + 15 /20 deja alloues par d'autres stacks), il ne
-    # peut plus creer de reseau bridge sans subnet explicite. 192.168.148.0/24
-    # est dans le gap libre 192.168.144-159 (256 IP, largement suffisant pour
-    # 4 services), aucune collision avec les /24 acquagest voisins (150/154/
-    # 155/157). Choix defendable : right-sizing + isolation des fluctuations
-    # d'allocation auto sur cet hote mutualise.
-    ipam:
-      driver: default
-      config:
-        - subnet: 192.168.148.0/24
-
-  # Reseau du reverse proxy (Traefik) pre-existant sur l'hote.
-  # Son nom est configurable via REVERSE_PROXY_NETWORK dans .env pour
-  # supporter differents setups (traefik_proxy, traefik_public, proxy, ...).
-  reverse_proxy:
-    name: ${REVERSE_PROXY_NETWORK}
-    external: true
 
 volumes:
   wakdo_db_data:
-    # Named volume MariaDB. Permissions gerees par Docker (UID mysql=999
-    # dans le conteneur), zero souci cote hote. Survit a `docker compose down`.
-    # Pour remise a zero : `docker compose down -v` (destructif : supprime les volumes).
-
   wakdo_uploads:
-    # Images produits uploadees par les equipiers depuis le back-office.
-    # Named volume pour les memes raisons que wakdo_db_data : permissions
-    # propres (www-data UID 82 en Alpine) et pas de pollution du repo git
-    # par des binaires.
 
 services:
 
-  # =======================================================================
-  # wakdo-db : MariaDB 11.4 LTS
-  # =======================================================================
   wakdo-db:
     image: mariadb:11.4
     container_name: wakdo-db
     restart: unless-stopped
-
-    # Variables d'env d'initialisation (ne s'appliquent qu'au premier demarrage
-    # sur volume vide - voir docs/notes/docker-volumes-vs-bind-mounts.md).
     environment:
       MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
       MARIADB_DATABASE: ${DB_NAME}
@@ -89,22 +21,11 @@ services:
       MARIADB_PASSWORD: ${DB_PASSWORD}
       MARIADB_AUTO_UPGRADE: "1"
       TZ: ${APP_TIMEZONE:-Europe/Paris}
-
     volumes:
       - wakdo_db_data:/var/lib/mysql
-      # Scripts d'init MariaDB, executes UNIQUEMENT au premier demarrage sur
-      # volume vierge : durcit le privilege du user applicatif (moindre
-      # privilege, db/init/10-scope-app-user.sh). Lecture seule.
       - ./db/init:/docker-entrypoint-initdb.d:ro
-
     networks:
       - wakdo_internal
-
-    # Pas de ports exposes a l'hote : seuls wakdo-app et wakdo-cron peuvent
-    # joindre wakdo-db:3306 via le reseau interne.
-
-    # Healthcheck officiel fourni par l'image mariadb : le script bundled
-    # healthcheck.sh teste la connexion et l'init innodb.
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 10s
@@ -112,48 +33,30 @@ services:
       retries: 6
       start_period: 30s
 
-  # =======================================================================
-  # wakdo-migrate : service ONE-SHOT (migrations + seed idempotents)
-  # =======================================================================
-  # Tourne une fois apres que wakdo-db soit healthy, applique le schema puis les
-  # donnees de reference (idempotent via schema_migrations / seeds_applied), et
-  # sort. app/web attendent sa COMPLETION : `docker compose up` rend ainsi la stack
-  # complete + utilisable en UNE commande, sans dependance a l'hote (Cr 7.c.4).
   wakdo-migrate:
     image: mariadb:11.4
     container_name: wakdo-migrate
     restart: "no"
-
     environment:
       DB_HOST: ${DB_HOST}
       DB_PORT: ${DB_PORT}
       DB_NAME: ${DB_NAME}
-      # Root : migrations = DDL, seeds = INSERT de reference.
       DB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
-
     volumes:
-      # migrations + seeds + le runner, en lecture seule.
       - ./db:/db:ro
-
     networks:
       - wakdo_internal
-
     depends_on:
       wakdo-db:
         condition: service_healthy
-
     entrypoint: ["bash", "/db/migrate-container.sh"]
 
-  # =======================================================================
-  # wakdo-app : PHP-FPM 8.3 (execute le code back-office + API)
-  # =======================================================================
   wakdo-app:
     build:
       context: ./docker/php-fpm
       dockerfile: Dockerfile
     container_name: wakdo-app
     restart: unless-stopped
-
     environment:
       APP_ENV: ${APP_ENV}
       APP_DEBUG: ${APP_DEBUG}
@@ -169,80 +72,50 @@ services:
       SESSION_LIFETIME_ABSOLUTE: ${SESSION_LIFETIME_ABSOLUTE}
       SESSION_NAME: ${SESSION_NAME}
       CORS_ALLOWED_ORIGIN: ${CORS_ALLOWED_ORIGIN}
-      # Cout argon2id (password_hash) : aligne sur .env.example / OWASP. Sert au
-      # hash du mot de passe ET du PIN equipier (actions sensibles, P3).
       ARGON2_MEMORY_COST: ${ARGON2_MEMORY_COST}
       ARGON2_TIME_COST: ${ARGON2_TIME_COST}
       ARGON2_THREADS: ${ARGON2_THREADS}
-      # Anti brute-force : backoff degressif par compte (user.lockout_until) et
-      # par IP source (table login_throttle). Voir mlt.md 12.1 RG-8/RG-9.
       ACCOUNT_LOCKOUT_THRESHOLD: ${ACCOUNT_LOCKOUT_THRESHOLD}
       ACCOUNT_LOCKOUT_BASE_SECONDS: ${ACCOUNT_LOCKOUT_BASE_SECONDS}
       ACCOUNT_LOCKOUT_MAX_SECONDS: ${ACCOUNT_LOCKOUT_MAX_SECONDS}
       IP_THROTTLE_WINDOW_SECONDS: ${IP_THROTTLE_WINDOW_SECONDS}
       IP_THROTTLE_MAX_ATTEMPTS: ${IP_THROTTLE_MAX_ATTEMPTS}
-      # Bornes du PIN equipier (actions sensibles, P3) : longueur min ET max.
       STAFF_PIN_MIN_LENGTH: ${STAFF_PIN_MIN_LENGTH}
       STAFF_PIN_MAX_LENGTH: ${STAFF_PIN_MAX_LENGTH}
-      # Throttle du PIN d'action sensible (RG-T22) : compteurs SEPARES du login.
       PIN_THROTTLE_THRESHOLD: ${PIN_THROTTLE_THRESHOLD}
       PIN_THROTTLE_BASE_SECONDS: ${PIN_THROTTLE_BASE_SECONDS}
       PIN_THROTTLE_MAX_SECONDS: ${PIN_THROTTLE_MAX_SECONDS}
       PIN_THROTTLE_WINDOW_SECONDS: ${PIN_THROTTLE_WINDOW_SECONDS}
-      # Expiration du token de reinitialisation de mot de passe (mlt.md 12.3).
       PASSWORD_RESET_TTL: ${PASSWORD_RESET_TTL}
       UPLOAD_MAX_SIZE_MB: ${UPLOAD_MAX_SIZE_MB}
       UPLOAD_ALLOWED_MIME: ${UPLOAD_ALLOWED_MIME}
-
     volumes:
-      # Bind-mount du code source pour le hot-reload en dev.
-      # En prod, cette ligne est remplacee par un COPY dans l'image
-      # via docker-compose.prod.yml (override a venir en P7).
       - ./src:/var/www/html
-
-      # Named volume pour les uploads, plus specifique que le bind-mount
-      # parent : les uploads ne vont pas dans ./src, ils restent dans le
-      # volume Docker et survivent aux `docker compose down`.
       - wakdo_uploads:/var/www/html/public/uploads
-
     networks:
       - wakdo_internal
-
     depends_on:
-      # Le schema + les donnees de reference sont en place AVANT que l'app serve.
       wakdo-migrate:
         condition: service_completed_successfully
       wakdo-db:
         condition: service_healthy
 
-    # Healthcheck defini dans le Dockerfile (php -r exit 0).
-
-  # =======================================================================
-  # wakdo-web : Apache httpd (reverse FastCGI vers wakdo-app, expose via Traefik)
-  # =======================================================================
   wakdo-web:
     build:
       context: ./docker/apache
       dockerfile: Dockerfile
     container_name: wakdo-web
     restart: unless-stopped
-
     environment:
-      # Noms de domaine injectes dans les vhosts (ServerName ${TRAEFIK_DOMAIN_*}).
-      TRAEFIK_DOMAIN_KIOSK: ${TRAEFIK_DOMAIN_KIOSK}
-      TRAEFIK_DOMAIN_ADMIN: ${TRAEFIK_DOMAIN_ADMIN}
-
+      APP_HOST_KIOSK: ${APP_HOST_KIOSK}
+      APP_HOST_ADMIN: ${APP_HOST_ADMIN}
+    ports:
+      - "${HTTP_PORT:-8080}:80"
     volumes:
-      # Meme bind-mount que wakdo-app : Apache sert les fichiers statiques
-      # (HTML, CSS, JS, images) depuis ce dossier. PHP ne passe pas par
-      # ce chemin ici, il passe par le proxy FastCGI vers wakdo-app.
       - ./src:/var/www/html
       - wakdo_uploads:/var/www/html/public/uploads
-
     networks:
       - wakdo_internal
-      - reverse_proxy
-
     depends_on:
       wakdo-migrate:
         condition: service_completed_successfully
@@ -251,79 +124,26 @@ services:
       wakdo-db:
         condition: service_healthy
 
-    # === Labels Traefik : deux routers (kiosk + admin) sur le meme conteneur ===
-    # Le Traefik de l'hote decouvre ces labels automatiquement (provider docker).
-    # On ne configure PAS le certresolver ici : le Traefik hote le gere via
-    # sa propre config (acme.json, resolver par defaut).
-    labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=${REVERSE_PROXY_NETWORK}"
-
-      # --- Router kiosk (borne client) ---
-      - "traefik.http.routers.wakdo-kiosk.rule=Host(`${TRAEFIK_DOMAIN_KIOSK}`)"
-      - "traefik.http.routers.wakdo-kiosk.entrypoints=websecure"
-      - "traefik.http.routers.wakdo-kiosk.tls=true"
-      - "traefik.http.routers.wakdo-kiosk.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.wakdo-kiosk.service=wakdo-kiosk-svc"
-      - "traefik.http.services.wakdo-kiosk-svc.loadbalancer.server.port=80"
-
-      # --- Router admin (back-office + API) ---
-      - "traefik.http.routers.wakdo-admin.rule=Host(`${TRAEFIK_DOMAIN_ADMIN}`)"
-      - "traefik.http.routers.wakdo-admin.entrypoints=websecure"
-      - "traefik.http.routers.wakdo-admin.tls=true"
-      - "traefik.http.routers.wakdo-admin.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.wakdo-admin.service=wakdo-admin-svc"
-      - "traefik.http.services.wakdo-admin-svc.loadbalancer.server.port=80"
-
-      # --- Middleware : redirection HTTP -> HTTPS ---
-      # Applique aux 2 hosts via un router "catch-all" sur entrypoints=web.
-      - "traefik.http.routers.wakdo-kiosk-http.rule=Host(`${TRAEFIK_DOMAIN_KIOSK}`)"
-      - "traefik.http.routers.wakdo-kiosk-http.entrypoints=web"
-      - "traefik.http.routers.wakdo-kiosk-http.middlewares=wakdo-to-https"
-      - "traefik.http.routers.wakdo-admin-http.rule=Host(`${TRAEFIK_DOMAIN_ADMIN}`)"
-      - "traefik.http.routers.wakdo-admin-http.entrypoints=web"
-      - "traefik.http.routers.wakdo-admin-http.middlewares=wakdo-to-https"
-      - "traefik.http.middlewares.wakdo-to-https.redirectscheme.scheme=https"
-      - "traefik.http.middlewares.wakdo-to-https.redirectscheme.permanent=true"
-
-  # =======================================================================
-  # wakdo-cron : taches planifiees (backup, purge, agregations)
-  # =======================================================================
   wakdo-cron:
     build:
       context: ./docker/cron
       dockerfile: Dockerfile
     container_name: wakdo-cron
     restart: unless-stopped
-    # init: true -> Docker injecte tini comme PID 1. dcron exige un init
-    # parent pour pouvoir setpgid() sur ses jobs (sinon "Operation not
-    # permitted" en boucle car un PID 1 sans init ne peut pas changer les
-    # groupes de processus). Cf. busybox-utils issue tracker.
     init: true
-
     environment:
-      # Credentials BDD pour mysqldump et les purges. Le user applicatif est en
-      # moindre privilege (DML + SELECT/SHOW VIEW/TRIGGER/LOCK TABLES, jamais le
-      # root password ; cf. db/init/10-scope-app-user.sh).
       DB_HOST: ${DB_HOST}
       DB_PORT: ${DB_PORT}
       DB_NAME: ${DB_NAME}
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
-      # Retention des donnees (mlt.md 13.4/13.5). Defaut applique par les scripts
-      # ET ici, pour rester coherent si la var manque du .env.
       AUDIT_LOG_RETENTION_DAYS: ${AUDIT_LOG_RETENTION_DAYS:-365}
       THROTTLE_PURGE_AFTER_HOURS: ${THROTTLE_PURGE_AFTER_HOURS:-24}
       TZ: ${CRON_TIMEZONE:-Europe/Paris}
-
     volumes:
-      # Bind-mount vers l'hote pour les dumps : inspectables par ls, scp-able
-      # hors docker. Le dossier ./var/backups est gitignore.
       - ./var/backups:/backups
-
     networks:
       - wakdo_internal
-
     depends_on:
       wakdo-db:
         condition: service_healthy
