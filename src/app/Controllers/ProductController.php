@@ -22,7 +22,7 @@ use App\Core\Response;
  *  - update (product.update) : PIN equipier + audit UNIQUEMENT si prix ou TVA
  *    change (mlt 8.2 RG-4) ; sinon mise a jour simple ;
  *  - delete (product.delete) : PIN equipier + audit, suppression dure seulement si
- *    le produit n'est reference nulle part (FK RESTRICT -> 422 sinon).
+ *    le produit n'est reference nulle part (FK RESTRICT -> 409 sinon).
  * Le PIN suit le modele "identifiant equipier + PIN" : email + PIN resolus en un
  * acting_user_id ecrit dans audit_log, dans la meme transaction que l'effet (RG-T08).
  *
@@ -252,8 +252,8 @@ class ProductController extends AdminController
         $name = (string) ($product['name'] ?? '');
 
         // FK RESTRICT (order_item / menu / menu_slot_option / order_item_selection)
-        // -> PDOException 23000 -> 422 (catch ci-dessous). product_ingredient est
-        // CASCADE (recette possedee par le produit) : supprimee avec lui, jamais
+        // -> PDOException 23000 -> 409 Conflit (catch ci-dessous). product_ingredient
+        // est CASCADE (recette possedee par le produit) : supprimee avec lui, jamais
         // bloquante (cf. docblock ProductRepository).
         try {
             $this->db()->transaction(function (DatabaseInterface $db) use ($id, $actor, $name): void {
@@ -264,7 +264,7 @@ class ProductController extends AdminController
             });
         } catch (PDOException $exception) {
             if ((string) $exception->getCode() === '23000') {
-                return $this->renderDelete($guard, $id, $product, 'Produit reference par des commandes ou menus : suppression impossible. Masquez-le plutot.');
+                return $this->renderDelete($guard, $id, $product, 'Produit reference par des commandes ou menus : suppression impossible. Masquez-le plutot.', 409);
             }
 
             throw $exception;
@@ -272,7 +272,7 @@ class ProductController extends AdminController
 
         // PIN valide et suppression effective : reinitialise le compteur de l'acteur
         // de session (RG-T22, cle = $actorId). Apres le try/catch : non atteint si la
-        // FK a bloque (422), ce qui est benin (l'acteur n'est pas un attaquant).
+        // FK a bloque (409), ce qui est benin (l'acteur n'est pas un attaquant).
         $this->pinThrottle()->reset($actorId);
 
         $this->setFlash('Produit supprime.');
@@ -447,7 +447,7 @@ class ProductController extends AdminController
     /**
      * @param array<string, mixed> $product
      */
-    private function renderDelete(GuardResult $guard, int $id, array $product, ?string $error): Response
+    private function renderDelete(GuardResult $guard, int $id, array $product, ?string $error, ?int $status = null): Response
     {
         return $this->adminView('admin/products/delete', [
             'title'     => 'Supprimer un produit - Wakdo Admin',
@@ -455,7 +455,7 @@ class ProductController extends AdminController
             'productId' => $id,
             'name'      => (string) ($product['name'] ?? ''),
             'error'     => $error,
-        ], $guard, $error !== null ? 422 : 200);
+        ], $guard, $status ?? ($error !== null ? 422 : 200));
     }
 
     private function notFound(GuardResult $guard): Response

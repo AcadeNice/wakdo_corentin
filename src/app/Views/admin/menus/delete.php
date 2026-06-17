@@ -5,7 +5,7 @@ declare(strict_types=1);
 /**
  * Confirmation de suppression d'un menu (action sensible RG-T13/mlt 8.6) : exige
  * l'email + le PIN de l'equipier. La suppression cascade vers menu_slot /
- * menu_slot_option ; bloquee (422) si reference par une commande historique.
+ * menu_slot_option ; bloquee (409) si reference par une commande historique.
  * Injecte dans admin/layout.php.
  *
  * @var int          $menuId

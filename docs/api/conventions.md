@@ -257,7 +257,7 @@ stable).
 | `NOT_FOUND` | 404 | ressource introuvable |
 | `METHOD_NOT_ALLOWED` | 405 | methode non autorisee sur ce chemin |
 | `VALIDATION_ERROR` | 422 | entree invalide (champ, longueur, enum) |
-| `CONFLICT` | 409 | conflit d'etat (ex. transition de commande concurrente) |
+| `CONFLICT` | 409 | conflit d'etat (ex. transition de commande concurrente) ; suppression dure bloquee par une reference (FK RESTRICT) ; unicite slug/name deja prise (remontee par la base). La validation simple en amont (champ/format/bornes) reste `VALIDATION_ERROR` 422 |
 | `AUTH_REQUIRED` | 401 | authentification requise (prevu, API admin) |
 | `FORBIDDEN` | 403 | permission insuffisante, ou jeton CSRF invalide cote formulaire |
 | `RATE_LIMITED` | 429 | throttling (prevu) |

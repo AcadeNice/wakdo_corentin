@@ -14,7 +14,7 @@ use App\Core\DatabaseInterface;
  * suppression dure :
  *  - RESTRICT (bloquent la suppression) : order_item, menu.burger_product_id,
  *    menu_slot_option, order_item_selection. Le controleur attrape la violation
- *    (SQLSTATE 23000) -> 422, plutot que de pre-tester chaque reference.
+ *    (SQLSTATE 23000) -> 409 Conflit, plutot que de pre-tester chaque reference.
  *  - CASCADE : product_ingredient (la recette appartient au produit ; la
  *    supprimer avec le produit est voulu). La suppression n'est donc PAS bloquee
  *    par une recette existante. TODO (phase stock/recettes, table aujourd'hui

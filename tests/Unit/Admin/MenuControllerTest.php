@@ -269,7 +269,7 @@ final class MenuControllerTest extends TestCase
         self::assertSame(1, $reset['params']['uid'] ?? null);
     }
 
-    public function testDestroyReferencedByOrderReturns422(): void
+    public function testDestroyReferencedByOrderReturns409(): void
     {
         $db = $this->permittedDb();
         $db->menuRow = ['id' => 5, 'name' => 'Best Of'];
@@ -278,7 +278,7 @@ final class MenuControllerTest extends TestCase
 
         $response = $this->controller($this->post(['_csrf' => $this->csrf, 'pin_email' => 'staff@wakdo.local', 'pin' => '4729'], '/admin/menus/5/delete'), $db)->destroy(['id' => '5']);
 
-        self::assertSame(422, $response->status());
+        self::assertSame(409, $response->status());
         self::assertStringContainsString('suppression impossible', $response->body());
     }
 

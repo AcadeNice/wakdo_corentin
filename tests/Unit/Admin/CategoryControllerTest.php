@@ -237,10 +237,10 @@ final class CategoryControllerTest extends TestCase
         self::assertFalse($this->wroteContaining($db, 'INSERT INTO category'));
     }
 
-    public function testStoreTranslatesUniqueViolationTo422(): void
+    public function testStoreTranslatesUniqueViolationTo409(): void
     {
-        // Fenetre de concurrence : la base leve une violation 23000 a l'insertion ;
-        // le controleur doit re-afficher le formulaire (422), pas remonter un 500.
+        // Fenetre de concurrence : la base leve une violation 23000 a l'insertion.
+        // Conflit remonte par la base -> 409 (re-affiche le formulaire), pas un 500.
         $db = $this->permittedDb();
         $db->failOnExecute = new \PDOException('duplicate', 23000);
         $request = $this->post(
@@ -250,7 +250,7 @@ final class CategoryControllerTest extends TestCase
 
         $response = $this->controller($request, $db)->store();
 
-        self::assertSame(422, $response->status());
+        self::assertSame(409, $response->status());
         self::assertStringContainsString('existe deja', $response->body());
     }
 

@@ -304,7 +304,7 @@ final class ProductControllerTest extends TestCase
         $this->assertAuditWithinTransaction($db);
     }
 
-    public function testDestroyReferencedReturns422(): void
+    public function testDestroyReferencedReturns409(): void
     {
         $db = $this->permittedDb();
         $db->productRow = ['id' => 5, 'name' => 'Big Mac'];
@@ -313,7 +313,7 @@ final class ProductControllerTest extends TestCase
 
         $response = $this->controller($this->post(['_csrf' => $this->csrf, 'pin_email' => 'staff@wakdo.local', 'pin' => '4729'], '/admin/products/5/delete'), $db)->destroy(['id' => '5']);
 
-        self::assertSame(422, $response->status());
+        self::assertSame(409, $response->status());
         self::assertStringContainsString('reference', $response->body());
     }
 

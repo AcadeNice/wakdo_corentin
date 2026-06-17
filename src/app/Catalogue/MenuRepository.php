@@ -17,7 +17,7 @@ use App\Core\DatabaseInterface;
  *  - menu_slot_option.menu_slot_id : CASCADE ; .product_id : RESTRICT.
  *  - order_item.menu_id : RESTRICT -> la suppression dure est bloquee si le menu
  *    est reference par une commande historique (mlt 8.6 RG-1 : le controleur
- *    traduit la violation en 422 et propose la desactivation).
+ *    traduit la violation en 409 et propose la desactivation).
  *
  * create() et update() ecrivent menu + slots + options dans UNE transaction
  * (RG-T08). update() reconstruit les slots en delete-and-reinsert (mlt 8.5 RG-2).
@@ -170,7 +170,7 @@ final class MenuRepository
     /**
      * Suppression dure. CASCADE retire menu_slot + menu_slot_option ;
      * order_item.menu_id (RESTRICT) bloque si une commande historique reference le
-     * menu (le controleur attrape SQLSTATE 23000 -> 422).
+     * menu (le controleur attrape SQLSTATE 23000 -> 409).
      */
     public function delete(int $id): int
     {

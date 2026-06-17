@@ -24,7 +24,7 @@ use App\Core\Response;
  *    vat_rate ; la sensibilite fiscale est au niveau composant -> hors RG-T13) ;
  *  - delete (menu.delete) : action sensible -> PIN equipier + audit (RG-T13/T14,
  *    mlt 8.6), suppression dure seulement si non reference par order_item.menu_id
- *    (FK RESTRICT -> 422 sinon, proposer la desactivation).
+ *    (FK RESTRICT -> 409 sinon, proposer la desactivation).
  *
  * La configuration de slots est soumise en un champ cache `slots_json` (le
  * builder vanilla JS la serialise) : Request::formBody() ne retient que les
@@ -236,7 +236,7 @@ class MenuController extends AdminController
 
         $name = (string) ($menu['name'] ?? '');
 
-        // FK order_item.menu_id RESTRICT -> PDOException 23000 -> 422 (catch).
+        // FK order_item.menu_id RESTRICT -> PDOException 23000 -> 409 Conflit (catch).
         // menu_slot / menu_slot_option sont CASCADE (supprimes avec le menu).
         try {
             $this->db()->transaction(function (DatabaseInterface $db) use ($id, $actor, $name): void {
@@ -247,7 +247,7 @@ class MenuController extends AdminController
             });
         } catch (PDOException $exception) {
             if ((string) $exception->getCode() === '23000') {
-                return $this->renderDelete($guard, $id, $menu, 'Menu reference par des commandes : suppression impossible. Desactivez-le plutot.');
+                return $this->renderDelete($guard, $id, $menu, 'Menu reference par des commandes : suppression impossible. Desactivez-le plutot.', 409);
             }
 
             throw $exception;
@@ -478,7 +478,7 @@ class MenuController extends AdminController
     /**
      * @param array<string, mixed> $menu
      */
-    private function renderDelete(GuardResult $guard, int $id, array $menu, ?string $error): Response
+    private function renderDelete(GuardResult $guard, int $id, array $menu, ?string $error, ?int $status = null): Response
     {
         return $this->adminView('admin/menus/delete', [
             'title'     => 'Supprimer un menu - Wakdo Admin',
@@ -486,7 +486,7 @@ class MenuController extends AdminController
             'menuId'    => $id,
             'name'      => (string) ($menu['name'] ?? ''),
             'error'     => $error,
-        ], $guard, $error !== null ? 422 : 200);
+        ], $guard, $status ?? ($error !== null ? 422 : 200));
     }
 
     private function notFound(GuardResult $guard): Response

@@ -245,9 +245,11 @@ class CategoryController extends AdminController
 
     /**
      * Traduit une violation de contrainte d'unicite (SQLSTATE 23000) en
-     * re-affichage 422 du formulaire plutot qu'en 500. Couvre la fenetre de
-     * concurrence entre le controle nameExists/slugExists et l'ecriture. Tout
-     * autre code d'erreur est repropage (vrai incident interne).
+     * re-affichage 409 du formulaire plutot qu'en 500. Conflit remonte par la
+     * base (slug/name deja pris) = 409 Conflict, aligne sur le contrat d'API
+     * (SLUG_EXISTS). La pre-verification nameExists/slugExists reste, elle, en
+     * 422 (validation du formulaire) ; ce catch couvre la fenetre de concurrence
+     * entre ce controle et l'ecriture. Tout autre code d'erreur est repropage.
      *
      * @param array<string, mixed> $form
      */
@@ -256,7 +258,7 @@ class CategoryController extends AdminController
         // getCode() rend la chaine SQLSTATE pour une vraie PDOException ; le cast
         // couvre aussi un code entier (23000 = violation de contrainte d'integrite).
         if ((string) $exception->getCode() === '23000') {
-            return $this->renderForm($guard, $id, $form, ['slug' => 'Ce libelle ou ce slug existe deja.'], 422);
+            return $this->renderForm($guard, $id, $form, ['slug' => 'Ce libelle ou ce slug existe deja.'], 409);
         }
 
         throw $exception;
