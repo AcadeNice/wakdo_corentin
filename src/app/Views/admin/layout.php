@@ -61,14 +61,6 @@ $navClass = static function (string $code, string $current): string {
 <body>
 <div class="admin-layout">
     <header class="topbar">
-        <div class="topbar-logo">
-            <img src="/assets/images/logo.png" alt="Wakdo">
-            <div>
-                <span class="topbar-logo-text">Wakdo</span>
-                <span class="topbar-logo-sub">Administration</span>
-            </div>
-        </div>
-
         <div class="topbar-actions">
             <div class="topbar-user">
                 <button class="topbar-user-btn" id="userMenuBtn" type="button" aria-haspopup="true" aria-expanded="false">
@@ -91,6 +83,12 @@ $navClass = static function (string $code, string $current): string {
     </header>
 
     <nav class="sidebar">
+        <div class="sidebar-brand">
+            <span class="sidebar-brand-mark" aria-hidden="true">
+                <svg width="27" height="27" viewBox="0 0 28 28" fill="none"><path d="M3 5 L7.5 23 L11.5 11 L14 19 L16.5 11 L20.5 23 L25 5" stroke="#1A1A1A" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            <span class="sidebar-brand-name">Wak<span>do</span></span>
+        </div>
         <div class="sidebar-section">
             <div class="sidebar-section-label">Vue d'ensemble</div>
             <a href="/admin/dashboard" class="<?= $navClass('dashboard', $active) ?>">Tableau de bord</a>

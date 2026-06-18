@@ -45,8 +45,8 @@
     --color-info-text:   #1E40AF;
 
     /* Layout */
-    --sidebar-width: 240px;
-    --topbar-height: 56px;
+    --sidebar-width: 264px;
+    --topbar-height: 72px;
 
     /* Typography */
     --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -55,6 +55,14 @@
     --radius-sm:  4px;
     --radius-md:  6px;
     --radius-lg:  8px;
+    --radius-xl:  14px;
+    --radius-card: 20px;
+
+    /* Accent doux + ombres douces (direction A+C) */
+    --color-yellow-soft: #FFF3D1;
+    --color-yellow-ink:  #C8920A;
+    --shadow-card:       0 1px 3px rgba(26,26,26,0.04), 0 6px 20px rgba(26,26,26,0.06);
+    --shadow-card-hover: 0 2px 6px rgba(26,26,26,0.06), 0 12px 30px rgba(26,26,26,0.10);
 }
 
 html, body {
@@ -83,7 +91,7 @@ button {
     grid-template-columns: var(--sidebar-width) 1fr;
     grid-template-rows: var(--topbar-height) 1fr;
     grid-template-areas:
-        "topbar topbar"
+        "sidebar topbar"
         "sidebar content";
     height: 100vh;
     overflow: hidden;
@@ -97,7 +105,7 @@ button {
     border-bottom: 1px solid var(--color-border);
     display: flex;
     align-items: center;
-    padding: 0 20px;
+    padding: 0 32px;
     gap: 16px;
     position: relative;
     z-index: 100;
@@ -180,12 +188,12 @@ button {
 .topbar-user-btn {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 6px 10px;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    background: var(--color-white);
-    font-size: 13px;
+    gap: 11px;
+    padding: 6px 8px 6px 12px;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    font-size: 14px;
     color: var(--color-text);
     cursor: pointer;
     transition: background 0.15s;
@@ -196,21 +204,23 @@ button {
 }
 
 .topbar-user-avatar {
-    width: 26px;
-    height: 26px;
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
-    background: var(--color-yellow);
+    background: var(--color-text);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 11px;
-    font-weight: 700;
-    color: var(--color-text);
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.3px;
+    color: var(--color-yellow);
     flex-shrink: 0;
 }
 
 .topbar-user-name {
-    font-weight: 500;
+    font-size: 14px;
+    font-weight: 700;
 }
 
 .topbar-user-role {
@@ -273,47 +283,78 @@ button {
     border-right: 1px solid var(--color-border);
     overflow-y: auto;
     overflow-x: hidden;
+    padding: 0 14px 18px;
+}
+
+/* Marque en tete de sidebar (logo Wakdo) */
+.sidebar-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 20px 10px 14px;
+}
+
+.sidebar-brand-mark {
+    width: 44px;
+    height: 44px;
+    border-radius: 13px;
+    background: var(--color-yellow);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(255, 199, 44, 0.4);
+    flex-shrink: 0;
+}
+
+.sidebar-brand-name {
+    font-size: 21px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    color: var(--color-text);
+}
+
+.sidebar-brand-name span {
+    color: var(--color-yellow-ink);
 }
 
 .sidebar-section {
-    padding: 16px 0 4px;
+    padding: 12px 0 2px;
 }
 
 .sidebar-section-label {
-    padding: 0 16px 6px;
+    padding: 0 12px 8px;
     font-size: 11px;
-    font-weight: 600;
+    font-weight: 700;
     color: var(--color-text-muted);
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.07em;
 }
 
 .sidebar-item {
     display: flex;
     align-items: center;
-    gap: 10px;
-    height: 40px;
-    padding: 0 16px;
-    font-size: 13px;
-    font-weight: 500;
+    gap: 12px;
+    height: 44px;
+    padding: 0 14px;
+    margin: 2px 0;
+    border-radius: var(--radius-md);
+    font-size: 15px;
+    font-weight: 600;
     color: var(--color-text-sec);
     cursor: pointer;
-    transition: background 0.1s, color 0.1s;
-    border-left: 3px solid transparent;
+    transition: background 0.15s, color 0.15s;
     text-decoration: none;
 }
 
 .sidebar-item:hover {
     background: var(--color-surface);
     color: var(--color-text);
-    border-left-color: transparent;
 }
 
 .sidebar-item.active {
-    background: var(--color-yellow-bg);
+    background: var(--color-yellow-soft);
     color: var(--color-text);
-    font-weight: 600;
-    border-left-color: var(--color-yellow);
+    box-shadow: inset 3px 0 0 var(--color-yellow);
 }
 
 .sidebar-item svg {
@@ -322,12 +363,8 @@ button {
 }
 
 .sidebar-item-sub {
-    padding-left: 42px;
-    font-weight: 400;
-}
-
-.sidebar-item-sub.active {
-    padding-left: 39px;
+    padding-left: 40px;
+    font-weight: 500;
 }
 
 /* --- Content Area --- */
@@ -452,8 +489,9 @@ button {
 .kpi-card {
     background: var(--color-white);
     border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg);
-    padding: 20px;
+    border-radius: var(--radius-card);
+    padding: 24px;
+    box-shadow: var(--shadow-card);
 }
 
 .kpi-label {
@@ -1230,3 +1268,93 @@ tbody td.mono {
     font-size: 0.875rem;
     margin-top: 0.125rem;
 }
+
+/* --- Dashboard (direction A+C) : tuiles + feed d'activite --- */
+.dash-tiles {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 22px;
+    margin-bottom: 28px;
+}
+
+.tile {
+    background: var(--color-white);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-card);
+    padding: 24px;
+    box-shadow: var(--shadow-card);
+    transition: box-shadow 0.2s, transform 0.2s;
+}
+.tile:hover { box-shadow: var(--shadow-card-hover); transform: translateY(-3px); }
+
+.tile-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+
+.tile-ico {
+    width: 54px; height: 54px;
+    border-radius: 15px;
+    background: var(--color-yellow);
+    color: var(--color-text);
+    display: flex; align-items: center; justify-content: center;
+}
+.tile.alert .tile-ico { background: var(--color-danger); color: #fff; }
+
+.tile-tag {
+    font-size: 12px; font-weight: 700;
+    color: var(--color-success-text);
+    background: var(--color-success-bg);
+    padding: 5px 11px;
+    border-radius: 999px;
+}
+.tile.alert .tile-tag { color: var(--color-danger-text); background: var(--color-danger-bg); }
+
+.tile-value { font-size: 40px; font-weight: 800; letter-spacing: -1.5px; line-height: 1; }
+.tile.alert .tile-value { color: var(--color-danger); }
+
+.tile-label { font-size: 15px; font-weight: 600; color: var(--color-text-sec); margin-top: 8px; }
+
+.feed-panel {
+    background: var(--color-white);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+    overflow: hidden;
+}
+.feed-head {
+    padding: 22px 26px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--color-border);
+}
+.feed-title { font-size: 18px; font-weight: 800; letter-spacing: -0.3px; }
+.feed-hint { font-size: 13px; color: var(--color-text-muted); margin-top: 2px; }
+.feed-link {
+    font-size: 14px; font-weight: 700; color: var(--color-text);
+    text-decoration: none; background: var(--color-page);
+    padding: 9px 16px; border-radius: 10px; transition: background 0.18s;
+}
+.feed-link:hover { background: var(--color-yellow-soft); }
+
+.feed-list { list-style: none; }
+.feed-item {
+    display: flex; align-items: center; gap: 18px;
+    padding: 18px 26px;
+    border-top: 1px solid var(--color-border);
+}
+.feed-item:first-child { border-top: none; }
+.feed-item:hover { background: var(--color-surface); }
+
+.feed-ico {
+    width: 44px; height: 44px;
+    border-radius: 13px;
+    background: var(--color-yellow-soft);
+    color: var(--color-yellow-ink);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+}
+.feed-ico.red { background: var(--color-danger-bg); color: var(--color-danger); }
+.feed-ico.green { background: var(--color-success-bg); color: var(--color-success-text); }
+
+.feed-body { flex: 1; }
+.feed-text { font-size: 15px; font-weight: 600; color: var(--color-text); }
+.feed-text b { font-weight: 800; }
+.feed-meta { font-size: 13px; color: var(--color-text-muted); margin-top: 2px; }
+.feed-time { font-size: 13px; color: var(--color-text-muted); font-weight: 600; white-space: nowrap; }
