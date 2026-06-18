@@ -271,9 +271,12 @@ button {
     background: var(--color-bg-card);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
     padding: var(--space-4) var(--space-6);
-    display: flex;
+    /* Grille 3 colonnes : le logo (colonne centrale auto) reste centre quelles que
+       soient les largeurs du bouton retour (gauche) et du badge/panier (droite).
+       En flex + space-between, le logo derivait selon ces largeurs (ex: panier). */
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
-    justify-content: space-between;
     /* Sticky so the logo stays visible while user scrolls categories */
     position: sticky;
     top: 0;
@@ -283,10 +286,17 @@ button {
 .site-header__logo {
     height: 56px;
     width: auto;
+    justify-self: center;
+}
+
+.site-header__cart,
+.site-header__mode {
+    justify-self: end;
 }
 
 .site-header__back {
     display: inline-flex;
+    justify-self: start;
     align-items: center;
     gap: var(--space-2);
     font-size: var(--font-size-sm);
