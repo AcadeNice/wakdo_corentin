@@ -84,9 +84,7 @@ $navClass = static function (string $code, string $current): string {
 
     <nav class="sidebar">
         <div class="sidebar-brand">
-            <span class="sidebar-brand-mark" aria-hidden="true">
-                <svg width="27" height="27" viewBox="0 0 28 28" fill="none"><path d="M3 5 L7.5 23 L11.5 11 L14 19 L16.5 11 L20.5 23 L25 5" stroke="#1A1A1A" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </span>
+            <img class="sidebar-brand-logo" src="/assets/images/logo.png" alt="Wakdo">
             <span class="sidebar-brand-name">Wak<span>do</span></span>
         </div>
         <div class="sidebar-section">

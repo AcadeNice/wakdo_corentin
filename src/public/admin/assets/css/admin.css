@@ -294,15 +294,9 @@ button {
     padding: 20px 10px 14px;
 }
 
-.sidebar-brand-mark {
-    width: 44px;
-    height: 44px;
-    border-radius: 13px;
-    background: var(--color-yellow);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 4px 12px rgba(255, 199, 44, 0.4);
+.sidebar-brand-logo {
+    height: 34px;
+    width: auto;
     flex-shrink: 0;
 }
 
