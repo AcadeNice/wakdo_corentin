@@ -425,7 +425,7 @@ final class IngredientControllerTest extends TestCase
         $response = $this->controller($this->get('/admin/ingredients/5/movements'), $db)->movements(['id' => '5']);
 
         self::assertSame(200, $response->status());
-        self::assertStringContainsString('Acteur', $response->body());
+        self::assertStringContainsString('Auteur', $response->body());
         self::assertStringContainsString('Sam K', $response->body()); // nom resolu
     }
 
@@ -438,6 +438,6 @@ final class IngredientControllerTest extends TestCase
         $response = $this->controller($this->get('/admin/ingredients/5/movements'), $db)->movements(['id' => '5']);
 
         self::assertSame(200, $response->status());
-        self::assertStringNotContainsString('Acteur', $response->body()); // colonne masquee (RG-4)
+        self::assertStringNotContainsString('Auteur', $response->body()); // colonne masquee (RG-4)
     }
 }

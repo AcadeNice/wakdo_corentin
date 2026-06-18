@@ -32,7 +32,7 @@ $esc = static fn (mixed $v): string => htmlspecialchars((string) $v, ENT_QUOTES,
             <thead>
                 <tr>
                     <th>Libelle</th>
-                    <th>Slug</th>
+                    <th>Reference</th>
                     <th>Ordre</th>
                     <th>Statut</th>
                     <th style="width:160px;"></th>

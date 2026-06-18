@@ -49,9 +49,9 @@ $colspan = $withActor ? 5 : 4;
                 <tr>
                     <th>Date</th>
                     <th>Type</th>
-                    <th>Delta</th>
+                    <th>Variation</th>
                     <th>Note</th>
-                    <?php if ($withActor): ?><th>Acteur</th><?php endif; ?>
+                    <?php if ($withActor): ?><th>Auteur</th><?php endif; ?>
                 </tr>
             </thead>
             <tbody>

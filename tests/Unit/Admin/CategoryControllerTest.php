@@ -202,7 +202,7 @@ final class CategoryControllerTest extends TestCase
 
         self::assertSame(422, $response->status());
         self::assertStringContainsString('Le libelle est requis', $response->body());
-        self::assertStringContainsString('Slug requis', $response->body());
+        self::assertStringContainsString('Reference requise', $response->body());
         self::assertFalse($this->wroteContaining($db, 'INSERT INTO category'));
     }
 
@@ -266,7 +266,7 @@ final class CategoryControllerTest extends TestCase
         $response = $this->controller($request, $db)->store();
 
         self::assertSame(422, $response->status());
-        self::assertStringContainsString('Ce slug existe deja', $response->body());
+        self::assertStringContainsString('Cette reference existe deja', $response->body());
         self::assertFalse($this->wroteContaining($db, 'INSERT INTO category'));
     }
 

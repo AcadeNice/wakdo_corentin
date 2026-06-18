@@ -197,9 +197,9 @@ class CategoryController extends AdminController
         }
 
         if ($slug === '' || mb_strlen($slug) > 60 || preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/', $slug) !== 1) {
-            $errors['slug'] = 'Slug requis : minuscules, chiffres et tirets (60 max).';
+            $errors['slug'] = 'Reference requise : minuscules, chiffres et tirets (60 max).';
         } elseif ($repo->slugExists($slug, $exceptId)) {
-            $errors['slug'] = 'Ce slug existe deja.';
+            $errors['slug'] = 'Cette reference existe deja.';
         }
 
         if ($image !== '' && mb_strlen($image) > 255) {
@@ -258,7 +258,7 @@ class CategoryController extends AdminController
         // getCode() rend la chaine SQLSTATE pour une vraie PDOException ; le cast
         // couvre aussi un code entier (23000 = violation de contrainte d'integrite).
         if ((string) $exception->getCode() === '23000') {
-            return $this->renderForm($guard, $id, $form, ['slug' => 'Ce libelle ou ce slug existe deja.'], 409);
+            return $this->renderForm($guard, $id, $form, ['slug' => 'Ce libelle ou cette reference existe deja.'], 409);
         }
 
         throw $exception;
