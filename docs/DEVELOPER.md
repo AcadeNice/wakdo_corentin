@@ -120,9 +120,9 @@ Detail par entite : `docs/merise/` et `docs/domaines/` (a venir).
 - **Branches** depuis `dev` : `feat/*`, `fix/*`, `docs/*`, `chore/*`, `ci/*`, `db/*`,
   `refactor/*`, `test/*`. Merge vers `dev` par **PR squashee**. Periodiquement
   `dev -> main` avec tag semver.
-- **Auto-merge** : poser le label `auto-merge` sur la PR -> fusion automatique des que
-  la CI Forgejo est verte (secret-scan, php-lint, static-tests, js-tests).
-  Script : `scripts/forgejo-pr-automerge.sh`.
+- **Auto-merge** : l'ouverture de la PR programme la fusion squash automatique des que
+  les checks requis passent (auto-merge NATIF Forgejo `merge_when_checks_succeed`, sans
+  label ni job CI). Script : `scripts/forgejo-pr-automerge.sh`.
 - **Pas de trailer `Co-Authored-By`** : la transparence sur l'usage de l'IA vit dans le
   `README.md` et `docs/PROJECT_CONTEXT.md` section 17.
 

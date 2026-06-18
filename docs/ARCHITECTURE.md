@@ -41,7 +41,7 @@ commande = phase **P4**, schema en base mais workflow applicatif a venir).
 | Tests PHP | PHPUnit 11 (`.phar`, sans Composer) | unit + integration DB |
 | Tests front | node:test + jsdom | harnais kiosk (`tests/js/`) |
 | Analyse statique | PHPStan niveau 6 (`.phar`) | |
-| CI/CD | Forgejo Actions | secret-scan, lint, tests, auto-merge |
+| CI/CD | Forgejo Actions | secret-scan, lint, tests ; merge natif sur CI verte |
 | Versioning | Git + Forgejo (`git.acadenice.com`, miroir GitHub) | Conventional Commits |
 
 Justifications (composer-less, from-scratch, etc.) : `docs/PROJECT_CONTEXT.md` section 6.
@@ -243,7 +243,8 @@ MCD / MLD / dictionnaire : `docs/merise/`.
 - **PHPStan niveau 6** (`.phar`).
 - **CI Forgejo Actions** (`.forgejo/workflows/ci.yml`) : `secret-scan` (gitleaks),
   `php-lint`, `static-tests` (PHPStan + PHPUnit avec service MariaDB ephemere migre +
-  seede), `js-tests` (Node 20), `auto-merge` (squash sur label + CI verte).
+  seede), `js-tests` (Node 20). Fusion par auto-merge NATIF Forgejo (squash,
+  `merge_when_checks_succeed`) des que les checks requis sont verts — pas de job de merge.
 - **Branch protection** : `dev` et `main` proteges (PR requise, force-push bloque,
   checks requis).
 
