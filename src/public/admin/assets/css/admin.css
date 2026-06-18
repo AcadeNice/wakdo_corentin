@@ -1386,3 +1386,48 @@ tbody td.mono {
 .pin-modal-title { font-size: 18px; font-weight: 800; letter-spacing: -0.3px; }
 .pin-modal-sub { font-size: 13px; color: var(--color-text-muted); margin-top: 3px; }
 .pin-modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; }
+
+/* --- Matrice de droits d'acces groupee (formulaire Roles humanise) --- */
+.perm-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+    margin-top: 10px;
+}
+.perm-group {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 14px 16px;
+    background: var(--color-surface);
+}
+.perm-group-title {
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    color: var(--color-text);
+}
+.perm-opt {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    color: var(--color-text-sec);
+    margin: 3px 14px 3px 0;
+}
+@media (max-width: 700px) {
+    .perm-grid { grid-template-columns: 1fr; }
+}
+
+/* Fieldsets de formulaire : pas de bordure native ; la legende = titre de section. */
+.form-card fieldset {
+    border: none;
+    padding: 0;
+    margin: 0;
+}
+.form-card legend {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--color-text);
+    padding: 0;
+    margin-bottom: 4px;
+}
