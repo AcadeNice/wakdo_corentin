@@ -10,12 +10,39 @@ use App\Auth\GuardResult;
 use App\Auth\SessionGuard;
 use App\Auth\SessionManager;
 use App\Auth\UserDirectory;
+use App\Catalogue\StatsRepository;
 use App\Controllers\DashboardController;
 use App\Core\Config;
 use App\Core\Database;
 use App\Core\Request;
 use App\Core\Response;
 use App\Tests\Support\FakeDatabase;
+
+/**
+ * Stub de StatsRepository : KPIs canned, sans base (les agregats reels sont
+ * couverts par StatsRepositoryDbTest).
+ */
+final class DashStubStatsRepository extends StatsRepository
+{
+    public function counts(): array
+    {
+        return [
+            'products'    => ['total' => 53, 'available' => 50],
+            'categories'  => ['total' => 9, 'active' => 9],
+            'menus'       => ['total' => 13, 'available' => 12],
+            'ingredients' => ['total' => 7, 'active' => 6],
+        ];
+    }
+
+    public function stockHealth(): array
+    {
+        return [
+            'active_total' => 6,
+            'bands'        => ['normal' => 4, 'low' => 1, 'critical' => 1],
+            'alerts'       => [],
+        ];
+    }
+}
 
 /**
  * Sous-classe de test : injecte session test + FakeDatabase dans la garde,
@@ -51,6 +78,11 @@ final class TestDashboardController extends DashboardController
     protected function userDirectory(): UserDirectory
     {
         return new UserDirectory($this->fakeDb);
+    }
+
+    protected function statsRepository(): StatsRepository
+    {
+        return new DashStubStatsRepository($this->fakeDb);
     }
 
     /**
