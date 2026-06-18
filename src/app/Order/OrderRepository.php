@@ -1,0 +1,321 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Order;
+
+use App\Catalogue\MenuRepository;
+use App\Catalogue\ProductRepository;
+use App\Core\DatabaseInterface;
+
+/**
+ * Creation de commande (P4, chunk 1). Persiste une commande en `pending_payment`
+ * (RG-5 etapes 1-4 : customer_order + order_item + order_item_selection +
+ * order_item_modifier) dans UNE transaction. Le decrement de stock (RG-T20) et la
+ * transition `paid` sont une operation distincte (pay(), 2 etapes — decision projet).
+ *
+ * Prix recalcules SERVEUR depuis la base (jamais le client, RG-T16) ; snapshots
+ * figes (RG-T05/RG-7). order_number = "K" + id (decision utilisateur, diverge du
+ * K-AAAA-MM-JJ-NNN de la spec : plus simple, pas de compteur jour). Idempotence
+ * via idempotency_key (anti double-clic / retry reseau borne anonyme).
+ *
+ * Regles de calcul DOCUMENTEES (a confirmer en revue ; non explicitees par la spec) :
+ *  - produit a l'unite : toujours format `normal`, prix = product.price_cents, TVA = product.vat_rate ;
+ *  - menu : prix = price_maxi_cents si format `maxi` sinon price_normal_cents, TVA = vat_rate du BURGER du menu ;
+ *  - modifier `add` : ajoute extra_price_cents (snapshot product_ingredient) au prix de la ligne, au taux TVA de la ligne ;
+ *  - TVA par ligne (RG-4) : unit_ht = ROUND(unit_ttc * 1000 / (1000 + vat)), unit_vat = unit_ttc - unit_ht ;
+ *    totaux = somme(unit_ttc * qty) ; total_ht = somme(unit_ht * qty) ; total_vat = total_ttc - total_ht.
+ */
+class OrderRepository
+{
+    public function __construct(
+        private readonly DatabaseInterface $db,
+        private readonly ProductRepository $products,
+        private readonly MenuRepository $menus,
+    ) {
+    }
+
+    /**
+     * @return array{id:int, order_number:string, total_ttc_cents:int, status:string}|null
+     */
+    public function findByIdempotencyKey(string $key): ?array
+    {
+        if ($key === '') {
+            return null;
+        }
+        $row = $this->db->fetch(
+            'SELECT id, order_number, total_ttc_cents, status FROM customer_order WHERE idempotency_key = :k',
+            ['k' => $key],
+        );
+        if ($row === null) {
+            return null;
+        }
+
+        return [
+            'id'              => (int) $row['id'],
+            'order_number'    => (string) $row['order_number'],
+            'total_ttc_cents' => (int) $row['total_ttc_cents'],
+            'status'          => (string) $row['status'],
+        ];
+    }
+
+    /**
+     * Cree une commande borne en pending_payment. Idempotent sur idempotency_key.
+     *
+     * @param array{idempotency_key?:string, service_mode:string, service_tag?:?string, items:list<array<string,mixed>>} $req
+     * @return array{id:int, order_number:string, total_ttc_cents:int, status:string}
+     * @throws OrderValidationException si une reference est invalide / indisponible.
+     */
+    public function createPending(array $req): array
+    {
+        $key = trim((string) ($req['idempotency_key'] ?? ''));
+        $existing = $this->findByIdempotencyKey($key);
+        if ($existing !== null) {
+            return $existing;
+        }
+
+        $serviceMode = (string) ($req['service_mode'] ?? '');
+        if (!in_array($serviceMode, ['dine_in', 'takeaway', 'drive'], true)) {
+            throw new OrderValidationException('INVALID_SERVICE_MODE');
+        }
+        $serviceTag = $serviceMode === 'dine_in' ? trim((string) ($req['service_tag'] ?? '')) : '';
+        if ($serviceTag !== '' && mb_strlen($serviceTag) > 20) {
+            throw new OrderValidationException('INVALID_SERVICE_TAG');
+        }
+
+        $items = isset($req['items']) && is_array($req['items']) ? $req['items'] : [];
+        if ($items === []) {
+            throw new OrderValidationException('EMPTY_ORDER');
+        }
+
+        // Resolution + calcul (lecture seule) AVANT la transaction d'ecriture.
+        $lines = array_map(fn (array $item): array => $this->resolveLine($item), $items);
+
+        $totalTtc = 0;
+        $totalHt = 0;
+        foreach ($lines as $l) {
+            $totalTtc += $l['unit_ttc'] * $l['quantity'];
+            $totalHt += $l['unit_ht'] * $l['quantity'];
+        }
+        $totalVat = $totalTtc - $totalHt;
+        if ($totalTtc <= 0) {
+            throw new OrderValidationException('EMPTY_ORDER');
+        }
+
+        $result = ['id' => 0, 'order_number' => '', 'total_ttc_cents' => $totalTtc, 'status' => 'pending_payment'];
+
+        $this->db->transaction(function (DatabaseInterface $db) use ($key, $serviceMode, $serviceTag, $lines, $totalTtc, $totalHt, $totalVat, &$result): void {
+            $db->execute(
+                'INSERT INTO customer_order '
+                . '(order_number, idempotency_key, source, service_mode, service_tag, status, '
+                . ' total_ht_cents, total_vat_cents, total_ttc_cents) '
+                . "VALUES ('', :idem, 'kiosk', :mode, :tag, 'pending_payment', :ht, :vat, :ttc)",
+                [
+                    'idem' => $key !== '' ? $key : null,
+                    'mode' => $serviceMode,
+                    'tag'  => $serviceTag !== '' ? $serviceTag : null,
+                    'ht'   => $totalHt,
+                    'vat'  => $totalVat,
+                    'ttc'  => $totalTtc,
+                ],
+            );
+            $orderId = (int) ($db->fetch('SELECT LAST_INSERT_ID() AS id')['id'] ?? 0);
+            $orderNumber = 'K' . $orderId;
+            $db->execute(
+                'UPDATE customer_order SET order_number = :num WHERE id = :id',
+                ['num' => $orderNumber, 'id' => $orderId],
+            );
+
+            foreach ($lines as $l) {
+                $db->execute(
+                    'INSERT INTO order_item '
+                    . '(order_id, item_type, product_id, menu_id, format, label_snapshot, '
+                    . ' unit_price_cents_snapshot, vat_rate_snapshot, quantity) '
+                    . 'VALUES (:oid, :type, :pid, :mid, :fmt, :label, :price, :vat, :qty)',
+                    [
+                        'oid'   => $orderId,
+                        'type'  => $l['item_type'],
+                        'pid'   => $l['product_id'],
+                        'mid'   => $l['menu_id'],
+                        'fmt'   => $l['format'],
+                        'label' => $l['label'],
+                        'price' => $l['unit_ttc'],
+                        'vat'   => $l['vat_rate'],
+                        'qty'   => $l['quantity'],
+                    ],
+                );
+                $itemId = (int) ($db->fetch('SELECT LAST_INSERT_ID() AS id')['id'] ?? 0);
+
+                foreach ($l['selections'] as $sel) {
+                    $db->execute(
+                        'INSERT INTO order_item_selection (order_item_id, menu_slot_id, product_id, label_snapshot) '
+                        . 'VALUES (:oiid, :slot, :pid, :label)',
+                        ['oiid' => $itemId, 'slot' => $sel['menu_slot_id'], 'pid' => $sel['product_id'], 'label' => $sel['label']],
+                    );
+                }
+                foreach ($l['modifiers'] as $mod) {
+                    $db->execute(
+                        'INSERT INTO order_item_modifier (order_item_id, ingredient_id, action, extra_price_cents) '
+                        . 'VALUES (:oiid, :ing, :act, :extra)',
+                        ['oiid' => $itemId, 'ing' => $mod['ingredient_id'], 'act' => $mod['action'], 'extra' => $mod['extra_price_cents']],
+                    );
+                }
+            }
+
+            $result['id'] = $orderId;
+            $result['order_number'] = $orderNumber;
+        });
+
+        return $result;
+    }
+
+    /**
+     * Resout une ligne (produit ou menu) : lit le catalogue, valide, calcule le prix.
+     *
+     * @param array<string, mixed> $item
+     * @return array{item_type:string, product_id:?int, menu_id:?int, format:string, label:string, unit_ttc:int, unit_ht:int, vat_rate:int, quantity:int, selections:list<array{menu_slot_id:int,product_id:int,label:string}>, modifiers:list<array{ingredient_id:int,action:string,extra_price_cents:int}>}
+     */
+    private function resolveLine(array $item): array
+    {
+        $type = (string) ($item['type'] ?? '');
+        $quantity = max(1, (int) ($item['quantity'] ?? 1));
+        $format = ($item['format'] ?? 'normal') === 'maxi' ? 'maxi' : 'normal';
+
+        if ($type === 'product') {
+            $product = $this->products->find((int) ($item['product_id'] ?? 0));
+            if ($product === null || (int) ($product['is_available'] ?? 0) !== 1) {
+                throw new OrderValidationException('PRODUCT_UNAVAILABLE');
+            }
+            $unitBase = (int) $product['price_cents'];
+            $vat = (int) $product['vat_rate'];
+            $modifiers = $this->resolveModifiers($item, (int) $product['id']);
+            $unitTtc = $unitBase + $this->modifiersExtra($modifiers);
+
+            return $this->line('product', (int) $product['id'], null, 'normal', (string) $product['name'], $unitTtc, $vat, $quantity, [], $modifiers);
+        }
+
+        if ($type === 'menu') {
+            $menu = $this->menus->find((int) ($item['menu_id'] ?? 0));
+            if ($menu === null || (int) ($menu['is_available'] ?? 0) !== 1) {
+                throw new OrderValidationException('MENU_UNAVAILABLE');
+            }
+            $burger = $this->products->find((int) $menu['burger_product_id']);
+            $vat = $burger !== null ? (int) $burger['vat_rate'] : 100;
+            $unitBase = $format === 'maxi' ? (int) $menu['price_maxi_cents'] : (int) $menu['price_normal_cents'];
+            $selections = $this->resolveSelections($item, (int) $menu['id']);
+            $modifiers = $this->resolveModifiers($item, (int) $menu['burger_product_id']);
+            $unitTtc = $unitBase + $this->modifiersExtra($modifiers);
+
+            return $this->line('menu', null, (int) $menu['id'], $format, (string) $menu['name'], $unitTtc, $vat, $quantity, $selections, $modifiers);
+        }
+
+        throw new OrderValidationException('INVALID_ITEM_TYPE');
+    }
+
+    /**
+     * @param list<array{ingredient_id:int,action:string,extra_price_cents:int}> $modifiers
+     */
+    private function modifiersExtra(array $modifiers): int
+    {
+        $extra = 0;
+        foreach ($modifiers as $m) {
+            if ($m['action'] === 'add') {
+                $extra += $m['extra_price_cents'];
+            }
+        }
+
+        return $extra;
+    }
+
+    /**
+     * @param array<string, mixed> $item
+     * @return list<array{menu_slot_id:int,product_id:int,label:string}>
+     */
+    private function resolveSelections(array $item, int $menuId): array
+    {
+        $slots = $this->menus->slotsWithOptions($menuId);
+        /** @var array<int, list<int>> $optionsBySlot */
+        $optionsBySlot = [];
+        foreach ($slots as $s) {
+            $optionsBySlot[(int) $s['id']] = array_map('intval', $s['option_product_ids']);
+        }
+
+        $out = [];
+        $raw = isset($item['selections']) && is_array($item['selections']) ? $item['selections'] : [];
+        foreach ($raw as $sel) {
+            $slotId = (int) ($sel['menu_slot_id'] ?? 0);
+            $pid = (int) ($sel['product_id'] ?? 0);
+            if (!isset($optionsBySlot[$slotId]) || !in_array($pid, $optionsBySlot[$slotId], true)) {
+                throw new OrderValidationException('INVALID_SELECTION');
+            }
+            $product = $this->products->find($pid);
+            $out[] = ['menu_slot_id' => $slotId, 'product_id' => $pid, 'label' => $product !== null ? (string) $product['name'] : ''];
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param array<string, mixed> $item
+     * @return list<array{ingredient_id:int,action:string,extra_price_cents:int}>
+     */
+    private function resolveModifiers(array $item, int $productId): array
+    {
+        $raw = isset($item['modifiers']) && is_array($item['modifiers']) ? $item['modifiers'] : [];
+        if ($raw === []) {
+            return [];
+        }
+        // Recette du produit support : valide l'ingredient + figes l'extra_price (add).
+        $recipe = [];
+        foreach ($this->products->composition($productId) as $ing) {
+            $recipe[(int) $ing['ingredient_id']] = $ing;
+        }
+
+        $out = [];
+        foreach ($raw as $mod) {
+            $ingId = (int) ($mod['ingredient_id'] ?? 0);
+            $action = ($mod['action'] ?? '') === 'add' ? 'add' : 'remove';
+            if (!isset($recipe[$ingId])) {
+                throw new OrderValidationException('INVALID_MODIFIER');
+            }
+            $row = $recipe[$ingId];
+            if ($action === 'remove' && (int) ($row['is_removable'] ?? 0) !== 1) {
+                throw new OrderValidationException('INGREDIENT_NOT_REMOVABLE');
+            }
+            if ($action === 'add' && (int) ($row['is_addable'] ?? 0) !== 1) {
+                throw new OrderValidationException('INGREDIENT_NOT_ADDABLE');
+            }
+            $out[] = [
+                'ingredient_id'     => $ingId,
+                'action'            => $action,
+                'extra_price_cents' => $action === 'add' ? (int) ($row['extra_price_cents'] ?? 0) : 0,
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param list<array{menu_slot_id:int,product_id:int,label:string}> $selections
+     * @param list<array{ingredient_id:int,action:string,extra_price_cents:int}> $modifiers
+     * @return array{item_type:string, product_id:?int, menu_id:?int, format:string, label:string, unit_ttc:int, unit_ht:int, vat_rate:int, quantity:int, selections:list<array{menu_slot_id:int,product_id:int,label:string}>, modifiers:list<array{ingredient_id:int,action:string,extra_price_cents:int}>}
+     */
+    private function line(string $type, ?int $productId, ?int $menuId, string $format, string $label, int $unitTtc, int $vat, int $quantity, array $selections, array $modifiers): array
+    {
+        $unitHt = (int) round($unitTtc * 1000 / (1000 + $vat));
+
+        return [
+            'item_type'  => $type,
+            'product_id' => $productId,
+            'menu_id'    => $menuId,
+            'format'     => $format,
+            'label'      => $label,
+            'unit_ttc'   => $unitTtc,
+            'unit_ht'    => $unitHt,
+            'vat_rate'   => $vat,
+            'quantity'   => $quantity,
+            'selections' => $selections,
+            'modifiers'  => $modifiers,
+        ];
+    }
+}
