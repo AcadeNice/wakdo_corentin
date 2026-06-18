@@ -59,6 +59,46 @@ final class MenuRepository
     }
 
     /**
+     * Lecture publique pour la borne (P4, docs/api/conventions.md 5.2) : menus
+     * disponibles (is_available = 1) ET en categorie active (c.is_active = 1).
+     * Projection enrichie (description, image_path) absente de all() back-office.
+     * Liste LEGERE : sans les slots (le detail /api/menus/{id} les porte). La
+     * disponibilite du burger impose (B1) reste un raffinement de la dispo calculee
+     * RG-T21, differe au seed des recettes.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function availableForCatalogue(): array
+    {
+        return $this->db->fetchAll(
+            'SELECT m.id, m.category_id, m.burger_product_id, m.name, m.description, '
+            . 'm.price_normal_cents, m.price_maxi_cents, m.image_path, m.display_order '
+            . 'FROM menu m JOIN category c ON c.id = m.category_id '
+            . 'WHERE m.is_available = 1 AND c.is_active = 1 '
+            . 'ORDER BY m.display_order, m.name',
+        );
+    }
+
+    /**
+     * Detail menu pour la borne : meme projection que la liste, seulement si le
+     * menu est disponible en categorie active ; sinon null (le controleur rend
+     * 404). Les slots sont charges a part (slotsWithOptions) puis assembles par le
+     * controleur.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function findForCatalogue(int $id): ?array
+    {
+        return $this->db->fetch(
+            'SELECT m.id, m.category_id, m.burger_product_id, m.name, m.description, '
+            . 'm.price_normal_cents, m.price_maxi_cents, m.image_path, m.display_order '
+            . 'FROM menu m JOIN category c ON c.id = m.category_id '
+            . 'WHERE m.id = :id AND m.is_available = 1 AND c.is_active = 1',
+            ['id' => $id],
+        );
+    }
+
+    /**
      * Slots d'un menu (ordonnes), chacun avec la liste de ses product_id eligibles.
      * Une seule requete (LEFT JOIN) regroupee en PHP par slot.
      *

@@ -44,6 +44,21 @@ final class CategoryRepository
         );
     }
 
+    /**
+     * Lecture publique pour la borne (P4, docs/api/conventions.md 5.2) : seulement
+     * les categories actives, triees comme la liste back-office. Le flag is_active
+     * n'est pas selectionne (toutes celles-ci le sont) -> rien d'inutile a la borne.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function activeForCatalogue(): array
+    {
+        return $this->db->fetchAll(
+            'SELECT id, name, slug, image_path, display_order '
+            . 'FROM category WHERE is_active = 1 ORDER BY display_order, name',
+        );
+    }
+
     public function nameExists(string $name, int $exceptId = 0): bool
     {
         return $this->db->fetch(

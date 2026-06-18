@@ -12,6 +12,7 @@ declare(strict_types=1);
 
 use App\Auth\SessionManager;
 use App\Controllers\AuthController;
+use App\Controllers\CatalogueController;
 use App\Controllers\CategoryController;
 use App\Controllers\DashboardController;
 use App\Controllers\HealthController;
@@ -77,6 +78,18 @@ try {
     // un seul segment (numero K+id), pas de collision avec un sous-chemin.
     $router->add('POST', '/api/orders', [OrderController::class, 'create']);
     $router->add('POST', '/api/orders/{number}/pay', [OrderController::class, 'pay']);
+
+    // Lecture catalogue borne (P4, docs/api/conventions.md section 5.2). API publique
+    // kiosk, ANONYME : la borne consulte sans session. Lecture seule ; ne sert que le
+    // commandable (categories actives, produits disponibles en categorie active).
+    // {id} = un seul segment ; /api/products (collection) et /api/products/{id}
+    // (unitaire) ne se chevauchent pas.
+    $router->add('GET', '/api/categories', [CatalogueController::class, 'categories']);
+    $router->add('GET', '/api/products', [CatalogueController::class, 'products']);
+    $router->add('GET', '/api/products/{id}', [CatalogueController::class, 'product']);
+    // Menus composes : liste legere + detail avec slots (B1 burger impose, B2 Normal/Maxi).
+    $router->add('GET', '/api/menus', [CatalogueController::class, 'menus']);
+    $router->add('GET', '/api/menus/{id}', [CatalogueController::class, 'menu']);
 
     // Back-office (P3) : pages rendues serveur sous /admin, gardees par SessionGuard.
     $router->add('GET', '/admin/dashboard', [DashboardController::class, 'index']);

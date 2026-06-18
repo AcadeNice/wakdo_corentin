@@ -54,6 +54,47 @@ final class ProductRepository
         );
     }
 
+    /**
+     * Lecture publique pour la borne (P4, docs/api/conventions.md 5.2) : produits
+     * commandables seulement (is_available = 1) ET dont la categorie est active
+     * (c.is_active = 1), pour ne jamais proposer un produit dont l'onglet de
+     * categorie n'apparait pas. vat_rate n'est pas selectionne : le calcul fiscal
+     * vit cote serveur a la commande, la borne ne l'affiche pas. Filtre de
+     * disponibilite = flag is_available ; la dispo CALCULEE RG-T21 (exclusion des
+     * ruptures auto via autoUnavailableIds) se branchera au seed des recettes.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function availableForCatalogue(): array
+    {
+        return $this->db->fetchAll(
+            'SELECT p.id, p.category_id, p.name, p.description, p.price_cents, '
+            . 'p.image_path, p.display_order '
+            . 'FROM product p JOIN category c ON c.id = p.category_id '
+            . 'WHERE p.is_available = 1 AND c.is_active = 1 '
+            . 'ORDER BY p.display_order, p.name',
+        );
+    }
+
+    /**
+     * Detail produit pour la borne : la meme projection que la liste, et seulement
+     * si le produit est commandable (is_available = 1) en categorie active ; sinon
+     * null (le controleur rend 404). Un produit retire ou en categorie masquee est
+     * donc invisible meme par lien direct.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function findForCatalogue(int $id): ?array
+    {
+        return $this->db->fetch(
+            'SELECT p.id, p.category_id, p.name, p.description, p.price_cents, '
+            . 'p.image_path, p.display_order '
+            . 'FROM product p JOIN category c ON c.id = p.category_id '
+            . 'WHERE p.id = :id AND p.is_available = 1 AND c.is_active = 1',
+            ['id' => $id],
+        );
+    }
+
     public function categoryExists(int $categoryId): bool
     {
         return $this->db->fetch('SELECT id FROM category WHERE id = :id', ['id' => $categoryId]) !== null;
