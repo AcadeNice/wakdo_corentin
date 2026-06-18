@@ -19,12 +19,7 @@ $pageTitle = htmlspecialchars($title ?? 'Wakdo', ENT_QUOTES, 'UTF-8');
     <!-- Back-office prive : jamais indexe par les moteurs de recherche. -->
     <meta name="robots" content="noindex, nofollow">
     <title><?= $pageTitle ?></title>
-    <style>
-        body { font-family: system-ui, sans-serif; margin: 2rem; color: #1a1a1a; line-height: 1.5; }
-        h1 { font-size: 1.5rem; }
-        small { color: #666; }
-        code { background: #f4f4f4; padding: 0.1em 0.3em; border-radius: 3px; }
-    </style>
+    <link rel="stylesheet" href="/assets/css/admin.css">
 </head>
 <body>
 <?= $content ?? '' ?>
