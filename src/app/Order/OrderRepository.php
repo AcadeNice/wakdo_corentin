@@ -62,7 +62,10 @@ class OrderRepository
     /**
      * Cree une commande borne en pending_payment. Idempotent sur idempotency_key.
      *
-     * @param array{idempotency_key?:string, service_mode:string, service_tag?:?string, items:list<array<string,mixed>>} $req
+     * Tolerant sur la forme d'entree (corps JSON decode tel quel) : chaque cle est
+     * relue defensivement et la validation metier leve OrderValidationException.
+     *
+     * @param array<string, mixed> $req
      * @return array{id:int, order_number:string, total_ttc_cents:int, status:string}
      * @throws OrderValidationException si une reference est invalide / indisponible.
      */
@@ -167,6 +170,164 @@ class OrderRepository
         });
 
         return $result;
+    }
+
+    /**
+     * Encaisse une commande pending_payment : transition -> paid ET decrement de
+     * stock atomique (RG-5 etapes 5-6, RG-T11 / RG-T20) dans UNE transaction.
+     *
+     * Idempotent : une commande deja `paid` est renvoyee telle quelle sans
+     * re-decrementer ; `delivered` / `cancelled` -> INVALID_TRANSITION ; numero
+     * inconnu -> ORDER_NOT_FOUND. La transition est gardee par `status =
+     * 'pending_payment'` dans l'UPDATE : sous une course concurrente, seul le
+     * premier appel decremente (l'autre voit 0 ligne affectee et sort idempotent).
+     *
+     * Decrement (RG-5 etape 5) : par ingredient consomme, units =
+     * (format maxi ? quantity_maxi : quantity_normal) * order_item.quantity, ajuste
+     * par les modificateurs de la ligne (remove => pas de decrement pour cet
+     * ingredient ; add => portion de base + supplement). Les unites sont AGREGEES
+     * par ingredient sur toute la commande : un seul UPDATE auto-verrouillant et une
+     * seule ligne stock_movement(sale) par ingredient affecte (POST-4). Les UPDATE
+     * sont ordonnes par ingredient_id (ordre de verrou stable -> pas de deadlock
+     * entre commandes concurrentes). stock_quantity est signe (survente possible,
+     * RG-T20) : le decrement ne se conditionne a aucun plancher.
+     *
+     * NB : inerte tant que les recettes (product_ingredient) ne sont pas seedees —
+     * la transition `paid` s'applique, mais aucun mouvement de stock n'est produit
+     * faute de composition. La logique s'active des que les recettes existent.
+     *
+     * @param int|null $actingUserId acteur comptoir/drive (stock_movement.user_id +
+     *                               customer_order.acting_user_id) ; NULL pour le kiosk.
+     * @return array{id:int, order_number:string, total_ttc_cents:int, status:string}
+     * @throws OrderValidationException
+     */
+    public function pay(string $orderNumber, ?int $actingUserId = null): array
+    {
+        $order = $this->db->fetch(
+            'SELECT id, order_number, total_ttc_cents, status FROM customer_order WHERE order_number = :n',
+            ['n' => $orderNumber],
+        );
+        if ($order === null) {
+            throw new OrderValidationException('ORDER_NOT_FOUND');
+        }
+
+        $result = [
+            'id'              => (int) $order['id'],
+            'order_number'    => (string) $order['order_number'],
+            'total_ttc_cents' => (int) $order['total_ttc_cents'],
+            'status'          => 'paid',
+        ];
+
+        $status = (string) $order['status'];
+        if ($status === 'paid') {
+            return $result; // idempotent : deja encaissee, pas de re-decrement.
+        }
+        if ($status !== 'pending_payment') {
+            throw new OrderValidationException('INVALID_TRANSITION'); // delivered / cancelled.
+        }
+
+        $orderId = (int) $order['id'];
+        $this->db->transaction(function (DatabaseInterface $db) use ($orderId, $actingUserId): void {
+            $affected = $db->execute(
+                'UPDATE customer_order SET status = \'paid\', paid_at = NOW(), '
+                . 'acting_user_id = COALESCE(:uid, acting_user_id), updated_at = NOW() '
+                . 'WHERE id = :id AND status = \'pending_payment\'',
+                ['uid' => $actingUserId, 'id' => $orderId],
+            );
+            if ($affected === 0) {
+                // Course perdue : un autre appel a deja transite. S'il a abouti a
+                // `paid`, il a fait le decrement -> on sort idempotent ; sinon la
+                // transition est invalide (statut terminal).
+                $current = (string) ($db->fetch('SELECT status FROM customer_order WHERE id = :id', ['id' => $orderId])['status'] ?? '');
+                if ($current === 'paid') {
+                    return;
+                }
+                throw new OrderValidationException('INVALID_TRANSITION');
+            }
+
+            foreach ($this->consumption($db, $orderId) as $ingredientId => $units) {
+                $db->execute(
+                    'UPDATE ingredient SET stock_quantity = stock_quantity - :u WHERE id = :id',
+                    ['u' => $units, 'id' => $ingredientId],
+                );
+                $db->execute(
+                    'INSERT INTO stock_movement (ingredient_id, movement_type, delta, order_id, user_id, note) '
+                    . 'VALUES (:ing, \'sale\', :delta, :oid, :uid, NULL)',
+                    ['ing' => $ingredientId, 'delta' => -$units, 'oid' => $orderId, 'uid' => $actingUserId],
+                );
+            }
+        });
+
+        return $result;
+    }
+
+    /**
+     * Unites de stock a decrementer, AGREGEES par ingredient_id sur toute la
+     * commande (lecture des lignes persistees + recettes des produits supports).
+     * Cle = ingredient_id, triee croissant (ordre de verrou stable). Un ingredient
+     * dont l'unite agregee retombe a 0 (entierement retire) n'est PAS retourne :
+     * aucun mouvement n'est alors produit. Voir pay() pour la regle de calcul.
+     *
+     * @return array<int, int>
+     */
+    private function consumption(DatabaseInterface $db, int $orderId): array
+    {
+        $items = $db->fetchAll(
+            'SELECT id, item_type, product_id, menu_id, format, quantity FROM order_item WHERE order_id = :oid',
+            ['oid' => $orderId],
+        );
+
+        /** @var array<int, int> $units */
+        $units = [];
+        foreach ($items as $item) {
+            $itemId = (int) $item['id'];
+            $quantity = max(1, (int) $item['quantity']);
+            $maxi = ((string) $item['format']) === 'maxi';
+
+            // Produit(s) dont la recette est consommee : le produit pour une ligne
+            // produit ; le burger + chaque selection pour une ligne menu.
+            $productIds = [];
+            if ((string) $item['item_type'] === 'product') {
+                $productIds[] = (int) $item['product_id'];
+            } else {
+                $menu = $this->menus->find((int) $item['menu_id']);
+                if ($menu !== null) {
+                    $productIds[] = (int) $menu['burger_product_id'];
+                }
+                foreach ($db->fetchAll('SELECT product_id FROM order_item_selection WHERE order_item_id = :oiid', ['oiid' => $itemId]) as $sel) {
+                    $productIds[] = (int) $sel['product_id'];
+                }
+            }
+
+            // Modificateurs de la ligne (ingredient_id => action). Ils s'appliquent a
+            // toute recette de la ligne contenant l'ingredient ; en pratique ils
+            // ciblent le produit support (burger), dont les ingredients ne recoupent
+            // pas ceux des selections (boisson / accompagnement).
+            $actions = [];
+            foreach ($db->fetchAll('SELECT ingredient_id, action FROM order_item_modifier WHERE order_item_id = :oiid', ['oiid' => $itemId]) as $mod) {
+                $actions[(int) $mod['ingredient_id']] = (string) $mod['action'];
+            }
+
+            foreach ($productIds as $productId) {
+                foreach ($this->products->composition($productId) as $row) {
+                    $ingredientId = (int) $row['ingredient_id'];
+                    $perUnit = $maxi ? (int) $row['quantity_maxi'] : (int) $row['quantity_normal'];
+                    $base = $perUnit * $quantity;
+                    $consumed = match ($actions[$ingredientId] ?? null) {
+                        'remove' => 0,
+                        'add'    => $base * 2, // portion de base + supplement (RG-5).
+                        default  => $base,
+                    };
+                    if ($consumed > 0) {
+                        $units[$ingredientId] = ($units[$ingredientId] ?? 0) + $consumed;
+                    }
+                }
+            }
+        }
+
+        ksort($units);
+
+        return $units;
     }
 
     /**

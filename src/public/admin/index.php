@@ -19,6 +19,7 @@ use App\Controllers\HomeController;
 use App\Controllers\IngredientController;
 use App\Controllers\MeController;
 use App\Controllers\MenuController;
+use App\Controllers\OrderController;
 use App\Controllers\PasswordResetController;
 use App\Controllers\ProductController;
 use App\Controllers\ProfileController;
@@ -69,6 +70,13 @@ try {
 
     // RBAC : identite + permissions de la session courante (gardee par SessionGuard).
     $router->add('GET', '/api/me', [MeController::class, 'show']);
+
+    // Commandes borne (P4, domaine 7). API publique kiosk, ANONYME (pas de session) :
+    // creation en pending_payment puis encaissement (paid + decrement stock RG-T20).
+    // Idempotente sur idempotency_key (anti double-clic / retry reseau). {number} =
+    // un seul segment (numero K+id), pas de collision avec un sous-chemin.
+    $router->add('POST', '/api/orders', [OrderController::class, 'create']);
+    $router->add('POST', '/api/orders/{number}/pay', [OrderController::class, 'pay']);
 
     // Back-office (P3) : pages rendues serveur sous /admin, gardees par SessionGuard.
     $router->add('GET', '/admin/dashboard', [DashboardController::class, 'index']);
