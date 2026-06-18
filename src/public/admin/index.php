@@ -29,6 +29,7 @@ use App\Controllers\RoleController;
 use App\Controllers\UserController;
 use App\Core\Autoloader;
 use App\Core\Config;
+use App\Core\Cors;
 use App\Core\Database;
 use App\Core\Request;
 use App\Core\Response;
@@ -45,6 +46,13 @@ header('X-Robots-Tag: noindex, nofollow');
 
 $config = new Config();
 date_default_timezone_set($config->timezone());
+
+// Requete + middleware CORS construits AVANT le try : ils ne dependent que de la
+// config et des globales, et doivent rester accessibles dans le catch pour decorer
+// la reponse 500 d'une requete /api/ cross-origin (sans quoi le navigateur de la
+// borne ne peut pas lire le corps de l'erreur).
+$request = Request::fromGlobals();
+$cors = new Cors($config->get('CORS_ALLOWED_ORIGIN', '') ?? '');
 
 try {
     // Acces BDD paresseux : la connexion n'est ouverte qu'au premier query(),
@@ -178,8 +186,18 @@ try {
     $router->add('POST', '/admin/ingredients/{id}/inventory', [IngredientController::class, 'inventory']);
     $router->add('GET', '/admin/ingredients/{id}/movements', [IngredientController::class, 'movements']);
 
-    $response = $router->dispatch(Request::fromGlobals());
-    $response->send();
+    // CORS (docs/api/conventions.md section 10) : preflight OPTIONS traite AVANT le
+    // routeur (pas de route OPTIONS) ; sinon dispatch puis decoration de la reponse.
+    // Scope /api/ + origine exacte geres par le middleware (fail-closed). $request et
+    // $cors sont construits hors du try pour que le catch puisse decorer aussi le 500.
+    $preflight = $cors->preflightResponse($request);
+    if ($preflight !== null) {
+        $preflight->send();
+    } else {
+        $response = $router->dispatch($request);
+        $cors->applyTo($request, $response);
+        $response->send();
+    }
 } catch (Throwable $exception) {
     // En debug on remonte le message pour iterer ; en prod, reponse generique
     // pour ne rien divulguer de la pile interne (information disclosure).
@@ -187,5 +205,9 @@ try {
         ? ['data' => null, 'error' => ['code' => 'INTERNAL_ERROR', 'message' => $exception->getMessage()]]
         : ['data' => null, 'error' => ['code' => 'INTERNAL_ERROR', 'message' => 'Internal server error']];
 
-    (new Response())->json($payload, 500)->send();
+    // Decore aussi la 500 : une requete /api/ cross-origin (ex. BDD indisponible)
+    // doit rester lisible par le navigateur de la borne (RG enveloppe d'erreur).
+    $errorResponse = (new Response())->json($payload, 500);
+    $cors->applyTo($request, $errorResponse);
+    $errorResponse->send();
 }

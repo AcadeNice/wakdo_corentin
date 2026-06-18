@@ -40,7 +40,7 @@ async function renderProduct() {
     }
 
     try {
-        const product = await findProduct(productId);
+        const product = await findProduct(productId, categorySlug);
         if (!product) {
             showError('Ce produit n\'existe pas.');
             return;

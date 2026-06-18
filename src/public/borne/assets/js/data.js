@@ -1,27 +1,25 @@
 /*
  * data.js — Data loading layer for the Wakdo kiosk.
  *
- * P5 reads static JSON copies in /data/ (same origin).
- * In P4, swap the BASE_URL constants to point to REST API endpoints.
- * The function signatures and return shapes remain unchanged so that
- * page scripts need no modification when the data source changes.
+ * Source = REST API (P4). La borne (kiosk) consomme l'API catalogue en lecture
+ * (docs/api/conventions.md section 5.2) : /api/categories, /api/products, /api/menus.
+ * Les reponses sont enveloppees ({ data: [...], total }) et en forme CANONIQUE
+ * (snake_case : name, price_cents, image_path...). Cette couche est le point unique
+ * de rapprochement (section 8.3) : elle deballe l'enveloppe et traduit vers la forme
+ * historique attendue par le reste de la borne (nom, prix, image, type ; objet
+ * indexe par slug de categorie ; menus glisses sous la cle 'menus'). Les signatures
+ * publiques et les formes de retour sont inchangees -> les pages n'ont pas bouge.
  *
- * Category-to-slug mapping (mirrors data/categories.json id field):
- *   1=menus  2=boissons  3=burgers  4=frites  5=encas
- *   6=wraps  7=salades   8=desserts 9=sauces
+ * Les allergenes restent un repli statique (data/allergens.json) : leur bascule
+ * sur /api/allergens est un chunk ulterieur.
  */
 
-/* --- P4 swap point -------------------------------------------------------
- * TODO(P4): replace these two paths with API endpoints, e.g.:
- *   const CATEGORIES_URL = '/api/categories';
- *   const PRODUCTS_URL   = '/api/products';
- * The rest of this file is API-agnostic.
- * ----------------------------------------------------------------------- */
-const CATEGORIES_URL = 'data/categories.json';
-const PRODUCTS_URL   = 'data/produits.json';
-/* Liste fixe des 14 allergenes INCO (info generale, modale borne). TODO(P4):
- * remplacer par '/api/allergens'. Le reste du fichier est API-agnostique. */
-const ALLERGENS_URL  = 'data/allergens.json';
+const CATEGORIES_URL = '/api/categories';
+const PRODUCTS_URL = '/api/products';
+const MENUS_URL = '/api/menus';
+/* Liste fixe des 14 allergenes INCO (info generale, modale borne). Repli statique
+ * encore en place : bascule sur '/api/allergens' differee. */
+const ALLERGENS_URL = 'data/allergens.json';
 
 /** @type {Array|null} — in-memory cache to avoid repeated fetches */
 let _categoriesCache = null;
@@ -33,31 +31,87 @@ let _productsCache = null;
 let _allergensCache = null;
 
 /**
- * Fetches and caches the categories list.
+ * Recupere une collection enveloppee de l'API et renvoie le tableau `data`.
+ * @param {string} url
+ * @returns {Promise<Array>}
+ */
+async function fetchCollection(url) {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Failed to load ${url}: HTTP ${res.status}`);
+    const body = await res.json();
+    return Array.isArray(body?.data) ? body.data : [];
+}
+
+/**
+ * Fetches and caches the categories list (forme borne : id, title, slug, image).
  * @returns {Promise<Array>}
  */
 export async function loadCategories() {
     if (_categoriesCache) return _categoriesCache;
-    const res = await fetch(CATEGORIES_URL);
-    if (!res.ok) throw new Error(`Failed to load categories: HTTP ${res.status}`);
-    _categoriesCache = await res.json();
+    const rows = await fetchCollection(CATEGORIES_URL);
+    _categoriesCache = rows.map(c => ({
+        id: c.id,
+        title: c.name,
+        slug: c.slug,
+        image: c.image_path,
+    }));
     return _categoriesCache;
 }
 
 /**
- * Fetches and caches the full products object keyed by category slug.
+ * Fetches and caches the products object keyed by category slug. Les produits et
+ * les menus sont regroupes par slug de leur categorie (les menus tombent sous
+ * 'menus' via leur category_id) et ramenes a la forme borne. Le menu garde son
+ * prix NORMAL (le supplement Maxi est gere par le composeur cote borne).
  * @returns {Promise<Object>}
  */
 export async function loadProducts() {
     if (_productsCache) return _productsCache;
-    const res = await fetch(PRODUCTS_URL);
-    if (!res.ok) throw new Error(`Failed to load products: HTTP ${res.status}`);
-    _productsCache = await res.json();
+
+    const [categories, products, menus] = await Promise.all([
+        loadCategories(),
+        fetchCollection(PRODUCTS_URL),
+        fetchCollection(MENUS_URL),
+    ]);
+
+    const slugByCategoryId = {};
+    const bySlug = {};
+    for (const cat of categories) {
+        slugByCategoryId[cat.id] = cat.slug;
+        bySlug[cat.slug] = [];
+    }
+
+    for (const p of products) {
+        const slug = slugByCategoryId[p.category_id];
+        if (slug === undefined) continue;
+        bySlug[slug].push({
+            id: p.id,
+            nom: p.name,
+            prix: p.price_cents,
+            image: p.image_path,
+            type: 'produit',
+        });
+    }
+
+    for (const m of menus) {
+        const slug = slugByCategoryId[m.category_id];
+        if (slug === undefined) continue;
+        bySlug[slug].push({
+            id: m.id,
+            nom: m.name,
+            prix: m.price_normal_cents,
+            image: m.image_path,
+            type: 'menu',
+        });
+    }
+
+    _productsCache = bySlug;
     return _productsCache;
 }
 
 /**
- * Fetches and caches the 14 INCO allergens (general info modal).
+ * Fetches and caches the 14 INCO allergens (general info modal). Repli statique :
+ * la reponse est un tableau nu (pas d'enveloppe), conserve tel quel.
  * @returns {Promise<Array>}
  */
 export async function loadAllergens() {
@@ -90,13 +144,24 @@ export async function getCategoryById(id) {
 }
 
 /**
- * Finds a product by its numeric id, searching all category slates.
- * Returns null if not found.
+ * Finds a product/menu by id. product et menu sont deux espaces d'id DISTINCTS
+ * (tables auto-increment separees) : un meme id peut designer a la fois un produit
+ * et un menu. categorySlug (le slug de la categorie d'ou vient l'appel) leve
+ * l'ambiguite -- dans une categorie donnee, l'id est unique. Sans categorySlug, on
+ * retombe sur un scan global (best-effort, potentiellement ambigu en cas de
+ * collision d'id). Renvoie null si introuvable.
  * @param {number} id
+ * @param {string|null} [categorySlug]
  * @returns {Promise<Object|null>}
  */
-export async function findProduct(id) {
+export async function findProduct(id, categorySlug = null) {
     const data = await loadProducts();
+
+    if (categorySlug !== null && Array.isArray(data[categorySlug])) {
+        const found = data[categorySlug].find(p => p.id === id);
+        return found ? { ...found, categorie: categorySlug } : null;
+    }
+
     for (const slug of Object.keys(data)) {
         const found = data[slug].find(p => p.id === id);
         if (found) return { ...found, categorie: slug };
@@ -106,8 +171,8 @@ export async function findProduct(id) {
 
 /**
  * Maps a category id integer to its slug string.
- * Derived from data/categories.json — kept here as a convenience
- * so page scripts can convert query-string ids without an extra fetch.
+ * Derived from the seed catalogue — kept here as a convenience so page scripts can
+ * convert query-string ids without an extra fetch.
  */
 export const CATEGORY_ID_TO_SLUG = {
     1: 'menus',
