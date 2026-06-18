@@ -25,11 +25,12 @@ final class UserDirectoryTest extends TestCase
         $this->db->userDisplayRow = [
             'first_name' => 'Corentin',
             'last_name'  => 'J',
+            'email'      => 'corentin@wakdo.local',
             'role_label' => 'Administrateur',
         ];
 
         self::assertSame(
-            ['name' => 'Corentin J', 'role_label' => 'Administrateur'],
+            ['name' => 'Corentin J', 'role_label' => 'Administrateur', 'email' => 'corentin@wakdo.local'],
             (new UserDirectory($this->db))->displayInfo(7),
         );
     }
@@ -39,7 +40,7 @@ final class UserDirectoryTest extends TestCase
         $this->db->userDisplayRow = null;
 
         self::assertSame(
-            ['name' => 'Utilisateur', 'role_label' => ''],
+            ['name' => 'Utilisateur', 'role_label' => '', 'email' => ''],
             (new UserDirectory($this->db))->displayInfo(999),
         );
     }

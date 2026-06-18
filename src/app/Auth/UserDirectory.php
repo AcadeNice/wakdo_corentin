@@ -18,12 +18,12 @@ final class UserDirectory
     }
 
     /**
-     * @return array{name: string, role_label: string}
+     * @return array{name: string, role_label: string, email: string}
      */
     public function displayInfo(int $userId): array
     {
         $row = $this->db->fetch(
-            'SELECT u.first_name, u.last_name, r.label AS role_label '
+            'SELECT u.first_name, u.last_name, u.email, r.label AS role_label '
             . 'FROM user u JOIN role r ON r.id = u.role_id WHERE u.id = :id',
             ['id' => $userId],
         );
@@ -35,6 +35,7 @@ final class UserDirectory
         return [
             'name'       => $name !== '' ? $name : 'Utilisateur',
             'role_label' => is_string($row['role_label'] ?? null) ? $row['role_label'] : '',
+            'email'      => is_string($row['email'] ?? null) ? $row['email'] : '',
         ];
     }
 }

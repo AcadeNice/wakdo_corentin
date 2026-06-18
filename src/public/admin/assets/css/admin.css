@@ -1358,3 +1358,37 @@ tbody td.mono {
 .feed-text b { font-weight: 800; }
 .feed-meta { font-size: 13px; color: var(--color-text-muted); margin-top: 2px; }
 .feed-time { font-size: 13px; color: var(--color-text-muted); font-weight: 600; white-space: nowrap; }
+
+/* --- Modal PIN (re-autorisation au moment de l'action sensible) --- */
+.pin-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(26, 26, 26, 0.45);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 24px;
+}
+.pin-modal-overlay.open { display: flex; }
+
+.pin-modal {
+    background: var(--color-white);
+    border-radius: var(--radius-card);
+    border-top: 3px solid var(--color-yellow);
+    box-shadow: var(--shadow-card-hover);
+    width: 100%;
+    max-width: 400px;
+    padding: 28px;
+}
+.pin-modal-head { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 20px; }
+.pin-modal-ico {
+    width: 44px; height: 44px; flex-shrink: 0;
+    border-radius: 13px;
+    background: var(--color-yellow-soft);
+    color: var(--color-yellow-ink);
+    display: flex; align-items: center; justify-content: center;
+}
+.pin-modal-title { font-size: 18px; font-weight: 800; letter-spacing: -0.3px; }
+.pin-modal-sub { font-size: 13px; color: var(--color-text-muted); margin-top: 3px; }
+.pin-modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; }

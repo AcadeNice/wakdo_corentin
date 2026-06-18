@@ -62,9 +62,10 @@ abstract class AdminController extends AuthenticatedController
         $info = $this->userDirectory()->displayInfo($userId);
 
         $context = [
-            'currentUserName' => $info['name'],
-            'currentUserRole' => $info['role_label'],
-            'permissions'     => $this->authorizer()->permissionsFor($roleId),
+            'currentUserName'  => $info['name'],
+            'currentUserRole'  => $info['role_label'],
+            'currentUserEmail' => $info['email'],
+            'permissions'      => $this->authorizer()->permissionsFor($roleId),
             'csrfToken'       => Csrf::token($this->sessionManager()),
             'activeNav'       => '',
             'flash'           => $this->takeFlash(),

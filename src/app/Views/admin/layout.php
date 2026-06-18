@@ -58,7 +58,7 @@ $navClass = static function (string $code, string $current): string {
     <title><?= $pageTitle ?></title>
     <link rel="stylesheet" href="/assets/css/admin.css">
 </head>
-<body>
+<body data-user-email="<?= htmlspecialchars($currentUserEmail ?? '', ENT_QUOTES, 'UTF-8') ?>">
 <div class="admin-layout">
     <header class="topbar">
         <div class="topbar-actions">
@@ -151,5 +151,6 @@ $navClass = static function (string $code, string $current): string {
     </main>
 </div>
 <script src="/assets/js/admin.js"></script>
+<script src="/assets/js/pin-modal.js"></script>
 </body>
 </html>
