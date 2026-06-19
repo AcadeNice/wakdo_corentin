@@ -38,14 +38,16 @@
 
         <!-- Mini order recap injected by inline script using localStorage -->
         <div class="payment-recap" id="payment-recap" aria-label="Recapitulatif de commande">
-            <!-- Filled by inline module below -->
+            <!-- Filled by page-payment.js -->
         </div>
+
+        <p class="payment-error" id="payment-error" role="alert" hidden></p>
 
         <div class="payment-methods" role="group" aria-label="Modes de paiement">
 
             <!--
-                Carte bancaire — simulates payment for MVP.
-                Both methods redirect to confirmation.html.
+                Carte bancaire. Paiement simule (pas de PSP), mais la commande est
+                REELLEMENT creee + encaissee : page-payment.js -> checkout.submitOrder.
             -->
             <button
                 class="payment-choice"
@@ -83,38 +85,7 @@
 
     </main>
 
-    <script type="module">
-        import { getTotalCents, formatPrice, getCart } from './assets/js/state.js';
-        import { getMode } from './assets/js/state.js';
-
-        /* Show mini recap */
-        const recap    = document.getElementById('payment-recap');
-        const total    = getTotalCents();
-        const items    = getCart();
-        const mode     = getMode() === 'a-emporter' ? 'A emporter' : 'Sur place';
-
-        if (recap) {
-            if (!items.length) {
-                /* Guard: redirect back to cart if somehow empty */
-                window.location.href = 'cart.html';
-            } else {
-                recap.innerHTML = `
-                    <p class="payment-recap__mode">${mode}</p>
-                    <p class="payment-recap__items">${items.length} article${items.length > 1 ? 's' : ''}</p>
-                    <p class="payment-recap__total">Total : <strong>${formatPrice(total)}</strong></p>
-                `;
-            }
-        }
-
-        /* Both payment methods redirect to confirmation — MVP simulation */
-        function simulatePay() {
-            window.location.href = 'confirmation.html';
-        }
-
-        document.getElementById('pay-card').addEventListener('click', simulatePay);
-        document.getElementById('pay-cash').addEventListener('click', simulatePay);
-    </script>
-
+    <script type="module" src="assets/js/page-payment.js"></script>
     <script type="module" src="assets/js/nav.js"></script>
 </body>
 </html>
