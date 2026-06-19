@@ -3,6 +3,8 @@
 ## Fichiers
 
 - `maquette-borne.pdf` : maquette ecrans complete fournie avec le brief ecole
+- `screens/` : les 10 ecrans de la maquette exportes en PNG (un par ecran)
+- `maquette-vs-build.md` : decomposition ecran par ecran + tracabilite maquette vs kiosk construit (ecarts structurants)
 
 ## Source en ligne
 
