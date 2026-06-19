@@ -1809,3 +1809,275 @@ button {
         margin-right: 0;
     }
 }
+
+/* === Panneau de commande persistant (L1 - maquette : recap a droite) =======
+   Layout deux colonnes sur les ecrans de commande : contenu a gauche, panneau
+   a droite, sticky pleine hauteur. Le panneau = entete (titre + mode), corps
+   scrollable (lignes du panier), pied (total + Abandon/Payer). Reutilise les
+   tokens de :root pour rester aligne sur la charte. */
+.order-layout {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-5);
+    padding: 0 var(--space-5) var(--space-5);
+}
+
+.order-layout > main {
+    flex: 1 1 auto;
+    min-width: 0; /* laisse la grille produits se retrecir au lieu de deborder */
+}
+
+.order-panel {
+    flex: 0 0 360px;
+    width: 360px;
+    position: sticky;
+    top: var(--space-4);
+    max-height: calc(100vh - var(--space-6));
+    display: flex;
+    flex-direction: column;
+    background: var(--color-bg-card);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card);
+    overflow: hidden;
+}
+
+.order-panel__head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-4) var(--space-5);
+    border-bottom: 1px solid var(--color-border-default);
+}
+
+.order-panel__logo {
+    height: 22px;
+    width: auto;
+}
+
+.order-panel__title {
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-bold);
+}
+
+.order-panel__mode {
+    margin-left: auto;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    background: var(--color-bg-page);
+    border-radius: var(--radius-pill);
+    padding: var(--space-1) var(--space-3);
+}
+
+.order-panel__body {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: var(--space-3) var(--space-4);
+}
+
+.order-panel__empty {
+    color: var(--color-text-muted);
+    text-align: center;
+    padding: var(--space-6) var(--space-3);
+    line-height: 1.5;
+}
+
+.order-panel__lines {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.order-panel__line {
+    position: relative;
+    padding: var(--space-3) var(--space-6) var(--space-3) 0;
+    border-bottom: 1px solid var(--color-border-default);
+}
+
+.order-panel__line:last-child {
+    border-bottom: none;
+}
+
+.order-panel__line-main {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-2);
+    font-weight: var(--font-weight-bold);
+}
+
+.order-panel__line-price {
+    white-space: nowrap;
+}
+
+.order-panel__options {
+    list-style: none;
+    margin: var(--space-1) 0 0;
+    padding: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.order-panel__options li::before {
+    content: "+ ";
+}
+
+.order-panel__remove {
+    position: absolute;
+    top: var(--space-3);
+    right: 0;
+    border: none;
+    background: none;
+    cursor: pointer;
+    padding: var(--space-1);
+    line-height: 0;
+}
+
+.order-panel__foot {
+    border-top: 1px solid var(--color-border-default);
+    padding: var(--space-4) var(--space-5);
+}
+
+.order-panel__total {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: var(--font-size-md);
+    margin-bottom: var(--space-4);
+}
+
+.order-panel__total-value {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-bold);
+}
+
+.order-panel__actions {
+    display: flex;
+    gap: var(--space-3);
+}
+
+.order-panel__abandon,
+.order-panel__pay {
+    flex: 1 1 0;
+    text-align: center;
+    border-radius: var(--radius-pill);
+    padding: var(--space-3) var(--space-4);
+    font-weight: var(--font-weight-bold);
+    font-size: var(--font-size-base);
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.order-panel__abandon {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border-default);
+    color: var(--color-text-secondary);
+}
+
+.order-panel__pay {
+    background: var(--color-brand-yellow);
+    border: 1px solid var(--color-brand-yellow);
+    color: var(--color-text-primary);
+}
+
+.order-panel__pay[aria-disabled="true"] {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+/* Ecran etroit : le panneau passe sous le contenu (le kiosk reste large en
+   pratique ; repli de surete pour les petits viewports). */
+@media (max-width: 900px) {
+    .order-layout {
+        flex-direction: column;
+    }
+
+    .order-panel {
+        width: auto;
+        flex-basis: auto;
+        position: static;
+        max-height: none;
+        align-self: stretch;
+    }
+}
+
+/* === Bandeau categories (L1 - maquette : strip horizontal en haut) =========
+   Cartes categorie defilantes avec fleches rouges ; la categorie courante porte
+   une bordure jaune (charte maquette). Sticky en haut du contenu de commande. */
+.category-strip {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-4) 0;
+    position: sticky;
+    top: 0;
+    background: var(--color-bg-page);
+    z-index: 5;
+}
+
+.category-strip__scroller {
+    display: flex;
+    gap: var(--space-3);
+    overflow-x: auto;
+    scroll-behavior: smooth;
+    flex: 1 1 auto;
+    scrollbar-width: none; /* Firefox : masque la scrollbar, on navigue aux fleches */
+}
+
+.category-strip__scroller::-webkit-scrollbar {
+    display: none;
+}
+
+.category-strip__item {
+    flex: 0 0 auto;
+    width: 110px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-1);
+    padding: var(--space-2);
+    background: var(--color-bg-card);
+    border: 2px solid transparent;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-card);
+    text-decoration: none;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+    text-align: center;
+}
+
+.category-strip__item.is-active {
+    border-color: var(--color-brand-yellow-dk);
+    border-width: 3px;
+    background: #FFF8E6; /* 2e cue (pas que la couleur de bordure) -- a11y 1.4.11 */
+}
+
+.category-strip__img {
+    width: 56px;
+    height: 56px;
+    object-fit: contain;
+}
+
+.category-strip__label {
+    font-weight: var(--font-weight-bold);
+}
+
+.category-strip__arrow {
+    flex: 0 0 auto;
+    border: none;
+    background: none;
+    color: var(--color-brand-red);
+    font-size: var(--font-size-xl);
+    line-height: 1;
+    padding: var(--space-2);
+    cursor: pointer;
+}
+
+/* Focus clavier visible sur les controles L1 (panneau + bandeau). Outline jaune
+   fonce decale pour rester percevable par-dessus la charte. */
+.order-panel__pay:focus-visible,
+.order-panel__abandon:focus-visible,
+.order-panel__remove:focus-visible,
+.category-strip__item:focus-visible,
+.category-strip__arrow:focus-visible {
+    outline: 3px solid var(--color-brand-yellow-dk);
+    outline-offset: 2px;
+}
