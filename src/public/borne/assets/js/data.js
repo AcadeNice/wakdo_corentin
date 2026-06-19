@@ -21,14 +21,13 @@ const MENUS_URL = '/api/menus';
  * encore en place : bascule sur '/api/allergens' differee. */
 const ALLERGENS_URL = 'data/allergens.json';
 
-/** @type {Array|null} — in-memory cache to avoid repeated fetches */
-let _categoriesCache = null;
-
-/** @type {Object|null} */
-let _productsCache = null;
-
-/** @type {Array|null} */
-let _allergensCache = null;
+/* Memoisation par PROMESSE (pas par resultat) : N appelants concurrents au meme
+ * chargement partagent UNE seule requete reseau (evite les fetch /api/* redondants
+ * au DOMContentLoaded de products.html). Sur echec, la promesse est reinitialisee
+ * pour autoriser un nouvel essai. */
+let _categoriesPromise = null;
+let _productsPromise = null;
+let _allergensPromise = null;
 
 /**
  * Recupere une collection enveloppee de l'API et renvoie le tableau `data`.
@@ -46,16 +45,13 @@ async function fetchCollection(url) {
  * Fetches and caches the categories list (forme borne : id, title, slug, image).
  * @returns {Promise<Array>}
  */
-export async function loadCategories() {
-    if (_categoriesCache) return _categoriesCache;
-    const rows = await fetchCollection(CATEGORIES_URL);
-    _categoriesCache = rows.map(c => ({
-        id: c.id,
-        title: c.name,
-        slug: c.slug,
-        image: c.image_path,
-    }));
-    return _categoriesCache;
+export function loadCategories() {
+    if (!_categoriesPromise) {
+        _categoriesPromise = fetchCollection(CATEGORIES_URL)
+            .then(rows => rows.map(c => ({ id: c.id, title: c.name, slug: c.slug, image: c.image_path })))
+            .catch(e => { _categoriesPromise = null; throw e; });
+    }
+    return _categoriesPromise;
 }
 
 /**
@@ -65,52 +61,38 @@ export async function loadCategories() {
  * prix NORMAL (le supplement Maxi est gere par le composeur cote borne).
  * @returns {Promise<Object>}
  */
-export async function loadProducts() {
-    if (_productsCache) return _productsCache;
+export function loadProducts() {
+    if (_productsPromise) return _productsPromise;
 
-    const [categories, products, menus] = await Promise.all([
+    _productsPromise = Promise.all([
         loadCategories(),
         fetchCollection(PRODUCTS_URL),
         fetchCollection(MENUS_URL),
-    ]);
+    ]).then(([categories, products, menus]) => {
+        const slugByCategoryId = {};
+        const bySlug = {};
+        for (const cat of categories) {
+            slugByCategoryId[cat.id] = cat.slug;
+            bySlug[cat.slug] = [];
+        }
+        for (const p of products) {
+            const slug = slugByCategoryId[p.category_id];
+            if (slug === undefined) continue;
+            bySlug[slug].push({ id: p.id, nom: p.name, prix: p.price_cents, image: p.image_path, type: 'produit' });
+        }
+        for (const m of menus) {
+            const slug = slugByCategoryId[m.category_id];
+            if (slug === undefined) continue;
+            bySlug[slug].push({ id: m.id, nom: m.name, prix: m.price_normal_cents, image: m.image_path, type: 'menu' });
+        }
+        return bySlug;
+    }).catch(e => { _productsPromise = null; throw e; });
 
-    const slugByCategoryId = {};
-    const bySlug = {};
-    for (const cat of categories) {
-        slugByCategoryId[cat.id] = cat.slug;
-        bySlug[cat.slug] = [];
-    }
-
-    for (const p of products) {
-        const slug = slugByCategoryId[p.category_id];
-        if (slug === undefined) continue;
-        bySlug[slug].push({
-            id: p.id,
-            nom: p.name,
-            prix: p.price_cents,
-            image: p.image_path,
-            type: 'produit',
-        });
-    }
-
-    for (const m of menus) {
-        const slug = slugByCategoryId[m.category_id];
-        if (slug === undefined) continue;
-        bySlug[slug].push({
-            id: m.id,
-            nom: m.name,
-            prix: m.price_normal_cents,
-            image: m.image_path,
-            type: 'menu',
-        });
-    }
-
-    _productsCache = bySlug;
-    return _productsCache;
+    return _productsPromise;
 }
 
-/** @type {Object|null} — cache id->produit (type 'produit' uniquement) */
-let _productsByIdCache = null;
+/** @type {Promise|null} — index id->produit memoise (type 'produit' uniquement) */
+let _productsByIdPromise = null;
 
 /**
  * Index des PRODUITS par id (type 'produit' seulement : exclut les menus, dont
@@ -119,17 +101,19 @@ let _productsByIdCache = null;
  * affichables. Derive de loadProducts() : aucune requete reseau supplementaire.
  * @returns {Promise<Object<number, Object>>}
  */
-export async function loadProductsById() {
-    if (_productsByIdCache) return _productsByIdCache;
-    const bySlug = await loadProducts();
-    const byId = {};
-    for (const slug of Object.keys(bySlug)) {
-        for (const item of bySlug[slug]) {
-            if (item.type === 'produit') byId[item.id] = item;
-        }
+export function loadProductsById() {
+    if (!_productsByIdPromise) {
+        _productsByIdPromise = loadProducts().then(bySlug => {
+            const byId = {};
+            for (const slug of Object.keys(bySlug)) {
+                for (const item of bySlug[slug]) {
+                    if (item.type === 'produit') byId[item.id] = item;
+                }
+            }
+            return byId;
+        }).catch(e => { _productsByIdPromise = null; throw e; });
     }
-    _productsByIdCache = byId;
-    return _productsByIdCache;
+    return _productsByIdPromise;
 }
 
 /**
@@ -153,12 +137,16 @@ export async function loadMenu(id) {
  * la reponse est un tableau nu (pas d'enveloppe), conserve tel quel.
  * @returns {Promise<Array>}
  */
-export async function loadAllergens() {
-    if (_allergensCache) return _allergensCache;
-    const res = await fetch(ALLERGENS_URL);
-    if (!res.ok) throw new Error(`Failed to load allergens: HTTP ${res.status}`);
-    _allergensCache = await res.json();
-    return _allergensCache;
+export function loadAllergens() {
+    if (!_allergensPromise) {
+        _allergensPromise = fetch(ALLERGENS_URL)
+            .then(res => {
+                if (!res.ok) throw new Error(`Failed to load allergens: HTTP ${res.status}`);
+                return res.json();
+            })
+            .catch(e => { _allergensPromise = null; throw e; });
+    }
+    return _allergensPromise;
 }
 
 /**

@@ -1427,8 +1427,8 @@ button {
 
 /* Selected state — mirrors aria-pressed=true */
 .composer-card--selected {
-    border-color: var(--color-border-active);
-    box-shadow: 0 0 0 3px rgba(255, 199, 44, 0.45), var(--shadow-card);
+    border-color: var(--color-brand-yellow-dk); /* jaune fonce : contraste a11y 1.4.11 */
+    box-shadow: 0 0 0 3px rgba(230, 168, 0, 0.55), var(--shadow-card);
     background: rgba(255, 199, 44, 0.06);
 }
 
