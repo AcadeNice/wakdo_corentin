@@ -109,6 +109,45 @@ export async function loadProducts() {
     return _productsCache;
 }
 
+/** @type {Object|null} — cache id->produit (type 'produit' uniquement) */
+let _productsByIdCache = null;
+
+/**
+ * Index des PRODUITS par id (type 'produit' seulement : exclut les menus, dont
+ * l'espace d'id est distinct -> pas de collision id produit/menu). Sert au composeur
+ * de menu (L2) pour resoudre les option_product_ids des slots /api/menus en produits
+ * affichables. Derive de loadProducts() : aucune requete reseau supplementaire.
+ * @returns {Promise<Object<number, Object>>}
+ */
+export async function loadProductsById() {
+    if (_productsByIdCache) return _productsByIdCache;
+    const bySlug = await loadProducts();
+    const byId = {};
+    for (const slug of Object.keys(bySlug)) {
+        for (const item of bySlug[slug]) {
+            if (item.type === 'produit') byId[item.id] = item;
+        }
+    }
+    _productsByIdCache = byId;
+    return _productsByIdCache;
+}
+
+/**
+ * Charge le detail d'un menu avec ses slots depuis GET /api/menus/{id}. Renvoie la
+ * forme canonique de l'API (snake_case) telle quelle : { id, burger_product_id,
+ * price_normal_cents, price_maxi_cents, name, image_path, slots: [{ id, name,
+ * slot_type, is_required, display_order, option_product_ids }] }. Le composeur (L2)
+ * la traduit en etapes. Pas de cache : un menu est compose ponctuellement.
+ * @param {number} id
+ * @returns {Promise<Object|null>}
+ */
+export async function loadMenu(id) {
+    const res = await fetch(`${MENUS_URL}/${id}`);
+    if (!res.ok) throw new Error(`Failed to load menu ${id}: HTTP ${res.status}`);
+    const body = await res.json();
+    return body && typeof body === 'object' ? (body.data ?? null) : null;
+}
+
 /**
  * Fetches and caches the 14 INCO allergens (general info modal). Repli statique :
  * la reponse est un tableau nu (pas d'enveloppe), conserve tel quel.

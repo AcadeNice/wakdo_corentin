@@ -165,3 +165,27 @@ test('findProduct renvoie null si l id est absent de la categorie ciblee', async
     const { findProduct } = await freshData(fixtures());
     assert.equal(await findProduct(999, 'burgers'), null);
 });
+
+test('loadProductsById indexe les PRODUITS par id et exclut les menus (anti-collision)', async () => {
+    // colliding : un produit id 4 ET un menu id 4. L'index ne doit contenir QUE le
+    // produit a la cle 4 (les option_product_ids des slots referencent des produits).
+    const colliding = {
+        '/api/categories': { data: [
+            { id: 1, name: 'Menus', slug: 'menus', image_path: 'm.png', display_order: 1 },
+            { id: 3, name: 'Burgers', slug: 'burgers', image_path: 'b.png', display_order: 3 },
+        ] },
+        '/api/products': { data: [
+            { id: 4, category_id: 3, name: 'Big Mac', description: null, price_cents: 600, image_path: 'bigmac.png', display_order: 4 },
+            { id: 14, category_id: 3, name: 'Coca', description: null, price_cents: 190, image_path: 'coca.png', display_order: 1 },
+        ] },
+        '/api/menus': { data: [
+            { id: 4, category_id: 1, burger_product_id: 4, name: 'Menu Big Mac', description: null, price_normal_cents: 800, price_maxi_cents: 950, image_path: 'bigmac.png', display_order: 1 },
+        ] },
+    };
+    const { loadProductsById } = await freshData(colliding);
+    const byId = await loadProductsById();
+    assert.equal(byId[4].type, 'produit', 'id 4 doit etre le PRODUIT, pas le menu');
+    assert.equal(byId[4].nom, 'Big Mac');
+    assert.equal(byId[14].nom, 'Coca');
+    assert.equal(Object.keys(byId).length, 2, 'que les 2 produits, le menu est exclu');
+});

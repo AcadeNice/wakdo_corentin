@@ -151,23 +151,31 @@ function renderCompositionBlock(item) {
     const c = item.composition;
     if (!c) return '';
 
-    const burgerOpts = c.burger.options && c.burger.options.length
-        ? ` (${c.burger.options.map(o => o === 'sans-oignon' ? 'sans oignon' : 'avec fromage').join(', ')})`
-        : '';
+    // Tolerant aux champs absents : depuis L2 (composeur slot-driven), un menu peut
+    // ne pas avoir tous les slots (ex. pas de sauce) -> ne pas supposer leur presence.
+    const parts = [];
+    if (c.burger) {
+        const burgerOpts = c.burger.options && c.burger.options.length
+            ? ` (${c.burger.options.map(o => o === 'sans-oignon' ? 'sans oignon' : 'avec fromage').join(', ')})`
+            : '';
+        parts.push(`${escHtml(c.burger.libelle)}${burgerOpts}`);
+    }
+    if (c.accompagnement) {
+        parts.push(`${escHtml(c.accompagnement.libelle)}${c.accompagnement.taille === 'G' ? ' grande' : ' normale'}`);
+    }
+    if (c.boisson) {
+        parts.push(`${escHtml(c.boisson.libelle)}${c.boisson.taille === 'G' ? ' grande' : ' normale'}`);
+    }
+    if (c.sauce) {
+        parts.push(escHtml(c.sauce.libelle));
+    }
 
-    const accompTailleLabel = c.accompagnement.taille === 'G' ? ' grande' : ' normale';
-    const boissonTailleLabel = c.boisson.taille === 'G' ? ' grande' : ' normale';
-
-    const nbGrandes = (c.accompagnement.taille === 'G' ? 1 : 0) + (c.boisson.taille === 'G' ? 1 : 0);
     const supplTotal = item.supplement_cents ?? 0;
 
     return `
         <ul class="cart-line__composition" aria-label="Composition du menu">
-            <li class="cart-line__comp-item">+ ${escHtml(c.burger.libelle)}${burgerOpts}</li>
-            <li class="cart-line__comp-item">+ ${escHtml(c.accompagnement.libelle)}${accompTailleLabel}</li>
-            <li class="cart-line__comp-item">+ ${escHtml(c.boisson.libelle)}${boissonTailleLabel}</li>
-            <li class="cart-line__comp-item">+ ${escHtml(c.sauce.libelle)}</li>
-            ${supplTotal > 0 ? `<li class="cart-line__comp-suppl">Supplement ${nbGrandes} grande(s) : +${formatPrice(supplTotal)}</li>` : ''}
+            ${parts.map(t => `<li class="cart-line__comp-item">+ ${t}</li>`).join('')}
+            ${supplTotal > 0 ? `<li class="cart-line__comp-suppl">Format Maxi : +${formatPrice(supplTotal)}</li>` : ''}
         </ul>
     `;
 }
