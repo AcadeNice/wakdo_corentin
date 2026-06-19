@@ -20,6 +20,7 @@ use App\Controllers\HomeController;
 use App\Controllers\IngredientController;
 use App\Controllers\MeController;
 use App\Controllers\MenuController;
+use App\Controllers\OrderAdminController;
 use App\Controllers\OrderController;
 use App\Controllers\PasswordResetController;
 use App\Controllers\ProductController;
@@ -104,6 +105,9 @@ try {
     // Tableau de bord statistiques (stats.read) : landing du role manager. KPIs
     // catalogue + sante stock (RG-T21) ; KPIs de vente avec les commandes (P4).
     $router->add('GET', '/admin/stats', [StatsController::class, 'index']);
+
+    // Commandes (P4, order.read) : liste lecture seule du domaine commande.
+    $router->add('GET', '/admin/orders', [OrderAdminController::class, 'index']);
 
     // Gestion des comptes (mlt domaine 10). user.read (liste) ; user.create/update/
     // deactivate. TOUTES les mutations = PIN equipier + audit (RG-T13/14). {id} = un

@@ -12,6 +12,7 @@ use App\Core\Config;
 use App\Core\Database;
 use App\Core\DatabaseInterface;
 use App\Core\Request;
+use App\Order\OrderQueryRepository;
 use App\Tests\Support\FakeDatabase;
 
 /**
@@ -43,6 +44,27 @@ final class StubStatsRepository extends StatsRepository
     }
 }
 
+/**
+ * Stub d'OrderQueryRepository : KPIs de vente canned (rendu du bloc Ventes teste
+ * sans base ; les agregats sont couverts par OrderQueryRepositoryDbTest).
+ */
+final class StubOrderQueryRepository extends OrderQueryRepository
+{
+    public function salesKpis(): array
+    {
+        return [
+            'revenue_cents' => 20800, 'paid_count' => 8, 'avg_basket_cents' => 2600,
+            'revenue_today_cents' => 5200, 'paid_count_today' => 2, 'total_orders' => 11,
+            'by_status' => ['paid' => 8, 'pending_payment' => 2, 'cancelled' => 1],
+        ];
+    }
+
+    public function recent(int $limit = 50): array
+    {
+        return [];
+    }
+}
+
 final class TestStatsController extends StatsController
 {
     public function __construct(
@@ -68,6 +90,11 @@ final class TestStatsController extends StatsController
     protected function statsRepository(): StatsRepository
     {
         return new StubStatsRepository($this->fakeDb);
+    }
+
+    protected function orderQuery(): OrderQueryRepository
+    {
+        return new StubOrderQueryRepository($this->fakeDb);
     }
 }
 
@@ -140,5 +167,8 @@ final class StatsControllerTest extends TestCase
         self::assertStringContainsString('53', $body);        // compteur produits
         self::assertStringContainsString('Cheddar', $body);   // alerte stock critique
         self::assertStringContainsString('critical', $body);  // bande
+        self::assertStringContainsString('Ventes', $body);    // section KPIs vente
+        self::assertStringContainsString('CA encaisse', $body);
+        self::assertStringContainsString('208,00 EUR', $body); // revenue_cents 20800 formate
     }
 }

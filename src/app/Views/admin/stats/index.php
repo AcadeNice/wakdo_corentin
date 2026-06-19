@@ -42,7 +42,49 @@ $cards = [
 <div class="page-header">
     <div>
         <h1 class="page-title">Statistiques</h1>
-        <p class="page-subtitle">Sante du catalogue et du stock. Les indicateurs de vente arriveront avec les commandes (P4).</p>
+        <p class="page-subtitle">Ventes, sante du catalogue et du stock.</p>
+    </div>
+</div>
+
+<?php
+/** @var array<string, mixed> $salesData */
+$salesData = isset($sales) && is_array($sales) ? $sales : [];
+$byStatus = is_array($salesData['by_status'] ?? null) ? $salesData['by_status'] : [];
+$euros = static fn (mixed $cents): string => number_format(((int) $cents) / 100, 2, ',', ' ') . ' EUR';
+?>
+<div class="page-header">
+    <div>
+        <h2 class="page-title">Ventes</h2>
+        <p class="page-subtitle"><?= $esc((int) ($salesData['total_orders'] ?? 0)) ?> commande(s) au total — <?= $esc((int) ($salesData['paid_count_today'] ?? 0)) ?> payee(s) aujourd'hui.</p>
+    </div>
+</div>
+
+<div class="stats-cards">
+    <div class="stat-card">
+        <div class="stat-card__value"><?= $esc($euros($salesData['revenue_cents'] ?? 0)) ?></div>
+        <div class="stat-card__label">CA encaisse</div>
+        <div class="stat-card__sub muted"><?= $esc($euros($salesData['revenue_today_cents'] ?? 0)) ?> aujourd'hui</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card__value"><?= $esc((int) ($salesData['paid_count'] ?? 0)) ?></div>
+        <div class="stat-card__label">Commandes payees</div>
+        <div class="stat-card__sub muted"><?= $esc((int) ($salesData['paid_count_today'] ?? 0)) ?> aujourd'hui</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card__value"><?= $esc($euros($salesData['avg_basket_cents'] ?? 0)) ?></div>
+        <div class="stat-card__label">Panier moyen</div>
+        <div class="stat-card__sub muted">par commande payee</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card__value"><?= $esc((int) ($salesData['total_orders'] ?? 0)) ?></div>
+        <div class="stat-card__label">Commandes totales</div>
+        <div class="stat-card__sub muted"><?= $esc((int) ($byStatus['pending_payment'] ?? 0)) ?> en attente</div>
+    </div>
+</div>
+
+<div class="page-header">
+    <div>
+        <h2 class="page-title">Catalogue</h2>
     </div>
 </div>
 

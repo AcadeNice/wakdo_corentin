@@ -6,6 +6,7 @@ namespace App\Controllers;
 
 use App\Catalogue\StatsRepository;
 use App\Core\Response;
+use App\Order\OrderQueryRepository;
 
 /**
  * Tableau de bord statistiques (mlt domaine 11). GET /admin/stats, permission
@@ -33,11 +34,17 @@ class StatsController extends AdminController
             'activeNav' => 'stats',
             'counts'    => $this->statsRepository()->counts(),
             'stock'     => $this->statsRepository()->stockHealth(),
+            'sales'     => $this->orderQuery()->salesKpis(),
         ], $guard);
     }
 
     protected function statsRepository(): StatsRepository
     {
         return new StatsRepository($this->db());
+    }
+
+    protected function orderQuery(): OrderQueryRepository
+    {
+        return new OrderQueryRepository($this->db());
     }
 }
