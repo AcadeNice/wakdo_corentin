@@ -2081,3 +2081,32 @@ button {
     outline: 3px solid var(--color-brand-yellow-dk);
     outline-offset: 2px;
 }
+
+/* === Modale d'options produit (L3 - quantite + ajout, au-dessus de la grille) === */
+.product-options {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-4);
+    text-align: center;
+}
+
+.product-options__image {
+    width: 160px;
+    height: 160px;
+    object-fit: contain;
+}
+
+.product-options__unit {
+    color: var(--color-text-secondary);
+}
+
+.product-options__total {
+    font-size: var(--font-size-md);
+}
+
+.qty-control {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+}

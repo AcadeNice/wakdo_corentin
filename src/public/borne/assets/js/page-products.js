@@ -9,6 +9,8 @@
 import { getProductsByCategory, getCategoryById, CATEGORY_ID_TO_SLUG, loadAllergens } from './data.js';
 import { formatPrice, escHtml } from './state.js';
 import { buildAllergenInfoButton, openAllergenModal } from './allergens.js';
+import { openMenuComposer } from './page-product-menu.js';
+import { openProductOptions } from './product-options.js';
 
 const params      = new URLSearchParams(window.location.search);
 const categoryId  = parseInt(params.get('category'), 10) || 1;
@@ -86,6 +88,15 @@ async function renderProducts() {
             // generale et ne declenche pas la navigation de la carte (stopPropagation).
             const infoBtn = buildAllergenInfoButton(() => openAllergenModal(allergens));
             card.querySelector('.product-card__image-wrap').appendChild(infoBtn);
+
+            // Clic produit -> modale au-dessus de la grille (paradigme maquette) au lieu
+            // de naviguer vers product.html : menu -> composeur (L2), produit -> options
+            // (L3). Le <a href> reste un repli (lien direct / sans JS).
+            card.addEventListener('click', (e) => {
+                e.preventDefault();
+                if (product.type === 'menu') openMenuComposer(product, categorySlug);
+                else openProductOptions(product, categorySlug);
+            });
 
             grid.appendChild(card);
         });
