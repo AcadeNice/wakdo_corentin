@@ -307,9 +307,14 @@ ici.
 
 ## 10. CORS
 
-L'API admin sous `/api/*` autorise l'origine du kiosk via `CORS_ALLOWED_ORIGIN` (valeur exacte,
-sans joker), configuree dans `docker/apache/vhost.conf`. L'origine doit correspondre a
-`APP_URL_KIOSK`.
+La borne consomme `/api/*` en **meme origine** : le vhost kiosk (`docker/apache/vhost.conf`)
+relaie `/api/*` au front controller admin via PHP-FPM (`ProxyPassMatch` + `ProxyFCGISetEnvIf`
+qui force `SCRIPT_FILENAME` sur `public/admin/index.php`). `data.js` garde donc des URLs
+relatives et le navigateur n'emet pas de requete cross-origin pour ce parcours.
+
+Le middleware `App\Core\Cors` reste en place comme defense en profondeur : il lit
+`CORS_ALLOWED_ORIGIN` (valeur exacte, sans joker, = `APP_URL_KIOSK`) et autorise un eventuel
+consommateur cross-origin de l'API. Il n'est pas sur le chemin de la borne.
 
 ---
 
