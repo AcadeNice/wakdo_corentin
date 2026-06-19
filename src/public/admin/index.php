@@ -99,6 +99,9 @@ try {
     // Menus composes : liste legere + detail avec slots (B1 burger impose, B2 Normal/Maxi).
     $router->add('GET', '/api/menus', [CatalogueController::class, 'menus']);
     $router->add('GET', '/api/menus/{id}', [CatalogueController::class, 'menu']);
+    // Allergenes INCO (info generale, 14 categories). La borne garde son JSON statique
+    // (descriptions riches) ; l'endpoint sert d'autres consommateurs eventuels.
+    $router->add('GET', '/api/allergens', [CatalogueController::class, 'allergens']);
 
     // Back-office (P3) : pages rendues serveur sous /admin, gardees par SessionGuard.
     $router->add('GET', '/admin/dashboard', [DashboardController::class, 'index']);

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Catalogue\AllergenRepository;
 use App\Catalogue\CategoryRepository;
 use App\Catalogue\MenuRepository;
 use App\Catalogue\ProductRepository;
@@ -111,6 +112,21 @@ class CatalogueController extends Controller
         return $this->json(['data' => $menu]);
     }
 
+    /**
+     * Allergenes INCO (info generale, 14 categories). Public anonyme, lecture seule.
+     *
+     * @param array<string, string> $params
+     */
+    public function allergens(array $params = []): Response
+    {
+        $rows = array_map(
+            fn (array $row): array => $this->presentAllergen($row),
+            $this->allergensRepo()->all(),
+        );
+
+        return $this->json(['data' => $rows, 'total' => count($rows)]);
+    }
+
     protected function categoriesRepo(): CategoryRepository
     {
         return new CategoryRepository($this->db());
@@ -126,12 +142,30 @@ class CatalogueController extends Controller
         return new MenuRepository($this->db());
     }
 
+    protected function allergensRepo(): AllergenRepository
+    {
+        return new AllergenRepository($this->db());
+    }
+
     /**
      * Acces BDD comme DatabaseInterface (seam de test). Database l'implemente.
      */
     protected function db(): DatabaseInterface
     {
         return $this->database;
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     * @return array{id: int, code: string, name: string}
+     */
+    private function presentAllergen(array $row): array
+    {
+        return [
+            'id'   => (int) ($row['id'] ?? 0),
+            'code' => (string) ($row['code'] ?? ''),
+            'name' => (string) ($row['name'] ?? ''),
+        ];
     }
 
     /**

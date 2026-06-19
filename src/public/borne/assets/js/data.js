@@ -17,8 +17,10 @@
 const CATEGORIES_URL = '/api/categories';
 const PRODUCTS_URL = '/api/products';
 const MENUS_URL = '/api/menus';
-/* Liste fixe des 14 allergenes INCO (info generale, modale borne). Repli statique
- * encore en place : bascule sur '/api/allergens' differee. */
+/* Liste fixe des 14 allergenes INCO (info generale, modale borne). L'endpoint
+ * /api/allergens existe desormais (id/code/name), mais la borne garde ce JSON
+ * statique : il porte les DESCRIPTIONS riches, absentes du schema allergen. Bascule
+ * possible si les descriptions sont ajoutees cote API. */
 const ALLERGENS_URL = 'data/allergens.json';
 
 /* Memoisation par PROMESSE (pas par resultat) : N appelants concurrents au meme
