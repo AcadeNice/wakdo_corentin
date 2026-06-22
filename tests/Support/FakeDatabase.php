@@ -142,6 +142,14 @@ final class FakeDatabase implements DatabaseInterface
     public ?array $menuRow = null;
 
     /**
+     * Ligne renvoyee par OrderRepository::findByNumber() / cancel() (lecture par
+     * order_number) ; null = numero inconnu.
+     *
+     * @var array<string, mixed>|null
+     */
+    public ?array $orderByNumberRow = null;
+
+    /**
      * Lignes renvoyees par MenuRepository::all().
      *
      * @var list<array<string, mixed>>
@@ -426,6 +434,10 @@ final class FakeDatabase implements DatabaseInterface
 
         if (str_contains($sql, 'FROM menu WHERE id = :id')) {
             return $this->menuRow;
+        }
+
+        if (str_contains($sql, 'FROM customer_order WHERE order_number')) {
+            return $this->orderByNumberRow;
         }
 
         if (str_contains($sql, 'FROM order_item WHERE menu_id')) {

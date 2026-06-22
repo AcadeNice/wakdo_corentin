@@ -357,4 +357,133 @@ final class OrderRepositoryTest extends TestCase
         $this->expectExceptionMessage('INVALID_TRANSITION');
         $this->repo($db)->deliver('K100');
     }
+
+    // --- cancel() : transition gardee + re-credit conditionnel + audit (RG-T07/T11/T14) ---
+
+    public function testCancelPendingTransitionsWithoutRecredit(): void
+    {
+        // pending_payment n'avait jamais decremente le stock (le decrement est pose a
+        // `paid`) : annulation = transition + audit, AUCUN re-credit (RG-3).
+        $db = new FakeOrderDatabase();
+        $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => 'pending_payment'];
+        $db->orderItems = [['id' => 1, 'item_type' => 'product', 'product_id' => 12, 'menu_id' => null, 'format' => 'normal', 'quantity' => 2]];
+        $db->compositions[12] = [['ingredient_id' => 5, 'quantity_normal' => 1, 'quantity_maxi' => 1]];
+
+        $res = $this->repo($db)->cancel('K100', 9, 4);
+
+        self::assertSame('cancelled', $res['status']);
+        self::assertSame('K100', $res['order_number']);
+        self::assertSame(1, $db->countWrites('UPDATE customer_order SET status'));
+        // Aucun mouvement de stock (re-credit) : la commande n'etait pas payee.
+        self::assertSame(0, $db->countWrites('UPDATE ingredient SET stock_quantity'));
+        self::assertSame(0, $db->countWrites('INSERT INTO stock_movement'));
+        // Trace d'audit ecrite avec l'acteur resolu par PIN.
+        self::assertSame(1, $db->countWrites('INSERT INTO audit_log'));
+        $audit = $db->firstWrite('INSERT INTO audit_log');
+        self::assertSame('order.cancel', $audit['code']);
+        self::assertSame('customer_order', $audit['etype']);
+        self::assertSame(100, $audit['eid']);
+        self::assertSame(9, $audit['uid']);
+        self::assertSame(4, $audit['rid']);
+    }
+
+    public function testCancelPaidRecreditsStockAndWritesMovementAndAudit(): void
+    {
+        $db = new FakeOrderDatabase();
+        $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => 'paid'];
+        $db->saleMovementsExist = true; // payee -> mouvements 'sale' poses -> re-credit attendu
+        $db->orderItems = [['id' => 1, 'item_type' => 'product', 'product_id' => 12, 'menu_id' => null, 'format' => 'normal', 'quantity' => 2]];
+        $db->compositions[12] = [['ingredient_id' => 5, 'quantity_normal' => 1, 'quantity_maxi' => 1]];
+
+        $res = $this->repo($db)->cancel('K100', 9, 4);
+
+        self::assertSame('cancelled', $res['status']);
+        self::assertSame(1, $db->countWrites('UPDATE customer_order SET status'));
+        // 2 unites consommees (qn 1 * quantite 2) -> re-credit +2 sur l'ingredient 5.
+        $inc = $db->firstWrite('UPDATE ingredient SET stock_quantity');
+        self::assertSame(2, $inc['u']);
+        self::assertSame(5, $inc['id']);
+        // Type 'cancellation' code en dur dans le SQL (cf. pay() qui code 'sale').
+        self::assertStringContainsString("'cancellation'", $db->firstWriteSql('INSERT INTO stock_movement'));
+        $move = $db->firstWrite('INSERT INTO stock_movement');
+        self::assertSame(2, $move['delta']);        // delta POSITIF (re-credit)
+        self::assertSame(100, $move['oid']);
+        self::assertSame(9, $move['uid']);          // acteur resolu par PIN
+        // Audit ecrit avec le montant re-credite (pre-status paid).
+        self::assertSame(1, $db->countWrites('INSERT INTO audit_log'));
+        $audit = $db->firstWrite('INSERT INTO audit_log');
+        self::assertSame('order.cancel', $audit['code']);
+        self::assertStringContainsString('paid', (string) $audit['summary']);
+        self::assertStringContainsString('890c', (string) $audit['summary']);
+    }
+
+    public function testCancelRecreditsWhenSaleMovementsExistEvenIfPreStatusPending(): void
+    {
+        // Anti-course pending_payment -> paid -> cancel : la commande lue en pending a
+        // en realite ete payee (mouvements 'sale' poses par un pay() concurrent). Le
+        // re-credit se decide sur l'existence des mouvements 'sale', pas sur le
+        // pre-status -> il a bien lieu (pas de derive de stock silencieuse).
+        $db = new FakeOrderDatabase();
+        $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => 'pending_payment'];
+        $db->saleMovementsExist = true;
+        $db->orderItems = [['id' => 1, 'item_type' => 'product', 'product_id' => 12, 'menu_id' => null, 'format' => 'normal', 'quantity' => 2]];
+        $db->compositions[12] = [['ingredient_id' => 5, 'quantity_normal' => 1, 'quantity_maxi' => 1]];
+
+        $this->repo($db)->cancel('K100', 9, 4);
+
+        self::assertSame(2, $db->firstWrite('UPDATE ingredient SET stock_quantity')['u']);
+        self::assertStringContainsString("'cancellation'", $db->firstWriteSql('INSERT INTO stock_movement'));
+    }
+
+    public function testCancelRejectsUnknownOrder(): void
+    {
+        $db = new FakeOrderDatabase();
+        $db->orderByNumber = null;
+
+        $this->expectException(OrderValidationException::class);
+        $this->expectExceptionMessage('ORDER_NOT_FOUND');
+        $this->repo($db)->cancel('K404', 9, 4);
+    }
+
+    public function testCancelRejectsTerminalStatus(): void
+    {
+        $db = new FakeOrderDatabase();
+        $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => 'delivered'];
+
+        $this->expectException(OrderValidationException::class);
+        $this->expectExceptionMessage('CANNOT_CANCEL_IN_STATE');
+        $this->repo($db)->cancel('K100', 9, 4);
+    }
+
+    public function testCancelAlreadyCancelledRejected(): void
+    {
+        $db = new FakeOrderDatabase();
+        $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => 'cancelled'];
+
+        $this->expectException(OrderValidationException::class);
+        $this->expectExceptionMessage('CANNOT_CANCEL_IN_STATE');
+        $this->repo($db)->cancel('K100', 9, 4);
+    }
+
+    public function testCancelConcurrentRaceThrowsInvalidTransition(): void
+    {
+        // La garde RG-T07 (status IN (...)) n'affecte 0 ligne : un autre appel a deja
+        // transite vers un statut terminal -> INVALID_TRANSITION, aucun re-credit.
+        $db = new FakeOrderDatabase();
+        $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => 'paid'];
+        $db->payUpdateAffected = 0;
+        $db->orderItems = [['id' => 1, 'item_type' => 'product', 'product_id' => 12, 'menu_id' => null, 'format' => 'normal', 'quantity' => 2]];
+        $db->compositions[12] = [['ingredient_id' => 5, 'quantity_normal' => 1, 'quantity_maxi' => 1]];
+
+        try {
+            $this->repo($db)->cancel('K100', 9, 4);
+            self::fail('expected OrderValidationException');
+        } catch (OrderValidationException $exception) {
+            self::assertSame('INVALID_TRANSITION', $exception->getMessage());
+        }
+
+        self::assertSame(0, $db->countWrites('UPDATE ingredient SET stock_quantity'));
+        self::assertSame(0, $db->countWrites('INSERT INTO stock_movement'));
+        self::assertSame(0, $db->countWrites('INSERT INTO audit_log'));
+    }
 }

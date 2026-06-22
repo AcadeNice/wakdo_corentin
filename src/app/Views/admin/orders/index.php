@@ -4,11 +4,16 @@ declare(strict_types=1);
 
 /**
  * Liste des commandes (order.read), injectee dans admin/layout.php. Lecture seule :
- * numero, mode, chevalet, statut, total ttc, date. Tri du plus recent au plus ancien
- * (cf. OrderQueryRepository::recent). Toute valeur est echappee (RG-T15).
+ * numero, mode, chevalet, statut, total ttc, date. Une colonne d'actions affiche le
+ * lien Annuler (CANCEL_ORDER 7.1) pour les commandes pending_payment/paid quand le
+ * role detient order.cancel (manager ne l'a PAS, D5). Tri du plus recent au plus
+ * ancien (cf. OrderQueryRepository::recent). Toute valeur est echappee (RG-T15).
  *
  * @var list<array<string, mixed>> $orders
+ * @var bool                       $canCancel
  */
+
+$canCancelOrder = isset($canCancel) && $canCancel === true;
 
 $esc = static fn (mixed $v): string => htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
 $euros = static fn (mixed $cents): string => number_format(((int) $cents) / 100, 2, ',', ' ') . ' EUR';
@@ -54,17 +59,31 @@ $rows = isset($orders) && is_array($orders) ? $orders : [];
                     <th>Statut</th>
                     <th>Total</th>
                     <th>Date</th>
+                    <?php if ($canCancelOrder): ?><th></th><?php endif; ?>
                 </tr>
             </thead>
             <tbody>
                 <?php foreach ($rows as $o): ?>
+                    <?php
+                    $number = (string) ($o['order_number'] ?? '');
+                    $status = (string) ($o['status'] ?? '');
+                    // PRE-3 (7.1) : seules les commandes pending_payment/paid sont annulables.
+                    $rowCancellable = in_array($status, ['pending_payment', 'paid'], true);
+                    ?>
                     <tr>
-                        <td><strong><?= $esc($o['order_number'] ?? '') ?></strong></td>
+                        <td><strong><?= $esc($number) ?></strong></td>
                         <td><?= $esc($modeLabel((string) ($o['service_mode'] ?? ''))) ?></td>
                         <td><?= ($o['service_tag'] ?? '') !== '' ? $esc($o['service_tag']) : '—' ?></td>
-                        <td><span class="pill <?= $esc($statusPill((string) ($o['status'] ?? ''))) ?>"><?= $esc($statusLabel((string) ($o['status'] ?? ''))) ?></span></td>
+                        <td><span class="pill <?= $esc($statusPill($status)) ?>"><?= $esc($statusLabel($status)) ?></span></td>
                         <td><?= $esc($euros($o['total_ttc_cents'] ?? 0)) ?></td>
                         <td><?= $esc($o['created_at'] ?? '') ?></td>
+                        <?php if ($canCancelOrder): ?>
+                            <td>
+                                <?php if ($rowCancellable): ?>
+                                    <a class="btn btn-secondary" href="/admin/orders/<?= rawurlencode($number) ?>/cancel">Annuler</a>
+                                <?php endif; ?>
+                            </td>
+                        <?php endif; ?>
                     </tr>
                 <?php endforeach; ?>
             </tbody>

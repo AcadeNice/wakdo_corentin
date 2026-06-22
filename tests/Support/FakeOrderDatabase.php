@@ -40,6 +40,10 @@ final class FakeOrderDatabase implements DatabaseInterface
     /** Statut relu apres une transition gardee a 0 ligne (course concurrente). */
     public string $recheckStatus = 'paid';
 
+    /** La commande porte-t-elle des mouvements 'sale' (= deja encaissee/decrementee) ?
+     *  Pilote le re-credit a l'annulation (OrderRepository::hasSaleMovements). */
+    public bool $saleMovementsExist = false;
+
     /** Lignes order_item renvoyees pour la commande encaissee. */
     /** @var list<array<string,mixed>> */
     public array $orderItems = [];
@@ -76,6 +80,9 @@ final class FakeOrderDatabase implements DatabaseInterface
         }
         if (str_contains($sql, 'FROM menu WHERE id = :id')) {
             return $this->menus[(int) $params['id']] ?? null;
+        }
+        if (str_contains($sql, 'FROM stock_movement WHERE order_id')) {
+            return $this->saleMovementsExist ? ['x' => 1] : null;
         }
 
         return null;
@@ -131,6 +138,18 @@ final class FakeOrderDatabase implements DatabaseInterface
         }
 
         return [];
+    }
+
+    /** SQL de la premiere ecriture dont le texte contient $needle (chaine vide sinon). */
+    public function firstWriteSql(string $needle): string
+    {
+        foreach ($this->writes as $write) {
+            if (str_contains($write['sql'], $needle)) {
+                return $write['sql'];
+            }
+        }
+
+        return '';
     }
 
     public function countWrites(string $needle): int

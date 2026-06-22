@@ -342,6 +342,123 @@ class OrderRepository
     }
 
     /**
+     * Annulation d'une commande (CANCEL_ORDER, mlt 7.1). Transition gardee
+     * pending_payment|paid -> cancelled, re-credit de stock CONDITIONNEL et ecriture
+     * audit_log dans UNE transaction (RG-T07/T08/T11/T14).
+     *
+     * Le re-credit n'a lieu que si la commande etait `paid` AVANT l'annulation : une
+     * commande `pending_payment` n'avait jamais decremente le stock (le decrement est
+     * pose a la transition `paid`, cf. pay()), il n'y a donc rien a re-crediter. Le
+     * re-credit reutilise consumption() (memes unites que le decrement de pay()),
+     * inversees (delta positif) ; un ingredient entierement retire (modifieur remove)
+     * n'a pas ete decremente -> consumption() ne le retourne pas -> pas de re-credit.
+     *
+     * Concurrence (RG-T07/RG-T20) : le statut est relu A L'INTERIEUR de la transaction
+     * via l'UPDATE garde par `status IN ('pending_payment','paid')` ; 0 ligne affectee
+     * = course perdue (un autre appel a deja transite) -> INVALID_TRANSITION. Le
+     * re-credit se base sur le pre-status lu en entree (coherent : seul l'appel qui a
+     * remporte la garde poursuit, et il n'y a pas de SELECT FOR UPDATE — RG-T20).
+     *
+     * @param int|null $actingUserId equipier resolu par PIN (audit_log.actor_user_id +
+     *                               stock_movement.user_id) ; le controleur le fournit.
+     * @param int|null $actingRoleId role de l'equipier resolu par PIN (audit_log.actor_role_id).
+     * @return array{id:int, order_number:string, total_ttc_cents:int, status:string}
+     * @throws OrderValidationException
+     */
+    public function cancel(string $orderNumber, ?int $actingUserId, ?int $actingRoleId): array
+    {
+        $order = $this->db->fetch(
+            'SELECT id, order_number, total_ttc_cents, status FROM customer_order WHERE order_number = :n',
+            ['n' => $orderNumber],
+        );
+        if ($order === null) {
+            throw new OrderValidationException('ORDER_NOT_FOUND');
+        }
+
+        $preStatus = (string) $order['status'];
+        if (!in_array($preStatus, ['pending_payment', 'paid'], true)) {
+            throw new OrderValidationException('CANNOT_CANCEL_IN_STATE'); // delivered / cancelled (statut terminal).
+        }
+
+        $result = [
+            'id'              => (int) $order['id'],
+            'order_number'    => (string) $order['order_number'],
+            'total_ttc_cents' => (int) $order['total_ttc_cents'],
+            'status'          => 'cancelled',
+        ];
+
+        $orderId = (int) $order['id'];
+        $totalTtc = (int) $order['total_ttc_cents'];
+        $this->db->transaction(function (DatabaseInterface $db) use ($orderId, $preStatus, $totalTtc, $actingUserId, $actingRoleId): void {
+            $affected = $db->execute(
+                'UPDATE customer_order SET status = \'cancelled\', cancelled_at = NOW(), updated_at = NOW() '
+                . 'WHERE id = :id AND status IN (\'pending_payment\', \'paid\')',
+                ['id' => $orderId],
+            );
+            if ($affected === 0) {
+                // Course perdue : la garde RG-T07 n'a affecte aucune ligne (un autre
+                // appel a deja transite vers un statut terminal). Pas d'issue idempotente
+                // pour l'annulation (a la difference de pay/deliver) : on signale la
+                // transition invalide et la transaction est annulee (aucun re-credit).
+                throw new OrderValidationException('INVALID_TRANSITION');
+            }
+
+            // RG-3 : re-credit CONDITIONNEL. On le decide sur l'EXISTENCE de mouvements
+            // 'sale' pour cette commande (poses au decrement de pay()), PAS sur le
+            // pre-status lu hors transaction : insensible a la course
+            // pending_payment -> paid -> cancel (sinon un pay() concurrent gagnant
+            // laisserait le stock decremente sans re-credit, derive silencieuse). De
+            // fait idempotent : sans mouvement 'sale', rien a re-crediter. Memes unites
+            // que pay() (consumption), inversees (delta positif).
+            $restocked = $this->hasSaleMovements($db, $orderId);
+            if ($restocked) {
+                foreach ($this->consumption($db, $orderId) as $ingredientId => $units) {
+                    $db->execute(
+                        'UPDATE ingredient SET stock_quantity = stock_quantity + :u WHERE id = :id',
+                        ['u' => $units, 'id' => $ingredientId],
+                    );
+                    $db->execute(
+                        'INSERT INTO stock_movement (ingredient_id, movement_type, delta, order_id, user_id, note) '
+                        . 'VALUES (:ing, \'cancellation\', :delta, :oid, :uid, NULL)',
+                        ['ing' => $ingredientId, 'delta' => $units, 'oid' => $orderId, 'uid' => $actingUserId],
+                    );
+                }
+            }
+
+            // RG-6/RG-T14 : trace d'audit immuable dans la meme transaction que l'effet.
+            $recredit = $restocked ? $totalTtc : 0;
+            $summary = 'Annulation depuis ' . $preStatus . ', re-credit ' . $recredit . 'c';
+            $db->execute(
+                'INSERT INTO audit_log (actor_user_id, actor_role_id, action_code, entity_type, entity_id, summary) '
+                . 'VALUES (:uid, :rid, :code, :etype, :eid, :summary)',
+                [
+                    'uid'     => $actingUserId,
+                    'rid'     => $actingRoleId,
+                    'code'    => 'order.cancel',
+                    'etype'   => 'customer_order',
+                    'eid'     => $orderId,
+                    'summary' => $summary,
+                ],
+            );
+        });
+
+        return $result;
+    }
+
+    /**
+     * Vrai si la commande porte au moins un mouvement de stock `sale` (donc elle a
+     * deja ete encaissee/decrementee par pay()). Sert a decider le re-credit a
+     * l'annulation independamment du statut observe hors transaction (anti-course).
+     */
+    private function hasSaleMovements(DatabaseInterface $db, int $orderId): bool
+    {
+        return $db->fetch(
+            'SELECT 1 AS x FROM stock_movement WHERE order_id = :oid AND movement_type = \'sale\' LIMIT 1',
+            ['oid' => $orderId],
+        ) !== null;
+    }
+
+    /**
      * Unites de stock a decrementer, AGREGEES par ingredient_id sur toute la
      * commande (lecture des lignes persistees + recettes des produits supports).
      * Cle = ingredient_id, triee croissant (ordre de verrou stable). Un ingredient

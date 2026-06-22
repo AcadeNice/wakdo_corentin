@@ -117,6 +117,11 @@ try {
     $router->add('GET', '/admin/orders', [OrderAdminController::class, 'index']);
     // Remise au client : paid -> delivered (order.deliver, geste unique, POST + CSRF).
     $router->add('POST', '/admin/orders/{number}/deliver', [OrderAdminController::class, 'deliver']);
+    // Annulation : pending_payment|paid -> cancelled (CANCEL_ORDER mlt 7.1, order.cancel).
+    // PIN equipier + audit + restock conditionnel (RG-T13/T14). {number} = un seul
+    // segment (numero K/C/D + id) ; /cancel ne chevauche ni /deliver ni la liste.
+    $router->add('GET', '/admin/orders/{number}/cancel', [OrderAdminController::class, 'confirmCancel']);
+    $router->add('POST', '/admin/orders/{number}/cancel', [OrderAdminController::class, 'cancel']);
     // Affichage cuisine (KDS) : file des commandes payees (order.read). Landing du role
     // kitchen (seed role.default_route = /kitchen/display) ; corrige le 404 d'apres-login.
     $router->add('GET', '/kitchen/display', [KitchenController::class, 'display']);
