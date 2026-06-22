@@ -47,9 +47,12 @@ final class ProductRepository
      */
     public function find(int $id): ?array
     {
+        // maxi_variant_product_id : expose la variante Grande de l'accompagnement
+        // pour que OrderRepository::resolveSelections puisse substituer au format
+        // Maxi (cote serveur uniquement ; la borne n'en a pas besoin).
         return $this->db->fetch(
-            'SELECT id, category_id, name, description, price_cents, vat_rate, image_path, '
-            . 'is_available, display_order FROM product WHERE id = :id',
+            'SELECT id, category_id, name, description, price_cents, maxi_variant_product_id, '
+            . 'vat_rate, image_path, is_available, display_order FROM product WHERE id = :id',
             ['id' => $id],
         );
     }

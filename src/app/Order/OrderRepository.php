@@ -560,7 +560,7 @@ class OrderRepository
             $burger = $this->products->find((int) $menu['burger_product_id']);
             $vat = $burger !== null ? (int) $burger['vat_rate'] : 100;
             $unitBase = $format === 'maxi' ? (int) $menu['price_maxi_cents'] : (int) $menu['price_normal_cents'];
-            $selections = $this->resolveSelections($item, (int) $menu['id']);
+            $selections = $this->resolveSelections($item, (int) $menu['id'], $format);
             $modifiers = $this->resolveModifiers($item, (int) $menu['burger_product_id']);
             $unitTtc = $unitBase + $this->modifiersExtra($modifiers);
 
@@ -586,10 +586,20 @@ class OrderRepository
     }
 
     /**
+     * Valide chaque selection contre les options du slot (la selection BASE, telle
+     * qu'envoyee par la borne), puis applique la regle de variante Maxi : si le
+     * menu est au format 'maxi' ET que le produit choisi a une variante Maxi
+     * (maxi_variant_product_id non nul, ex. Moyenne Frite -> Grande Frite), c'est
+     * l'id ET le label de la VARIANTE qui sont persistes dans order_item_selection.
+     * Ainsi consumption() decremente le stock de la Grande variante et le snapshot
+     * de libelle reflete "Grande Frite". La validation porte toujours sur le
+     * produit de base : la borne ne propose que les accompagnements standard, la
+     * substitution est une mecanique serveur invisible.
+     *
      * @param array<string, mixed> $item
      * @return list<array{menu_slot_id:int,product_id:int,label:string}>
      */
-    private function resolveSelections(array $item, int $menuId): array
+    private function resolveSelections(array $item, int $menuId, string $format): array
     {
         $slots = $this->menus->slotsWithOptions($menuId);
         /** @var array<int, list<int>> $optionsBySlot */
@@ -607,6 +617,20 @@ class OrderRepository
                 throw new OrderValidationException('INVALID_SELECTION');
             }
             $product = $this->products->find($pid);
+
+            // Substitution Maxi : seuls les produits dotes d'une variante (les
+            // accompagnements standard) sont permutes ; les autres slots (boisson,
+            // sauce) n'ont pas de variante et restent inchanges, sans garde sur le
+            // slot_type. find() relit la variante (id + label) pour son snapshot.
+            $variantId = $product !== null ? (int) ($product['maxi_variant_product_id'] ?? 0) : 0;
+            if ($format === 'maxi' && $variantId > 0) {
+                $variant = $this->products->find($variantId);
+                if ($variant !== null) {
+                    $out[] = ['menu_slot_id' => $slotId, 'product_id' => $variantId, 'label' => (string) $variant['name']];
+                    continue;
+                }
+            }
+
             $out[] = ['menu_slot_id' => $slotId, 'product_id' => $pid, 'label' => $product !== null ? (string) $product['name'] : ''];
         }
 

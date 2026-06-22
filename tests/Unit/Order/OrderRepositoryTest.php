@@ -75,6 +75,52 @@ final class OrderRepositoryTest extends TestCase
         self::assertSame(1, $db->countWrites('INSERT INTO order_item_selection'));
     }
 
+    public function testMenuMaxiSwapsSideSelectionToGrandeVariant(): void
+    {
+        // Au format maxi, l'accompagnement Moyenne Frite (variante = Grande Frite,
+        // id 24) doit etre persiste comme Grande Frite : la selection stocke l'id +
+        // le label de la variante, pour que le decrement de stock frappe la Grande.
+        $db = new FakeOrderDatabase();
+        $db->menus[5] = ['id' => 5, 'burger_product_id' => 12, 'name' => 'Menu', 'price_normal_cents' => 990, 'price_maxi_cents' => 1200, 'is_available' => 1];
+        $db->products[12] = ['id' => 12, 'name' => 'Burger', 'price_cents' => 600, 'vat_rate' => 100, 'is_available' => 1];
+        $db->products[23] = ['id' => 23, 'name' => 'Moyenne Frite', 'price_cents' => 275, 'vat_rate' => 100, 'is_available' => 1, 'maxi_variant_product_id' => 24];
+        $db->products[24] = ['id' => 24, 'name' => 'Grande Frite', 'price_cents' => 350, 'vat_rate' => 100, 'is_available' => 1, 'maxi_variant_product_id' => null];
+        $db->slotRows[5] = [['id' => 8, 'name' => 'Accompagnement', 'slot_type' => 'side', 'is_required' => 1, 'display_order' => 2, 'product_id' => 23]];
+
+        $this->repo($db)->createPending([
+            'service_mode' => 'takeaway',
+            'items' => [['type' => 'menu', 'menu_id' => 5, 'quantity' => 1, 'format' => 'maxi',
+                'selections' => [['menu_slot_id' => 8, 'product_id' => 23]]]], // borne envoie la Moyenne
+        ]);
+
+        $sel = $db->firstWrite('INSERT INTO order_item_selection');
+        self::assertSame(24, $sel['pid']); // swap -> Grande Frite
+        self::assertSame('Grande Frite', $sel['label']);
+        self::assertSame(8, $sel['slot']);
+    }
+
+    public function testMenuNormalKeepsBaseSideSelection(): void
+    {
+        // Format normal : aucune substitution, l'accompagnement reste la Moyenne
+        // Frite meme si une variante Maxi est definie sur le produit.
+        $db = new FakeOrderDatabase();
+        $db->menus[5] = ['id' => 5, 'burger_product_id' => 12, 'name' => 'Menu', 'price_normal_cents' => 990, 'price_maxi_cents' => 1200, 'is_available' => 1];
+        $db->products[12] = ['id' => 12, 'name' => 'Burger', 'price_cents' => 600, 'vat_rate' => 100, 'is_available' => 1];
+        $db->products[23] = ['id' => 23, 'name' => 'Moyenne Frite', 'price_cents' => 275, 'vat_rate' => 100, 'is_available' => 1, 'maxi_variant_product_id' => 24];
+        $db->products[24] = ['id' => 24, 'name' => 'Grande Frite', 'price_cents' => 350, 'vat_rate' => 100, 'is_available' => 1, 'maxi_variant_product_id' => null];
+        $db->slotRows[5] = [['id' => 8, 'name' => 'Accompagnement', 'slot_type' => 'side', 'is_required' => 1, 'display_order' => 2, 'product_id' => 23]];
+
+        $this->repo($db)->createPending([
+            'service_mode' => 'takeaway',
+            'items' => [['type' => 'menu', 'menu_id' => 5, 'quantity' => 1, 'format' => 'normal',
+                'selections' => [['menu_slot_id' => 8, 'product_id' => 23]]]],
+        ]);
+
+        $sel = $db->firstWrite('INSERT INTO order_item_selection');
+        self::assertSame(23, $sel['pid']); // pas de swap -> Moyenne Frite
+        self::assertSame('Moyenne Frite', $sel['label']);
+    }
+
     public function testAddModifierAddsExtraToLine(): void
     {
         $db = new FakeOrderDatabase();
