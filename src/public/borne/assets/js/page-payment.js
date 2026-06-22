@@ -100,6 +100,29 @@ function openChevalet(onValidate, onDismiss) {
 
     const input = overlay.querySelector('#chevalet-input');
     const errBox = overlay.querySelector('#chevalet-error');
+    const okBtn = overlay.querySelector('#chevalet-ok');
+
+    // Validation en TEMPS REEL (Cr 2.b.1) : controle pendant la frappe, pas seulement
+    // au clic. On filtre les caracteres non numeriques, on borne a 4 chiffres, on
+    // reflete l'etat via aria-invalid + l'activation du bouton, et on masque l'erreur
+    // des que la saisie redevient valide.
+    const isValidTag = (v) => /^[0-9]{1,4}$/.test(v);
+    const syncValidity = () => {
+        const cleaned = (input.value || '').replace(/[^0-9]/g, '').slice(0, 4);
+        if (cleaned !== input.value) {
+            input.value = cleaned;
+        }
+        const ok = isValidTag(cleaned);
+        input.setAttribute('aria-invalid', ok ? 'false' : 'true');
+        if (okBtn) {
+            okBtn.disabled = !ok;
+        }
+        if (ok) {
+            errBox.hidden = true;
+        }
+    };
+    input.addEventListener('input', syncValidity);
+    syncValidity();
 
     const teardown = () => {
         document.removeEventListener('keydown', esc);
@@ -123,10 +146,13 @@ function openChevalet(onValidate, onDismiss) {
     });
 
     overlay.querySelector('#chevalet-cancel').addEventListener('click', dismiss);
-    overlay.querySelector('#chevalet-ok').addEventListener('click', () => {
+    okBtn.addEventListener('click', () => {
+        // Garde finale au clic (defense en profondeur) : le bouton est deja desactive
+        // tant que la saisie est invalide (validation temps reel ci-dessus).
         const tag = (input.value || '').trim();
-        if (!/^[0-9]{1,4}$/.test(tag)) {
+        if (!isValidTag(tag)) {
             errBox.hidden = false;
+            input.setAttribute('aria-invalid', 'true');
             input.focus();
             return;
         }

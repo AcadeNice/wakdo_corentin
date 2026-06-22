@@ -2218,3 +2218,17 @@ html.dys-font {
     outline: 3px solid var(--color-brand-yellow-dk);
     outline-offset: 2px;
 }
+
+/* ============================================================
+   13. COMPATIBILITE NAVIGATEURS (Cr 1.b.3)
+   ============================================================ */
+
+/* 'gap' sur conteneurs flex : non reconnu par d'anciens navigateurs (ex. Safari
+   anterieur a 14.1). La detection @supports applique un repli par marges sur les
+   enfants directs si la propriete n'est pas supportee (alternative documentee). */
+@supports not (gap: 1rem) {
+    .welcome__choices > *,
+    .composer-footer__row > * {
+        margin: var(--space-2);
+    }
+}
