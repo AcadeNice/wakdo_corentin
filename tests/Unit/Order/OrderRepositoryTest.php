@@ -177,6 +177,124 @@ final class OrderRepositoryTest extends TestCase
         ]);
     }
 
+    // --- createStaffOrder() : comptoir/drive, source tagguee + encaissement immediat (mlt 4.1) ---
+
+    public function testStaffOrderCounterTagsSourcePrefixesCAndPaysImmediately(): void
+    {
+        $db = new FakeOrderDatabase();
+        $db->products[12] = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 890, 'vat_rate' => 100, 'is_available' => 1];
+        $db->compositions[12] = [['ingredient_id' => 5, 'quantity_normal' => 1, 'quantity_maxi' => 1]];
+        // persist() insere en pending puis pay() relit la commande par numero + ses
+        // lignes : on simule la ligne persistee (id 100 -> 'C100', pending) et son
+        // order_item, pour que le decrement de stock de pay() s'execute (RG-T20).
+        $db->orderByNumber = ['id' => 100, 'order_number' => 'C100', 'total_ttc_cents' => 890, 'status' => 'pending_payment'];
+        $db->orderItems = [['id' => 1, 'item_type' => 'product', 'product_id' => 12, 'menu_id' => null, 'format' => 'normal', 'quantity' => 1]];
+
+        $res = $this->repo($db)->createStaffOrder([
+            'service_mode' => 'dine_in',
+            'items' => [['type' => 'product', 'product_id' => 12, 'quantity' => 1]],
+        ], 7, 'counter');
+
+        // POST-1 : source counter, prefixe 'C' + id, acting_user_id pose, status paid.
+        $order = $db->firstWrite('INSERT INTO customer_order');
+        self::assertSame('counter', $order['source']);
+        self::assertSame(7, $order['acting']);
+        $renumber = $db->firstWrite('UPDATE customer_order SET order_number');
+        self::assertSame('C100', $renumber['num']);
+        self::assertSame('paid', $res['status']);
+        self::assertSame('C100', $res['order_number']);
+
+        // POST-3 : stock decremente avec user_id = equipier (RG-4/RG-T20).
+        $move = $db->firstWrite('INSERT INTO stock_movement');
+        self::assertSame(-1, $move['delta']);
+        self::assertSame(7, $move['uid']);
+        // L'acteur est aussi pose a la transition paid (acting_user_id, COALESCE).
+        $transition = $db->firstWrite('UPDATE customer_order SET status');
+        self::assertSame(7, $transition['uid']);
+    }
+
+    public function testStaffOrderDrivePrefixesD(): void
+    {
+        $db = new FakeOrderDatabase();
+        $db->products[12] = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 890, 'vat_rate' => 100, 'is_available' => 1];
+        $db->orderByNumber = ['id' => 100, 'order_number' => 'D100', 'total_ttc_cents' => 890, 'status' => 'pending_payment'];
+
+        $res = $this->repo($db)->createStaffOrder([
+            'service_mode' => 'drive', // RG-T09 : drive impose drive
+            'items' => [['type' => 'product', 'product_id' => 12, 'quantity' => 1]],
+        ], 7, 'drive');
+
+        $order = $db->firstWrite('INSERT INTO customer_order');
+        self::assertSame('drive', $order['source']);
+        self::assertSame('D100', $db->firstWrite('UPDATE customer_order SET order_number')['num']);
+        self::assertSame('paid', $res['status']);
+    }
+
+    public function testStaffOrderDriveRejectsNonDriveServiceMode(): void
+    {
+        // RG-T09 / ERR-2 : source drive mais service_mode != drive -> INVALID_SERVICE_MODE.
+        $db = new FakeOrderDatabase();
+        $db->products[12] = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 890, 'vat_rate' => 100, 'is_available' => 1];
+
+        try {
+            $this->repo($db)->createStaffOrder([
+                'service_mode' => 'takeaway',
+                'items' => [['type' => 'product', 'product_id' => 12, 'quantity' => 1]],
+            ], 7, 'drive');
+            self::fail('expected OrderValidationException');
+        } catch (OrderValidationException $exception) {
+            self::assertSame('INVALID_SERVICE_MODE', $exception->getMessage());
+        }
+
+        // Verifie AVANT l'INSERT : aucune commande n'est creee.
+        self::assertSame(0, $db->countWrites('INSERT INTO customer_order'));
+    }
+
+    public function testStaffOrderRejectsUnknownSource(): void
+    {
+        $db = new FakeOrderDatabase();
+
+        $this->expectException(OrderValidationException::class);
+        $this->expectExceptionMessage('INVALID_SOURCE');
+        $this->repo($db)->createStaffOrder([
+            'service_mode' => 'dine_in',
+            'items' => [['type' => 'product', 'product_id' => 12, 'quantity' => 1]],
+        ], 7, 'kiosk');
+    }
+
+    public function testStaffOrderRejectsEmptyCart(): void
+    {
+        $db = new FakeOrderDatabase();
+
+        $this->expectException(OrderValidationException::class);
+        $this->expectExceptionMessage('EMPTY_ORDER');
+        $this->repo($db)->createStaffOrder([
+            'service_mode' => 'dine_in',
+            'items' => [],
+        ], 7, 'counter');
+    }
+
+    public function testKioskCreatePendingStaysUnchanged(): void
+    {
+        // Garde-fou de non-regression : le flux kiosk reste source 'kiosk', prefixe 'K',
+        // acting_user_id NULL, status pending_payment (createStaffOrder ne l'a pas altere).
+        $db = new FakeOrderDatabase();
+        $db->products[12] = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 890, 'vat_rate' => 100, 'is_available' => 1];
+
+        $res = $this->repo($db)->createPending([
+            'service_mode' => 'takeaway',
+            'items' => [['type' => 'product', 'product_id' => 12, 'quantity' => 1]],
+        ]);
+
+        $order = $db->firstWrite('INSERT INTO customer_order');
+        self::assertSame('kiosk', $order['source']);
+        self::assertNull($order['acting']);
+        self::assertSame('K100', $res['order_number']);
+        self::assertSame('pending_payment', $res['status']);
+        // Pas d'encaissement automatique pour le kiosk : aucune transition paid.
+        self::assertSame(0, $db->countWrites('UPDATE customer_order SET status'));
+    }
+
     // --- pay() : transition + decrement de stock (RG-5 etapes 5-6, RG-T20) ---
 
     public function testPayTransitionsToPaidAndDecrementsProductRecipe(): void

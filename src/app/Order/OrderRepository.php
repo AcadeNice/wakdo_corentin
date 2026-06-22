@@ -106,6 +106,70 @@ class OrderRepository
             return $existing;
         }
 
+        // Borne anonyme : source 'kiosk', prefixe 'K', aucun acteur (acting_user_id NULL).
+        // Aucune contrainte croisee de service_mode (mlt RG-6 : kiosk n'implique rien).
+        return $this->persist($req, 'kiosk', 'K', null);
+    }
+
+    /**
+     * Cree une commande comptoir/drive (CREATE_COUNTER_ORDER, mlt 4.1). Meme logique
+     * de creation que le kiosk (resolution + INSERT pending_payment), MAIS la commande
+     * est immediatement encaissee (paid + decrement de stock, RG-T20) : POST-1 exige
+     * status='paid', paid_at et acting_user_id poses des la creation. Aucun PIN : la
+     * permission order.create suffit (la creation n'est pas dans l'ensemble sensible).
+     *
+     *  - source auto-tagguee depuis le role de l'equipier (counter / drive, RG-1) ;
+     *  - service_mode choisi par l'equipier (dine_in / takeaway / drive) ;
+     *  - RG-T09 : source 'drive' impose service_mode='drive' (verifie avant l'INSERT) ;
+     *  - acting_user_id + stock_movement.user_id = id de l'equipier authentifie (RG-5).
+     *
+     * Numero : prefixe 'C' (counter) / 'D' (drive) + id, coherent avec le 'K'+id du
+     * kiosk (decision projet, diverge du C-AAAA-MM-JJ-NNN de la spec RG-3 : plus
+     * simple, pas de compteur sequentiel par jour ni de service_day a tenir).
+     *
+     * @param array<string, mixed> $req
+     * @return array{id:int, order_number:string, total_ttc_cents:int, status:string}
+     * @throws OrderValidationException source invalide, RG-T09, reference indisponible.
+     */
+    public function createStaffOrder(array $req, int $actingUserId, string $source): array
+    {
+        if (!in_array($source, ['counter', 'drive'], true)) {
+            throw new OrderValidationException('INVALID_SOURCE');
+        }
+
+        // RG-T09 / RG-2 (4.1) : la contrainte croisee drive est verifiee AVANT l'INSERT.
+        // service_mode est valide par persist() (in [dine_in, takeaway, drive]) ; on
+        // n'ajoute ici que le resserrement specifique au canal drive.
+        if ($source === 'drive' && (string) ($req['service_mode'] ?? '') !== 'drive') {
+            throw new OrderValidationException('INVALID_SERVICE_MODE');
+        }
+
+        $prefix = $source === 'drive' ? 'D' : 'C';
+        $created = $this->persist($req, $source, $prefix, $actingUserId);
+
+        // POST-1 : encaissement immediat (paid + paid_at + decrement stock RG-T20 avec
+        // user_id=equipier). pay() est idempotent et porte l'acteur dans acting_user_id
+        // (COALESCE) et stock_movement.user_id. Le numero (prefixe canal + id) sert de
+        // cle de transition.
+        return $this->pay($created['order_number'], $actingUserId);
+    }
+
+    /**
+     * Corps partage de la creation (resolution des lignes + transaction d'INSERT
+     * customer_order / order_item / selections / modifiers) en pending_payment. La
+     * source, le prefixe de numero et l'acteur sont des PARAMETRES : c'est la seule
+     * difference structurelle entre le kiosk (kiosk / 'K' / NULL) et le comptoir-drive
+     * (counter|drive / 'C'|'D' / id equipier). Le calcul de prix (RG-T16) et les
+     * snapshots (RG-T05) sont identiques quelle que soit l'origine.
+     *
+     * @param array<string, mixed> $req
+     * @return array{id:int, order_number:string, total_ttc_cents:int, status:string}
+     * @throws OrderValidationException si une reference est invalide / indisponible.
+     */
+    private function persist(array $req, string $source, string $prefix, ?int $actingUserId): array
+    {
+        $key = trim((string) ($req['idempotency_key'] ?? ''));
+
         $serviceMode = (string) ($req['service_mode'] ?? '');
         if (!in_array($serviceMode, ['dine_in', 'takeaway', 'drive'], true)) {
             throw new OrderValidationException('INVALID_SERVICE_MODE');
@@ -136,23 +200,25 @@ class OrderRepository
 
         $result = ['id' => 0, 'order_number' => '', 'total_ttc_cents' => $totalTtc, 'status' => 'pending_payment'];
 
-        $this->db->transaction(function (DatabaseInterface $db) use ($key, $serviceMode, $serviceTag, $lines, $totalTtc, $totalHt, $totalVat, &$result): void {
+        $this->db->transaction(function (DatabaseInterface $db) use ($key, $source, $prefix, $actingUserId, $serviceMode, $serviceTag, $lines, $totalTtc, $totalHt, $totalVat, &$result): void {
             $db->execute(
                 'INSERT INTO customer_order '
                 . '(order_number, idempotency_key, source, service_mode, service_tag, status, '
-                . ' total_ht_cents, total_vat_cents, total_ttc_cents) '
-                . "VALUES ('', :idem, 'kiosk', :mode, :tag, 'pending_payment', :ht, :vat, :ttc)",
+                . ' acting_user_id, total_ht_cents, total_vat_cents, total_ttc_cents) '
+                . "VALUES ('', :idem, :source, :mode, :tag, 'pending_payment', :acting, :ht, :vat, :ttc)",
                 [
-                    'idem' => $key !== '' ? $key : null,
-                    'mode' => $serviceMode,
-                    'tag'  => $serviceTag !== '' ? $serviceTag : null,
-                    'ht'   => $totalHt,
-                    'vat'  => $totalVat,
-                    'ttc'  => $totalTtc,
+                    'idem'   => $key !== '' ? $key : null,
+                    'source' => $source,
+                    'mode'   => $serviceMode,
+                    'tag'    => $serviceTag !== '' ? $serviceTag : null,
+                    'acting' => $actingUserId,
+                    'ht'     => $totalHt,
+                    'vat'    => $totalVat,
+                    'ttc'    => $totalTtc,
                 ],
             );
             $orderId = (int) ($db->fetch('SELECT LAST_INSERT_ID() AS id')['id'] ?? 0);
-            $orderNumber = 'K' . $orderId;
+            $orderNumber = $prefix . $orderId;
             $db->execute(
                 'UPDATE customer_order SET order_number = :num WHERE id = :id',
                 ['num' => $orderNumber, 'id' => $orderId],

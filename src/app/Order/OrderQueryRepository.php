@@ -33,7 +33,7 @@ class OrderQueryRepository
         $limit = max(1, min(200, $limit));
 
         return $this->db->fetchAll(
-            'SELECT order_number, service_mode, service_tag, status, total_ttc_cents, created_at, paid_at '
+            'SELECT order_number, source, service_mode, service_tag, status, total_ttc_cents, created_at, paid_at '
             . 'FROM customer_order ORDER BY created_at DESC, id DESC LIMIT ' . $limit,
         );
     }

@@ -14,6 +14,7 @@ use App\Auth\SessionManager;
 use App\Controllers\AuthController;
 use App\Controllers\CatalogueController;
 use App\Controllers\CategoryController;
+use App\Controllers\CounterOrderController;
 use App\Controllers\DashboardController;
 use App\Controllers\HealthController;
 use App\Controllers\HomeController;
@@ -125,6 +126,19 @@ try {
     // Affichage cuisine (KDS) : file des commandes payees (order.read). Landing du role
     // kitchen (seed role.default_route = /kitchen/display) ; corrige le 404 d'apres-login.
     $router->add('GET', '/kitchen/display', [KitchenController::class, 'display']);
+
+    // Saisie de commande comptoir / drive (CREATE_COUNTER_ORDER, mlt 4.1, order.create).
+    // UN controleur, deux canaux : la source est derivee du chemin (/drive -> drive,
+    // sinon counter). Landings des roles counter/drive (seed role.default_route =
+    // /counter/orders + /drive/orders) ; corrige le 404 d'apres-login. Sans PIN
+    // (la permission order.create suffit) ; la commande est encaissee directement.
+    // {new}/{POST liste} = segments distincts, pas de collision avec /kitchen ni /admin.
+    $router->add('GET', '/counter/orders', [CounterOrderController::class, 'index']);
+    $router->add('GET', '/counter/orders/new', [CounterOrderController::class, 'create']);
+    $router->add('POST', '/counter/orders', [CounterOrderController::class, 'store']);
+    $router->add('GET', '/drive/orders', [CounterOrderController::class, 'index']);
+    $router->add('GET', '/drive/orders/new', [CounterOrderController::class, 'create']);
+    $router->add('POST', '/drive/orders', [CounterOrderController::class, 'store']);
 
     // Gestion des comptes (mlt domaine 10). user.read (liste) ; user.create/update/
     // deactivate. TOUTES les mutations = PIN equipier + audit (RG-T13/14). {id} = un

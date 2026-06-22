@@ -115,9 +115,14 @@ $navClass = static function (string $code, string $current): string {
         </div>
         <?php endif; ?>
 
-        <?php if ($can('stats.read') || $can('order.read')): ?>
+        <?php if ($can('stats.read') || $can('order.read') || $can('order.create')): ?>
         <div class="sidebar-section">
             <div class="sidebar-section-label">Pilotage</div>
+            <?php if ($can('order.create')): ?>
+                <?php /* Lien generique vers le comptoir ; le canal effectif (counter/drive)
+                         est derive du chemin par CounterOrderController (mlt 4.1). */ ?>
+                <a href="/counter/orders" class="<?= $navClass('counter', $active) ?>">Saisie commande</a>
+            <?php endif; ?>
             <?php if ($can('stats.read')): ?>
                 <a href="/admin/stats" class="<?= $navClass('stats', $active) ?>">Statistiques</a>
             <?php endif; ?>
