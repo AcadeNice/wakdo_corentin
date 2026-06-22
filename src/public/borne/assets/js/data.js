@@ -80,7 +80,13 @@ export function loadProducts() {
         for (const p of products) {
             const slug = slugByCategoryId[p.category_id];
             if (slug === undefined) continue;
-            bySlug[slug].push({ id: p.id, nom: p.name, prix: p.price_cents, image: p.image_path, type: 'produit' });
+            // sizes (R4) : tailles a la carte d'une boisson (30/50 cl). Tableau vide
+            // si le produit n'a pas de dimension taille -> ajout direct inchange. La
+            // borne ne montre un picker que si sizes a plus d'une entree.
+            bySlug[slug].push({
+                id: p.id, nom: p.name, prix: p.price_cents, image: p.image_path, type: 'produit',
+                sizes: Array.isArray(p.sizes) ? p.sizes : [],
+            });
         }
         for (const m of menus) {
             const slug = slugByCategoryId[m.category_id];

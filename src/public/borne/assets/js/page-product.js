@@ -19,6 +19,7 @@ import { findProduct, loadAllergens } from './data.js';
 import { addToCart, formatPrice, escHtml } from './state.js';
 import { refreshCartBadge } from './nav.js';
 import { openMenuComposer } from './page-product-menu.js';
+import { openProductOptions, productSizes } from './product-options.js';
 import { buildAllergenInfoButton, openAllergenModal } from './allergens.js';
 
 const params       = new URLSearchParams(window.location.search);
@@ -53,6 +54,15 @@ async function renderProduct() {
              * The container stays in the DOM so the skeleton does not flash. */
             container.hidden = true;
             await openMenuComposer(product, categorySlug);
+            return;
+        }
+
+        /* Produit a tailles multiples (R4, ex. boisson 30/50 cl) : on delegue a la
+         * modale d'options (meme picker que la grille) plutot que de dupliquer la
+         * selection de taille dans la fiche -> un seul chemin pour choisir la taille. */
+        if (productSizes(product).length) {
+            container.hidden = true;
+            openProductOptions(product, categorySlug);
             return;
         }
 

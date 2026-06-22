@@ -64,6 +64,22 @@ final class FakeCatalogueDatabase implements DatabaseInterface
     public array $menuSlotRows = [];
 
     /**
+     * Lignes PLATES (base_id, id, size_cl, price_cents) renvoyees a la requete
+     * sizesByBase() (R4) ; le repo les groupe lui-meme par base_id.
+     *
+     * @var list<array<string, mixed>>
+     */
+    public array $sizesByBaseRows = [];
+
+    /**
+     * Tailles d'un produit (R4) renvoyees par ProductRepository::sizesForProduct() ;
+     * la requete porte (id = :base OR base_product_id = :base).
+     *
+     * @var list<array<string, mixed>>
+     */
+    public array $productSizes = [];
+
+    /**
      * Trace des lectures pour asserter le court-circuit du detail (id <= 0).
      *
      * @var list<array{sql: string, params: array<string|int, mixed>}>
@@ -91,6 +107,15 @@ final class FakeCatalogueDatabase implements DatabaseInterface
 
         if (str_contains($sql, 'FROM category WHERE is_active = 1')) {
             return $this->categoriesRows;
+        }
+
+        // R4 : tailles groupees (sizesByBase) et tailles d'un produit (sizesForProduct).
+        // Testees avant la branche catalogue : toutes deux lisent FROM product.
+        if (str_contains($sql, 'AS base_id')) {
+            return $this->sizesByBaseRows;
+        }
+        if (str_contains($sql, '(id = :base OR base_product_id = :base)')) {
+            return $this->productSizes;
         }
 
         if (str_contains($sql, 'FROM product p JOIN category') && str_contains($sql, 'WHERE p.is_available = 1')) {

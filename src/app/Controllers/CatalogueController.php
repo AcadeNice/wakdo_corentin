@@ -51,9 +51,14 @@ class CatalogueController extends Controller
      */
     public function products(array $params = []): Response
     {
+        $repo = $this->productsRepo();
+        // R4 : les tailles de TOUS les produits a variantes sont chargees en UNE
+        // requete (sizesByBase), pas une par produit -> /api/products reste un seul
+        // aller-retour cache-friendly cote borne (data.js memoise la liste).
+        $sizesByBase = $repo->sizesByBase();
         $rows = array_map(
-            fn (array $row): array => $this->presentProduct($row),
-            $this->productsRepo()->availableForCatalogue(),
+            fn (array $row): array => $this->presentProduct($row, $sizesByBase[(int) ($row['id'] ?? 0)] ?? []),
+            $repo->availableForCatalogue(),
         );
 
         return $this->json(['data' => $rows, 'total' => count($rows)]);
@@ -65,7 +70,8 @@ class CatalogueController extends Controller
     public function product(array $params = []): Response
     {
         $id = (int) ($params['id'] ?? 0);
-        $row = $id > 0 ? $this->productsRepo()->findForCatalogue($id) : null;
+        $repo = $this->productsRepo();
+        $row = $id > 0 ? $repo->findForCatalogue($id) : null;
 
         if ($row === null) {
             return $this->json(
@@ -74,7 +80,12 @@ class CatalogueController extends Controller
             );
         }
 
-        return $this->json(['data' => $this->presentProduct($row)]);
+        // R4 : sur le detail, les tailles ne sont presentees que si le produit en a
+        // au moins une VARIANTE (sinon sizesForProduct ne remonte que la base, et la
+        // base seule n'est pas une dimension de taille -> sizes vide cote presentation).
+        $sizes = $repo->sizesForProduct($id);
+
+        return $this->json(['data' => $this->presentProduct($row, count($sizes) > 1 ? $sizes : [])]);
     }
 
     /**
@@ -185,9 +196,13 @@ class CatalogueController extends Controller
 
     /**
      * @param array<string, mixed> $row
-     * @return array{id: int, category_id: int, name: string, description: ?string, price_cents: int, image_path: ?string, display_order: int}
+     * @param array<int, array<string, mixed>> $sizes tailles de la base (R4) : base +
+     *        variantes ; vide si le produit n'a pas de dimension taille. Chaque entree
+     *        devient {product_id, size_cl, price_cents, label} ; le label humain est
+     *        derive du volume ("30 cl") -- aucun slug/enum ne fuit a l'ecran.
+     * @return array{id: int, category_id: int, name: string, description: ?string, price_cents: int, image_path: ?string, display_order: int, sizes: list<array{product_id: int, size_cl: int, price_cents: int, label: string}>}
      */
-    private function presentProduct(array $row): array
+    private function presentProduct(array $row, array $sizes = []): array
     {
         return [
             'id'            => (int) ($row['id'] ?? 0),
@@ -197,6 +212,19 @@ class CatalogueController extends Controller
             'price_cents'   => (int) ($row['price_cents'] ?? 0),
             'image_path'    => $this->nullableString($row['image_path'] ?? null),
             'display_order' => (int) ($row['display_order'] ?? 0),
+            'sizes'         => array_map(
+                static function (array $size): array {
+                    $cl = (int) ($size['size_cl'] ?? 0);
+
+                    return [
+                        'product_id'  => (int) ($size['id'] ?? 0),
+                        'size_cl'     => $cl,
+                        'price_cents' => (int) ($size['price_cents'] ?? 0),
+                        'label'       => $cl . ' cl',
+                    ];
+                },
+                array_values($sizes),
+            ),
         ];
     }
 

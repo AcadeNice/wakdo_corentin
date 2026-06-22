@@ -113,7 +113,7 @@ final class CatalogueControllerTest extends TestCase
 
         $product = $payload['data'][0];
         self::assertSame(
-            ['id', 'category_id', 'name', 'description', 'price_cents', 'image_path', 'display_order'],
+            ['id', 'category_id', 'name', 'description', 'price_cents', 'image_path', 'display_order', 'sizes'],
             array_keys($product),
         );
         self::assertSame(12, $product['id']);
@@ -121,6 +121,81 @@ final class CatalogueControllerTest extends TestCase
         self::assertSame(890, $product['price_cents']);          // chaine -> int
         self::assertArrayNotHasKey('vat_rate', $product);        // fiscal interne, non expose
         self::assertArrayNotHasKey('is_available', $product);    // toujours dispo ici -> non expose
+        self::assertSame([], $product['sizes']);                 // produit mono-taille -> sizes vide
+    }
+
+    public function testProductsListPresentsSizesArrayForDrinkWithVariants(): void
+    {
+        $db = new FakeCatalogueDatabase();
+        $db->productsRows = [
+            [
+                'id' => '14', 'category_id' => '2', 'name' => 'Coca Cola',
+                'description' => null, 'price_cents' => '190', 'size_cl' => '30',
+                'image_path' => 'c.png', 'display_order' => '1',
+            ],
+        ];
+        // sizesByBase() (R4) : la base 14 porte deux tailles (30 cl id 14, 50 cl id 99).
+        $db->sizesByBaseRows = [
+            ['base_id' => '14', 'id' => '14', 'size_cl' => '30', 'price_cents' => '190'],
+            ['base_id' => '14', 'id' => '99', 'size_cl' => '50', 'price_cents' => '240'],
+        ];
+
+        $response = $this->controller($db, '/api/products')->products();
+
+        self::assertSame(200, $response->status());
+        $product = $this->decode($response->body())['data'][0];
+
+        // Chaque taille : product_id resolu, volume, prix, label HUMAIN ("30 cl").
+        self::assertSame(
+            [
+                ['product_id' => 14, 'size_cl' => 30, 'price_cents' => 190, 'label' => '30 cl'],
+                ['product_id' => 99, 'size_cl' => 50, 'price_cents' => 240, 'label' => '50 cl'],
+            ],
+            $product['sizes'],
+        );
+        // La 30 cl reutilise le product_id de la base : l'ajout direct reste possible.
+        self::assertSame(14, $product['sizes'][0]['product_id']);
+    }
+
+    public function testProductDetailPresentsSizesWhenVariantsExist(): void
+    {
+        $db = new FakeCatalogueDatabase();
+        $db->productRow = [
+            'id' => '14', 'category_id' => '2', 'name' => 'Coca Cola',
+            'description' => null, 'price_cents' => '190', 'size_cl' => '30',
+            'image_path' => null, 'display_order' => '1',
+        ];
+        $db->productSizes = [
+            ['id' => '14', 'size_cl' => '30', 'price_cents' => '190'],
+            ['id' => '99', 'size_cl' => '50', 'price_cents' => '240'],
+        ];
+
+        $response = $this->controller($db, '/api/products/14')->product(['id' => '14']);
+
+        self::assertSame(200, $response->status());
+        $product = $this->decode($response->body())['data'];
+        self::assertCount(2, $product['sizes']);
+        self::assertSame('50 cl', $product['sizes'][1]['label']);
+    }
+
+    public function testProductDetailHasEmptySizesWhenSingleSize(): void
+    {
+        $db = new FakeCatalogueDatabase();
+        $db->productRow = [
+            'id' => '17', 'category_id' => '2', 'name' => 'Eau',
+            'description' => null, 'price_cents' => '100', 'size_cl' => null,
+            'image_path' => null, 'display_order' => '3',
+        ];
+        // sizesForProduct ne remonte que la base (1 ligne) : pas de dimension taille.
+        $db->productSizes = [
+            ['id' => '17', 'size_cl' => null, 'price_cents' => '100'],
+        ];
+
+        $response = $this->controller($db, '/api/products/17')->product(['id' => '17']);
+
+        self::assertSame(200, $response->status());
+        $product = $this->decode($response->body())['data'];
+        self::assertSame([], $product['sizes']);
     }
 
     public function testProductDetailReturnsData(): void

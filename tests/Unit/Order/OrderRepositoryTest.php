@@ -49,6 +49,28 @@ final class OrderRepositoryTest extends TestCase
         self::assertSame(100, $item['vat']);
     }
 
+    public function testDrinkSizeVariantIsPricedByItsOwnProductRow(): void
+    {
+        // R4 : la 50 cl est une LIGNE produit distincte (id 99, 240c). La borne resout
+        // la taille en product_id ; le domaine commande la facture comme n'importe quel
+        // produit (price_cents de SA ligne), sans logique de taille -> flux inchange.
+        $db = new FakeOrderDatabase();
+        $db->products[14] = ['id' => 14, 'name' => 'Coca Cola', 'price_cents' => 190, 'vat_rate' => 100, 'is_available' => 1];
+        $db->products[99] = ['id' => 99, 'name' => 'Coca Cola 50cl', 'price_cents' => 240, 'vat_rate' => 100, 'is_available' => 1, 'base_product_id' => 14, 'size_cl' => 50];
+
+        $res = $this->repo($db)->createPending([
+            'service_mode' => 'takeaway',
+            'items' => [['type' => 'product', 'product_id' => 99, 'quantity' => 1]],
+        ]);
+
+        // Prix = celui de la ligne 50 cl (240c), pas de la base 30 cl (190c).
+        $item = $db->firstWrite('INSERT INTO order_item ');
+        self::assertSame(99, $item['pid']);
+        self::assertSame('Coca Cola 50cl', $item['label']);
+        self::assertSame(240, $item['price']);
+        self::assertSame(240, $res['total_ttc_cents']);
+    }
+
     public function testMenuMaxiUsesBurgerVatAndMaxiPrice(): void
     {
         $db = new FakeOrderDatabase();

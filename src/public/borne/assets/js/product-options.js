@@ -1,14 +1,16 @@
 /*
- * product-options.js — Modale d'options produit (P5 L3).
+ * product-options.js — Modale d'options produit (P5 L3, taille R4).
  *
  * Remplace la navigation vers product.html : cliquer un produit simple ouvre une
  * modale (image, prix unitaire, stepper de quantite, total) au-dessus de la grille,
  * facon maquette ("Une petite soif ?"). A l'ajout, le panneau de commande persistant
  * (L1) est re-rendu pour refleter immediatement la commande -> pas de navigation.
  *
- * Note : la taille (30/50 Cl de la maquette) n'est PAS dans le modele produit actuel
- * (un seul price_cents par produit) -> differee (necessite des variantes produit cote
- * API). Ce lot couvre quantite + ajout.
+ * Taille (R4) : la dimension 30/50 cl de la maquette existe desormais en base sous
+ * forme de LIGNES produit distinctes (product.sizes : [{product_id, size_cl,
+ * price_cents, label}]). Quand un produit porte plus d'une taille, la modale affiche
+ * un selecteur ; la taille choisie resout le product_id ET le prix de l'item panier.
+ * Un produit sans taille (sizes vide ou unique) garde l'ajout direct.
  *
  * A11y : role=dialog, aria-modal, focus-trap, ESC, fond aria-hidden.
  */
@@ -22,22 +24,38 @@ const QTY_MAX = 99;
 /**
  * Construit l'item panier d'un produit simple pour une quantite donnee. Pur.
  * Quantite bornee a [1, QTY_MAX]. categorie = celle du produit, sinon le slug courant.
- * @param {Object} product — forme borne {id, nom, prix, image, categorie?}
+ *
+ * Taille (R4) : si `size` est fournie (entree de product.sizes), c'est SON product_id,
+ * SON prix et SON libelle (nom + " - <label>") qui sont poses -> le domaine commande
+ * facture cette ligne produit, sans logique de taille. Sans size, comportement inchange.
+ *
+ * @param {Object} product — forme borne {id, nom, prix, image, categorie?, sizes?}
  * @param {string} categorySlug
  * @param {number} qty
+ * @param {Object|null} [size] — entree de sizes {product_id, size_cl, price_cents, label}
  * @returns {Object} item panier
  */
-export function productCartItem(product, categorySlug, qty) {
+export function productCartItem(product, categorySlug, qty, size = null) {
     const quantite = Math.min(QTY_MAX, Math.max(1, Math.floor(qty) || 1));
     return {
-        id: product.id,
+        id: size ? size.product_id : product.id,
         type: 'produit',
         categorie: product.categorie ?? categorySlug,
-        libelle: product.nom,
-        prix_cents: product.prix,
+        libelle: size ? `${product.nom} - ${size.label}` : product.nom,
+        prix_cents: size ? size.price_cents : product.prix,
         quantite,
         image: product.image,
     };
+}
+
+/**
+ * Tailles utilisables d'un produit : tableau de sizes seulement s'il en porte plus
+ * d'une (un picker n'a de sens qu'avec un choix). Sinon [] (ajout direct). Pur.
+ * @param {Object} product
+ * @returns {Array}
+ */
+export function productSizes(product) {
+    return Array.isArray(product.sizes) && product.sizes.length > 1 ? product.sizes : [];
 }
 
 /** Re-rend le panneau de commande persistant (s'il est present sur la page). */
@@ -53,6 +71,12 @@ function refreshOrderPanel() {
 export function openProductOptions(product, categorySlug) {
     let qty = 1;
 
+    // Tailles (R4) : si le produit en porte plus d'une, le picker pilote prix + product_id.
+    // La plus petite (sizes deja trie par volume cote API) est le defaut.
+    const sizes = productSizes(product);
+    let selectedSize = sizes.length ? sizes[0] : null;
+    const unitPrice = () => (selectedSize ? selectedSize.price_cents : product.prix);
+
     const overlay = document.createElement('div');
     overlay.className = 'composer-overlay';
     overlay.hidden = true;
@@ -65,13 +89,14 @@ export function openProductOptions(product, categorySlug) {
                 <div class="product-options">
                     <img class="product-options__image" src="${escHtml(product.image)}"
                          alt="${escHtml(product.nom)}" onerror="this.src='assets/images/ui/logo.png';">
-                    <p class="product-options__unit">${formatPrice(product.prix)} / unite</p>
+                    <div class="product-options__sizes" role="group" aria-label="Taille"></div>
+                    <p class="product-options__unit" id="po-unit">${formatPrice(unitPrice())} / unite</p>
                     <div class="qty-control" role="group" aria-label="Quantite">
                         <button class="qty-btn qty-btn--minus" type="button" aria-label="Diminuer la quantite">-</button>
                         <span class="qty-value" id="po-qty" aria-live="polite">1</span>
                         <button class="qty-btn qty-btn--plus" type="button" aria-label="Augmenter la quantite">+</button>
                     </div>
-                    <p class="product-options__total" aria-live="polite" aria-atomic="true">Total : <strong id="po-total">${formatPrice(product.prix)}</strong></p>
+                    <p class="product-options__total" aria-live="polite" aria-atomic="true">Total : <strong id="po-total">${formatPrice(unitPrice())}</strong></p>
                 </div>
             </div>
             <div class="composer-footer">
@@ -92,10 +117,40 @@ export function openProductOptions(product, categorySlug) {
 
     const qtyEl = overlay.querySelector('#po-qty');
     const totalEl = overlay.querySelector('#po-total');
+    const unitEl = overlay.querySelector('#po-unit');
     const sync = () => {
         qtyEl.textContent = String(qty);
-        totalEl.textContent = formatPrice(product.prix * qty);
+        unitEl.textContent = `${formatPrice(unitPrice())} / unite`;
+        totalEl.textContent = formatPrice(unitPrice() * qty);
     };
+
+    // Picker de taille : boutons radio-like construits par createElement (CSP-safe,
+    // pas de handler inline). Sans tailles multiples, le conteneur reste vide.
+    const sizesWrap = overlay.querySelector('.product-options__sizes');
+    if (sizes.length) {
+        sizes.forEach((size) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'size-btn';
+            btn.dataset.productId = String(size.product_id);
+            btn.setAttribute('role', 'radio');
+            const isDefault = size === selectedSize;
+            btn.setAttribute('aria-checked', isDefault ? 'true' : 'false');
+            if (isDefault) btn.classList.add('size-btn--selected');
+            btn.textContent = size.label;
+            btn.addEventListener('click', () => {
+                selectedSize = size;
+                sizesWrap.querySelectorAll('.size-btn').forEach((b) => {
+                    const on = b === btn;
+                    b.classList.toggle('size-btn--selected', on);
+                    b.setAttribute('aria-checked', on ? 'true' : 'false');
+                });
+                sync();
+            });
+            sizesWrap.appendChild(btn);
+        });
+    }
+
     overlay.querySelector('.qty-btn--minus').addEventListener('click', () => { qty = Math.max(1, qty - 1); sync(); });
     overlay.querySelector('.qty-btn--plus').addEventListener('click', () => { qty = Math.min(QTY_MAX, qty + 1); sync(); });
 
@@ -110,7 +165,7 @@ export function openProductOptions(product, categorySlug) {
 
     overlay.querySelector('#po-cancel').addEventListener('click', close);
     overlay.querySelector('#po-add').addEventListener('click', () => {
-        addToCart(productCartItem(product, categorySlug, qty));
+        addToCart(productCartItem(product, categorySlug, qty, selectedSize));
         refreshCartBadge();
         refreshOrderPanel();
         close();

@@ -66,17 +66,81 @@ final class ProductRepository
      * disponibilite = flag is_available ; la dispo CALCULEE RG-T21 (exclusion des
      * ruptures auto via autoUnavailableIds) se branchera au seed des recettes.
      *
+     * base_product_id IS NULL (R4) : les VARIANTES de taille (ex. "Coca Cola 50cl")
+     * ne sont jamais des tuiles catalogue autonomes ; elles sont atteintes via le
+     * picker de taille de la base, qui les expose par sizesForProduct(). size_cl est
+     * remonte pour que le controleur sache quelles bases portent une dimension taille.
+     *
      * @return array<int, array<string, mixed>>
      */
     public function availableForCatalogue(): array
     {
         return $this->db->fetchAll(
-            'SELECT p.id, p.category_id, p.name, p.description, p.price_cents, '
+            'SELECT p.id, p.category_id, p.name, p.description, p.price_cents, p.size_cl, '
             . 'p.image_path, p.display_order '
             . 'FROM product p JOIN category c ON c.id = p.category_id '
-            . 'WHERE p.is_available = 1 AND c.is_active = 1 '
+            . 'WHERE p.is_available = 1 AND c.is_active = 1 AND p.base_product_id IS NULL '
             . 'ORDER BY p.display_order, p.name',
         );
+    }
+
+    /**
+     * Tailles commandables d'un produit de base (R4) : la base elle-meme + ses
+     * variantes de taille disponibles, triees par volume croissant (30 cl puis
+     * 50 cl). Chaque ligne porte son propre product_id et son price_cents : la
+     * borne resout la taille choisie en product_id, le domaine commande facture
+     * ce product_id sans logique de taille (flux inchange). Seules les variantes
+     * disponibles (is_available = 1) sont remontees ; la base est toujours incluse
+     * (l'appelant ne demande les tailles que pour une base deja affichable).
+     * NULLs de size_cl tries en premier (la base sans dimension n'a pas de variante,
+     * ce cas ne remonte qu'une ligne).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function sizesForProduct(int $baseId): array
+    {
+        return $this->db->fetchAll(
+            'SELECT id, size_cl, price_cents FROM product '
+            . 'WHERE (id = :base OR base_product_id = :base) AND is_available = 1 '
+            . 'ORDER BY size_cl IS NULL DESC, size_cl, id',
+            ['base' => $baseId],
+        );
+    }
+
+    /**
+     * Toutes les tailles des produits AYANT au moins une variante de taille (R4),
+     * indexees par id de la base, en UNE requete (evite le N+1 sur la liste
+     * /api/products, cache-friendly cote borne). Ne remonte que les bases dont une
+     * variante existe : un produit mono-taille n'apparait pas (le controleur lui
+     * laisse alors un tableau sizes vide). La base est incluse parmi ses tailles.
+     * Lignes triees par base puis volume croissant (30 cl avant 50 cl).
+     *
+     * @return array<int, list<array<string, mixed>>> base_id => [{id, size_cl, price_cents}, ...]
+     */
+    public function sizesByBase(): array
+    {
+        $rows = $this->db->fetchAll(
+            'SELECT COALESCE(p.base_product_id, p.id) AS base_id, p.id, p.size_cl, p.price_cents '
+            . 'FROM product p '
+            . 'WHERE p.is_available = 1 AND ('
+            . '    p.base_product_id IS NOT NULL '
+            . '    OR EXISTS (SELECT 1 FROM product v WHERE v.base_product_id = p.id AND v.is_available = 1)'
+            . ') '
+            . 'ORDER BY base_id, p.size_cl IS NULL DESC, p.size_cl, p.id',
+        );
+
+        /** @var array<int, list<array<string, mixed>>> $byBase */
+        $byBase = [];
+        foreach ($rows as $row) {
+            $baseId = (int) ($row['base_id'] ?? 0);
+            $byBase[$baseId][] = [
+                'id'          => (int) ($row['id'] ?? 0),
+                'size_cl'     => (int) ($row['size_cl'] ?? 0),
+                'price_cents' => (int) ($row['price_cents'] ?? 0),
+            ];
+        }
+
+        return $byBase;
     }
 
     /**
@@ -84,6 +148,11 @@ final class ProductRepository
      * si le produit est commandable (is_available = 1) en categorie active ; sinon
      * null (le controleur rend 404). Un produit retire ou en categorie masquee est
      * donc invisible meme par lien direct.
+     *
+     * base_product_id IS NULL (R4) : meme invariant que availableForCatalogue() --
+     * une VARIANTE de taille n'est jamais une fiche detail autonome. Un acces direct
+     * a /api/products/{idVariante} rend donc null -> 404 ; la 50 cl ne s'atteint que
+     * via le picker de taille de sa base, jamais par lien direct.
      *
      * @return array<string, mixed>|null
      */
@@ -93,7 +162,7 @@ final class ProductRepository
             'SELECT p.id, p.category_id, p.name, p.description, p.price_cents, '
             . 'p.image_path, p.display_order '
             . 'FROM product p JOIN category c ON c.id = p.category_id '
-            . 'WHERE p.id = :id AND p.is_available = 1 AND c.is_active = 1',
+            . 'WHERE p.id = :id AND p.is_available = 1 AND c.is_active = 1 AND p.base_product_id IS NULL',
             ['id' => $id],
         );
     }

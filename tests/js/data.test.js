@@ -67,8 +67,22 @@ test('loadProducts groupe les produits par slug a la forme borne (type produit)'
 
     const data = await loadProducts();
     assert.deepEqual(data.burgers, [
-        { id: 10, nom: 'Big Mac', prix: 600, image: 'assets/images/produits/burgers/bigmac.png', type: 'produit' },
+        // sizes (R4) : tableau vide par defaut quand l'API n'en renvoie pas.
+        { id: 10, nom: 'Big Mac', prix: 600, image: 'assets/images/produits/burgers/bigmac.png', type: 'produit', sizes: [] },
     ]);
+});
+
+test('loadProducts reporte le tableau sizes du produit (R4) tel quel', async () => {
+    const fx = fixtures();
+    fx['/api/products'].data[0].sizes = [
+        { product_id: 10, size_cl: 30, price_cents: 600, label: '30 cl' },
+        { product_id: 88, size_cl: 50, price_cents: 650, label: '50 cl' },
+    ];
+    const { loadProducts } = await freshData(fx);
+
+    const data = await loadProducts();
+    assert.equal(data.burgers[0].sizes.length, 2);
+    assert.equal(data.burgers[0].sizes[1].product_id, 88);
 });
 
 test('loadProducts glisse les menus sous la cle menus (type menu, prix = price_normal_cents)', async () => {
