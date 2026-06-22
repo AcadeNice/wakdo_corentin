@@ -20,7 +20,7 @@ Trois canaux de prise de commande :
 - `counter` — comptoir (un equipier saisit pour le client au guichet)
 - `drive` — drive-thru (equipier saisit via intercom + casque)
 
-Quatre statuts commande : `pending` -> `preparing` -> `ready` -> `delivered` (ou `cancelled`).
+Statuts commande (machine a 4 etats) : `pending_payment` -> `paid` -> `delivered`, plus `cancelled` (atteignable depuis `pending_payment` ou `paid`). La saisie du numero tient lieu de paiement : la creation passe atomiquement de `pending_payment` a `paid`. La cuisine voit la file des commandes `paid` en lecture seule ; la remise est un geste unique `paid` -> `delivered`.
 
 Scope metier complet, regles, horaires de service et fenetre de maintenance : voir `docs/PROJECT_CONTEXT.md`.
 
@@ -82,7 +82,7 @@ Detail et justifications : `docs/PROJECT_CONTEXT.md` section 6.
                                 v
                         wakdo-db   (MariaDB 11.4)
 
-                  wakdo-cron       (backup BDD + purge sessions + stats)
+                  wakdo-cron       (backup BDD + purge audit-log + purge throttle)
 ```
 
 Reseaux, volumes, services et decoupage reseau interne / reseau proxy : voir `docs/PROJECT_CONTEXT.md` section 5.
@@ -92,8 +92,8 @@ Reseaux, volumes, services et decoupage reseau interne / reseau proxy : voir `do
 ## Quickstart (local)
 
 ```bash
-git clone git@github.com:AcadeNice/wakdo_corentin.git
-cd wakdo_corentin
+git clone https://git.acadenice.com/AcadeNice/corentin_wakdo.git
+cd corentin_wakdo
 cp .env.example .env
 docker compose up -d
 ```
@@ -125,7 +125,7 @@ Avec un `.env` adapte : `APP_ENV=prod`, `APP_DEBUG=false`, mots de passe forts,
 `APP_HOST_*` / `APP_URL_*` / `CORS_ALLOWED_ORIGIN` en vrais FQDN HTTPS, et
 `REVERSE_PROXY_NETWORK` = reseau Docker du Traefik de l'hote (doit exister avant le up).
 
-*Section mise a jour au fil de l'implementation (migrations reelles, seed, CI/CD deploiement).*
+*Deploiement detaille : section Deploiement plus bas et `scripts/deploy.sh`.*
 
 ---
 
@@ -134,36 +134,34 @@ Avec un `.env` adapte : `APP_ENV=prod`, `APP_DEBUG=false`, mots de passe forts,
 ```
 .
 |-- .claude/                     # Methodologie BYAN (visible jury : CLAUDE.md + rules/)
-|-- .forgejo/
-|   `-- workflows/               # CI Forgejo Actions (ci.yml : secret-scan, php-lint, static-tests, js-tests, auto-merge)
-|-- .githooks/                   # pre-commit + commit-msg [a venir]
+|-- .forgejo/workflows/          # CI Forgejo Actions (ci.yml : secret-scan, php-lint, static-tests, js-tests)
+|-- .githooks/                   # pre-commit (refus main/dev + php -l) + commit-msg (Conventional Commits)
 |-- docker/                      # Dockerfiles customs par service
-|   |-- apache/
-|   |-- php-fpm/
-|   `-- cron/
+|   |-- apache/                  # httpd + vhosts kiosk / admin
+|   |-- php-fpm/                 # PHP 8.3-fpm + php.ini durci
+|   `-- cron/                    # dcron + scripts (backup, restore, purges)
 |-- db/
-|   |-- migrations/              # DDL MariaDB versionnes [a venir]
-|   `-- seeds/                   # Donnees de demo [a venir]
+|   |-- init/                    # init BDD (scope du user applicatif, moindre privilege)
+|   |-- migrations/              # DDL MariaDB versionnes (0001_init_schema, 0002_pin_throttle, ...)
+|   |-- seeds/                   # donnees de reference + demo (idempotents)
+|   `-- *.sh                     # runners migrate / seed
 |-- docs/
-|   |-- PROJECT_CONTEXT.md       # Source de verite projet (scope, stack, RNCP mapping)
-|   |-- journal/                 # Retros par session et par feature (oral RNCP)
-|   `-- merise/                  # MCD, MCT, MLD [a venir]
-|-- scripts/                     # backup-db, install-hooks, ... [a venir]
-|-- src/                         # Code applicatif [a venir]
-|   |-- Core/                    # Router, Autoloader, DB
-|   |-- Controllers/
-|   |-- Models/
-|   |-- Views/
-|   |-- Services/
-|   |-- public/                  # DocumentRoot Apache
-|   `-- bootstrap.php
+|   |-- PROJECT_CONTEXT.md       # source de verite projet (scope, stack, mapping RNCP)
+|   |-- ARCHITECTURE.md          # vue technique (deploiement, stack, securite)
+|   |-- merise/                  # dictionnaire, MCD, MCT, MLD, MLT (+ diagrammes)
+|   |-- uml/                     # use-cases, sequences, machine a etats
+|   `-- adr/ api/ domaines/ design/ journal/ _ref/
+|-- scripts/                     # deploy, install-hooks, forgejo-* (branch-protection, pr-automerge)
+|-- src/
+|   |-- app/                     # namespace App\ : Core, Controllers, Auth, Catalogue, Order, Views
+|   `-- public/                  # DocumentRoots Apache : borne/ (kiosk) + admin/ (back-office + API)
 |-- tests/
-|   |-- Unit/                    # [a venir]
-|   `-- Integration/             # [a venir]
-|-- .env.example
-|-- .dockerignore
-|-- .gitignore
-|-- docker-compose.yml
+|   |-- Unit/ Integration/       # PHPUnit (.phar autonome, sans Composer ; integration sur vraie MariaDB)
+|   |-- js/                      # node:test + jsdom (front borne)
+|   |-- e2e/                     # Playwright (parcours borne + admin, lance a la main)
+|   `-- Support/                 # doubles de test (Fake* / Spy*)
+|-- .env.example  .gitleaks.toml  phpstan.neon  phpunit.xml
+|-- docker-compose.yml           # standalone local ; prod = docker-compose.prod.yml (gitignore, par hote)
 `-- README.md
 ```
 
@@ -178,19 +176,32 @@ Avec un `.env` adapte : `APP_ENV=prod`, `APP_DEBUG=false`, mots de passe forts,
 - `main` et `dev` sont proteges cote Forgejo (PR requise, force push bloque, checks requis : secret-scan / php-lint / static-tests).
 - Pas d'emoji dans le code, les commits ou les specs techniques (Mantra IA-23).
 
-*Sections detaillees (setup env de dev, lint, tests) : a completer au fil de l'implementation.*
+- **Hooks Git** : `scripts/install-hooks.sh` active `pre-commit` (refus de commit direct sur `main`/`dev`, `php -l` des fichiers indexes) et `commit-msg` (format Conventional Commits, refus emoji).
+- **Verification locale** : voir la section Tests ci-dessous (PHPUnit + PHPStan via le conteneur applicatif, tests JS via node, E2E Playwright).
 
 ---
 
 ## Tests
 
-*Section a completer. Strategie globale : PHPUnit via `.phar` autonome (sans Composer), priorite Unit > Integration > E2E, voir `docs/PROJECT_CONTEXT.md` section 6 et mantras Merise Agile.*
+Trois niveaux, sans dependance Composer cote PHP (priorite Unit > Integration > E2E).
+
+- **PHP (PHPUnit `.phar`)** — unit + integration sur vraie MariaDB, via le conteneur applicatif :
+
+  ```bash
+  docker run --rm -v "$PWD":/app -w /app wakdo-wakdo-app php phpunit.phar -c phpunit.xml
+  docker run --rm -v "$PWD":/app -w /app wakdo-wakdo-app php -d memory_limit=-1 phpstan.phar analyse
+  ```
+
+- **JS (node:test + jsdom)** — modules du front borne : `npm run test:js`
+- **E2E (Playwright)** — parcours borne + admin, lances a la main contre une stack jetable : `tests/e2e/run.sh`
+
+La CI Forgejo execute secret-scan, php-lint, static-tests (PHPStan niveau 6 + PHPUnit avec service MariaDB) et js-tests sur chaque PR.
 
 ---
 
 ## Deploiement
 
-*Strategie : CI Forgejo Actions sur PR vers `dev`/`main` (secret-scan gitleaks, php-lint, static-tests PHPStan+PHPUnit, js-tests) avec auto-merge sur label + CI verte. CD : declenchement humain, redeploiement par `docker compose pull && docker compose up -d`. Voir `docs/PROJECT_CONTEXT.md` section 7 Bloc 5.*
+*CI Forgejo Actions sur PR vers `dev`/`main` (secret-scan gitleaks, php-lint, static-tests PHPStan + PHPUnit, js-tests), avec auto-merge sur CI verte. Deploiement a declenchement humain via `scripts/deploy.sh` (ff-only puis `docker compose -f docker-compose.prod.yml pull && up -d` ; le one-shot `wakdo-migrate` applique migrations + seed). Un veritable CD automatique sur merge `main` reste a armer avec un secret de connexion (choix exploitant). Voir `docs/PROJECT_CONTEXT.md` section 7 Bloc 5.*
 
 ---
 
@@ -200,7 +211,8 @@ Avec un `.env` adapte : `APP_ENV=prod`, `APP_DEBUG=false`, mots de passe forts,
 |---|---|
 | `docs/PROJECT_CONTEXT.md` | Source de verite projet (17 sections : scope, stack, architecture, mapping critere RNCP, planning, risques, conventions) |
 | `docs/journal/` | Retrospectives par session et par feature (preparation de l'oral RNCP) |
-| `docs/merise/` *(a venir)* | Modelisation Merise : dictionnaire, MCD, MCT, MLD |
+| `docs/merise/` | Modelisation Merise : dictionnaire, MCD, MCT, MLD, MLT (+ diagrammes) |
+| `docs/ARCHITECTURE.md` / `docs/adr/` | Vue technique + decisions d'architecture (ADR) |
 | `.claude/CLAUDE.md` | Constitution du projet pour les agents Claude Code |
 | `.claude/rules/` | Protocoles appliques : fact-check, merise-agile, elo-trust, hermes-dispatcher, byan-api, byan-agents |
 

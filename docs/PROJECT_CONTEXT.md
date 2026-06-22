@@ -142,7 +142,7 @@ Client                Borne (Bloc 1)           API (Bloc 2)          BDD
 │                    (admin_proxy network)                         │
 └──────────┬────────────────────────────┬─────────────────────────┘
            │                            │
-   wakdo.acadenice.fr      wakdo-admin.acadenice.fr
+  corentin-wakdo.stark.a3n.fr   corentin-wakdo-admin.stark.a3n.fr
            │                            │
            ▼                            ▼
     ┌──────────────────────────────────────────┐
@@ -196,7 +196,7 @@ Reseaux :
 | Orchestration locale | docker compose (service wakdo-migrate) | — | Cr 7.b (script) + Cr 7.c.4 (une commande) |
 | CI/CD | Forgejo Actions (act_runner auto-heberge) | — | Cr 7.d |
 | Versioning | Git + Forgejo auto-heberge (push-mirror GitHub) | — | Cr 4.f (collaboration) |
-| Hooks Git | pre-commit + commit-msg | versionnes dans `.githooks/` | Conventional Commits |
+| Hooks Git | pre-commit (refus main/dev + php -l) + commit-msg (format Conventional Commits) | versionnes dans `.githooks/`, actives via `scripts/install-hooks.sh` | Conventional Commits |
 
 ---
 
@@ -262,15 +262,16 @@ Reseaux :
 
 **IN scope :**
 - Dockerfile custom PHP-FPM avec extensions
-- `docker-compose.yml` orchestrant les 4 services (web, app, db, cron)
+- `docker-compose.yml` orchestrant 5 services : 4 longs (web, app, db, cron) + 1 one-shot (`wakdo-migrate`)
 - `docker compose up` lance toute la stack (service one-shot `wakdo-migrate` : migrations + seed idempotents) en une commande (Cr 7.c.4)
-- Scripts Bash d'automatisation (backup, deploy, migrate)
-- **Cron tab** avec au moins 3 jobs planifies dans la fenetre de maintenance (01h30-09h30) :
+- Scripts Bash d'automatisation (backup, restore, deploy, migrate)
+- **Cron tab** avec 3 jobs actifs planifies dans la fenetre de maintenance (01h30-09h30) :
   - `0 3 * * *` — backup BDD quotidien a 03h00 (entre fin service 01h et ouverture 10h)
-  - `*/15 * * * *` — purge sessions expirees toutes les 15 min (leger, peut tourner en service)
-  - `30 4 * * *` — agregation stats commandes a 04h30 sur le **jour de service** ecoule (10h J-1 → 01h J)
-- **CI Forgejo Actions** (act_runner auto-heberge) : lint PHP + PHPStan + PHPUnit + secret-scan (gitleaks) sur PR -> dev
-- **CD Forgejo Actions** : deploy auto sur merge main (SSH + `docker compose pull && docker compose up -d`)
+  - `15 4 * * *` — purge du journal d'audit au-dela de la fenetre de retention (~12 mois)
+  - `45 4 * * *` — purge des compteurs de throttle expires
+  - Differes (templates commentes dans `docker/cron/crontab`, a activer plus tard) : purge des sessions expirees, agregation des stats sur le jour de service
+- **CI Forgejo Actions** (act_runner auto-heberge) : lint PHP + PHPStan + PHPUnit + secret-scan (gitleaks) + js-tests sur PR -> dev
+- **CD : deploiement scripte a declenchement humain** (`scripts/deploy.sh` : ff-only puis `docker compose -f docker-compose.prod.yml pull && up -d`). Choix solo dev sur un environnement de prod unique. Un veritable deploiement continu (job Forgejo sur push main -> SSH -> `deploy.sh`) reste a armer avec un secret de connexion (decision exploitant)
 - `.env.example` documente (parametres securite : argon2id, lockout, seuils throttle, retention RGPD), secrets hors du repo
 - `php.ini` durci (expose_php off, session cookies httponly/secure/samesite, upload limite)
 - Healthcheck Traefik + readiness probes
@@ -303,21 +304,21 @@ Reseaux :
 | Cr 2.a.1-5 | JS ES6+ + DOM + animations | Modules ES6, classes, async/await, pas de jQuery |
 | Cr 2.b.1-3 | Validation formulaires | Validation client temps reel (regex) + validation serveur |
 | Cr 2.c.1-4 | Ajax async | `fetch()` avec gestion erreurs, pas d'exposition donnees sensibles |
-| Cr 2.d.1-3 | Librairies externes | **Non applicable** (zero dep JS) — argumenter "developpement sans lib externe" |
+| Cr 2.d.1-3 | Librairies externes | Choix de stack assume : **zero lib JS** (vanilla). Cr 2.d.1-3 restent du tronc commun evaluable -> a argumenter a l'oral ; ce n'est pas une dispense du referentiel |
 
 ### Bloc 2
 
 | Critere | Libelle court | Feature Wakdo couvrant |
 |---|---|---|
-| Cr 3.a.1-4 | Analyse + modele donnees | Dictionnaire + MCD + cardinalites |
+| Cr 3.a.2-4 | Analyse + modele donnees (3 criteres ; le referentiel ne contient PAS de Cr 3.a.1) | Dictionnaire + MCD + cardinalites |
 | Cr 3.a.3 | Exploiter donnees externes d'API | API interne consommee par le front (auto-consommation) |
 | Cr 3.b.1-3 | Construction BDD | MCD → MLD → DDL MariaDB, FK + typage coherent |
 | Cr 3.c.1-3 | Requetes SQL optimisees | PDO prepared, index sur FK, LIMIT/tri explicites |
 | Cr 3.d.1-4 | RGPD | hash mdp, droit acces/modif/suppr, info utilisation donnees |
 | Cr 4.a.1-4 | Conceptualisation | Schema fonctionnel des vues + interactions |
 | Cr 4.b.1-6 | Syntaxe + indentation + erreurs | PSR-12 style, try/catch cibles, logs |
-| Cr 4.c.1-3 | POO + heritage + namespaces | `BaseModel` -> `Product`, `BaseController` -> `AdminController`, PSR-4 |
-| Cr 4.d.1-3 | MVC | `src/Models/`, `src/Views/`, `src/Controllers/`, separation stricte |
+| Cr 4.c.1-3 | POO + heritage + namespaces | heritage de controleurs (`Controller` -> `AuthenticatedController` -> `AdminController` -> ...), couche modele en Repository pattern, autoloader PSR-4 manuel |
+| Cr 4.d.1-3 | MVC | `src/app/Controllers/`, `src/app/Views/`, couche modele = Repositories (`*Repository`) + `Core/Database` ; separation stricte (pas de dossier `Models/` : Repository pattern) |
 | Cr 4.e.1-3 | Securite | PDO prepared (anti-SQLi), sessions regeneration, role-based middleware |
 | Cr 4.f.2 | Maitrise outil collaboratif (artefact) | Commits Conventional, branches `feat/*`, PR descriptions, squash merge, hooks Git |
 | Cr 4.f.1, 4.f.3, 4.f.4 | Soft skills (evalues a l'oral) | Partage de savoir-faire (4.f.1), auto-evaluation avant PR (4.f.3), compte-rendu de la participation individuelle (4.f.4) — demontres pendant la soutenance |
@@ -333,11 +334,11 @@ Reseaux :
 | Cr 7.b.3 | **Cron tab** | `wakdo-cron` service avec crontab : backup BDD, purge sessions, stats |
 | Cr 7.c.1 | VM operationnelle | Serveur existant Acadenice |
 | Cr 7.c.2 | OS conteneur installe | Docker Engine |
-| Cr 7.c.3 | App conteneurisee complete | 4 services (web, app, db, cron) |
+| Cr 7.c.3 | App conteneurisee complete | 5 services : 4 longs (web, app, db, cron) + 1 one-shot (wakdo-migrate) |
 | Cr 7.c.4 | **Une ligne de commande** | `docker compose up` lance toute la stack + migrate + seed |
 | Cr 7.d.1 | Architecture serveur | Traefik reverse + reseaux segmentes documentes |
 | Cr 7.d.2 | Tests avant deploy | CI PHPUnit + PHPStan + secret-scan sur PR (Forgejo Actions) |
-| Cr 7.d.3 | Integration/deploiement continus | Forgejo Actions deploy automatique sur merge main |
+| Cr 7.d.3 | Integration/deploiement continus | CI complete sur PR ; deploiement scripte a declenchement humain (`scripts/deploy.sh`). Auto-CD sur merge main non arme (choix solo dev, a argumenter) |
 
 ---
 
@@ -680,7 +681,7 @@ Ces regles tiennent lieu de garde-fous pendant toute la duree du projet. Les enf
 6. **Zero requete SQL sans prepared statement** (anti-SQLi)
 7. **Zero hash mdp en clair** (bcrypt ou argon2)
 8. **Zero CORS `*`** (origine explicite uniquement)
-9. **Zero deployment manuel** en condition normale (CI/CD)
+9. **Deploiement scripte et trace** (`scripts/deploy.sh`), declenche par l'exploitant ; pas de modification manuelle ad hoc en prod
 10. **Zero feature hors scope** sans mise a jour de ce document
 
 ---
