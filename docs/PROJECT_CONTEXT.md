@@ -311,7 +311,7 @@ Reseaux :
 | Critere | Libelle court | Feature Wakdo couvrant |
 |---|---|---|
 | Cr 3.a.2-4 | Analyse + modele donnees (3 criteres ; le referentiel ne contient PAS de Cr 3.a.1) | Dictionnaire + MCD + cardinalites |
-| Cr 3.a.3 | Exploiter donnees externes d'API | API interne consommee par le front (auto-consommation) |
+| Cr 3.a.3 | Exploiter donnees externes d'API | Enrichissement nutritionnel depuis **OpenFoodFacts** (API tierce) importe DANS le modele (`ingredient.energy_kcal_100g`), a la demande admin (opt-in, sans egress runtime) ; + auto-consommation de l'API interne par la borne |
 | Cr 3.b.1-3 | Construction BDD | MCD → MLD → DDL MariaDB, FK + typage coherent |
 | Cr 3.c.1-3 | Requetes SQL optimisees | PDO prepared, index sur FK, LIMIT/tri explicites |
 | Cr 3.d.1-4 | RGPD | hash mdp, droit acces/modif/suppr, info utilisation donnees |

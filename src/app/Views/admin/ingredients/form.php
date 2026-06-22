@@ -86,3 +86,21 @@ $err = static fn (string $k): string => isset($errs[$k]) && is_string($errs[$k])
         <a class="btn btn-secondary" href="/admin/ingredients">Annuler</a>
     </div>
 </form>
+
+<?php if ($id !== 0): ?>
+    <?php $kcal = $val('energy_kcal_100g'); ?>
+    <section class="card" aria-labelledby="nutrition-title">
+        <h2 id="nutrition-title">Valeur nutritionnelle</h2>
+        <?php if ($kcal !== ''): ?>
+            <p>Apport energetique : <strong><?= $kcal ?> kcal / 100 g</strong>
+               (source : <?= $val('nutrition_source') ?>, importe le <?= $val('nutrition_fetched_at') ?>)</p>
+        <?php else: ?>
+            <p>Aucune donnee nutritionnelle importee pour le moment.</p>
+        <?php endif; ?>
+        <!-- Import depuis une API externe (OpenFoodFacts), action explicite, POST + CSRF. -->
+        <form method="post" action="/admin/ingredients/<?= $id ?>/enrich">
+            <input type="hidden" name="_csrf" value="<?= $csrf ?>">
+            <button class="btn btn-secondary" type="submit">Importer la valeur nutritionnelle (OpenFoodFacts)</button>
+        </form>
+    </section>
+<?php endif; ?>

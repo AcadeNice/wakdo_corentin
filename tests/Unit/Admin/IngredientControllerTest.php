@@ -9,12 +9,14 @@ use PHPUnit\Framework\TestCase;
 use App\Auth\Csrf;
 use App\Auth\PasswordHasher;
 use App\Auth\SessionManager;
+use App\Catalogue\NutritionGateway;
 use App\Controllers\IngredientController;
 use App\Core\Config;
 use App\Core\Database;
 use App\Core\DatabaseInterface;
 use App\Core\Request;
 use App\Tests\Support\FakeDatabase;
+use App\Tests\Support\FakeNutritionGateway;
 
 /**
  * Sous-classe de test : le seam db() injecte le double, sessionManager() la session.
@@ -39,6 +41,13 @@ final class TestIngredientController extends IngredientController
     protected function db(): DatabaseInterface
     {
         return $this->fakeDb;
+    }
+
+    public ?FakeNutritionGateway $fakeGateway = null;
+
+    protected function nutritionGateway(): NutritionGateway
+    {
+        return $this->fakeGateway ?? new FakeNutritionGateway();
     }
 }
 
@@ -287,6 +296,56 @@ final class IngredientControllerTest extends TestCase
         $params = $this->writeParams($db, 'UPDATE ingredient SET is_active');
         self::assertNotNull($params);
         self::assertSame(0, $params['a']);
+    }
+
+    public function testEnrichStoresNutritionFromExternalApi(): void
+    {
+        $db = $this->permittedDb();
+        $c = $this->controller($this->post(['_csrf' => $this->csrf], '/admin/ingredients/5/enrich'), $db);
+        $c->fakeGateway = new FakeNutritionGateway();
+        $c->fakeGateway->result = ['energy_kcal_100g' => 402, 'source' => 'OpenFoodFacts'];
+
+        $response = $c->enrich(['id' => '5']);
+
+        self::assertSame(302, $response->status());
+        self::assertSame('/admin/ingredients/5/edit', $response->header('Location'));
+        // La source externe est interrogee avec le NOM de l'ingredient, et la donnee
+        // retournee est ecrite DANS LE MODELE (Cr 3.a.3).
+        self::assertSame('Cheddar', $c->fakeGateway->lookedUp);
+        $params = $this->writeParams($db, 'UPDATE ingredient SET energy_kcal_100g');
+        self::assertNotNull($params);
+        self::assertSame(402, $params['kcal']);
+        self::assertSame('OpenFoodFacts', $params['src']);
+    }
+
+    public function testEnrichWithoutResultDoesNotWrite(): void
+    {
+        $db = $this->permittedDb();
+        $c = $this->controller($this->post(['_csrf' => $this->csrf], '/admin/ingredients/5/enrich'), $db);
+        $c->fakeGateway = new FakeNutritionGateway(); // result reste null
+
+        $response = $c->enrich(['id' => '5']);
+
+        self::assertSame(302, $response->status());
+        // Aucune ecriture nutritionnelle si la source externe ne renvoie rien.
+        self::assertNull($this->writeParams($db, 'UPDATE ingredient SET energy_kcal_100g'));
+    }
+
+    public function testEditShowsImportedNutrition(): void
+    {
+        // Regression : renderForm doit transmettre la nutrition pour que le panneau
+        // d'enrichissement reflete la valeur importee (et pas "aucune donnee").
+        $db = $this->permittedDb();
+        $db->ingredientRow = $this->ingredient([
+            'energy_kcal_100g'     => 402,
+            'nutrition_source'     => 'OpenFoodFacts',
+            'nutrition_fetched_at' => '2026-06-22 10:00:00',
+        ]);
+
+        $body = $this->controller($this->get('/admin/ingredients/5/edit'), $db)->edit(['id' => '5'])->body();
+
+        self::assertStringContainsString('402 kcal', $body);
+        self::assertStringContainsString('OpenFoodFacts', $body);
     }
 
     public function testDestroyUnreferencedDeletesWithoutPin(): void

@@ -11,6 +11,8 @@ use App\Auth\PasswordHasher;
 use App\Auth\PinThrottle;
 use App\Auth\PinVerifier;
 use App\Catalogue\IngredientRepository;
+use App\Catalogue\NutritionGateway;
+use App\Catalogue\OpenFoodFactsGateway;
 use App\Core\DatabaseInterface;
 use App\Core\Response;
 
@@ -183,6 +185,52 @@ class IngredientController extends AdminController
         $this->setFlash($newActive ? 'Ingredient reactive.' : 'Ingredient desactive.');
 
         return $this->redirect('/admin/ingredients');
+    }
+
+    /**
+     * Enrichit un ingredient avec des donnees nutritionnelles importees d'une API
+     * EXTERNE (OpenFoodFacts, Cr 3.a.3). Action explicite (POST + CSRF), gardee par
+     * ingredient.manage, SANS PIN (hors ensemble sensible RG-T13). Tolerante : si la
+     * source ne renvoie rien, on le signale sans erreur (le flux reste utilisable).
+     *
+     * @param array<string, string> $params
+     */
+    public function enrich(array $params): Response
+    {
+        $guard = $this->guard('ingredient.manage');
+        if ($guard instanceof Response) {
+            return $guard;
+        }
+
+        $form = $this->request->formBody();
+        if (!Csrf::validate($this->sessionManager(), $form['_csrf'] ?? null)) {
+            return $this->invalidCsrf();
+        }
+
+        $id = (int) ($params['id'] ?? 0);
+        $ingredient = $this->ingredientRepository()->find($id);
+        if ($ingredient === null) {
+            return $this->notFound($guard);
+        }
+
+        $data = $this->nutritionGateway()->lookupByName((string) ($ingredient['name'] ?? ''));
+        if ($data === null) {
+            $this->setFlash('Aucune donnee nutritionnelle trouvee pour cet ingredient (source externe).');
+        } else {
+            $this->ingredientRepository()->setNutrition($id, $data);
+            $this->setFlash('Donnees nutritionnelles importees depuis ' . $data['source'] . '.');
+        }
+
+        return $this->redirect('/admin/ingredients/' . $id . '/edit');
+    }
+
+    /**
+     * Passerelle nutritionnelle externe. Hook protege : les tests redefinissent ce
+     * seam pour injecter un double sans appel reseau.
+     */
+    protected function nutritionGateway(): NutritionGateway
+    {
+        return new OpenFoodFactsGateway();
     }
 
     /**
@@ -599,6 +647,11 @@ class IngredientController extends AdminController
                 'pack_label'         => (string) ($values['pack_label'] ?? ''),
                 'low_stock_pct'      => (string) ($values['low_stock_pct'] ?? '10'),
                 'critical_stock_pct' => (string) ($values['critical_stock_pct'] ?? '5'),
+                // Nutrition (lecture seule) : transmise pour que le panneau d'enrichissement
+                // reflete la valeur importee (Cr 3.a.3). Absente sur create / re-rendu d'erreur.
+                'energy_kcal_100g'     => (string) ($values['energy_kcal_100g'] ?? ''),
+                'nutrition_source'     => (string) ($values['nutrition_source'] ?? ''),
+                'nutrition_fetched_at' => (string) ($values['nutrition_fetched_at'] ?? ''),
             ],
             'errors'       => $errors,
         ], $guard, $status);

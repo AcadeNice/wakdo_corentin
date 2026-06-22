@@ -44,6 +44,7 @@ final class IngredientRepository
     {
         $rows = $this->db->fetchAll(
             'SELECT id, name, unit, stock_quantity, stock_capacity, pack_size, pack_label, '
+            . 'energy_kcal_100g, nutrition_source, nutrition_fetched_at, '
             . 'low_stock_pct, critical_stock_pct, is_active FROM ingredient ORDER BY name',
         );
 
@@ -57,6 +58,7 @@ final class IngredientRepository
     {
         $row = $this->db->fetch(
             'SELECT id, name, unit, stock_quantity, stock_capacity, pack_size, pack_label, '
+            . 'energy_kcal_100g, nutrition_source, nutrition_fetched_at, '
             . 'low_stock_pct, critical_stock_pct, is_active FROM ingredient WHERE id = :id',
             ['id' => $id],
         );
@@ -148,6 +150,22 @@ final class IngredientRepository
      * (product_ingredient) ou un mouvement de stock (stock_movement) ? Les deux
      * FK sont RESTRICT, donc l'un ou l'autre bloque la suppression dure.
      */
+    /**
+     * Enregistre les donnees nutritionnelles importees d'une source externe
+     * (Cr 3.a.3). Allowlist de colonnes (RG-T16) : seules energy / source /
+     * fetched_at sont ecrites ; l'horodatage est pose cote SQL (NOW()).
+     *
+     * @param array{energy_kcal_100g:int, source:string} $data
+     */
+    public function setNutrition(int $id, array $data): int
+    {
+        return $this->db->execute(
+            'UPDATE ingredient SET energy_kcal_100g = :kcal, nutrition_source = :src, '
+            . 'nutrition_fetched_at = NOW() WHERE id = :id',
+            ['kcal' => $data['energy_kcal_100g'], 'src' => $data['source'], 'id' => $id],
+        );
+    }
+
     public function isReferenced(int $id): bool
     {
         if ($this->db->fetch('SELECT ingredient_id FROM product_ingredient WHERE ingredient_id = :id LIMIT 1', ['id' => $id]) !== null) {

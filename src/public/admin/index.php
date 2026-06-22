@@ -205,6 +205,9 @@ try {
     $router->add('GET', '/admin/ingredients/{id}/inventory', [IngredientController::class, 'inventoryForm']);
     $router->add('POST', '/admin/ingredients/{id}/inventory', [IngredientController::class, 'inventory']);
     $router->add('GET', '/admin/ingredients/{id}/movements', [IngredientController::class, 'movements']);
+    // Enrichissement nutritionnel depuis une API externe (OpenFoodFacts, Cr 3.a.3) :
+    // action explicite ingredient.manage, POST + CSRF, opt-in (pas d'egress automatique).
+    $router->add('POST', '/admin/ingredients/{id}/enrich', [IngredientController::class, 'enrich']);
 
     // CORS (docs/api/conventions.md section 10) : preflight OPTIONS traite AVANT le
     // routeur (pas de route OPTIONS) ; sinon dispatch puis decoration de la reponse.
