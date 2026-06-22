@@ -60,8 +60,17 @@ async function doSubmit(serviceTag) {
 
 function startCheckout() {
     if (checkingOut) return;
+    const mode = getMode();
+    // Garde finale (defense en profondeur, en plus de la garde nav.js) : sans mode de
+    // consommation valide (ex. localStorage vide), ne PAS soumettre une commande a
+    // service_mode null (rejetee en 422 INVALID_SERVICE_MODE). On renvoie a l'accueil
+    // pour (re)choisir le mode, le panier etant conserve.
+    if (mode !== 'sur-place' && mode !== 'a-emporter') {
+        window.location.replace('index.html');
+        return;
+    }
     checkingOut = true;
-    if (getMode() === 'sur-place') {
+    if (mode === 'sur-place') {
         openChevalet(tag => doSubmit(tag), () => { checkingOut = false; });
     } else {
         doSubmit('');
@@ -176,7 +185,8 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
     if (recap) {
-        const modeLabel = getMode() === 'a-emporter' ? 'A emporter' : 'Sur place';
+        const m = getMode();
+        const modeLabel = m === 'a-emporter' ? 'A emporter' : (m === 'sur-place' ? 'Sur place' : '');
         recap.innerHTML = `
             <p class="payment-recap__mode">${escHtml(modeLabel)}</p>
             <p class="payment-recap__items">${items.length} article${items.length > 1 ? 's' : ''}</p>
