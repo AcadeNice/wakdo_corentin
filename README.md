@@ -201,7 +201,7 @@ La CI Forgejo execute secret-scan, php-lint, static-tests (PHPStan niveau 6 + PH
 
 ## Deploiement
 
-*CI Forgejo Actions sur PR vers `dev`/`main` (secret-scan gitleaks, php-lint, static-tests PHPStan + PHPUnit, js-tests), avec auto-merge sur CI verte. Deploiement a declenchement humain via `scripts/deploy.sh` (ff-only puis `docker compose -f docker-compose.prod.yml pull && up -d` ; le one-shot `wakdo-migrate` applique migrations + seed). Un veritable CD automatique sur merge `main` reste a armer avec un secret de connexion (choix exploitant). Voir `docs/PROJECT_CONTEXT.md` section 7 Bloc 5.*
+*CI Forgejo Actions sur PR vers `dev`/`main` (secret-scan gitleaks, php-lint, static-tests PHPStan + PHPUnit, js-tests), avec auto-merge sur CI verte. Deploiement a declenchement humain via `scripts/deploy.sh` (recupere `main` depuis Forgejo puis `docker compose build --pull && up -d` ; les images sont buildees localement depuis les Dockerfiles, le one-shot `wakdo-migrate` applique migrations + seed). L'automatisation visee est pull-based (un job cron cote hote detectant un nouveau `main`), a armer ensuite. Voir `docs/PROJECT_CONTEXT.md` section 7 Bloc 5.*
 
 ---
 

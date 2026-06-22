@@ -271,7 +271,7 @@ Reseaux :
   - `45 4 * * *` — purge des compteurs de throttle expires
   - Differes (templates commentes dans `docker/cron/crontab`, a activer plus tard) : purge des sessions expirees, agregation des stats sur le jour de service
 - **CI Forgejo Actions** (act_runner auto-heberge) : lint PHP + PHPStan + PHPUnit + secret-scan (gitleaks) + js-tests sur PR -> dev
-- **CD : deploiement scripte a declenchement humain** (`scripts/deploy.sh` : ff-only puis `docker compose -f docker-compose.prod.yml pull && up -d`). Choix solo dev sur un environnement de prod unique. Un veritable deploiement continu (job Forgejo sur push main -> SSH -> `deploy.sh`) reste a armer avec un secret de connexion (decision exploitant)
+- **CD : deploiement scripte a declenchement humain** (`scripts/deploy.sh` : recupere `main` depuis Forgejo puis `docker compose build --pull && up -d` -- les images wakdo sont buildees localement depuis les Dockerfiles, pas de registre). Choix solo dev sur un environnement de prod unique. L'automatisation visee est **pull-based** : un job cron cote hote qui detecte un nouveau `main` et lance `deploy.sh` (a armer ensuite, reutilise le meme script)
 - `.env.example` documente (parametres securite : argon2id, lockout, seuils throttle, retention RGPD), secrets hors du repo
 - `php.ini` durci (expose_php off, session cookies httponly/secure/samesite, upload limite)
 - Healthcheck Traefik + readiness probes
