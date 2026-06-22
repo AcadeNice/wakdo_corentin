@@ -322,6 +322,104 @@ final class CounterOrderControllerTest extends TestCase
         self::assertFalse($db->wrote('INSERT INTO customer_order'));
     }
 
+    public function testCreateExposesProductComposition(): void
+    {
+        // create() joint la composition PROPOSABLE (modificateurs) de chaque produit au
+        // composeur : embarquee en data-* JSON (htmlspecialchars(json_encode), RG-T15).
+        $db = $this->permittedDb();
+        $db->productsRows = [
+            ['id' => 12, 'category_id' => 1, 'name' => 'Cheeseburger', 'description' => null, 'price_cents' => 890, 'image_path' => null, 'display_order' => 1],
+        ];
+        // composition() : un ingredient retirable (Oignon) + un ajoutable (Bacon, +50c).
+        $db->compositionRows = [
+            ['product_id' => 12, 'ingredient_id' => 3, 'ingredient_name' => 'Oignon', 'is_removable' => 1, 'is_addable' => 0, 'extra_price_cents' => 0, 'quantity_normal' => 1, 'quantity_maxi' => 1],
+            ['product_id' => 12, 'ingredient_id' => 8, 'ingredient_name' => 'Bacon', 'is_removable' => 0, 'is_addable' => 1, 'extra_price_cents' => 50, 'quantity_normal' => 1, 'quantity_maxi' => 1],
+        ];
+
+        $response = $this->controller($this->get('/counter/orders/new'), $db)->create();
+
+        self::assertSame(200, $response->status());
+        $body = $response->body();
+        // data-products encode le JSON avec htmlspecialchars : les guillemets sont
+        // echappes en &quot;. On cherche les fragments echappes (forme reellement rendue).
+        self::assertStringContainsString('ingredient_id&quot;:3', $body);
+        self::assertStringContainsString('ingredient_id&quot;:8', $body);
+        self::assertStringContainsString('Oignon', $body);
+        self::assertStringContainsString('Bacon', $body);
+        // Bouton de personnalisation expose pour le produit a modificateurs.
+        self::assertStringContainsString('product-configure', $body);
+        self::assertStringContainsString('Personnaliser', $body);
+    }
+
+    public function testStoreCreatesProductOrderWithModifiers(): void
+    {
+        // store() decode items_json portant des modifiers, resolveModifiers les valide
+        // contre la recette du produit, et persiste les lignes order_item_modifier.
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 890, 'vat_rate' => 100, 'maxi_variant_product_id' => null, 'is_available' => 1];
+        // Recette : Oignon retirable, Bacon ajoutable (+50c). resolveModifiers lit ces lignes.
+        $db->compositionRows = [
+            ['ingredient_id' => 3, 'is_removable' => 1, 'is_addable' => 0, 'extra_price_cents' => 0, 'quantity_normal' => 1, 'quantity_maxi' => 1],
+            ['ingredient_id' => 8, 'is_removable' => 0, 'is_addable' => 1, 'extra_price_cents' => 50, 'quantity_normal' => 1, 'quantity_maxi' => 1],
+        ];
+        $db->lastInsertId = 100;
+        $db->orderByNumberRow = ['id' => 100, 'order_number' => 'C100', 'total_ttc_cents' => 940, 'status' => 'pending_payment'];
+
+        $items = json_encode([
+            ['type' => 'product', 'product_id' => 12, 'quantity' => 1, 'modifiers' => [
+                ['ingredient_id' => 3, 'action' => 'remove'],
+                ['ingredient_id' => 8, 'action' => 'add'],
+            ]],
+        ]);
+        $request = $this->post(['_csrf' => $this->csrf, 'service_mode' => 'dine_in', 'items_json' => (string) $items], '/counter/orders');
+
+        $response = $this->controller($request, $db)->store();
+
+        self::assertSame(302, $response->status());
+        self::assertSame('/counter/orders', $response->header('Location'));
+        // Deux lignes order_item_modifier persistees (remove Oignon + add Bacon).
+        self::assertTrue($db->wrote('INSERT INTO order_item_modifier'));
+        $modifierWrites = array_values(array_filter(
+            $db->writes,
+            static fn (array $w): bool => str_contains($w['sql'], 'INSERT INTO order_item_modifier'),
+        ));
+        self::assertCount(2, $modifierWrites);
+        // L'ajout fige extra_price_cents=50 (snapshot recette, RG-T16) ; le retrait 0.
+        $byAction = [];
+        foreach ($modifierWrites as $w) {
+            $byAction[(string) $w['params']['act']] = $w['params'];
+        }
+        self::assertSame(3, $byAction['remove']['ing']);
+        self::assertSame(0, $byAction['remove']['extra']);
+        self::assertSame(8, $byAction['add']['ing']);
+        self::assertSame(50, $byAction['add']['extra']);
+    }
+
+    public function testStoreRejectsModifierOnNonAddableIngredient(): void
+    {
+        // RG-T18 / INGREDIENT_NOT_ADDABLE : un 'add' sur un ingredient is_addable=0 est
+        // rejete par resolveModifiers -> re-rendu 422, rien de persiste.
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 890, 'vat_rate' => 100, 'maxi_variant_product_id' => null, 'is_available' => 1];
+        // Oignon est retirable mais PAS ajoutable : un 'add' doit etre refuse.
+        $db->compositionRows = [
+            ['ingredient_id' => 3, 'is_removable' => 1, 'is_addable' => 0, 'extra_price_cents' => 0, 'quantity_normal' => 1, 'quantity_maxi' => 1],
+        ];
+
+        $items = json_encode([
+            ['type' => 'product', 'product_id' => 12, 'quantity' => 1, 'modifiers' => [
+                ['ingredient_id' => 3, 'action' => 'add'],
+            ]],
+        ]);
+        $request = $this->post(['_csrf' => $this->csrf, 'service_mode' => 'dine_in', 'items_json' => (string) $items], '/counter/orders');
+
+        $response = $this->controller($request, $db)->store();
+
+        self::assertSame(422, $response->status());
+        self::assertFalse($db->wrote('INSERT INTO customer_order'));
+        self::assertFalse($db->wrote('INSERT INTO order_item_modifier'));
+    }
+
     public function testStoreRejectsMenuSelectionOutsideSlotOptions(): void
     {
         // RG-T18/INVALID_SELECTION : une selection hors des options du slot est rejetee

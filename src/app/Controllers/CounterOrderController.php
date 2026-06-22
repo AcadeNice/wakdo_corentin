@@ -23,10 +23,14 @@ use App\Order\OrderValidationException;
  * non par parametre de route) garantit que counter et drive restent etanches : un
  * equipier drive ne peut pas creer une commande comptoir en falsifiant un champ.
  *
- * Composeur (sous-lot 3b) : produits ET menus composes (slots accompagnement/
- * boisson/sauce + format Normal/Maxi). Les modificateurs d'ingredients (retrait/ajout)
- * sont SUPPORTES cote serveur (decodage + resolveModifiers) mais l'UI de selection
- * n'est pas encore exposee dans le composeur (sliver differe).
+ * Composeur (sous-lot 3c) : produits ET menus composes (slots accompagnement/
+ * boisson/sauce + format Normal/Maxi) ET modificateurs d'ingredients (retrait/ajout).
+ * La composition PROPOSABLE de chaque produit a la carte et du burger de chaque menu
+ * (ingredients is_removable / is_addable + surcout) est embarquee en data-* pour que
+ * counter-order.js affiche les cases "retirer" / "ajouter +X.XX EUR". Le serveur reste
+ * seul juge : resolveModifiers revalide chaque modificateur metier (l'ingredient doit
+ * appartenir a la recette du produit support, etre retirable pour 'remove' / ajoutable
+ * pour 'add') et fige extra_price_cents (RG-T16) ; le client ne fait que PROPOSER.
  * Le panier est construit cote client (counter-order.js) et serialise en JSON dans
  * le champ cache `items_json` ; le serveur (store) le decode, revalide la forme
  * (RG-T18) puis delegue a createStaffOrder qui resout/calcule cote serveur (RG-T16).
@@ -340,34 +344,85 @@ class CounterOrderController extends AdminController
      */
     private function renderForm(GuardResult $guard, string $source, array $values, ?string $error, int $status = 200): Response
     {
+        $productRepository = $this->productRepository();
+        $products = $productRepository->availableForCatalogue();
+
+        // Modificateurs proposables par produit a la carte : seuls les produits dont la
+        // recette offre au moins un ingredient retirable/ajoutable portent une compo.
+        $products = array_map(function (array $product) use ($productRepository): array {
+            $product['modifiers'] = $this->proposableModifiers($productRepository, (int) ($product['id'] ?? 0));
+
+            return $product;
+        }, $products);
+
         return $this->channelView('admin/counter/new', $source, [
             'title'       => 'Nouvelle commande ' . ($source === 'drive' ? 'drive' : 'comptoir') . ' - Wakdo Admin',
-            'products'    => $this->productRepository()->availableForCatalogue(),
-            'menus'       => $this->menusWithSlots(),
+            'products'    => $products,
+            'menus'       => $this->menusWithSlots($productRepository),
             'serviceMode' => (string) ($values['service_mode'] ?? ($source === 'drive' ? 'drive' : 'dine_in')),
             'error'       => $error,
         ], $guard, $status);
     }
 
     /**
-     * Menus commandables enrichis de leurs slots+options (lecture catalogue), pour
-     * que counter-order.js compose chaque menu SANS appel reseau supplementaire :
-     * toute la configuration est embarquee en data-* au rendu (page back-office
-     * authentifiee). La forme `slots` calque slotsWithOptions() (id, name, slot_type,
-     * is_required, display_order, option_product_ids), consommable par la meme
-     * logique que page-product-menu.js cote borne.
+     * Menus commandables enrichis de leurs slots+options (lecture catalogue) ET des
+     * modificateurs proposables du burger support, pour que counter-order.js compose
+     * chaque menu SANS appel reseau supplementaire : toute la configuration est
+     * embarquee en data-* au rendu (page back-office authentifiee). La forme `slots`
+     * calque slotsWithOptions() (id, name, slot_type, is_required, display_order,
+     * option_product_ids), consommable par la meme logique que page-product-menu.js
+     * cote borne ; `burger_modifiers` calque proposableModifiers() (la selection de
+     * modificateurs d'un menu cible le burger, comme resolveModifiers cote serveur).
      *
      * @return list<array<string, mixed>>
      */
-    private function menusWithSlots(): array
+    private function menusWithSlots(ProductRepository $productRepository): array
     {
-        $menus = $this->menuRepository()->availableForCatalogue();
+        $menuRepository = $this->menuRepository();
+        $menus = $menuRepository->availableForCatalogue();
 
-        return array_map(function (array $menu): array {
-            $menu['slots'] = $this->menuRepository()->slotsWithOptions((int) ($menu['id'] ?? 0));
+        return array_map(function (array $menu) use ($menuRepository, $productRepository): array {
+            $menu['slots'] = $menuRepository->slotsWithOptions((int) ($menu['id'] ?? 0));
+            $menu['burger_modifiers'] = $this->proposableModifiers($productRepository, (int) ($menu['burger_product_id'] ?? 0));
 
             return $menu;
         }, $menus);
+    }
+
+    /**
+     * Modificateurs PROPOSABLES d'un produit support : les lignes de composition()
+     * dont l'ingredient est retirable (is_removable=1) OU ajoutable (is_addable=1),
+     * projetees a ce dont l'UI a besoin (ingredient_id, name, is_removable, is_addable,
+     * extra_price_cents). Les ingredients ni retirables ni ajoutables sont ECARTES :
+     * ils n'offrent aucune case a cocher cote client, donc embarquer leur ligne
+     * alourdirait le data-* sans usage. Le client ne fait que PROPOSER ces choix ;
+     * resolveModifiers revalide tout cote serveur et fige le surcout (RG-T16).
+     *
+     * @return list<array{ingredient_id:int, name:string, is_removable:int, is_addable:int, extra_price_cents:int}>
+     */
+    private function proposableModifiers(ProductRepository $productRepository, int $productId): array
+    {
+        if ($productId <= 0) {
+            return [];
+        }
+
+        $out = [];
+        foreach ($productRepository->composition($productId) as $line) {
+            $isRemovable = (int) ($line['is_removable'] ?? 0);
+            $isAddable = (int) ($line['is_addable'] ?? 0);
+            if ($isRemovable !== 1 && $isAddable !== 1) {
+                continue;
+            }
+            $out[] = [
+                'ingredient_id'     => (int) ($line['ingredient_id'] ?? 0),
+                'name'              => (string) ($line['ingredient_name'] ?? ''),
+                'is_removable'      => $isRemovable,
+                'is_addable'        => $isAddable,
+                'extra_price_cents' => (int) ($line['extra_price_cents'] ?? 0),
+            ];
+        }
+
+        return $out;
     }
 
     /**

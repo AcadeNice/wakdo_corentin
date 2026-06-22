@@ -1,20 +1,26 @@
 /*
- * counter-order.js — Composeur de commande comptoir/drive (back-office, sous-lot 3b).
+ * counter-order.js — Composeur de commande comptoir/drive (back-office, sous-lot 3c).
  *
  * CSP 'self' : script externe (pas d'inline, zero handler dans le HTML). Les donnees
- * (produits commandables, menus + slots + options) sont lues depuis les attributs
- * data-* de #counter-order-form. L'equipier ajoute des produits (champ quantite) et
- * configure des menus (slots accompagnement/boisson/sauce + format Normal/Maxi). A la
- * soumission, le panier est serialise en JSON dans le champ cache #items_json
- * (Request::formBody cote serveur ne garde que les scalaires, d'ou le passage par une
- * chaine JSON). Le serveur revalide la forme (RG-T18) et recalcule les prix (RG-T16) :
- * les libelles/prix affiches ici sont indicatifs, jamais source de verite.
+ * (produits commandables + leurs modificateurs, menus + slots + format + modificateurs
+ * du burger) sont lues depuis les attributs data-* de #counter-order-form. L'equipier
+ * ajoute des produits (champ quantite), personnalise un produit a la carte (retrait/
+ * ajout d'ingredients) ou configure un menu (slots + format + retrait/ajout sur le
+ * burger). A la soumission, le panier est serialise en JSON dans le champ cache
+ * #items_json (Request::formBody cote serveur ne garde que les scalaires, d'ou le
+ * passage par une chaine JSON). Le serveur revalide la forme (RG-T18), revalide chaque
+ * modificateur metier (resolveModifiers) et recalcule les prix (RG-T16) : les libelles/
+ * prix affiches ici sont indicatifs, jamais source de verite.
  *
  * La logique de slots (un pas par slot, requis/optionnel, format) calque
- * page-product-menu.js (borne) ; seul le rendu differe (idiome back-office, pas de
- * style borne). Les menus configures vivent dans un etat JS et sont rendus dans le
- * panier ; les produits sont derives a la soumission depuis les champs qty_<id> (repli
- * sans JS conserve : le serveur accepte aussi qty_<id> si #items_json est vide).
+ * page-product-menu.js (borne) ; la logique de modificateurs (cases "retirer" pour les
+ * ingredients is_removable, "ajouter +X.XX EUR" pour les is_addable) calque l'UX
+ * borne. Seul le rendu differe (idiome back-office, pas de style borne). Les lignes
+ * configurees (produit personnalise / menu) vivent dans un etat JS et sont rendues dans
+ * le panier ; les produits sans modificateur sont derives a la soumission depuis les
+ * champs qty_<id> (repli sans JS conserve : le serveur accepte aussi qty_<id> si
+ * #items_json est vide). Un produit personnalisable est routé par la modale (sa
+ * quantite directe est ignoree quand JS s'execute) pour ne pas le compter deux fois.
  *
  * Module CommonJS (admin = racine CommonJS, comme pin-modal.js) : init(doc) est
  * exporte pour les tests et auto-appele au DOMContentLoaded en production.
@@ -33,6 +39,12 @@
         } catch (e) {
             return JSON.parse(fallback);
         }
+    }
+
+    // Surcout d'un ajout, formate en euros (affichage local indicatif ; le serveur
+    // refige extra_price_cents, RG-T16).
+    function formatExtra(cents) {
+        return '+' + (Number(cents) / 100).toFixed(2).replace('.', ',') + ' EUR';
     }
 
     // Etapes composables d'un menu : burger impose ignore (non choisi ici), un pas par
@@ -70,18 +82,29 @@
             return;
         }
 
-        var products = parseData(form, 'products', '[]'); // [{id, name, price}]
-        var menus = parseData(form, 'menus', '[]');       // [{id, name, price_normal, price_maxi, slots:[...]}]
+        var products = parseData(form, 'products', '[]'); // [{id, name, price, modifiers:[...]}]
+        var menus = parseData(form, 'menus', '[]');       // [{id, name, price_normal, price_maxi, burger_modifiers:[...], slots:[...]}]
 
-        // Index produit par id : resolution des libelles d'options de slot (affichage).
+        // Index produit par id : resolution des libelles d'options de slot + acces aux
+        // modificateurs proposables d'un produit a la carte.
         var productById = {};
         products.forEach(function (p) {
             productById[Number(p.id)] = p;
         });
 
-        // Menus configures par l'equipier : items prets a serialiser, avec libelle recap.
+        // Lignes configurees par l'equipier : items prets a serialiser, avec libelle recap.
+        // menuLines : menus configures ; productLines : produits personnalises (modifiers).
         var menuLines = [];
+        var productLines = [];
         var lineSeq = 0;
+
+        // Produits routes par la modale (ils portent un bouton "Personnaliser") : leur
+        // quantite directe qty_<id> est ignoree a la serialisation pour eviter le double
+        // comptage (le champ reste present pour le repli sans JS).
+        var configurableIds = {};
+        Array.prototype.forEach.call(doc.querySelectorAll('.product-configure'), function (btn) {
+            configurableIds[Number(btn.dataset.productId)] = true;
+        });
 
         function el(tag, className) {
             var e = doc.createElement(tag);
@@ -92,20 +115,124 @@
         }
 
         /* ----------------------------------------------------------------- */
+        /* Modificateurs : cases "retirer" / "ajouter +X.XX EUR" (UX borne)   */
+        /* ----------------------------------------------------------------- */
+
+        // Rend les controles de modificateurs d'un produit support dans un conteneur.
+        // selectedRemove/selectedAdd : maps ingredient_id -> bool, mutees au changement.
+        // Calque la borne : un ingredient is_removable propose "retirer", un is_addable
+        // propose "ajouter (+surcout)". Un meme ingredient peut etre les deux.
+        function renderModifierControls(modifiers, selectedRemove, selectedAdd) {
+            var block = el('div', 'menu-composer__modifiers');
+            if (!modifiers || !modifiers.length) {
+                return block;
+            }
+            var legend = el('p', 'menu-composer__legend');
+            legend.textContent = 'Personnalisation';
+            block.appendChild(legend);
+
+            modifiers.forEach(function (mod) {
+                var ingId = Number(mod.ingredient_id);
+                if (Number(mod.is_removable) === 1) {
+                    var remLab = el('label', 'menu-composer__modifier');
+                    var remBox = el('input');
+                    remBox.type = 'checkbox';
+                    remBox.className = 'menu-composer__modifier-remove';
+                    remBox.dataset.ingredientId = String(ingId);
+                    remBox.addEventListener('change', function () {
+                        if (remBox.checked) {
+                            selectedRemove[ingId] = true;
+                        } else {
+                            delete selectedRemove[ingId];
+                        }
+                    });
+                    remLab.appendChild(remBox);
+                    remLab.appendChild(doc.createTextNode(' Sans ' + String(mod.name)));
+                    block.appendChild(remLab);
+                }
+                if (Number(mod.is_addable) === 1) {
+                    var addLab = el('label', 'menu-composer__modifier');
+                    var addBox = el('input');
+                    addBox.type = 'checkbox';
+                    addBox.className = 'menu-composer__modifier-add';
+                    addBox.dataset.ingredientId = String(ingId);
+                    addBox.addEventListener('change', function () {
+                        if (addBox.checked) {
+                            selectedAdd[ingId] = true;
+                        } else {
+                            delete selectedAdd[ingId];
+                        }
+                    });
+                    addLab.appendChild(addBox);
+                    addLab.appendChild(doc.createTextNode(' Extra ' + String(mod.name) + ' (' + formatExtra(mod.extra_price_cents) + ')'));
+                    block.appendChild(addLab);
+                }
+            });
+
+            return block;
+        }
+
+        // Construit la liste serialisable [{ingredient_id, action}] depuis les maps
+        // selectedRemove / selectedAdd (remove d'abord, puis add ; un ingredient a la
+        // fois retire et ajoute resterait deux entrees, mais l'UX coche rarement les deux).
+        function buildModifiers(selectedRemove, selectedAdd) {
+            var out = [];
+            Object.keys(selectedRemove).forEach(function (id) {
+                out.push({ ingredient_id: Number(id), action: 'remove' });
+            });
+            Object.keys(selectedAdd).forEach(function (id) {
+                out.push({ ingredient_id: Number(id), action: 'add' });
+            });
+            return out;
+        }
+
+        // Libelle recap des modificateurs choisis (ex. "sans Oignon, +Bacon"), resolu
+        // via la liste de modificateurs proposables (pour le nom de l'ingredient).
+        function modifierLabel(modifiers, chosen) {
+            if (!chosen || !chosen.length) {
+                return '';
+            }
+            var nameById = {};
+            (modifiers || []).forEach(function (m) {
+                nameById[Number(m.ingredient_id)] = String(m.name);
+            });
+            var parts = chosen.map(function (c) {
+                var name = nameById[Number(c.ingredient_id)] || ('#' + c.ingredient_id);
+                return c.action === 'add' ? ('+' + name) : ('sans ' + name);
+            });
+            return parts.join(', ');
+        }
+
+        /* ----------------------------------------------------------------- */
         /* Serialisation du panier -> #items_json                             */
         /* ----------------------------------------------------------------- */
 
-        // Produits : derives des champs qty_<id> (>= 1). Menus : items configures. La
-        // forme calque ce qu'attend OrderRepository::resolveLine (revalide cote serveur).
+        // Produits sans modificateur : derives des champs qty_<id> (>= 1) NON routes par
+        // la modale. Produits personnalises : productLines. Menus : menuLines. La forme
+        // calque ce qu'attend OrderRepository::resolveLine (revalide cote serveur).
         function serialize() {
             var items = [];
 
             Array.prototype.forEach.call(form.querySelectorAll('.order-qty'), function (input) {
                 var productId = Number(input.dataset.productId);
+                if (configurableIds[productId]) {
+                    return; // route par la modale -> pas de double comptage.
+                }
                 var quantity = parseInt(input.value, 10);
                 if (productId > 0 && quantity >= 1) {
                     items.push({ type: 'product', product_id: productId, quantity: quantity });
                 }
+            });
+
+            productLines.forEach(function (line) {
+                items.push({
+                    type: 'product',
+                    product_id: line.productId,
+                    quantity: line.quantity,
+                    modifiers: line.modifiers.map(function (m) {
+                        return { ingredient_id: m.ingredient_id, action: m.action };
+                    }),
+                });
             });
 
             menuLines.forEach(function (line) {
@@ -117,6 +244,9 @@
                     selections: line.selections.map(function (s) {
                         return { menu_slot_id: s.slotId, product_id: s.productId };
                     }),
+                    modifiers: line.modifiers.map(function (m) {
+                        return { ingredient_id: m.ingredient_id, action: m.action };
+                    }),
                 });
             });
 
@@ -124,12 +254,36 @@
         }
 
         /* ----------------------------------------------------------------- */
-        /* Rendu du panier (recap des menus configures)                       */
+        /* Rendu du panier (recap des lignes configurees)                     */
         /* ----------------------------------------------------------------- */
 
         function renderCart() {
             Array.prototype.forEach.call(cart.querySelectorAll('.order-cart__line'), function (node) {
                 node.parentNode.removeChild(node);
+            });
+
+            productLines.forEach(function (line) {
+                var li = el('li', 'order-cart__line');
+
+                var label = el('span', 'order-cart__label');
+                var text = line.productName + ' x' + line.quantity;
+                var modLabel = modifierLabel(line.proposable, line.modifiers);
+                if (modLabel) {
+                    text += ' (' + modLabel + ')';
+                }
+                label.textContent = text;
+                li.appendChild(label);
+
+                var removeBtn = el('button', 'btn btn-secondary order-cart__remove');
+                removeBtn.type = 'button';
+                removeBtn.textContent = 'Retirer';
+                removeBtn.addEventListener('click', function () {
+                    productLines = productLines.filter(function (l) { return l.localId !== line.localId; });
+                    renderCart();
+                });
+                li.appendChild(removeBtn);
+
+                cart.appendChild(li);
             });
 
             menuLines.forEach(function (line) {
@@ -143,7 +297,12 @@
                         parts.push(p.name);
                     }
                 });
-                label.textContent = parts.join(' - ');
+                var text = parts.join(' - ');
+                var modLabel = modifierLabel(line.proposable, line.modifiers);
+                if (modLabel) {
+                    text += ' (' + modLabel + ')';
+                }
+                label.textContent = text;
                 li.appendChild(label);
 
                 var removeBtn = el('button', 'btn btn-secondary order-cart__remove');
@@ -159,12 +318,12 @@
             });
 
             if (cartEmpty) {
-                cartEmpty.style.display = menuLines.length ? 'none' : '';
+                cartEmpty.style.display = (productLines.length || menuLines.length) ? 'none' : '';
             }
         }
 
         /* ----------------------------------------------------------------- */
-        /* Modale de configuration d'un menu                                  */
+        /* Modales de configuration                                           */
         /* ----------------------------------------------------------------- */
 
         function closeComposer() {
@@ -172,11 +331,74 @@
             modalHost.setAttribute('hidden', '');
         }
 
-        // Ouvre la modale : choix du format puis une selection par slot. Pre-selectionne
-        // le 1er choix de chaque slot requis (calque page-product-menu.js).
+        // Modale d'un produit a la carte : quantite + modificateurs (retrait/ajout).
+        function openProductComposer(product) {
+            var proposable = product.modifiers || [];
+            var state = { quantity: 1, selectedRemove: {}, selectedAdd: {} };
+
+            modalHost.textContent = '';
+            var panel = el('div', 'menu-composer');
+
+            var title = el('h2', 'menu-composer__title');
+            title.textContent = product.name;
+            panel.appendChild(title);
+
+            // Quantite
+            var qtyBlock = el('div', 'menu-composer__slot');
+            var qtyLab = el('label', 'menu-composer__legend');
+            qtyLab.textContent = 'Quantite';
+            qtyLab.setAttribute('for', 'composer-product-qty');
+            qtyBlock.appendChild(qtyLab);
+            var qtyInput = el('input', 'form-input menu-composer__qty');
+            qtyInput.type = 'number';
+            qtyInput.id = 'composer-product-qty';
+            qtyInput.min = '1';
+            qtyInput.value = '1';
+            qtyInput.addEventListener('change', function () {
+                var v = parseInt(qtyInput.value, 10);
+                state.quantity = v >= 1 ? v : 1;
+            });
+            qtyBlock.appendChild(qtyInput);
+            panel.appendChild(qtyBlock);
+
+            // Modificateurs
+            panel.appendChild(renderModifierControls(proposable, state.selectedRemove, state.selectedAdd));
+
+            var actions = el('div', 'menu-composer__actions');
+            var addBtn = el('button', 'btn btn-primary menu-composer__add');
+            addBtn.type = 'button';
+            addBtn.textContent = 'Ajouter au panier';
+            addBtn.addEventListener('click', function () {
+                productLines.push({
+                    localId: ++lineSeq,
+                    productId: Number(product.id),
+                    productName: product.name,
+                    quantity: state.quantity,
+                    proposable: proposable,
+                    modifiers: buildModifiers(state.selectedRemove, state.selectedAdd),
+                });
+                renderCart();
+                closeComposer();
+            });
+            actions.appendChild(addBtn);
+
+            var cancelBtn = el('button', 'btn btn-secondary menu-composer__cancel');
+            cancelBtn.type = 'button';
+            cancelBtn.textContent = 'Annuler';
+            cancelBtn.addEventListener('click', closeComposer);
+            actions.appendChild(cancelBtn);
+
+            panel.appendChild(actions);
+            modalHost.appendChild(panel);
+            modalHost.removeAttribute('hidden');
+        }
+
+        // Ouvre la modale d'un menu : choix du format, une selection par slot, puis les
+        // modificateurs du burger. Pre-selectionne le 1er choix de chaque slot requis.
         function openComposer(menu) {
             var steps = composerSteps(menu, productById);
-            var state = { format: 'normal', selections: {} };
+            var proposable = menu.burger_modifiers || [];
+            var state = { format: 'normal', selections: {}, selectedRemove: {}, selectedAdd: {} };
             steps.forEach(function (step) {
                 if (step.isRequired && step.options[0]) {
                     state.selections[step.id] = step.options[0].id;
@@ -253,6 +475,9 @@
                 panel.appendChild(block);
             });
 
+            // Modificateurs du burger support (retrait/ajout d'ingredients).
+            panel.appendChild(renderModifierControls(proposable, state.selectedRemove, state.selectedAdd));
+
             // Actions : ajouter (si tous les requis choisis) / annuler.
             var actions = el('div', 'menu-composer__actions');
             var addBtn = el('button', 'btn btn-primary menu-composer__add');
@@ -277,6 +502,8 @@
                     menuName: menu.name,
                     format: state.format,
                     selections: selections,
+                    proposable: proposable,
+                    modifiers: buildModifiers(state.selectedRemove, state.selectedAdd),
                 });
                 renderCart();
                 closeComposer();
@@ -297,6 +524,16 @@
         /* ----------------------------------------------------------------- */
         /* Cablage                                                            */
         /* ----------------------------------------------------------------- */
+
+        Array.prototype.forEach.call(doc.querySelectorAll('.product-configure'), function (btn) {
+            btn.addEventListener('click', function () {
+                var productId = Number(btn.dataset.productId);
+                var product = productById[productId];
+                if (product) {
+                    openProductComposer(product);
+                }
+            });
+        });
 
         Array.prototype.forEach.call(doc.querySelectorAll('.menu-configure'), function (btn) {
             btn.addEventListener('click', function () {

@@ -3,14 +3,16 @@
 declare(strict_types=1);
 
 /**
- * Composeur de commande comptoir/drive COMPLET (sous-lot 3b), injecte dans
+ * Composeur de commande comptoir/drive COMPLET (sous-lot 3c), injecte dans
  * admin/layout.php. Produits commandables ET menus composes (slots
  * accompagnement/boisson/sauce + format Normal/Maxi + modificateurs d'ingredients).
  *
  * Le panier est construit cote client par counter-order.js (CSP 'self', vanilla JS,
- * zero handler inline) : il lit produits et menus depuis les data-* de #order-composer,
- * et serialise les items en JSON dans le champ cache #items_json a la soumission. Le
- * serveur revalide tout (RG-T18) et recalcule les prix (RG-T16). Le tableau de
+ * zero handler inline) : il lit produits et menus depuis les data-* de
+ * #counter-order-form (dont la composition PROPOSABLE de chaque produit et du burger
+ * de chaque menu : ingredients retirables / ajoutables + surcout), et serialise les
+ * items en JSON dans le champ cache #items_json a la soumission. Le serveur revalide
+ * tout (RG-T18, resolveModifiers) et recalcule les prix (RG-T16). Le tableau de
  * quantites produit `qty_<id>` reste present comme repli sans JS (3a).
  *
  * Partage par les deux canaux ; la source/landing viennent du controleur. Au canal
@@ -50,25 +52,41 @@ $menuRows = isset($menus) && is_array($menus) ? $menus : [];
 
 // Projection compacte pour le JS : seules les cles utiles a la composition. Les
 // prix sont passes pour l'affichage local (le serveur reste seul juge, RG-T16).
+// modifiers : ingredients retirables / ajoutables proposables (le client les affiche
+// en cases a cocher ; resolveModifiers revalide chacun cote serveur).
+$jsModifiers = static fn (mixed $rows): array => array_map(
+    static fn (array $r): array => [
+        'ingredient_id'     => (int) ($r['ingredient_id'] ?? 0),
+        'name'              => (string) ($r['name'] ?? ''),
+        'is_removable'      => (int) ($r['is_removable'] ?? 0),
+        'is_addable'        => (int) ($r['is_addable'] ?? 0),
+        'extra_price_cents' => (int) ($r['extra_price_cents'] ?? 0),
+    ],
+    is_array($rows) ? $rows : [],
+);
 $jsProducts = array_map(
     static fn (array $p): array => [
-        'id'    => (int) ($p['id'] ?? 0),
-        'name'  => (string) ($p['name'] ?? ''),
-        'price' => (int) ($p['price_cents'] ?? 0),
+        'id'        => (int) ($p['id'] ?? 0),
+        'name'      => (string) ($p['name'] ?? ''),
+        'price'     => (int) ($p['price_cents'] ?? 0),
+        'modifiers' => $jsModifiers($p['modifiers'] ?? null),
     ],
     $productRows,
 );
 $jsMenus = array_map(
-    static function (array $m): array {
+    static function (array $m) use ($jsModifiers): array {
         /** @var list<array<string, mixed>> $slots */
         $slots = isset($m['slots']) && is_array($m['slots']) ? $m['slots'] : [];
 
         return [
-            'id'           => (int) ($m['id'] ?? 0),
-            'name'         => (string) ($m['name'] ?? ''),
-            'price_normal' => (int) ($m['price_normal_cents'] ?? 0),
-            'price_maxi'   => (int) ($m['price_maxi_cents'] ?? 0),
-            'slots'        => array_map(
+            'id'               => (int) ($m['id'] ?? 0),
+            'name'             => (string) ($m['name'] ?? ''),
+            'price_normal'     => (int) ($m['price_normal_cents'] ?? 0),
+            'price_maxi'       => (int) ($m['price_maxi_cents'] ?? 0),
+            // Modificateurs du burger support : la selection d'un menu cible le burger
+            // (resolveModifiers cote serveur le resout sur burger_product_id).
+            'burger_modifiers' => $jsModifiers($m['burger_modifiers'] ?? null),
+            'slots'            => array_map(
                 static fn (array $s): array => [
                     'id'                 => (int) ($s['id'] ?? 0),
                     'name'               => (string) ($s['name'] ?? ''),
@@ -123,11 +141,17 @@ $modeOptions = $chan === 'drive'
                         <th>Produit</th>
                         <th>Prix</th>
                         <th>Quantite</th>
+                        <th>Personnaliser</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php foreach ($productRows as $p): ?>
-                        <?php $pid = (int) ($p['id'] ?? 0); ?>
+                        <?php
+                        $pid = (int) ($p['id'] ?? 0);
+                        // Un produit ne porte un bouton "Personnaliser" que si sa recette
+                        // offre au moins un ingredient retirable/ajoutable (data-* modifiers).
+                        $hasModifiers = isset($p['modifiers']) && is_array($p['modifiers']) && $p['modifiers'] !== [];
+                        ?>
                         <tr>
                             <td><?= $esc($p['name'] ?? '') ?></td>
                             <td><?= $esc($euros($p['price_cents'] ?? 0)) ?></td>
@@ -136,6 +160,13 @@ $modeOptions = $chan === 'drive'
                                        id="qty_<?= $pid ?>" name="qty_<?= $pid ?>"
                                        data-product-id="<?= $pid ?>"
                                        aria-label="Quantite <?= $esc($p['name'] ?? '') ?>">
+                            </td>
+                            <td>
+                                <?php if ($hasModifiers): ?>
+                                    <button class="btn btn-secondary product-configure" type="button" data-product-id="<?= $pid ?>">
+                                        Personnaliser
+                                    </button>
+                                <?php endif; ?>
                             </td>
                         </tr>
                     <?php endforeach; ?>
