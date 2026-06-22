@@ -40,8 +40,10 @@ const menu = (over = {}) => ({
     supplement_cents: 50, image: 'm.png',
     composition: {
         burger: { libelle: 'Big Mac', options: ['sans-oignon', 'avec-fromage'] },
-        accompagnement: { libelle: 'Frites', taille: 'G' },
-        boisson: { libelle: 'Coca', taille: 'M' },
+        // Maxi : l accompagnement porte deja sa variante par NOM (le serveur substitue
+        // Moyenne -> Grande). Le libelle fait foi, plus de suffixe " grande".
+        accompagnement: { libelle: 'Grande Frite', taille: 'G' },
+        boisson: { libelle: 'Coca', taille: 'G' },
         sauce: { libelle: 'Ketchup' },
     },
     ...over,
@@ -63,14 +65,19 @@ test('compositionLabels: undefined -> []', () => {
     assert.deepEqual(compositionLabels(undefined), []);
 });
 
-test('compositionLabels: liste burger(options)/accompagnement(taille)/boisson/sauce', () => {
+test('compositionLabels: libelle fait foi, le suffixe " grande" trompeur est supprime', () => {
     const labels = compositionLabels(menu().composition);
     assert.deepEqual(labels, [
         'Big Mac (sans oignon, avec fromage)',
-        'Frites grande',
-        'Coca',
+        'Grande Frite',   // variante par nom, plus de "Moyenne Frite grande"
+        'Coca',           // boisson non agrandie : pas de faux " grande"
         'Ketchup',
     ]);
+    // Garde-fou explicite contre la regression du bug rapporte.
+    const sideLabel = labels[1];
+    assert.equal(sideLabel.includes('Moyenne Frite grande'), false);
+    assert.equal(sideLabel.endsWith(' grande'), false);
+    assert.ok(sideLabel.includes('Grande Frite'));
 });
 
 test('compositionLabels: composants absents ignores sans jeter', () => {

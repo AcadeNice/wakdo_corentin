@@ -85,6 +85,9 @@ export function loadProducts() {
             // borne ne montre un picker que si sizes a plus d'une entree.
             bySlug[slug].push({
                 id: p.id, nom: p.name, prix: p.price_cents, image: p.image_path, type: 'produit',
+                // maxiNom : nom de la variante Maxi (ex. "Grande Frite") quand le produit
+                // en a une, sinon null. Le composeur de menu l'affiche en format Maxi.
+                maxiNom: p.maxi_variant_name ?? null,
                 sizes: Array.isArray(p.sizes) ? p.sizes : [],
             });
         }

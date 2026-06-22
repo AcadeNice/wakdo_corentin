@@ -141,8 +141,9 @@ function renderCart() {
 
 /**
  * Builds the composition breakdown HTML for a menu cart line.
- * Renders burger (with personalisation options), accompagnement with taille,
- * boisson with taille, sauce, and the supplement summary if applicable.
+ * Renders burger (with personalisation options), accompagnement, boisson, sauce,
+ * and the supplement summary if applicable. Le format Maxi se lit dans le libelle de
+ * l'accompagnement (variante "Grande ...") et la ligne de supplement, pas un suffixe.
  *
  * @param {Object} item — cart item with type === 'menu' and composition object
  * @returns {string} HTML string
@@ -160,11 +161,14 @@ function renderCompositionBlock(item) {
             : '';
         parts.push(`${escHtml(c.burger.libelle)}${burgerOpts}`);
     }
+    // libelle fait foi : en Maxi l'accompagnement porte deja sa variante par nom
+    // ("Grande Frite"). Plus de suffixe taille -- il doublait le nom ("Grande Frite
+    // grande") et "normale"/"grande" mentait pour la boisson (le Maxi ne l'agrandit pas).
     if (c.accompagnement) {
-        parts.push(`${escHtml(c.accompagnement.libelle)}${c.accompagnement.taille === 'G' ? ' grande' : ' normale'}`);
+        parts.push(escHtml(c.accompagnement.libelle));
     }
     if (c.boisson) {
-        parts.push(`${escHtml(c.boisson.libelle)}${c.boisson.taille === 'G' ? ' grande' : ' normale'}`);
+        parts.push(escHtml(c.boisson.libelle));
     }
     if (c.sauce) {
         parts.push(escHtml(c.sauce.libelle));

@@ -75,10 +75,16 @@ final class ProductRepository
      */
     public function availableForCatalogue(): array
     {
+        // mv.name (LEFT JOIN sur la variante Maxi) : la borne affiche ce nom quand le
+        // menu est commande en Maxi, sans refaire un aller-retour pour resoudre la
+        // variante. NULL si le produit n'a pas de variante Maxi. La SUBSTITUTION reelle
+        // a la commande reste serveur (OrderRepository::resolveSelections) ; ici c'est
+        // un libelle d'affichage seulement.
         return $this->db->fetchAll(
             'SELECT p.id, p.category_id, p.name, p.description, p.price_cents, p.size_cl, '
-            . 'p.image_path, p.display_order '
+            . 'p.image_path, p.display_order, mv.name AS maxi_variant_name '
             . 'FROM product p JOIN category c ON c.id = p.category_id '
+            . 'LEFT JOIN product mv ON mv.id = p.maxi_variant_product_id '
             . 'WHERE p.is_available = 1 AND c.is_active = 1 AND p.base_product_id IS NULL '
             . 'ORDER BY p.display_order, p.name',
         );
@@ -158,10 +164,13 @@ final class ProductRepository
      */
     public function findForCatalogue(int $id): ?array
     {
+        // Meme projection (et meme LEFT JOIN variante Maxi) que la liste : la borne
+        // recoit maxi_variant_name aussi par lien direct (NULL si pas de variante).
         return $this->db->fetch(
             'SELECT p.id, p.category_id, p.name, p.description, p.price_cents, '
-            . 'p.image_path, p.display_order '
+            . 'p.image_path, p.display_order, mv.name AS maxi_variant_name '
             . 'FROM product p JOIN category c ON c.id = p.category_id '
+            . 'LEFT JOIN product mv ON mv.id = p.maxi_variant_product_id '
             . 'WHERE p.id = :id AND p.is_available = 1 AND c.is_active = 1 AND p.base_product_id IS NULL',
             ['id' => $id],
         );

@@ -9,14 +9,14 @@ import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
 
-let buildComposerSteps, buildMenuCartItem, selectionsComplete, composerIsViable;
+let buildComposerSteps, buildMenuCartItem, selectionsComplete, composerIsViable, optionLabel;
 
 before(async () => {
     const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>', { url: 'https://kiosk.test/product.html' });
     global.window = dom.window;
     global.document = dom.window.document;
     global.localStorage = dom.window.localStorage;
-    ({ buildComposerSteps, buildMenuCartItem, selectionsComplete, composerIsViable } =
+    ({ buildComposerSteps, buildMenuCartItem, selectionsComplete, composerIsViable, optionLabel } =
         await import('../../src/public/borne/assets/js/page-product-menu.js'));
 });
 
@@ -33,12 +33,14 @@ const detail = () => ({
 });
 
 const byId = () => ({
-    100: { id: 100, nom: 'Le 280', prix: 0, image: 'b.png', type: 'produit' },
-    22: { id: 22, nom: 'Frites', prix: 0, image: 'f.png', type: 'produit' },
-    23: { id: 23, nom: 'Potatoes', prix: 0, image: 'p.png', type: 'produit' },
-    14: { id: 14, nom: 'Coca', prix: 0, image: 'c.png', type: 'produit' },
-    15: { id: 15, nom: 'Eau', prix: 0, image: 'e.png', type: 'produit' },
-    47: { id: 47, nom: 'Ketchup', prix: 0, image: 'k.png', type: 'produit' },
+    100: { id: 100, nom: 'Le 280', prix: 0, image: 'b.png', type: 'produit', maxiNom: null },
+    // Accompagnements : variante Maxi (maxiNom) renseignee -> agrandissable.
+    22: { id: 22, nom: 'Moyenne Frite', prix: 0, image: 'f.png', type: 'produit', maxiNom: 'Grande Frite' },
+    23: { id: 23, nom: 'Potatoes', prix: 0, image: 'p.png', type: 'produit', maxiNom: 'Grande Potatoes' },
+    // Boissons : pas de variante Maxi (le menu Maxi n'agrandit pas la boisson).
+    14: { id: 14, nom: 'Coca', prix: 0, image: 'c.png', type: 'produit', maxiNom: null },
+    15: { id: 15, nom: 'Eau', prix: 0, image: 'e.png', type: 'produit', maxiNom: null },
+    47: { id: 47, nom: 'Ketchup', prix: 0, image: 'k.png', type: 'produit', maxiNom: null },
 });
 
 const menu = { id: 1, nom: 'Menu Le 280', image: 'b.png', type: 'menu' };
@@ -70,7 +72,8 @@ test('buildMenuCartItem Normal: prix normal, pas de supplement, taille N, compos
     assert.equal(item.prix_cents, 880);
     assert.equal(item.supplement_cents, 0);
     assert.equal(item.composition.burger.libelle, 'Le 280');
-    assert.deepEqual(item.composition.accompagnement, { id: 22, libelle: 'Frites', taille: 'N' });
+    // Normal : l'accompagnement garde son nom de base (pas la variante Maxi).
+    assert.deepEqual(item.composition.accompagnement, { id: 22, libelle: 'Moyenne Frite', taille: 'N' });
     assert.deepEqual(item.composition.boisson, { id: 14, libelle: 'Coca', taille: 'N' });
     assert.deepEqual(item.composition.sauce, { id: 47, libelle: 'Ketchup' });
 });
@@ -82,6 +85,31 @@ test('buildMenuCartItem Maxi: supplement = maxi - normal, taille G sur side/drin
     assert.equal(item.supplement_cents, 150); // 1030 - 880
     assert.equal(item.composition.accompagnement.taille, 'G');
     assert.equal(item.composition.boisson.taille, 'G');
+});
+
+test('buildMenuCartItem Maxi: l accompagnement prend sa variante (Grande Frite), pas le nom de base', () => {
+    const m = buildComposerSteps(detail(), byId());
+    const item = buildMenuCartItem(menu, m, { size: 'M', selections: { 1: 14, 16: 22, 31: 47 } });
+    assert.equal(item.composition.accompagnement.libelle, 'Grande Frite'); // pas "Moyenne Frite"
+    // Boisson sans maxiNom : garde son nom de base meme en Maxi (le Maxi ne l agrandit pas).
+    assert.equal(item.composition.boisson.libelle, 'Coca');
+});
+
+test('buildMenuCartItem Normal: l accompagnement garde "Moyenne Frite" (pas de variante)', () => {
+    const m = buildComposerSteps(detail(), byId());
+    const item = buildMenuCartItem(menu, m, { size: 'N', selections: { 1: 14, 16: 22, 31: 47 } });
+    assert.equal(item.composition.accompagnement.libelle, 'Moyenne Frite');
+});
+
+/* --- optionLabel (pur) : libelle affiche au CHOIX selon le format -------- */
+
+test('optionLabel: Maxi affiche la variante quand elle existe, sinon le nom de base', () => {
+    const frite = { nom: 'Moyenne Frite', maxiNom: 'Grande Frite' };
+    const coca = { nom: 'Coca', maxiNom: null };
+    assert.equal(optionLabel(frite, 'M'), 'Grande Frite');
+    assert.equal(optionLabel(frite, 'N'), 'Moyenne Frite');
+    assert.equal(optionLabel(coca, 'M'), 'Coca'); // pas de variante -> nom de base
+    assert.equal(optionLabel(coca, 'N'), 'Coca');
 });
 
 test('buildMenuCartItem: slot optionnel non choisi -> champ absent de composition', () => {

@@ -200,7 +200,7 @@ class CatalogueController extends Controller
      *        variantes ; vide si le produit n'a pas de dimension taille. Chaque entree
      *        devient {product_id, size_cl, price_cents, label} ; le label humain est
      *        derive du volume ("30 cl") -- aucun slug/enum ne fuit a l'ecran.
-     * @return array{id: int, category_id: int, name: string, description: ?string, price_cents: int, image_path: ?string, display_order: int, sizes: list<array{product_id: int, size_cl: int, price_cents: int, label: string}>}
+     * @return array{id: int, category_id: int, name: string, description: ?string, price_cents: int, image_path: ?string, display_order: int, maxi_variant_name: ?string, sizes: list<array{product_id: int, size_cl: int, price_cents: int, label: string}>}
      */
     private function presentProduct(array $row, array $sizes = []): array
     {
@@ -212,6 +212,10 @@ class CatalogueController extends Controller
             'price_cents'   => (int) ($row['price_cents'] ?? 0),
             'image_path'    => $this->nullableString($row['image_path'] ?? null),
             'display_order' => (int) ($row['display_order'] ?? 0),
+            // Nom de la variante Maxi de l'accompagnement (ex. "Grande Frite") ; NULL si
+            // le produit n'a pas de variante. La borne l'affiche en format Maxi pour ne
+            // pas montrer "Moyenne Frite" sur un menu agrandi.
+            'maxi_variant_name' => $this->nullableString($row['maxi_variant_name'] ?? null),
             'sizes'         => array_map(
                 static function (array $size): array {
                     $cl = (int) ($size['size_cl'] ?? 0);

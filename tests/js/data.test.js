@@ -68,8 +68,18 @@ test('loadProducts groupe les produits par slug a la forme borne (type produit)'
     const data = await loadProducts();
     assert.deepEqual(data.burgers, [
         // sizes (R4) : tableau vide par defaut quand l'API n'en renvoie pas.
-        { id: 10, nom: 'Big Mac', prix: 600, image: 'assets/images/produits/burgers/bigmac.png', type: 'produit', sizes: [] },
+        // maxiNom : null par defaut quand l'API n'envoie pas maxi_variant_name.
+        { id: 10, nom: 'Big Mac', prix: 600, image: 'assets/images/produits/burgers/bigmac.png', type: 'produit', maxiNom: null, sizes: [] },
     ]);
+});
+
+test('loadProducts reporte maxi_variant_name -> maxiNom (variante Maxi de l accompagnement)', async () => {
+    const fx = fixtures();
+    fx['/api/products'].data[0].maxi_variant_name = 'Grande Frite';
+    const { loadProducts } = await freshData(fx);
+
+    const data = await loadProducts();
+    assert.equal(data.burgers[0].maxiNom, 'Grande Frite');
 });
 
 test('loadProducts reporte le tableau sizes du produit (R4) tel quel', async () => {

@@ -49,11 +49,14 @@ export function compositionLabels(c) {
             : '';
         out.push(`${c.burger.libelle}${opts}`);
     }
+    // libelle fait foi : en Maxi l'accompagnement porte deja sa variante par nom
+    // ("Grande Frite"). Plus de suffixe " grande" -- il doublait le nom ("Grande Frite
+    // grande") et mentait pour la boisson (le menu Maxi ne l'agrandit pas).
     if (c.accompagnement) {
-        out.push(`${c.accompagnement.libelle}${c.accompagnement.taille === 'G' ? ' grande' : ''}`);
+        out.push(c.accompagnement.libelle);
     }
     if (c.boisson) {
-        out.push(`${c.boisson.libelle}${c.boisson.taille === 'G' ? ' grande' : ''}`);
+        out.push(c.boisson.libelle);
     }
     if (c.sauce) {
         out.push(c.sauce.libelle);

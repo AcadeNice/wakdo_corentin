@@ -26,6 +26,20 @@ import { refreshCartBadge } from './nav.js';
 /* slot_type de l'API -> champ de composition attendu par le rendu panier existant. */
 const SLOT_FIELD = { side: 'accompagnement', drink: 'boisson', sauce: 'sauce' };
 
+/**
+ * Libelle a afficher pour une option selon le format. En Maxi ('M'), un
+ * accompagnement a une variante agrandie (maxiNom, ex. "Grande Frite") : c'est ce
+ * nom que le client doit voir au moment de CHOISIR, pas le "Moyenne Frite" de base.
+ * Sans maxiNom (ex. les boissons, que le menu Maxi n'agrandit pas) ou en Normal,
+ * on garde le nom de base. Pur.
+ * @param {Object} option — produit borne {nom, maxiNom?}
+ * @param {'N'|'M'} size
+ * @returns {string}
+ */
+export function optionLabel(option, size) {
+    return (size === 'M' && option.maxiNom) ? option.maxiNom : option.nom;
+}
+
 /* ------------------------------------------------------------------ */
 /* Fonctions PURES (cible des tests, sans DOM ni fetch)                 */
 /* ------------------------------------------------------------------ */
@@ -89,9 +103,13 @@ export function buildMenuCartItem(menu, model, { size, selections }) {
         if (!chosen) continue; // slot optionnel laisse "sans"
         const field = SLOT_FIELD[slot.slotType];
         if (!field) continue;
+        // libelle PORTE le nom affiche : en Maxi, l'accompagnement prend sa variante
+        // ("Grande Frite") ; la boisson n'a pas de maxiNom (le menu Maxi ne l'agrandit
+        // pas) donc garde son nom de base. Plus de suffixe " grande" cote rendu.
+        const libelle = (isMaxi && chosen.maxiNom) ? chosen.maxiNom : chosen.nom;
         composition[field] = field === 'sauce'
             ? { id: chosen.id, libelle: chosen.nom }
-            : { id: chosen.id, libelle: chosen.nom, taille };
+            : { id: chosen.id, libelle, taille };
     }
 
     return {
@@ -294,18 +312,23 @@ function renderSlotStep(body, footer, modal, state, slot) {
                         <span class="composer-card__name">Sans</span>
                     </button>
                 </li>` : ''}
-            ${slot.options.map(o => `
+            ${slot.options.map(o => {
+                // En Maxi, l'accompagnement s'affiche sous sa variante agrandie
+                // ("Grande Frite") : le client choisit en connaissance de cause.
+                const label = optionLabel(o, state.size);
+                return `
                 <li>
                     <button class="composer-card ${state.selections[slot.id] === o.id ? 'composer-card--selected' : ''}"
                         type="button" data-pid="${o.id}"
                         aria-pressed="${state.selections[slot.id] === o.id}"
-                        aria-label="${escHtml(o.nom)}">
-                        <img class="composer-card__image" src="${escHtml(o.image)}" alt="${escHtml(o.nom)}"
+                        aria-label="${escHtml(label)}">
+                        <img class="composer-card__image" src="${escHtml(o.image)}" alt="${escHtml(label)}"
                              onerror="this.src='assets/images/ui/logo.png';">
-                        <span class="composer-card__name">${escHtml(o.nom)}</span>
+                        <span class="composer-card__name">${escHtml(label)}</span>
                     </button>
                 </li>
-            `).join('')}
+            `;
+            }).join('')}
         </ul>
     `;
     body.querySelectorAll('#slot-grid .composer-card').forEach(btn => {

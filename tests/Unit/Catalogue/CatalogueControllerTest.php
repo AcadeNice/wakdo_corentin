@@ -102,6 +102,8 @@ final class CatalogueControllerTest extends TestCase
                 'id' => '12', 'category_id' => '3', 'name' => 'Cheeseburger',
                 'description' => 'Pain, steak, cheddar', 'price_cents' => '890',
                 'vat_rate' => '100', 'image_path' => 'cheese.png', 'display_order' => '1',
+                // LEFT JOIN variante Maxi : NULL pour un produit sans variante.
+                'maxi_variant_name' => null,
             ],
         ];
 
@@ -113,7 +115,7 @@ final class CatalogueControllerTest extends TestCase
 
         $product = $payload['data'][0];
         self::assertSame(
-            ['id', 'category_id', 'name', 'description', 'price_cents', 'image_path', 'display_order', 'sizes'],
+            ['id', 'category_id', 'name', 'description', 'price_cents', 'image_path', 'display_order', 'maxi_variant_name', 'sizes'],
             array_keys($product),
         );
         self::assertSame(12, $product['id']);
@@ -121,7 +123,29 @@ final class CatalogueControllerTest extends TestCase
         self::assertSame(890, $product['price_cents']);          // chaine -> int
         self::assertArrayNotHasKey('vat_rate', $product);        // fiscal interne, non expose
         self::assertArrayNotHasKey('is_available', $product);    // toujours dispo ici -> non expose
+        self::assertNull($product['maxi_variant_name']);         // pas de variante -> null
         self::assertSame([], $product['sizes']);                 // produit mono-taille -> sizes vide
+    }
+
+    public function testProductsListExposesMaxiVariantName(): void
+    {
+        $db = new FakeCatalogueDatabase();
+        // "Moyenne Frite" (accompagnement) a une variante Maxi "Grande Frite" : le
+        // LEFT JOIN remonte mv.name AS maxi_variant_name, expose tel quel a la borne.
+        $db->productsRows = [
+            [
+                'id' => '23', 'category_id' => '4', 'name' => 'Moyenne Frite',
+                'description' => null, 'price_cents' => '250',
+                'image_path' => 'frite.png', 'display_order' => '1',
+                'maxi_variant_name' => 'Grande Frite',
+            ],
+        ];
+
+        $response = $this->controller($db, '/api/products')->products();
+
+        self::assertSame(200, $response->status());
+        $product = $this->decode($response->body())['data'][0];
+        self::assertSame('Grande Frite', $product['maxi_variant_name']);
     }
 
     public function testProductsListPresentsSizesArrayForDrinkWithVariants(): void
@@ -205,6 +229,8 @@ final class CatalogueControllerTest extends TestCase
             'id' => '12', 'category_id' => '3', 'name' => 'Cheeseburger',
             'description' => null, 'price_cents' => '890', 'vat_rate' => '100',
             'image_path' => null, 'display_order' => '1',
+            // Detail d'un accompagnement avec variante Maxi : le nom doit ressortir.
+            'maxi_variant_name' => 'Grande Frite',
         ];
 
         $response = $this->controller($db, '/api/products/12')->product(['id' => '12']);
@@ -215,6 +241,7 @@ final class CatalogueControllerTest extends TestCase
         self::assertSame(12, $product['id']);
         self::assertSame(890, $product['price_cents']);
         self::assertNull($product['description']);
+        self::assertSame('Grande Frite', $product['maxi_variant_name']); // variante exposee
         self::assertArrayNotHasKey('vat_rate', $product);
         // L'id a bien ete lie a la lecture, converti en entier (le repo a recu :id = 12).
         self::assertSame(12, $db->reads[0]['params']['id'] ?? null);
