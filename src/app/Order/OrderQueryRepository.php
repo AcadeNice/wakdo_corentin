@@ -39,6 +39,58 @@ class OrderQueryRepository
     }
 
     /**
+     * Sources de commande visibles par un role (role_visible_source, dictionary 3.16).
+     * Liste vide en base = vue globale (admin / manager voient tout) : on renvoie alors
+     * les trois sources. Sert a filtrer la file de preparation par canal.
+     *
+     * @return list<string>
+     */
+    public function visibleSources(int $roleId): array
+    {
+        $rows = $this->db->fetchAll(
+            'SELECT source FROM role_visible_source WHERE role_id = :r',
+            ['r' => $roleId],
+        );
+        $sources = array_values(array_filter(array_map(
+            static fn (array $r): string => (string) ($r['source'] ?? ''),
+            $rows,
+        )));
+
+        return $sources === [] ? ['kiosk', 'counter', 'drive'] : $sources;
+    }
+
+    /**
+     * File de preparation (KDS) : commandes au statut `paid`, triees par paid_at
+     * CROISSANT (la plus ancienne d'abord, RG-T12), filtrees par les sources visibles.
+     * Les sources viennent d'une allowlist (role_visible_source) et sont liees comme
+     * parametres. Liste de sources vide -> file vide (pas de canal visible).
+     *
+     * @param list<string> $sources
+     * @return list<array<string, mixed>>
+     */
+    public function paidQueue(array $sources): array
+    {
+        if ($sources === []) {
+            return [];
+        }
+
+        $placeholders = [];
+        $params = [];
+        foreach (array_values($sources) as $i => $source) {
+            $key = 's' . $i;
+            $placeholders[] = ':' . $key;
+            $params[$key] = $source;
+        }
+
+        return $this->db->fetchAll(
+            'SELECT order_number, source, service_mode, service_tag, total_ttc_cents, paid_at '
+            . 'FROM customer_order WHERE status = \'paid\' AND source IN (' . implode(', ', $placeholders) . ') '
+            . 'ORDER BY paid_at ASC, id ASC',
+            $params,
+        );
+    }
+
+    /**
      * KPIs de vente : CA encaisse (statuts paid + delivered), nombre de commandes
      * encaissees, panier moyen, CA et nombre du JOUR, total de commandes, et la
      * repartition par statut. Le CA exclut les commandes pending_payment (non

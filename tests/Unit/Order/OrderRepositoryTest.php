@@ -285,4 +285,76 @@ final class OrderRepositoryTest extends TestCase
         $move = $db->firstWrite('INSERT INTO stock_movement');
         self::assertSame(7, $move['uid']);
     }
+
+    public function testDeliverTransitionsPaidToDelivered(): void
+    {
+        $db = new FakeOrderDatabase();
+        $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => 'paid'];
+
+        $res = $this->repo($db)->deliver('K100');
+
+        self::assertSame('delivered', $res['status']);
+        self::assertSame('K100', $res['order_number']);
+        self::assertNotSame([], $db->firstWrite('UPDATE customer_order SET status'));
+    }
+
+    public function testDeliverUnknownThrows(): void
+    {
+        $db = new FakeOrderDatabase();
+        $db->orderByNumber = null;
+
+        $this->expectException(OrderValidationException::class);
+        $this->expectExceptionMessage('ORDER_NOT_FOUND');
+        $this->repo($db)->deliver('K404');
+    }
+
+    public function testDeliverNonPaidThrowsInvalidTransition(): void
+    {
+        $db = new FakeOrderDatabase();
+        $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => 'pending_payment'];
+
+        $this->expectException(OrderValidationException::class);
+        $this->expectExceptionMessage('INVALID_TRANSITION');
+        $this->repo($db)->deliver('K100');
+    }
+
+    public function testDeliverAlreadyDeliveredIsIdempotent(): void
+    {
+        $db = new FakeOrderDatabase();
+        $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => 'delivered'];
+
+        $res = $this->repo($db)->deliver('K100');
+
+        self::assertSame('delivered', $res['status']);
+        // Idempotent : aucune transition reecrite.
+        self::assertSame([], $db->firstWrite('UPDATE customer_order SET status'));
+    }
+
+    public function testDeliverConcurrentRaceRecoversIdempotent(): void
+    {
+        // Course perdue : l'UPDATE garde par status='paid' n'affecte 0 ligne (un autre
+        // appel a deja transite). Le recheck voit 'delivered' -> on sort idempotent.
+        $db = new FakeOrderDatabase();
+        $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => 'paid'];
+        $db->payUpdateAffected = 0;
+        $db->recheckStatus = 'delivered';
+
+        $res = $this->repo($db)->deliver('K100');
+
+        self::assertSame('delivered', $res['status']);
+    }
+
+    public function testDeliverConcurrentRaceToTerminalThrows(): void
+    {
+        // Course perdue ET le recheck montre un statut non-delivered (ex. cancelled)
+        // -> transition invalide.
+        $db = new FakeOrderDatabase();
+        $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => 'paid'];
+        $db->payUpdateAffected = 0;
+        $db->recheckStatus = 'cancelled';
+
+        $this->expectException(OrderValidationException::class);
+        $this->expectExceptionMessage('INVALID_TRANSITION');
+        $this->repo($db)->deliver('K100');
+    }
 }

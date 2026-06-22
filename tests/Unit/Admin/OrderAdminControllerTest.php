@@ -129,4 +129,21 @@ final class OrderAdminControllerTest extends TestCase
         self::assertStringContainsString('Payee', $body);       // statut paid
         self::assertStringContainsString('A emporter', $body);  // takeaway -> libelle
     }
+
+    public function testDeliverRequiresOrderDeliverPermission(): void
+    {
+        $db = $this->permittedDb();
+        $db->canResult = false; // pas de order.deliver -> 403 avant toute action
+
+        self::assertSame(403, $this->controller($db)->deliver(['number' => 'K42'])->status());
+    }
+
+    public function testDeliverRejectsInvalidCsrf(): void
+    {
+        // order.deliver accorde (canResult=true) mais aucun jeton CSRF dans la requete
+        // -> la garde CSRF refuse (403) avant toute transition.
+        $response = $this->controller($this->permittedDb())->deliver(['number' => 'K42']);
+
+        self::assertSame(403, $response->status());
+    }
 }

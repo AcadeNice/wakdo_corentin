@@ -123,6 +123,7 @@ $navClass = static function (string $code, string $current): string {
             <?php endif; ?>
             <?php if ($can('order.read')): ?>
                 <a href="/admin/orders" class="<?= $navClass('orders', $active) ?>">Commandes</a>
+                <a href="/kitchen/display" class="<?= $navClass('kitchen', $active) ?>">Cuisine (KDS)</a>
             <?php endif; ?>
         </div>
         <?php endif; ?>

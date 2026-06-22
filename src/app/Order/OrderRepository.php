@@ -291,6 +291,57 @@ class OrderRepository
     }
 
     /**
+     * Transition paid -> delivered (DELIVER_ORDER, geste unique de remise, mlt 6.1).
+     * NON PIN-gated : operation routiniere, hors ensemble sensible RG-T13. Idempotente
+     * (une commande deja delivered est renvoyee sans erreur). 404 si inconnue ;
+     * INVALID_TRANSITION si la commande n'est pas au statut paid (pending / cancelled).
+     *
+     * @return array{id:int, order_number:string, total_ttc_cents:int, status:string}
+     * @throws OrderValidationException
+     */
+    public function deliver(string $orderNumber): array
+    {
+        $order = $this->db->fetch(
+            'SELECT id, order_number, total_ttc_cents, status FROM customer_order WHERE order_number = :n',
+            ['n' => $orderNumber],
+        );
+        if ($order === null) {
+            throw new OrderValidationException('ORDER_NOT_FOUND');
+        }
+
+        $result = [
+            'id'              => (int) $order['id'],
+            'order_number'    => (string) $order['order_number'],
+            'total_ttc_cents' => (int) $order['total_ttc_cents'],
+            'status'          => 'delivered',
+        ];
+
+        $status = (string) $order['status'];
+        if ($status === 'delivered') {
+            return $result; // idempotent : remise deja actee.
+        }
+        if ($status !== 'paid') {
+            throw new OrderValidationException('INVALID_TRANSITION'); // pending_payment / cancelled.
+        }
+
+        $affected = $this->db->execute(
+            'UPDATE customer_order SET status = \'delivered\', delivered_at = NOW(), '
+            . 'updated_at = NOW() WHERE id = :id AND status = \'paid\'',
+            ['id' => (int) $order['id']],
+        );
+        if ($affected === 0) {
+            // Course perdue : un autre appel a deja transite. Idempotent si delivered.
+            $current = (string) ($this->db->fetch('SELECT status FROM customer_order WHERE id = :id', ['id' => (int) $order['id']])['status'] ?? '');
+            if ($current === 'delivered') {
+                return $result;
+            }
+            throw new OrderValidationException('INVALID_TRANSITION');
+        }
+
+        return $result;
+    }
+
+    /**
      * Unites de stock a decrementer, AGREGEES par ingredient_id sur toute la
      * commande (lecture des lignes persistees + recettes des produits supports).
      * Cle = ingredient_id, triee croissant (ordre de verrou stable). Un ingredient

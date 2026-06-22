@@ -18,6 +18,7 @@ use App\Controllers\DashboardController;
 use App\Controllers\HealthController;
 use App\Controllers\HomeController;
 use App\Controllers\IngredientController;
+use App\Controllers\KitchenController;
 use App\Controllers\MeController;
 use App\Controllers\MenuController;
 use App\Controllers\OrderAdminController;
@@ -114,6 +115,11 @@ try {
 
     // Commandes (P4, order.read) : liste lecture seule du domaine commande.
     $router->add('GET', '/admin/orders', [OrderAdminController::class, 'index']);
+    // Remise au client : paid -> delivered (order.deliver, geste unique, POST + CSRF).
+    $router->add('POST', '/admin/orders/{number}/deliver', [OrderAdminController::class, 'deliver']);
+    // Affichage cuisine (KDS) : file des commandes payees (order.read). Landing du role
+    // kitchen (seed role.default_route = /kitchen/display) ; corrige le 404 d'apres-login.
+    $router->add('GET', '/kitchen/display', [KitchenController::class, 'display']);
 
     // Gestion des comptes (mlt domaine 10). user.read (liste) ; user.create/update/
     // deactivate. TOUTES les mutations = PIN equipier + audit (RG-T13/14). {id} = un
