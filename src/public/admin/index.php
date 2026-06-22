@@ -23,6 +23,7 @@ use App\Controllers\MenuController;
 use App\Controllers\OrderAdminController;
 use App\Controllers\OrderController;
 use App\Controllers\PasswordResetController;
+use App\Controllers\PrivacyController;
 use App\Controllers\ProductController;
 use App\Controllers\ProfileController;
 use App\Controllers\StatsController;
@@ -146,6 +147,10 @@ try {
     // Profil self-service : definition du PIN d'action sensible (RG-T13).
     $router->add('GET', '/admin/profile/pin', [ProfileController::class, 'showPin']);
     $router->add('POST', '/admin/profile/pin', [ProfileController::class, 'updatePin']);
+
+    // Mention d'information RGPD (Cr 3.d.2) : traitement des donnees personnelles du
+    // personnel. Accessible a tout utilisateur authentifie (aucune permission requise).
+    $router->add('GET', '/admin/privacy', [PrivacyController::class, 'index']);
 
     // CRUD Produits (product.read/create/update/delete). PIN equipier + audit sur
     // changement prix/TVA (update) et suppression (delete).
