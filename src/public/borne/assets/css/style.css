@@ -12,8 +12,11 @@
  *   - Card border   : 2px solid #FFC72C when selected / active
  *
  * Kiosk target: 1080x1920 portrait (touch screen).
- * Font stack: system-ui fallback — school font is not available as a web asset.
- * OpenDys is loaded conditionally for accessibility (RGAA Cr 1.c.4).
+ * Base font stack: system-ui fallback (the school font is not available as a web asset).
+ * Accessibility (RGAA Cr 1.c.2): the OpenDyslexic font (OFL 1.1) is self-hosted under
+ *   assets/fonts (see @font-face in section 12). a11y.js adds the .dys-font class on
+ *   <html> on demand, which redefines --font-family-base for the whole interface, and
+ *   persists the choice in localStorage. Base stack is the default.
  */
 
 /* ============================================================
@@ -2148,4 +2151,70 @@ button {
     font-weight: var(--font-weight-bold);
     text-align: center;
     margin: var(--space-4) 0;
+}
+
+/* ============================================================
+   12. ACCESSIBILITY — dyslexia-friendly font + toggle (RGAA Cr 1.c.2)
+   ============================================================ */
+
+/* OpenDyslexic (OFL 1.1), self-hosted under assets/fonts (see LICENSE-OpenDyslexic.txt).
+   font-display: swap keeps text visible while the face downloads. */
+@font-face {
+    font-family: "OpenDyslexic";
+    src: url("../fonts/opendyslexic-latin-400-normal.woff2") format("woff2");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: "OpenDyslexic";
+    src: url("../fonts/opendyslexic-latin-700-normal.woff2") format("woff2");
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+
+/* a11y.js sets .dys-font on <html>; the whole interface then inherits the
+   dyslexia-friendly stack via --font-family-base. Higher specificity than :root,
+   so it overrides the base token. */
+html.dys-font {
+    --font-family-base: "OpenDyslexic", system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+}
+
+/* Fixed accessibility control, present on every screen (injected by a11y.js). */
+.a11y-toggle {
+    position: fixed;
+    top: var(--space-3);
+    right: var(--space-3);
+    z-index: 1000;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    background: var(--color-bg-card);
+    color: var(--color-text-primary);
+    border: 2px solid var(--color-border-default);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-card);
+    font-family: var(--font-family-base);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-bold);
+    cursor: pointer;
+}
+
+.a11y-toggle__icon {
+    font-size: var(--font-size-md);
+    line-height: 1;
+}
+
+/* Active state: not signalled by colour alone (RGAA 1.4.1) — aria-pressed exposes
+   the state to assistive tech, and the label text stays visible. */
+.a11y-toggle[aria-pressed="true"] {
+    background: var(--color-brand-yellow);
+    border-color: var(--color-brand-yellow-dk);
+}
+
+.a11y-toggle:focus-visible {
+    outline: 3px solid var(--color-brand-yellow-dk);
+    outline-offset: 2px;
 }

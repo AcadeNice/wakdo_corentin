@@ -1,0 +1,21 @@
+OpenDyslexic
+============
+
+Files:
+  opendyslexic-latin-400-normal.woff2
+  opendyslexic-latin-700-normal.woff2
+
+Copyright (c) Abelardo Gonzalez, with Reserved Font Name "OpenDyslexic".
+
+OpenDyslexic is licensed under the SIL Open Font License, Version 1.1 (OFL-1.1).
+This license is available with a FAQ at: https://openfontlicense.org
+
+These web font files (latin subset, woff2) were obtained from the npm package
+@fontsource/opendyslexic (jsDelivr mirror) and are redistributed here unmodified,
+as permitted by the OFL, to be served self-hosted by the Wakdo kiosk for the
+dyslexia-friendly display option (RGAA Cr 1.c.2).
+
+Under the OFL: the font may be used, studied, modified and redistributed freely
+as long as it is not sold by itself; redistributions must retain this notice and
+the license; and the Reserved Font Name may not be used to promote derivative
+fonts. The full license text accompanies the upstream font package.
