@@ -113,12 +113,15 @@ La borne est publique (aucune session) ; cf. `mlt.md` CREATE_ORDER, declencheur 
 
 | Methode | Chemin | Permission | Op MCT | Statut |
 |---|---|---|---|---|
-| GET | `/api/categories` | (lecture publique) | READ_CATALOGUE | prevu |
-| GET | `/api/products` | (lecture publique) | READ_CATALOGUE | prevu |
-| GET | `/api/products/{id}` | (lecture publique) | READ_CATALOGUE | prevu |
-| GET | `/api/menus` | (lecture publique) | READ_CATALOGUE | prevu |
-| GET | `/api/menus/{id}` | (lecture publique) | READ_CATALOGUE | prevu |
-| POST | `/api/orders` | (kiosk public) | CREATE_ORDER (mlt 3.3) | prevu (idempotency_key, RG-T19) |
+| GET | `/api/categories` | (lecture publique) | READ_CATALOGUE | livre |
+| GET | `/api/products` | (lecture publique) | READ_CATALOGUE | livre |
+| GET | `/api/products/{id}` | (lecture publique) | READ_CATALOGUE | livre |
+| GET | `/api/menus` | (lecture publique) | READ_CATALOGUE | livre |
+| GET | `/api/menus/{id}` | (lecture publique) | READ_CATALOGUE | livre (slots de composition) |
+| GET | `/api/allergens` | (lecture publique) | READ_CATALOGUE | livre (14 allergenes INCO) |
+| POST | `/api/orders` | (kiosk public) | CREATE_ORDER (mlt 3.3) | livre (idempotency_key, RG-T19) |
+| POST | `/api/orders/{number}/pay` | (kiosk public) | (encaissement) | livre (paid + decrement stock RG-T20) |
+| GET | `/api/orders/{number}` | (lecture publique) | (suivi statut) | livre (champs non sensibles : numero, statut, total) |
 
 ### 5.3 API / pages back-office (prevu P3-P4, session + permission)
 
@@ -132,7 +135,7 @@ Commandes (cote equipier) :
 | Methode | Chemin | Permission | Op MCT | Note |
 |---|---|---|---|---|
 | GET | `/api/orders` | `order.read` | READ_ORDERS | filtre par `role_visible_source` (RG-T12) |
-| GET | `/api/orders/{number}` | `order.read` | READ_ORDERS | |
+| GET | `/api/orders/{number}` | `order.read` | READ_ORDERS | vue back-office detaillee (differe) ; le suivi public minimal est livre en 5.2 |
 | POST | `/api/orders` (comptoir/drive) | `order.create` | CREATE_COUNTER_ORDER (mlt 4.1) | source auto-taggee |
 | POST | `/api/orders/{id}/deliver` | `order.deliver` | DELIVER_ORDER (mlt 6.1) | |
 | POST | `/api/orders/{id}/cancel` | `order.cancel` | CANCEL_ORDER (mlt 7.1) | PIN + audit_log (RG-T13/14) |

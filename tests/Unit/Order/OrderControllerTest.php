@@ -132,4 +132,43 @@ final class OrderControllerTest extends TestCase
         self::assertIsArray($data);
         self::assertSame('INVALID_TRANSITION', $data['error']['code'] ?? null);
     }
+
+    public function testShowReturnsOrderStatus(): void
+    {
+        $db = new FakeOrderDatabase();
+        $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => 'paid'];
+
+        $response = $this->controller($db, '', '/api/orders/K100')->show(['number' => 'K100']);
+
+        self::assertSame(200, $response->status());
+        $data = json_decode($response->body(), true);
+        self::assertIsArray($data);
+        self::assertSame('K100', $data['data']['order_number'] ?? null);
+        self::assertSame('paid', $data['data']['status'] ?? null);
+        self::assertSame(890, $data['data']['total_ttc_cents'] ?? null);
+    }
+
+    public function testShowUnknownReturns404(): void
+    {
+        $db = new FakeOrderDatabase();
+        $db->orderByNumber = null;
+
+        $response = $this->controller($db, '', '/api/orders/K404')->show(['number' => 'K404']);
+
+        self::assertSame(404, $response->status());
+        $data = json_decode($response->body(), true);
+        self::assertIsArray($data);
+        self::assertSame('ORDER_NOT_FOUND', $data['error']['code'] ?? null);
+    }
+
+    public function testShowEmptyNumberReturns404(): void
+    {
+        $db = new FakeOrderDatabase();
+        $db->orderByNumber = ['id' => 1, 'order_number' => 'K1', 'total_ttc_cents' => 100, 'status' => 'paid'];
+
+        // Numero vide : court-circuite avant toute lecture BDD (findByNumber renvoie null).
+        $response = $this->controller($db, '', '/api/orders/')->show(['number' => '']);
+
+        self::assertSame(404, $response->status());
+    }
 }

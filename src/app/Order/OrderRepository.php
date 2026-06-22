@@ -60,6 +60,35 @@ class OrderRepository
     }
 
     /**
+     * Recherche une commande par son numero (prefixe canal K/C/D + id). Lecture
+     * publique du statut cote borne (suivi apres encaissement). Renvoie null si le
+     * numero est inconnu. Lecture seule : ne sert que des champs non sensibles
+     * (la commande kiosk est anonyme, pas de PII).
+     *
+     * @return array{id:int, order_number:string, total_ttc_cents:int, status:string}|null
+     */
+    public function findByNumber(string $number): ?array
+    {
+        if ($number === '') {
+            return null;
+        }
+        $row = $this->db->fetch(
+            'SELECT id, order_number, total_ttc_cents, status FROM customer_order WHERE order_number = :n',
+            ['n' => $number],
+        );
+        if ($row === null) {
+            return null;
+        }
+
+        return [
+            'id'              => (int) $row['id'],
+            'order_number'    => (string) $row['order_number'],
+            'total_ttc_cents' => (int) $row['total_ttc_cents'],
+            'status'          => (string) $row['status'],
+        ];
+    }
+
+    /**
      * Cree une commande borne en pending_payment. Idempotent sur idempotency_key.
      *
      * Tolerant sur la forme d'entree (corps JSON decode tel quel) : chaque cle est

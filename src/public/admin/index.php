@@ -88,6 +88,8 @@ try {
     // un seul segment (numero K+id), pas de collision avec un sous-chemin.
     $router->add('POST', '/api/orders', [OrderController::class, 'create']);
     $router->add('POST', '/api/orders/{number}/pay', [OrderController::class, 'pay']);
+    // Suivi public du statut d'une commande par son numero (lecture seule, anonyme).
+    $router->add('GET', '/api/orders/{number}', [OrderController::class, 'show']);
 
     // Lecture catalogue borne (P4, docs/api/conventions.md section 5.2). API publique
     // kiosk, ANONYME : la borne consulte sans session. Lecture seule ; ne sert que le

@@ -58,6 +58,25 @@ class OrderController extends Controller
     }
 
     /**
+     * Lecture publique du statut d'une commande par son numero (suivi borne apres
+     * encaissement). Anonyme, lecture seule ; 404 si le numero est inconnu.
+     *
+     * @param array<string, string> $params
+     */
+    public function show(array $params = []): Response
+    {
+        $order = $this->orders()->findByNumber((string) ($params['number'] ?? ''));
+        if ($order === null) {
+            return $this->json(
+                ['data' => null, 'error' => ['code' => 'ORDER_NOT_FOUND', 'message' => $this->messageFor('ORDER_NOT_FOUND')]],
+                404,
+            );
+        }
+
+        return $this->json(['data' => $this->present($order)]);
+    }
+
+    /**
      * Fabrique le repository de commande sur l'acces BDD courant. Hook de test
      * (sous-classe -> double) : redefinir db() suffit a injecter une base factice.
      */
