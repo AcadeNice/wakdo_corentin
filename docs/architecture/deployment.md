@@ -42,8 +42,16 @@ GET /api/health renvoie le nouveau SHA  ← preuve du deploiement
 
 ## Mise en place cote Vision (une fois)
 
-Prerequis : Docker + docker compose, le depot clone (ex. `/srv/wakdo`), un `.env` de
-prod renseigne et un `docker-compose.prod.yml` propre a l'hote.
+Prerequis : Docker + docker compose, le depot clone (ex. `/srv/wakdo`).
+
+Le compose et le `.env` de prod ne sont pas versionnes (propres a l'hote) ; ils se
+derivent des modeles fournis dans le depot :
+```bash
+cp docker-compose.prod.yml.example docker-compose.prod.yml
+cp .env.prod.example .env       # puis renseigner domaines + mots de passe + reseau Traefik
+docker compose -f docker-compose.prod.yml up -d --build
+```
+Le compose est entierement pilote par le `.env` : le meme fichier marche sur tout hote.
 
 1. Creer un utilisateur dedie au deploiement, membre du groupe `docker` :
    ```bash

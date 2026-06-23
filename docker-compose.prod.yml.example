@@ -1,0 +1,178 @@
+# Modele de compose de production (derriere un reverse proxy Traefik).
+#
+# Entierement pilote par le .env : le meme fichier marche sur n'importe quel hote,
+# seules les valeurs du .env changent. Sur l'hote de prod :
+#   cp docker-compose.prod.yml.example docker-compose.prod.yml
+#   cp .env.prod.example .env   # puis renseigner domaines + mots de passe
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Prerequis : le reseau externe ${REVERSE_PROXY_NETWORK} existe (cree par la stack
+# Traefik de l'hote). Les entrypoints (websecure) et le certresolver (letsencrypt)
+# doivent correspondre a la config Traefik de l'hote.
+
+name: wakdo
+
+networks:
+  wakdo_internal:
+    driver: bridge
+  reverse_proxy:
+    name: ${REVERSE_PROXY_NETWORK}
+    external: true
+
+volumes:
+  wakdo_db_data:
+  wakdo_uploads:
+
+services:
+
+  wakdo-db:
+    image: mariadb:11.4
+    container_name: wakdo-db
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MARIADB_DATABASE: ${DB_NAME}
+      MARIADB_USER: ${DB_USER}
+      MARIADB_PASSWORD: ${DB_PASSWORD}
+      MARIADB_AUTO_UPGRADE: "1"
+      TZ: ${APP_TIMEZONE:-Europe/Paris}
+    volumes:
+      - wakdo_db_data:/var/lib/mysql
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - wakdo_internal
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+
+  wakdo-migrate:
+    image: mariadb:11.4
+    container_name: wakdo-migrate
+    restart: "no"
+    environment:
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${DB_NAME}
+      DB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+    volumes:
+      - ./db:/db:ro
+    networks:
+      - wakdo_internal
+    depends_on:
+      wakdo-db:
+        condition: service_healthy
+    entrypoint: ["bash", "/db/migrate-container.sh"]
+
+  wakdo-app:
+    build:
+      context: ./docker/php-fpm
+      dockerfile: Dockerfile
+    container_name: wakdo-app
+    restart: unless-stopped
+    environment:
+      APP_ENV: ${APP_ENV}
+      APP_DEBUG: ${APP_DEBUG}
+      APP_TIMEZONE: ${APP_TIMEZONE}
+      APP_URL_KIOSK: ${APP_URL_KIOSK}
+      APP_URL_ADMIN: ${APP_URL_ADMIN}
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      SESSION_LIFETIME_IDLE: ${SESSION_LIFETIME_IDLE}
+      SESSION_LIFETIME_ABSOLUTE: ${SESSION_LIFETIME_ABSOLUTE}
+      SESSION_NAME: ${SESSION_NAME}
+      CORS_ALLOWED_ORIGIN: ${CORS_ALLOWED_ORIGIN}
+      ARGON2_MEMORY_COST: ${ARGON2_MEMORY_COST}
+      ARGON2_TIME_COST: ${ARGON2_TIME_COST}
+      ARGON2_THREADS: ${ARGON2_THREADS}
+      ACCOUNT_LOCKOUT_THRESHOLD: ${ACCOUNT_LOCKOUT_THRESHOLD}
+      ACCOUNT_LOCKOUT_BASE_SECONDS: ${ACCOUNT_LOCKOUT_BASE_SECONDS}
+      ACCOUNT_LOCKOUT_MAX_SECONDS: ${ACCOUNT_LOCKOUT_MAX_SECONDS}
+      IP_THROTTLE_WINDOW_SECONDS: ${IP_THROTTLE_WINDOW_SECONDS}
+      IP_THROTTLE_MAX_ATTEMPTS: ${IP_THROTTLE_MAX_ATTEMPTS}
+      STAFF_PIN_MIN_LENGTH: ${STAFF_PIN_MIN_LENGTH}
+      STAFF_PIN_MAX_LENGTH: ${STAFF_PIN_MAX_LENGTH}
+      PIN_THROTTLE_THRESHOLD: ${PIN_THROTTLE_THRESHOLD}
+      PIN_THROTTLE_BASE_SECONDS: ${PIN_THROTTLE_BASE_SECONDS}
+      PIN_THROTTLE_MAX_SECONDS: ${PIN_THROTTLE_MAX_SECONDS}
+      PIN_THROTTLE_WINDOW_SECONDS: ${PIN_THROTTLE_WINDOW_SECONDS}
+      PASSWORD_RESET_TTL: ${PASSWORD_RESET_TTL}
+      UPLOAD_MAX_SIZE_MB: ${UPLOAD_MAX_SIZE_MB}
+      UPLOAD_ALLOWED_MIME: ${UPLOAD_ALLOWED_MIME}
+    volumes:
+      - ./src:/var/www/html
+      - wakdo_uploads:/var/www/html/public/uploads
+    networks:
+      - wakdo_internal
+    depends_on:
+      wakdo-migrate:
+        condition: service_completed_successfully
+      wakdo-db:
+        condition: service_healthy
+
+  wakdo-web:
+    build:
+      context: ./docker/apache
+      dockerfile: Dockerfile
+    container_name: wakdo-web
+    restart: unless-stopped
+    environment:
+      APP_HOST_KIOSK: ${APP_HOST_KIOSK}
+      APP_HOST_ADMIN: ${APP_HOST_ADMIN}
+    volumes:
+      - ./src:/var/www/html
+      - wakdo_uploads:/var/www/html/public/uploads
+    networks:
+      - wakdo_internal
+      - reverse_proxy
+    depends_on:
+      wakdo-migrate:
+        condition: service_completed_successfully
+      wakdo-app:
+        condition: service_started
+      wakdo-db:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=${REVERSE_PROXY_NETWORK}"
+      - "traefik.http.routers.wakdo-kiosk.rule=Host(`${APP_HOST_KIOSK}`)"
+      - "traefik.http.routers.wakdo-kiosk.entrypoints=websecure"
+      - "traefik.http.routers.wakdo-kiosk.tls=true"
+      - "traefik.http.routers.wakdo-kiosk.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.wakdo-kiosk.service=wakdo-kiosk-svc"
+      - "traefik.http.services.wakdo-kiosk-svc.loadbalancer.server.port=80"
+      - "traefik.http.routers.wakdo-admin.rule=Host(`${APP_HOST_ADMIN}`)"
+      - "traefik.http.routers.wakdo-admin.entrypoints=websecure"
+      - "traefik.http.routers.wakdo-admin.tls=true"
+      - "traefik.http.routers.wakdo-admin.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.wakdo-admin.service=wakdo-admin-svc"
+      - "traefik.http.services.wakdo-admin-svc.loadbalancer.server.port=80"
+
+  wakdo-cron:
+    build:
+      context: ./docker/cron
+      dockerfile: Dockerfile
+    container_name: wakdo-cron
+    restart: unless-stopped
+    init: true
+    environment:
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      AUDIT_LOG_RETENTION_DAYS: ${AUDIT_LOG_RETENTION_DAYS:-365}
+      THROTTLE_PURGE_AFTER_HOURS: ${THROTTLE_PURGE_AFTER_HOURS:-24}
+      TZ: ${CRON_TIMEZONE:-Europe/Paris}
+    volumes:
+      - ./var/backups:/backups
+    networks:
+      - wakdo_internal
+    depends_on:
+      wakdo-db:
+        condition: service_healthy
