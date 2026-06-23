@@ -1,0 +1,45 @@
+name: Deploy
+# Deploiement continu (CD) vers Vision (prod) a chaque release sur main.
+#
+# Topologie : le runner tourne sur Stark (dev) et n'a pas le socket Docker. Il ne
+# pilote donc PAS Docker lui-meme : il OUVRE une session SSH vers Vision (prod, hote
+# distinct) ou une forced command (cote Vision) lance scripts/deploy.sh. La cle CI ne
+# peut ainsi declencher QUE le deploiement, rien d'autre.
+#
+# main n'est alimentee que par des PR dev->main deja passees par la CI : le code
+# deploye a donc deja ete teste. Voir docs/architecture/deployment.md pour la mise en
+# place cote Vision (utilisateur deploy, forced command) et les secrets a creer.
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: docker
+    steps:
+      - name: Install SSH client
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq openssh-client >/dev/null
+      - name: Deploy to Vision over SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+        run: |
+          set -eu
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          # Cle d'hote epinglee (pas de TOFU) : la connexion echoue si Vision ne
+          # presente pas la cle attendue.
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          # Aucune commande passee : la forced command cote Vision lance deploy.sh.
+          # BatchMode : pas de prompt interactif (un echec d'auth echoue vite au lieu
+          # de pendre le job) ; ConnectTimeout borne l'attente si Vision est injoignable.
+          ssh -i ~/.ssh/id_deploy -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            -o BatchMode=yes -o ConnectTimeout=15 \
+            "$DEPLOY_USER@$DEPLOY_HOST"
