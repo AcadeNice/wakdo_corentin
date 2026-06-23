@@ -89,6 +89,12 @@ services:
       PASSWORD_RESET_TTL: ${PASSWORD_RESET_TTL}
       UPLOAD_MAX_SIZE_MB: ${UPLOAD_MAX_SIZE_MB}
       UPLOAD_ALLOWED_MIME: ${UPLOAD_ALLOWED_MIME}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      MAIL_FROM_EMAIL: ${MAIL_FROM_EMAIL:-}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Wakdo}
     volumes:
       - ./src:/var/www/html
       - wakdo_uploads:/var/www/html/public/uploads
