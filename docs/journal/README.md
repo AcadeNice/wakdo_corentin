@@ -31,6 +31,8 @@ Les fichiers sont ordonnes chronologiquement par leur nom.
 | 2026-04-24 | [infra-docker](2026-04-24--infra-docker.md) | Stack Docker complete (compose + 4 services), referentiel RNCP integre, cross-check mappings Cr 4.f | `feat/infra-docker` |
 | 2026-04-30 | [smoke-test-infra](2026-04-30--smoke-test-infra.md) | Smoke test bout-en-bout sur serveur reel : fusion .env, switch FQDN sur stark.a3n.fr, subnet explicite RFC 1918, fix init cron + healthz | `feat/infra-docker` |
 | 2026-06-04 | [conception-prodlike-revision](2026-06-04--conception-prodlike-revision.md) | Revue d'alignement P1 + decisions prod-like du modele de donnees (drop commande_event, nommage EN, TVA par produit apres fact-check BOFiP, perso menus/ingredients, allergenes, ~16 entites) | `feat/p1-conception` |
+| 2026-06-15 | [p3-throttle-pin-rg-t22](2026-06-15--p3-throttle-pin-rg-t22.md) | P3 securite : throttle du PIN d'action sensible (RG-T22) — design multi-agents + verification adversariale, dimension "utilisateur agissant", entite 22 `pin_throttle` | `feat/p3-pin-throttle` -> `dev` |
+| 2026-06-16 | [audit-reel-livrables-p2-p3](2026-06-16--audit-reel-livrables-p2-p3.md) | Verification sur pieces des livrables du 2026-06-15 (sweep 10 dimensions + adversarial) : socle SbD confirme, miss confirmes par gravite (php.ini non deploye, CI sans tests DB, XSS kiosk, liens morts...) et remediations | `docs/journal-audit-2026-06-16` -> `dev` (PR #19/#20/#21) |
 
 *Mis a jour a chaque nouvelle entree.*
 

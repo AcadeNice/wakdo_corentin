@@ -1,0 +1,22 @@
+# Analyse statique sans Composer : lancee via le .phar autonome
+# (php phpstan.phar analyse --no-progress --error-format=raw).
+# Aucune baseline, aucun vendor/ : colle au "from scratch" (PROJECT_CONTEXT.md decision 4).
+parameters:
+    level: 6
+    paths:
+        - src
+        - tests
+    treatPhpDocTypesAsCertain: false
+    # Les classes de PHPUnit (TestCase, ...) vivent dans le .phar autonome, hors
+    # de src/. On les expose a PHPStan en scannant le phar telecharge par la CI.
+    # Si phpunit.phar est absent (analyse de src/ seul en local), la ligne est
+    # sans effet : on neutralise alors le bruit "classe inconnue" cote tests.
+    scanDirectories:
+        - phar://phpunit.phar
+    ignoreErrors:
+        # Tolere l'absence de phpunit.phar en local : les symboles PHPUnit ne
+        # sont alors pas resolus. En CI le phar est present, l'analyse est complete.
+        -
+            identifier: class.notFound
+            path: tests/*
+            reportUnmatched: false

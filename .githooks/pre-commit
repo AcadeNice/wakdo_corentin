@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+#
+# Wakdo - hook pre-commit : garde-fous locaux avant chaque commit.
+#
+# Active via scripts/install-hooks.sh (git config core.hooksPath .githooks).
+# Defense en profondeur cote dev ; la protection de reference reste la CI Forgejo
+# (secret-scan, php-lint, static-tests) et la branch protection serveur.
+#
+# Controles :
+#   1. Refuse un commit direct sur main ou dev (PROJECT_CONTEXT regle 18.5).
+#   2. Lint PHP (php -l) sur les fichiers .php indexes, si php est disponible.
+#
+# Exit codes : 0 = OK ; 1 = commit bloque.
+
+set -euo pipefail
+
+BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "dev" ]; then
+    echo "pre-commit: commit direct sur '$BRANCH' interdit (regle 18.5)." >&2
+    echo "  cree une branche : git checkout -b feat/ma-feature" >&2
+    exit 1
+fi
+
+# Lint PHP des fichiers indexes (added/copied/modified), si l'outil est present.
+if command -v php >/dev/null 2>&1; then
+    FAILED=0
+    while IFS= read -r file; do
+        [ -n "$file" ] || continue
+        [ -f "$file" ] || continue
+        if ! php -l "$file" >/dev/null 2>&1; then
+            echo "pre-commit: erreur de syntaxe PHP dans $file" >&2
+            php -l "$file" >&2 || true
+            FAILED=1
+        fi
+    done < <(git diff --cached --name-only --diff-filter=ACM -- '*.php')
+    if [ "$FAILED" -ne 0 ]; then
+        exit 1
+    fi
+fi
+
+exit 0

@@ -10,7 +10,23 @@
     <meta name="robots" content="noindex, nofollow">
     <meta name="description" content="Borne de commande Wakdo - choisissez votre mode de consommation">
     <title>Wakdo - Bienvenue</title>
+    <link rel="canonical" href="https://corentin-wakdo.stark.a3n.fr/">
+    <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg">
     <link rel="stylesheet" href="assets/css/style.css">
+    <!--
+        Donnees structurees schema.org (JSON-LD) : decrivent l'etablissement pour
+        les moteurs / agents. Demonstratif (la borne porte noindex), Cr 1.e.3.
+    -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "FastFoodRestaurant",
+        "name": "Wakdo",
+        "servesCuisine": "Restauration rapide",
+        "openingHours": "Mo-Su 10:00-01:00",
+        "paymentAccepted": "Sur place, A emporter, Drive"
+    }
+    </script>
 </head>
 <body>
 
@@ -77,5 +93,6 @@
 
     </main>
 
+    <script type="module" src="assets/js/a11y.js"></script>
 </body>
 </html>

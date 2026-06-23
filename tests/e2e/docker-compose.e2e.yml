@@ -1,0 +1,17 @@
+# Override JETABLE pour l'E2E : neutralise les container_name fixes du compose afin de
+# monter une stack isolee (`-p wakdoe2e`) en parallele d'une stack existante, sans
+# collision de noms. N'est PAS un compose de deploiement ; sert uniquement a run.sh.
+services:
+  wakdo-db:
+    container_name: wakdoe2e-db
+  wakdo-migrate:
+    container_name: wakdoe2e-migrate
+  wakdo-app:
+    container_name: wakdoe2e-app
+  wakdo-web:
+    container_name: wakdoe2e-web
+    # Pas de port hote pour l'E2E : Playwright joint wakdo-web par le reseau interne
+    # (--add-host). Evite tout conflit de port sur l'hote.
+    ports: !reset []
+  wakdo-cron:
+    container_name: wakdoe2e-cron

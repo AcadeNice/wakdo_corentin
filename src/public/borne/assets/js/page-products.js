@@ -6,8 +6,11 @@
  * On product card click, navigates to product.html?id=<id>&category=<slug>.
  */
 
-import { getProductsByCategory, getCategoryById, CATEGORY_ID_TO_SLUG } from './data.js';
-import { formatPrice } from './state.js';
+import { getProductsByCategory, getCategoryById, CATEGORY_ID_TO_SLUG, loadAllergens } from './data.js';
+import { formatPrice, escHtml } from './state.js';
+import { buildAllergenInfoButton, openAllergenModal } from './allergens.js';
+import { openMenuComposer } from './page-product-menu.js';
+import { openProductOptions } from './product-options.js';
 
 const params      = new URLSearchParams(window.location.search);
 const categoryId  = parseInt(params.get('category'), 10) || 1;
@@ -49,6 +52,15 @@ async function renderProducts() {
             return;
         }
 
+        // Liste generale des allergenes (modale "i"). Chargee une fois, partagee par
+        // toutes les cartes ; un echec ne doit pas casser l'affichage produits.
+        let allergens = [];
+        try {
+            allergens = await loadAllergens();
+        } catch (e) {
+            console.error('loadAllergens error:', e);
+        }
+
         grid.innerHTML = '';
         products.forEach(product => {
             const card = document.createElement('a');
@@ -60,17 +72,32 @@ async function renderProducts() {
                 <div class="product-card__image-wrap">
                     <img
                         class="product-card__image"
-                        src="${product.image}"
-                        alt="${product.nom}"
+                        src="${escHtml(product.image)}"
+                        alt="${escHtml(product.nom)}"
                         loading="lazy"
                         onerror="this.src='assets/images/ui/logo.png'; this.alt='Image non disponible';"
                     >
                 </div>
                 <div class="product-card__body">
-                    <span class="product-card__name">${product.nom}</span>
+                    <span class="product-card__name">${escHtml(product.nom)}</span>
                     <span class="product-card__price">${formatPrice(product.prix)}</span>
                 </div>
             `;
+
+            // Bouton "i" allergenes superpose a l'image ; son clic ouvre la modale
+            // generale et ne declenche pas la navigation de la carte (stopPropagation).
+            const infoBtn = buildAllergenInfoButton(() => openAllergenModal(allergens));
+            card.querySelector('.product-card__image-wrap').appendChild(infoBtn);
+
+            // Clic produit -> modale au-dessus de la grille (paradigme maquette) au lieu
+            // de naviguer vers product.html : menu -> composeur (L2), produit -> options
+            // (L3). Le <a href> reste un repli (lien direct / sans JS).
+            card.addEventListener('click', (e) => {
+                e.preventDefault();
+                if (product.type === 'menu') openMenuComposer(product, categorySlug);
+                else openProductOptions(product, categorySlug);
+            });
+
             grid.appendChild(card);
         });
 

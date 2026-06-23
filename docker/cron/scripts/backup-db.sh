@@ -13,8 +13,11 @@
 #   - DB_USER          (on utilise le user applicatif, pas root)
 #   - DB_PASSWORD
 #
-# Le USER applicatif doit avoir SELECT + LOCK TABLES + SHOW VIEW sur wakdo.
-# (GRANT donnes dans les migrations a venir en P2.)
+# Le USER applicatif a un privilege restreint (moindre privilege) : DML
+# (SELECT/INSERT/UPDATE/DELETE) + SHOW VIEW, TRIGGER, LOCK TABLES sur wakdo,
+# sans DDL ni GRANT OPTION. mysqldump --single-transaction (ci-dessous) n'exige
+# que SELECT (+ SHOW VIEW/TRIGGER pour ces objets). Privileges poses par
+# db/init/10-scope-app-user.sh (volume vierge) ou manuellement (base existante).
 #
 # Exit codes :
 #   0 - backup OK

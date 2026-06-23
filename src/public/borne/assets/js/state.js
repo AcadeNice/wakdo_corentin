@@ -172,3 +172,23 @@ export function formatPrice(cents) {
 export function getCartCount() {
     return getCart().reduce((sum, item) => sum + item.quantite, 0);
 }
+
+/* --- HTML escaping ------------------------------------------------------- */
+
+/**
+ * Minimal HTML escaping for data-derived strings (product names, image paths,
+ * libelles) injected into innerHTML. RG-T15 (anti-XSS) requires every catalogue
+ * value rendered as HTML to be escaped. Centralised here so all page modules
+ * that build markup from data escape identically; mirrors the helper that was
+ * local to page-product-menu.js.
+ * @param {*} str
+ * @returns {string}
+ */
+export function escHtml(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}

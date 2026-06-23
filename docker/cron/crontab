@@ -16,6 +16,12 @@
 # 03h00 : dump BDD complet, compresse et rotate (garde 14 derniers).
 0 3 * * * /scripts/backup-db.sh 2>&1
 
+# 04h15 : purge de retention du journal d'audit (mlt.md 13.4, AUDIT_LOG_RETENTION_DAYS).
+15 4 * * * /scripts/purge-audit-log.sh 2>&1
+
+# 04h45 : purge des compteurs de throttle sans verrou actif (mlt.md 13.5, THROTTLE_PURGE_AFTER_HOURS).
+45 4 * * * /scripts/purge-throttle.sh 2>&1
+
 # Toutes les 15 min pendant la fenetre de maintenance : purge des sessions
 # PHP expirees cote BDD (pas les sessions systeme qui sont en /tmp du conteneur
 # wakdo-app, donc ephemeres par nature). A activer quand la table sessions

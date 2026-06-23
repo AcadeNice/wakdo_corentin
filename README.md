@@ -20,7 +20,7 @@ Trois canaux de prise de commande :
 - `counter` — comptoir (un equipier saisit pour le client au guichet)
 - `drive` — drive-thru (equipier saisit via intercom + casque)
 
-Quatre statuts commande : `pending` -> `preparing` -> `ready` -> `delivered` (ou `cancelled`).
+Statuts commande (machine a 4 etats) : `pending_payment` -> `paid` -> `delivered`, plus `cancelled` (atteignable depuis `pending_payment` ou `paid`). La saisie du numero tient lieu de paiement : la creation passe atomiquement de `pending_payment` a `paid`. La cuisine voit la file des commandes `paid` en lecture seule ; la remise est un geste unique `paid` -> `delivered`.
 
 Scope metier complet, regles, horaires de service et fenetre de maintenance : voir `docs/PROJECT_CONTEXT.md`.
 
@@ -55,9 +55,9 @@ Realisation avec l'assistance d'outils d'IA generative (Claude Code, BYAN), conf
 | Tests | PHPUnit | 11.x (`.phar` autonome, sans Composer) |
 | Front | HTML5 + CSS3 + JS ES6+ vanilla | — |
 | Conteneurisation | Docker + docker compose v2 | — |
-| Orchestration locale | Makefile | — |
-| CI/CD | GitHub Actions | — |
-| Versioning | Git + GitHub | Conventional Commits |
+| Orchestration locale | docker compose v2 (service one-shot `wakdo-migrate`) | — |
+| CI/CD | Forgejo Actions | — |
+| Versioning | Git + Forgejo (`git.acadenice.com`, miroir GitHub) | Conventional Commits |
 
 Detail et justifications : `docs/PROJECT_CONTEXT.md` section 6.
 
@@ -82,86 +82,50 @@ Detail et justifications : `docs/PROJECT_CONTEXT.md` section 6.
                                 v
                         wakdo-db   (MariaDB 11.4)
 
-                  wakdo-cron       (backup BDD + purge sessions + stats)
+                  wakdo-cron       (backup BDD + purge audit-log + purge throttle)
 ```
 
 Reseaux, volumes, services et decoupage reseau interne / reseau proxy : voir `docs/PROJECT_CONTEXT.md` section 5.
 
 ---
 
-## Quickstart
-
-Ce projet tourne **sur serveur derriere un reverse proxy Traefik** : pas de binding de ports hote, pas d'acces `localhost`. L'acces public se fait par FQDN HTTPS (TLS gere automatiquement par Traefik). Les environnements `dev`, `staging` et `prod` se distinguent par des FQDN et des fichiers `.env` separes.
-
-### Prerequis sur l'hote
-
-1. Docker Engine + docker compose v2 (voir ci-dessous)
-2. Un reverse proxy Traefik deja en place, avec un reseau Docker externe dedie. Le **nom du reseau** est configurable via la variable `REVERSE_PROXY_NETWORK` du `.env` (defaut : `admin_proxy` — convention de l'auteur). A adapter a votre infrastructure.
-3. Les FQDN cibles pointent en DNS vers l'hote
-
-### Sur un hote deja equipe (Docker + Traefik)
+## Quickstart (local)
 
 ```bash
-git clone git@github.com:AcadeNice/wakdo_corentin.git
-cd wakdo_corentin
+git clone https://git.acadenice.com/AcadeNice/corentin_wakdo.git
+cd corentin_wakdo
 cp .env.example .env
-# Editer .env : DB_PASSWORD, DB_ROOT_PASSWORD, APP_URL_*, TRAEFIK_DOMAIN_*
-make init
+docker compose up -d
 ```
 
-> **Attention au `.env` pre-existant.** Si un fichier `.env` existe deja a la racine (tooling externe, autre plateforme installee dans le meme repertoire), **ne pas faire** `cp .env.example .env` — cela ecraserait les variables existantes. Faire un **merge manuel** a la place : ajouter les variables manquantes du template dans le `.env` actuel. Les prefixes de variables de ce projet (`APP_`, `DB_`, `SESSION_`, `CORS_`, `UPLOAD_`, `CRON_`, `TRAEFIK_`, `REVERSE_PROXY_`) sont disjoints de ceux utilises par des outils tiers courants, donc la cohabitation est safe.
+Une seule commande lance la stack complete (Cr 7.c.4) : le service one-shot
+`wakdo-migrate` applique les migrations puis le seed (idempotents, tables de suivi
+`schema_migrations` / `seeds_applied`) avant que l'app ne serve. Ensuite :
 
-Critere RNCP Cr 7.c.4 couvert : une seule commande (`make init`) orchestre build, demarrage, attente BDD, migrations et seed.
+- Borne : http://kiosk.localhost:8080
+- Admin + API : http://admin.localhost:8080
 
-Services accessibles apres `make init` :
-- Borne : la valeur de `TRAEFIK_DOMAIN_KIOSK` dans `.env`
-- Admin + API : la valeur de `TRAEFIK_DOMAIN_ADMIN` dans `.env`
+`*.localhost` resout vers `127.0.0.1` nativement ; changer le port via `HTTP_PORT`
+dans `.env`. Le `.env.example` fonctionne tel quel en local (valeurs dev).
 
-Liste complete des cibles : `make help`.
+Docker non installe ? Voir https://docs.docker.com/engine/install/
 
-### Installation Docker sur un hote neuf (Debian / Ubuntu)
+### Deploiement prod (derriere un reverse proxy Traefik)
 
-Procedure officielle detaillee : `https://docs.docker.com/engine/install/` (selectionner la distribution). Resume pour Debian stable :
+Le repo ne ship que `docker-compose.yml` (standalone). En production derriere un
+reverse proxy, chaque hote maintient son **propre `docker-compose.prod.yml`**
+(gitignore, hors repo, comme `.env`) : meme stack, mais exposee via Traefik (reseau
+externe + labels TLS) au lieu d'un port hote.
 
 ```bash
-sudo apt update
-sudo apt install -y ca-certificates curl
-sudo install -m 0755 -d /etc/apt/keyrings
-sudo curl -fsSL https://download.docker.com/linux/debian/gpg \
-  -o /etc/apt/keyrings/docker.asc
-sudo chmod a+r /etc/apt/keyrings/docker.asc
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] \
-  https://download.docker.com/linux/debian \
-  $(. /etc/os-release && echo $VERSION_CODENAME) stable" \
-  | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-sudo apt update
-sudo apt install -y docker-ce docker-ce-cli containerd.io \
-  docker-buildx-plugin docker-compose-plugin
-sudo usermod -aG docker $USER
-# Fermer et rouvrir la session pour activer le groupe docker
+docker compose -f docker-compose.prod.yml up -d
 ```
 
-### Reseau externe du reverse proxy
+Avec un `.env` adapte : `APP_ENV=prod`, `APP_DEBUG=false`, mots de passe forts,
+`APP_HOST_*` / `APP_URL_*` / `CORS_ALLOWED_ORIGIN` en vrais FQDN HTTPS, et
+`REVERSE_PROXY_NETWORK` = reseau Docker du Traefik de l'hote (doit exister avant le up).
 
-Le `docker-compose.yml` attend un reseau Docker externe deja existant sur l'hote, dont le nom est donne par la variable `REVERSE_PROXY_NETWORK` (defaut : `admin_proxy`).
-
-Si vous avez deja un Traefik en place, ce reseau a generalement ete cree par son propre stack. Adaptez la variable `REVERSE_PROXY_NETWORK` dans votre `.env` au nom utilise par votre proxy. Sinon, creez-le manuellement :
-
-```bash
-docker network create mon_reseau_proxy
-# puis dans .env :
-# REVERSE_PROXY_NETWORK=mon_reseau_proxy
-```
-
-Avant le premier `make init`, s'assurer que le reseau existe. Verification rapide :
-
-```bash
-docker network inspect "$(grep ^REVERSE_PROXY_NETWORK .env | cut -d= -f2)"
-```
-
-Si la commande retourne une erreur, soit adapter `REVERSE_PROXY_NETWORK` au nom du reseau utilise par votre proxy, soit creer le reseau manuellement. La cible `make init` echoue proprement avec un message d'aide si le reseau est introuvable.
-
-*Section mise a jour au fil de l'implementation (migrations reelles, seed, CI/CD deploiement).*
+*Deploiement detaille : section Deploiement plus bas et `scripts/deploy.sh`.*
 
 ---
 
@@ -170,37 +134,34 @@ Si la commande retourne une erreur, soit adapter `REVERSE_PROXY_NETWORK` au nom 
 ```
 .
 |-- .claude/                     # Methodologie BYAN (visible jury : CLAUDE.md + rules/)
-|-- .github/
-|   `-- workflows/               # CI/CD GitHub Actions [a venir]
-|-- .githooks/                   # pre-commit + commit-msg [a venir]
+|-- .forgejo/workflows/          # CI Forgejo Actions (ci.yml : secret-scan, php-lint, static-tests, js-tests)
+|-- .githooks/                   # pre-commit (refus main/dev + php -l) + commit-msg (Conventional Commits)
 |-- docker/                      # Dockerfiles customs par service
-|   |-- apache/
-|   |-- php-fpm/
-|   `-- cron/
+|   |-- apache/                  # httpd + vhosts kiosk / admin
+|   |-- php-fpm/                 # PHP 8.3-fpm + php.ini durci
+|   `-- cron/                    # dcron + scripts (backup, restore, purges)
 |-- db/
-|   |-- migrations/              # DDL MariaDB versionnes [a venir]
-|   `-- seeds/                   # Donnees de demo [a venir]
+|   |-- init/                    # init BDD (scope du user applicatif, moindre privilege)
+|   |-- migrations/              # DDL MariaDB versionnes (0001_init_schema, 0002_pin_throttle, ...)
+|   |-- seeds/                   # donnees de reference + demo (idempotents)
+|   `-- *.sh                     # runners migrate / seed
 |-- docs/
-|   |-- PROJECT_CONTEXT.md       # Source de verite projet (scope, stack, RNCP mapping)
-|   |-- journal/                 # Retros par session et par feature (oral RNCP)
-|   `-- merise/                  # MCD, MCT, MLD [a venir]
-|-- scripts/                     # backup-db, install-hooks, ... [a venir]
-|-- src/                         # Code applicatif [a venir]
-|   |-- Core/                    # Router, Autoloader, DB
-|   |-- Controllers/
-|   |-- Models/
-|   |-- Views/
-|   |-- Services/
-|   |-- public/                  # DocumentRoot Apache
-|   `-- bootstrap.php
+|   |-- PROJECT_CONTEXT.md       # source de verite projet (scope, stack, mapping RNCP)
+|   |-- ARCHITECTURE.md          # vue technique (deploiement, stack, securite)
+|   |-- merise/                  # dictionnaire, MCD, MCT, MLD, MLT (+ diagrammes)
+|   |-- uml/                     # use-cases, sequences, machine a etats
+|   `-- adr/ api/ domaines/ design/ journal/ _ref/
+|-- scripts/                     # deploy, install-hooks, forgejo-* (branch-protection, pr-automerge)
+|-- src/
+|   |-- app/                     # namespace App\ : Core, Controllers, Auth, Catalogue, Order, Views
+|   `-- public/                  # DocumentRoots Apache : borne/ (kiosk) + admin/ (back-office + API)
 |-- tests/
-|   |-- Unit/                    # [a venir]
-|   `-- Integration/             # [a venir]
-|-- .env.example
-|-- .dockerignore
-|-- .gitignore
-|-- Makefile
-|-- docker-compose.yml
+|   |-- Unit/ Integration/       # PHPUnit (.phar autonome, sans Composer ; integration sur vraie MariaDB)
+|   |-- js/                      # node:test + jsdom (front borne)
+|   |-- e2e/                     # Playwright (parcours borne + admin, lance a la main)
+|   `-- Support/                 # doubles de test (Fake* / Spy*)
+|-- .env.example  .gitleaks.toml  phpstan.neon  phpunit.xml
+|-- docker-compose.yml           # standalone local ; prod = docker-compose.prod.yml (gitignore, par hote)
 `-- README.md
 ```
 
@@ -212,22 +173,35 @@ Si la commande retourne une erreur, soit adapter `REVERSE_PROXY_NETWORK` au nom 
 
 - **Commits** : Conventional Commits en anglais (`feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `ci`, `db`, `perf`, `style`). Format : `type(scope): description`. Voir `docs/PROJECT_CONTEXT.md` section 9.
 - **Branches** : `feat/*`, `fix/*`, `refactor/*`, `docs/*`, `ci/*`, `db/*`, `chore/*`, `test/*` depuis `dev`. Merge vers `dev` par PR squashee. Periodiquement `dev` -> `main` par PR avec tag semver.
-- `main` et `dev` sont proteges cote GitHub (PR requise, force push bloque, resolution des conversations requise).
+- `main` et `dev` sont proteges cote Forgejo (PR requise, force push bloque, checks requis : secret-scan / php-lint / static-tests).
 - Pas d'emoji dans le code, les commits ou les specs techniques (Mantra IA-23).
 
-*Sections detaillees (setup env de dev, lint, tests) : a completer au fil de l'implementation.*
+- **Hooks Git** : `scripts/install-hooks.sh` active `pre-commit` (refus de commit direct sur `main`/`dev`, `php -l` des fichiers indexes) et `commit-msg` (format Conventional Commits, refus emoji).
+- **Verification locale** : voir la section Tests ci-dessous (PHPUnit + PHPStan via le conteneur applicatif, tests JS via node, E2E Playwright).
 
 ---
 
 ## Tests
 
-*Section a completer. Strategie globale : PHPUnit via `.phar` autonome (sans Composer), priorite Unit > Integration > E2E, voir `docs/PROJECT_CONTEXT.md` section 6 et mantras Merise Agile.*
+Trois niveaux, sans dependance Composer cote PHP (priorite Unit > Integration > E2E).
+
+- **PHP (PHPUnit `.phar`)** — unit + integration sur vraie MariaDB, via le conteneur applicatif :
+
+  ```bash
+  docker run --rm -v "$PWD":/app -w /app wakdo-wakdo-app php phpunit.phar -c phpunit.xml
+  docker run --rm -v "$PWD":/app -w /app wakdo-wakdo-app php -d memory_limit=-1 phpstan.phar analyse
+  ```
+
+- **JS (node:test + jsdom)** — modules du front borne : `npm run test:js`
+- **E2E (Playwright)** — parcours borne + admin, lances a la main contre une stack jetable : `tests/e2e/run.sh`
+
+La CI Forgejo execute secret-scan, php-lint, static-tests (PHPStan niveau 6 + PHPUnit avec service MariaDB) et js-tests sur chaque PR.
 
 ---
 
 ## Deploiement
 
-*Section a completer. Strategie cible : CI GitHub Actions sur PR vers `dev` (lint + PHPUnit), CD automatique sur merge vers `main` via SSH + `make rebuild`, voir `docs/PROJECT_CONTEXT.md` section 7 Bloc 5.*
+*CI Forgejo Actions sur PR vers `dev`/`main` (secret-scan gitleaks, php-lint, static-tests PHPStan + PHPUnit, js-tests), avec auto-merge sur CI verte. Deploiement a declenchement humain via `scripts/deploy.sh` (recupere `main` depuis Forgejo puis `docker compose build --pull && up -d` ; les images sont buildees localement depuis les Dockerfiles, le one-shot `wakdo-migrate` applique migrations + seed). L'automatisation visee est pull-based (un job cron cote hote detectant un nouveau `main`), a armer ensuite. Voir `docs/PROJECT_CONTEXT.md` section 7 Bloc 5.*
 
 ---
 
@@ -237,7 +211,8 @@ Si la commande retourne une erreur, soit adapter `REVERSE_PROXY_NETWORK` au nom 
 |---|---|
 | `docs/PROJECT_CONTEXT.md` | Source de verite projet (17 sections : scope, stack, architecture, mapping critere RNCP, planning, risques, conventions) |
 | `docs/journal/` | Retrospectives par session et par feature (preparation de l'oral RNCP) |
-| `docs/merise/` *(a venir)* | Modelisation Merise : dictionnaire, MCD, MCT, MLD |
+| `docs/merise/` | Modelisation Merise : dictionnaire, MCD, MCT, MLD, MLT (+ diagrammes) |
+| `docs/ARCHITECTURE.md` / `docs/adr/` | Vue technique + decisions d'architecture (ADR) |
 | `.claude/CLAUDE.md` | Constitution du projet pour les agents Claude Code |
 | `.claude/rules/` | Protocoles appliques : fact-check, merise-agile, elo-trust, hermes-dispatcher, byan-api, byan-agents |
 

@@ -12,8 +12,11 @@
  *   - Card border   : 2px solid #FFC72C when selected / active
  *
  * Kiosk target: 1080x1920 portrait (touch screen).
- * Font stack: system-ui fallback — school font is not available as a web asset.
- * OpenDys is loaded conditionally for accessibility (RGAA Cr 1.c.4).
+ * Base font stack: system-ui fallback (the school font is not available as a web asset).
+ * Accessibility (RGAA Cr 1.c.2): the OpenDyslexic font (OFL 1.1) is self-hosted under
+ *   assets/fonts (see @font-face in section 12). a11y.js adds the .dys-font class on
+ *   <html> on demand, which redefines --font-family-base for the whole interface, and
+ *   persists the choice in localStorage. Base stack is the default.
  */
 
 /* ============================================================
@@ -271,9 +274,12 @@ button {
     background: var(--color-bg-card);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
     padding: var(--space-4) var(--space-6);
-    display: flex;
+    /* Grille 3 colonnes : le logo (colonne centrale auto) reste centre quelles que
+       soient les largeurs du bouton retour (gauche) et du badge/panier (droite).
+       En flex + space-between, le logo derivait selon ces largeurs (ex: panier). */
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
-    justify-content: space-between;
     /* Sticky so the logo stays visible while user scrolls categories */
     position: sticky;
     top: 0;
@@ -283,10 +289,17 @@ button {
 .site-header__logo {
     height: 56px;
     width: auto;
+    justify-self: center;
+}
+
+.site-header__cart,
+.site-header__mode {
+    justify-self: end;
 }
 
 .site-header__back {
     display: inline-flex;
+    justify-self: start;
     align-items: center;
     gap: var(--space-2);
     font-size: var(--font-size-sm);
@@ -1417,8 +1430,8 @@ button {
 
 /* Selected state — mirrors aria-pressed=true */
 .composer-card--selected {
-    border-color: var(--color-border-active);
-    box-shadow: 0 0 0 3px rgba(255, 199, 44, 0.45), var(--shadow-card);
+    border-color: var(--color-brand-yellow-dk); /* jaune fonce : contraste a11y 1.4.11 */
+    box-shadow: 0 0 0 3px rgba(230, 168, 0, 0.55), var(--shadow-card);
     background: rgba(255, 199, 44, 0.06);
 }
 
@@ -1435,6 +1448,122 @@ button {
     font-weight: var(--font-weight-bold);
     color: var(--color-text-primary);
     line-height: 1.3;
+}
+
+/* ============================================================
+ * Allergenes — bouton "i" + modale generale (14 INCO)
+ * Info reglementaire generale (pas un calcul par produit). La modale reutilise
+ * le pattern overlay du composer ; z-index 220 pour passer au-dessus de lui.
+ * ============================================================ */
+
+/* Le bouton "i" se superpose au coin de l'image de la carte. */
+.product-card__image-wrap {
+    position: relative;
+}
+
+.allergen-info-btn {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    border: 2px solid var(--color-brand-dark);
+    background: var(--color-bg-card);
+    color: var(--color-brand-dark);
+    font-weight: var(--font-weight-bold);
+    font-style: italic;
+    font-size: var(--font-size-base);
+    line-height: 1;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--shadow-overlay);
+}
+
+.product-card__image-wrap .allergen-info-btn {
+    position: absolute;
+    top: var(--space-2);
+    right: var(--space-2);
+    z-index: 2;
+}
+
+.product-detail__info .allergen-info-btn {
+    margin-top: var(--space-3);
+}
+
+.allergen-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: 220;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-4);
+    animation: composer-fade-in var(--transition-base) both;
+}
+
+.allergen-modal {
+    position: relative;
+    background: var(--color-bg-card);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-overlay);
+    width: 100%;
+    max-width: 640px;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: var(--space-6);
+    animation: composer-slide-up var(--transition-base) both;
+}
+
+.allergen-modal-close {
+    position: absolute;
+    top: var(--space-3);
+    right: var(--space-3);
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 50%;
+    border: none;
+    background: var(--color-bg-page);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-md);
+    cursor: pointer;
+}
+
+.allergen-modal-title {
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--space-2);
+}
+
+.allergen-modal-intro {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    margin-bottom: var(--space-4);
+}
+
+.allergen-modal-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: var(--space-2);
+}
+
+.allergen-modal-list li {
+    padding: var(--space-2) var(--space-3);
+    background: var(--color-bg-page);
+    border-radius: var(--radius-md);
+}
+
+.allergen-name {
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+}
+
+.allergen-desc {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
 }
 
 .composer-card__price {
@@ -1681,5 +1810,452 @@ button {
 
     .composer-footer__cancel {
         margin-right: 0;
+    }
+}
+
+/* === Panneau de commande persistant (L1 - maquette : recap a droite) =======
+   Layout deux colonnes sur les ecrans de commande : contenu a gauche, panneau
+   a droite, sticky pleine hauteur. Le panneau = entete (titre + mode), corps
+   scrollable (lignes du panier), pied (total + Abandon/Payer). Reutilise les
+   tokens de :root pour rester aligne sur la charte. */
+.order-layout {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-5);
+    padding: 0 var(--space-5) var(--space-5);
+}
+
+.order-layout > main {
+    flex: 1 1 auto;
+    min-width: 0; /* laisse la grille produits se retrecir au lieu de deborder */
+}
+
+.order-panel {
+    flex: 0 0 360px;
+    width: 360px;
+    position: sticky;
+    top: var(--space-4);
+    max-height: calc(100vh - var(--space-6));
+    display: flex;
+    flex-direction: column;
+    background: var(--color-bg-card);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card);
+    overflow: hidden;
+}
+
+.order-panel__head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-4) var(--space-5);
+    border-bottom: 1px solid var(--color-border-default);
+}
+
+.order-panel__logo {
+    height: 22px;
+    width: auto;
+}
+
+.order-panel__title {
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-bold);
+}
+
+.order-panel__mode {
+    margin-left: auto;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    background: var(--color-bg-page);
+    border-radius: var(--radius-pill);
+    padding: var(--space-1) var(--space-3);
+}
+
+.order-panel__body {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: var(--space-3) var(--space-4);
+}
+
+.order-panel__empty {
+    color: var(--color-text-muted);
+    text-align: center;
+    padding: var(--space-6) var(--space-3);
+    line-height: 1.5;
+}
+
+.order-panel__lines {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.order-panel__line {
+    position: relative;
+    padding: var(--space-3) var(--space-6) var(--space-3) 0;
+    border-bottom: 1px solid var(--color-border-default);
+}
+
+.order-panel__line:last-child {
+    border-bottom: none;
+}
+
+.order-panel__line-main {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-2);
+    font-weight: var(--font-weight-bold);
+}
+
+.order-panel__line-price {
+    white-space: nowrap;
+}
+
+.order-panel__options {
+    list-style: none;
+    margin: var(--space-1) 0 0;
+    padding: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.order-panel__options li::before {
+    content: "+ ";
+}
+
+.order-panel__remove {
+    position: absolute;
+    top: var(--space-3);
+    right: 0;
+    border: none;
+    background: none;
+    cursor: pointer;
+    padding: var(--space-1);
+    line-height: 0;
+}
+
+.order-panel__foot {
+    border-top: 1px solid var(--color-border-default);
+    padding: var(--space-4) var(--space-5);
+}
+
+.order-panel__total {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: var(--font-size-md);
+    margin-bottom: var(--space-4);
+}
+
+.order-panel__total-value {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-bold);
+}
+
+.order-panel__actions {
+    display: flex;
+    gap: var(--space-3);
+}
+
+.order-panel__abandon,
+.order-panel__pay {
+    flex: 1 1 0;
+    text-align: center;
+    border-radius: var(--radius-pill);
+    padding: var(--space-3) var(--space-4);
+    font-weight: var(--font-weight-bold);
+    font-size: var(--font-size-base);
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.order-panel__abandon {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border-default);
+    color: var(--color-text-secondary);
+}
+
+.order-panel__pay {
+    background: var(--color-brand-yellow);
+    border: 1px solid var(--color-brand-yellow);
+    color: var(--color-text-primary);
+}
+
+.order-panel__pay[aria-disabled="true"] {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+/* Ecran etroit : le panneau passe sous le contenu (le kiosk reste large en
+   pratique ; repli de surete pour les petits viewports). */
+@media (max-width: 900px) {
+    .order-layout {
+        flex-direction: column;
+    }
+
+    .order-panel {
+        width: auto;
+        flex-basis: auto;
+        position: static;
+        max-height: none;
+        align-self: stretch;
+    }
+}
+
+/* === Bandeau categories (L1 - maquette : strip horizontal en haut) =========
+   Cartes categorie defilantes avec fleches rouges ; la categorie courante porte
+   une bordure jaune (charte maquette). Sticky en haut du contenu de commande. */
+.category-strip {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-4) 0;
+    position: sticky;
+    top: 0;
+    background: var(--color-bg-page);
+    z-index: 5;
+}
+
+.category-strip__scroller {
+    display: flex;
+    gap: var(--space-3);
+    overflow-x: auto;
+    scroll-behavior: smooth;
+    flex: 1 1 auto;
+    scrollbar-width: none; /* Firefox : masque la scrollbar, on navigue aux fleches */
+}
+
+.category-strip__scroller::-webkit-scrollbar {
+    display: none;
+}
+
+.category-strip__item {
+    flex: 0 0 auto;
+    width: 110px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-1);
+    padding: var(--space-2);
+    background: var(--color-bg-card);
+    border: 2px solid transparent;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-card);
+    text-decoration: none;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+    text-align: center;
+}
+
+.category-strip__item.is-active {
+    border-color: var(--color-brand-yellow-dk);
+    border-width: 3px;
+    background: #FFF8E6; /* 2e cue (pas que la couleur de bordure) -- a11y 1.4.11 */
+}
+
+.category-strip__img {
+    width: 56px;
+    height: 56px;
+    object-fit: contain;
+}
+
+.category-strip__label {
+    font-weight: var(--font-weight-bold);
+}
+
+.category-strip__arrow {
+    flex: 0 0 auto;
+    border: none;
+    background: none;
+    color: var(--color-brand-red);
+    font-size: var(--font-size-xl);
+    line-height: 1;
+    padding: var(--space-2);
+    cursor: pointer;
+}
+
+/* Focus clavier visible sur les controles L1 (panneau + bandeau). Outline jaune
+   fonce decale pour rester percevable par-dessus la charte. */
+.order-panel__pay:focus-visible,
+.order-panel__abandon:focus-visible,
+.order-panel__remove:focus-visible,
+.category-strip__item:focus-visible,
+.category-strip__arrow:focus-visible {
+    outline: 3px solid var(--color-brand-yellow-dk);
+    outline-offset: 2px;
+}
+
+/* === Modale d'options produit (L3 - quantite + ajout, au-dessus de la grille) === */
+.product-options {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-4);
+    text-align: center;
+}
+
+.product-options__image {
+    width: 160px;
+    height: 160px;
+    object-fit: contain;
+}
+
+.product-options__unit {
+    color: var(--color-text-secondary);
+}
+
+/* Picker de taille (R4 : 30/50 cl) : boutons-pills, l'actif borde par l'accent. */
+.product-options__sizes {
+    display: flex;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.size-btn {
+    min-width: 72px;
+    padding: var(--space-2) var(--space-3);
+    border: 2px solid var(--color-border-default);
+    border-radius: var(--radius-pill);
+    background: var(--color-bg-card);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-md);
+    cursor: pointer;
+}
+
+.size-btn--selected {
+    border-color: var(--color-border-active);
+    font-weight: 700;
+}
+
+.product-options__total {
+    font-size: var(--font-size-md);
+}
+
+.qty-control {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+}
+
+/* === Modale chevalet (sur-place, L4) + erreur paiement === */
+.chevalet__hint {
+    color: var(--color-text-secondary);
+    text-align: center;
+    margin-bottom: var(--space-4);
+}
+
+.chevalet__input {
+    display: block;
+    width: 100%;
+    max-width: 220px;
+    margin: 0 auto;
+    padding: var(--space-3);
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-bold);
+    text-align: center;
+    letter-spacing: 0.2em;
+    border: 2px solid var(--color-border-default);
+    border-radius: var(--radius-md);
+}
+
+.chevalet__input:focus-visible {
+    outline: 3px solid var(--color-brand-yellow-dk);
+    outline-offset: 2px;
+}
+
+.chevalet__error {
+    color: var(--color-brand-red);
+    text-align: center;
+    margin-top: var(--space-3);
+}
+
+.payment-error {
+    color: var(--color-brand-red);
+    font-weight: var(--font-weight-bold);
+    text-align: center;
+    margin: var(--space-4) 0;
+}
+
+/* ============================================================
+   12. ACCESSIBILITY — dyslexia-friendly font + toggle (RGAA Cr 1.c.2)
+   ============================================================ */
+
+/* OpenDyslexic (OFL 1.1), self-hosted under assets/fonts (see LICENSE-OpenDyslexic.txt).
+   font-display: swap keeps text visible while the face downloads. */
+@font-face {
+    font-family: "OpenDyslexic";
+    src: url("../fonts/opendyslexic-latin-400-normal.woff2") format("woff2");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: "OpenDyslexic";
+    src: url("../fonts/opendyslexic-latin-700-normal.woff2") format("woff2");
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+
+/* a11y.js sets .dys-font on <html>; the whole interface then inherits the
+   dyslexia-friendly stack via --font-family-base. Higher specificity than :root,
+   so it overrides the base token. */
+html.dys-font {
+    --font-family-base: "OpenDyslexic", system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+}
+
+/* Fixed accessibility control, present on every screen (injected by a11y.js). */
+/* Coin bas-gauche : libre du bouton Retour (haut-gauche), du panier (haut-droite)
+   et du panneau commande sticky (flanc droit). En portrait, le bas reste en zone
+   de pouce, donc atteignable. */
+.a11y-toggle {
+    position: fixed;
+    bottom: var(--space-3);
+    left: var(--space-3);
+    z-index: 1000;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    background: var(--color-bg-card);
+    color: var(--color-text-primary);
+    border: 2px solid var(--color-border-default);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-card);
+    font-family: var(--font-family-base);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-bold);
+    cursor: pointer;
+}
+
+.a11y-toggle__icon {
+    font-size: var(--font-size-md);
+    line-height: 1;
+}
+
+/* Active state: not signalled by colour alone (RGAA 1.4.1) — aria-pressed exposes
+   the state to assistive tech, and the label text stays visible. */
+.a11y-toggle[aria-pressed="true"] {
+    background: var(--color-brand-yellow);
+    border-color: var(--color-brand-yellow-dk);
+}
+
+.a11y-toggle:focus-visible {
+    outline: 3px solid var(--color-brand-yellow-dk);
+    outline-offset: 2px;
+}
+
+/* ============================================================
+   13. COMPATIBILITE NAVIGATEURS (Cr 1.b.3)
+   ============================================================ */
+
+/* 'gap' sur conteneurs flex : non reconnu par d'anciens navigateurs (ex. Safari
+   anterieur a 14.1). La detection @supports applique un repli par marges sur les
+   enfants directs si la propriete n'est pas supportee (alternative documentee). */
+@supports not (gap: 1rem) {
+    .welcome__choices > *,
+    .composer-footer__row > * {
+        margin: var(--space-2);
     }
 }

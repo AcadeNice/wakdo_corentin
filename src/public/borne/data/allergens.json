@@ -1,0 +1,16 @@
+[
+  { "id": 1,  "name": "Cereales contenant du gluten", "description": "Ble, seigle, orge, avoine, epeautre, kamut et produits derives." },
+  { "id": 2,  "name": "Crustaces", "description": "Et produits a base de crustaces." },
+  { "id": 3,  "name": "Oeufs", "description": "Et produits a base d'oeufs." },
+  { "id": 4,  "name": "Poissons", "description": "Et produits a base de poissons." },
+  { "id": 5,  "name": "Arachides", "description": "Et produits a base d'arachides." },
+  { "id": 6,  "name": "Soja", "description": "Et produits a base de soja." },
+  { "id": 7,  "name": "Lait", "description": "Et produits a base de lait (y compris le lactose)." },
+  { "id": 8,  "name": "Fruits a coque", "description": "Amandes, noisettes, noix, noix de cajou, pistaches et autres." },
+  { "id": 9,  "name": "Celeri", "description": "Et produits a base de celeri." },
+  { "id": 10, "name": "Moutarde", "description": "Et produits a base de moutarde." },
+  { "id": 11, "name": "Graines de sesame", "description": "Et produits a base de graines de sesame." },
+  { "id": 12, "name": "Anhydride sulfureux et sulfites", "description": "En concentration de plus de 10 mg/kg ou 10 mg/l." },
+  { "id": 13, "name": "Lupin", "description": "Et produits a base de lupin." },
+  { "id": 14, "name": "Mollusques", "description": "Et produits a base de mollusques." }
+]

@@ -6,6 +6,8 @@
     <meta name="robots" content="noindex, nofollow">
     <meta name="description" content="Wakdo - Produits de la categorie selectionnee">
     <title>Wakdo - Produits</title>
+    <link rel="canonical" href="https://corentin-wakdo.stark.a3n.fr/products.html">
+    <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg">
     <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body class="products-page">
@@ -42,7 +44,10 @@
         </a>
     </header>
 
+    <div class="order-layout">
     <main class="products-main" aria-label="Liste des produits">
+
+        <nav class="category-strip" data-category-strip aria-label="Categories"></nav>
 
         <div class="products-header">
             <!--
@@ -62,7 +67,13 @@
 
     </main>
 
+        <aside class="order-panel" data-order-panel aria-label="Ma commande" aria-live="polite"></aside>
+    </div>
+
     <script type="module" src="assets/js/nav.js"></script>
     <script type="module" src="assets/js/page-products.js"></script>
+    <script type="module" src="assets/js/category-strip.js"></script>
+    <script type="module" src="assets/js/order-panel.js"></script>
+    <script type="module" src="assets/js/a11y.js"></script>
 </body>
 </html>

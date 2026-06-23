@@ -15,10 +15,12 @@
  *  3. Redirect to products.html?category=<slug>
  */
 
-import { findProduct } from './data.js';
-import { addToCart, formatPrice } from './state.js';
+import { findProduct, loadAllergens } from './data.js';
+import { addToCart, formatPrice, escHtml } from './state.js';
 import { refreshCartBadge } from './nav.js';
 import { openMenuComposer } from './page-product-menu.js';
+import { openProductOptions, productSizes } from './product-options.js';
+import { buildAllergenInfoButton, openAllergenModal } from './allergens.js';
 
 const params       = new URLSearchParams(window.location.search);
 const productId    = parseInt(params.get('id'), 10);
@@ -39,7 +41,7 @@ async function renderProduct() {
     }
 
     try {
-        const product = await findProduct(productId);
+        const product = await findProduct(productId, categorySlug);
         if (!product) {
             showError('Ce produit n\'existe pas.');
             return;
@@ -55,28 +57,49 @@ async function renderProduct() {
             return;
         }
 
+        /* Produit a tailles multiples (R4, ex. boisson 30/50 cl) : on delegue a la
+         * modale d'options (meme picker que la grille) plutot que de dupliquer la
+         * selection de taille dans la fiche -> un seul chemin pour choisir la taille. */
+        if (productSizes(product).length) {
+            container.hidden = true;
+            openProductOptions(product, categorySlug);
+            return;
+        }
+
         container.innerHTML = `
             <div class="product-detail__image-wrap">
                 <img
                     class="product-detail__image"
-                    src="${product.image}"
-                    alt="${product.nom}"
+                    src="${escHtml(product.image)}"
+                    alt="${escHtml(product.nom)}"
                     onerror="this.src='assets/images/ui/logo.png'; this.alt='Image non disponible';"
                 >
             </div>
             <div class="product-detail__info">
-                <h1 class="product-detail__name">${product.nom}</h1>
+                <h1 class="product-detail__name">${escHtml(product.nom)}</h1>
                 <p class="product-detail__price">${formatPrice(product.prix)}</p>
                 <button
                     class="btn btn--primary btn--large product-detail__add"
                     id="add-to-cart-btn"
-                    aria-label="Ajouter ${product.nom} au panier"
+                    aria-label="Ajouter ${escHtml(product.nom)} au panier"
                     type="button"
                 >
                     Ajouter au panier
                 </button>
             </div>
         `;
+
+        // Bouton "i" allergenes (modale generale) dans le bloc info de la fiche.
+        // Echec de chargement non bloquant : la fiche reste fonctionnelle.
+        try {
+            const allergens = await loadAllergens();
+            const info = container.querySelector('.product-detail__info');
+            if (info) {
+                info.appendChild(buildAllergenInfoButton(() => openAllergenModal(allergens)));
+            }
+        } catch (e) {
+            console.error('loadAllergens error:', e);
+        }
 
         document.getElementById('add-to-cart-btn').addEventListener('click', () => {
             addToCart({

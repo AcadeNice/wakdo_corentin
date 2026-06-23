@@ -17,7 +17,7 @@
  * requires prices shown to end-consumers to include all taxes.
  */
 
-import { getCart, removeFromCart, updateQuantity, getTotalCents, computeMenuLineCents, clearCart, formatPrice } from './state.js';
+import { getCart, removeFromCart, updateQuantity, getTotalCents, computeMenuLineCents, clearCart, formatPrice, escHtml } from './state.js';
 import { refreshCartBadge } from './nav.js';
 
 /* TVA rate used for display breakdown only — stored prices are already TTC */
@@ -40,13 +40,15 @@ function renderCart() {
         cartList.innerHTML    = '';
         emptyBlock.hidden     = false;
         summaryBlock.hidden   = true;
-        if (payBtn) payBtn.disabled = true;
+        // pay-btn est un <a> : `.disabled` n'existe pas dessus, il faut piloter
+        // aria-disabled (sinon le bouton reste annonce desactive panier rempli).
+        if (payBtn) payBtn.setAttribute('aria-disabled', 'true');
         return;
     }
 
     emptyBlock.hidden   = true;
     summaryBlock.hidden = false;
-    if (payBtn) payBtn.disabled = false;
+    if (payBtn) payBtn.setAttribute('aria-disabled', 'false');
 
     cartList.innerHTML = '';
     items.forEach((item, index) => {
@@ -62,27 +64,27 @@ function renderCart() {
         row.innerHTML = `
             <img
                 class="cart-line__image"
-                src="${item.image}"
-                alt="${item.libelle}"
+                src="${escHtml(item.image)}"
+                alt="${escHtml(item.libelle)}"
                 onerror="this.src='assets/images/ui/logo.png'; this.alt='Image non disponible';"
             >
             <div class="cart-line__info">
-                <span class="cart-line__name">${item.libelle}</span>
+                <span class="cart-line__name">${escHtml(item.libelle)}</span>
                 <span class="cart-line__unit-price">${formatPrice(item.prix_cents)} / unite${isMenu && (item.supplement_cents ?? 0) > 0 ? ` + ${formatPrice(item.supplement_cents)} suppl.` : ''}</span>
                 ${isMenu && item.composition ? renderCompositionBlock(item) : ''}
             </div>
-            <div class="cart-line__qty" role="group" aria-label="Quantite de ${item.libelle}">
+            <div class="cart-line__qty" role="group" aria-label="Quantite de ${escHtml(item.libelle)}">
                 <button
                     class="qty-btn qty-btn--minus"
                     data-index="${index}"
-                    aria-label="Diminuer la quantite de ${item.libelle}"
+                    aria-label="Diminuer la quantite de ${escHtml(item.libelle)}"
                     type="button"
                 >-</button>
                 <span class="qty-value" aria-live="polite">${item.quantite}</span>
                 <button
                     class="qty-btn qty-btn--plus"
                     data-index="${index}"
-                    aria-label="Augmenter la quantite de ${item.libelle}"
+                    aria-label="Augmenter la quantite de ${escHtml(item.libelle)}"
                     type="button"
                 >+</button>
             </div>
@@ -90,7 +92,7 @@ function renderCart() {
             <button
                 class="cart-line__remove"
                 data-index="${index}"
-                aria-label="Supprimer ${item.libelle} du panier"
+                aria-label="Supprimer ${escHtml(item.libelle)} du panier"
                 type="button"
             >
                 <img src="assets/images/ui/trash.png" alt="" aria-hidden="true" width="24" height="24">
@@ -139,8 +141,9 @@ function renderCart() {
 
 /**
  * Builds the composition breakdown HTML for a menu cart line.
- * Renders burger (with personalisation options), accompagnement with taille,
- * boisson with taille, sauce, and the supplement summary if applicable.
+ * Renders burger (with personalisation options), accompagnement, boisson, sauce,
+ * and the supplement summary if applicable. Le format Maxi se lit dans le libelle de
+ * l'accompagnement (variante "Grande ...") et la ligne de supplement, pas un suffixe.
  *
  * @param {Object} item — cart item with type === 'menu' and composition object
  * @returns {string} HTML string
@@ -149,23 +152,34 @@ function renderCompositionBlock(item) {
     const c = item.composition;
     if (!c) return '';
 
-    const burgerOpts = c.burger.options && c.burger.options.length
-        ? ` (${c.burger.options.map(o => o === 'sans-oignon' ? 'sans oignon' : 'avec fromage').join(', ')})`
-        : '';
+    // Tolerant aux champs absents : depuis L2 (composeur slot-driven), un menu peut
+    // ne pas avoir tous les slots (ex. pas de sauce) -> ne pas supposer leur presence.
+    const parts = [];
+    if (c.burger) {
+        const burgerOpts = c.burger.options && c.burger.options.length
+            ? ` (${c.burger.options.map(o => o === 'sans-oignon' ? 'sans oignon' : 'avec fromage').join(', ')})`
+            : '';
+        parts.push(`${escHtml(c.burger.libelle)}${burgerOpts}`);
+    }
+    // libelle fait foi : en Maxi l'accompagnement porte deja sa variante par nom
+    // ("Grande Frite"). Plus de suffixe taille -- il doublait le nom ("Grande Frite
+    // grande") et "normale"/"grande" mentait pour la boisson (le Maxi ne l'agrandit pas).
+    if (c.accompagnement) {
+        parts.push(escHtml(c.accompagnement.libelle));
+    }
+    if (c.boisson) {
+        parts.push(escHtml(c.boisson.libelle));
+    }
+    if (c.sauce) {
+        parts.push(escHtml(c.sauce.libelle));
+    }
 
-    const accompTailleLabel = c.accompagnement.taille === 'G' ? ' grande' : ' normale';
-    const boissonTailleLabel = c.boisson.taille === 'G' ? ' grande' : ' normale';
-
-    const nbGrandes = (c.accompagnement.taille === 'G' ? 1 : 0) + (c.boisson.taille === 'G' ? 1 : 0);
     const supplTotal = item.supplement_cents ?? 0;
 
     return `
         <ul class="cart-line__composition" aria-label="Composition du menu">
-            <li class="cart-line__comp-item">+ ${c.burger.libelle}${burgerOpts}</li>
-            <li class="cart-line__comp-item">+ ${c.accompagnement.libelle}${accompTailleLabel}</li>
-            <li class="cart-line__comp-item">+ ${c.boisson.libelle}${boissonTailleLabel}</li>
-            <li class="cart-line__comp-item">+ ${c.sauce.libelle}</li>
-            ${supplTotal > 0 ? `<li class="cart-line__comp-suppl">Supplement ${nbGrandes} grande(s) : +${formatPrice(supplTotal)}</li>` : ''}
+            ${parts.map(t => `<li class="cart-line__comp-item">+ ${t}</li>`).join('')}
+            ${supplTotal > 0 ? `<li class="cart-line__comp-suppl">Format Maxi : +${formatPrice(supplTotal)}</li>` : ''}
         </ul>
     `;
 }

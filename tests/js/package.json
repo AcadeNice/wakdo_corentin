@@ -1,0 +1,4 @@
+{
+  "//": "Les tests front borne sont en ESM (import). Scoping local pour ne pas imposer type:module a la racine.",
+  "type": "module"
+}

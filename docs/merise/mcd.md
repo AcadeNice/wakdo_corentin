@@ -1,88 +1,99 @@
-# Conceptual Data Model (MCD) — Wakdo
+# Modele Conceptuel de Donnees (MCD) — Wakdo
 
-**Merise phase** : P1 - Conception, step 2 (data dictionary first, mantra #33)
-**Version** : v0.2 — prod-like, 19 entities
-**Date** : 2026-06-04
-**Branch** : `feat/p1-conception`
-**Status** : prod-like — all D1-D8 + stock decisions applied (see `docs/notes/revue-alignement-p1.md` §7)
-**Author** : BYAN (methodology layer)
-
----
-
-## 1. Purpose of this document
-
-The MCD (Modele Conceptuel des Donnees) formalises the **entities** of the Wakdo domain,
-their **associations**, and the **cardinalities** governing those associations.
-It is the normalised translation of the data dictionary, and serves as the basis for the
-MLD (relational mapping).
-
-Unlike the dictionary (which details attributes and types), the MCD focuses on relational
-structure: how many X per Y, whether participation is mandatory, whether associations carry
-their own attributes.
-
-**Sources**:
-- `docs/merise/dictionary.md` (v0.2 — 19 entities, source of truth for all names, types, ENUMs)
-- `docs/notes/revue-alignement-p1.md` §7 (decision table D1-D8 + stock)
-- `docs/PROJECT_CONTEXT.md` (business rules: menu composition, order flow, RBAC, service modes)
-- `docs/merise/_sources/` (school data: 9 categories, 53 products, 13 menus)
+**Phase Merise** : P1 - Conception, etape 2 (data dictionary first, mantra #33)
+**Version** : v0.3 — prod-like, 22 entites (19 prod-like + couche security-by-design)
+**Date** : 2026-06-04 (ajouts security-by-design 2026-06-11)
+**Branche** : `feat/p1-conception`
+**Statut** : prod-like — toutes les decisions D1-D8 + stock appliquees (voir `docs/notes/revue-alignement-p1.md` §7) ; couche security-by-design (audit_log + colonnes imputabilite/auth) en cours
+**Auteur** : BYAN (couche methodologie)
 
 ---
 
-## 2. Merise notation used
+## 1. Objectif de ce document
 
-### Cardinalities at the association foot (French Merise style)
+Le MCD (Modele Conceptuel des Donnees) formalise les **entites** du domaine Wakdo,
+leurs **associations**, et les **cardinalites** qui regissent ces associations.
+C'est la traduction normalisee du dictionnaire de donnees, et il sert de base au
+MLD (mapping relationnel).
 
-At each end of an association, the cardinality `(min,max)` states how many times an
-instance of the entity participates in the association.
+Contrairement au dictionnaire (qui detaille les attributs et les types), le MCD se concentre sur la
+structure relationnelle : combien de X par Y, si la participation est obligatoire, si les associations portent
+leurs propres attributs.
+
+**Sources** :
+- `docs/merise/dictionary.md` (v0.3 — 22 entites, source de verite pour tous les noms, types, ENUMs)
+- `docs/notes/revue-alignement-p1.md` §7 (table de decisions D1-D8 + stock)
+- `docs/PROJECT_CONTEXT.md` (regles metier : composition de menu, flux de commande, RBAC, modes de service)
+- `docs/merise/_sources/` (donnees de l'ecole : 9 categories, 53 produits, 13 menus)
+
+---
+
+## 2. Notation Merise utilisee
+
+### Cardinalites au pied de l'association (style Merise francais)
+
+A chaque extremite d'une association, la cardinalite `(min,max)` indique combien de fois une
+instance de l'entite participe a l'association.
 
 ```
 ENTITY_A  (min,max) ----[ ASSOCIATION ]---- (min,max)  ENTITY_B
 ```
 
-| Notation | Reading | Example |
+| Notation | Lecture | Exemple |
 |---|---|---|
-| `(0,1)` | Optional, at most 1 | A stock_movement links to (0,1) customer_order |
-| `(1,1)` | Mandatory, exactly 1 | A product belongs to (1,1) category |
-| `(0,N)` | Optional, unbounded | A category groups (0,N) products |
-| `(1,N)` | At least 1, unbounded | An order contains (1,N) order_items |
+| `(0,1)` | Optionnel, au plus 1 | Un stock_movement est lie a (0,1) customer_order |
+| `(1,1)` | Obligatoire, exactement 1 | Un product appartient a (1,1) category |
+| `(0,N)` | Optionnel, non borne | Une category regroupe (0,N) products |
+| `(1,N)` | Au moins 1, non borne | Une commande contient (1,N) order_items |
 
-Reading: "one instance of the source entity participates at least MIN times and at most
-MAX times in the association".
+Lecture : "une instance de l'entite source participe au moins MIN fois et au plus
+MAX fois a l'association".
 
-### Association naming convention
+### Convention de nommage des associations
 
-Active verb in business terms, e.g.: `groups`, `anchors`, `defines_slot`, `contains`,
+Verbe d'action en termes metier, par exemple : `groups`, `anchors`, `defines_slot`, `contains`,
 `references_product`, `references_menu`, `fills_slot`, `modifies_ingredient`, `logs`,
 `holds`, `grants`, `filters_source`, `decrements`.
 
-N-N associations that carry their own attributes become **associative entities** in the MLD
-(join table with own columns).
+Les associations N-N qui portent leurs propres attributs deviennent des **entites associatives** dans le MLD
+(table de jointure avec colonnes propres).
 
 ---
 
-## 3. Decomposition by sub-domain
+## 3. Decomposition par sous-domaine
 
-The 19-entity model is split into 4 sub-domains for readability. Beyond approximately
-5 entities, a single flat diagram becomes difficult to read; decomposition is the standard
-Merise practice for models of this size.
+Le modele de 22 entites est divise en 4 sous-domaines pour la lisibilite. Au-dela d'environ
+5 entites, un diagramme plat unique devient difficile a lire ; la decomposition est la pratique
+Merise standard pour les modeles de cette taille.
 
-| Sub-domain | Entities | Count |
+| Sous-domaine | Entites | Nombre |
 |---|---|---|
 | Catalogue | category, product, menu, menu_slot, menu_slot_option | 5 |
 | Ingredients & Stock | ingredient, product_ingredient, allergen, ingredient_allergen, stock_movement | 5 |
 | Order | customer_order, order_item, order_item_selection, order_item_modifier | 4 |
-| RBAC | user, role, role_visible_source, permission, role_permission | 5 |
+| RBAC & Audit | user, role, role_visible_source, permission, role_permission, audit_log, login_throttle, pin_throttle | 8 |
 
-**Note on the absence of a global diagram**: a single 19-entity ER diagram would be
-unreadable and unmaintainable. The sub-domain decomposition below is the intentional
-structural choice. The `.drawio` source files will be regenerated from this document as the
-single reference once the MCD is stabilised (regeneration tracked in `docs/notes/`).
+> **Couche security-by-design (2026-06-11)** : `audit_log` (entite 20) est un journal transverse,
+> append-only des actions sensibles ; il est place dans le sous-domaine RBAC & Audit parce que
+> ses references (`actor_user_id`, `actor_role_id`) sont des entites RBAC. `login_throttle`
+> (entite 21) est un throttle anti-brute-force par IP source, indexe par IP et ne portant aucune FK ; il se situe
+> dans le meme sous-domaine parce qu'il protege le chemin d'authentification. `pin_throttle` (entite 22,
+> RG-T22) est un throttle du PIN d'action sensible par utilisateur AGISSANT (FK `actor_user_id -> user`,
+> ON DELETE CASCADE), compteurs separes du login. Nouvelles colonnes sur des entites existantes :
+> `user` cycle de vie auth + `pin_hash` + `anonymized_at`, `customer_order.acting_user_id`
+> + `idempotency_key`. Voir note 13 du dictionnaire.
+
+**Note sur l'absence d'un diagramme global** : un unique diagramme ER de 22 entites serait
+illisible et impossible a maintenir. La decomposition par sous-domaine ci-dessous est le choix
+structurel intentionnel. Chaque sous-domaine est un `erDiagram` Mermaid (faisant autorite, rendu
+nativement) avec un rendu SVG portable dans `docs/merise/_diagrams/` ; voir la section 11 pour les
+sources et la commande de regeneration.
 
 ---
 
-## 4. Sub-domain: Catalogue
+## 4. Sous-domaine : Catalogue
 
-### 4.1 Mermaid entity-relationship diagram
+### 4.1 Diagramme entite-relation Mermaid
 
 ```mermaid
 erDiagram
@@ -138,30 +149,30 @@ erDiagram
     product ||--o{ menu_slot_option : "is_eligible_for"
 ```
 
-### 4.2 Association cardinalities
+### 4.2 Cardinalites des associations
 
-| # | Association | Side A | Cardinality A | Side B | Cardinality B | Justification |
+| # | Association | Cote A | Cardinalite A | Cote B | Cardinalite B | Justification |
 |---|---|---|---|---|---|---|
-| C1 | groups (product) | category | (0,N) | product | (1,1) | A category can exist with no products yet (created empty). A product must belong to exactly one category to appear on the kiosk. |
-| C2 | groups (menu) | category | (0,N) | menu | (1,1) | Same rationale as C1 for menus. All 13 menus belong to the `menus` category. |
-| C3 | anchors | menu | (1,1) | product | (0,N) | Each menu is built around exactly one fixed burger product (`burger_product_id`). A product may anchor 0 or more menus (a burger not used in a menu yet; or a popular burger anchoring several formats). |
-| C4 | defines_slot | menu | (1,N) | menu_slot | (1,1) | A menu must define at least one slot (drink, side, sauce) to have customisable composition. A slot belongs to exactly one menu. |
-| C5 | lists | menu_slot | (1,N) | menu_slot_option | (1,1) | A slot must list at least one eligible product (otherwise the customer cannot fill it). Each option row belongs to exactly one slot. |
-| C6 | is_eligible_for | product | (0,N) | menu_slot_option | (1,1) | A product may be eligible for any number of slots across all menus, or none if it is only sold a la carte. Each option row references exactly one product. |
+| C1 | groups (product) | category | (0,N) | product | (1,1) | Une categorie peut exister sans aucun produit pour l'instant (creee vide). Un produit doit appartenir a exactement une categorie pour apparaitre sur la borne. |
+| C2 | groups (menu) | category | (0,N) | menu | (1,1) | Meme raisonnement que C1 pour les menus. Les 13 menus appartiennent a la categorie `menus`. |
+| C3 | anchors | menu | (1,1) | product | (0,N) | Chaque menu est construit autour d'exactement un produit burger fixe (`burger_product_id`). Un produit peut ancrer 0 ou plusieurs menus (un burger pas encore utilise dans un menu ; ou un burger populaire ancrant plusieurs formats). |
+| C4 | defines_slot | menu | (1,N) | menu_slot | (1,1) | Un menu doit definir au moins un slot (boisson, accompagnement, sauce) pour avoir une composition personnalisable. Un slot appartient a exactement un menu. |
+| C5 | lists | menu_slot | (1,N) | menu_slot_option | (1,1) | Un slot doit lister au moins un produit eligible (sinon le client ne peut pas le remplir). Chaque ligne d'option appartient a exactement un slot. |
+| C6 | is_eligible_for | product | (0,N) | menu_slot_option | (1,1) | Un produit peut etre eligible pour un nombre quelconque de slots a travers tous les menus, ou aucun s'il n'est vendu qu'a la carte. Chaque ligne d'option reference exactement un produit. |
 
-### 4.3 Notes on the Catalogue sub-domain
+### 4.3 Notes sur le sous-domaine Catalogue
 
-**`menu_slot` vs category filter**: the explicit eligibility list `menu_slot_option(menu_slot_id, product_id)` was chosen over a category-based filter (`menu_slot.category_id`). Rationale: a product added to the `drinks` category should not automatically appear in every drink slot of every menu. The explicit list avoids accidental eligibility when the catalogue grows (see dictionary note 11).
+**`menu_slot` vs filtre par categorie** : la liste d'eligibilite explicite `menu_slot_option(menu_slot_id, product_id)` a ete choisie plutot qu'un filtre base sur la categorie (`menu_slot.category_id`). Raisonnement : un produit ajoute a la categorie `drinks` ne devrait pas apparaitre automatiquement dans chaque slot boisson de chaque menu. La liste explicite evite une eligibilite accidentelle quand le catalogue s'agrandit (voir note 11 du dictionnaire).
 
-**`menu.burger_product_id` as anchor**: the menu references a specific burger product, not a generic slot. This allows the ingredient configurator (sub-domain Ingredients & Stock) to resolve which ingredients are modifiable for a menu line, via `menu -> burger_product_id -> product_ingredient`.
+**`menu.burger_product_id` comme ancre** : le menu reference un produit burger specifique, pas un slot generique. Cela permet au configurateur d'ingredients (sous-domaine Ingredients & Stock) de resoudre quels ingredients sont modifiables pour une ligne de menu, via `menu -> burger_product_id -> product_ingredient`.
 
-**Normal / Maxi format**: two prices (`price_normal_cents`, `price_maxi_cents`) on `menu`; format recorded at `order_item.format`. No individual slot-level price differential is stored (see dictionary note 7).
+**Format Normal / Maxi** : deux prix (`price_normal_cents`, `price_maxi_cents`) sur `menu` ; format enregistre au niveau de `order_item.format`. Aucun differentiel de prix au niveau du slot individuel n'est stocke (voir note 7 du dictionnaire).
 
 ---
 
-## 5. Sub-domain: Ingredients & Stock
+## 5. Sous-domaine : Ingredients & Stock
 
-### 5.1 Mermaid entity-relationship diagram
+### 5.1 Diagramme entite-relation Mermaid
 
 ```mermaid
 erDiagram
@@ -174,15 +185,18 @@ erDiagram
         varchar name
         varchar unit
         int stock_quantity
+        int stock_capacity
         smallint pack_size
         varchar pack_label
-        smallint low_stock_threshold
+        smallint low_stock_pct
+        smallint critical_stock_pct
         tinyint is_active
     }
     product_ingredient {
         int product_id FK
         int ingredient_id FK
-        smallint quantity
+        smallint quantity_normal
+        smallint quantity_maxi
         tinyint is_removable
         tinyint is_addable
         int extra_price_cents
@@ -224,40 +238,44 @@ erDiagram
     user |o--o{ stock_movement : "logs"
 ```
 
-### 5.2 Association cardinalities
+### 5.2 Cardinalites des associations
 
-| # | Association | Side A | Cardinality A | Side B | Cardinality B | Justification |
+| # | Association | Cote A | Cardinalite A | Cote B | Cardinalite B | Justification |
 |---|---|---|---|---|---|---|
-| I1 | is_composed_of | product | (0,N) | product_ingredient | (1,1) | A product may have no ingredients entered in the system yet (catalogue row exists before recipe is entered). A recipe row belongs to exactly one product. |
-| I2 | appears_in | ingredient | (1,N) | product_ingredient | (1,1) | An ingredient in active use appears in at least one product recipe. Each recipe row references exactly one ingredient. Newly created ingredients with no recipe row yet are modelled as (0,N) from a pure structural standpoint; the business rule of (1,N) applies to ingredients in production use. |
-| I3 | contains (allergens) | ingredient | (0,N) | ingredient_allergen | (1,1) | An ingredient may contain no regulated allergens (e.g., pure salt). Each allergen-link row belongs to one ingredient. |
-| I4 | is_present_in | allergen | (0,N) | ingredient_allergen | (1,1) | An allergen may initially have no linked ingredients (seed: allergen catalogue is complete before recipe data is entered). Each link row references one allergen. |
-| I5 | decrements | ingredient | (0,N) | stock_movement | (1,1) | All movements affect exactly one ingredient. An ingredient may have no stock movement rows yet if it was recently created and no orders have been placed. Each movement row references exactly one ingredient. |
-| I6 | triggers | customer_order | (0,1) | stock_movement | (0,N) | A `sale` or `cancellation` movement references the originating order. A `restock` or `inventory_correction` has no order (NULL). A given order triggers movements across all its ingredients; an order still `pending_payment` has triggered no movement yet. |
-| I7 | logs | user | (0,1) | stock_movement | (0,N) | Automated sale decrements have no user (NULL). Manual restocks and corrections are attributed to a user. A user may log any number of movements. |
+| I1 | is_composed_of | product | (0,N) | product_ingredient | (1,1) | Un produit peut n'avoir aucun ingredient encore saisi dans le systeme (la ligne de catalogue existe avant que la recette ne soit saisie). Une ligne de recette appartient a exactement un produit. |
+| I2 | appears_in | ingredient | (1,N) | product_ingredient | (1,1) | Un ingredient en usage actif apparait dans au moins une recette de produit. Chaque ligne de recette reference exactement un ingredient. Les ingredients nouvellement crees sans ligne de recette sont modelises en (0,N) d'un point de vue purement structurel ; la regle metier de (1,N) s'applique aux ingredients en usage de production. |
+| I3 | contains (allergens) | ingredient | (0,N) | ingredient_allergen | (1,1) | Un ingredient peut ne contenir aucun allergene reglemente (par exemple, du sel pur). Chaque ligne de lien d'allergene appartient a un ingredient. |
+| I4 | is_present_in | allergen | (0,N) | ingredient_allergen | (1,1) | Un allergene peut initialement n'avoir aucun ingredient lie (seed : le catalogue d'allergenes est complet avant que les donnees de recette ne soient saisies). Chaque ligne de lien reference un allergene. |
+| I5 | decrements | ingredient | (0,N) | stock_movement | (1,1) | Tous les mouvements affectent exactement un ingredient. Un ingredient peut n'avoir encore aucune ligne de mouvement de stock s'il a ete cree recemment et qu'aucune commande n'a ete passee. Chaque ligne de mouvement reference exactement un ingredient. |
+| I6 | triggers | customer_order | (0,1) | stock_movement | (0,N) | Un mouvement `sale` ou `cancellation` reference la commande d'origine. Un `restock` ou `inventory_correction` n'a pas de commande (NULL). Une commande donnee declenche des mouvements sur tous ses ingredients ; une commande encore `pending_payment` n'a declenche aucun mouvement. |
+| I7 | logs | user | (0,1) | stock_movement | (0,N) | Les decrements de vente automatises n'ont pas d'utilisateur (NULL). Les reapprovisionnements et corrections manuels sont attribues a un utilisateur. Un utilisateur peut journaliser un nombre quelconque de mouvements. |
 
-### 5.3 Notes on the Ingredients & Stock sub-domain
+### 5.3 Notes sur le sous-domaine Ingredients & Stock
 
-**`product_ingredient` as an associative entity**: the N-N association between `product` and `ingredient` carries four attributes (`quantity`, `is_removable`, `is_addable`, `extra_price_cents`). It becomes a join table in the MLD with composite PK `(product_id, ingredient_id)`.
+**`product_ingredient` comme entite associative** : l'association N-N entre `product` et `ingredient` porte cinq attributs (`quantity_normal`, `quantity_maxi`, `is_removable`, `is_addable`, `extra_price_cents`). Elle devient une table de jointure dans le MLD avec une PK composite `(product_id, ingredient_id)`.
 
-**`ingredient_allergen` as a pure join table**: no own attributes. The allergen set for a product is computed at query time by joining `product_ingredient -> ingredient_allergen -> allergen`; no manual per-product entry is needed.
+**`ingredient_allergen` comme table de jointure pure** : aucun attribut propre. L'ensemble des allergenes d'un produit est calcule au moment de la requete en joignant `product_ingredient -> ingredient_allergen -> allergen` ; aucune saisie manuelle par produit n'est necessaire.
 
-**`stock_movement` immutability**: this table is append-only. No UPDATE or DELETE is permitted at application layer. Corrections are new rows with `movement_type = 'inventory_correction'` and a signed `delta`.
+**Immuabilite de `stock_movement`** : cette table est append-only. Aucun UPDATE ni DELETE n'est autorise au niveau applicatif. Les corrections sont de nouvelles lignes avec `movement_type = 'inventory_correction'` et un `delta` signe.
 
-**Low-stock alert**: computed at display time (`stock_quantity <= low_stock_threshold`); no additional stored column.
+**Modele de stock base sur les pourcentages** : la sante du stock est ancree sur une `stock_capacity` par ingredient (la reference 100%, `CHECK > 0`). `stock_quantity` est signe et peut devenir negatif quand les ventes depassent le stock compte ; le systeme ne bloque pas une commande sur une lecture de stock bas. `stock_pct = ROUND(stock_quantity / stock_capacity * 100)` est calcule, pas stocke. Deux seuils en pourcentage pilotent un comportement a trois bandes : `low_stock_pct` (bande d'alerte, defaut 10%) et `critical_stock_pct` (plancher de mise en rupture automatique, defaut 5%), avec l'invariant au niveau de la table `critical_stock_pct < low_stock_pct`. Au-dessus de la bande d'alerte, c'est normal ; entre critique et bas, le produit reste commandable et une alerte manager est levee (le manager soit retire le produit via `product.is_available = 0`, soit reapprovisionne pour lever l'alerte) ; au niveau ou en dessous de la bande critique, le produit passe automatiquement en rupture (calcule, voir ci-dessous).
+
+**Disponibilite produit calculee (regle RG-T21, voir `mlt.md`)** : la commandabilite effective est derivee, pas stockee. Un produit est commandable quand `product.is_available = 1` ET que chaque ingredient non retirable (`is_removable = 0`) de son `product_ingredient` a `stock_quantity > stock_capacity * critical_stock_pct / 100`. Un ingredient requis atteignant la bande critique met le produit en rupture automatique sans ecriture et sans cascade ; un retrait manuel (`product.is_available = 0`) est une surcharge forte ; un reapprovisionnement au-dessus de la bande critique rend le produit commandable a nouveau de lui-meme. Un ingredient retirable/optionnel a la bande critique ne bloque pas le produit (seul son supplement devient indisponible). Le tableau de bord distingue un retrait manuel d'une rupture pilotee par le stock.
 
 ---
 
-## 6. Sub-domain: Order
+## 6. Sous-domaine : Order
 
-### 6.1 Mermaid entity-relationship diagram
+### 6.1 Diagramme entite-relation Mermaid
 
 ```mermaid
 erDiagram
     customer_order {
         int id PK
         varchar order_number
+        varchar idempotency_key
         enum source
+        int acting_user_id FK
         enum service_mode
         enum status
         int total_ht_cents
@@ -320,49 +338,55 @@ erDiagram
     ingredient ||--o{ order_item_modifier : "modified_by"
 ```
 
-### 6.2 Association cardinalities
+### 6.2 Cardinalites des associations
 
-| # | Association | Side A | Cardinality A | Side B | Cardinality B | Justification |
+| # | Association | Cote A | Cardinalite A | Cote B | Cardinalite B | Justification |
 |---|---|---|---|---|---|---|
-| O1 | contains | customer_order | (1,N) | order_item | (1,1) | An order without at least one line has no business meaning. A line belongs to exactly one order. ON DELETE CASCADE: if the order is purged, its lines go with it. |
-| O2 | references_product | order_item | (0,1) | product | (0,N) | When `item_type = 'product'`, `product_id` is non-null (1 product referenced). When `item_type = 'menu'`, `product_id` is NULL (0). A product may appear in any number of order lines across history. |
-| O3 | references_menu | order_item | (0,1) | menu | (0,N) | Symmetric to O2 for the menu discriminator branch. Exactly one of O2/O3 is active per line (CHECK constraint in MLD). |
-| O4 | fills_slot | order_item | (0,N) | order_item_selection | (1,1) | A `menu`-type order line has one selection per slot (typically 2-3). A `product`-type line has no selections (0). Each selection row belongs to exactly one order line. |
-| O5 | slot_filled_by | menu_slot | (0,N) | order_item_selection | (1,1) | A slot definition may have been chosen many times across historical orders (0,N). Each selection row references exactly one slot. ON DELETE RESTRICT: preserves historical records if the slot definition is later changed. |
-| O6 | chosen_for_slot | product | (0,N) | order_item_selection | (1,1) | A product may have been selected for many slot choices across history. Each selection references one product. |
-| O7 | modifies_ingredient | order_item | (0,N) | order_item_modifier | (1,1) | An order line may have any number of ingredient modifications (remove onion, add cheese). Each modifier row belongs to one order line. |
-| O8 | modified_by | ingredient | (0,N) | order_item_modifier | (1,1) | An ingredient may have been modified in many order lines across history. Each modifier references one ingredient. |
+| O1 | contains | customer_order | (1,N) | order_item | (1,1) | Une commande sans au moins une ligne n'a aucun sens metier. Une ligne appartient a exactement une commande. ON DELETE CASCADE : si la commande est purgee, ses lignes partent avec elle. |
+| O2 | references_product | order_item | (0,1) | product | (0,N) | Quand `item_type = 'product'`, `product_id` est non nul (1 produit reference). Quand `item_type = 'menu'`, `product_id` est NULL (0). Un produit peut apparaitre dans un nombre quelconque de lignes de commande a travers l'historique. |
+| O3 | references_menu | order_item | (0,1) | menu | (0,N) | Symetrique a O2 pour la branche du discriminateur menu. Exactement un de O2/O3 est actif par ligne (contrainte CHECK dans le MLD). |
+| O4 | fills_slot | order_item | (0,N) | order_item_selection | (1,1) | Une ligne de commande de type `menu` a une selection par slot (typiquement 2-3). Une ligne de type `product` n'a aucune selection (0). Chaque ligne de selection appartient a exactement une ligne de commande. |
+| O5 | slot_filled_by | menu_slot | (0,N) | order_item_selection | (1,1) | Une definition de slot peut avoir ete choisie de nombreuses fois a travers les commandes historiques (0,N). Chaque ligne de selection reference exactement un slot. ON DELETE RESTRICT : preserve les enregistrements historiques si la definition de slot est modifiee ulterieurement. |
+| O6 | chosen_for_slot | product | (0,N) | order_item_selection | (1,1) | Un produit peut avoir ete selectionne pour de nombreux choix de slot a travers l'historique. Chaque selection reference un produit. |
+| O7 | modifies_ingredient | order_item | (0,N) | order_item_modifier | (1,1) | Une ligne de commande peut avoir un nombre quelconque de modifications d'ingredients (retirer l'oignon, ajouter du fromage). Chaque ligne de modificateur appartient a une ligne de commande. |
+| O8 | modified_by | ingredient | (0,N) | order_item_modifier | (1,1) | Un ingredient peut avoir ete modifie dans de nombreuses lignes de commande a travers l'historique. Chaque modificateur reference un ingredient. |
 
-### 6.3 Notes on the Order sub-domain
+### 6.3 Notes sur le sous-domaine Order
 
-**Polymorphism on `order_item`**: each line references either a `product` or a `menu` (not both, not neither). The discriminator `item_type` ENUM drives which FK is populated. The mutual exclusivity is enforced by a CHECK constraint in the MLD. This pattern (2 nullable FKs + discriminator + CHECK) is a standard relational approach to single-table inheritance without a separate table per type.
+**Polymorphisme sur `order_item`** : chaque ligne reference soit un `product`, soit un `menu` (ni les deux, ni aucun). Le discriminateur `item_type` ENUM pilote quelle FK est renseignee. L'exclusivite mutuelle est imposee par une contrainte CHECK dans le MLD. Ce pattern (2 FK nullables + discriminateur + CHECK) est une approche relationnelle standard de l'heritage en table unique sans table separee par type.
 
-**`order_item_selection` (menu slot choices)**: captures which product the customer chose for each slot of a menu line. One row per slot filled. Used for KPI analysis (most popular drink/side combinations). The `label_snapshot` preserves the product name at transaction time.
+**`order_item_selection` (choix de slot de menu)** : capture quel produit le client a choisi pour chaque slot d'une ligne de menu. Une ligne par slot rempli. Utilise pour l'analyse de KPI (combinaisons boisson/accompagnement les plus populaires). Le `label_snapshot` preserve le nom du produit au moment de la transaction.
 
-**`order_item_modifier` (ingredient modifications)**: attaches to an `order_item` regardless of whether the line is a standalone product or a menu. For a menu line, the modifiable product is the fixed burger, resolved via `order_item.menu_id -> menu.burger_product_id` (see dictionary note 10). No additional FK column is needed on `order_item_modifier`.
+**`order_item_modifier` (modifications d'ingredients)** : se rattache a un `order_item` que la ligne soit un produit autonome ou un menu. Pour une ligne de menu, le produit modifiable est le burger fixe, resolu via `order_item.menu_id -> menu.burger_product_id` (voir note 10 du dictionnaire). Aucune colonne FK supplementaire n'est necessaire sur `order_item_modifier`.
 
-**Price snapshots**: `label_snapshot`, `unit_price_cents_snapshot`, and `vat_rate_snapshot` on `order_item` preserve the state at transaction time. If a product is later renamed or repriced, historical order data remains consistent. ON DELETE RESTRICT on `product_id` and `menu_id` is a secondary safeguard.
+**Snapshots de prix** : `label_snapshot`, `unit_price_cents_snapshot`, et `vat_rate_snapshot` sur `order_item` preservent l'etat au moment de la transaction. Si un produit est ulterieurement renomme ou retarife, les donnees de commande historiques restent coherentes. ON DELETE RESTRICT sur `product_id` et `menu_id` est une protection secondaire.
 
-**`service_day` computation** (KPI grouping): not stored as a column. Computed at query time:
+**Calcul de `service_day`** (regroupement KPI) : non stocke comme colonne. Calcule au moment de la requete :
 ```sql
 CASE WHEN HOUR(created_at) < 10 THEN DATE(created_at) - INTERVAL 1 DAY ELSE DATE(created_at) END
 ```
-Cutoff: 10:00. The generated-column formula with `INTERVAL 4 HOUR 30 MINUTE` from the v0.1 MLD
-was incorrect and is dropped (decision D6, `revue-alignement-p1.md` §7).
+Seuil : 10:00. La formule de colonne generee avec `INTERVAL 4 HOUR 30 MINUTE` du MLD v0.1
+etait incorrecte et est abandonnee (decision D6, `revue-alignement-p1.md` §7).
 
-**`source = 'drive' => service_mode = 'drive'`**: cross-constraint. A drive-channel order can
-only have `service_mode = 'drive'`. Enforced at application layer (and optionally as a CHECK in
-the MLD).
+**`source = 'drive' => service_mode = 'drive'`** : contrainte croisee. Une commande du canal drive ne peut
+avoir que `service_mode = 'drive'`. Imposee au niveau applicatif (et optionnellement comme CHECK dans
+le MLD).
 
-**4-state machine** (`pending_payment -> paid -> delivered` + `cancelled`):
-`preparing` and `ready` are dropped (decision D4, `revue-alignement-p1.md` §7). KPI timing is
-`delivered_at - paid_at`; KDS colour coding is computed from `NOW() - paid_at`.
+**Machine a 4 etats** (`pending_payment -> paid -> delivered` + `cancelled`) :
+`preparing` et `ready` sont abandonnes (decision D4, `revue-alignement-p1.md` §7). Le timing KPI est
+`delivered_at - paid_at` ; le codage couleur KDS est calcule a partir de `NOW() - paid_at`.
+
+**Colonnes security-by-design (2026-06-11)** : `idempotency_key` (UUID client, UNIQUE)
+deduplique un `POST /api/orders` rejoue. `acting_user_id` (FK -> `user`, ON DELETE SET NULL)
+enregistre l'employe de comptoir/drive qui a pris la commande sous PIN ; NULL pour les commandes anonymes de la borne.
+Cela ajoute une association `customer_order |o--o| user : "taken_by"` (cardinalite : une commande est
+prise par (0,1) user ; un user prend (0,N) commandes). Voir note 13 du dictionnaire.
 
 ---
 
-## 7. Sub-domain: RBAC
+## 7. Sous-domaine : RBAC
 
-### 7.1 Mermaid entity-relationship diagram
+### 7.1 Diagramme entite-relation Mermaid
 
 ```mermaid
 erDiagram
@@ -370,11 +394,15 @@ erDiagram
         int id PK
         varchar email
         varchar password_hash
+        varchar pin_hash
         varchar first_name
         varchar last_name
         int role_id FK
         tinyint is_active
         datetime last_login_at
+        smallint failed_login_attempts
+        datetime lockout_until
+        datetime anonymized_at
     }
     role {
         int id PK
@@ -399,135 +427,224 @@ erDiagram
         int role_id FK
         int permission_id FK
     }
+    audit_log {
+        int id PK
+        int actor_user_id FK
+        int actor_role_id FK
+        varchar action_code
+        varchar entity_type
+        int entity_id
+        varchar summary
+        json details
+        datetime created_at
+    }
+    login_throttle {
+        int id PK
+        varchar ip_address UK
+        smallint failed_attempts
+        datetime window_started_at
+        datetime lockout_until
+        datetime last_attempt_at
+    }
+    pin_throttle {
+        int id PK
+        int actor_user_id FK,UK
+        smallint failed_attempts
+        datetime window_started_at
+        datetime lockout_until
+        datetime last_attempt_at
+    }
 
     user }o--|| role : "holds"
     role ||--o{ role_visible_source : "sees_source"
     role ||--o{ role_permission : "grants"
     permission ||--o{ role_permission : "granted_to"
+    user |o--o{ audit_log : "performs"
+    role |o--o{ audit_log : "context_of"
+    user ||--o{ pin_throttle : "pin_throttled_as"
 ```
 
-### 7.2 Association cardinalities
+> `login_throttle` est une entite autonome sans association : elle est indexee par IP source
+> (`ip_address UNIQUE`), pas par un acteur modelise, donc elle ne porte aucune FK et ne se connecte a aucune
+> autre entite du diagramme. `pin_throttle` (RG-T22), au contraire, est cle par l'utilisateur AGISSANT
+> (`actor_user_id UNIQUE`, FK -> `user` ON DELETE CASCADE) : c'est la dimension qui rend le throttle du PIN
+> non contournable par rotation d'email et sans collateral sur un poste partage.
 
-| # | Association | Side A | Cardinality A | Side B | Cardinality B | Justification |
+### 7.2 Cardinalites des associations
+
+| # | Association | Cote A | Cardinalite A | Cote B | Cardinalite B | Justification |
 |---|---|---|---|---|---|---|
-| R1 | holds | user | (1,1) | role | (0,N) | A user must have exactly one role to access the back-office. A role may have no current users (created but not yet assigned). ON DELETE RESTRICT on `role_id`: a role cannot be deleted while users hold it. |
-| R2 | sees_source | role | (0,N) | role_visible_source | (1,1) | A role may see 0 or more order sources on the preparation dashboard (admin/manager use a global view with no source filter). Each visibility row belongs to exactly one role. |
-| R3 | grants | role | (0,N) | role_permission | (1,1) | A role may have no permissions (a newly created role before assignment) or many. Each mapping row belongs to one role. |
-| R4 | granted_to | permission | (0,N) | role_permission | (1,1) | A permission may be granted to no roles yet (declared at seed, not yet distributed) or to several. Each mapping row references one permission. |
+| R1 | holds | user | (1,1) | role | (0,N) | Un utilisateur doit avoir exactement un role pour acceder au back-office. Un role peut n'avoir aucun utilisateur actuel (cree mais pas encore assigne). ON DELETE RESTRICT sur `role_id` : un role ne peut etre supprime tant que des utilisateurs le detiennent. |
+| R2 | sees_source | role | (0,N) | role_visible_source | (1,1) | Un role peut voir 0 ou plusieurs sources de commande sur le tableau de bord de preparation (admin/manager utilisent une vue globale sans filtre de source). Chaque ligne de visibilite appartient a exactement un role. |
+| R3 | grants | role | (0,N) | role_permission | (1,1) | Un role peut n'avoir aucune permission (un role nouvellement cree avant assignation) ou plusieurs. Chaque ligne de mapping appartient a un role. |
+| R4 | granted_to | permission | (0,N) | role_permission | (1,1) | Une permission peut n'etre encore accordee a aucun role (declaree au seed, pas encore distribuee) ou a plusieurs. Chaque ligne de mapping reference une permission. |
+| R5 | performs | user | (0,1) | audit_log | (0,N) | Une action sensible capturee sous PIN enregistre son utilisateur agissant ; les entrees automatisees/non attribuables portent NULL. Un utilisateur peut avoir journalise un nombre quelconque d'actions. ON DELETE SET NULL preserve la trace lors de l'anonymisation/suppression de l'utilisateur. |
+| R6 | context_of | role | (0,1) | audit_log | (0,N) | Chaque ligne d'audit peut denormaliser le role de l'acteur au moment de l'action (NULL autorise). Un role peut etre le contexte de nombreuses lignes d'audit. ON DELETE SET NULL preserve la trace. |
+| R9 | pin_throttled_as | user | (1,1) | pin_throttle | (0,1) | Throttle du PIN d'action sensible (RG-T22) : au plus une ligne `pin_throttle` par utilisateur agissant (cle UNIQUE `actor_user_id`), creee au premier echec et upsertee ensuite. ON DELETE CASCADE : l'etat de throttle (ephemere) part avec le compte supprime/anonymise. |
 
-### 7.3 Notes on the RBAC sub-domain
+### 7.3 Notes sur le sous-domaine RBAC
 
-**RBAC architecture**: roles are dynamic (creatable and modifiable via admin UI). Permissions are static (declared in migration, tied to application code). Application code tests permissions, not role names: adding a new role with the right permissions requires no code change (permission-driven, per Sandhu/NIST RBAC model — decision D4, `revue-alignement-p1.md` §7).
+**Architecture RBAC** : les roles sont dynamiques (creables et modifiables via l'UI admin). Les permissions sont statiques (declarees en migration, liees au code applicatif). Le code applicatif teste les permissions, pas les noms de role : ajouter un nouveau role avec les bonnes permissions ne necessite aucun changement de code (permission-driven, selon le modele RBAC Sandhu/NIST — decision D4, `revue-alignement-p1.md` §7).
 
-**`role.order_source`**: when a counter or drive staff member creates an order, the `source` column on `customer_order` is automatically populated from their role's `order_source`. NULL for admin and manager (they can create on behalf of any channel).
+**`role.order_source`** : quand un employe de comptoir ou de drive cree une commande, la colonne `source` sur `customer_order` est automatiquement renseignee a partir de l'`order_source` de son role. NULL pour admin et manager (ils peuvent creer pour le compte de n'importe quel canal).
 
-**`role.default_route`**: the landing screen for each role, stored in the database. Front-end routing reads this value at login; no role name is hardcoded in routing logic.
+**`role.default_route`** : l'ecran d'arrivee pour chaque role, stocke en base de donnees. Le routage front-end lit cette valeur au login ; aucun nom de role n'est code en dur dans la logique de routage.
 
-**`role_visible_source`**: a pure join table linking a role to the set of order sources visible on the preparation dashboard. A `kitchen` role sees all three sources; a `counter` role sees `kiosk` and `counter`; a `drive` role sees only `drive`.
+**`role_visible_source`** : une table de jointure pure liant un role a l'ensemble des sources de commande visibles sur le tableau de bord de preparation. Un role `kitchen` voit les trois sources ; un role `counter` voit `kiosk` et `counter` ; un role `drive` ne voit que `drive`.
 
-**`role_permission`** and **`role_visible_source`** both use composite PKs. ON DELETE CASCADE on both FKs of `role_permission` (deleting a role or a permission removes its mappings). ON DELETE CASCADE on `role_id` of `role_visible_source`.
+**`role_permission`** et **`role_visible_source`** utilisent tous deux des PK composites. ON DELETE CASCADE sur les deux FK de `role_permission` (supprimer un role ou une permission retire ses mappings). ON DELETE CASCADE sur le `role_id` de `role_visible_source`.
 
-**Seed roles** (5 roles, frozen at DDL; extendable without code change):
+**Roles de seed** (5 roles, figes au DDL ; extensibles sans changement de code) :
 `admin`, `manager`, `kitchen`, `counter`, `drive`.
 
+**`audit_log` (security-by-design)** : journal append-only des actions sensibles, immuable comme
+`stock_movement`. Les deux FK (`actor_user_id`, `actor_role_id`) sont nullables avec ON DELETE
+SET NULL, de sorte que la trace survit a l'anonymisation de l'utilisateur (RGPD) et a la suppression de role. Le `actor_role_id`
+est denormalise a dessein : meme si l'utilisateur est ulterieurement anonymise, le contexte de role de
+l'action est preserve. Il ne porte aucune PII (le JSON `details` stocke les noms des champs modifies, pas les
+valeurs pour les actions ciblant un utilisateur). Voir dictionnaire 3.20 et note 13.
+
+**`login_throttle` (security-by-design)** : throttle anti-brute-force par IP source, complementant
+le compteur par compte deja present sur `user` (`failed_login_attempts` / `lockout_until`). Une ligne
+par IP (`ip_address VARCHAR(45) UNIQUE`, 45 caracteres pour contenir un litteral IPv6 complet), upsertee a chaque
+echec de login : `failed_attempts` compte les echecs consecutifs depuis cette IP dans la fenetre courante,
+`window_started_at` marque le debut de cette fenetre (qui se reinitialise a son expiration), `lockout_until`
+contient la fin du backoff degressif (NULL = non throttle), `last_attempt_at` l'horodatage
+de la derniere tentative echouee. Elle n'a aucune FK (une IP n'est pas une entite modelisee) et aucune association. Un
+cron quotidien purge les lignes sans lockout actif dont le `last_attempt_at` est plus ancien que 24h. Voir
+dictionnaire 3.21 et note 13.
+
+**`pin_throttle` (security-by-design, RG-T22)** : throttle du PIN d'action sensible, distinct du throttle
+de connexion. La dimension est l'utilisateur AGISSANT (l'identite de session qui soumet email+PIN), pas
+l'email cible (contournable par rotation) ni l'IP (qui penaliserait tous les equipiers d'un poste partage).
+Une ligne par acteur (`actor_user_id UNIQUE`, FK -> `user` ON DELETE CASCADE), upsertee a chaque echec hors
+verrou ; memes colonnes que `login_throttle` mais des bornes propres (PIN_THROTTLE_*, plus permissives).
+Compteurs physiquement separes du login : un echec de PIN n'incremente aucun compteur de connexion. Meme
+purge cron quotidienne. Association R9 (`user` 1 -- 0,N `pin_throttle`). Voir dictionnaire 3.22 et note 13.
+
 ---
 
-## 8. Cross-validation MCD <-> dictionary
+## 8. Validation croisee MCD <-> dictionnaire
 
-Verification that all 19 dictionary entities appear in the MCD and vice versa.
+Verification que les 22 entites du dictionnaire apparaissent dans le MCD et reciproquement.
 
-| # | Dictionary entity (section 3) | Sub-domain in MCD | Present |
+| # | Entite du dictionnaire (section 3) | Sous-domaine dans le MCD | Presente |
 |---|---|---|---|
-| 1 | `category` (3.1) | Catalogue | Yes |
-| 2 | `product` (3.2) | Catalogue + Ingredients + Order | Yes |
-| 3 | `menu` (3.3) | Catalogue + Order | Yes |
-| 4 | `menu_slot` (3.4) | Catalogue + Order | Yes |
-| 5 | `menu_slot_option` (3.5) | Catalogue | Yes |
-| 6 | `ingredient` (3.6) | Ingredients + Order | Yes |
-| 7 | `product_ingredient` (3.7) | Ingredients | Yes |
-| 8 | `allergen` (3.8) | Ingredients | Yes |
-| 9 | `ingredient_allergen` (3.9) | Ingredients | Yes |
-| 10 | `customer_order` (3.10) | Order | Yes |
-| 11 | `order_item` (3.11) | Order | Yes |
-| 12 | `order_item_selection` (3.12) | Order | Yes |
-| 13 | `order_item_modifier` (3.13) | Order | Yes |
-| 14 | `user` (3.14) | RBAC | Yes |
-| 15 | `role` (3.15) | RBAC | Yes |
-| 16 | `role_visible_source` (3.16) | RBAC | Yes |
-| 17 | `permission` (3.17) | RBAC | Yes |
-| 18 | `role_permission` (3.18) | RBAC | Yes |
-| 19 | `stock_movement` (3.19) | Ingredients & Stock | Yes |
+| 1 | `category` (3.1) | Catalogue | Oui |
+| 2 | `product` (3.2) | Catalogue + Ingredients + Order | Oui |
+| 3 | `menu` (3.3) | Catalogue + Order | Oui |
+| 4 | `menu_slot` (3.4) | Catalogue + Order | Oui |
+| 5 | `menu_slot_option` (3.5) | Catalogue | Oui |
+| 6 | `ingredient` (3.6) | Ingredients + Order | Oui |
+| 7 | `product_ingredient` (3.7) | Ingredients | Oui |
+| 8 | `allergen` (3.8) | Ingredients | Oui |
+| 9 | `ingredient_allergen` (3.9) | Ingredients | Oui |
+| 10 | `customer_order` (3.10) | Order | Oui |
+| 11 | `order_item` (3.11) | Order | Oui |
+| 12 | `order_item_selection` (3.12) | Order | Oui |
+| 13 | `order_item_modifier` (3.13) | Order | Oui |
+| 14 | `user` (3.14) | RBAC | Oui |
+| 15 | `role` (3.15) | RBAC | Oui |
+| 16 | `role_visible_source` (3.16) | RBAC | Oui |
+| 17 | `permission` (3.17) | RBAC | Oui |
+| 18 | `role_permission` (3.18) | RBAC | Oui |
+| 19 | `stock_movement` (3.19) | Ingredients & Stock | Oui |
+| 20 | `audit_log` (3.20) | RBAC & Audit | Oui |
+| 21 | `login_throttle` (3.21) | RBAC & Audit | Oui |
+| 22 | `pin_throttle` (3.22) | RBAC & Audit | Oui |
 
-**Result**: 19/19 entities traced. No entity from the dictionary is absent from the MCD.
-No entity in the MCD falls outside the dictionary.
+**Resultat** : 22/22 entites tracees (19 prod-like + `audit_log`, `login_throttle` et `pin_throttle`
+security-by-design). Aucune entite du dictionnaire n'est absente du MCD. Aucune entite du MCD
+ne tombe en dehors du dictionnaire.
 
-**Entities appearing in multiple sub-domains** (cross-domain shared entities):
-- `product`: Catalogue (sold item, slot eligibility) + Ingredients (recipe) + Order (line reference, slot choice)
-- `menu`: Catalogue (definition, slots) + Order (line reference)
-- `menu_slot`: Catalogue (slot definition) + Order (slot choices via `order_item_selection`)
-- `ingredient`: Ingredients (recipe, stock) + Order (modifiers)
-- `customer_order`: Order (order lifecycle) + Ingredients (stock movement trigger)
-- `user`: RBAC (authentication) + Ingredients (stock movement author)
+**Entites apparaissant dans plusieurs sous-domaines** (entites partagees inter-domaines) :
+- `product` : Catalogue (article vendu, eligibilite de slot) + Ingredients (recette) + Order (reference de ligne, choix de slot)
+- `menu` : Catalogue (definition, slots) + Order (reference de ligne)
+- `menu_slot` : Catalogue (definition de slot) + Order (choix de slot via `order_item_selection`)
+- `ingredient` : Ingredients (recette, stock) + Order (modificateurs)
+- `customer_order` : Order (cycle de vie de la commande) + Ingredients (declencheur de mouvement de stock) + RBAC & Audit (employe taken_by via `acting_user_id`)
+- `user` : RBAC (authentification) + Ingredients (auteur de mouvement de stock) + Order (`acting_user_id` sur les commandes comptoir/drive) + Audit (acteur de `audit_log`)
+- `role` : RBAC (permissions, sources visibles) + Audit (contexte `actor_role_id` denormalise sur `audit_log`)
 
-This is expected in a normalised model. The sub-domain split is for readability; the actual
-relational schema is a unified graph.
-
----
-
-## 9. Decisions deferred to the MLD
-
-The MCD remains at the conceptual level. The following decisions are deferred to the MLD:
-
-1. **Resolution of associative entities into tables**: `product_ingredient`, `menu_slot_option`,
-   `ingredient_allergen`, `role_visible_source`, `role_permission` become join tables with
-   composite PKs.
-2. **Technical PK vs business identifier**: `id INT UNSIGNED AUTO_INCREMENT` on all main entities.
-   `customer_order` additionally carries `order_number VARCHAR(20) UNIQUE` (human-readable,
-   format `K/C/D-YYYY-MM-DD-NNN` per channel).
-3. **ON DELETE rules**: CASCADE vs RESTRICT vs SET NULL. Detailed in the MLD.
-4. **CHECK constraints**: polymorphism exclusivity on `order_item`, cross-constraint
-   `source/service_mode` on `customer_order`, arithmetic invariant on totals.
-5. **Indexes**: not discussed at MCD level. Defined in the MLD for frequent query patterns.
-6. **`service_day` formula**: applicative CASE expression, not a stored generated column.
-   Documented in the MLD.
+C'est attendu dans un modele normalise. La division par sous-domaine est pour la lisibilite ; le schema
+relationnel reel est un graphe unifie.
 
 ---
 
-## 10. MCD <-> MCT coherence (mantra #34)
+## 9. Decisions reportees au MLD
 
-Pre-validation: each entity participates in at least one treatment.
+Le MCD reste au niveau conceptuel. Les decisions suivantes sont reportees au MLD :
 
-| Entity | Expected treatment(s) |
+1. **Resolution des entites associatives en tables** : `product_ingredient`, `menu_slot_option`,
+   `ingredient_allergen`, `role_visible_source`, `role_permission` deviennent des tables de jointure avec
+   des PK composites.
+2. **PK technique vs identifiant metier** : `id INT UNSIGNED AUTO_INCREMENT` sur toutes les entites principales.
+   `customer_order` porte en plus `order_number VARCHAR(20) UNIQUE` (lisible par un humain,
+   format `K/C/D-YYYY-MM-DD-NNN` par canal).
+3. **Regles ON DELETE** : CASCADE vs RESTRICT vs SET NULL. Detaillees dans le MLD.
+4. **Contraintes CHECK** : exclusivite de polymorphisme sur `order_item`, contrainte croisee
+   `source/service_mode` sur `customer_order`, invariant arithmetique sur les totaux.
+5. **Index** : non discutes au niveau MCD. Definis dans le MLD pour les patterns de requete frequents.
+6. **Formule `service_day`** : expression applicative CASE, pas une colonne generee stockee.
+   Documentee dans le MLD.
+
+---
+
+## 10. Coherence MCD <-> MCT (mantra #34)
+
+Pre-validation : chaque entite participe a au moins un traitement.
+
+| Entite | Traitement(s) attendu(s) |
 |---|---|
-| `category` | Admin CRUD |
-| `product` | Admin CRUD + kiosk cart add |
-| `menu` | Admin CRUD + kiosk cart add |
-| `menu_slot` | Admin CRUD (menu composition) |
-| `menu_slot_option` | Admin CRUD (slot eligibility management) |
-| `ingredient` | Admin CRUD + stock movements |
-| `product_ingredient` | Admin recipe management |
-| `allergen` | Admin CRUD (seed: read-only catalogue) |
-| `ingredient_allergen` | Admin allergen mapping |
-| `customer_order` | Full order lifecycle (create -> pay -> deliver / cancel) |
-| `order_item` | Cart building, line creation at validation |
-| `order_item_selection` | Menu slot selection during cart building |
-| `order_item_modifier` | Ingredient modification during cart building |
-| `user` | Admin CRUD + login |
-| `role` | Admin CRUD + user assignment |
-| `role_visible_source` | Admin role configuration |
-| `permission` | Admin permission matrix management |
-| `role_permission` | Admin permission matrix management |
-| `stock_movement` | Automatic at `paid` transition; manual restock and inventory correction |
+| `category` | CRUD admin |
+| `product` | CRUD admin + ajout au panier borne |
+| `menu` | CRUD admin + ajout au panier borne |
+| `menu_slot` | CRUD admin (composition de menu) |
+| `menu_slot_option` | CRUD admin (gestion de l'eligibilite des slots) |
+| `ingredient` | CRUD admin + mouvements de stock |
+| `product_ingredient` | Gestion des recettes admin |
+| `allergen` | CRUD admin (seed : catalogue en lecture seule) |
+| `ingredient_allergen` | Mapping des allergenes admin |
+| `customer_order` | Cycle de vie complet de la commande (create -> pay -> deliver / cancel) |
+| `order_item` | Construction du panier, creation de ligne a la validation |
+| `order_item_selection` | Selection de slot de menu pendant la construction du panier |
+| `order_item_modifier` | Modification d'ingredient pendant la construction du panier |
+| `user` | CRUD admin + login |
+| `role` | CRUD admin + assignation d'utilisateur |
+| `role_visible_source` | Configuration de role admin |
+| `permission` | Gestion de la matrice de permissions admin |
+| `role_permission` | Gestion de la matrice de permissions admin |
+| `stock_movement` | Automatique a la transition `paid` ; reapprovisionnement manuel et correction d'inventaire |
+| `audit_log` | Ecrit par les operations sensibles : UPDATE/DELETE product/menu (8.2/8.3/8.6), CANCEL_ORDER (7.1), RESTOCK/INVENTORY_COUNT (9.1/9.2), operations utilisateur (10.1-10.3), MANAGE_RBAC (10.4), et logins echoues/reussis (12.1) |
+| `login_throttle` | Lu et ecrit par AUTHENTICATE_USER (12.1) : throttle par IP source upserte a chaque echec de login, lu pour imposer la fenetre de backoff, purge par un cron quotidien |
 
-Cross-validation MCD <-> MCT (mantra #34) to be completed exhaustively in `mct.md`
-once the MCT is updated to the 4-state machine and 19-entity model.
+La validation croisee MCD <-> MCT (mantra #34) sera completee de maniere exhaustive dans `mct.md`
+une fois que le MCT integrera les operations security-by-design (actions sensibles protegees par PIN,
+ecritures d'audit, reset/lockout, anonymisation). Les ajouts de la couche traitements y sont suivis.
 
 ---
 
-## 11. Note on .drawio diagram regeneration
+## 11. Sources des diagrammes et regeneration
 
-The `.drawio` XML sources in `docs/merise/_diagrams/` reflect the v0.1 model (11 entities,
-French naming). They are scheduled for regeneration from this v0.2 MCD as a separate task.
-Until regenerated, this Markdown document is the authoritative conceptual model. The Mermaid
-`erDiagram` blocks in sections 4-7 render natively on GitHub and serve as the interim
-graphical reference.
+Le modele graphique faisant autorite est l'ensemble des blocs `erDiagram` Mermaid des sections 4-7,
+un par sous-domaine. Ils s'affichent nativement sur Forgejo et GitHub. Le MCD est decompose par
+sous-domaine a dessein : un unique diagramme de 22 entites ne peut etre dispose sans croisement de
+lignes de relation (limite de planarite intrinseque, et `erDiagram` n'offre aucun controle de mise en page
+manuel). Chaque sous-domaine reste a 5-8 entites, ce que la mise en page automatique gere proprement. La
+vue integree a travers les sous-domaines est la table de validation croisee de la section 8.
+
+Des rendus SVG portables se trouvent dans `docs/merise/_diagrams/` (pour l'export PDF / consultation hors ligne) :
+
+| Sous-domaine | Source | Rendu |
+|---|---|---|
+| Catalogue | `mcd-catalogue.mmd` | `mcd-catalogue.svg` |
+| Ingredients & Stock | `mcd-ingredients-stock.mmd` | `mcd-ingredients-stock.svg` |
+| Order | `mcd-order.mmd` | `mcd-order.svg` |
+| RBAC | `mcd-rbac.mmd` | `mcd-rbac.svg` |
+
+Les fichiers `.mmd` sont extraits des blocs `erDiagram` ci-dessus ; les `.svg` sont produits par
+`make docs-render` (mmdc). Si un bloc ici change, re-extraire le `.mmd` correspondant et relancer
+`make docs-render`. Les anciennes sources `.drawio` v0.1 ont ete supprimees : drawio offrait un controle de mise en page
+manuel mais necessitait une edition a la main et ne s'affichait pas dans les apercus Markdown, alors que
+les blocs Mermaid decomposes sont versionnes, s'affichent partout, et restent synchronises avec
+ce document.

@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+#
+# Wakdo - hook commit-msg : valide le format Conventional Commits.
+#
+# Active via scripts/install-hooks.sh (git config core.hooksPath .githooks).
+# Recoit en $1 le chemin du fichier contenant le message de commit.
+#
+# Regle (PROJECT_CONTEXT section 9) :
+#   <type>(<scope optionnel>): <description min 5 caracteres>
+#   types : feat|fix|refactor|test|docs|chore|ci|db|perf|style
+#   scope : minuscules, chiffres, tirets
+#   interdits : emoji (Mantra IA-23)
+#
+# Exit codes : 0 = message conforme ; 1 = format invalide ou emoji detecte.
+
+set -euo pipefail
+
+MSG_FILE="${1:?usage: commit-msg <fichier-message>}"
+
+# Premiere ligne non vide (ignore les commentaires git et les lignes vides).
+SUBJECT="$(grep -m1 -vE '^\s*(#|$)' "$MSG_FILE" || true)"
+
+if [ -z "$SUBJECT" ]; then
+    echo "commit-msg: message vide." >&2
+    exit 1
+fi
+
+# Tolerance : commits techniques de git (merge/revert/fixup) non concernes.
+case "$SUBJECT" in
+    "Merge "*|"Revert "*|"fixup! "*|"squash! "*) exit 0 ;;
+esac
+
+PATTERN='^(feat|fix|refactor|test|docs|chore|ci|db|perf|style)(\([a-z0-9-]+\))?!?: .{5,}'
+if ! printf '%s' "$SUBJECT" | grep -qE "$PATTERN"; then
+    echo "commit-msg: format invalide." >&2
+    echo "  attendu : <type>(<scope>): <description (>=5 car.)>" >&2
+    echo "  types   : feat fix refactor test docs chore ci db perf style" >&2
+    echo "  recu    : $SUBJECT" >&2
+    exit 1
+fi
+
+# Refus des emoji (Mantra IA-23). Plage des symboles/pictogrammes courants.
+# grep -P (PCRE) est requis pour les classes \x{...} ; il n'est dispo que sur le
+# grep GNU (cible Linux/Alpine du projet). Si -P est absent (BSD/macOS), on saute
+# ce controle plutot que de bloquer a tort (le format reste verifie ; la CI fait foi).
+if printf 'a' | grep -qP 'a' 2>/dev/null; then
+    if printf '%s' "$SUBJECT" | grep -qP '[\x{1F000}-\x{1FAFF}\x{2600}-\x{27BF}\x{2190}-\x{21FF}\x{2B00}-\x{2BFF}]'; then
+        echo "commit-msg: emoji detecte dans le sujet (interdit, Mantra IA-23)." >&2
+        exit 1
+    fi
+fi
+
+exit 0

@@ -1,0 +1,46 @@
+erDiagram
+    category {
+        int id PK
+        varchar name UK
+        varchar slug UK
+        smallint display_order
+        tinyint is_active
+    }
+    product {
+        int id PK
+        int category_id FK
+        varchar name
+        int price_cents
+        smallint vat_rate
+        tinyint is_available
+        smallint display_order
+    }
+    menu {
+        int id PK
+        int category_id FK
+        int burger_product_id FK
+        varchar name
+        int price_normal_cents
+        int price_maxi_cents
+        tinyint is_available
+        smallint display_order
+    }
+    menu_slot {
+        int id PK
+        int menu_id FK
+        varchar name
+        enum slot_type
+        tinyint is_required
+        smallint display_order
+    }
+    menu_slot_option {
+        int menu_slot_id PK,FK
+        int product_id PK,FK
+    }
+
+    category ||--o{ product : "category_id (RESTRICT)"
+    category ||--o{ menu : "category_id (RESTRICT)"
+    product ||--o{ menu : "burger_product_id (RESTRICT)"
+    menu ||--o{ menu_slot : "menu_id (CASCADE)"
+    menu_slot ||--o{ menu_slot_option : "menu_slot_id (CASCADE)"
+    product ||--o{ menu_slot_option : "product_id (RESTRICT)"

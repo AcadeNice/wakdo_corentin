@@ -6,6 +6,8 @@
     <meta name="robots" content="noindex, nofollow">
     <meta name="description" content="Wakdo - Detail du produit">
     <title>Wakdo - Produit</title>
+    <link rel="canonical" href="https://corentin-wakdo.stark.a3n.fr/product.html">
+    <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg">
     <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body class="product-page">
@@ -43,6 +45,7 @@
         </a>
     </header>
 
+    <div class="order-layout">
     <main class="product-main" aria-label="Detail du produit">
 
         <!-- Error block: hidden unless fetch fails or id invalid -->
@@ -59,7 +62,12 @@
 
     </main>
 
+        <aside class="order-panel" data-order-panel aria-label="Ma commande" aria-live="polite"></aside>
+    </div>
+
     <script type="module" src="assets/js/nav.js"></script>
     <script type="module" src="assets/js/page-product.js"></script>
+    <script type="module" src="assets/js/order-panel.js"></script>
+    <script type="module" src="assets/js/a11y.js"></script>
 </body>
 </html>

@@ -1,10 +1,10 @@
 /*
- * page-confirmation.js — Order confirmation screen.
+ * page-confirmation.js — Ecran de commande confirmee.
  *
- * Generates a short order number: "WK-" + Date.now() encoded in base 36.
- * This is session-unique and human-readable at the counter.
- *
- * Clears the cart on load so that "Nouvelle commande" starts fresh.
+ * Affiche le numero de commande REEL et le montant regle, transmis par l'ecran de
+ * paiement via sessionStorage ('wakdo_last_order' = { order_number, total_ttc_cents }
+ * pose par checkout.submitOrder). Repli (visite directe sans commande) : numero
+ * genere localement + total du panier. Vide le panier au chargement.
  */
 
 import { clearCart, getTotalCents, formatPrice } from './state.js';
@@ -13,29 +13,34 @@ const orderNumberEl = document.getElementById('order-number');
 const orderTotalEl  = document.getElementById('order-total');
 const newOrderBtn   = document.getElementById('new-order-btn');
 
-function generateOrderNumber() {
+/** Repli si on arrive ici sans commande soumise (visite directe). */
+function fallbackOrderNumber() {
     return 'WK-' + Date.now().toString(36).toUpperCase();
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    /* Capture total before clearing */
-    const totalCents = getTotalCents();
+    let order = null;
+    try {
+        order = JSON.parse(sessionStorage.getItem('wakdo_last_order'));
+    } catch {
+        order = null;
+    }
 
+    const totalCents = order && order.total_ttc_cents != null ? order.total_ttc_cents : getTotalCents();
     if (orderTotalEl) {
         orderTotalEl.textContent = formatPrice(totalCents);
     }
-
     if (orderNumberEl) {
-        orderNumberEl.textContent = generateOrderNumber();
+        orderNumberEl.textContent = order && order.order_number ? order.order_number : fallbackOrderNumber();
     }
 
-    /* Clear cart immediately — order is confirmed */
+    /* La commande est passee : on nettoie le panier et la trace de commande. */
+    sessionStorage.removeItem('wakdo_last_order');
     clearCart();
 });
 
 if (newOrderBtn) {
     newOrderBtn.addEventListener('click', () => {
-        /* clearCart() already called on DOMContentLoaded, but guard anyway */
         clearCart();
         window.location.href = 'index.html';
     });

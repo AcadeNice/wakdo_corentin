@@ -5,6 +5,11 @@
 *.pem
 *.key
 
+# Compose de production (propre a chaque hote : Traefik/reverse proxy, FQDN).
+# Le repo ne ship que docker-compose.yml (standalone, local). Chaque hote derriere
+# un proxy maintient son propre docker-compose.prod.yml (hors versionnement).
+docker-compose.prod.yml
+
 # === BYAN — plateforme (moteur), masquee ===
 # Le code moteur des agents n'est pas part du rendu RNCP.
 # La methodologie appliquee (CLAUDE.md + rules + hooks) reste dans .claude/
@@ -28,8 +33,11 @@ vendor/
 composer.lock
 composer.phar
 
-# === Tests ===
+# === Tests / Analyse statique (tooling via .phar autonome, sans Composer) ===
 .phpunit.result.cache
+.phpunit.cache/
+/phpunit.phar
+/phpstan.phar
 /tests/_output/
 /tests/_support/_generated/
 
@@ -66,6 +74,12 @@ Thumbs.db
 node_modules/
 npm-debug.log
 yarn-error.log
+
+# === Playwright (E2E) ===
+playwright-report/
+test-results/
+/blob-report/
+.last-run.json
 
 # === Docker volumes locaux ===
 /docker-data/

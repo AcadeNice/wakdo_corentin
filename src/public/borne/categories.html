@@ -6,6 +6,8 @@
     <meta name="robots" content="noindex, nofollow">
     <meta name="description" content="Wakdo - Choisissez une categorie de produits">
     <title>Wakdo - Categories</title>
+    <link rel="canonical" href="https://corentin-wakdo.stark.a3n.fr/categories.html">
+    <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg">
     <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body class="categories-page">
@@ -175,5 +177,11 @@
         </nav>
     </main>
 
+    <!-- nav.js : persiste le mode de consommation recu en ?mode= depuis l'accueil
+         (syncModeFromURL) AVANT que l'utilisateur ne suive une carte vers products.html.
+         Sans ce script, le mode n'atteint jamais localStorage et le paiement part en
+         service_mode null (422). C'est la 1re page post-accueil, elle doit donc le charger. -->
+    <script type="module" src="assets/js/nav.js"></script>
+    <script type="module" src="assets/js/a11y.js"></script>
 </body>
 </html>

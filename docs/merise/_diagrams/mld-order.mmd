@@ -1,0 +1,72 @@
+erDiagram
+    customer_order {
+        int id PK
+        varchar order_number UK
+        varchar idempotency_key UK
+        enum source
+        int acting_user_id FK
+        enum service_mode
+        enum status
+        int total_ht_cents
+        int total_vat_cents
+        int total_ttc_cents
+        datetime paid_at
+        datetime delivered_at
+        datetime cancelled_at
+    }
+    order_item {
+        int id PK
+        int order_id FK
+        enum item_type
+        int product_id FK
+        int menu_id FK
+        enum format
+        varchar label_snapshot
+        int unit_price_cents_snapshot
+        smallint vat_rate_snapshot
+        smallint quantity
+    }
+    order_item_selection {
+        int id PK
+        int order_item_id FK
+        int menu_slot_id FK
+        int product_id FK
+        varchar label_snapshot
+    }
+    order_item_modifier {
+        int id PK
+        int order_item_id FK
+        int ingredient_id FK
+        enum action
+        int extra_price_cents
+    }
+    user {
+        int id PK
+        varchar email
+    }
+    product {
+        int id PK
+        varchar name
+    }
+    menu {
+        int id PK
+        varchar name
+    }
+    menu_slot {
+        int id PK
+        varchar name
+    }
+    ingredient {
+        int id PK
+        varchar name
+    }
+
+    user ||--o{ customer_order : "acting_user_id (SET NULL, nullable)"
+    customer_order ||--o{ order_item : "order_id (CASCADE)"
+    product ||--o{ order_item : "product_id (RESTRICT, polymorphic)"
+    menu ||--o{ order_item : "menu_id (RESTRICT, polymorphic)"
+    order_item ||--o{ order_item_selection : "order_item_id (CASCADE)"
+    menu_slot ||--o{ order_item_selection : "menu_slot_id (RESTRICT)"
+    product ||--o{ order_item_selection : "product_id (RESTRICT)"
+    order_item ||--o{ order_item_modifier : "order_item_id (CASCADE)"
+    ingredient ||--o{ order_item_modifier : "ingredient_id (RESTRICT)"
