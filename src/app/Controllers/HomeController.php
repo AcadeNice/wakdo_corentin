@@ -8,10 +8,11 @@ use App\Core\Controller;
 use App\Core\Response;
 
 /**
- * Page d'accueil du back-office. GET /.
+ * Racine du FQDN admin. GET /.
  *
- * Volontairement minimale en P2 : prouve que le rendu de vue MVC traverse
- * controleur -> vue -> layout sans dependre de la BDD.
+ * Le back-office n'expose pas de page d'accueil publique : la racine renvoie
+ * vers la connexion (RG-T02). Une fois authentifie, /login mene l'equipier
+ * vers role.default_route. La sonde de sante reste sur GET /api/health.
  */
 final class HomeController extends Controller
 {
@@ -20,9 +21,6 @@ final class HomeController extends Controller
      */
     public function index(array $params = []): Response
     {
-        return $this->view('home', [
-            'title'   => 'Wakdo back-office',
-            'appEnv'  => $this->config->appEnv(),
-        ]);
+        return Response::make('', 302, ['Location' => '/login']);
     }
 }
