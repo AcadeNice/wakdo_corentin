@@ -2206,10 +2206,13 @@ html.dys-font {
 }
 
 /* Fixed accessibility control, present on every screen (injected by a11y.js). */
+/* Coin bas-gauche : libre du bouton Retour (haut-gauche), du panier (haut-droite)
+   et du panneau commande sticky (flanc droit). En portrait, le bas reste en zone
+   de pouce, donc atteignable. */
 .a11y-toggle {
     position: fixed;
-    top: var(--space-3);
-    right: var(--space-3);
+    bottom: var(--space-3);
+    left: var(--space-3);
     z-index: 1000;
     display: inline-flex;
     align-items: center;
