@@ -85,6 +85,36 @@ button {
     cursor: pointer;
 }
 
+/* Utilitaire lecteur d'ecran : retire du flux visuel, lu par les technologies
+   d'assistance (regions live discretes type #pos-announce). */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    border: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+}
+
+/* Message d'erreur de formulaire (global admin : erreurs de validation / serveur). */
+.form-error {
+    color: var(--color-danger-text);
+    background: var(--color-danger-bg);
+    border-radius: var(--radius-md);
+    padding: 8px 12px;
+    margin: 6px 0;
+    font-size: 14px;
+}
+
+/* Etat vide d'une liste / d'un catalogue (global admin). */
+.admin-empty {
+    color: var(--color-text-muted);
+    padding: 16px 0;
+}
+
 /* --- Layout Shell --- */
 .admin-layout {
     display: grid;
@@ -1433,8 +1463,10 @@ tbody td.mono {
 }
 
 /* =============================================================================
-   Saisie de commande comptoir/drive (counter-order.js + admin/counter/new.php)
-   Composeur : groupes produits, liste menus, panier chiffre, total, modale.
+   POS tactile a tuiles comptoir/drive (counter-order.js + admin/counter/new.php)
+   Ecran de caisse facon borne : onglets categories, grille de tuiles, panneau
+   commande persistant (lignes + stepper + total), modale de composition.
+   Cibles tactiles superieures ou egales a 44px (usage tablette).
    ============================================================================= */
 
 /* Mode de service fige (drive) : affichage non editable a la place du select. */
@@ -1445,60 +1477,290 @@ tbody td.mono {
     margin: 0;
 }
 
-/* Sous-titre de groupe de produits (regroupement par categorie). */
-.order-group__title {
+/* Disposition POS : catalogue a gauche (flex 1), panneau commande a droite (fixe). */
+.pos { margin: 0; }
+.pos__main {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+}
+.pos__catalogue {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+/* Onglets categories : bandeau scrollable horizontal (un onglet par categorie). */
+.pos__tabs {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--color-border);
+    -webkit-overflow-scrolling: touch;
+}
+.pos__tab {
+    flex: 0 0 auto;
+    min-height: 44px;
+    padding: 10px 18px;
+    border: 2px solid var(--color-border-dark);
+    border-radius: var(--radius-pill, 9999px);
+    background: var(--color-white);
+    color: var(--color-text-sec);
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: border-color 0.12s ease, background 0.12s ease, color 0.12s ease;
+}
+.pos__tab:hover,
+.pos__tab:focus-visible {
+    border-color: var(--color-yellow);
+    color: var(--color-text);
+    outline: none;
+}
+.pos__tab.is-active {
+    border-color: var(--color-yellow);
+    background: var(--color-yellow);
+    color: var(--color-text);
+}
+
+/* Grille de tuiles produits/menus : auto-fit, grandes cibles tactiles. */
+.pos__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 14px;
+}
+.pos__nojs {
+    grid-column: 1 / -1;
+    color: var(--color-text-muted);
+    padding: 16px 0;
+}
+
+/* Tuile : image/pastille + nom + prix. Bouton plein (tap = ajout ou modale). */
+.pos-tile {
+    display: flex;
+    flex-direction: column;
+    min-height: 44px;
+    padding: 0;
+    background: var(--color-white);
+    border: 2px solid var(--color-border);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-card);
+    overflow: hidden;
+    cursor: pointer;
+    text-align: left;
+    position: relative;
+    transition: border-color 0.12s ease, box-shadow 0.12s ease, transform 0.12s ease;
+}
+.pos-tile:hover,
+.pos-tile:focus-visible {
+    border-color: var(--color-yellow);
+    box-shadow: var(--shadow-card-hover);
+    transform: translateY(-2px);
+    outline: none;
+}
+.pos-tile:active { transform: translateY(0); box-shadow: var(--shadow-card); }
+
+.pos-tile__media {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    background: var(--color-surface);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+.pos-tile__image {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    padding: 10px;
+    background: var(--color-surface);
+}
+/* Pastille de repli (initiale) quand aucune image n'est disponible cote back-office. */
+.pos-tile__pastille {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--color-yellow-soft, #FFF3D1);
+    color: var(--color-yellow-ink, #C8920A);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    font-weight: 800;
+}
+.pos-tile__body {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 12px 12px;
+    flex: 1;
+}
+.pos-tile__name {
     font-size: 14px;
     font-weight: 700;
-    color: var(--color-yellow-ink);
-    margin: 14px 0 6px;
+    color: var(--color-text);
+    line-height: 1.25;
 }
-
-/* Champ quantite desactive pour un produit personnalisable (saisie en modale). */
-.order-qty--disabled {
-    background: var(--color-surface);
-    color: var(--color-text-muted);
-    cursor: not-allowed;
-}
-/* Indice "via Personnaliser" revele par JS a cote du champ qty neutralise. */
-.order-qty-hint {
-    display: inline-block;
-    margin-left: 8px;
+.pos-tile__price {
     font-size: 13px;
-    color: var(--color-text-muted);
-    font-style: italic;
+    font-weight: 700;
+    color: var(--color-text-sec);
+    font-variant-numeric: tabular-nums;
+}
+/* Badge "Menu" / "A composer" sur une tuile qui ouvre la modale au tap. */
+.pos-tile__badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 2;
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+    background: var(--color-text);
+    color: var(--color-white);
+    font-size: 11px;
+    font-weight: 700;
 }
 
-/* Deux prix d'un menu (Normal / Maxi) dans la liste. */
-.menu-list { list-style: none; padding: 0; margin: 0; }
-.menu-list__item {
+/* Panneau commande persistant a droite (facon caisse). */
+.pos__panel {
+    flex: 0 0 340px;
+    position: sticky;
+    top: 16px;
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 32px);
+    background: var(--color-white);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+    overflow: hidden;
+}
+.pos__panel-head {
+    padding: 16px;
+    border-bottom: 1px solid var(--color-border);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.pos__panel-title {
+    font-size: 17px;
+    font-weight: 800;
+    color: var(--color-text);
+}
+.pos__service {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 8px 0;
-    border-bottom: 1px solid var(--color-border);
+    gap: 8px;
 }
-.menu-list__name { font-weight: 600; flex: 1; }
-.menu-list__price { color: var(--color-text-sec); font-variant-numeric: tabular-nums; }
+.pos__service-label {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--color-text-sec);
+    min-width: 48px;
+}
+.pos__service .form-input { flex: 1; min-height: 44px; }
 
-/* Panier : une ligne = libelle + prix + bouton retirer. */
-.order-cart { list-style: none; padding: 0; margin: 0; }
-.order-cart__empty { color: var(--color-text-muted); padding: 8px 0; }
+/* Lignes du panier (corps scrollable du panneau). */
+.order-cart {
+    list-style: none;
+    padding: 0 16px;
+    margin: 0;
+    overflow-y: auto;
+    flex: 1 1 auto;
+}
+.order-cart__empty { color: var(--color-text-muted); padding: 16px 0; }
 .order-cart__line {
     display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 8px 0;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 0;
     border-bottom: 1px solid var(--color-border);
 }
-.order-cart__label { flex: 1; }
-.order-cart__price { font-weight: 700; font-variant-numeric: tabular-nums; }
-
-/* Total indicatif du panier. */
-.order-total {
-    text-align: right;
+.order-cart__main {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+}
+.order-cart__label { font-weight: 600; flex: 1; }
+.order-cart__price { font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.order-cart__controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+.order-cart__qty {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.order-cart__qty-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-md);
+    border: 2px solid var(--color-border-dark);
+    background: var(--color-white);
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--color-text);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 0.12s ease, background 0.12s ease;
+}
+.order-cart__qty-btn:hover,
+.order-cart__qty-btn:focus-visible {
+    border-color: var(--color-yellow);
+    background: var(--color-yellow-bg);
+    outline: none;
+}
+.order-cart__qty-value {
+    min-width: 32px;
+    text-align: center;
     font-size: 16px;
     font-weight: 800;
-    margin: 12px 0 0;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Pied du panneau : total indicatif + bouton d'encaissement (pleine largeur). */
+.pos__panel-foot {
+    padding: 16px;
+    border-top: 1px solid var(--color-border);
+    background: var(--color-surface);
+}
+.order-total {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    font-size: 18px;
+    font-weight: 800;
+    margin: 0 0 12px;
+}
+.order-total span { font-variant-numeric: tabular-nums; }
+.pos__pay {
+    width: 100%;
+    min-height: 52px;
+    font-size: 17px;
+}
+
+/* Tablette etroite / portrait : le panneau passe sous le catalogue. */
+@media (max-width: 860px) {
+    .pos__main { flex-direction: column; }
+    .pos__panel {
+        flex-basis: auto;
+        width: 100%;
+        position: static;
+        max-height: none;
+    }
+    .order-cart { max-height: 320px; }
 }
 
 /* Modale de composition : overlay + panneau centre. */
