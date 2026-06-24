@@ -47,10 +47,22 @@ class IngredientController extends AdminController
             return $guard;
         }
 
+        $ingredients = $this->ingredientRepository()->all();
+
+        // Compteurs par bande pour le resume du tableau de bord (3 pastilles).
+        // Calcules cote serveur a partir de stock_band deja resolu par le depot,
+        // pour que la vue reste declarative et la valeur testable directement.
+        $counts = ['critical' => 0, 'low' => 0, 'normal' => 0];
+        foreach ($ingredients as $row) {
+            $band = (string) ($row['stock_band'] ?? 'normal');
+            $counts[$band] = ($counts[$band] ?? 0) + 1;
+        }
+
         return $this->adminView('admin/ingredients/index', [
             'title'       => 'Stock - Wakdo Admin',
             'activeNav'   => 'stock',
-            'ingredients' => $this->ingredientRepository()->all(),
+            'ingredients' => $ingredients,
+            'bandCounts'  => $counts,
             'canManage'   => $this->may($guard, 'ingredient.manage'),
             'canRestock'  => $this->may($guard, 'stock.manage'),
             'canCount'    => $this->may($guard, 'stock.count'),
