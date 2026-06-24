@@ -989,6 +989,42 @@ button {
     animation: composer-fade-in var(--transition-base) both;
 }
 
+/* Modale de confirmation d'un geste destructeur (Abandon). */
+.confirm-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: 210;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-4);
+    animation: composer-fade-in var(--transition-base) both;
+}
+
+.confirm-modal {
+    background: var(--color-bg-card);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-overlay);
+    padding: var(--space-6);
+    max-width: 28rem;
+    width: 100%;
+    text-align: center;
+}
+
+.confirm-modal__message {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-bold);
+    margin: 0 0 var(--space-5);
+}
+
+.confirm-modal__actions {
+    display: flex;
+    gap: var(--space-3);
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
 @keyframes composer-fade-in {
     from { opacity: 0; }
     to   { opacity: 1; }
