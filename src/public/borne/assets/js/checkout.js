@@ -8,7 +8,8 @@
  * Traduction panier borne -> contrat API :
  *   - produit simple -> { type:'product', product_id, quantity }
  *   - menu           -> { type:'menu', menu_id, quantity, format, selections }
- *     format = 'maxi' si supplement_cents>0, sinon 'normal'.
+ *     format = cartItem.format (choix Normal/Maxi porte par l'item panier) ; repli
+ *     historique sur supplement_cents>0 pour un panier serialise avant cette version.
  *     selections = [{menu_slot_id, product_id}] reconstruites depuis la composition
  *     (accompagnement/boisson/sauce) mappee aux slots reels du menu (re-fetch).
  *   - service_mode : 'sur-place' -> 'dine_in', 'a-emporter' -> 'takeaway'.
@@ -64,7 +65,10 @@ export function buildOrderItem(cartItem, menuSlotsById) {
             type: 'menu',
             menu_id: cartItem.id,
             quantity: cartItem.quantite,
-            format: (cartItem.supplement_cents ?? 0) > 0 ? 'maxi' : 'normal',
+            // Format choisi par l'utilisateur, transporte explicitement. Repli sur
+            // l'ancienne inference (supplement_cents>0) pour un panier serialise en
+            // sessionStorage avant l'ajout du champ format.
+            format: cartItem.format ?? ((cartItem.supplement_cents ?? 0) > 0 ? 'maxi' : 'normal'),
             selections: buildSelections(cartItem.composition, menuSlotsById[cartItem.id] || []),
         };
     }

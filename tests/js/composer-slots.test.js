@@ -71,6 +71,7 @@ test('buildMenuCartItem Normal: prix normal, pas de supplement, taille N, compos
     assert.equal(item.type, 'menu');
     assert.equal(item.prix_cents, 880);
     assert.equal(item.supplement_cents, 0);
+    assert.equal(item.format, 'normal'); // format explicite transporte
     assert.equal(item.composition.burger.libelle, 'Le 280');
     // Normal : l'accompagnement garde son nom de base (pas la variante Maxi).
     assert.deepEqual(item.composition.accompagnement, { id: 22, libelle: 'Moyenne Frite', taille: 'N' });
@@ -83,6 +84,7 @@ test('buildMenuCartItem Maxi: supplement = maxi - normal, taille G sur side/drin
     const item = buildMenuCartItem(menu, m, { size: 'M', selections: { 1: 14, 16: 22, 31: 47 } });
     assert.equal(item.prix_cents, 880);
     assert.equal(item.supplement_cents, 150); // 1030 - 880
+    assert.equal(item.format, 'maxi'); // format explicite transporte
     assert.equal(item.composition.accompagnement.taille, 'G');
     assert.equal(item.composition.boisson.taille, 'G');
 });
@@ -91,8 +93,19 @@ test('buildMenuCartItem Maxi: l accompagnement prend sa variante (Grande Frite),
     const m = buildComposerSteps(detail(), byId());
     const item = buildMenuCartItem(menu, m, { size: 'M', selections: { 1: 14, 16: 22, 31: 47 } });
     assert.equal(item.composition.accompagnement.libelle, 'Grande Frite'); // pas "Moyenne Frite"
-    // Boisson sans maxiNom : garde son nom de base meme en Maxi (le Maxi ne l agrandit pas).
+    // Boisson sans maxiNom : garde son nom de base meme en Maxi (cas bouteille).
     assert.equal(item.composition.boisson.libelle, 'Coca');
+});
+
+test('buildMenuCartItem Maxi: la boisson AVEC variante (50cl) prend son nom agrandi', () => {
+    // Apres le seed 0006, une boisson fontaine porte maxiNom (ex. "Coca Cola 50cl") :
+    // en Maxi, le libelle et la taille refletent la grande boisson (meme regle que
+    // l'accompagnement). Aucune logique borne specifique : maxiNom suffit.
+    const byIdDrinkVariant = { ...byId(), 14: { id: 14, nom: 'Coca Cola', prix: 0, image: 'c.png', type: 'produit', maxiNom: 'Coca Cola 50cl' } };
+    const m = buildComposerSteps(detail(), byIdDrinkVariant);
+    const item = buildMenuCartItem(menu, m, { size: 'M', selections: { 1: 14, 16: 22, 31: 47 } });
+    assert.equal(item.composition.boisson.libelle, 'Coca Cola 50cl');
+    assert.equal(item.composition.boisson.taille, 'G');
 });
 
 test('buildMenuCartItem Normal: l accompagnement garde "Moyenne Frite" (pas de variante)', () => {

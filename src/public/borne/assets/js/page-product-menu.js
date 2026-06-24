@@ -121,6 +121,11 @@ export function buildMenuCartItem(menu, model, { size, selections }) {
         quantite: 1,
         image: menu.image,
         supplement_cents: supplement,
+        // format PORTE le choix Normal/Maxi de l'utilisateur, transporte tel quel
+        // jusqu'au contrat API. Le serveur l'utilise pour le prix Maxi ET la
+        // substitution des variantes (accompagnement Grande, boisson 50 cl). A NE
+        // PAS re-deviner depuis supplement_cents (faux negatif si maxi == normal).
+        format: isMaxi ? 'maxi' : 'normal',
         composition,
     };
 }
