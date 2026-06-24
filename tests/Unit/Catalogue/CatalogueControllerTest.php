@@ -94,6 +94,32 @@ final class CatalogueControllerTest extends TestCase
         self::assertSame(0, $payload['total']);
     }
 
+    public function testAllergensReturnsIncoCollectionWithDescription(): void
+    {
+        $db = new FakeCatalogueDatabase();
+        // Entiers en CHAINE (comme PDO peut les rendre) + une description null pour
+        // verifier la preservation du NULL.
+        $db->allergensRows = [
+            ['id' => '1', 'code' => 'gluten', 'name' => 'Cereales contenant du gluten', 'description' => 'Ble, seigle, orge.'],
+            ['id' => '7', 'code' => 'lait', 'name' => 'Lait', 'description' => null],
+        ];
+
+        $response = $this->controller($db, '/api/allergens')->allergens();
+
+        self::assertSame(200, $response->status());
+        $payload = $this->decode($response->body());
+        self::assertSame(2, $payload['total']);
+        self::assertIsArray($payload['data']);
+
+        $first = $payload['data'][0];
+        self::assertSame(['id', 'code', 'name', 'description'], array_keys($first));
+        self::assertSame(1, $first['id']);                  // chaine '1' -> int 1
+        self::assertSame('gluten', $first['code']);
+        self::assertSame('Cereales contenant du gluten', $first['name']);
+        self::assertSame('Ble, seigle, orge.', $first['description']);
+        self::assertNull($payload['data'][1]['description']); // null preserve
+    }
+
     public function testProductsReturnsAvailableCollectionWithoutVatRate(): void
     {
         $db = new FakeCatalogueDatabase();

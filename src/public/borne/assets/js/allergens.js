@@ -7,9 +7,9 @@
  *
  * CSP 'self' : aucun script inline, aucun handler inline. Le DOM est construit par
  * l'API (createElement/textContent) ; textContent neutralise toute injection.
- * Les donnees viennent de data.js (loadAllergens) : liste fixe en P5, /api/allergens
- * au swap P4. openAllergenModal prend la liste en parametre pour rester independant
- * de la couche de chargement (et testable sans fetch).
+ * Les donnees viennent de data.js (loadAllergens), qui lit /api/allergens.
+ * openAllergenModal prend la liste en parametre pour rester independant de la
+ * couche de chargement (et testable sans fetch).
  */
 
 const OVERLAY_CLASS = 'allergen-modal-overlay';
