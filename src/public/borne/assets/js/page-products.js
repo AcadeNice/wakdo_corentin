@@ -63,10 +63,14 @@ async function renderProducts() {
 
         grid.innerHTML = '';
         products.forEach(product => {
+            // commandable : false = rupture de stock (RG-T21). La tuile reste visible
+            // (le client voit le produit de la carte) mais grisee et non cliquable.
+            const orderable = product.commandable !== false;
             const card = document.createElement('a');
-            card.className = 'product-card';
+            card.className = orderable ? 'product-card' : 'product-card product-card--unavailable';
             card.href = `product.html?id=${product.id}&category=${categorySlug}`;
-            card.setAttribute('aria-label', `${product.nom} - ${formatPrice(product.prix)}`);
+            card.setAttribute('aria-label', `${product.nom} - ${formatPrice(product.prix)}${orderable ? '' : ' - indisponible'}`);
+            if (!orderable) card.setAttribute('aria-disabled', 'true');
 
             card.innerHTML = `
                 <div class="product-card__image-wrap">
@@ -77,6 +81,7 @@ async function renderProducts() {
                         loading="lazy"
                         onerror="this.src='assets/images/ui/logo.png'; this.alt='Image non disponible';"
                     >
+                    ${orderable ? '' : '<span class="product-card__badge">Indisponible</span>'}
                 </div>
                 <div class="product-card__body">
                     <span class="product-card__name">${escHtml(product.nom)}</span>
@@ -91,9 +96,11 @@ async function renderProducts() {
 
             // Clic produit -> modale au-dessus de la grille (paradigme maquette) au lieu
             // de naviguer vers product.html : menu -> composeur (L2), produit -> options
-            // (L3). Le <a href> reste un repli (lien direct / sans JS).
+            // (L3). Le <a href> reste un repli (lien direct / sans JS). Une tuile en
+            // rupture ne fait rien (ni navigation ni modale).
             card.addEventListener('click', (e) => {
                 e.preventDefault();
+                if (!orderable) return;
                 if (product.type === 'menu') openMenuComposer(product, categorySlug);
                 else openProductOptions(product, categorySlug);
             });

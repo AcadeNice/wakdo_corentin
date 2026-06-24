@@ -115,7 +115,7 @@ final class CatalogueControllerTest extends TestCase
 
         $product = $payload['data'][0];
         self::assertSame(
-            ['id', 'category_id', 'name', 'description', 'price_cents', 'image_path', 'display_order', 'maxi_variant_name', 'sizes'],
+            ['id', 'category_id', 'name', 'description', 'price_cents', 'image_path', 'display_order', 'maxi_variant_name', 'sizes', 'is_orderable'],
             array_keys($product),
         );
         self::assertSame(12, $product['id']);
@@ -125,6 +125,41 @@ final class CatalogueControllerTest extends TestCase
         self::assertArrayNotHasKey('is_available', $product);    // toujours dispo ici -> non expose
         self::assertNull($product['maxi_variant_name']);         // pas de variante -> null
         self::assertSame([], $product['sizes']);                 // produit mono-taille -> sizes vide
+        self::assertTrue($product['is_orderable']);              // aucune rupture -> commandable
+    }
+
+    public function testProductsMarksAutoUnavailableProductAsNotOrderable(): void
+    {
+        // RG-T21 : deux produits listes (is_available=1), mais l'un (id 12) est en
+        // rupture calculee par le stock -> is_orderable false ; l'autre (id 13) true.
+        $db = new FakeCatalogueDatabase();
+        $db->productsRows = [
+            ['id' => '12', 'category_id' => '3', 'name' => 'Cheeseburger', 'description' => null, 'price_cents' => '890', 'image_path' => null, 'display_order' => '1', 'maxi_variant_name' => null],
+            ['id' => '13', 'category_id' => '3', 'name' => 'Hamburger', 'description' => null, 'price_cents' => '790', 'image_path' => null, 'display_order' => '2', 'maxi_variant_name' => null],
+        ];
+        $db->autoUnavailableRows = [['product_id' => '12']]; // 12 en rupture
+
+        $response = $this->controller($db, '/api/products')->products();
+
+        self::assertSame(200, $response->status());
+        $data = $this->decode($response->body())['data'];
+        self::assertFalse($data[0]['is_orderable']); // 12 en rupture
+        self::assertTrue($data[1]['is_orderable']);  // 13 commandable
+    }
+
+    public function testProductDetailAutoUnavailableIsNotOrderable(): void
+    {
+        $db = new FakeCatalogueDatabase();
+        $db->productRow = [
+            'id' => '12', 'category_id' => '3', 'name' => 'Cheeseburger',
+            'description' => null, 'price_cents' => '890', 'image_path' => null, 'display_order' => '1',
+        ];
+        $db->autoUnavailableRows = [['product_id' => '12']];
+
+        $response = $this->controller($db, '/api/products/12')->product(['id' => '12']);
+
+        self::assertSame(200, $response->status());
+        self::assertFalse($this->decode($response->body())['data']['is_orderable']);
     }
 
     public function testProductsListExposesMaxiVariantName(): void
@@ -291,16 +326,50 @@ final class CatalogueControllerTest extends TestCase
 
         $menu = $payload['data'][0];
         self::assertSame(
-            ['id', 'category_id', 'burger_product_id', 'name', 'description', 'price_normal_cents', 'price_maxi_cents', 'image_path', 'display_order'],
+            ['id', 'category_id', 'burger_product_id', 'name', 'description', 'price_normal_cents', 'price_maxi_cents', 'image_path', 'display_order', 'is_orderable'],
             array_keys($menu),
         );
         self::assertSame(1, $menu['id']);
         self::assertSame(5, $menu['burger_product_id']);
         self::assertSame(990, $menu['price_normal_cents']);
         self::assertSame(1190, $menu['price_maxi_cents']);
+        self::assertTrue($menu['is_orderable']);            // burger non en rupture
         self::assertArrayNotHasKey('slots', $menu);        // liste legere : pas de slots
         self::assertArrayNotHasKey('is_available', $menu);  // toujours dispo ici
         self::assertArrayNotHasKey('vat_rate', $menu);
+    }
+
+    public function testMenuNotOrderableWhenBurgerAutoUnavailable(): void
+    {
+        // RG-T21 (granularite burger seul) : le burger impose (id 5) est en rupture
+        // calculee -> le menu n'est plus commandable, meme s'il est is_available=1.
+        $db = new FakeCatalogueDatabase();
+        $db->menusRows = [
+            ['id' => '1', 'category_id' => '1', 'burger_product_id' => '5', 'name' => 'Menu Big', 'description' => null, 'price_normal_cents' => '990', 'price_maxi_cents' => '1190', 'image_path' => null, 'display_order' => '1'],
+        ];
+        $db->autoUnavailableRows = [['product_id' => '5']]; // burger en rupture
+
+        $response = $this->controller($db, '/api/menus')->menus();
+
+        self::assertSame(200, $response->status());
+        self::assertFalse($this->decode($response->body())['data'][0]['is_orderable']);
+    }
+
+    public function testMenuDetailNotOrderableWhenBurgerAutoUnavailable(): void
+    {
+        $db = new FakeCatalogueDatabase();
+        $db->menuRow = [
+            'id' => '1', 'category_id' => '1', 'burger_product_id' => '5', 'name' => 'Menu Big',
+            'description' => null, 'price_normal_cents' => '990', 'price_maxi_cents' => '1190',
+            'image_path' => null, 'display_order' => '1',
+        ];
+        $db->menuSlotRows = [];
+        $db->autoUnavailableRows = [['product_id' => '5']];
+
+        $response = $this->controller($db, '/api/menus/1')->menu(['id' => '1']);
+
+        self::assertSame(200, $response->status());
+        self::assertFalse($this->decode($response->body())['data']['is_orderable']);
     }
 
     public function testMenuDetailReturnsDataWithSlots(): void

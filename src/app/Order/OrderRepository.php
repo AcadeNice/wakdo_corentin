@@ -184,8 +184,14 @@ class OrderRepository
             throw new OrderValidationException('EMPTY_ORDER');
         }
 
+        // RG-T21 : garde a la creation de commande. Un produit (ou le burger d'un menu)
+        // en rupture calculee par le stock est REFUSE, quel que soit le canal et meme par
+        // acces direct (la borne ne fait que griser l'affichage, F2). C'est la couche qui
+        // fait foi. Set calcule UNE seule fois (pas de N+1 sur les lignes).
+        $unavailable = array_fill_keys($this->products->autoUnavailableIds(), true);
+
         // Resolution + calcul (lecture seule) AVANT la transaction d'ecriture.
-        $lines = array_map(fn (array $item): array => $this->resolveLine($item), $items);
+        $lines = array_map(fn (array $item): array => $this->resolveLine($item, $unavailable), $items);
 
         $totalTtc = 0;
         $totalHt = 0;
@@ -597,9 +603,10 @@ class OrderRepository
      * Resout une ligne (produit ou menu) : lit le catalogue, valide, calcule le prix.
      *
      * @param array<string, mixed> $item
+     * @param array<int, bool> $unavailable set des product_id en rupture calculee (RG-T21)
      * @return array{item_type:string, product_id:?int, menu_id:?int, format:string, label:string, unit_ttc:int, unit_ht:int, vat_rate:int, quantity:int, selections:list<array{menu_slot_id:int,product_id:int,label:string}>, modifiers:list<array{ingredient_id:int,action:string,extra_price_cents:int}>}
      */
-    private function resolveLine(array $item): array
+    private function resolveLine(array $item, array $unavailable = []): array
     {
         $type = (string) ($item['type'] ?? '');
         $quantity = max(1, (int) ($item['quantity'] ?? 1));
@@ -608,6 +615,10 @@ class OrderRepository
         if ($type === 'product') {
             $product = $this->products->find((int) ($item['product_id'] ?? 0));
             if ($product === null || (int) ($product['is_available'] ?? 0) !== 1) {
+                throw new OrderValidationException('PRODUCT_UNAVAILABLE');
+            }
+            // RG-T21 : rupture calculee (ingredient requis sous la bande critique).
+            if (isset($unavailable[(int) $product['id']])) {
                 throw new OrderValidationException('PRODUCT_UNAVAILABLE');
             }
             $unitBase = (int) $product['price_cents'];
@@ -621,6 +632,14 @@ class OrderRepository
         if ($type === 'menu') {
             $menu = $this->menus->find((int) ($item['menu_id'] ?? 0));
             if ($menu === null || (int) ($menu['is_available'] ?? 0) !== 1) {
+                throw new OrderValidationException('MENU_UNAVAILABLE');
+            }
+            // RG-T21, granularite "burger impose seul" (coherente avec l'affichage borne
+            // F2) : si le burger principal est en rupture calculee, le menu n'est pas
+            // commandable. La rupture d'un accompagnement/boisson requis n'est PAS
+            // verifiee ici (decision produit : granularite burger seul, a elargir au
+            // besoin via les produits des slots requis).
+            if (isset($unavailable[(int) ($menu['burger_product_id'] ?? 0)])) {
                 throw new OrderValidationException('MENU_UNAVAILABLE');
             }
             $burger = $this->products->find((int) $menu['burger_product_id']);

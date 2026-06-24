@@ -69,7 +69,8 @@ test('loadProducts groupe les produits par slug a la forme borne (type produit)'
     assert.deepEqual(data.burgers, [
         // sizes (R4) : tableau vide par defaut quand l'API n'en renvoie pas.
         // maxiNom : null par defaut quand l'API n'envoie pas maxi_variant_name.
-        { id: 10, nom: 'Big Mac', prix: 600, image: 'assets/images/produits/burgers/bigmac.png', type: 'produit', maxiNom: null, sizes: [] },
+        // commandable : true par defaut quand l'API n'envoie pas is_orderable.
+        { id: 10, nom: 'Big Mac', prix: 600, image: 'assets/images/produits/burgers/bigmac.png', type: 'produit', maxiNom: null, sizes: [], commandable: true },
     ]);
 });
 
@@ -100,8 +101,19 @@ test('loadProducts glisse les menus sous la cle menus (type menu, prix = price_n
 
     const data = await loadProducts();
     assert.deepEqual(data.menus, [
-        { id: 1, nom: 'Menu Big Mac', prix: 800, image: 'assets/images/produits/burgers/bigmac.png', type: 'menu' },
+        { id: 1, nom: 'Menu Big Mac', prix: 800, image: 'assets/images/produits/burgers/bigmac.png', type: 'menu', commandable: true },
     ]);
+});
+
+test('loadProducts: is_orderable=false -> commandable=false (rupture RG-T21)', async () => {
+    const fx = fixtures();
+    fx['/api/products'].data[0].is_orderable = false;
+    fx['/api/menus'].data[0].is_orderable = false;
+    const { loadProducts } = await freshData(fx);
+
+    const data = await loadProducts();
+    assert.equal(data.burgers[0].commandable, false);
+    assert.equal(data.menus[0].commandable, false);
 });
 
 test('loadProducts consomme bien les trois endpoints /api/*', async () => {

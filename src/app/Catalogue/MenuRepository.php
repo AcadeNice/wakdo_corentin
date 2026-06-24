@@ -63,8 +63,9 @@ final class MenuRepository
      * disponibles (is_available = 1) ET en categorie active (c.is_active = 1).
      * Projection enrichie (description, image_path) absente de all() back-office.
      * Liste LEGERE : sans les slots (le detail /api/menus/{id} les porte). La
-     * disponibilite du burger impose (B1) reste un raffinement de la dispo calculee
-     * RG-T21, differe au seed des recettes.
+     * disponibilite du burger impose (B1, RG-T21) est calculee par CatalogueController
+     * (croisement avec ProductRepository::autoUnavailableIds) et exposee en is_orderable :
+     * un menu dont le burger est en rupture est grise par la borne (granularite burger seul).
      *
      * @return array<int, array<string, mixed>>
      */
