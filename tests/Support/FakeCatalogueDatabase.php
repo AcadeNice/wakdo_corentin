@@ -80,6 +80,14 @@ final class FakeCatalogueDatabase implements DatabaseInterface
     public array $productSizes = [];
 
     /**
+     * Lignes {product_id} renvoyees par ProductRepository::autoUnavailableIds()
+     * (RG-T21 : produits en rupture calculee par le stock). Vide = rien en rupture.
+     *
+     * @var list<array<string, mixed>>
+     */
+    public array $autoUnavailableRows = [];
+
+    /**
      * Trace des lectures pour asserter le court-circuit du detail (id <= 0).
      *
      * @var list<array{sql: string, params: array<string|int, mixed>}>
@@ -107,6 +115,12 @@ final class FakeCatalogueDatabase implements DatabaseInterface
 
         if (str_contains($sql, 'FROM category WHERE is_active = 1')) {
             return $this->categoriesRows;
+        }
+
+        // RG-T21 : ids des produits en rupture calculee (autoUnavailableIds). Desambigue
+        // de composition() (meme table) par SELECT DISTINCT, propre a cette requete.
+        if (str_contains($sql, 'SELECT DISTINCT pi.product_id')) {
+            return $this->autoUnavailableRows;
         }
 
         // R4 : tailles groupees (sizesByBase) et tailles d'un produit (sizesForProduct).

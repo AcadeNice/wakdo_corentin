@@ -676,6 +676,35 @@ button {
     box-shadow: var(--shadow-card);
 }
 
+/* Rupture de stock (RG-T21) : tuile visible mais non commandable. Grisee, non
+   cliquable, sans effet de survol (l'image est attenuee, pas l'etat ne ment pas). */
+.product-card--unavailable {
+    opacity: 0.55;
+    filter: grayscale(0.6);
+    cursor: not-allowed;
+}
+
+.product-card--unavailable:hover,
+.product-card--unavailable:focus-visible {
+    border-color: var(--color-border-default);
+    box-shadow: var(--shadow-card);
+    transform: none;
+}
+
+/* Badge "Indisponible" superpose a l'image d'une tuile en rupture. */
+.product-card__badge {
+    position: absolute;
+    top: var(--space-2);
+    left: var(--space-2);
+    z-index: 2;
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-sm);
+    background: var(--color-brand-dark);
+    color: #fff;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-bold);
+}
+
 .product-card__image-wrap {
     width: 100%;
     aspect-ratio: 1 / 1;

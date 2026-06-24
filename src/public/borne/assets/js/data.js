@@ -89,12 +89,16 @@ export function loadProducts() {
                 // en a une, sinon null. Le composeur de menu l'affiche en format Maxi.
                 maxiNom: p.maxi_variant_name ?? null,
                 sizes: Array.isArray(p.sizes) ? p.sizes : [],
+                // commandable : false si rupture de stock calculee (RG-T21, is_orderable
+                // serveur) -> la borne grise la tuile et bloque le clic. Defaut true si
+                // l'API ne porte pas le flag (compat).
+                commandable: p.is_orderable !== false,
             });
         }
         for (const m of menus) {
             const slug = slugByCategoryId[m.category_id];
             if (slug === undefined) continue;
-            bySlug[slug].push({ id: m.id, nom: m.name, prix: m.price_normal_cents, image: m.image_path, type: 'menu' });
+            bySlug[slug].push({ id: m.id, nom: m.name, prix: m.price_normal_cents, image: m.image_path, type: 'menu', commandable: m.is_orderable !== false });
         }
         return bySlug;
     }).catch(e => { _productsPromise = null; throw e; });

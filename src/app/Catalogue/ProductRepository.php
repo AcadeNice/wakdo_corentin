@@ -63,8 +63,10 @@ final class ProductRepository
      * (c.is_active = 1), pour ne jamais proposer un produit dont l'onglet de
      * categorie n'apparait pas. vat_rate n'est pas selectionne : le calcul fiscal
      * vit cote serveur a la commande, la borne ne l'affiche pas. Filtre de
-     * disponibilite = flag is_available ; la dispo CALCULEE RG-T21 (exclusion des
-     * ruptures auto via autoUnavailableIds) se branchera au seed des recettes.
+     * disponibilite = flag is_available (retrait manuel) ; la dispo CALCULEE RG-T21
+     * (rupture par stock) n'exclut PAS la ligne ici : CatalogueController la croise
+     * avec autoUnavailableIds() pour exposer is_orderable, et la borne grise la tuile
+     * (visible mais non commandable) au lieu de la masquer.
      *
      * base_product_id IS NULL (R4) : les VARIANTES de taille (ex. "Coca Cola 50cl")
      * ne sont jamais des tuiles catalogue autonomes ; elles sont atteintes via le

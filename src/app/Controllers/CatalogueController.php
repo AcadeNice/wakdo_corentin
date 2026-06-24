@@ -56,8 +56,16 @@ class CatalogueController extends Controller
         // requete (sizesByBase), pas une par produit -> /api/products reste un seul
         // aller-retour cache-friendly cote borne (data.js memoise la liste).
         $sizesByBase = $repo->sizesByBase();
+        // RG-T21 : rupture calculee par le stock, en UNE requete (set d'ids). Un
+        // produit liste (is_available=1) mais en rupture devient non commandable ->
+        // la borne le grise au lieu de laisser composer une commande vouee a echouer.
+        $unavailable = array_fill_keys($repo->autoUnavailableIds(), true);
         $rows = array_map(
-            fn (array $row): array => $this->presentProduct($row, $sizesByBase[(int) ($row['id'] ?? 0)] ?? []),
+            fn (array $row): array => $this->presentProduct(
+                $row,
+                $sizesByBase[(int) ($row['id'] ?? 0)] ?? [],
+                !isset($unavailable[(int) ($row['id'] ?? 0)]),
+            ),
             $repo->availableForCatalogue(),
         );
 
@@ -84,8 +92,10 @@ class CatalogueController extends Controller
         // au moins une VARIANTE (sinon sizesForProduct ne remonte que la base, et la
         // base seule n'est pas une dimension de taille -> sizes vide cote presentation).
         $sizes = $repo->sizesForProduct($id);
+        // RG-T21 : meme dispo calculee qu'en liste, pour ce produit (membership du set).
+        $orderable = !in_array($id, $repo->autoUnavailableIds(), true);
 
-        return $this->json(['data' => $this->presentProduct($row, count($sizes) > 1 ? $sizes : [])]);
+        return $this->json(['data' => $this->presentProduct($row, count($sizes) > 1 ? $sizes : [], $orderable)]);
     }
 
     /**
@@ -93,8 +103,15 @@ class CatalogueController extends Controller
      */
     public function menus(array $params = []): Response
     {
+        // RG-T21 (granularite : burger impose seul) : un menu dont le burger principal
+        // est en rupture calculee n'est plus commandable. Set d'ids produits en rupture
+        // reutilise pour tous les menus (pas de N+1).
+        $unavailable = array_fill_keys($this->productsRepo()->autoUnavailableIds(), true);
         $rows = array_map(
-            fn (array $row): array => $this->presentMenu($row),
+            fn (array $row): array => $this->presentMenu(
+                $row,
+                !isset($unavailable[(int) ($row['burger_product_id'] ?? 0)]),
+            ),
             $this->menusRepo()->availableForCatalogue(),
         );
 
@@ -117,8 +134,10 @@ class CatalogueController extends Controller
             );
         }
 
+        // RG-T21 (burger impose seul) : dispo calculee du menu = burger non en rupture.
+        $orderable = !in_array((int) ($row['burger_product_id'] ?? 0), $this->productsRepo()->autoUnavailableIds(), true);
         // Detail = menu + ses slots de composition (B1 burger impose, B2 Normal/Maxi).
-        $menu = $this->presentMenu($row) + ['slots' => $this->presentSlots($repo->slotsWithOptions($id))];
+        $menu = $this->presentMenu($row, $orderable) + ['slots' => $this->presentSlots($repo->slotsWithOptions($id))];
 
         return $this->json(['data' => $menu]);
     }
@@ -200,9 +219,9 @@ class CatalogueController extends Controller
      *        variantes ; vide si le produit n'a pas de dimension taille. Chaque entree
      *        devient {product_id, size_cl, price_cents, label} ; le label humain est
      *        derive du volume ("30 cl") -- aucun slug/enum ne fuit a l'ecran.
-     * @return array{id: int, category_id: int, name: string, description: ?string, price_cents: int, image_path: ?string, display_order: int, maxi_variant_name: ?string, sizes: list<array{product_id: int, size_cl: int, price_cents: int, label: string}>}
+     * @return array{id: int, category_id: int, name: string, description: ?string, price_cents: int, image_path: ?string, display_order: int, maxi_variant_name: ?string, sizes: list<array{product_id: int, size_cl: int, price_cents: int, label: string}>, is_orderable: bool}
      */
-    private function presentProduct(array $row, array $sizes = []): array
+    private function presentProduct(array $row, array $sizes = [], bool $isOrderable = true): array
     {
         return [
             'id'            => (int) ($row['id'] ?? 0),
@@ -229,14 +248,19 @@ class CatalogueController extends Controller
                 },
                 array_values($sizes),
             ),
+            // is_orderable : false si rupture calculee par le stock (RG-T21). La borne
+            // grise la tuile (echo UX) ; l'enforcement qui fait foi est cote serveur a la
+            // creation de commande (OrderRepository::resolveLine refuse un item en
+            // rupture). Le retrait manuel (is_available=0) est deja exclu en amont.
+            'is_orderable'  => $isOrderable,
         ];
     }
 
     /**
      * @param array<string, mixed> $row
-     * @return array{id: int, category_id: int, burger_product_id: int, name: string, description: ?string, price_normal_cents: int, price_maxi_cents: int, image_path: ?string, display_order: int}
+     * @return array{id: int, category_id: int, burger_product_id: int, name: string, description: ?string, price_normal_cents: int, price_maxi_cents: int, image_path: ?string, display_order: int, is_orderable: bool}
      */
-    private function presentMenu(array $row): array
+    private function presentMenu(array $row, bool $isOrderable = true): array
     {
         return [
             'id'                 => (int) ($row['id'] ?? 0),
@@ -248,6 +272,9 @@ class CatalogueController extends Controller
             'price_maxi_cents'   => (int) ($row['price_maxi_cents'] ?? 0),
             'image_path'         => $this->nullableString($row['image_path'] ?? null),
             'display_order'      => (int) ($row['display_order'] ?? 0),
+            // is_orderable : false si le burger impose est en rupture calculee (RG-T21,
+            // granularite burger seul). La borne grise le menu.
+            'is_orderable'       => $isOrderable,
         ];
     }
 

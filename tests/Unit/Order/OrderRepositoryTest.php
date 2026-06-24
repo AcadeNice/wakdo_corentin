@@ -167,6 +167,40 @@ final class OrderRepositoryTest extends TestCase
         self::assertSame('Eau', $sel['label']);
     }
 
+    public function testProductInStockRuptureRejectedAtOrderCreation(): void
+    {
+        // RG-T21 : un produit liste (is_available=1) mais en rupture calculee par le
+        // stock est REFUSE a la creation de commande (garde serveur load-bearing, pas
+        // seulement grise sur la borne). Couvre le bypass URL directe / repli sans-JS.
+        $db = new FakeOrderDatabase();
+        $db->products[12] = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 890, 'vat_rate' => 100, 'is_available' => 1];
+        $db->autoUnavailableRows = [['product_id' => 12]];
+
+        $this->expectException(OrderValidationException::class);
+        $this->expectExceptionMessage('PRODUCT_UNAVAILABLE');
+        $this->repo($db)->createPending([
+            'service_mode' => 'takeaway',
+            'items' => [['type' => 'product', 'product_id' => 12, 'quantity' => 1]],
+        ]);
+    }
+
+    public function testMenuRejectedAtOrderWhenBurgerInStockRupture(): void
+    {
+        // RG-T21 (granularite burger seul) : le burger impose en rupture calculee rend
+        // le menu non commandable cote serveur, meme is_available=1.
+        $db = new FakeOrderDatabase();
+        $db->menus[5] = ['id' => 5, 'burger_product_id' => 12, 'name' => 'Menu', 'price_normal_cents' => 990, 'price_maxi_cents' => 1200, 'is_available' => 1];
+        $db->products[12] = ['id' => 12, 'name' => 'Burger', 'price_cents' => 600, 'vat_rate' => 100, 'is_available' => 1];
+        $db->autoUnavailableRows = [['product_id' => 12]];
+
+        $this->expectException(OrderValidationException::class);
+        $this->expectExceptionMessage('MENU_UNAVAILABLE');
+        $this->repo($db)->createPending([
+            'service_mode' => 'takeaway',
+            'items' => [['type' => 'menu', 'menu_id' => 5, 'quantity' => 1, 'format' => 'normal', 'selections' => []]],
+        ]);
+    }
+
     public function testMenuNormalKeepsBaseSideSelection(): void
     {
         // Format normal : aucune substitution, l'accompagnement reste la Moyenne

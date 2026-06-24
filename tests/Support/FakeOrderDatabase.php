@@ -28,6 +28,8 @@ final class FakeOrderDatabase implements DatabaseInterface
     public array $slotRows = [];
     /** @var array<int, list<array<string,mixed>>> recettes (composition) par produit id. */
     public array $compositions = [];
+    /** @var list<array<string,mixed>> ids produits en rupture calculee (autoUnavailableIds, RG-T21). */
+    public array $autoUnavailableRows = [];
 
     /** Commande existante renvoyee par la recherche idempotency_key ; null = aucune. */
     /** @var array<string,mixed>|null */
@@ -92,6 +94,11 @@ final class FakeOrderDatabase implements DatabaseInterface
     {
         if (str_contains($sql, 'FROM menu_slot s')) {
             return $this->slotRows[(int) $params['id']] ?? [];
+        }
+        // RG-T21 : autoUnavailableIds() (sans param) AVANT composition() (avec :id) :
+        // les deux lisent product_ingredient ; on desambiguise sur SELECT DISTINCT.
+        if (str_contains($sql, 'SELECT DISTINCT pi.product_id')) {
+            return $this->autoUnavailableRows;
         }
         if (str_contains($sql, 'FROM product_ingredient pi')) {
             return $this->compositions[(int) $params['id']] ?? [];
