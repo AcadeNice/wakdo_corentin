@@ -184,7 +184,11 @@ final class CounterOrderControllerTest extends TestCase
         self::assertSame(200, $response->status());
         $body = $response->body();
         self::assertStringContainsString('Cheeseburger', $body);
-        self::assertStringContainsString('qty_12', $body);   // champ quantite par produit
+        // POS tactile : le catalogue est embarque dans un script JSON inerte (id/prix),
+        // pas en champs qty_<id>. La grille de tuiles est rendue cote client.
+        self::assertStringContainsString('id="pos-products"', $body);
+        self::assertStringContainsString('"id":12', $body);
+        self::assertStringContainsString('id="pos-grid"', $body);
         self::assertStringContainsString('service_mode', $body);
     }
 
@@ -249,7 +253,10 @@ final class CounterOrderControllerTest extends TestCase
         self::assertSame(200, $response->status());
         $body = $response->body();
         self::assertStringContainsString('Menu Cheeseburger', $body);
-        self::assertStringContainsString('data-menu-id="5"', $body);   // bouton configurer
+        // POS tactile : les menus + slots sont embarques dans un script JSON inerte
+        // (la tuile menu et la modale sont rendues cote client par counter-order.js).
+        self::assertStringContainsString('id="pos-menus"', $body);
+        self::assertStringContainsString('"id":5', $body);
         self::assertStringContainsString('items_json', $body);          // champ cache du panier
         self::assertStringContainsString('counter-order.js', $body);    // script du composeur
     }
@@ -288,6 +295,39 @@ final class CounterOrderControllerTest extends TestCase
         $selInsert = $this->writeParams($db, 'INSERT INTO order_item_selection');
         self::assertSame(16, $selInsert['slot']);
         self::assertSame(22, $selInsert['pid']);
+    }
+
+    public function testStoreCreatesMenuOrderWithQuantityTwo(): void
+    {
+        // G : un item menu via items_json avec quantity:2 persiste qty=2 sur order_item ;
+        // les selections de slot ne sont pas dupliquees par la quantite (un seul INSERT).
+        $db = $this->permittedDb();
+        $db->menuRow = ['id' => 5, 'name' => 'Menu Cheeseburger', 'burger_product_id' => 12, 'price_normal_cents' => 990, 'price_maxi_cents' => 1190, 'is_available' => 1];
+        $db->productRow = ['id' => 22, 'name' => 'Frites', 'price_cents' => 250, 'vat_rate' => 100, 'maxi_variant_product_id' => null, 'is_available' => 1];
+        $db->menuSlotRows = [
+            ['id' => 16, 'name' => 'Accompagnement', 'slot_type' => 'side', 'is_required' => 1, 'display_order' => 1, 'product_id' => 22],
+        ];
+        $db->lastInsertId = 100;
+        $db->orderByNumberRow = ['id' => 100, 'order_number' => 'C100', 'total_ttc_cents' => 1980, 'status' => 'pending_payment'];
+
+        $items = json_encode([
+            ['type' => 'menu', 'menu_id' => 5, 'quantity' => 2, 'format' => 'normal', 'selections' => [['menu_slot_id' => 16, 'product_id' => 22]]],
+        ]);
+        $request = $this->post(['_csrf' => $this->csrf, 'service_mode' => 'dine_in', 'items_json' => (string) $items], '/counter/orders');
+
+        $response = $this->controller($request, $db)->store();
+
+        self::assertSame(302, $response->status());
+        $itemInsert = $this->writeParams($db, 'INSERT INTO order_item ');
+        self::assertSame('menu', $itemInsert['type']);
+        self::assertSame(5, $itemInsert['mid']);
+        self::assertSame(2, $itemInsert['qty']);
+        // La selection de slot est persistee UNE fois (independante de la quantite).
+        $selectionWrites = array_values(array_filter(
+            $db->writes,
+            static fn (array $w): bool => str_contains($w['sql'], 'INSERT INTO order_item_selection'),
+        ));
+        self::assertCount(1, $selectionWrites);
     }
 
     public function testStoreCreatesProductOrderViaItemsJson(): void
@@ -357,15 +397,16 @@ final class CounterOrderControllerTest extends TestCase
 
         self::assertSame(200, $response->status());
         $body = $response->body();
-        // data-products encode le JSON avec htmlspecialchars : les guillemets sont
-        // echappes en &quot;. On cherche les fragments echappes (forme reellement rendue).
-        self::assertStringContainsString('ingredient_id&quot;:3', $body);
-        self::assertStringContainsString('ingredient_id&quot;:8', $body);
+        // POS tactile : la composition PROPOSABLE est embarquee dans le script JSON inerte
+        // #pos-products (type="application/json"). json_encode avec JSON_HEX_TAG protege
+        // l'insertion dans un <script> (un '<' deviendrait < ; pas de </script>
+        // injectable). On cherche les fragments JSON reellement rendus (guillemets bruts,
+        // surs dans un script). La tuile "A composer" et la modale sont rendues client-side.
+        self::assertStringContainsString('id="pos-products"', $body);
+        self::assertStringContainsString('"ingredient_id":3', $body);
+        self::assertStringContainsString('"ingredient_id":8', $body);
         self::assertStringContainsString('Oignon', $body);
         self::assertStringContainsString('Bacon', $body);
-        // Bouton de personnalisation expose pour le produit a modificateurs.
-        self::assertStringContainsString('product-configure', $body);
-        self::assertStringContainsString('Personnaliser', $body);
     }
 
     public function testStoreCreatesProductOrderWithModifiers(): void
@@ -518,12 +559,11 @@ final class CounterOrderControllerTest extends TestCase
         self::assertStringContainsString('A emporter', $body);
     }
 
-    public function testCreateRendersEditableQuantityWithHintForConfigurableProduct(): void
+    public function testCreateExposesConfigurableProductModifiersInJson(): void
     {
-        // 4 (progressive enhancement) : le champ quantite d'un produit personnalisable
-        // est rendu EDITABLE en HTML (repli sans JS marche : commande de base sans
-        // modificateurs). Le PHP ne pose PAS readonly (c'est le JS qui neutralise au
-        // cablage). Un indice "via Personnaliser" (cache en HTML) accompagne le champ.
+        // POS tactile : un produit a modificateurs est expose dans #pos-products avec sa
+        // composition proposable. Le client en rend une tuile "A composer" qui ouvre la
+        // modale au tap (la saisie de la quantite et des modificateurs se fait en modale).
         $db = $this->permittedDb();
         $db->productsRows = [
             ['id' => 12, 'category_id' => 1, 'category_name' => 'Burgers', 'name' => 'Cheeseburger', 'description' => null, 'price_cents' => 890, 'image_path' => null, 'display_order' => 1],
@@ -536,17 +576,19 @@ final class CounterOrderControllerTest extends TestCase
 
         self::assertSame(200, $response->status());
         $body = $response->body();
-        // Le champ qty est present et EDITABLE (aucun readonly pose par le PHP).
-        self::assertStringContainsString('name="qty_12"', $body);
-        self::assertDoesNotMatchRegularExpression('/id="qty_12"[^>]*readonly/', $body);
-        // Indice de redirection vers la modale (revele par le JS).
-        self::assertStringContainsString('data-qty-hint="12"', $body);
-        self::assertStringContainsString('via Personnaliser', $body);
+        // Le produit et sa composition sont dans le JSON inerte (pas de champ qty_<id>).
+        self::assertStringContainsString('id="pos-products"', $body);
+        self::assertStringContainsString('"id":12', $body);
+        self::assertStringContainsString('"ingredient_id":3', $body);
+        self::assertStringContainsString('Oignon', $body);
+        // Plus de champ quantite par produit (la saisie passe par les tuiles + modale).
+        self::assertStringNotContainsString('name="qty_12"', $body);
     }
 
-    public function testCreateGroupsProductsByCategory(): void
+    public function testCreateExposesCategoryNamesForTabs(): void
     {
-        // 7b : les produits sont regroupes par categorie (sous-titre = category_name).
+        // POS tactile : les onglets de categories sont construits cote client a partir
+        // de category_name embarque dans le JSON de chaque produit/menu.
         $db = $this->permittedDb();
         $db->productsRows = [
             ['id' => 12, 'category_id' => 1, 'category_name' => 'Burgers', 'name' => 'Cheeseburger', 'description' => null, 'price_cents' => 890, 'image_path' => null, 'display_order' => 1],
@@ -557,13 +599,15 @@ final class CounterOrderControllerTest extends TestCase
 
         self::assertSame(200, $response->status());
         $body = $response->body();
-        self::assertStringContainsString('Burgers', $body);
-        self::assertStringContainsString('Accompagnements', $body);
+        self::assertStringContainsString('id="pos-tabs"', $body);
+        self::assertStringContainsString('"category_name":"Burgers"', $body);
+        self::assertStringContainsString('"category_name":"Accompagnements"', $body);
     }
 
-    public function testCreateShowsBothMenuPrices(): void
+    public function testCreateExposesBothMenuPrices(): void
     {
-        // 6 : la liste des menus affiche les deux prix (Normal / Maxi).
+        // 6 : les deux prix d'un menu (Normal / Maxi, en centimes) sont exposes dans le
+        // JSON inerte ; le client affiche "Normal X / Maxi Y" sur la tuile et la modale.
         $db = $this->permittedDb();
         $db->menusRows = [
             ['id' => 5, 'category_id' => 1, 'burger_product_id' => 12, 'name' => 'Menu Cheeseburger', 'description' => null, 'price_normal_cents' => 990, 'price_maxi_cents' => 1190, 'image_path' => null, 'display_order' => 1],
@@ -573,9 +617,9 @@ final class CounterOrderControllerTest extends TestCase
 
         self::assertSame(200, $response->status());
         $body = $response->body();
-        self::assertStringContainsString('9,90 EUR', $body);
-        self::assertStringContainsString('11,90 EUR', $body);
-        self::assertStringContainsString('Maxi', $body);
+        self::assertStringContainsString('id="pos-menus"', $body);
+        self::assertStringContainsString('"price_normal":990', $body);
+        self::assertStringContainsString('"price_maxi":1190', $body);
     }
 
     public function testStorePassesServiceTagInDineIn(): void

@@ -1,9 +1,12 @@
 /*
- * Tests du composeur de commande comptoir/drive (counter-order.js, sous-lot 3c).
- * node:test + jsdom. Couvre la serialisation du panier dans #items_json :
- *  - ajout produit (champ quantite) -> item {type:'product', ...}
- *  - personnalisation produit (retrait + ajout d'ingredients) -> modifiers:[...]
- *  - configuration menu (slots + format Maxi + modificateurs burger) -> item menu
+ * Tests du POS tactile de commande comptoir/drive (counter-order.js). node:test + jsdom.
+ * Couvre la logique pure (serialisation du panier dans #items_json, calcul prix/total,
+ * onglets categories) et l'UI a tuiles :
+ *  - tap d'une tuile produit simple -> item {type:'product', quantity}, fusion sur re-tap
+ *  - tap d'une tuile produit a modificateurs -> modale -> modifiers:[...]
+ *  - tap d'une tuile menu -> modale (slots + format Maxi + modificateurs burger)
+ *  - stepper +/- du panneau commande (ajuste qty, retire a 0)
+ *  - slot requis non choisi -> message inline (pas d'ajout muet)
  *  - menu non configurable (slot_type non gere) ignore (anti-perte silencieuse)
  *
  * Le serveur revalide la forme (RG-T18), revalide chaque modificateur (resolveModifiers)
@@ -20,15 +23,15 @@ import counterOrder from '../../src/public/admin/assets/js/counter-order.js';
 
 const PRODUCTS = [
     {
-        id: 12, name: 'Cheeseburger', price: 890,
+        id: 12, name: 'Cheeseburger', price: 890, image: '', category_id: 1, category_name: 'Burgers',
         modifiers: [
             { ingredient_id: 3, name: 'Oignon', is_removable: 1, is_addable: 0, extra_price_cents: 0 },
             { ingredient_id: 8, name: 'Bacon', is_removable: 0, is_addable: 1, extra_price_cents: 50 },
         ],
     },
-    { id: 22, name: 'Frites', price: 250, modifiers: [] },
-    { id: 14, name: 'Coca', price: 200, modifiers: [] },
-    { id: 47, name: 'Ketchup', price: 0, modifiers: [] },
+    { id: 22, name: 'Frites', price: 250, image: '', category_id: 2, category_name: 'Accompagnements', modifiers: [] },
+    { id: 14, name: 'Coca', price: 200, image: '', category_id: 3, category_name: 'Boissons', modifiers: [] },
+    { id: 47, name: 'Ketchup', price: 0, image: '', category_id: 2, category_name: 'Accompagnements', modifiers: [] },
 ];
 
 const MENUS = [
@@ -37,6 +40,9 @@ const MENUS = [
         name: 'Menu Cheeseburger',
         price_normal: 990,
         price_maxi: 1190,
+        image: '',
+        category_id: 4,
+        category_name: 'Menus',
         burger_modifiers: [
             { ingredient_id: 3, name: 'Oignon', is_removable: 1, is_addable: 0, extra_price_cents: 0 },
             { ingredient_id: 8, name: 'Bacon', is_removable: 0, is_addable: 1, extra_price_cents: 50 },
@@ -49,39 +55,28 @@ const MENUS = [
     },
 ];
 
-function setup(menus = MENUS) {
-    const menuItems = menus
-        .map(m => `<li><button class="menu-configure" type="button" data-menu-id="${m.id}">Configurer</button></li>`)
-        .join('');
-    // qty_<id> pour tous les produits (repli sans JS) ; bouton "Personnaliser" pour
-    // ceux dont la recette offre des modificateurs (calque la vue new.php). Progressive
-    // enhancement (etape 4) : le champ qty est rendu EDITABLE en HTML pour TOUS les
-    // produits ; c'est le JS qui neutralise le champ d'un produit configurable au cablage
-    // et revele l'indice "via Personnaliser" (span data-qty-hint, hidden en HTML).
-    const productRows = PRODUCTS
-        .map(p => {
-            const hasMods = p.modifiers && p.modifiers.length;
-            const configure = hasMods
-                ? `<button class="product-configure" type="button" data-product-id="${p.id}">Personnaliser</button>`
-                : '';
-            const hint = hasMods
-                ? `<span class="order-qty-hint" data-qty-hint="${p.id}" hidden>via Personnaliser</span>`
-                : '';
-            return `<input class="order-qty" type="number" id="qty_${p.id}" name="qty_${p.id}" data-product-id="${p.id}" value="0">${hint}${configure}`;
-        })
-        .join('');
+function setup(products = PRODUCTS, menus = MENUS) {
+    // Le catalogue est embarque dans deux scripts JSON inertes (CSP-safe), lus par le JS.
     const dom = new JSDOM(
         '<!DOCTYPE html><html><body>' +
-        '<form id="counter-order-form" method="post" action="/counter/orders" ' +
-        `      data-products='${JSON.stringify(PRODUCTS)}' data-menus='${JSON.stringify(menus)}'>` +
+        '<form id="counter-order-form" method="post" action="/counter/orders">' +
         '  <input type="hidden" name="items_json" id="items_json" value="">' +
-        '  <select id="service_mode" name="service_mode"><option value="dine_in" selected>Sur place</option><option value="takeaway">A emporter</option></select>' +
-        '  <div id="service_tag_group"><input type="text" id="service_tag" name="service_tag"></div>' +
-        productRows +
-        '  <ul id="menu-list">' + menuItems + '</ul>' +
-        '  <ul id="order-cart"><li id="order-cart-empty">Panier vide.</li></ul>' +
-        '  <p id="order-total">Total : <span id="order-total-value">0,00 EUR</span></p>' +
-        '  <button type="submit" id="order-submit">Encaisser 0,00 EUR</button>' +
+        `  <script type="application/json" id="pos-products">${JSON.stringify(products)}</script>` +
+        `  <script type="application/json" id="pos-menus">${JSON.stringify(menus)}</script>` +
+        '  <div class="pos__main">' +
+        '    <div class="pos__catalogue">' +
+        '      <div class="pos__tabs" id="pos-tabs" role="tablist"></div>' +
+        '      <div class="pos__grid" id="pos-grid" role="tabpanel" tabindex="0"></div>' +
+        '    </div>' +
+        '    <aside class="pos__panel">' +
+        '      <select id="service_mode" name="service_mode"><option value="dine_in" selected>Sur place</option><option value="takeaway">A emporter</option></select>' +
+        '      <div id="service_tag_group"><input type="text" id="service_tag" name="service_tag"></div>' +
+        '      <ul class="order-cart" id="order-cart"><li class="order-cart__empty" id="order-cart-empty">Panier vide.</li></ul>' +
+        '      <p id="order-total">Total <span id="order-total-value">0,00 EUR</span></p>' +
+        '      <button type="submit" id="order-submit">Encaisser 0,00 EUR</button>' +
+        '      <span class="sr-only" id="pos-announce" role="status" aria-live="polite"></span>' +
+        '    </aside>' +
+        '  </div>' +
         '</form>' +
         '<div id="menu-composer-modal" hidden></div>' +
         '</body></html>',
@@ -98,30 +93,71 @@ function itemsJson(dom) {
     return JSON.parse(dom.window.document.getElementById('items_json').value || '[]');
 }
 
-test('ajout produit sans modificateur (quantite) -> items_json contient {type:product}', () => {
+function click(dom, node) {
+    node.dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+}
+
+// Active l'onglet d'une categorie par son libelle (les tuiles d'une seule categorie sont
+// rendues a la fois). Renvoie la liste des tuiles affichees apres activation.
+function activateCategory(dom, label) {
+    const doc = dom.window.document;
+    const tab = Array.prototype.find.call(
+        doc.querySelectorAll('.pos__tab'),
+        t => t.textContent === label,
+    );
+    assert.ok(tab, 'onglet "' + label + '" present');
+    click(dom, tab);
+    return Array.prototype.slice.call(doc.querySelectorAll('.pos-tile'));
+}
+
+// Tuile par nom de produit/menu (dans la grille de la categorie active).
+function tileByName(dom, name) {
+    const doc = dom.window.document;
+    return Array.prototype.find.call(
+        doc.querySelectorAll('.pos-tile'),
+        t => t.querySelector('.pos-tile__name') && t.querySelector('.pos-tile__name').textContent === name,
+    );
+}
+
+test('onglets categories : un onglet par categorie distincte (produits + menus)', () => {
     const dom = setup();
     counterOrder.init(dom.window.document);
 
-    // Frites (22) n'a pas de modificateur -> pas de bouton Personnaliser -> chemin qty_<id>.
-    const qty = dom.window.document.getElementById('qty_22');
-    qty.value = '2';
-    fireSubmit(dom);
-
-    const items = itemsJson(dom);
-    assert.deepEqual(items, [{ type: 'product', product_id: 22, quantity: 2 }]);
+    const labels = Array.prototype.map.call(
+        dom.window.document.querySelectorAll('.pos__tab'),
+        t => t.textContent,
+    );
+    assert.deepEqual(labels, ['Burgers', 'Accompagnements', 'Boissons', 'Menus']);
 });
 
-test('produit personnalisable : qty directe ignoree (route par la modale, anti-double-comptage)', () => {
+test('tuile produit simple : tap ajoute {type:product, quantity:1} ; re-tap fusionne (qty 2)', () => {
     const dom = setup();
     const doc = dom.window.document;
     counterOrder.init(doc);
 
-    // Cheeseburger (12) porte un bouton Personnaliser : son qty_<id> est ignore par le
-    // JS pour eviter le double comptage avec la ligne configuree.
-    doc.getElementById('qty_12').value = '3';
-    fireSubmit(dom);
+    activateCategory(dom, 'Accompagnements'); // Frites (22), Ketchup (47)
+    const frites = tileByName(dom, 'Frites');
+    click(dom, frites);
+    assert.ok(doc.querySelector('.order-cart__line'));
 
-    assert.deepEqual(itemsJson(dom), []);
+    click(dom, frites); // re-tap -> fusion (qty 2), pas une 2e ligne.
+    assert.equal(doc.querySelectorAll('.order-cart__line').length, 1);
+
+    fireSubmit(dom);
+    assert.deepEqual(itemsJson(dom), [{ type: 'product', product_id: 22, quantity: 2, modifiers: [] }]);
+});
+
+test('tuile produit a modificateurs : tap ouvre la modale (pas d ajout direct)', () => {
+    const dom = setup();
+    const doc = dom.window.document;
+    counterOrder.init(doc);
+
+    activateCategory(dom, 'Burgers'); // Cheeseburger (12) a modificateurs
+    click(dom, tileByName(dom, 'Cheeseburger'));
+
+    const modal = doc.getElementById('menu-composer-modal');
+    assert.equal(modal.hasAttribute('hidden'), false); // modale ouverte
+    assert.equal(doc.querySelector('.order-cart__line'), null); // rien ajoute sans validation
 });
 
 test('personnalisation produit (retrait + ajout) -> items_json porte modifiers:[remove, add]', () => {
@@ -129,8 +165,8 @@ test('personnalisation produit (retrait + ajout) -> items_json porte modifiers:[
     const doc = dom.window.document;
     counterOrder.init(doc);
 
-    // Ouvre la modale du produit 12 (Cheeseburger).
-    doc.querySelector('.product-configure[data-product-id="12"]').dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+    activateCategory(dom, 'Burgers');
+    click(dom, tileByName(dom, 'Cheeseburger'));
     const modal = doc.getElementById('menu-composer-modal');
     assert.equal(modal.hasAttribute('hidden'), false);
 
@@ -143,7 +179,7 @@ test('personnalisation produit (retrait + ajout) -> items_json porte modifiers:[
     addBox.checked = true;
     addBox.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
 
-    modal.querySelector('.menu-composer__add').dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+    click(dom, modal.querySelector('.menu-composer__add'));
 
     assert.equal(modal.hasAttribute('hidden'), true);
     assert.ok(doc.querySelector('.order-cart__line'));
@@ -160,7 +196,7 @@ test('personnalisation produit (retrait + ajout) -> items_json porte modifiers:[
     ]);
 });
 
-test('quantite 0 ignoree -> panier vide serialise []', () => {
+test('panier vide -> items_json serialise []', () => {
     const dom = setup();
     counterOrder.init(dom.window.document);
 
@@ -168,13 +204,48 @@ test('quantite 0 ignoree -> panier vide serialise []', () => {
     assert.deepEqual(itemsJson(dom), []);
 });
 
+test('stepper +/- : + incremente, - decremente, 0 retire la ligne', () => {
+    const dom = setup();
+    const doc = dom.window.document;
+    counterOrder.init(doc);
+
+    activateCategory(dom, 'Accompagnements');
+    click(dom, tileByName(dom, 'Frites'));
+
+    const inc = doc.querySelector('.order-cart__qty-btn[aria-label^="Augmenter"]');
+    click(dom, inc); // qty 1 -> 2
+    assert.equal(doc.querySelector('.order-cart__qty-value').textContent, '2');
+
+    const dec = doc.querySelector('.order-cart__qty-btn[aria-label^="Diminuer"]');
+    click(dom, dec); // 2 -> 1
+    assert.equal(doc.querySelector('.order-cart__qty-value').textContent, '1');
+
+    click(dom, doc.querySelector('.order-cart__qty-btn[aria-label^="Diminuer"]')); // 1 -> 0 = retrait
+    assert.equal(doc.querySelector('.order-cart__line'), null);
+    fireSubmit(dom);
+    assert.deepEqual(itemsJson(dom), []);
+});
+
+test('retirer une ligne via le bouton Retirer', () => {
+    const dom = setup();
+    const doc = dom.window.document;
+    counterOrder.init(doc);
+
+    activateCategory(dom, 'Accompagnements');
+    click(dom, tileByName(dom, 'Frites'));
+    assert.ok(doc.querySelector('.order-cart__line'));
+
+    click(dom, doc.querySelector('.order-cart__remove'));
+    assert.equal(doc.querySelector('.order-cart__line'), null);
+});
+
 test('configuration menu (format Maxi + slots) -> items_json contient {type:menu, format:maxi, selections}', () => {
     const dom = setup();
     const doc = dom.window.document;
     counterOrder.init(doc);
 
-    // Ouvre la modale du menu 5.
-    doc.querySelector('.menu-configure[data-menu-id="5"]').dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+    activateCategory(dom, 'Menus');
+    click(dom, tileByName(dom, 'Menu Cheeseburger'));
 
     const modal = doc.getElementById('menu-composer-modal');
     assert.equal(modal.hasAttribute('hidden'), false);
@@ -195,7 +266,7 @@ test('configuration menu (format Maxi + slots) -> items_json contient {type:menu
     sauceSelect.value = '47';
     sauceSelect.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
 
-    modal.querySelector('.menu-composer__add').dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+    click(dom, modal.querySelector('.menu-composer__add'));
 
     // Modale fermee, panier recap mis a jour.
     assert.equal(modal.hasAttribute('hidden'), true);
@@ -216,12 +287,63 @@ test('configuration menu (format Maxi + slots) -> items_json contient {type:menu
     ]);
 });
 
+test('quantite MENU : stepper + sur une ligne menu -> items_json porte quantity:2, un seul jeu de selections', () => {
+    // G : la quantite d'une ligne menu est ajustable au panneau (stepper) et serialisee
+    // dans quantity ; les selections de slot ne sont PAS dupliquees par la quantite.
+    const dom = setup();
+    const doc = dom.window.document;
+    counterOrder.init(doc);
+
+    activateCategory(dom, 'Menus');
+    click(dom, tileByName(dom, 'Menu Cheeseburger'));
+    const modal = doc.getElementById('menu-composer-modal');
+    click(dom, modal.querySelector('.menu-composer__add')); // ajoute le menu (requis pre-selectionnes)
+
+    // Stepper + sur la ligne menu : qty 1 -> 2.
+    click(dom, doc.querySelector('.order-cart__qty-btn[aria-label^="Augmenter"]'));
+    assert.equal(doc.querySelector('.order-cart__qty-value').textContent, '2');
+
+    fireSubmit(dom);
+    const items = itemsJson(dom);
+    assert.equal(items.length, 1);
+    assert.equal(items[0].type, 'menu');
+    assert.equal(items[0].quantity, 2);
+    // Un SEUL jeu de selections (requis : drink + side), pas duplique par la quantite.
+    assert.deepEqual(items[0].selections, [
+        { menu_slot_id: 1, product_id: 14 },
+        { menu_slot_id: 16, product_id: 22 },
+    ]);
+});
+
+test('total : menu Maxi (11,90) x2 -> 23,80 EUR (quantite multipliee)', () => {
+    const dom = setup();
+    const doc = dom.window.document;
+    counterOrder.init(doc);
+
+    activateCategory(dom, 'Menus');
+    click(dom, tileByName(dom, 'Menu Cheeseburger'));
+    const modal = doc.getElementById('menu-composer-modal');
+    const maxiRadio = Array.prototype.find.call(
+        modal.querySelectorAll('.menu-composer__format-input'),
+        r => r.value === 'maxi',
+    );
+    maxiRadio.checked = true;
+    maxiRadio.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+    click(dom, modal.querySelector('.menu-composer__add'));
+
+    click(dom, doc.querySelector('.order-cart__qty-btn[aria-label^="Augmenter"]')); // x2
+
+    assert.equal(doc.querySelector('.order-cart__price').textContent, '23,80 EUR');
+    assert.equal(doc.getElementById('order-total-value').textContent, '23,80 EUR');
+});
+
 test('menu Normal sans la sauce optionnelle -> selections ne contient que les requis', () => {
     const dom = setup();
     const doc = dom.window.document;
     counterOrder.init(doc);
 
-    doc.querySelector('.menu-configure[data-menu-id="5"]').dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+    activateCategory(dom, 'Menus');
+    click(dom, tileByName(dom, 'Menu Cheeseburger'));
     const modal = doc.getElementById('menu-composer-modal');
 
     // Laisse la sauce a "Sans" (valeur vide) ; ajoute directement.
@@ -232,7 +354,7 @@ test('menu Normal sans la sauce optionnelle -> selections ne contient que les re
     sauceSelect.value = '';
     sauceSelect.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
 
-    modal.querySelector('.menu-composer__add').dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+    click(dom, modal.querySelector('.menu-composer__add'));
     fireSubmit(dom);
 
     const items = itemsJson(dom);
@@ -248,12 +370,14 @@ test('produit + menu combines -> items_json contient les deux lignes', () => {
     const doc = dom.window.document;
     counterOrder.init(doc);
 
-    // Frites (22) sans modificateur -> chemin qty_<id>.
-    doc.getElementById('qty_22').value = '1';
+    // Frites (22) sans modificateur -> ajout direct par tap.
+    activateCategory(dom, 'Accompagnements');
+    click(dom, tileByName(dom, 'Frites'));
 
-    doc.querySelector('.menu-configure[data-menu-id="5"]').dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+    activateCategory(dom, 'Menus');
+    click(dom, tileByName(dom, 'Menu Cheeseburger'));
     const modal = doc.getElementById('menu-composer-modal');
-    modal.querySelector('.menu-composer__add').dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+    click(dom, modal.querySelector('.menu-composer__add'));
 
     fireSubmit(dom);
     const items = itemsJson(dom);
@@ -267,7 +391,8 @@ test('configuration menu avec modificateur burger -> item menu porte modifiers:[
     const doc = dom.window.document;
     counterOrder.init(doc);
 
-    doc.querySelector('.menu-configure[data-menu-id="5"]').dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+    activateCategory(dom, 'Menus');
+    click(dom, tileByName(dom, 'Menu Cheeseburger'));
     const modal = doc.getElementById('menu-composer-modal');
 
     // Retire l'oignon du burger (ingredient 3, is_removable).
@@ -275,7 +400,7 @@ test('configuration menu avec modificateur burger -> item menu porte modifiers:[
     removeBox.checked = true;
     removeBox.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
 
-    modal.querySelector('.menu-composer__add').dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+    click(dom, modal.querySelector('.menu-composer__add'));
     fireSubmit(dom);
 
     const items = itemsJson(dom);
@@ -288,9 +413,10 @@ test('total + bouton : produit simple (Frites 2,50 x2) -> 5,00 EUR affiche', () 
     const doc = dom.window.document;
     counterOrder.init(doc);
 
-    const qty = doc.getElementById('qty_22'); // Frites, 250c
-    qty.value = '2';
-    qty.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+    activateCategory(dom, 'Accompagnements');
+    const frites = tileByName(dom, 'Frites'); // 250c
+    click(dom, frites);
+    click(dom, frites); // qty 2
 
     assert.equal(doc.getElementById('order-total-value').textContent, '5,00 EUR');
     assert.equal(doc.getElementById('order-submit').textContent, 'Encaisser 5,00 EUR');
@@ -301,12 +427,13 @@ test('total : produit personnalise avec ajout (Cheeseburger 8,90 + Bacon 0,50) -
     const doc = dom.window.document;
     counterOrder.init(doc);
 
-    doc.querySelector('.product-configure[data-product-id="12"]').dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+    activateCategory(dom, 'Burgers');
+    click(dom, tileByName(dom, 'Cheeseburger'));
     const modal = doc.getElementById('menu-composer-modal');
     const addBox = modal.querySelector('.menu-composer__modifier-add[data-ingredient-id="8"]');
     addBox.checked = true;
     addBox.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
-    modal.querySelector('.menu-composer__add').dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+    click(dom, modal.querySelector('.menu-composer__add'));
 
     // Prix de ligne affiche dans le panier.
     assert.equal(doc.querySelector('.order-cart__price').textContent, '9,40 EUR');
@@ -318,7 +445,8 @@ test('total : menu Maxi (11,90) inclus dans le total de ligne', () => {
     const doc = dom.window.document;
     counterOrder.init(doc);
 
-    doc.querySelector('.menu-configure[data-menu-id="5"]').dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+    activateCategory(dom, 'Menus');
+    click(dom, tileByName(dom, 'Menu Cheeseburger'));
     const modal = doc.getElementById('menu-composer-modal');
     const maxiRadio = Array.prototype.find.call(
         modal.querySelectorAll('.menu-composer__format-input'),
@@ -326,7 +454,7 @@ test('total : menu Maxi (11,90) inclus dans le total de ligne', () => {
     );
     maxiRadio.checked = true;
     maxiRadio.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
-    modal.querySelector('.menu-composer__add').dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+    click(dom, modal.querySelector('.menu-composer__add'));
 
     assert.equal(doc.querySelector('.order-cart__price').textContent, '11,90 EUR');
     assert.equal(doc.getElementById('order-total-value').textContent, '11,90 EUR');
@@ -357,16 +485,12 @@ test('modale menu : slot requis non choisi -> message inline, pas d ajout muet',
     const doc = dom.window.document;
     counterOrder.init(doc);
 
-    doc.querySelector('.menu-configure[data-menu-id="5"]').dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+    activateCategory(dom, 'Menus');
+    click(dom, tileByName(dom, 'Menu Cheeseburger'));
     const modal = doc.getElementById('menu-composer-modal');
 
-    // Vide un slot requis (drink, slot 1) en le passant a une valeur absente : on force
-    // l'etat en deselectionnant via un select dont l'option vide n'existe pas. On
-    // simule en retirant la selection requise par un slot side (16) mis a vide n'est pas
-    // possible (requis) ; on retire plutot la pre-selection en posant une valeur hors options.
-    // Plus simple : on supprime l'option pre-cochee du slot requis 'drink' (1) en le
-    // forcant a une chaine vide via le select (un slot requis n'a pas d'option Sans, mais
-    // jsdom autorise l'affectation d'une value vide -> change supprime la selection).
+    // Vide un slot requis (drink, slot 1) : un slot requis n'a pas d'option Sans, mais
+    // jsdom autorise l'affectation d'une value vide -> change supprime la selection.
     const drinkSelect = Array.prototype.find.call(
         modal.querySelectorAll('.menu-composer__slot-select'),
         s => s.dataset.slotId === '1',
@@ -381,7 +505,7 @@ test('modale menu : slot requis non choisi -> message inline, pas d ajout muet',
     assert.equal(errAtOpen.textContent, '');
     assert.equal(errAtOpen.hasAttribute('hidden'), false); // present en permanence (a11y)
 
-    modal.querySelector('.menu-composer__add').dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+    click(dom, modal.querySelector('.menu-composer__add'));
 
     // Modale encore ouverte, message inline renseigne (textContent), aucune ligne.
     assert.equal(modal.hasAttribute('hidden'), false);
@@ -389,44 +513,45 @@ test('modale menu : slot requis non choisi -> message inline, pas d ajout muet',
     assert.equal(doc.querySelector('.order-cart__line'), null);
 });
 
-test('produit personnalisable : champ qty editable en HTML, desactive par JS + indice revele', () => {
+test('tuile : pastille de repli quand aucune image (image vide)', () => {
     const dom = setup();
-    const doc = dom.window.document;
+    counterOrder.init(dom.window.document);
 
-    // Avant init : le champ qty d'un produit a modificateurs est editable (repli sans JS)
-    // et l'indice "via Personnaliser" est cache.
-    const qty = doc.getElementById('qty_12');
-    const hint = doc.querySelector('[data-qty-hint="12"]');
-    assert.equal(qty.disabled, false);
-    assert.equal(hint.hidden, true);
-
-    counterOrder.init(doc);
-
-    // Apres init (JS present) : champ neutralise et indice revele.
-    assert.equal(qty.disabled, true);
-    assert.equal(hint.hidden, false);
-
-    // Un produit SANS modificateur reste editable (pas d'indice).
-    assert.equal(doc.getElementById('qty_22').disabled, false);
-    assert.equal(doc.querySelector('[data-qty-hint="22"]'), null);
+    activateCategory(dom, 'Burgers');
+    const tile = tileByName(dom, 'Cheeseburger');
+    // image vide -> aucune <img>, une pastille (initiale C) a la place.
+    assert.equal(tile.querySelector('.pos-tile__image'), null);
+    assert.equal(tile.querySelector('.pos-tile__pastille').textContent, 'C');
 });
 
-test('modale : focus restaure sur le bouton declencheur a la fermeture', () => {
+test('tuile : image rendue quand image fournie', () => {
+    const withImg = [{ id: 99, name: 'Special', price: 500, image: '/img/special.png', category_id: 1, category_name: 'Burgers', modifiers: [] }];
+    const dom = setup(withImg, []);
+    counterOrder.init(dom.window.document);
+
+    activateCategory(dom, 'Burgers');
+    const img = tileByName(dom, 'Special').querySelector('.pos-tile__image');
+    assert.ok(img);
+    assert.equal(img.getAttribute('src'), '/img/special.png');
+});
+
+test('modale : focus restaure sur la tuile declencheuse a la fermeture', () => {
     const dom = setup();
     const doc = dom.window.document;
     counterOrder.init(doc);
 
-    const trigger = doc.querySelector('.menu-configure[data-menu-id="5"]');
+    activateCategory(dom, 'Menus');
+    const trigger = tileByName(dom, 'Menu Cheeseburger');
     trigger.focus();
     assert.equal(doc.activeElement, trigger);
 
-    trigger.dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+    click(dom, trigger);
     const modal = doc.getElementById('menu-composer-modal');
-    // Le focus est entre dans la modale (plus sur le bouton declencheur).
+    // Le focus est entre dans la modale (plus sur la tuile declencheuse).
     assert.notEqual(doc.activeElement, trigger);
 
     doc.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-    // Ferme -> focus restaure sur le declencheur.
+    // Ferme -> focus restaure sur la tuile.
     assert.equal(doc.activeElement, trigger);
 });
 
@@ -435,7 +560,8 @@ test('modale : panel porte role=dialog, aria-modal et aria-labelledby (titre)', 
     const doc = dom.window.document;
     counterOrder.init(doc);
 
-    doc.querySelector('.menu-configure[data-menu-id="5"]').dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+    activateCategory(dom, 'Menus');
+    click(dom, tileByName(dom, 'Menu Cheeseburger'));
     const panel = doc.querySelector('.menu-composer');
     assert.equal(panel.getAttribute('role'), 'dialog');
     assert.equal(panel.getAttribute('aria-modal'), 'true');
@@ -448,27 +574,15 @@ test('modale : panel porte role=dialog, aria-modal et aria-labelledby (titre)', 
 
 test('total : separateur de milliers aligne sur PHP (1 234,50 EUR)', () => {
     // Produit a 617,25 EUR (61725c) x2 = 1 234,50 EUR -> espace separateur de milliers.
-    const PRICEY = [{ id: 99, name: 'Plateau', price: 61725, modifiers: [] }];
-    const dom = new JSDOM(
-        '<!DOCTYPE html><html><body>' +
-        '<form id="counter-order-form" method="post" action="/counter/orders" ' +
-        `      data-products='${JSON.stringify(PRICEY)}' data-menus='[]'>` +
-        '  <input type="hidden" name="items_json" id="items_json" value="">' +
-        '  <input class="order-qty" type="number" id="qty_99" name="qty_99" data-product-id="99" value="0">' +
-        '  <ul id="menu-list"></ul>' +
-        '  <ul id="order-cart"><li id="order-cart-empty">Panier vide.</li></ul>' +
-        '  <p><span id="order-total-value">0,00 EUR</span></p>' +
-        '  <button type="submit" id="order-submit">Encaisser 0,00 EUR</button>' +
-        '</form>' +
-        '<div id="menu-composer-modal" hidden></div>' +
-        '</body></html>',
-    );
+    const PRICEY = [{ id: 99, name: 'Plateau', price: 61725, image: '', category_id: 1, category_name: 'Plateaux', modifiers: [] }];
+    const dom = setup(PRICEY, []);
     const doc = dom.window.document;
     counterOrder.init(doc);
 
-    const qty = doc.getElementById('qty_99');
-    qty.value = '2';
-    qty.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+    activateCategory(dom, 'Plateaux');
+    const tile = tileByName(dom, 'Plateau');
+    click(dom, tile);
+    click(dom, tile); // qty 2
 
     assert.equal(doc.getElementById('order-total-value').textContent, '1 234,50 EUR');
     assert.equal(doc.getElementById('order-submit').textContent, 'Encaisser 1 234,50 EUR');
@@ -479,12 +593,21 @@ test('modale : touche Echap ferme la modale', () => {
     const doc = dom.window.document;
     counterOrder.init(doc);
 
-    doc.querySelector('.menu-configure[data-menu-id="5"]').dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+    activateCategory(dom, 'Menus');
+    click(dom, tileByName(dom, 'Menu Cheeseburger'));
     const modal = doc.getElementById('menu-composer-modal');
     assert.equal(modal.hasAttribute('hidden'), false);
 
     doc.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     assert.equal(modal.hasAttribute('hidden'), true);
+});
+
+test('buildCategoryTabs: une entree par categorie, comptage cumule produits+menus', () => {
+    const tabs = counterOrder.buildCategoryTabs(PRODUCTS, MENUS);
+    assert.deepEqual(tabs.map(t => t.name), ['Burgers', 'Accompagnements', 'Boissons', 'Menus']);
+    // Accompagnements regroupe Frites + Ketchup.
+    assert.equal(tabs.find(t => t.name === 'Accompagnements').count, 2);
+    assert.equal(tabs.find(t => t.name === 'Menus').count, 1);
 });
 
 test('composerSteps: slot_type non gere (dessert) ignore, slots tries par display_order', () => {
@@ -499,4 +622,161 @@ test('composerSteps: slot_type non gere (dessert) ignore, slots tries par displa
     };
     const steps = counterOrder.composerSteps(menu, productById);
     assert.deepEqual(steps.map(s => s.slotType), ['drink', 'side', 'sauce']); // dessert exclu, tri display_order
+});
+
+test('A : changer d onglet conserve le focus clavier sur l onglet actif (pas de retour vers body)', () => {
+    const dom = setup();
+    const doc = dom.window.document;
+    counterOrder.init(doc);
+
+    const tabs = doc.querySelectorAll('.pos__tab');
+    const second = tabs[1]; // Accompagnements
+    second.focus();
+    assert.equal(doc.activeElement, second);
+
+    click(dom, second);
+    // Le bouton n'est PAS detruit (pas de reconstruction de la barre) : focus preserve.
+    assert.equal(doc.activeElement, second);
+    assert.equal(second.classList.contains('is-active'), true);
+    // Les autres onglets existent encore (memes references, simplement mutees).
+    assert.equal(doc.querySelectorAll('.pos__tab').length, tabs.length);
+});
+
+test('B : roving tabindex (actif=0, autres=-1) et aria-selected coherents', () => {
+    const dom = setup();
+    const doc = dom.window.document;
+    counterOrder.init(doc);
+
+    const tabs = Array.prototype.slice.call(doc.querySelectorAll('.pos__tab'));
+    // Au depart : 1er onglet actif (tabindex 0), les autres -1.
+    assert.equal(tabs[0].tabIndex, 0);
+    assert.equal(tabs[0].getAttribute('aria-selected'), 'true');
+    tabs.slice(1).forEach(t => {
+        assert.equal(t.tabIndex, -1);
+        assert.equal(t.getAttribute('aria-selected'), 'false');
+    });
+
+    // Apres activation du 3e : le roving tabindex suit.
+    click(dom, tabs[2]);
+    assert.equal(tabs[2].tabIndex, 0);
+    assert.equal(tabs[2].getAttribute('aria-selected'), 'true');
+    assert.equal(tabs[0].tabIndex, -1);
+});
+
+test('B : Fleche droite/gauche deplace le focus ET active l onglet (cyclique)', () => {
+    const dom = setup();
+    const doc = dom.window.document;
+    counterOrder.init(doc);
+
+    const tabs = Array.prototype.slice.call(doc.querySelectorAll('.pos__tab'));
+    tabs[0].focus();
+
+    // L'event remonte (bubbles) jusqu'au conteneur tablist ; event.target est l'onglet
+    // focalise. On dispatche depuis l'element actif pour refleter le focus clavier reel.
+    function arrowFromActive(key) {
+        doc.activeElement.dispatchEvent(
+            new dom.window.KeyboardEvent('keydown', { key, bubbles: true }),
+        );
+    }
+
+    arrowFromActive('ArrowRight'); // 0 -> 1
+    assert.equal(doc.activeElement, tabs[1]);
+    assert.equal(tabs[1].getAttribute('aria-selected'), 'true');
+
+    arrowFromActive('ArrowLeft'); // 1 -> 0
+    assert.equal(doc.activeElement, tabs[0]);
+
+    arrowFromActive('ArrowLeft'); // 0 -> dernier (cyclique)
+    assert.equal(doc.activeElement, tabs[tabs.length - 1]);
+
+    arrowFromActive('Home'); // -> premier
+    assert.equal(doc.activeElement, tabs[0]);
+
+    arrowFromActive('End'); // -> dernier
+    assert.equal(doc.activeElement, tabs[tabs.length - 1]);
+});
+
+test('B : onglets relies au tabpanel (aria-controls vers la grille, grille labellisee par l onglet actif)', () => {
+    const dom = setup();
+    const doc = dom.window.document;
+    counterOrder.init(doc);
+
+    const grid = doc.getElementById('pos-grid');
+    const tabs = Array.prototype.slice.call(doc.querySelectorAll('.pos__tab'));
+    tabs.forEach(t => assert.equal(t.getAttribute('aria-controls'), 'pos-grid'));
+
+    // La grille (tabpanel) est libellee par l'onglet actif.
+    assert.equal(grid.getAttribute('aria-labelledby'), tabs[0].id);
+    click(dom, tabs[1]);
+    assert.equal(grid.getAttribute('aria-labelledby'), tabs[1].id);
+});
+
+test('C : region live concise mise a jour a chaque mutation (total + nombre d articles)', () => {
+    const dom = setup();
+    const doc = dom.window.document;
+    counterOrder.init(doc);
+    const announce = doc.getElementById('pos-announce');
+
+    // Init : panier vide.
+    assert.equal(announce.textContent, 'Panier vide');
+
+    activateCategory(dom, 'Accompagnements');
+    const frites = tileByName(dom, 'Frites'); // 250c
+    click(dom, frites);
+    assert.equal(announce.textContent, 'Total 2,50 EUR, 1 article');
+
+    click(dom, frites); // qty 2
+    assert.equal(announce.textContent, 'Total 5,00 EUR, 2 articles');
+});
+
+test('C : ni #order-cart ni #pos-grid ne portent aria-live (eviter la verbosite)', () => {
+    const dom = setup();
+    const doc = dom.window.document;
+    counterOrder.init(doc);
+
+    assert.equal(doc.getElementById('order-cart').hasAttribute('aria-live'), false);
+    assert.equal(doc.getElementById('pos-grid').hasAttribute('aria-live'), false);
+});
+
+test('D : tuile qui ouvre la modale porte aria-haspopup=dialog et l intention dans l aria-label', () => {
+    const dom = setup();
+    counterOrder.init(dom.window.document);
+
+    activateCategory(dom, 'Burgers');
+    const burger = tileByName(dom, 'Cheeseburger'); // a modificateurs -> modale
+    assert.equal(burger.getAttribute('aria-haspopup'), 'dialog');
+    assert.match(burger.getAttribute('aria-label'), /a composer/);
+
+    activateCategory(dom, 'Menus');
+    const menu = tileByName(dom, 'Menu Cheeseburger');
+    assert.equal(menu.getAttribute('aria-haspopup'), 'dialog');
+    assert.match(menu.getAttribute('aria-label'), /menu a composer/);
+});
+
+test('D : tuile produit simple n a PAS aria-haspopup (ajout direct au tap)', () => {
+    const dom = setup();
+    counterOrder.init(dom.window.document);
+
+    activateCategory(dom, 'Accompagnements');
+    const frites = tileByName(dom, 'Frites'); // sans modificateur
+    assert.equal(frites.hasAttribute('aria-haspopup'), false);
+});
+
+test('E : quantite invalide dans la modale produit -> ramenee a 1 et reaffichee dans l input', () => {
+    const dom = setup();
+    const doc = dom.window.document;
+    counterOrder.init(doc);
+
+    activateCategory(dom, 'Burgers');
+    click(dom, tileByName(dom, 'Cheeseburger'));
+    const modal = doc.getElementById('menu-composer-modal');
+    const qtyInput = modal.querySelector('#composer-product-qty');
+
+    qtyInput.value = '0';
+    qtyInput.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+    assert.equal(qtyInput.value, '1'); // valeur corrigee reaffichee
+
+    qtyInput.value = '';
+    qtyInput.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+    assert.equal(qtyInput.value, '1');
 });
