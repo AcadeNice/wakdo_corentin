@@ -181,7 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const items = getCart();
     if (!items.length) {
-        window.location.href = 'cart.html';
+        window.location.href = 'categories.html';
         return;
     }
     if (recap) {

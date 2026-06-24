@@ -138,6 +138,24 @@ test('renderOrderPanel: clic corbeille retire la ligne et re-rend', () => {
     assert.equal(JSON.parse(localStorage.getItem('wakdo_cart')).length, 1);
 });
 
+test('renderOrderPanel: stepper + augmente la quantite et re-rend', () => {
+    localStorage.setItem('wakdo_cart', JSON.stringify([simple({ quantite: 1 })]));
+    const el = document.createElement('aside');
+    renderOrderPanel(el);
+    el.querySelector('.order-panel__qty-btn[data-action="inc"]').click();
+    assert.equal(JSON.parse(localStorage.getItem('wakdo_cart'))[0].quantite, 2);
+    assert.equal(el.querySelector('.order-panel__qty-value').textContent, '2');
+});
+
+test('renderOrderPanel: stepper - a quantite 1 retire la ligne', () => {
+    localStorage.setItem('wakdo_cart', JSON.stringify([simple({ quantite: 1 }), menu()]));
+    const el = document.createElement('aside');
+    renderOrderPanel(el);
+    el.querySelector('.order-panel__qty-btn[data-action="dec"]').click(); // 1re ligne 1 -> 0 -> retiree
+    assert.equal(el.querySelectorAll('.order-panel__line').length, 1);
+    assert.equal(JSON.parse(localStorage.getItem('wakdo_cart')).length, 1);
+});
+
 test('renderOrderPanel: libelle de ligne echappe (anti-XSS RG-T15)', () => {
     localStorage.setItem('wakdo_cart', JSON.stringify([simple({ libelle: '<img src=x onerror=alert(1)>' })]));
     const el = document.createElement('aside');
