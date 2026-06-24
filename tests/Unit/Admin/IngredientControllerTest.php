@@ -198,6 +198,64 @@ final class IngredientControllerTest extends TestCase
         self::assertStringContainsString('Alerte', $response->body());
     }
 
+    public function testIndexShowsBusinessExplainerBanner(): void
+    {
+        // Le bandeau explique le lien metier stock -> disponibilite borne (RG-T21),
+        // l'info qui manquait dans l'ancien tableau brut.
+        $db = $this->permittedDb();
+        $db->ingredientsRows = [$this->ingredient()];
+
+        $body = $this->controller($this->get('/admin/ingredients'), $db)->index()->body();
+
+        self::assertStringContainsString('stock-explainer', $body);
+        self::assertStringContainsString('borne', $body);
+    }
+
+    public function testIndexPromotesLowAndCriticalIntoRestockSection(): void
+    {
+        // Un ingredient critique (3% < seuil 5) doit apparaitre dans la section
+        // "A reapprovisionner" mise en avant, pas seulement dans la liste calme.
+        $db = $this->permittedDb();
+        $db->ingredientsRows = [$this->ingredient(['name' => 'Buns', 'stock_quantity' => 3])];
+
+        $body = $this->controller($this->get('/admin/ingredients'), $db)->index()->body();
+
+        self::assertStringContainsString('A reapprovisionner', $body);
+        self::assertStringContainsString('stock-section--restock', $body);
+        self::assertStringContainsString('Buns', $body);
+        self::assertStringContainsString('Critique', $body);
+    }
+
+    public function testIndexShowsPositiveEmptyStateWhenNothingLow(): void
+    {
+        // Tous au-dessus des seuils -> etat vide positif dans la section restock.
+        $db = $this->permittedDb();
+        $db->ingredientsRows = [$this->ingredient(['stock_quantity' => 100])]; // 100% -> normal
+
+        $body = $this->controller($this->get('/admin/ingredients'), $db)->index()->body();
+
+        self::assertStringContainsString('au-dessus de leurs seuils', $body);
+    }
+
+    public function testIndexCountsIngredientsPerBand(): void
+    {
+        // Resume en haut : 1 critique (3%), 1 alerte (8%), 1 au-dessus (100%).
+        $db = $this->permittedDb();
+        $db->ingredientsRows = [
+            $this->ingredient(['name' => 'Buns', 'stock_quantity' => 3]),
+            $this->ingredient(['name' => 'Cheddar', 'stock_quantity' => 8]),
+            $this->ingredient(['name' => 'Salade', 'stock_quantity' => 100]),
+        ];
+
+        $body = $this->controller($this->get('/admin/ingredients'), $db)->index()->body();
+
+        // Chaque compteur est verrouille a SON libelle (sinon une regex generique
+        // passerait meme avec les trois compteurs inverses).
+        self::assertMatchesRegularExpression('/stock-summary__count">1<\/span>\s*<span class="stock-summary__label">critiques/', $body);
+        self::assertMatchesRegularExpression('/stock-summary__count">1<\/span>\s*<span class="stock-summary__label">en alerte/', $body);
+        self::assertMatchesRegularExpression('/stock-summary__count">1<\/span>\s*<span class="stock-summary__label">au-dessus du seuil/', $body);
+    }
+
     public function testIndexForbiddenWithoutStockRead(): void
     {
         $db = $this->permittedDb();

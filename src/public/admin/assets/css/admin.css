@@ -1813,3 +1813,229 @@ tbody td.mono {
     gap: 10px;
     margin-top: 16px;
 }
+
+/* --- Stock dashboard (page d'accueil ingredients) --- */
+.stock-explainer {
+    background: var(--color-yellow-bg);
+    border: 1px solid var(--color-yellow-soft);
+    border-radius: var(--radius-lg);
+    padding: 12px 16px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--color-text-sec);
+    margin-bottom: 20px;
+}
+
+.stock-summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 28px;
+}
+
+.stock-summary__item {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    background: var(--color-white);
+    border: 1px solid var(--color-border);
+    border-left-width: 4px;
+    border-radius: var(--radius-card);
+    padding: 18px 22px;
+    box-shadow: var(--shadow-card);
+}
+
+.stock-summary__item--danger  { border-left-color: var(--color-danger); }
+.stock-summary__item--warning { border-left-color: var(--color-warning); }
+.stock-summary__item--success { border-left-color: var(--color-success); }
+
+.stock-summary__count {
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--color-text);
+}
+
+.stock-summary__item--danger  .stock-summary__count { color: var(--color-danger-text); }
+.stock-summary__item--warning .stock-summary__count { color: var(--color-warning-text); }
+.stock-summary__item--success .stock-summary__count { color: var(--color-success-text); }
+
+.stock-summary__label {
+    font-size: 13px;
+    color: var(--color-text-muted);
+}
+
+.stock-section {
+    margin-bottom: 32px;
+}
+
+.stock-section__title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--color-text);
+    margin-bottom: 14px;
+}
+
+.stock-empty {
+    background: var(--color-white);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    font-size: 14px;
+    color: var(--color-text-muted);
+}
+
+.stock-empty--ok {
+    background: var(--color-success-bg);
+    border-color: var(--color-success-bg);
+    color: var(--color-success-text);
+}
+
+/* Barre de niveau : conteneur gris + portion remplie coloree selon la bande. */
+.stock-bar {
+    height: 8px;
+    background: var(--color-neutral-bg);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+}
+
+.stock-bar__fill {
+    display: block;
+    height: 100%;
+    border-radius: var(--radius-sm);
+}
+
+.stock-bar--critical { background: var(--color-danger); }
+.stock-bar--low      { background: var(--color-warning); }
+.stock-bar--normal   { background: var(--color-success); }
+
+.stock-bar__meta {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 6px;
+    font-size: 12px;
+}
+
+.stock-bar__pct { font-weight: 600; color: var(--color-text); }
+.stock-bar__qty { color: var(--color-text-muted); }
+
+/* Section "A reapprovisionner" : cartes mises en avant. */
+.stock-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr));
+    gap: 16px;
+}
+
+.stock-card {
+    background: var(--color-white);
+    border: 1px solid var(--color-border);
+    border-top-width: 3px;
+    border-radius: var(--radius-card);
+    padding: 16px 18px;
+    box-shadow: var(--shadow-card);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.stock-card--critical { border-top-color: var(--color-danger); }
+.stock-card--low      { border-top-color: var(--color-warning); }
+
+.stock-card__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.stock-card__name {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.stock-card__unit {
+    font-size: 12px;
+    color: var(--color-text-muted);
+    margin-left: 6px;
+}
+
+.stock-card__action {
+    height: 44px;
+    justify-content: center;
+    width: 100%;
+}
+
+/* Section "Tous les ingredients" : liste calme, actions secondaires discretes. */
+.stock-list {
+    list-style: none;
+    background: var(--color-white);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card);
+    overflow: hidden;
+}
+
+.stock-list__row {
+    display: grid;
+    grid-template-columns: 1fr 200px auto;
+    align-items: center;
+    gap: 20px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.stock-list__row:last-child {
+    border-bottom: none;
+}
+
+.stock-list__main {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.stock-list__name {
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.stock-list__unit {
+    font-size: 12px;
+    color: var(--color-text-muted);
+}
+
+.stock-list__actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.stock-list__crud {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding-left: 6px;
+    margin-left: 2px;
+    border-left: 1px solid var(--color-border);
+}
+
+.stock-list__inline-form {
+    display: inline;
+}
+
+@media (max-width: 900px) {
+    .stock-summary {
+        grid-template-columns: 1fr;
+    }
+    .stock-list__row {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+    .stock-list__actions {
+        justify-content: flex-start;
+    }
+}
