@@ -88,6 +88,14 @@ final class FakeCatalogueDatabase implements DatabaseInterface
     public array $autoUnavailableRows = [];
 
     /**
+     * Lignes renvoyees par AllergenRepository::all() (14 allergenes INCO :
+     * id, code, name, description).
+     *
+     * @var list<array<string, mixed>>
+     */
+    public array $allergensRows = [];
+
+    /**
      * Trace des lectures pour asserter le court-circuit du detail (id <= 0).
      *
      * @var list<array{sql: string, params: array<string|int, mixed>}>
@@ -142,6 +150,10 @@ final class FakeCatalogueDatabase implements DatabaseInterface
 
         if (str_contains($sql, 'FROM menu_slot s')) {
             return $this->menuSlotRows;
+        }
+
+        if (str_contains($sql, 'FROM allergen')) {
+            return $this->allergensRows;
         }
 
         return [];

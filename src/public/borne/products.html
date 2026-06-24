@@ -15,8 +15,8 @@
     <!--
         products.html — List of products in a category.
         Category is determined at runtime from ?category=<id>.
-        JS (page-products.js) fetches data/produits.json and renders cards.
-        In P4: swap fetch URL in data.js to point to GET /api/products?category=<slug>.
+        JS (page-products.js) reads the catalogue via data.js, which fetches
+        GET /api/products (and /api/categories, /api/menus), then renders cards.
     -->
 
     <header class="site-header">

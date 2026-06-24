@@ -10,18 +10,17 @@
  * indexe par slug de categorie ; menus glisses sous la cle 'menus'). Les signatures
  * publiques et les formes de retour sont inchangees -> les pages n'ont pas bouge.
  *
- * Les allergenes restent un repli statique (data/allergens.json) : leur bascule
- * sur /api/allergens est un chunk ulterieur.
+ * Les allergenes sont desormais lus depuis /api/allergens (id/code/name/description),
+ * comme les autres collections catalogue : le repli statique a ete retire.
  */
 
 const CATEGORIES_URL = '/api/categories';
 const PRODUCTS_URL = '/api/products';
 const MENUS_URL = '/api/menus';
-/* Liste fixe des 14 allergenes INCO (info generale, modale borne). L'endpoint
- * /api/allergens existe desormais (id/code/name), mais la borne garde ce JSON
- * statique : il porte les DESCRIPTIONS riches, absentes du schema allergen. Bascule
- * possible si les descriptions sont ajoutees cote API. */
-const ALLERGENS_URL = 'data/allergens.json';
+/* Les 14 allergenes INCO (info generale, modale borne). L'endpoint /api/allergens
+ * porte id/code/name/description (la description INCO est seede en base) -> la borne
+ * la consomme via l'API, comme les autres collections catalogue. */
+const ALLERGENS_URL = '/api/allergens';
 
 /* Memoisation par PROMESSE (pas par resultat) : N appelants concurrents au meme
  * chargement partagent UNE seule requete reseau (evite les fetch /api/* redondants
@@ -148,17 +147,16 @@ export async function loadMenu(id) {
 }
 
 /**
- * Fetches and caches the 14 INCO allergens (general info modal). Repli statique :
- * la reponse est un tableau nu (pas d'enveloppe), conserve tel quel.
- * @returns {Promise<Array>}
+ * Fetches and caches the 14 INCO allergens (general info modal). Consomme
+ * /api/allergens (enveloppe { data }, forme canonique id/code/name/description) et
+ * ramene chaque entree a la forme borne { id, name, description } attendue par la
+ * modale (allergens.js) ; le champ `code` n'est pas utilise cote borne.
+ * @returns {Promise<Array<{id:number, name:string, description:?string}>>}
  */
 export function loadAllergens() {
     if (!_allergensPromise) {
-        _allergensPromise = fetch(ALLERGENS_URL)
-            .then(res => {
-                if (!res.ok) throw new Error(`Failed to load allergens: HTTP ${res.status}`);
-                return res.json();
-            })
+        _allergensPromise = fetchCollection(ALLERGENS_URL)
+            .then(rows => rows.map(a => ({ id: a.id, name: a.name, description: a.description ?? null })))
             .catch(e => { _allergensPromise = null; throw e; });
     }
     return _allergensPromise;

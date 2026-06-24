@@ -187,14 +187,15 @@ class CatalogueController extends Controller
 
     /**
      * @param array<string, mixed> $row
-     * @return array{id: int, code: string, name: string}
+     * @return array{id: int, code: string, name: string, description: ?string}
      */
     private function presentAllergen(array $row): array
     {
         return [
-            'id'   => (int) ($row['id'] ?? 0),
-            'code' => (string) ($row['code'] ?? ''),
-            'name' => (string) ($row['name'] ?? ''),
+            'id'          => (int) ($row['id'] ?? 0),
+            'code'        => (string) ($row['code'] ?? ''),
+            'name'        => (string) ($row['name'] ?? ''),
+            'description' => $this->nullableString($row['description'] ?? null),
         ];
     }
 

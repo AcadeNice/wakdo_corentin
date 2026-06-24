@@ -13,7 +13,8 @@ use App\Core\Database;
 /**
  * AllergenRepository contre une vraie MariaDB (schema migre + seed reference).
  * Auto-skip si WAKDO_DB_TESTS != 1. Lecture seule (donnees de reference) : aucun
- * fixture/teardown. Verifie que les 14 allergenes INCO sont references avec code+name.
+ * fixture/teardown. Verifie que les 14 allergenes INCO sont references avec
+ * code + name + description.
  */
 final class AllergenReadDbTest extends TestCase
 {
@@ -34,7 +35,7 @@ final class AllergenReadDbTest extends TestCase
         }
     }
 
-    public function testListsIncoReferenceWithCodeAndName(): void
+    public function testListsIncoReferenceWithCodeNameAndDescription(): void
     {
         $rows = (new AllergenRepository($this->db))->all();
 
@@ -42,7 +43,11 @@ final class AllergenReadDbTest extends TestCase
         foreach ($rows as $a) {
             self::assertArrayHasKey('code', $a);
             self::assertArrayHasKey('name', $a);
+            self::assertArrayHasKey('description', $a);
             self::assertNotSame('', (string) ($a['name'] ?? ''));
         }
+        // La description INCO est seede (migration 0001 + seed 0001) : au moins une non vide.
+        $descriptions = array_filter($rows, static fn (array $a): bool => (string) ($a['description'] ?? '') !== '');
+        self::assertNotEmpty($descriptions, 'la description INCO doit etre exposee');
     }
 }
