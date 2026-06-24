@@ -3,7 +3,8 @@
  *
  * Reads ?category=<id> from the query string, maps to a slug via
  * CATEGORY_ID_TO_SLUG, then fetches the matching product array.
- * On product card click, navigates to product.html?id=<id>&category=<slug>.
+ * On product card click, opens an in-page modal (composer for a menu, options
+ * for a simple product) above the grid ; the order panel reflects the addition.
  */
 
 import { getProductsByCategory, getCategoryById, CATEGORY_ID_TO_SLUG, loadAllergens } from './data.js';
@@ -68,7 +69,9 @@ async function renderProducts() {
             const orderable = product.commandable !== false;
             const card = document.createElement('a');
             card.className = orderable ? 'product-card' : 'product-card product-card--unavailable';
-            card.href = `product.html?id=${product.id}&category=${categorySlug}`;
+            // Le <a> reste pour le focus/clavier (a11y) ; href='#' inerte, le handler
+            // click ci-dessous fait foi (preventDefault + ouverture de la modale).
+            card.href = '#';
             card.setAttribute('aria-label', `${product.nom} - ${formatPrice(product.prix)}${orderable ? '' : ' - indisponible'}`);
             if (!orderable) card.setAttribute('aria-disabled', 'true');
 
@@ -94,10 +97,10 @@ async function renderProducts() {
             const infoBtn = buildAllergenInfoButton(() => openAllergenModal(allergens));
             card.querySelector('.product-card__image-wrap').appendChild(infoBtn);
 
-            // Clic produit -> modale au-dessus de la grille (paradigme maquette) au lieu
-            // de naviguer vers product.html : menu -> composeur (L2), produit -> options
-            // (L3). Le <a href> reste un repli (lien direct / sans JS). Une tuile en
-            // rupture ne fait rien (ni navigation ni modale).
+            // Clic produit -> modale au-dessus de la grille (paradigme maquette) :
+            // menu -> composeur (L2), produit -> options (L3). Le panneau de droite est
+            // l'unique vue panier ; pas de navigation au clic. Une tuile en rupture ne
+            // fait rien (ni navigation ni modale).
             card.addEventListener('click', (e) => {
                 e.preventDefault();
                 if (!orderable) return;

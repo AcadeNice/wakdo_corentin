@@ -12,7 +12,7 @@ import { JSDOM } from 'jsdom';
 let buildComposerSteps, buildMenuCartItem, selectionsComplete, composerIsViable, optionLabel;
 
 before(async () => {
-    const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>', { url: 'https://kiosk.test/product.html' });
+    const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>', { url: 'https://kiosk.test/products.html' });
     global.window = dom.window;
     global.document = dom.window.document;
     global.localStorage = dom.window.localStorage;

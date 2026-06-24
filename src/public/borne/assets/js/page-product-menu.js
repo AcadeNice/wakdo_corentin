@@ -1,7 +1,7 @@
 /*
  * page-product-menu.js — Composeur de menu PILOTE PAR LES SLOTS (P5 L2).
  *
- * Importe par page-product.js quand le produit charge est un menu (type === 'menu').
+ * Importe par page-products.js quand le produit clique est un menu (type === 'menu').
  *
  * Avant L2 : le composeur composait LIBREMENT a partir des categories (burgers,
  * frites, boissons, sauces) sans tenir compte du menu reel. Desormais il consomme
@@ -12,9 +12,9 @@
  * Etapes : Format (Normal/Maxi, burger impose affiche) -> 1 pas par slot (dans
  * l'ordre display_order ; requis = choix obligatoire, optionnel = "sans") -> recap.
  *
- * La forme de `composition` produite reste compatible avec page-cart.js et
- * order-panel.js (burger / accompagnement / boisson / sauce + taille), le slot_type
- * mappant vers le bon champ ; Maxi pose taille 'G' + supplement = prix_maxi - prix_normal.
+ * La forme de `composition` produite reste compatible avec order-panel.js (burger /
+ * accompagnement / boisson / sauce + taille), le slot_type mappant vers le bon champ ;
+ * Maxi pose taille 'G' + supplement = prix_maxi - prix_normal.
  *
  * A11y : role=dialog, aria-modal, focus-trap, ESC annule, focus au 1er interactif.
  */
@@ -155,7 +155,7 @@ export function composerIsViable(model) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Entree publique — appelee par page-product.js                       */
+/* Entree publique — appelee par page-products.js                      */
 /* ------------------------------------------------------------------ */
 
 /**

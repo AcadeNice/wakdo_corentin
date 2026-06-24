@@ -1,18 +1,18 @@
 /*
  * order-panel.js — Panneau de commande persistant (maquette : recap a droite de
- * l'ecran de commande). Rendu sur les ecrans de commande (products, product) pour
- * que le panier reste visible en permanence, comme sur la maquette borne.
+ * l'ecran de commande). Rendu sur l'ecran de commande (products) pour que le panier
+ * reste visible en permanence, comme sur la maquette borne.
  *
- * C'est un miroir COMPACT de page-cart.js : meme modele d'item, meme rendu de la
- * composition de menu. La page panier (cart.html) reste la vue detaillee (TVA, +/-) ;
- * le panneau, lui, montre lignes + total + Abandon/Payer et permet de retirer une
- * ligne. La logique de mise en forme est extraite en fonctions PURES (buildPanelModel,
- * compositionLabels) pour etre testable sans DOM.
+ * C'est l'UNIQUE vue panier : il montre lignes + total + Abandon/Payer, permet
+ * d'ajuster la quantite de chaque ligne (+/-) et de la retirer. La logique de mise
+ * en forme est extraite en fonctions PURES (buildPanelModel, compositionLabels)
+ * pour etre testable sans DOM.
  */
 
 import {
     getCart,
     removeFromCart,
+    updateQuantity,
     computeMenuLineCents,
     clearCart,
     formatPrice,
@@ -35,8 +35,8 @@ export function lineCents(item) {
 
 /**
  * Construit les libelles des options d'un menu (puces sous le nom de ligne).
- * Miroir de renderCompositionBlock() de page-cart.js, sans le supplement (le panneau
- * affiche le total de ligne, pas le detail TVA). Tolerant aux composants absents.
+ * Sans le supplement (le panneau affiche le total de ligne, pas le detail TVA).
+ * Tolerant aux composants absents.
  * @param {Object|undefined} c — objet composition de l'item menu
  * @returns {string[]}
  */
@@ -93,7 +93,7 @@ function modeLabel() {
 
 /**
  * Construit le HTML d'une ligne du panneau. Toute valeur derivee du catalogue est
- * echappee (RG-T15 anti-XSS), comme dans page-cart.js.
+ * echappee (RG-T15 anti-XSS).
  * @param {Object} line — element de buildPanelModel().lines
  * @returns {string}
  */
@@ -106,18 +106,37 @@ function lineHtml(line) {
     return `
         <li class="order-panel__line">
             <div class="order-panel__line-main">
-                <span class="order-panel__line-name">${line.quantite}&times; ${escHtml(line.libelle)}</span>
+                <span class="order-panel__line-name">${escHtml(line.libelle)}</span>
                 <span class="order-panel__line-price">${formatPrice(line.lineCents)}</span>
             </div>
             ${options}
-            <button
-                class="order-panel__remove"
-                data-index="${line.index}"
-                type="button"
-                aria-label="Retirer ${escHtml(line.libelle)} de la commande"
-            >
-                <img src="assets/images/ui/trash.png" alt="" aria-hidden="true" width="20" height="20">
-            </button>
+            <div class="order-panel__line-controls">
+                <div class="order-panel__qty" role="group" aria-label="Quantite de ${escHtml(line.libelle)}">
+                    <button
+                        class="order-panel__qty-btn"
+                        data-action="dec"
+                        data-index="${line.index}"
+                        type="button"
+                        aria-label="Diminuer la quantite de ${escHtml(line.libelle)}"
+                    >&minus;</button>
+                    <span class="order-panel__qty-value">${line.quantite}</span>
+                    <button
+                        class="order-panel__qty-btn"
+                        data-action="inc"
+                        data-index="${line.index}"
+                        type="button"
+                        aria-label="Augmenter la quantite de ${escHtml(line.libelle)}"
+                    >+</button>
+                </div>
+                <button
+                    class="order-panel__remove"
+                    data-index="${line.index}"
+                    type="button"
+                    aria-label="Retirer ${escHtml(line.libelle)} de la commande"
+                >
+                    <img src="assets/images/ui/trash.png" alt="" aria-hidden="true" width="20" height="20">
+                </button>
+            </div>
         </li>
     `;
 }
@@ -165,6 +184,19 @@ export function renderOrderPanel(container) {
         </div>
     `;
 
+    // Stepper +/- : ajuste la quantite de la ligne. Decrementer a 0 retire la ligne
+    // (updateQuantity supprime quand qty <= 0). Couvre produits ET menus (un menu a
+    // quantite > 1 = N menus identiques, facture par quantite cote serveur).
+    container.querySelectorAll('.order-panel__qty-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const index = parseInt(btn.dataset.index, 10);
+            const cart = getCart();
+            const current = cart[index] ? cart[index].quantite : 0;
+            updateQuantity(index, btn.dataset.action === 'inc' ? current + 1 : current - 1);
+            renderOrderPanel(container);
+        });
+    });
+
     container.querySelectorAll('.order-panel__remove').forEach(btn => {
         btn.addEventListener('click', () => {
             removeFromCart(parseInt(btn.dataset.index, 10));
@@ -181,7 +213,7 @@ export function renderOrderPanel(container) {
     }
 
     // Payer desactive sur panier vide : un <a> ignore `disabled`, on bloque le clic
-    // via aria-disabled (meme parade que page-cart.js / le fix a11y E2E #45).
+    // via aria-disabled (parade a11y, cf. fix E2E #45).
     const pay = container.querySelector('.order-panel__pay');
     if (pay) {
         pay.addEventListener('click', e => {
