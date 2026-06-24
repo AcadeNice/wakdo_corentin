@@ -20,6 +20,7 @@ import {
     getMode,
 } from './state.js';
 import { refreshCartBadge } from './nav.js';
+import { confirmAction } from './confirm-modal.js';
 
 /**
  * Calcule le total d'une ligne en centimes (menu : avec supplement de taille ;
@@ -206,9 +207,18 @@ export function renderOrderPanel(container) {
 
     const abandon = container.querySelector('.order-panel__abandon');
     if (abandon) {
+        // Geste destructeur (efface toute la commande) -> confirmation explicite
+        // avant d'agir, plutot qu'un effacement immediat au moindre tap.
         abandon.addEventListener('click', () => {
-            clearCart();
-            window.location.href = 'index.html';
+            confirmAction({
+                message: 'Abandonner toute la commande ? Votre selection sera perdue.',
+                confirmLabel: 'Oui, abandonner',
+                cancelLabel: 'Continuer ma commande',
+                onConfirm: () => {
+                    clearCart();
+                    window.location.href = 'index.html';
+                },
+            });
         });
     }
 

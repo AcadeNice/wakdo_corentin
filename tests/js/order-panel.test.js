@@ -22,6 +22,7 @@ before(async () => {
     global.window = dom.window;
     global.document = dom.window.document;
     global.localStorage = dom.window.localStorage;
+    global.requestAnimationFrame = (cb) => cb();
     ({ lineCents, compositionLabels, buildPanelModel, renderOrderPanel } =
         await import('../../src/public/borne/assets/js/order-panel.js'));
 });
@@ -153,6 +154,20 @@ test('renderOrderPanel: stepper - a quantite 1 retire la ligne', () => {
     renderOrderPanel(el);
     el.querySelector('.order-panel__qty-btn[data-action="dec"]').click(); // 1re ligne 1 -> 0 -> retiree
     assert.equal(el.querySelectorAll('.order-panel__line').length, 1);
+    assert.equal(JSON.parse(localStorage.getItem('wakdo_cart')).length, 1);
+});
+
+test('renderOrderPanel: Abandon demande confirmation avant d effacer', () => {
+    localStorage.setItem('wakdo_cart', JSON.stringify([simple()]));
+    const el = document.createElement('aside');
+    renderOrderPanel(el);
+    el.querySelector('.order-panel__abandon').click();
+    // Une modale de confirmation apparait ; le panier n'est PAS encore efface.
+    assert.ok(document.querySelector('.confirm-overlay'));
+    assert.equal(JSON.parse(localStorage.getItem('wakdo_cart')).length, 1);
+    // Annuler conserve le panier et ferme la modale.
+    document.querySelector('.confirm-modal__cancel').click();
+    assert.equal(document.querySelector('.confirm-overlay'), null);
     assert.equal(JSON.parse(localStorage.getItem('wakdo_cart')).length, 1);
 });
 
