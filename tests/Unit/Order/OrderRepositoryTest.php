@@ -121,6 +121,52 @@ final class OrderRepositoryTest extends TestCase
         self::assertSame(8, $sel['slot']);
     }
 
+    public function testMenuMaxiSwapsDrinkSelectionToLargeVariant(): void
+    {
+        // Au format maxi, la boisson fontaine Coca Cola (variante = Coca Cola 50cl,
+        // id 15) doit etre persistee comme la 50 cl : meme mecanique que l'accompagnement
+        // Grande Frite (maxi_variant_product_id), pour que le stock decremente la 50 cl
+        // et que le snapshot reflete "Coca Cola 50cl". Aucune garde sur le slot_type.
+        $db = new FakeOrderDatabase();
+        $db->menus[5] = ['id' => 5, 'burger_product_id' => 12, 'name' => 'Menu', 'price_normal_cents' => 990, 'price_maxi_cents' => 1200, 'is_available' => 1];
+        $db->products[12] = ['id' => 12, 'name' => 'Burger', 'price_cents' => 600, 'vat_rate' => 100, 'is_available' => 1];
+        $db->products[14] = ['id' => 14, 'name' => 'Coca Cola', 'price_cents' => 190, 'vat_rate' => 100, 'is_available' => 1, 'maxi_variant_product_id' => 15];
+        $db->products[15] = ['id' => 15, 'name' => 'Coca Cola 50cl', 'price_cents' => 240, 'vat_rate' => 100, 'is_available' => 1, 'maxi_variant_product_id' => null];
+        $db->slotRows[5] = [['id' => 9, 'name' => 'Boisson', 'slot_type' => 'drink', 'is_required' => 1, 'display_order' => 1, 'product_id' => 14]];
+
+        $this->repo($db)->createPending([
+            'service_mode' => 'takeaway',
+            'items' => [['type' => 'menu', 'menu_id' => 5, 'quantity' => 1, 'format' => 'maxi',
+                'selections' => [['menu_slot_id' => 9, 'product_id' => 14]]]], // borne envoie la 30 cl
+        ]);
+
+        $sel = $db->firstWrite('INSERT INTO order_item_selection');
+        self::assertSame(15, $sel['pid']); // swap -> Coca Cola 50cl
+        self::assertSame('Coca Cola 50cl', $sel['label']);
+        self::assertSame(9, $sel['slot']);
+    }
+
+    public function testMenuMaxiKeepsBottledDrinkWithoutVariant(): void
+    {
+        // Une boisson en bouteille (Eau) n'a pas de variante 50 cl : meme en Maxi la
+        // selection reste l'Eau de base (degradation gracieuse, modele fast-food).
+        $db = new FakeOrderDatabase();
+        $db->menus[5] = ['id' => 5, 'burger_product_id' => 12, 'name' => 'Menu', 'price_normal_cents' => 990, 'price_maxi_cents' => 1200, 'is_available' => 1];
+        $db->products[12] = ['id' => 12, 'name' => 'Burger', 'price_cents' => 600, 'vat_rate' => 100, 'is_available' => 1];
+        $db->products[16] = ['id' => 16, 'name' => 'Eau', 'price_cents' => 150, 'vat_rate' => 100, 'is_available' => 1, 'maxi_variant_product_id' => null];
+        $db->slotRows[5] = [['id' => 9, 'name' => 'Boisson', 'slot_type' => 'drink', 'is_required' => 1, 'display_order' => 1, 'product_id' => 16]];
+
+        $this->repo($db)->createPending([
+            'service_mode' => 'takeaway',
+            'items' => [['type' => 'menu', 'menu_id' => 5, 'quantity' => 1, 'format' => 'maxi',
+                'selections' => [['menu_slot_id' => 9, 'product_id' => 16]]]],
+        ]);
+
+        $sel = $db->firstWrite('INSERT INTO order_item_selection');
+        self::assertSame(16, $sel['pid']); // pas de variante -> reste l'Eau
+        self::assertSame('Eau', $sel['label']);
+    }
+
     public function testMenuNormalKeepsBaseSideSelection(): void
     {
         // Format normal : aucune substitution, l'accompagnement reste la Moyenne

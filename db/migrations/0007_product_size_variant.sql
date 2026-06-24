@@ -8,10 +8,15 @@
 --           domaine commande facture deja par product_id : le flux de commande
 --           reste inchange, la borne resout juste la taille choisie en product_id.
 --
---           Grouping DEDIE, distinct de maxi_variant_product_id (migration 0006) :
---           ce dernier pilote la substitution Maxi de l'accompagnement de menu
---           (resolveSelections) ; le reutiliser ferait basculer en 50 cl une
---           boisson 30 cl glissee dans un menu Maxi (effet de bord non voulu).
+--           Grouping DEDIE (base_product_id), distinct de maxi_variant_product_id
+--           (migration 0006) : base_product_id pilote la selection de taille A LA
+--           CARTE (picker 30/50 cl) ; maxi_variant_product_id pilote la substitution
+--           Maxi en MENU (resolveSelections). Les deux coexistent sur une boisson :
+--           le seed 0006 pointe desormais chaque soda 30 cl vers sa variante 50 cl
+--           pour qu'un menu Maxi serve la grande boisson (decision metier). Cet
+--           "effet" est VOULU et ne s'applique qu'aux selections de menu au format
+--           maxi ; une boisson 30 cl commandee a la carte (resolveLine type product)
+--           ne consulte jamais maxi_variant_product_id et reste en 30 cl.
 -- Target  : MariaDB 11.4 LTS, InnoDB, utf8mb4 / utf8mb4_unicode_ci.
 -- =============================================================================
 

@@ -60,6 +60,17 @@ test('buildOrderItem: menu normal vs maxi (format + selections)', () => {
     assert.equal(maxi.format, 'maxi');
 });
 
+test('buildOrderItem: format explicite prime sur l inference (maxi meme si supplement 0)', () => {
+    // Le choix utilisateur est transporte dans cartItem.format ; il ne doit PAS etre
+    // re-devine du prix (un menu maxi == normal serait sinon envoye en normal).
+    const explicit = { id: 1, type: 'menu', quantite: 1, supplement_cents: 0, format: 'maxi',
+        composition: { boisson: { id: 14 } } };
+    assert.equal(buildOrderItem(explicit, { 1: slots() }).format, 'maxi');
+    // Repli historique : un panier serialise sans champ format infere depuis supplement.
+    const legacy = { id: 1, type: 'menu', quantite: 1, supplement_cents: 150, composition: {} };
+    assert.equal(buildOrderItem(legacy, { 1: slots() }).format, 'maxi');
+});
+
 /* --- buildOrderPayload --------------------------------------------------- */
 
 test('buildOrderPayload: dine_in inclut service_tag ; takeaway l omet', () => {
