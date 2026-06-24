@@ -56,18 +56,25 @@ class CounterOrderController extends AdminController
         }
 
         $source = $this->source();
+        $orderQuery = $this->orderQuery();
 
         // RG-1 (5.1, source filter) : ne lister que les commandes du canal. recent()
         // ramene les plus recentes tous canaux ; on filtre sur la source derivee du
         // chemin pour que le comptoir ne voie pas le drive et inversement.
         $orders = array_values(array_filter(
-            $this->orderQuery()->recent(50),
+            $orderQuery->recent(50),
             static fn (array $o): bool => (string) ($o['source'] ?? '') === $source,
         ));
 
+        // File "En cours" (RG-T12) : commandes du canal au statut paid non livrees,
+        // la plus ancienne d'abord (tri paid_at croissant fait par paidQueue). Filtree
+        // a la SEULE source du canal pour que l'equipier ne voie que ce qu'il sert.
+        $inProgress = $orderQuery->paidQueue([$source]);
+
         return $this->channelView('admin/counter/index', $source, [
-            'title'  => $this->channelTitle($source) . ' - Wakdo Admin',
-            'orders' => $orders,
+            'title'      => $this->channelTitle($source) . ' - Wakdo Admin',
+            'orders'     => $orders,
+            'inProgress' => $inProgress,
         ], $guard);
     }
 
@@ -115,6 +122,11 @@ class CounterOrderController extends AdminController
         $source = $this->source();
         $serviceMode = (string) ($form['service_mode'] ?? '');
 
+        // Numero de table (confort comptoir) : ne porte de sens qu'en sur place. On ne
+        // le transmet qu'en dine_in ; persist() le rejette de toute facon hors dine_in,
+        // mais ne pas le passer evite un INVALID_SERVICE_TAG sur une saisie residuelle.
+        $serviceTag = $serviceMode === 'dine_in' ? trim((string) ($form['service_tag'] ?? '')) : '';
+
         // Chemin unifie : le panier construit par counter-order.js arrive serialise
         // dans items_json. Quand il est present, il fait foi ; les quantites legacy
         // qty_<id> ne servent qu'au repli sans JS (degradation gracieuse).
@@ -127,9 +139,14 @@ class CounterOrderController extends AdminController
             return $this->renderForm($guard, $source, $form, 'Ajoutez au moins un produit ou un menu.', 422);
         }
 
+        $req = ['service_mode' => $serviceMode, 'items' => $items];
+        if ($serviceTag !== '') {
+            $req['service_tag'] = $serviceTag;
+        }
+
         try {
             $order = $this->orders()->createStaffOrder(
-                ['service_mode' => $serviceMode, 'items' => $items],
+                $req,
                 $guard->userId ?? 0,
                 $source,
             );
@@ -360,6 +377,7 @@ class CounterOrderController extends AdminController
             'products'    => $products,
             'menus'       => $this->menusWithSlots($productRepository),
             'serviceMode' => (string) ($values['service_mode'] ?? ($source === 'drive' ? 'drive' : 'dine_in')),
+            'serviceTag'  => (string) ($values['service_tag'] ?? ''),
             'error'       => $error,
         ], $guard, $status);
     }

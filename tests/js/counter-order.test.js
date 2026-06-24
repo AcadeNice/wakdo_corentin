@@ -7,7 +7,9 @@
  *  - menu non configurable (slot_type non gere) ignore (anti-perte silencieuse)
  *
  * Le serveur revalide la forme (RG-T18), revalide chaque modificateur (resolveModifiers)
- * et recalcule les prix (RG-T16) : on n'asserte que la FORME emise, pas un prix.
+ * et recalcule les prix (RG-T16) : on n'asserte que la FORME emise. Le prix affiche
+ * cote client (total + libelle du bouton) est INDICATIF : on verrouille seulement
+ * l'affichage local (somme price + surcouts), pas une verite metier serveur.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -52,13 +54,20 @@ function setup(menus = MENUS) {
         .map(m => `<li><button class="menu-configure" type="button" data-menu-id="${m.id}">Configurer</button></li>`)
         .join('');
     // qty_<id> pour tous les produits (repli sans JS) ; bouton "Personnaliser" pour
-    // ceux dont la recette offre des modificateurs (calque la vue new.php).
+    // ceux dont la recette offre des modificateurs (calque la vue new.php). Progressive
+    // enhancement (etape 4) : le champ qty est rendu EDITABLE en HTML pour TOUS les
+    // produits ; c'est le JS qui neutralise le champ d'un produit configurable au cablage
+    // et revele l'indice "via Personnaliser" (span data-qty-hint, hidden en HTML).
     const productRows = PRODUCTS
         .map(p => {
-            const configure = (p.modifiers && p.modifiers.length)
+            const hasMods = p.modifiers && p.modifiers.length;
+            const configure = hasMods
                 ? `<button class="product-configure" type="button" data-product-id="${p.id}">Personnaliser</button>`
                 : '';
-            return `<input class="order-qty" type="number" id="qty_${p.id}" name="qty_${p.id}" data-product-id="${p.id}" value="0">${configure}`;
+            const hint = hasMods
+                ? `<span class="order-qty-hint" data-qty-hint="${p.id}" hidden>via Personnaliser</span>`
+                : '';
+            return `<input class="order-qty" type="number" id="qty_${p.id}" name="qty_${p.id}" data-product-id="${p.id}" value="0">${hint}${configure}`;
         })
         .join('');
     const dom = new JSDOM(
@@ -66,10 +75,13 @@ function setup(menus = MENUS) {
         '<form id="counter-order-form" method="post" action="/counter/orders" ' +
         `      data-products='${JSON.stringify(PRODUCTS)}' data-menus='${JSON.stringify(menus)}'>` +
         '  <input type="hidden" name="items_json" id="items_json" value="">' +
+        '  <select id="service_mode" name="service_mode"><option value="dine_in" selected>Sur place</option><option value="takeaway">A emporter</option></select>' +
+        '  <div id="service_tag_group"><input type="text" id="service_tag" name="service_tag"></div>' +
         productRows +
         '  <ul id="menu-list">' + menuItems + '</ul>' +
         '  <ul id="order-cart"><li id="order-cart-empty">Panier vide.</li></ul>' +
-        '  <button type="submit">Encaisser</button>' +
+        '  <p id="order-total">Total : <span id="order-total-value">0,00 EUR</span></p>' +
+        '  <button type="submit" id="order-submit">Encaisser 0,00 EUR</button>' +
         '</form>' +
         '<div id="menu-composer-modal" hidden></div>' +
         '</body></html>',
@@ -269,6 +281,210 @@ test('configuration menu avec modificateur burger -> item menu porte modifiers:[
     const items = itemsJson(dom);
     assert.equal(items[0].type, 'menu');
     assert.deepEqual(items[0].modifiers, [{ ingredient_id: 3, action: 'remove' }]);
+});
+
+test('total + bouton : produit simple (Frites 2,50 x2) -> 5,00 EUR affiche', () => {
+    const dom = setup();
+    const doc = dom.window.document;
+    counterOrder.init(doc);
+
+    const qty = doc.getElementById('qty_22'); // Frites, 250c
+    qty.value = '2';
+    qty.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+
+    assert.equal(doc.getElementById('order-total-value').textContent, '5,00 EUR');
+    assert.equal(doc.getElementById('order-submit').textContent, 'Encaisser 5,00 EUR');
+});
+
+test('total : produit personnalise avec ajout (Cheeseburger 8,90 + Bacon 0,50) -> 9,40 EUR', () => {
+    const dom = setup();
+    const doc = dom.window.document;
+    counterOrder.init(doc);
+
+    doc.querySelector('.product-configure[data-product-id="12"]').dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+    const modal = doc.getElementById('menu-composer-modal');
+    const addBox = modal.querySelector('.menu-composer__modifier-add[data-ingredient-id="8"]');
+    addBox.checked = true;
+    addBox.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+    modal.querySelector('.menu-composer__add').dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+
+    // Prix de ligne affiche dans le panier.
+    assert.equal(doc.querySelector('.order-cart__price').textContent, '9,40 EUR');
+    assert.equal(doc.getElementById('order-total-value').textContent, '9,40 EUR');
+});
+
+test('total : menu Maxi (11,90) inclus dans le total de ligne', () => {
+    const dom = setup();
+    const doc = dom.window.document;
+    counterOrder.init(doc);
+
+    doc.querySelector('.menu-configure[data-menu-id="5"]').dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+    const modal = doc.getElementById('menu-composer-modal');
+    const maxiRadio = Array.prototype.find.call(
+        modal.querySelectorAll('.menu-composer__format-input'),
+        r => r.value === 'maxi',
+    );
+    maxiRadio.checked = true;
+    maxiRadio.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+    modal.querySelector('.menu-composer__add').dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+
+    assert.equal(doc.querySelector('.order-cart__price').textContent, '11,90 EUR');
+    assert.equal(doc.getElementById('order-total-value').textContent, '11,90 EUR');
+});
+
+test('numero de table : masque hors sur place, visible en sur place (toggle service_mode)', () => {
+    const dom = setup();
+    const doc = dom.window.document;
+    counterOrder.init(doc);
+
+    const group = doc.getElementById('service_tag_group');
+    const select = doc.getElementById('service_mode');
+
+    // Init : dine_in pre-selectionne -> visible.
+    assert.equal(group.hasAttribute('hidden'), false);
+
+    select.value = 'takeaway';
+    select.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+    assert.equal(group.hasAttribute('hidden'), true);
+
+    select.value = 'dine_in';
+    select.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+    assert.equal(group.hasAttribute('hidden'), false);
+});
+
+test('modale menu : slot requis non choisi -> message inline, pas d ajout muet', () => {
+    const dom = setup();
+    const doc = dom.window.document;
+    counterOrder.init(doc);
+
+    doc.querySelector('.menu-configure[data-menu-id="5"]').dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+    const modal = doc.getElementById('menu-composer-modal');
+
+    // Vide un slot requis (drink, slot 1) en le passant a une valeur absente : on force
+    // l'etat en deselectionnant via un select dont l'option vide n'existe pas. On
+    // simule en retirant la selection requise par un slot side (16) mis a vide n'est pas
+    // possible (requis) ; on retire plutot la pre-selection en posant une valeur hors options.
+    // Plus simple : on supprime l'option pre-cochee du slot requis 'drink' (1) en le
+    // forcant a une chaine vide via le select (un slot requis n'a pas d'option Sans, mais
+    // jsdom autorise l'affectation d'une value vide -> change supprime la selection).
+    const drinkSelect = Array.prototype.find.call(
+        modal.querySelectorAll('.menu-composer__slot-select'),
+        s => s.dataset.slotId === '1',
+    );
+    drinkSelect.value = '';
+    drinkSelect.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+
+    // Le <p role=alert> est present des l'ouverture (vide), avant toute erreur.
+    const errAtOpen = modal.querySelector('.menu-composer__error');
+    assert.ok(errAtOpen);
+    assert.equal(errAtOpen.getAttribute('role'), 'alert');
+    assert.equal(errAtOpen.textContent, '');
+    assert.equal(errAtOpen.hasAttribute('hidden'), false); // present en permanence (a11y)
+
+    modal.querySelector('.menu-composer__add').dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+
+    // Modale encore ouverte, message inline renseigne (textContent), aucune ligne.
+    assert.equal(modal.hasAttribute('hidden'), false);
+    assert.notEqual(errAtOpen.textContent, '');
+    assert.equal(doc.querySelector('.order-cart__line'), null);
+});
+
+test('produit personnalisable : champ qty editable en HTML, desactive par JS + indice revele', () => {
+    const dom = setup();
+    const doc = dom.window.document;
+
+    // Avant init : le champ qty d'un produit a modificateurs est editable (repli sans JS)
+    // et l'indice "via Personnaliser" est cache.
+    const qty = doc.getElementById('qty_12');
+    const hint = doc.querySelector('[data-qty-hint="12"]');
+    assert.equal(qty.disabled, false);
+    assert.equal(hint.hidden, true);
+
+    counterOrder.init(doc);
+
+    // Apres init (JS present) : champ neutralise et indice revele.
+    assert.equal(qty.disabled, true);
+    assert.equal(hint.hidden, false);
+
+    // Un produit SANS modificateur reste editable (pas d'indice).
+    assert.equal(doc.getElementById('qty_22').disabled, false);
+    assert.equal(doc.querySelector('[data-qty-hint="22"]'), null);
+});
+
+test('modale : focus restaure sur le bouton declencheur a la fermeture', () => {
+    const dom = setup();
+    const doc = dom.window.document;
+    counterOrder.init(doc);
+
+    const trigger = doc.querySelector('.menu-configure[data-menu-id="5"]');
+    trigger.focus();
+    assert.equal(doc.activeElement, trigger);
+
+    trigger.dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+    const modal = doc.getElementById('menu-composer-modal');
+    // Le focus est entre dans la modale (plus sur le bouton declencheur).
+    assert.notEqual(doc.activeElement, trigger);
+
+    doc.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    // Ferme -> focus restaure sur le declencheur.
+    assert.equal(doc.activeElement, trigger);
+});
+
+test('modale : panel porte role=dialog, aria-modal et aria-labelledby (titre)', () => {
+    const dom = setup();
+    const doc = dom.window.document;
+    counterOrder.init(doc);
+
+    doc.querySelector('.menu-configure[data-menu-id="5"]').dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+    const panel = doc.querySelector('.menu-composer');
+    assert.equal(panel.getAttribute('role'), 'dialog');
+    assert.equal(panel.getAttribute('aria-modal'), 'true');
+    const labelledby = panel.getAttribute('aria-labelledby');
+    assert.ok(labelledby);
+    const title = doc.getElementById(labelledby);
+    assert.ok(title);
+    assert.equal(title.classList.contains('menu-composer__title'), true);
+});
+
+test('total : separateur de milliers aligne sur PHP (1 234,50 EUR)', () => {
+    // Produit a 617,25 EUR (61725c) x2 = 1 234,50 EUR -> espace separateur de milliers.
+    const PRICEY = [{ id: 99, name: 'Plateau', price: 61725, modifiers: [] }];
+    const dom = new JSDOM(
+        '<!DOCTYPE html><html><body>' +
+        '<form id="counter-order-form" method="post" action="/counter/orders" ' +
+        `      data-products='${JSON.stringify(PRICEY)}' data-menus='[]'>` +
+        '  <input type="hidden" name="items_json" id="items_json" value="">' +
+        '  <input class="order-qty" type="number" id="qty_99" name="qty_99" data-product-id="99" value="0">' +
+        '  <ul id="menu-list"></ul>' +
+        '  <ul id="order-cart"><li id="order-cart-empty">Panier vide.</li></ul>' +
+        '  <p><span id="order-total-value">0,00 EUR</span></p>' +
+        '  <button type="submit" id="order-submit">Encaisser 0,00 EUR</button>' +
+        '</form>' +
+        '<div id="menu-composer-modal" hidden></div>' +
+        '</body></html>',
+    );
+    const doc = dom.window.document;
+    counterOrder.init(doc);
+
+    const qty = doc.getElementById('qty_99');
+    qty.value = '2';
+    qty.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+
+    assert.equal(doc.getElementById('order-total-value').textContent, '1 234,50 EUR');
+    assert.equal(doc.getElementById('order-submit').textContent, 'Encaisser 1 234,50 EUR');
+});
+
+test('modale : touche Echap ferme la modale', () => {
+    const dom = setup();
+    const doc = dom.window.document;
+    counterOrder.init(doc);
+
+    doc.querySelector('.menu-configure[data-menu-id="5"]').dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+    const modal = doc.getElementById('menu-composer-modal');
+    assert.equal(modal.hasAttribute('hidden'), false);
+
+    doc.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    assert.equal(modal.hasAttribute('hidden'), true);
 });
 
 test('composerSteps: slot_type non gere (dessert) ignore, slots tries par display_order', () => {
