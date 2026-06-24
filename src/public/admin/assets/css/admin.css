@@ -1431,3 +1431,123 @@ tbody td.mono {
     padding: 0;
     margin-bottom: 4px;
 }
+
+/* =============================================================================
+   Saisie de commande comptoir/drive (counter-order.js + admin/counter/new.php)
+   Composeur : groupes produits, liste menus, panier chiffre, total, modale.
+   ============================================================================= */
+
+/* Mode de service fige (drive) : affichage non editable a la place du select. */
+.form-static {
+    font-weight: 700;
+    color: var(--color-text);
+    padding: 8px 0;
+    margin: 0;
+}
+
+/* Sous-titre de groupe de produits (regroupement par categorie). */
+.order-group__title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--color-yellow-ink);
+    margin: 14px 0 6px;
+}
+
+/* Champ quantite desactive pour un produit personnalisable (saisie en modale). */
+.order-qty--disabled {
+    background: var(--color-surface);
+    color: var(--color-text-muted);
+    cursor: not-allowed;
+}
+/* Indice "via Personnaliser" revele par JS a cote du champ qty neutralise. */
+.order-qty-hint {
+    display: inline-block;
+    margin-left: 8px;
+    font-size: 13px;
+    color: var(--color-text-muted);
+    font-style: italic;
+}
+
+/* Deux prix d'un menu (Normal / Maxi) dans la liste. */
+.menu-list { list-style: none; padding: 0; margin: 0; }
+.menu-list__item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--color-border);
+}
+.menu-list__name { font-weight: 600; flex: 1; }
+.menu-list__price { color: var(--color-text-sec); font-variant-numeric: tabular-nums; }
+
+/* Panier : une ligne = libelle + prix + bouton retirer. */
+.order-cart { list-style: none; padding: 0; margin: 0; }
+.order-cart__empty { color: var(--color-text-muted); padding: 8px 0; }
+.order-cart__line {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--color-border);
+}
+.order-cart__label { flex: 1; }
+.order-cart__price { font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* Total indicatif du panier. */
+.order-total {
+    text-align: right;
+    font-size: 16px;
+    font-weight: 800;
+    margin: 12px 0 0;
+}
+
+/* Modale de composition : overlay + panneau centre. */
+.menu-composer__overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(26, 26, 26, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 24px;
+}
+.menu-composer {
+    background: var(--color-white);
+    border-radius: var(--radius-card);
+    border-top: 3px solid var(--color-yellow);
+    box-shadow: var(--shadow-card-hover);
+    width: 100%;
+    max-width: 460px;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 24px;
+}
+.menu-composer__title { font-size: 18px; font-weight: 800; margin-bottom: 14px; }
+.menu-composer__legend { font-weight: 600; margin: 12px 0 4px; }
+.menu-composer__slot, .menu-composer__format, .menu-composer__modifiers { margin-bottom: 10px; }
+.menu-composer__radio, .menu-composer__modifier {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 3px 14px 3px 0;
+}
+.menu-composer__error {
+    color: var(--color-danger-text);
+    background: var(--color-danger-bg);
+    border-radius: var(--radius-md);
+    padding: 8px 10px;
+    margin: 10px 0;
+    font-size: 14px;
+}
+/* Le <p role=alert> reste dans le DOM en permanence (annonce lecteur d'ecran) ;
+   tant qu'il est vide, on l'efface visuellement pour ne pas afficher un bloc vide. */
+.menu-composer__error:empty {
+    display: none;
+}
+.menu-composer__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 16px;
+}

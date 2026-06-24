@@ -41,10 +41,51 @@
         }
     }
 
+    // Montant en euros formate comme le PHP number_format(.../100, 2, ',', ' ') des
+    // vues : virgule decimale ET espace separateur de milliers. Aligne l'affichage
+    // client sur le rendu serveur (ex. 1 234,50 EUR) pour eviter une divergence visible
+    // sur les montants >= 1000. Indicatif : le serveur recalcule tout (RG-T16).
+    function moneyParts(cents) {
+        var fixed = (Number(cents) / 100).toFixed(2);
+        var dot = fixed.indexOf('.');
+        var intPart = fixed.slice(0, dot);
+        var decPart = fixed.slice(dot + 1);
+        var sign = '';
+        if (intPart.charAt(0) === '-') {
+            sign = '-';
+            intPart = intPart.slice(1);
+        }
+        // Insere un espace tous les 3 chiffres depuis la droite (separateur de milliers).
+        intPart = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+        return sign + intPart + ',' + decPart;
+    }
+
     // Surcout d'un ajout, formate en euros (affichage local indicatif ; le serveur
     // refige extra_price_cents, RG-T16).
     function formatExtra(cents) {
-        return '+' + (Number(cents) / 100).toFixed(2).replace('.', ',') + ' EUR';
+        return '+' + moneyParts(cents) + ' EUR';
+    }
+
+    // Montant en euros (sans signe), pour les prix de ligne et le total. Meme format
+    // que les vues PHP (cf. moneyParts).
+    function formatEuros(cents) {
+        return moneyParts(cents) + ' EUR';
+    }
+
+    // Somme des surcouts d'ajout (action 'add') d'une liste de modificateurs choisis,
+    // resolus via la liste proposable (extra_price_cents). Les retraits ne changent pas
+    // le prix indicatif. Pur ; le serveur reste seul juge du surcout reel.
+    function modifiersExtra(proposable, chosen) {
+        if (!chosen || !chosen.length) {
+            return 0;
+        }
+        var extraById = {};
+        (proposable || []).forEach(function (m) {
+            extraById[Number(m.ingredient_id)] = Number(m.extra_price_cents) || 0;
+        });
+        return chosen.reduce(function (sum, c) {
+            return c.action === 'add' ? sum + (extraById[Number(c.ingredient_id)] || 0) : sum;
+        }, 0);
     }
 
     // Etapes composables d'un menu : burger impose ignore (non choisi ici), un pas par
@@ -82,6 +123,15 @@
             return;
         }
 
+        // Elements de prix (1) : valeur du total + libelle du bouton d'encaissement.
+        // Optionnels (le rendu degrade sans eux) -> garde-fous au moment d'ecrire.
+        var totalValue = doc.getElementById('order-total-value');
+        var submitBtn = doc.getElementById('order-submit');
+
+        // 7a : champ numero de table, visible seulement en sur place (toggle au mode).
+        var serviceMode = doc.getElementById('service_mode');
+        var serviceTagGroup = doc.getElementById('service_tag_group');
+
         var products = parseData(form, 'products', '[]'); // [{id, name, price, modifiers:[...]}]
         var menus = parseData(form, 'menus', '[]');       // [{id, name, price_normal, price_maxi, burger_modifiers:[...], slots:[...]}]
 
@@ -100,10 +150,24 @@
 
         // Produits routes par la modale (ils portent un bouton "Personnaliser") : leur
         // quantite directe qty_<id> est ignoree a la serialisation pour eviter le double
-        // comptage (le champ reste present pour le repli sans JS).
+        // comptage. Progressive enhancement (4) : le champ qty est EDITABLE dans le HTML
+        // (repli sans JS) ; ici, en presence de JS, on le neutralise et on revele
+        // l'indice "via Personnaliser" pour que l'equipier sache ou saisir la quantite.
         var configurableIds = {};
         Array.prototype.forEach.call(doc.querySelectorAll('.product-configure'), function (btn) {
-            configurableIds[Number(btn.dataset.productId)] = true;
+            var pid = Number(btn.dataset.productId);
+            configurableIds[pid] = true;
+
+            var qtyInput = doc.getElementById('qty_' + pid);
+            if (qtyInput) {
+                qtyInput.disabled = true;
+                qtyInput.classList.add('order-qty--disabled');
+                qtyInput.setAttribute('aria-label', (qtyInput.getAttribute('aria-label') || 'Quantite') + ' (via Personnaliser)');
+            }
+            var hint = doc.querySelector('[data-qty-hint="' + pid + '"]');
+            if (hint) {
+                hint.hidden = false;
+            }
         });
 
         function el(tag, className) {
@@ -254,6 +318,56 @@
         }
 
         /* ----------------------------------------------------------------- */
+        /* Prix indicatifs (1, 6) : par ligne + total + libelle du bouton     */
+        /* ----------------------------------------------------------------- */
+
+        // Prix d'une ligne PRODUIT (configuree par la modale) : prix de base + surcout
+        // des ajouts, le tout multiplie par la quantite. Indicatif (RG-T16 serveur).
+        function productLineTotal(line) {
+            var base = (productById[Number(line.productId)] || {}).price || 0;
+            var extra = modifiersExtra(line.proposable, line.modifiers);
+            return (Number(base) + extra) * Number(line.quantity || 1);
+        }
+
+        // Prix d'une ligne MENU : price_maxi si format maxi sinon price_normal, plus le
+        // surcout des ajouts sur le burger. Les selections de slot n'ajoutent rien (le
+        // prix du menu est forfaitaire cote serveur). Indicatif.
+        function menuLineTotal(line) {
+            var menu = menus.filter(function (m) { return Number(m.id) === Number(line.menuId); })[0] || {};
+            var base = line.format === 'maxi' ? (menu.price_maxi || 0) : (menu.price_normal || 0);
+            var extra = modifiersExtra(line.proposable, line.modifiers);
+            return Number(base) + extra;
+        }
+
+        // Total indicatif du panier : derive des champs qty_<id> (produits simples) +
+        // des lignes configurees (produits personnalises + menus). Met a jour le pied
+        // de panier ET le libelle du bouton ("Encaisser X,XX EUR").
+        function updateTotal() {
+            var total = 0;
+
+            Array.prototype.forEach.call(form.querySelectorAll('.order-qty'), function (input) {
+                var productId = Number(input.dataset.productId);
+                if (configurableIds[productId]) {
+                    return; // route par la modale -> compte plus bas (pas de double comptage).
+                }
+                var quantity = parseInt(input.value, 10);
+                if (productId > 0 && quantity >= 1) {
+                    total += ((productById[productId] || {}).price || 0) * quantity;
+                }
+            });
+
+            productLines.forEach(function (line) { total += productLineTotal(line); });
+            menuLines.forEach(function (line) { total += menuLineTotal(line); });
+
+            if (totalValue) {
+                totalValue.textContent = formatEuros(total);
+            }
+            if (submitBtn) {
+                submitBtn.textContent = 'Encaisser ' + formatEuros(total);
+            }
+        }
+
+        /* ----------------------------------------------------------------- */
         /* Rendu du panier (recap des lignes configurees)                     */
         /* ----------------------------------------------------------------- */
 
@@ -273,6 +387,10 @@
                 }
                 label.textContent = text;
                 li.appendChild(label);
+
+                var price = el('span', 'order-cart__price');
+                price.textContent = formatEuros(productLineTotal(line));
+                li.appendChild(price);
 
                 var removeBtn = el('button', 'btn btn-secondary order-cart__remove');
                 removeBtn.type = 'button';
@@ -305,6 +423,10 @@
                 label.textContent = text;
                 li.appendChild(label);
 
+                var price = el('span', 'order-cart__price');
+                price.textContent = formatEuros(menuLineTotal(line));
+                li.appendChild(price);
+
                 var removeBtn = el('button', 'btn btn-secondary order-cart__remove');
                 removeBtn.type = 'button';
                 removeBtn.textContent = 'Retirer';
@@ -320,15 +442,113 @@
             if (cartEmpty) {
                 cartEmpty.style.display = (productLines.length || menuLines.length) ? 'none' : '';
             }
+
+            updateTotal();
         }
 
         /* ----------------------------------------------------------------- */
         /* Modales de configuration                                           */
         /* ----------------------------------------------------------------- */
 
+        // Handlers de modale courants (un jeu a la fois) : retires a la fermeture pour
+        // ne pas accumuler de listeners a chaque ouverture. lastFocused memorise
+        // l'element qui avait le focus AVANT l'ouverture, pour le restaurer a la
+        // fermeture (a11y : le focus ne doit pas retomber en haut de page).
+        var escHandler = null;
+        var trapHandler = null;
+        var lastFocused = null;
+
+        // Selecteur des controles focusables d'une modale (boutons, champs, selects ;
+        // les champs desactives/caches sont exclus). Le trap cycle sur cet ensemble.
+        var FOCUSABLE = 'button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])';
+
+        function focusableIn(root) {
+            return Array.prototype.slice.call(root.querySelectorAll(FOCUSABLE));
+        }
+
         function closeComposer() {
+            if (escHandler) {
+                doc.removeEventListener('keydown', escHandler);
+                escHandler = null;
+            }
+            if (trapHandler) {
+                doc.removeEventListener('keydown', trapHandler);
+                trapHandler = null;
+            }
             modalHost.textContent = '';
             modalHost.setAttribute('hidden', '');
+
+            // Restaure le focus sur l'element declencheur (bouton Personnaliser/Configurer).
+            if (lastFocused && typeof lastFocused.focus === 'function') {
+                lastFocused.focus();
+            }
+            lastFocused = null;
+        }
+
+        // 7c + a11y : monte un panneau dans la modale avec un overlay (clic = fermeture),
+        // pose role=dialog / aria-modal / aria-labelledby (titre h2), gere Echap, piege
+        // Tab/Shift+Tab dans le panneau, memorise et restaure le focus. Le panel est
+        // deja construit par l'appelant ; on ne fait qu'habiller l'ouverture.
+        function openModal(panel) {
+            lastFocused = doc.activeElement;
+
+            modalHost.textContent = '';
+
+            // role=dialog modal + libelle = titre h2 de la modale (id stable, partage
+            // par les deux composeurs car une seule modale est ouverte a la fois).
+            panel.setAttribute('role', 'dialog');
+            panel.setAttribute('aria-modal', 'true');
+            var titleEl = panel.querySelector('.menu-composer__title');
+            if (titleEl) {
+                titleEl.id = 'menu-composer-title';
+                panel.setAttribute('aria-labelledby', 'menu-composer-title');
+            }
+
+            var overlay = el('div', 'menu-composer__overlay');
+            // Clic sur le fond (overlay lui-meme, pas un enfant) -> fermeture.
+            overlay.addEventListener('click', function (event) {
+                if (event.target === overlay) {
+                    closeComposer();
+                }
+            });
+            overlay.appendChild(panel);
+            modalHost.appendChild(overlay);
+            modalHost.removeAttribute('hidden');
+
+            escHandler = function (event) {
+                if (event.key === 'Escape' || event.keyCode === 27) {
+                    closeComposer();
+                }
+            };
+            doc.addEventListener('keydown', escHandler);
+
+            // Focus-trap : Tab/Shift+Tab cyclent dans les controles focusables du panel.
+            trapHandler = function (event) {
+                if (event.key !== 'Tab' && event.keyCode !== 9) {
+                    return;
+                }
+                var focusable = focusableIn(panel);
+                if (!focusable.length) {
+                    return;
+                }
+                var first = focusable[0];
+                var last = focusable[focusable.length - 1];
+                var active = doc.activeElement;
+                if (event.shiftKey && (active === first || !panel.contains(active))) {
+                    event.preventDefault();
+                    last.focus();
+                } else if (!event.shiftKey && active === last) {
+                    event.preventDefault();
+                    first.focus();
+                }
+            };
+            doc.addEventListener('keydown', trapHandler);
+
+            // Focus sur le premier controle pour la saisie clavier.
+            var firstControl = focusableIn(panel)[0];
+            if (firstControl && typeof firstControl.focus === 'function') {
+                firstControl.focus();
+            }
         }
 
         // Modale d'un produit a la carte : quantite + modificateurs (retrait/ajout).
@@ -336,7 +556,6 @@
             var proposable = product.modifiers || [];
             var state = { quantity: 1, selectedRemove: {}, selectedAdd: {} };
 
-            modalHost.textContent = '';
             var panel = el('div', 'menu-composer');
 
             var title = el('h2', 'menu-composer__title');
@@ -389,8 +608,7 @@
             actions.appendChild(cancelBtn);
 
             panel.appendChild(actions);
-            modalHost.appendChild(panel);
-            modalHost.removeAttribute('hidden');
+            openModal(panel);
         }
 
         // Ouvre la modale d'un menu : choix du format, une selection par slot, puis les
@@ -405,7 +623,6 @@
                 }
             });
 
-            modalHost.textContent = '';
             var panel = el('div', 'menu-composer');
 
             var title = el('h2', 'menu-composer__title');
@@ -478,6 +695,15 @@
             // Modificateurs du burger support (retrait/ajout d'ingredients).
             panel.appendChild(renderModifierControls(proposable, state.selectedRemove, state.selectedAdd));
 
+            // 7c : message inline au lieu d'un return muet quand un slot requis n'est pas
+            // choisi. Le <p role=alert> reste present en permanence (non hidden), vide au
+            // depart : on ne change que textContent a l'erreur, pour fiabiliser l'annonce
+            // lecteur d'ecran (un element revele apres coup peut ne pas etre annonce).
+            var inlineError = el('p', 'menu-composer__error');
+            inlineError.setAttribute('role', 'alert');
+            inlineError.textContent = '';
+            panel.appendChild(inlineError);
+
             // Actions : ajouter (si tous les requis choisis) / annuler.
             var actions = el('div', 'menu-composer__actions');
             var addBtn = el('button', 'btn btn-primary menu-composer__add');
@@ -487,6 +713,7 @@
                 var allRequired = steps.filter(function (s) { return s.isRequired; })
                     .every(function (s) { return state.selections[s.id] != null; });
                 if (!allRequired) {
+                    inlineError.textContent = 'Choisissez toutes les options obligatoires avant d\'ajouter.';
                     return;
                 }
                 var selections = [];
@@ -517,8 +744,7 @@
             actions.appendChild(cancelBtn);
 
             panel.appendChild(actions);
-            modalHost.appendChild(panel);
-            modalHost.removeAttribute('hidden');
+            openModal(panel);
         }
 
         /* ----------------------------------------------------------------- */
@@ -544,6 +770,34 @@
                 }
             });
         });
+
+        // 1 : le total et le libelle du bouton suivent la saisie des quantites des
+        // produits simples (les lignes configurees rafraichissent via renderCart).
+        Array.prototype.forEach.call(form.querySelectorAll('.order-qty'), function (input) {
+            if (configurableIds[Number(input.dataset.productId)]) {
+                return; // champ desactive (route par la modale).
+            }
+            input.addEventListener('input', updateTotal);
+            input.addEventListener('change', updateTotal);
+        });
+
+        // 7a : le numero de table n'a de sens qu'en sur place -> visible seulement quand
+        // service_mode = dine_in (au comptoir ; au drive le champ n'existe pas).
+        function syncServiceTag() {
+            if (!serviceTagGroup) {
+                return;
+            }
+            var dineIn = serviceMode && serviceMode.value === 'dine_in';
+            if (dineIn) {
+                serviceTagGroup.removeAttribute('hidden');
+            } else {
+                serviceTagGroup.setAttribute('hidden', '');
+            }
+        }
+        if (serviceMode) {
+            serviceMode.addEventListener('change', syncServiceTag);
+        }
+        syncServiceTag();
 
         form.addEventListener('submit', function () {
             serialize();

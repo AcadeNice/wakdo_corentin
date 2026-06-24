@@ -84,11 +84,11 @@ final class ProductRepository
         // un libelle d'affichage seulement.
         return $this->db->fetchAll(
             'SELECT p.id, p.category_id, p.name, p.description, p.price_cents, p.size_cl, '
-            . 'p.image_path, p.display_order, mv.name AS maxi_variant_name '
+            . 'p.image_path, p.display_order, c.name AS category_name, mv.name AS maxi_variant_name '
             . 'FROM product p JOIN category c ON c.id = p.category_id '
             . 'LEFT JOIN product mv ON mv.id = p.maxi_variant_product_id '
             . 'WHERE p.is_available = 1 AND c.is_active = 1 AND p.base_product_id IS NULL '
-            . 'ORDER BY p.display_order, p.name',
+            . 'ORDER BY c.display_order, c.name, p.display_order, p.name',
         );
     }
 

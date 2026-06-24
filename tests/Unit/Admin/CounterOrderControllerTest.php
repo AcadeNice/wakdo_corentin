@@ -18,6 +18,7 @@ use App\Tests\Support\FakeDatabase;
 /**
  * Stub OrderQueryRepository : liste canned multi-source (rendu de la liste teste sans
  * base). recent() ramene tous canaux ; le controleur filtre par source derivee du chemin.
+ * paidQueue() ramene la file "En cours" canned, deja filtree par source par l'appelant.
  */
 final class StubChannelOrders extends OrderQueryRepository
 {
@@ -28,6 +29,22 @@ final class StubChannelOrders extends OrderQueryRepository
             ['order_number' => 'D200', 'source' => 'drive', 'service_mode' => 'drive', 'service_tag' => null, 'status' => 'paid', 'total_ttc_cents' => 990, 'created_at' => '2026-06-22 10:05:00', 'paid_at' => '2026-06-22 10:05:01'],
             ['order_number' => 'K9', 'source' => 'kiosk', 'service_mode' => 'takeaway', 'service_tag' => null, 'status' => 'paid', 'total_ttc_cents' => 500, 'created_at' => '2026-06-22 10:06:00', 'paid_at' => '2026-06-22 10:06:01'],
         ];
+    }
+
+    public function paidQueue(array $sources): array
+    {
+        // File "En cours" du canal : ne ramene que des commandes dont la source est
+        // dans $sources (le controleur passe la SEULE source du canal courant). C100 est
+        // sur place avec un numero de table (12) ; D200 est un drive sans table.
+        $all = [
+            ['order_number' => 'C100', 'source' => 'counter', 'service_mode' => 'dine_in', 'service_tag' => '12', 'total_ttc_cents' => 890, 'paid_at' => '2026-06-22 10:00:01'],
+            ['order_number' => 'D200', 'source' => 'drive', 'service_mode' => 'drive', 'service_tag' => null, 'total_ttc_cents' => 990, 'paid_at' => '2026-06-22 10:05:01'],
+        ];
+
+        return array_values(array_filter(
+            $all,
+            static fn (array $o): bool => in_array($o['source'], $sources, true),
+        ));
     }
 }
 
@@ -454,6 +471,178 @@ final class CounterOrderControllerTest extends TestCase
 
         self::assertSame(422, $response->status());
         self::assertFalse($db->wrote('INSERT INTO customer_order'));
+    }
+
+    public function testCounterIndexShowsInProgressQueueSection(): void
+    {
+        // 5 : la file "En cours" du canal (paid non livre) apparait en haut, filtree
+        // a la source counter (C100 present, D200 du drive absent).
+        $response = $this->controller($this->get('/counter/orders'), $this->permittedDb())->index();
+
+        self::assertSame(200, $response->status());
+        $body = $response->body();
+        self::assertStringContainsString('En cours', $body);
+        self::assertStringContainsString('Historique recent', $body);
+        self::assertStringContainsString('C100', $body);
+        self::assertStringNotContainsString('D200', $body);
+        // 4 : la file porte une colonne "Table" et affiche le numero de la commande
+        // sur place (C100 -> table 12).
+        self::assertStringContainsString('<th>Table</th>', $body);
+        self::assertStringContainsString('>12</td>', $body);
+    }
+
+    public function testDriveCreateFreezesServiceModeToDrive(): void
+    {
+        // 2 : au drive, service_mode n'est PAS un select editable. Il est fige a 'Drive'
+        // (affichage) + transmis par un champ cache (un select readonly resterait
+        // editable, donc on ne s'y fie pas).
+        $response = $this->controller($this->get('/drive/orders/new'), $this->permittedDb())->create();
+
+        self::assertSame(200, $response->status());
+        $body = $response->body();
+        // Champ cache porteur de la valeur drive (soumis).
+        self::assertStringContainsString('type="hidden" name="service_mode" id="service_mode" value="drive"', $body);
+        // Aucun select de mode au drive (l'affichage est fige).
+        self::assertStringNotContainsString('<select class="form-input" id="service_mode"', $body);
+    }
+
+    public function testCounterCreateKeepsEditableServiceModeSelect(): void
+    {
+        // 2 (contre-exemple) : au comptoir, le select dine_in/takeaway reste editable.
+        $response = $this->controller($this->get('/counter/orders/new'), $this->permittedDb())->create();
+
+        self::assertSame(200, $response->status());
+        $body = $response->body();
+        self::assertStringContainsString('<select class="form-input" id="service_mode"', $body);
+        self::assertStringContainsString('Sur place', $body);
+        self::assertStringContainsString('A emporter', $body);
+    }
+
+    public function testCreateRendersEditableQuantityWithHintForConfigurableProduct(): void
+    {
+        // 4 (progressive enhancement) : le champ quantite d'un produit personnalisable
+        // est rendu EDITABLE en HTML (repli sans JS marche : commande de base sans
+        // modificateurs). Le PHP ne pose PAS readonly (c'est le JS qui neutralise au
+        // cablage). Un indice "via Personnaliser" (cache en HTML) accompagne le champ.
+        $db = $this->permittedDb();
+        $db->productsRows = [
+            ['id' => 12, 'category_id' => 1, 'category_name' => 'Burgers', 'name' => 'Cheeseburger', 'description' => null, 'price_cents' => 890, 'image_path' => null, 'display_order' => 1],
+        ];
+        $db->compositionRows = [
+            ['product_id' => 12, 'ingredient_id' => 3, 'ingredient_name' => 'Oignon', 'is_removable' => 1, 'is_addable' => 0, 'extra_price_cents' => 0, 'quantity_normal' => 1, 'quantity_maxi' => 1],
+        ];
+
+        $response = $this->controller($this->get('/counter/orders/new'), $db)->create();
+
+        self::assertSame(200, $response->status());
+        $body = $response->body();
+        // Le champ qty est present et EDITABLE (aucun readonly pose par le PHP).
+        self::assertStringContainsString('name="qty_12"', $body);
+        self::assertDoesNotMatchRegularExpression('/id="qty_12"[^>]*readonly/', $body);
+        // Indice de redirection vers la modale (revele par le JS).
+        self::assertStringContainsString('data-qty-hint="12"', $body);
+        self::assertStringContainsString('via Personnaliser', $body);
+    }
+
+    public function testCreateGroupsProductsByCategory(): void
+    {
+        // 7b : les produits sont regroupes par categorie (sous-titre = category_name).
+        $db = $this->permittedDb();
+        $db->productsRows = [
+            ['id' => 12, 'category_id' => 1, 'category_name' => 'Burgers', 'name' => 'Cheeseburger', 'description' => null, 'price_cents' => 890, 'image_path' => null, 'display_order' => 1],
+            ['id' => 22, 'category_id' => 2, 'category_name' => 'Accompagnements', 'name' => 'Frites', 'description' => null, 'price_cents' => 250, 'image_path' => null, 'display_order' => 1],
+        ];
+
+        $response = $this->controller($this->get('/counter/orders/new'), $db)->create();
+
+        self::assertSame(200, $response->status());
+        $body = $response->body();
+        self::assertStringContainsString('Burgers', $body);
+        self::assertStringContainsString('Accompagnements', $body);
+    }
+
+    public function testCreateShowsBothMenuPrices(): void
+    {
+        // 6 : la liste des menus affiche les deux prix (Normal / Maxi).
+        $db = $this->permittedDb();
+        $db->menusRows = [
+            ['id' => 5, 'category_id' => 1, 'burger_product_id' => 12, 'name' => 'Menu Cheeseburger', 'description' => null, 'price_normal_cents' => 990, 'price_maxi_cents' => 1190, 'image_path' => null, 'display_order' => 1],
+        ];
+
+        $response = $this->controller($this->get('/counter/orders/new'), $db)->create();
+
+        self::assertSame(200, $response->status());
+        $body = $response->body();
+        self::assertStringContainsString('9,90 EUR', $body);
+        self::assertStringContainsString('11,90 EUR', $body);
+        self::assertStringContainsString('Maxi', $body);
+    }
+
+    public function testStorePassesServiceTagInDineIn(): void
+    {
+        // 7a : un numero de table saisi en sur place est transmis a createStaffOrder et
+        // persiste (service_tag) sur la commande.
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 890, 'vat_rate' => 100, 'maxi_variant_product_id' => null, 'is_available' => 1];
+        $db->lastInsertId = 100;
+        $db->orderByNumberRow = ['id' => 100, 'order_number' => 'C100', 'total_ttc_cents' => 890, 'status' => 'pending_payment'];
+
+        $items = json_encode([['type' => 'product', 'product_id' => 12, 'quantity' => 1]]);
+        $request = $this->post(['_csrf' => $this->csrf, 'service_mode' => 'dine_in', 'service_tag' => '12', 'items_json' => (string) $items], '/counter/orders');
+
+        $response = $this->controller($request, $db)->store();
+
+        self::assertSame(302, $response->status());
+        $insert = $this->writeParams($db, 'INSERT INTO customer_order');
+        self::assertSame('12', $insert['tag']);
+    }
+
+    public function testStoreDropsServiceTagWhenNotDineIn(): void
+    {
+        // 7a : un numero de table soumis hors sur place (takeaway) n'est pas transmis ;
+        // service_tag persiste NULL (la table n'a de sens qu'en sur place).
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 890, 'vat_rate' => 100, 'maxi_variant_product_id' => null, 'is_available' => 1];
+        $db->lastInsertId = 100;
+        $db->orderByNumberRow = ['id' => 100, 'order_number' => 'C100', 'total_ttc_cents' => 890, 'status' => 'pending_payment'];
+
+        $items = json_encode([['type' => 'product', 'product_id' => 12, 'quantity' => 1]]);
+        $request = $this->post(['_csrf' => $this->csrf, 'service_mode' => 'takeaway', 'service_tag' => '12', 'items_json' => (string) $items], '/counter/orders');
+
+        $response = $this->controller($request, $db)->store();
+
+        self::assertSame(302, $response->status());
+        $insert = $this->writeParams($db, 'INSERT INTO customer_order');
+        self::assertNull($insert['tag']);
+    }
+
+    public function testNavRoutesDriveRoleToDriveLanding(): void
+    {
+        // 3 : le lien "Saisie commande" du layout pointe vers le canal du role courant.
+        // Un equipier drive (role.order_source = drive, remonte par displayInfo) est
+        // route vers /drive/orders.
+        $db = $this->permittedDb();
+        $db->userDisplayRow = ['first_name' => 'Dana', 'last_name' => 'D', 'role_label' => 'Drive', 'order_source' => 'drive'];
+
+        $response = $this->controller($this->get('/drive/orders'), $db)->index();
+
+        self::assertSame(200, $response->status());
+        $body = $response->body();
+        self::assertStringContainsString('href="/drive/orders" class="sidebar-item active">Saisie commande', $body);
+    }
+
+    public function testNavRoutesCounterRoleToCounterLanding(): void
+    {
+        // 3 (contre-exemple) : un role comptoir (order_source counter / NULL) est route
+        // vers /counter/orders.
+        $db = $this->permittedDb();
+        $db->userDisplayRow = ['first_name' => 'Sam', 'last_name' => 'C', 'role_label' => 'Comptoir', 'order_source' => 'counter'];
+
+        $response = $this->controller($this->get('/counter/orders'), $db)->index();
+
+        self::assertSame(200, $response->status());
+        $body = $response->body();
+        self::assertStringContainsString('href="/counter/orders" class="sidebar-item active">Saisie commande', $body);
     }
 
     /**

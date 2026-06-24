@@ -18,6 +18,7 @@ declare(strict_types=1);
  * @var list<string> $permissions
  * @var string       $csrfToken
  * @var string       $activeNav
+ * @var string       $orderChannel  'counter' | 'drive' : canal de saisie du role courant
  * @var string|null  $flash
  */
 
@@ -26,6 +27,13 @@ $userName = htmlspecialchars($currentUserName ?? 'Utilisateur', ENT_QUOTES, 'UTF
 $userRole = htmlspecialchars($currentUserRole ?? '', ENT_QUOTES, 'UTF-8');
 $csrf = htmlspecialchars($csrfToken ?? '', ENT_QUOTES, 'UTF-8');
 $active = is_string($activeNav ?? null) ? $activeNav : '';
+
+// Canal de saisie du role courant : un equipier drive est route vers /drive/orders,
+// les autres roles vers /counter/orders. CounterOrderController pose activeNav a
+// 'counter' ou 'drive' selon le chemin ; on marque le lien actif sur l'un OU l'autre.
+$channel = ($orderChannel ?? '') === 'drive' ? 'drive' : 'counter';
+$orderHref = $channel === 'drive' ? '/drive/orders' : '/counter/orders';
+$orderActive = ($active === 'counter' || $active === 'drive') ? 'sidebar-item active' : 'sidebar-item';
 
 /** @var list<string> $perms */
 $perms = isset($permissions) && is_array($permissions) ? $permissions : [];
@@ -119,9 +127,9 @@ $navClass = static function (string $code, string $current): string {
         <div class="sidebar-section">
             <div class="sidebar-section-label">Pilotage</div>
             <?php if ($can('order.create')): ?>
-                <?php /* Lien generique vers le comptoir ; le canal effectif (counter/drive)
-                         est derive du chemin par CounterOrderController (mlt 4.1). */ ?>
-                <a href="/counter/orders" class="<?= $navClass('counter', $active) ?>">Saisie commande</a>
+                <?php /* Le canal (counter/drive) vient de role.order_source : un equipier
+                         drive est route vers /drive/orders, les autres vers /counter/orders. */ ?>
+                <a href="<?= htmlspecialchars($orderHref, ENT_QUOTES, 'UTF-8') ?>" class="<?= $orderActive ?>">Saisie commande</a>
             <?php endif; ?>
             <?php if ($can('stats.read')): ?>
                 <a href="/admin/stats" class="<?= $navClass('stats', $active) ?>">Statistiques</a>
