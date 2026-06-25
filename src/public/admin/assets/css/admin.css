@@ -1627,6 +1627,28 @@ tbody td.mono {
     font-weight: 700;
 }
 
+/* Rupture de stock (RG-T21, parite borne product-card--unavailable) : tuile visible
+   mais non commandable. Grisee, curseur interdit, sans effet de survol (l'etat ne
+   ment pas) ; le tap est neutralise cote JS (return precoce). */
+.pos-tile--unavailable {
+    opacity: 0.55;
+    filter: grayscale(0.6);
+    cursor: not-allowed;
+}
+.pos-tile--unavailable:hover,
+.pos-tile--unavailable:focus-visible {
+    border-color: var(--color-border);
+    box-shadow: var(--shadow-card);
+    transform: none;
+}
+/* Badge "Indisponible" : pose en haut a gauche pour ne pas chevaucher le badge
+   "Menu"/"A composer" (top-right) sur une tuile menu en rupture. */
+.pos-tile__badge--unavailable {
+    right: auto;
+    left: 8px;
+    background: var(--color-brand-dark, var(--color-text));
+}
+
 /* Panneau commande persistant a droite (facon caisse). */
 .pos__panel {
     flex: 0 0 340px;

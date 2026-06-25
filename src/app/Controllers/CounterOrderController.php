@@ -364,10 +364,18 @@ class CounterOrderController extends AdminController
         $productRepository = $this->productRepository();
         $products = $productRepository->availableForCatalogue();
 
+        // RG-T21 (parite borne) : rupture calculee par le stock, en UNE requete (set
+        // d'ids). availableForCatalogue() ne filtre que le retrait manuel (is_available)
+        // ; un produit liste mais en rupture devient non commandable -> le POS grise la
+        // tuile au lieu de laisser composer une commande vouee a echouer (meme echo UX
+        // que CatalogueController cote borne ; l'enforcement reste serveur a la commande).
+        $unavailable = array_fill_keys($productRepository->autoUnavailableIds(), true);
+
         // Modificateurs proposables par produit a la carte : seuls les produits dont la
         // recette offre au moins un ingredient retirable/ajoutable portent une compo.
-        $products = array_map(function (array $product) use ($productRepository): array {
+        $products = array_map(function (array $product) use ($productRepository, $unavailable): array {
             $product['modifiers'] = $this->proposableModifiers($productRepository, (int) ($product['id'] ?? 0));
+            $product['is_orderable'] = !isset($unavailable[(int) ($product['id'] ?? 0)]);
 
             return $product;
         }, $products);
@@ -375,7 +383,7 @@ class CounterOrderController extends AdminController
         return $this->channelView('admin/counter/new', $source, [
             'title'       => 'Nouvelle commande ' . ($source === 'drive' ? 'drive' : 'comptoir') . ' - Wakdo Admin',
             'products'    => $products,
-            'menus'       => $this->menusWithSlots($productRepository),
+            'menus'       => $this->menusWithSlots($productRepository, $unavailable),
             'serviceMode' => (string) ($values['service_mode'] ?? ($source === 'drive' ? 'drive' : 'dine_in')),
             'serviceTag'  => (string) ($values['service_tag'] ?? ''),
             'error'       => $error,
@@ -392,16 +400,21 @@ class CounterOrderController extends AdminController
      * cote borne ; `burger_modifiers` calque proposableModifiers() (la selection de
      * modificateurs d'un menu cible le burger, comme resolveModifiers cote serveur).
      *
+     * @param array<int, true> $unavailable set d'ids produits en rupture calculee (RG-T21),
+     *        partage avec renderForm pour ne pas refaire la requete autoUnavailableIds.
      * @return list<array<string, mixed>>
      */
-    private function menusWithSlots(ProductRepository $productRepository): array
+    private function menusWithSlots(ProductRepository $productRepository, array $unavailable): array
     {
         $menuRepository = $this->menuRepository();
         $menus = $menuRepository->availableForCatalogue();
 
-        return array_map(function (array $menu) use ($menuRepository, $productRepository): array {
+        return array_map(function (array $menu) use ($menuRepository, $productRepository, $unavailable): array {
             $menu['slots'] = $menuRepository->slotsWithOptions((int) ($menu['id'] ?? 0));
             $menu['burger_modifiers'] = $this->proposableModifiers($productRepository, (int) ($menu['burger_product_id'] ?? 0));
+            // RG-T21 (granularite burger impose seul, parite borne) : un menu dont le
+            // burger principal est en rupture calculee n'est plus commandable -> grise.
+            $menu['is_orderable'] = !isset($unavailable[(int) ($menu['burger_product_id'] ?? 0)]);
 
             return $menu;
         }, $menus);

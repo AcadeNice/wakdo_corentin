@@ -513,6 +513,70 @@ test('modale menu : slot requis non choisi -> message inline, pas d ajout muet',
     assert.equal(doc.querySelector('.order-cart__line'), null);
 });
 
+test('RG-T21 : tuile non commandable (rupture) -> grisee, aria-disabled, badge Indisponible, tap n ajoute rien', () => {
+    // commandable:false = rupture de stock calculee cote serveur (parite borne). La
+    // tuile reste visible mais desactivee ; un tap ne doit RIEN ajouter au panier.
+    const RUPTURE = [
+        { id: 70, name: 'Frites', price: 250, image: '', category_id: 2, category_name: 'Accompagnements', modifiers: [], commandable: false },
+    ];
+    const dom = setup(RUPTURE, []);
+    const doc = dom.window.document;
+    counterOrder.init(doc);
+
+    activateCategory(dom, 'Accompagnements');
+    const tile = tileByName(dom, 'Frites');
+    assert.ok(tile);
+    // Etat desactive : classe modifier + aria-disabled (echo UX de la rupture).
+    assert.equal(tile.classList.contains('pos-tile--unavailable'), true);
+    assert.equal(tile.getAttribute('aria-disabled'), 'true');
+    // Badge "Indisponible" present (parite borne product-card__badge).
+    const badge = tile.querySelector('.pos-tile__badge--unavailable');
+    assert.ok(badge);
+    assert.equal(badge.textContent, 'Indisponible');
+    // L'aria-label porte l'etat indisponible (annonce lecteur d'ecran).
+    assert.match(tile.getAttribute('aria-label'), /indisponible/);
+
+    // Tap : aucune ligne n'est creee, items_json reste vide.
+    click(dom, tile);
+    assert.equal(doc.querySelector('.order-cart__line'), null);
+    fireSubmit(dom);
+    assert.deepEqual(itemsJson(dom), []);
+});
+
+test('RG-T21 : menu non commandable (burger en rupture) -> tap n ouvre pas la modale', () => {
+    // Un menu dont le burger impose est en rupture (commandable:false) est grise et son
+    // tap ne doit pas ouvrir le composeur (granularite burger seul, parite borne).
+    const menuRupture = [{
+        id: 9,
+        name: 'Menu Indispo',
+        price_normal: 990,
+        price_maxi: 1190,
+        image: '',
+        category_id: 4,
+        category_name: 'Menus',
+        commandable: false,
+        burger_modifiers: [],
+        slots: [
+            { id: 1, name: 'Boisson', slot_type: 'drink', is_required: 1, display_order: 1, option_product_ids: [14] },
+        ],
+    }];
+    const dom = setup([{ id: 14, name: 'Coca', price: 200, image: '', category_id: 3, category_name: 'Boissons', modifiers: [] }], menuRupture);
+    const doc = dom.window.document;
+    counterOrder.init(doc);
+
+    activateCategory(dom, 'Menus');
+    const tile = tileByName(dom, 'Menu Indispo');
+    assert.ok(tile);
+    assert.equal(tile.classList.contains('pos-tile--unavailable'), true);
+    assert.equal(tile.getAttribute('aria-disabled'), 'true');
+    // Une tuile en rupture n'annonce pas l'intention de composer (pas d aria-haspopup).
+    assert.equal(tile.hasAttribute('aria-haspopup'), false);
+
+    click(dom, tile);
+    const modal = doc.getElementById('menu-composer-modal');
+    assert.equal(modal.hasAttribute('hidden'), true); // modale non ouverte
+});
+
 test('tuile : pastille de repli quand aucune image (image vide)', () => {
     const dom = setup();
     counterOrder.init(dom.window.document);
