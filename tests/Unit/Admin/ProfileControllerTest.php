@@ -7,6 +7,7 @@ namespace App\Tests\Unit\Admin;
 use PHPUnit\Framework\TestCase;
 use App\Auth\Authorizer;
 use App\Auth\Csrf;
+use App\Auth\PasswordHasher;
 use App\Auth\SessionGuard;
 use App\Auth\SessionManager;
 use App\Auth\UserDirectory;
@@ -14,6 +15,7 @@ use App\Auth\UserRepository;
 use App\Controllers\ProfileController;
 use App\Core\Config;
 use App\Core\Database;
+use App\Core\DatabaseInterface;
 use App\Core\Request;
 use App\Tests\Support\FakeDatabase;
 
@@ -32,6 +34,13 @@ final class TestProfileController extends ProfileController
     protected function sessionManager(): SessionManager
     {
         return $this->testSession;
+    }
+
+    // Couture DB unique : la re-verification du mot de passe courant et l'ecriture
+    // d'audit du set de PIN passent par db() ; on la route vers le double.
+    protected function db(): DatabaseInterface
+    {
+        return $this->fakeDb;
     }
 
     protected function sessionGuard(): SessionGuard
@@ -96,6 +105,9 @@ final class ProfileControllerTest extends TestCase
         putenv($key . '=' . $value);
     }
 
+    /** Mot de passe courant de reference pour la re-verification au set de PIN. */
+    private const CURRENT_PASSWORD = 'S3cret-Wakdo!';
+
     private function permittedDb(): FakeDatabase
     {
         $db = new FakeDatabase();
@@ -103,6 +115,9 @@ final class ProfileControllerTest extends TestCase
         $db->userDisplayRow = ['first_name' => 'Corentin', 'last_name' => 'J', 'role_label' => 'Administrateur'];
         $db->canResult = true;
         $db->permissionCodes = ['category.manage'];
+        // Re-verification d'identite : hash argon2id du mot de passe courant (couts
+        // de test poses en setUp). currentPasswordRow null -> verify echoue.
+        $db->currentPasswordRow = ['password_hash' => (new PasswordHasher(new Config()))->hash(self::CURRENT_PASSWORD)];
 
         return $db;
     }
@@ -120,6 +135,17 @@ final class ProfileControllerTest extends TestCase
             http_build_query($form),
             '203.0.113.5',
         );
+    }
+
+    /**
+     * Requete nominale de set de PIN : CSRF valide, PIN + confirmation, et le mot de
+     * passe courant attendu par la re-verification d'identite (permittedDb).
+     */
+    private function validPost(): Request
+    {
+        return $this->post([
+            '_csrf' => $this->csrf, 'pin' => '4729', 'pin_confirm' => '4729', 'current_password' => self::CURRENT_PASSWORD,
+        ]);
     }
 
     private function controller(Request $request, FakeDatabase $db): TestProfileController
@@ -155,7 +181,8 @@ final class ProfileControllerTest extends TestCase
     public function testUpdatePinValidStoresHashAndRedirects(): void
     {
         $db = $this->permittedDb();
-        $response = $this->controller($this->post(['_csrf' => $this->csrf, 'pin' => '4729', 'pin_confirm' => '4729']), $db)->updatePin();
+        $db->userPinSet = false; // premiere definition -> summary "PIN defini"
+        $response = $this->controller($this->validPost(), $db)->updatePin();
 
         self::assertSame(302, $response->status());
         self::assertSame('/admin/profile/pin', $response->header('Location'));
@@ -175,16 +202,63 @@ final class ProfileControllerTest extends TestCase
         self::assertNotSame('4729', $write['params']['hash'] ?? null);
     }
 
+    public function testUpdatePinWritesAuditTrace(): void
+    {
+        // ADR-0004 / RG-T14 : le set de PIN ecrit une ligne audit_log (action pin.set),
+        // imputee a l'utilisateur de session, sans jamais journaliser le PIN ni un hash.
+        $db = $this->permittedDb();
+        $db->userPinSet = true; // un PIN existe deja -> changement
+        $response = $this->controller($this->validPost(), $db)->updatePin();
+
+        self::assertSame(302, $response->status());
+        self::assertSame(['pin.set'], $db->auditActions());
+
+        $audit = null;
+        foreach ($db->writes as $w) {
+            if (str_contains($w['sql'], 'INSERT INTO audit_log')) {
+                $audit = $w;
+                break;
+            }
+        }
+        self::assertNotNull($audit);
+        self::assertSame(1, $audit['params']['uid'] ?? null);        // acteur = session userId
+        self::assertSame('user', $audit['params']['etype'] ?? null);
+        self::assertSame(1, $audit['params']['eid'] ?? null);
+        // Aucune valeur sensible dans le summary (ni PIN clair, ni hash).
+        $summary = (string) ($audit['params']['summary'] ?? '');
+        self::assertStringNotContainsString('4729', $summary);
+        self::assertStringContainsString('modifie', $summary);       // userPinSet=true -> "PIN modifie"
+    }
+
+    public function testUpdatePinRejectsWrongCurrentPassword(): void
+    {
+        // Re-verification d'identite : mauvais mot de passe courant -> 422, ni
+        // ecriture du PIN, ni trace d'audit.
+        $db = $this->permittedDb();
+        $request = $this->post([
+            '_csrf' => $this->csrf, 'pin' => '4729', 'pin_confirm' => '4729', 'current_password' => 'wrong-password',
+        ]);
+        $response = $this->controller($request, $db)->updatePin();
+
+        self::assertSame(422, $response->status());
+        self::assertStringContainsString('Mot de passe actuel incorrect', $response->body());
+        self::assertFalse($db->wrote('UPDATE user SET pin_hash'));
+        self::assertFalse($db->wrote('INSERT INTO audit_log'));
+        self::assertNull($this->session->get('_flash'));
+    }
+
     public function testUpdatePinFailsWhenNoRowAffected(): void
     {
-        // Cible inexistante (0 ligne affectee) : pas de faux succes, pas de flash.
+        // Cible inexistante (0 ligne affectee) : pas de faux succes, pas de flash, pas
+        // d'audit (l'ecriture du PIN n'a rien affecte).
         $db = $this->permittedDb();
         $db->executeRowCount = 0;
 
-        $response = $this->controller($this->post(['_csrf' => $this->csrf, 'pin' => '4729', 'pin_confirm' => '4729']), $db)->updatePin();
+        $response = $this->controller($this->validPost(), $db)->updatePin();
 
         self::assertSame(500, $response->status());
         self::assertNull($this->session->get('_flash'));
+        self::assertFalse($db->wrote('INSERT INTO audit_log'));
     }
 
     public function testUpdatePinMismatchRerenders422(): void
