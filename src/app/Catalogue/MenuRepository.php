@@ -148,6 +148,23 @@ final class MenuRepository
     }
 
     /**
+     * Le produit existe-t-il ET est-il un produit de BASE (base_product_id IS NULL,
+     * R4) ? Garde serveur de l'eligibilite au menu (F9-2) : un menu ne peut prendre
+     * comme burger principal NI comme option de slot une VARIANTE de taille (ex.
+     * "Coca Cola 50cl"), qui n'est pas un produit autonome. Predicat plus strict que
+     * productExists() : il rejette une variante meme si l'UI est contournee. Le
+     * formulaire menu n'expose deja que des bases (ProductRepository::basesOnly),
+     * cette garde verrouille le chemin serveur en plus.
+     */
+    public function productIsBase(int $id): bool
+    {
+        return $this->db->fetch(
+            'SELECT id FROM product WHERE id = :id AND base_product_id IS NULL',
+            ['id' => $id],
+        ) !== null;
+    }
+
+    /**
      * Pre-verification FK-safe (mlt 8.6 RG-1) : le menu est-il reference par une
      * ligne de commande historique ? La FK order_item.menu_id est RESTRICT.
      */

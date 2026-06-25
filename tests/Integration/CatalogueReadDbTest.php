@@ -199,7 +199,7 @@ final class CatalogueReadDbTest extends TestCase
     }
 
     /**
-     * @return array{category_id: int, name: string, description: ?string, price_cents: int, vat_rate: int, image_path: ?string, is_available: int, display_order: int}
+     * @return array{category_id: int, name: string, description: ?string, price_cents: int, size_cl: ?int, base_product_id: ?int, maxi_variant_product_id: ?int, vat_rate: int, image_path: ?string, is_available: int, display_order: int}
      */
     private function productData(string $name, int $categoryId, int $available): array
     {
@@ -208,6 +208,9 @@ final class CatalogueReadDbTest extends TestCase
             'name' => $name,
             'description' => null,
             'price_cents' => 500,
+            'size_cl' => null,
+            'base_product_id' => null,
+            'maxi_variant_product_id' => null,
             'vat_rate' => 100,
             'image_path' => null,
             'is_available' => $available,

@@ -309,10 +309,13 @@ class MenuController extends AdminController
             $errors['category_id'] = 'Categorie requise et valide.';
         }
 
+        // F9-2 : le burger principal doit etre un produit de BASE (R4). productIsBase
+        // rejette une variante de taille meme si l'UI (base-only) est contournee :
+        // une variante n'est pas un produit autonome commercialisable en menu.
         $burgerRaw = trim($form['burger_product_id'] ?? '');
         $burgerId = ctype_digit($burgerRaw) ? (int) $burgerRaw : 0;
-        if ($burgerId === 0 || !$this->menuRepository()->productExists($burgerId)) {
-            $errors['burger_product_id'] = 'Le produit burger de base est requis et doit exister.';
+        if ($burgerId === 0 || !$this->menuRepository()->productIsBase($burgerId)) {
+            $errors['burger_product_id'] = 'Le produit burger de base est requis et doit etre un produit de base (pas une variante de taille).';
         }
 
         $name = trim($form['name'] ?? '');
@@ -385,12 +388,23 @@ class MenuController extends AdminController
             $slotType = is_string($raw['slot_type'] ?? null) ? $raw['slot_type'] : '';
             $required = !empty($raw['is_required']) ? 1 : 0;
 
+            // F9-2 : une option de slot doit etre un produit de BASE (R4). Un id de
+            // variante de taille (base_product_id non nul) est REJETE explicitement
+            // (422) plutot que filtre en silence : choisir une variante comme option
+            // serait un contournement de l'UI base-only, et un drop muet ferait perdre
+            // un choix sans message clair. Un id inconnu reste filtre (allowlist).
             $optionIds = [];
+            $hasVariantOption = false;
             foreach (is_array($raw['options'] ?? null) ? $raw['options'] : [] as $opt) {
                 $pid = is_numeric($opt) ? (int) $opt : 0;
-                if ($pid > 0 && $this->menuRepository()->productExists($pid)) {
-                    $optionIds[] = $pid;
+                if ($pid <= 0 || !$this->menuRepository()->productExists($pid)) {
+                    continue; // id inconnu : filtre (allowlist), pas une erreur
                 }
+                if (!$this->menuRepository()->productIsBase($pid)) {
+                    $hasVariantOption = true;
+                    continue; // variante de taille : non eligible comme option de menu
+                }
+                $optionIds[] = $pid;
             }
             $optionIds = array_values(array_unique($optionIds));
 
@@ -400,6 +414,10 @@ class MenuController extends AdminController
             }
             if (!in_array($slotType, self::SLOT_TYPES, true)) {
                 $errors['slots'] = 'Type de slot invalide.';
+                continue;
+            }
+            if ($hasVariantOption) {
+                $errors['slots'] = 'Une variante de taille ne peut pas etre proposee comme option de menu (choisissez le produit de base).';
                 continue;
             }
             if ($optionIds === []) {
@@ -459,7 +477,10 @@ class MenuController extends AdminController
             'activeNav'  => 'menus',
             'menuId'     => $id,
             'categories' => $this->categoryRepository()->all(),
-            'products'   => $this->productRepository()->all(),
+            // F9-1 : listes deroulantes base-only (burger principal + options de
+            // slot). basesOnly() exclut les variantes de taille (R4) ; all() les
+            // inclut (liste admin), il ne doit donc pas alimenter ces selects.
+            'products'   => $this->productRepository()->basesOnly(),
             'slotTypes'  => self::SLOT_TYPES,
             'values'     => [
                 'category_id'        => (string) ($values['category_id'] ?? ''),

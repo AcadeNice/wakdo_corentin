@@ -34,6 +34,20 @@ final class FakeCatalogueDatabase implements DatabaseInterface
     public array $productsRows = [];
 
     /**
+     * Lignes {id, name} renvoyees par ProductRepository::basesOnly() (R4/F9-1).
+     *
+     * @var list<array<string, mixed>>
+     */
+    public array $baseProductsRows = [];
+
+    /**
+     * Lignes renvoyees par ProductRepository::all() (liste admin enrichie, F9-4).
+     *
+     * @var list<array<string, mixed>>
+     */
+    public array $allProductsRows = [];
+
+    /**
      * Ligne renvoyee par ProductRepository::findForCatalogue() ; null = absent /
      * indisponible / categorie inactive.
      *
@@ -138,6 +152,18 @@ final class FakeCatalogueDatabase implements DatabaseInterface
         }
         if (str_contains($sql, '(id = :base OR base_product_id = :base)')) {
             return $this->productSizes;
+        }
+
+        // F9-1 : liste base-only (basesOnly) pour les selects menu/produit.
+        if (str_contains($sql, 'FROM product WHERE base_product_id IS NULL')) {
+            return $this->baseProductsRows;
+        }
+
+        // F9-4 : liste admin enrichie (all()) -- LEFT JOIN base, sans le filtre de
+        // disponibilite borne. Distinguee de availableForCatalogue() par l'absence
+        // de 'WHERE p.is_available = 1' et la presence de 'LEFT JOIN product b'.
+        if (str_contains($sql, 'FROM product p JOIN category') && str_contains($sql, 'LEFT JOIN product b')) {
+            return $this->allProductsRows;
         }
 
         if (str_contains($sql, 'FROM product p JOIN category') && str_contains($sql, 'WHERE p.is_available = 1')) {

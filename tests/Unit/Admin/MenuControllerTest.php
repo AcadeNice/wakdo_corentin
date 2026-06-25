@@ -175,6 +175,33 @@ final class MenuControllerTest extends TestCase
         self::assertSame('Menu cree.', $this->session->get('_flash'));
     }
 
+    public function testStoreRejectsVariantAsBurger(): void
+    {
+        // F9-2 : garde serveur. Le burger principal est une VARIANTE de taille
+        // (productIsBase=false) -> 422 meme si l'UI base-only est contournee.
+        $db = $this->permittedDb();
+        $db->productIsBase = false; // l'id burger designe une variante
+
+        $response = $this->controller($this->post($this->validForm(), '/admin/menus'), $db)->store();
+
+        self::assertSame(422, $response->status());
+        self::assertFalse($db->wrote('INSERT INTO menu'));
+        self::assertStringContainsString('produit de base', $response->body());
+    }
+
+    public function testStoreRejectsVariantAsSlotOption(): void
+    {
+        // F9-2 : une variante de taille proposee comme OPTION de slot -> 422.
+        // productExists=true (la ligne existe) mais productIsBase=false.
+        $db = $this->permittedDb();
+        $db->productIsBase = false;
+
+        $response = $this->controller($this->post($this->validForm(), '/admin/menus'), $db)->store();
+
+        self::assertSame(422, $response->status());
+        self::assertFalse($db->wrote('INSERT INTO menu'));
+    }
+
     public function testStoreRejectsWithoutSlots(): void
     {
         $db = $this->permittedDb();

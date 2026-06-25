@@ -49,9 +49,22 @@ $euros = static fn (int $cents): string => number_format($cents / 100, 2, ',', '
                     $available = (int) ($row['is_available'] ?? 0) === 1;
                     $autoRupture = in_array($id, $autoIds, true); // RG-T21 : stock-driven
                     $vat = (int) ($row['vat_rate'] ?? 100);
+                    // R4/F9-4 : une ligne dont base_product_id est non nul est une
+                    // VARIANTE de taille, pas un produit autonome. On la garde dans la
+                    // liste (l'admin la voit et la gere) mais on la marque "Variante de
+                    // X" pour qu'aucune confusion ne subsiste.
+                    $baseProductId = isset($row['base_product_id']) && $row['base_product_id'] !== null
+                        ? (int) $row['base_product_id'] : 0;
+                    $isVariant = $baseProductId > 0;
+                    $baseName = (string) ($row['base_name'] ?? '');
                     ?>
                     <tr>
-                        <td class="fw-600"><?= $esc($row['name'] ?? '') ?></td>
+                        <td class="fw-600">
+                            <?= $esc($row['name'] ?? '') ?>
+                            <?php if ($isVariant): ?>
+                                <span class="pill pill-neutral" title="Cette ligne est une variante de taille, pas un produit affiche seul sur la borne">Variante de <?= $esc($baseName !== '' ? $baseName : '?') ?></span>
+                            <?php endif; ?>
+                        </td>
                         <td class="muted"><?= $esc($row['category_name'] ?? '') ?></td>
                         <td><?= $esc($euros((int) ($row['price_cents'] ?? 0))) ?></td>
                         <td class="muted"><?= $vat === 55 ? '5,5%' : '10%' ?></td>

@@ -79,7 +79,9 @@ class ProductController extends AdminController
             return $this->invalidCsrf();
         }
 
-        [$data, $errors] = $this->validate($form);
+        // id = 0 a la creation : pas d'auto-reference possible (le produit n'existe
+        // pas encore), validate() le sait par le 2e argument.
+        [$data, $errors] = $this->validate($form, 0);
         if ($errors !== []) {
             return $this->renderForm($guard, 0, $form, $errors, 422);
         }
@@ -130,7 +132,7 @@ class ProductController extends AdminController
             return $this->notFound($guard);
         }
 
-        [$data, $errors] = $this->validate($form);
+        [$data, $errors] = $this->validate($form, $id);
         if ($errors !== []) {
             return $this->renderForm($guard, $id, $form, $errors, 422);
         }
@@ -383,11 +385,13 @@ class ProductController extends AdminController
 
     /**
      * Validation serveur (RG-T18) + allowlist (RG-T16). Renvoie [donnees, erreurs].
+     * $currentId = id du produit edite (0 a la creation), pour interdire l'auto-
+     * reference des FK de variante (F9-3).
      *
      * @param array<string, string> $form
-     * @return array{0: array{category_id: int, name: string, description: ?string, price_cents: int, vat_rate: int, image_path: ?string, is_available: int, display_order: int}, 1: array<string, string>}
+     * @return array{0: array{category_id: int, name: string, description: ?string, price_cents: int, size_cl: ?int, base_product_id: ?int, maxi_variant_product_id: ?int, vat_rate: int, image_path: ?string, is_available: int, display_order: int}, 1: array<string, string>}
      */
-    private function validate(array $form): array
+    private function validate(array $form, int $currentId): array
     {
         $errors = [];
 
@@ -425,15 +429,72 @@ class ProductController extends AdminController
 
         $description = trim($form['description'] ?? '');
 
+        // --- Champs de variante (F9-3, R4 / migrations 0006-0007) ---
+        // Tous nullables : un champ vide signifie "produit de base / autonome, sans
+        // dimension taille ni substitution Maxi". Bornes refletant les colonnes :
+        // size_cl SMALLINT UNSIGNED (0..65535), base/maxi FK INT UNSIGNED.
+
+        // size_cl : volume en cl, entier >= 0 si fourni (vide = NULL).
+        $sizeRaw = trim($form['size_cl'] ?? '');
+        $sizeCl = null;
+        if ($sizeRaw !== '') {
+            if (!ctype_digit($sizeRaw) || (int) $sizeRaw > 65535) {
+                $errors['size_cl'] = 'La taille (en cl) doit etre un entier entre 0 et 65535.';
+            } else {
+                $sizeCl = (int) $sizeRaw;
+            }
+        }
+
+        // base_product_id : ce produit devient une VARIANTE de taille de la base
+        // designee. La base doit exister, etre differente de soi (pas d'auto-
+        // reference), et etre elle-meme une BASE (productIsBase) : on interdit une
+        // chaine de variantes (une variante ne peut pointer vers une autre variante).
+        $baseRaw = trim($form['base_product_id'] ?? '');
+        $baseId = null;
+        if ($baseRaw !== '') {
+            if (!ctype_digit($baseRaw)) {
+                $errors['base_product_id'] = 'Le produit de base doit etre un produit existant.';
+            } elseif ((int) $baseRaw === $currentId) {
+                $errors['base_product_id'] = 'Un produit ne peut pas etre sa propre base.';
+            } elseif (!$this->productRepository()->productExists((int) $baseRaw)) {
+                $errors['base_product_id'] = 'Le produit de base doit etre un produit existant.';
+            } elseif (!$this->productRepository()->productIsBase((int) $baseRaw)) {
+                $errors['base_product_id'] = 'Le produit de base doit lui-meme etre un produit de base (pas une variante).';
+            } else {
+                $baseId = (int) $baseRaw;
+            }
+        }
+
+        // maxi_variant_product_id : la variante Grande servie quand un MENU est
+        // commande en Maxi. Doit exister et etre differente de soi (auto-reference
+        // directe interdite). Pas de contrainte de base ici : la cible Maxi est elle
+        // aussi un produit a part entiere (ex. "Grande Frite"), pas une base de taille.
+        $maxiRaw = trim($form['maxi_variant_product_id'] ?? '');
+        $maxiId = null;
+        if ($maxiRaw !== '') {
+            if (!ctype_digit($maxiRaw)) {
+                $errors['maxi_variant_product_id'] = 'La variante Maxi doit etre un produit existant.';
+            } elseif ((int) $maxiRaw === $currentId) {
+                $errors['maxi_variant_product_id'] = 'Un produit ne peut pas etre sa propre variante Maxi.';
+            } elseif (!$this->productRepository()->productExists((int) $maxiRaw)) {
+                $errors['maxi_variant_product_id'] = 'La variante Maxi doit etre un produit existant.';
+            } else {
+                $maxiId = (int) $maxiRaw;
+            }
+        }
+
         $data = [
-            'category_id'   => $categoryId,
-            'name'          => $name,
-            'description'   => $description !== '' ? $description : null,
-            'price_cents'   => $priceValid ? (int) $priceRaw : 0,
-            'vat_rate'      => ($vat === 55 || $vat === 100) ? $vat : 100,
-            'image_path'    => $image !== '' ? $image : null,
-            'is_available'  => ($form['is_available'] ?? '') !== '' ? 1 : 0,
-            'display_order' => (ctype_digit($orderRaw) && (int) $orderRaw <= 65535) ? (int) $orderRaw : 0,
+            'category_id'             => $categoryId,
+            'name'                    => $name,
+            'description'             => $description !== '' ? $description : null,
+            'price_cents'             => $priceValid ? (int) $priceRaw : 0,
+            'size_cl'                 => $sizeCl,
+            'base_product_id'         => $baseId,
+            'maxi_variant_product_id' => $maxiId,
+            'vat_rate'                => ($vat === 55 || $vat === 100) ? $vat : 100,
+            'image_path'              => $image !== '' ? $image : null,
+            'is_available'            => ($form['is_available'] ?? '') !== '' ? 1 : 0,
+            'display_order'           => (ctype_digit($orderRaw) && (int) $orderRaw <= 65535) ? (int) $orderRaw : 0,
         ];
 
         return [$data, $errors];
@@ -588,23 +649,38 @@ class ProductController extends AdminController
      */
     private function renderForm(GuardResult $guard, int $id, array $values, array $errors, int $status = 200): Response
     {
+        // F9-3 : selects base_product_id (de quelle base ce produit est-il la
+        // variante de taille ?) et maxi_variant_product_id (quelle variante Grande
+        // servir en menu Maxi ?). On ne propose que des produits de BASE
+        // (basesOnly, R4) -- une variante ne peut etre ni une base ni, par
+        // simplicite, une cible Maxi -- et on exclut le produit lui-meme de la liste
+        // (pas d'auto-reference), garde miroir de validate().
+        $baseCandidates = array_values(array_filter(
+            $this->productRepository()->basesOnly(),
+            static fn (array $p): bool => (int) ($p['id'] ?? 0) !== $id,
+        ));
+
         return $this->adminView('admin/products/form', [
-            'title'      => ($id !== 0 ? 'Modifier' : 'Nouveau') . ' produit - Wakdo Admin',
-            'activeNav'  => 'products',
-            'productId'  => $id,
-            'categories' => $this->categoryRepository()->all(),
+            'title'          => ($id !== 0 ? 'Modifier' : 'Nouveau') . ' produit - Wakdo Admin',
+            'activeNav'      => 'products',
+            'productId'      => $id,
+            'categories'     => $this->categoryRepository()->all(),
+            'baseCandidates' => $baseCandidates,
             'values'     => [
-                'category_id'   => (string) ($values['category_id'] ?? ''),
-                'name'          => (string) ($values['name'] ?? ''),
-                'description'   => (string) ($values['description'] ?? ''),
-                'price_cents'   => (string) ($values['price_cents'] ?? ''),
-                'vat_rate'      => (string) ($values['vat_rate'] ?? '100'),
-                'image_path'    => (string) ($values['image_path'] ?? ''),
+                'category_id'             => (string) ($values['category_id'] ?? ''),
+                'name'                    => (string) ($values['name'] ?? ''),
+                'description'             => (string) ($values['description'] ?? ''),
+                'price_cents'             => (string) ($values['price_cents'] ?? ''),
+                'size_cl'                 => (string) ($values['size_cl'] ?? ''),
+                'base_product_id'         => (string) ($values['base_product_id'] ?? ''),
+                'maxi_variant_product_id' => (string) ($values['maxi_variant_product_id'] ?? ''),
+                'vat_rate'                => (string) ($values['vat_rate'] ?? '100'),
+                'image_path'              => (string) ($values['image_path'] ?? ''),
                 // Defaut coche a la creation (errors vide + values vide) ; sur un
                 // re-rendu POST (erreurs), refleter la presence reelle du champ
                 // (case decochee = absente = non cochee), pas le defaut a 1.
-                'is_available'  => $errors === [] ? ((int) ($values['is_available'] ?? 1) === 1) : array_key_exists('is_available', $values),
-                'display_order' => (string) ($values['display_order'] ?? '0'),
+                'is_available'            => $errors === [] ? ((int) ($values['is_available'] ?? 1) === 1) : array_key_exists('is_available', $values),
+                'display_order'           => (string) ($values['display_order'] ?? '0'),
             ],
             'errors'     => $errors,
         ], $guard, $status);
