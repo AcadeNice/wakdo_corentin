@@ -622,6 +622,77 @@ final class CounterOrderControllerTest extends TestCase
         self::assertStringContainsString('"price_maxi":1190', $body);
     }
 
+    public function testCreateMarksProductOutOfStockAsNotOrderable(): void
+    {
+        // RG-T21 (parite borne) : un produit liste (is_available=1) mais en rupture
+        // calculee par le stock (membre du set autoUnavailableIds) est expose
+        // commandable=false dans #pos-products ; un produit hors rupture reste
+        // commandable=true. Le POS grise la tuile non commandable (echo UX), comme la
+        // borne ; l'enforcement reste serveur a la creation de commande.
+        $db = $this->permittedDb();
+        $db->productsRows = [
+            ['id' => 12, 'category_id' => 1, 'category_name' => 'Burgers', 'name' => 'Cheeseburger', 'description' => null, 'price_cents' => 890, 'image_path' => null, 'display_order' => 1],
+            ['id' => 22, 'category_id' => 2, 'category_name' => 'Accompagnements', 'name' => 'Frites', 'description' => null, 'price_cents' => 250, 'image_path' => null, 'display_order' => 1],
+        ];
+        // autoUnavailableIds() (clause is_removable = 0) : le produit 12 est en rupture.
+        $db->autoUnavailableRows = [
+            ['product_id' => 12],
+        ];
+
+        $response = $this->controller($this->get('/counter/orders/new'), $db)->create();
+
+        self::assertSame(200, $response->status());
+        $body = $response->body();
+        // Le produit en rupture (12) porte commandable=false ; l'autre (22) reste true.
+        self::assertStringContainsString('"id":12', $body);
+        self::assertStringContainsString('"id":22', $body);
+        self::assertStringContainsString('"commandable":false', $body);
+        self::assertStringContainsString('"commandable":true', $body);
+    }
+
+    public function testCreateMarksMenuWithRupturedBurgerAsNotOrderable(): void
+    {
+        // RG-T21 (granularite burger impose seul) : un menu dont le burger principal
+        // (burger_product_id) est en rupture calculee est expose commandable=false dans
+        // #pos-menus -> le POS grise la tuile menu (parite borne).
+        $db = $this->permittedDb();
+        $db->menusRows = [
+            ['id' => 5, 'category_id' => 1, 'burger_product_id' => 12, 'name' => 'Menu Cheeseburger', 'description' => null, 'price_normal_cents' => 990, 'price_maxi_cents' => 1190, 'image_path' => null, 'display_order' => 1],
+        ];
+        // Le burger 12 du menu est en rupture (set autoUnavailableIds).
+        $db->autoUnavailableRows = [
+            ['product_id' => 12],
+        ];
+
+        $response = $this->controller($this->get('/counter/orders/new'), $db)->create();
+
+        self::assertSame(200, $response->status());
+        $body = $response->body();
+        self::assertStringContainsString('"id":5', $body);
+        self::assertStringContainsString('"commandable":false', $body);
+    }
+
+    public function testCreateMarksAllOrderableWhenNoRupture(): void
+    {
+        // Contre-exemple : sans rupture (autoUnavailableIds vide), produits ET menus sont
+        // tous commandable=true (aucune tuile grisee).
+        $db = $this->permittedDb();
+        $db->productsRows = [
+            ['id' => 22, 'category_id' => 2, 'category_name' => 'Accompagnements', 'name' => 'Frites', 'description' => null, 'price_cents' => 250, 'image_path' => null, 'display_order' => 1],
+        ];
+        $db->menusRows = [
+            ['id' => 5, 'category_id' => 1, 'burger_product_id' => 12, 'name' => 'Menu Cheeseburger', 'description' => null, 'price_normal_cents' => 990, 'price_maxi_cents' => 1190, 'image_path' => null, 'display_order' => 1],
+        ];
+        $db->autoUnavailableRows = [];
+
+        $response = $this->controller($this->get('/counter/orders/new'), $db)->create();
+
+        self::assertSame(200, $response->status());
+        $body = $response->body();
+        self::assertStringContainsString('"commandable":true', $body);
+        self::assertStringNotContainsString('"commandable":false', $body);
+    }
+
     public function testStorePassesServiceTagInDineIn(): void
     {
         // 7a : un numero de table saisi en sur place est transmis a createStaffOrder et

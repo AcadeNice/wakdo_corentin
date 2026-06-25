@@ -82,6 +82,9 @@ $jsProducts = array_map(
         'category_id'   => (int) ($p['category_id'] ?? 0),
         'category_name' => $catNameOf($p),
         'modifiers'     => $jsModifiers($p['modifiers'] ?? null),
+        // RG-T21 : false = rupture de stock calculee. La tuile reste visible (parite
+        // borne) mais grisee et non tappable cote JS. Absent => commandable par defaut.
+        'commandable'   => ($p['is_orderable'] ?? true) !== false,
     ],
     $productRows,
 );
@@ -98,6 +101,9 @@ $jsMenus = array_map(
             'image'            => (string) ($m['image_path'] ?? ''),
             'category_id'      => (int) ($m['category_id'] ?? 0),
             'category_name'    => $catNameOf($m),
+            // RG-T21 (granularite burger impose seul) : false = burger en rupture
+            // calculee. La tuile menu reste visible mais grisee et non tappable.
+            'commandable'      => ($m['is_orderable'] ?? true) !== false,
             // Modificateurs du burger support : la selection d'un menu cible le burger
             // (resolveModifiers cote serveur le resout sur burger_product_id).
             'burger_modifiers' => $jsModifiers($m['burger_modifiers'] ?? null),

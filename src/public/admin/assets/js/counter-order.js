@@ -854,13 +854,25 @@
             var tile = el('button', 'pos-tile');
             tile.type = 'button';
 
+            // RG-T21 (parite borne, page-products.js) : commandable=false = rupture de
+            // stock calculee. La tuile reste visible (l'equipier voit le produit) mais
+            // grisee, marquee aria-disabled, badgee "Indisponible", et son tap ne fait
+            // rien (return precoce plus bas). L'enforcement qui fait foi reste serveur a
+            // la creation de commande ; ici c'est un echo UX. Absent => commandable.
+            var orderable = entry.commandable !== false;
+            if (!orderable) {
+                tile.className = 'pos-tile pos-tile--unavailable';
+                tile.setAttribute('aria-disabled', 'true');
+            }
+
             // Une tuile qui ouvre la modale (menu ou produit a modificateurs) annonce
             // l'intention dans son nom accessible (D) et porte aria-haspopup=dialog : le
             // lecteur d'ecran sait qu'un tap ouvre une boite de dialogue de composition,
-            // pas un ajout sec. Le badge visuel "Menu"/"A composer" reste decoratif.
-            var opensModal = kind === 'menu' || (entry.modifiers && entry.modifiers.length);
+            // pas un ajout sec. Le badge visuel "Menu"/"A composer" reste decoratif. Une
+            // tuile en rupture n'ouvre aucune modale -> pas d'aria-haspopup.
+            var opensModal = orderable && (kind === 'menu' || (entry.modifiers && entry.modifiers.length));
             var intent = opensModal ? (kind === 'menu' ? ', menu a composer' : ', a composer') : '';
-            tile.setAttribute('aria-label', entry.name + ', ' + priceLabel + intent);
+            tile.setAttribute('aria-label', entry.name + ', ' + priceLabel + intent + (orderable ? '' : ', indisponible'));
             if (opensModal) {
                 tile.setAttribute('aria-haspopup', 'dialog');
             }
@@ -895,15 +907,36 @@
             tile.appendChild(body);
 
             // Badge visuel "Menu"/"A composer" (decoratif : l'intention est deja dans
-            // l'aria-label ci-dessus ; aria-hidden evite la double annonce).
+            // l'aria-label ci-dessus ; aria-hidden evite la double annonce). Une tuile en
+            // rupture porte plutot le badge "Indisponible" (l'intention de composer ne
+            // s'applique pas a une tuile non tappable).
             if (opensModal) {
                 var badge = el('span', 'pos-tile__badge');
                 badge.setAttribute('aria-hidden', 'true');
                 badge.textContent = kind === 'menu' ? 'Menu' : 'A composer';
                 tile.appendChild(badge);
             }
+            if (!orderable) {
+                // Badge "Indisponible" (parite borne : product-card__badge). L'etat est
+                // deja dans l'aria-label ; aria-hidden evite la double annonce.
+                var unavailableBadge = el('span', 'pos-tile__badge pos-tile__badge--unavailable');
+                unavailableBadge.setAttribute('aria-hidden', 'true');
+                unavailableBadge.textContent = 'Indisponible';
+                tile.appendChild(unavailableBadge);
+            }
 
-            tile.addEventListener('click', onTap);
+            tile.addEventListener('click', function (event) {
+                // Rupture (RG-T21) : le tap ne fait rien (ni ajout ni modale), comme la
+                // borne (page-products.js : if (!orderable) return). preventDefault pour
+                // un eventuel comportement par defaut du bouton.
+                if (!orderable) {
+                    if (event && typeof event.preventDefault === 'function') {
+                        event.preventDefault();
+                    }
+                    return;
+                }
+                onTap(event);
+            });
             return tile;
         }
 
