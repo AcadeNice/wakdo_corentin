@@ -32,10 +32,13 @@ class KitchenController extends AdminController
 
         $sources = $this->orderQuery()->visibleSources($guard->roleId ?? 0);
 
+        // paidQueueWithDetail : memes commandes que paidQueue, enrichies du detail des
+        // articles (selections + modificateurs) et d'une bande SLA derivee de paid_at,
+        // pour que le KDS soit exploitable pour PREPARER (et pas seulement lister).
         return $this->adminView('admin/kitchen/display', [
             'title'      => 'Cuisine - Wakdo Admin',
             'activeNav'  => 'kitchen',
-            'orders'     => $this->orderQuery()->paidQueue($sources),
+            'orders'     => $this->orderQuery()->paidQueueWithDetail($sources),
             'canDeliver' => $this->may($guard, 'order.deliver'),
         ], $guard);
     }
