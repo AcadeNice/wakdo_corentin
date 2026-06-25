@@ -136,6 +136,23 @@ final class IngredientRepository
     }
 
     /**
+     * Reglage rapide des seuils depuis le tableau de bord stock (F13). Cible UNIQUEMENT
+     * les trois colonnes de calibrage (capacite = reference 100 %, seuils alerte/critique
+     * en %), distinctes de update() qui exige aussi name/unit/pack. stock_quantity n'est
+     * jamais touche : le niveau ne bouge que via restock/inventoryCount (ledger). Les
+     * bornes (capacite >= 1, % 0-100, critique < alerte strict) sont validees par
+     * l'appelant (controleur, RG-T18), pas ici.
+     */
+    public function updateThresholds(int $id, int $capacity, int $low, int $critical): void
+    {
+        $this->db->execute(
+            'UPDATE ingredient SET stock_capacity = :cap, low_stock_pct = :low, '
+            . 'critical_stock_pct = :crit WHERE id = :id',
+            ['cap' => $capacity, 'low' => $low, 'crit' => $critical, 'id' => $id],
+        );
+    }
+
+    /**
      * Suppression dure. Bloquee par FK RESTRICT (product_ingredient / stock_movement)
      * des qu'une recette ou un mouvement reference l'ingredient ; le controleur
      * attrape SQLSTATE 23000 -> 409 et propose la desactivation.

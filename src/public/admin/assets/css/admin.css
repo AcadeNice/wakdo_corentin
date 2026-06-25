@@ -2103,3 +2103,36 @@ tbody td.mono {
         justify-content: flex-start;
     }
 }
+
+/* Bandeau de confirmation (flash succes, pose par setFlash apres redirection) et sa
+   variante erreur (re-rendu 422 du reglage rapide de seuils, F13). */
+.flash {
+    color: var(--color-success-text);
+    background: var(--color-success-bg);
+    border-radius: var(--radius-md);
+    padding: 10px 14px;
+    margin-bottom: 16px;
+    font-size: 14px;
+}
+.flash-error {
+    color: var(--color-danger-text);
+    background: var(--color-danger-bg);
+}
+
+/* Aide sous un champ de formulaire (texte explicatif, pas une erreur). */
+.form-hint {
+    color: var(--color-text-muted);
+    font-size: 12px;
+    margin-top: 4px;
+}
+
+/* Zone d'actions d'une carte a reapprovisionner : reappro + reglage des seuils empiles. */
+.stock-card__actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.stock-card__actions .btn-sm {
+    width: 100%;
+    justify-content: center;
+}

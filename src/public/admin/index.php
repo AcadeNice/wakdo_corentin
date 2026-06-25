@@ -221,6 +221,11 @@ try {
     $router->add('POST', '/admin/ingredients/{id}/delete', [IngredientController::class, 'destroy']);
     $router->add('GET', '/admin/ingredients/{id}/restock', [IngredientController::class, 'restockForm']);
     $router->add('POST', '/admin/ingredients/{id}/restock', [IngredientController::class, 'restock']);
+    // Reglage rapide des seuils (F13) : capacite/alerte/critique edites depuis la page
+    // Stock via une modale, sans passer par le formulaire complet. stock.manage (calibrage
+    // du stock), CSRF, SANS PIN (config, pas un comptage d'inventaire). {id} = un seul
+    // segment ; /thresholds ne chevauche ni /restock ni /inventory.
+    $router->add('POST', '/admin/ingredients/{id}/thresholds', [IngredientController::class, 'updateThresholds']);
     $router->add('GET', '/admin/ingredients/{id}/inventory', [IngredientController::class, 'inventoryForm']);
     $router->add('POST', '/admin/ingredients/{id}/inventory', [IngredientController::class, 'inventory']);
     $router->add('GET', '/admin/ingredients/{id}/movements', [IngredientController::class, 'movements']);

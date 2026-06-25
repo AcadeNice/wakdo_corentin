@@ -47,6 +47,17 @@ class IngredientController extends AdminController
             return $guard;
         }
 
+        return $this->renderIndex($guard);
+    }
+
+    /**
+     * Rend le tableau de bord stock. Factorise pour servir la lecture (index, 200) et le
+     * re-rendu en erreur du reglage rapide de seuils (updateThresholds, 422). $error est
+     * affiche en bandeau si present. Les drapeaux de permission pilotent l'affichage des
+     * actions (la garde reelle reste par-route).
+     */
+    private function renderIndex(GuardResult $guard, ?string $error = null, int $status = 200): Response
+    {
         $ingredients = $this->ingredientRepository()->all();
 
         // Compteurs par bande pour le resume du tableau de bord (3 pastilles).
@@ -59,14 +70,15 @@ class IngredientController extends AdminController
         }
 
         return $this->adminView('admin/ingredients/index', [
-            'title'       => 'Stock - Wakdo Admin',
-            'activeNav'   => 'stock',
-            'ingredients' => $ingredients,
-            'bandCounts'  => $counts,
-            'canManage'   => $this->may($guard, 'ingredient.manage'),
-            'canRestock'  => $this->may($guard, 'stock.manage'),
-            'canCount'    => $this->may($guard, 'stock.count'),
-        ], $guard);
+            'title'          => 'Stock - Wakdo Admin',
+            'activeNav'      => 'stock',
+            'ingredients'    => $ingredients,
+            'bandCounts'     => $counts,
+            'canManage'      => $this->may($guard, 'ingredient.manage'),
+            'canRestock'     => $this->may($guard, 'stock.manage'),
+            'canCount'       => $this->may($guard, 'stock.count'),
+            'thresholdError' => $error,
+        ], $guard, $status);
     }
 
     /**
@@ -299,6 +311,49 @@ class IngredientController extends AdminController
         }
 
         $this->setFlash('Ingredient supprime.');
+
+        return $this->redirect('/admin/ingredients');
+    }
+
+    /**
+     * Reglage rapide des seuils depuis le tableau de bord stock (F13). Endpoint LEGER :
+     * ne reutilise PAS update() (qui exige name/unit/pack), il ne valide et n'ecrit que
+     * capacite + seuils alerte/critique. Permission stock.manage (calibrage du stock, pas
+     * du catalogue), CSRF, SANS PIN (config, pas un comptage d'inventaire RG-T13). Succes
+     * -> redirect liste + flash ; erreur de validation -> 422 re-rendu de la liste avec un
+     * bandeau d'erreur (convention restock/inventory : 422 + message, pas de redirect muet).
+     *
+     * @param array<string, string> $params
+     */
+    public function updateThresholds(array $params): Response
+    {
+        $guard = $this->guard('stock.manage');
+        if ($guard instanceof Response) {
+            return $guard;
+        }
+
+        $form = $this->request->formBody();
+        if (!Csrf::validate($this->sessionManager(), $form['_csrf'] ?? null)) {
+            return $this->invalidCsrf();
+        }
+
+        $id = (int) ($params['id'] ?? 0);
+        $ingredient = $this->ingredientRepository()->find($id);
+        if ($ingredient === null) {
+            return $this->notFound($guard);
+        }
+
+        [$data, $errors] = $this->validateThresholds($form);
+        if ($errors !== []) {
+            // Premier message d'erreur en bandeau : la modale est rouverte cote client si
+            // besoin ; l'equipier voit la raison du rejet sans jargon de champ.
+            $messages = array_values($errors);
+
+            return $this->renderIndex($guard, $messages[0], 422);
+        }
+
+        $this->ingredientRepository()->updateThresholds($id, $data['stock_capacity'], $data['low_stock_pct'], $data['critical_stock_pct']);
+        $this->setFlash('Seuils mis a jour.');
 
         return $this->redirect('/admin/ingredients');
     }
@@ -562,12 +617,6 @@ class IngredientController extends AdminController
             $errors['unit'] = 'L unite est requise (40 caracteres max).';
         }
 
-        $capRaw = trim($form['stock_capacity'] ?? '');
-        $capValid = ctype_digit($capRaw) && (int) $capRaw >= 1 && (int) $capRaw <= 2147483647;
-        if (!$capValid) {
-            $errors['stock_capacity'] = 'La capacite (reference 100%) doit etre un entier >= 1.';
-        }
-
         $packRaw = trim($form['pack_size'] ?? '');
         $packValid = ctype_digit($packRaw) && (int) $packRaw >= 1 && (int) $packRaw <= 65535;
         if (!$packValid) {
@@ -577,6 +626,45 @@ class IngredientController extends AdminController
         $label = trim($form['pack_label'] ?? '');
         if ($label !== '' && mb_strlen($label) > 80) {
             $errors['pack_label'] = 'Libelle de pack trop long (80 caracteres max).';
+        }
+
+        // Capacite + seuils : meme regle (capacite >= 1, % 0-100, critique < alerte strict)
+        // que le reglage rapide F13 -> source unique validateThresholds(), pas de copie
+        // divergente. Les messages restent indexes par champ pour le formulaire complet.
+        [$thresholds, $thresholdErrors] = $this->validateThresholds($form);
+        $errors = array_merge($errors, $thresholdErrors);
+
+        $data = [
+            'name'               => $name,
+            'unit'               => $unit,
+            'stock_capacity'     => $thresholds['stock_capacity'],
+            'pack_size'          => $packValid ? (int) $packRaw : 0,
+            'pack_label'         => $label !== '' ? $label : null,
+            'low_stock_pct'      => $thresholds['low_stock_pct'],
+            'critical_stock_pct' => $thresholds['critical_stock_pct'],
+        ];
+
+        return [$data, $errors];
+    }
+
+    /**
+     * Validation des trois reglages de calibrage du stock, partagee par le formulaire
+     * complet (validate) et l'endpoint leger F13 (updateThresholds) pour qu'une seule
+     * regle existe : capacite (reference 100 %) >= 1 ; seuils alerte/critique entiers
+     * 0-100 ; critique STRICTEMENT inferieur a alerte (RG-CREATE-ING, garanti aussi par
+     * un CHECK de table). Renvoie [valeurs normalisees, erreurs indexees par champ].
+     *
+     * @param array<string, string> $form
+     * @return array{0: array{stock_capacity: int, low_stock_pct: int, critical_stock_pct: int}, 1: array<string, string>}
+     */
+    private function validateThresholds(array $form): array
+    {
+        $errors = [];
+
+        $capRaw = trim($form['stock_capacity'] ?? '');
+        $capValid = ctype_digit($capRaw) && (int) $capRaw >= 1 && (int) $capRaw <= 2147483647;
+        if (!$capValid) {
+            $errors['stock_capacity'] = 'La capacite (reference 100%) doit etre un entier >= 1.';
         }
 
         $lowRaw = trim($form['low_stock_pct'] ?? '');
@@ -591,17 +679,12 @@ class IngredientController extends AdminController
             $errors['critical_stock_pct'] = 'Le seuil critique doit etre un entier entre 0 et 100.';
         }
 
-        // RG-CREATE-ING : critical_stock_pct < low_stock_pct (strict).
         if ($lowValid && $critValid && (int) $critRaw >= (int) $lowRaw) {
             $errors['critical_stock_pct'] = 'Le seuil critique doit etre strictement inferieur au seuil d alerte.';
         }
 
         $data = [
-            'name'               => $name,
-            'unit'               => $unit,
             'stock_capacity'     => $capValid ? (int) $capRaw : 0,
-            'pack_size'          => $packValid ? (int) $packRaw : 0,
-            'pack_label'         => $label !== '' ? $label : null,
             'low_stock_pct'      => $lowValid ? (int) $lowRaw : 0,
             'critical_stock_pct' => $critValid ? (int) $critRaw : 0,
         ];

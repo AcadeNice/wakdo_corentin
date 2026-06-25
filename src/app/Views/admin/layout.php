@@ -169,5 +169,6 @@ $navClass = static function (string $code, string $current): string {
 </div>
 <script src="/assets/js/admin.js"></script>
 <script src="/assets/js/pin-modal.js"></script>
+<script src="/assets/js/stock-thresholds.js"></script>
 </body>
 </html>
