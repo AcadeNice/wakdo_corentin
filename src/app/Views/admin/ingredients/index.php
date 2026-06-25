@@ -12,10 +12,11 @@ declare(strict_types=1);
  *
  * @var array<int, array<string, mixed>> $ingredients
  * @var array<string, int>               $bandCounts
- * @var bool   $canManage
- * @var bool   $canRestock
- * @var bool   $canCount
- * @var string $csrfToken
+ * @var bool        $canManage
+ * @var bool        $canRestock
+ * @var bool        $canCount
+ * @var string|null $thresholdError
+ * @var string      $csrfToken
  */
 
 /** @var array<int, array<string, mixed>> $rows */
@@ -31,6 +32,29 @@ $count = (bool) ($canCount ?? false);
 $nCritical = (int) ($counts['critical'] ?? 0);
 $nLow = (int) ($counts['low'] ?? 0);
 $nNormal = (int) ($counts['normal'] ?? 0);
+$thresholdErr = isset($thresholdError) && is_string($thresholdError) ? $thresholdError : null;
+
+/**
+ * Bouton "Regler les seuils" (F13). Ouvre la modale pre-remplie via des data-attributes
+ * (l'id pour l'action POST, le nom pour le titre, les trois valeurs courantes) ; le JS
+ * stock-thresholds.js intercepte le clic. Affiche seulement si le role peut calibrer le
+ * stock ($restock = stock.manage). Valeurs echappees (attributs HTML).
+ *
+ * @param array<string, mixed> $row
+ */
+$renderThresholdButton = static function (array $row) use ($esc, $restock): string {
+    if (!$restock) {
+        return '';
+    }
+    $id = (int) ($row['id'] ?? 0);
+
+    return '<button type="button" class="btn btn-ghost btn-sm" data-threshold-open'
+        . ' data-id="' . $id . '"'
+        . ' data-name="' . $esc($row['name'] ?? '') . '"'
+        . ' data-capacity="' . (int) ($row['stock_capacity'] ?? 0) . '"'
+        . ' data-low="' . (int) ($row['low_stock_pct'] ?? 0) . '"'
+        . ' data-critical="' . (int) ($row['critical_stock_pct'] ?? 0) . '">Regler les seuils</button>';
+};
 
 // Les ingredients a reapprovisionner : critiques d'abord, puis en alerte. Le reste
 // (au-dessus des seuils) va dans la liste calme "Tous les ingredients" plus bas.
@@ -92,6 +116,10 @@ $renderBar = static function (array $row) use ($esc, $barClass): string {
     <?php endif; ?>
 </div>
 
+<?php if ($thresholdErr !== null && $thresholdErr !== ''): ?>
+    <div class="flash flash-error" role="alert"><?= $esc($thresholdErr) ?></div>
+<?php endif; ?>
+
 <p class="stock-explainer">
     Le stock pilote ce qui est commandable sur la borne. Un ingredient requis par une
     recette qui passe sous son seuil critique rend les produits qui l utilisent
@@ -137,9 +165,12 @@ $renderBar = static function (array $row) use ($esc, $barClass): string {
                         <span class="<?= $bandPill ?>"><?= $bandText ?></span>
                     </div>
                     <?= $renderBar($row) ?>
-                    <?php if ($restock): ?>
-                        <a class="btn btn-primary stock-card__action" href="/admin/ingredients/<?= $id ?>/restock">Reapprovisionner</a>
-                    <?php endif; ?>
+                    <div class="stock-card__actions">
+                        <?php if ($restock): ?>
+                            <a class="btn btn-primary stock-card__action" href="/admin/ingredients/<?= $id ?>/restock">Reapprovisionner</a>
+                        <?php endif; ?>
+                        <?= $renderThresholdButton($row) ?>
+                    </div>
                 </div>
             <?php endforeach; ?>
         </div>
@@ -172,6 +203,7 @@ $renderBar = static function (array $row) use ($esc, $barClass): string {
                         <?php if ($count): ?>
                             <a class="btn btn-secondary btn-sm" href="/admin/ingredients/<?= $id ?>/inventory">Inventaire</a>
                         <?php endif; ?>
+                        <?= $renderThresholdButton($row) ?>
                         <a class="btn btn-ghost btn-sm" href="/admin/ingredients/<?= $id ?>/movements">Mouvements</a>
                         <?php if ($manage): ?>
                             <span class="stock-list__crud">
@@ -189,3 +221,45 @@ $renderBar = static function (array $row) use ($esc, $barClass): string {
         </ul>
     <?php endif; ?>
 </section>
+
+<?php if ($restock): ?>
+    <?php /*
+        Modale de reglage rapide des seuils (F13), rendue serveur (VRAI form POST + CSRF,
+        comme restock/inventory ; pas de fetch). Une seule modale pour la page : le bouton
+        clique (data-threshold-open) y injecte l'action /admin/ingredients/{id}/thresholds
+        et pre-remplit les trois champs depuis ses data-attributes (stock-thresholds.js).
+        Reutilise les classes .pin-modal-* (overlay generique). Cachee par defaut (pas de
+        classe .open) : sans JS, elle reste invisible et les actions classiques fonctionnent.
+    */ ?>
+    <div class="pin-modal-overlay" data-threshold-modal role="dialog" aria-modal="true" aria-label="Reglage des seuils de stock">
+        <div class="pin-modal">
+            <div class="pin-modal-head">
+                <div>
+                    <h2 class="pin-modal-title">Regler les seuils</h2>
+                    <p class="pin-modal-sub" data-threshold-name>Capacite de reference et seuils d alerte de l ingredient.</p>
+                </div>
+            </div>
+            <form method="post" action="" data-threshold-form>
+                <input type="hidden" name="_csrf" value="<?= $csrf ?>">
+                <div class="form-group">
+                    <label class="form-label" for="th-capacity">Capacite (quantite consideree comme 100%)</label>
+                    <input class="form-input" type="number" id="th-capacity" name="stock_capacity" min="1" step="1" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="th-low">Seuil d alerte (% du plein)</label>
+                    <input class="form-input" type="number" id="th-low" name="low_stock_pct" min="0" max="100" step="1" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="th-critical">Seuil critique (% du plein)</label>
+                    <input class="form-input" type="number" id="th-critical" name="critical_stock_pct" min="0" max="100" step="1" required>
+                    <p class="form-hint">Le seuil critique doit etre inferieur au seuil d alerte. Sous le critique, les produits qui utilisent cet ingredient passent indisponibles sur la borne.</p>
+                </div>
+                <p class="form-error" data-threshold-error hidden></p>
+                <div class="pin-modal-actions">
+                    <button class="btn btn-secondary" type="button" data-threshold-cancel>Annuler</button>
+                    <button class="btn btn-primary" type="submit">Enregistrer les seuils</button>
+                </div>
+            </form>
+        </div>
+    </div>
+<?php endif; ?>

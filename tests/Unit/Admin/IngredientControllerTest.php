@@ -256,6 +256,41 @@ final class IngredientControllerTest extends TestCase
         self::assertMatchesRegularExpression('/stock-summary__count">1<\/span>\s*<span class="stock-summary__label">au-dessus du seuil/', $body);
     }
 
+    public function testIndexExposesThresholdButtonWithCurrentValuesForStockManager(): void
+    {
+        // F13 : la page Stock porte un acces rapide "Regler les seuils" decore des
+        // valeurs courantes (data-attributes) qui pre-remplissent la modale, plus la
+        // modale rendue serveur (VRAI form POST). Visible pour stock.manage.
+        $db = $this->permittedDb();
+        $db->ingredientsRows = [$this->ingredient(['stock_capacity' => 100, 'low_stock_pct' => 12, 'critical_stock_pct' => 4])];
+
+        $body = $this->controller($this->get('/admin/ingredients'), $db)->index()->body();
+
+        self::assertStringContainsString('Regler les seuils', $body);
+        self::assertStringContainsString('data-threshold-open', $body);
+        self::assertStringContainsString('data-capacity="100"', $body);
+        self::assertStringContainsString('data-low="12"', $body);
+        self::assertStringContainsString('data-critical="4"', $body);
+        // Modale rendue serveur avec un VRAI form POST (pas de fetch) + champs cibles.
+        self::assertStringContainsString('data-threshold-modal', $body);
+        self::assertStringContainsString('name="stock_capacity"', $body);
+        self::assertStringContainsString('name="critical_stock_pct"', $body);
+    }
+
+    public function testIndexHidesThresholdAccessWithoutStockManage(): void
+    {
+        // Sans stock.manage (lecture seule), ni le bouton ni la modale ne sont rendus :
+        // l'acces rapide suit la permission de calibrage.
+        $db = $this->permittedDb();
+        $db->grantedCodes = ['stock.read'];
+        $db->ingredientsRows = [$this->ingredient()];
+
+        $body = $this->controller($this->get('/admin/ingredients'), $db)->index()->body();
+
+        self::assertStringNotContainsString('data-threshold-open', $body);
+        self::assertStringNotContainsString('data-threshold-modal', $body);
+    }
+
     public function testIndexForbiddenWithoutStockRead(): void
     {
         $db = $this->permittedDb();
@@ -425,6 +460,100 @@ final class IngredientControllerTest extends TestCase
 
         self::assertSame(409, $response->status());
         self::assertStringContainsString('reference', $response->body());
+    }
+
+    // --- THRESHOLDS (F13, stock.manage, SANS PIN) : reglage rapide capacite + seuils ---
+
+    public function testUpdateThresholdsWritesOnlyTheThreeColumns(): void
+    {
+        $db = $this->permittedDb();
+        $form = ['_csrf' => $this->csrf, 'stock_capacity' => '200', 'low_stock_pct' => '15', 'critical_stock_pct' => '5'];
+
+        $response = $this->controller($this->post($form, '/admin/ingredients/5/thresholds'), $db)->updateThresholds(['id' => '5']);
+
+        self::assertSame(302, $response->status());
+        self::assertSame('/admin/ingredients', $response->header('Location'));
+        $params = $this->writeParams($db, 'UPDATE ingredient SET stock_capacity');
+        self::assertNotNull($params);
+        self::assertSame(200, $params['cap']);
+        self::assertSame(15, $params['low']);
+        self::assertSame(5, $params['crit']);
+        // Endpoint leger : ne touche ni le stock ni le catalogue (name/unit/pack/is_active).
+        $sql = $this->writeSql($db, 'UPDATE ingredient SET stock_capacity');
+        self::assertStringNotContainsString('stock_quantity', $sql);
+        self::assertStringNotContainsString('is_active', $sql);
+        self::assertStringNotContainsString('name', $sql);
+        self::assertStringNotContainsString('pack_size', $sql);
+    }
+
+    public function testUpdateThresholdsRejectsCapacityBelowOne(): void
+    {
+        $db = $this->permittedDb();
+        $form = ['_csrf' => $this->csrf, 'stock_capacity' => '0', 'low_stock_pct' => '15', 'critical_stock_pct' => '5'];
+
+        $response = $this->controller($this->post($form, '/admin/ingredients/5/thresholds'), $db)->updateThresholds(['id' => '5']);
+
+        self::assertSame(422, $response->status());
+        self::assertFalse($db->wrote('UPDATE ingredient SET stock_capacity'));
+        self::assertStringContainsString('capacite', $response->body());
+    }
+
+    public function testUpdateThresholdsRejectsPercentageAboveHundred(): void
+    {
+        $db = $this->permittedDb();
+        $form = ['_csrf' => $this->csrf, 'stock_capacity' => '100', 'low_stock_pct' => '120', 'critical_stock_pct' => '5'];
+
+        $response = $this->controller($this->post($form, '/admin/ingredients/5/thresholds'), $db)->updateThresholds(['id' => '5']);
+
+        self::assertSame(422, $response->status());
+        self::assertFalse($db->wrote('UPDATE ingredient SET stock_capacity'));
+    }
+
+    public function testUpdateThresholdsRejectsCriticalNotStrictlyBelowLow(): void
+    {
+        $db = $this->permittedDb();
+        $form = ['_csrf' => $this->csrf, 'stock_capacity' => '100', 'low_stock_pct' => '10', 'critical_stock_pct' => '10'];
+
+        $response = $this->controller($this->post($form, '/admin/ingredients/5/thresholds'), $db)->updateThresholds(['id' => '5']);
+
+        self::assertSame(422, $response->status());
+        self::assertFalse($db->wrote('UPDATE ingredient SET stock_capacity'));
+        self::assertStringContainsString('strictement inferieur', $response->body());
+    }
+
+    public function testUpdateThresholdsForbiddenWithoutStockManage(): void
+    {
+        $db = $this->permittedDb();
+        $db->grantedCodes = ['stock.read']; // lecture sans stock.manage
+        $form = ['_csrf' => $this->csrf, 'stock_capacity' => '100', 'low_stock_pct' => '10', 'critical_stock_pct' => '5'];
+
+        $response = $this->controller($this->post($form, '/admin/ingredients/5/thresholds'), $db)->updateThresholds(['id' => '5']);
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($db->wrote('UPDATE ingredient SET stock_capacity'));
+    }
+
+    public function testUpdateThresholdsRejectsInvalidCsrf(): void
+    {
+        $db = $this->permittedDb();
+        $form = ['_csrf' => 'bad', 'stock_capacity' => '100', 'low_stock_pct' => '10', 'critical_stock_pct' => '5'];
+
+        $response = $this->controller($this->post($form, '/admin/ingredients/5/thresholds'), $db)->updateThresholds(['id' => '5']);
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($db->wrote('UPDATE ingredient SET stock_capacity'));
+    }
+
+    public function testUpdateThresholdsNotFound(): void
+    {
+        $db = $this->permittedDb();
+        $db->ingredientRow = null;
+        $form = ['_csrf' => $this->csrf, 'stock_capacity' => '100', 'low_stock_pct' => '10', 'critical_stock_pct' => '5'];
+
+        $response = $this->controller($this->post($form, '/admin/ingredients/9/thresholds'), $db)->updateThresholds(['id' => '9']);
+
+        self::assertSame(404, $response->status());
+        self::assertFalse($db->wrote('UPDATE ingredient SET stock_capacity'));
     }
 
     // --- RESTOCK (9.1, stock.manage, SANS PIN) ---
