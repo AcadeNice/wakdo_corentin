@@ -18,6 +18,12 @@
 --     the application layer.
 --   - No CREATE DATABASE / USE here: the target DB is chosen by the runner.
 --   - No seed / INSERT data here (see db/seeds/0001_demo_data.sql).
+--
+-- Idempotence (defense en profondeur, suivi par schema_migrations) : chaque table
+-- est creee en CREATE TABLE IF NOT EXISTS. Index, cles uniques et contraintes
+-- (FK / CHECK) sont declares INLINE dans le CREATE TABLE : ils ne sont donc pas
+-- re-joues quand la table preexiste. Re-jouer ce fichier sur une base deja
+-- migree ne modifie pas le schema (aucun ALTER autonome).
 -- =============================================================================
 
 SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -29,7 +35,7 @@ SET FOREIGN_KEY_CHECKS = 0;
 -- -----------------------------------------------------------------------------
 -- 4.1 category — root table for the Catalogue sub-domain (no FK)
 -- -----------------------------------------------------------------------------
-CREATE TABLE category (
+CREATE TABLE IF NOT EXISTS category (
     id            INT UNSIGNED    NOT NULL AUTO_INCREMENT,
     name          VARCHAR(60)     NOT NULL,
     slug          VARCHAR(60)     NOT NULL,
@@ -46,7 +52,7 @@ CREATE TABLE category (
 -- -----------------------------------------------------------------------------
 -- 4.6 ingredient — root table for Ingredients & Stock (no FK)
 -- -----------------------------------------------------------------------------
-CREATE TABLE ingredient (
+CREATE TABLE IF NOT EXISTS ingredient (
     id                 INT UNSIGNED      NOT NULL AUTO_INCREMENT,
     name               VARCHAR(120)      NOT NULL,
     unit               VARCHAR(40)       NOT NULL,
@@ -71,7 +77,7 @@ CREATE TABLE ingredient (
 -- -----------------------------------------------------------------------------
 -- 4.8 allergen — reference table (INCO EU 1169/2011), no FK
 -- -----------------------------------------------------------------------------
-CREATE TABLE allergen (
+CREATE TABLE IF NOT EXISTS allergen (
     id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
     code        VARCHAR(30)  NOT NULL,
     name        VARCHAR(80)  NOT NULL,
@@ -83,7 +89,7 @@ CREATE TABLE allergen (
 -- -----------------------------------------------------------------------------
 -- 4.10 role — root table for RBAC (no FK)
 -- -----------------------------------------------------------------------------
-CREATE TABLE role (
+CREATE TABLE IF NOT EXISTS role (
     id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
     code          VARCHAR(40)  NOT NULL,
     label         VARCHAR(80)  NOT NULL,
@@ -100,7 +106,7 @@ CREATE TABLE role (
 -- -----------------------------------------------------------------------------
 -- 4.13 permission — reference table, catalogue frozen at 23 codes (no FK)
 -- -----------------------------------------------------------------------------
-CREATE TABLE permission (
+CREATE TABLE IF NOT EXISTS permission (
     id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
     code        VARCHAR(60)  NOT NULL,
     label       VARCHAR(120) NOT NULL,
@@ -113,7 +119,7 @@ CREATE TABLE permission (
 -- -----------------------------------------------------------------------------
 -- 4.21 login_throttle — per-source-IP brute-force throttle (no FK)
 -- -----------------------------------------------------------------------------
-CREATE TABLE login_throttle (
+CREATE TABLE IF NOT EXISTS login_throttle (
     id                INT UNSIGNED      NOT NULL AUTO_INCREMENT,
     ip_address        VARCHAR(45)       NOT NULL,
     failed_attempts   SMALLINT UNSIGNED NOT NULL DEFAULT 0,
@@ -128,7 +134,7 @@ CREATE TABLE login_throttle (
 -- -----------------------------------------------------------------------------
 -- 4.2 product — depends on category
 -- -----------------------------------------------------------------------------
-CREATE TABLE product (
+CREATE TABLE IF NOT EXISTS product (
     id            INT UNSIGNED      NOT NULL AUTO_INCREMENT,
     category_id   INT UNSIGNED      NOT NULL,
     name          VARCHAR(120)      NOT NULL,
@@ -151,7 +157,7 @@ CREATE TABLE product (
 -- -----------------------------------------------------------------------------
 -- 4.3 menu — depends on category, product
 -- -----------------------------------------------------------------------------
-CREATE TABLE menu (
+CREATE TABLE IF NOT EXISTS menu (
     id                 INT UNSIGNED      NOT NULL AUTO_INCREMENT,
     category_id        INT UNSIGNED      NOT NULL,
     burger_product_id  INT UNSIGNED      NOT NULL,
@@ -177,7 +183,7 @@ CREATE TABLE menu (
 -- -----------------------------------------------------------------------------
 -- 4.4 menu_slot — depends on menu (no audit fields)
 -- -----------------------------------------------------------------------------
-CREATE TABLE menu_slot (
+CREATE TABLE IF NOT EXISTS menu_slot (
     id            INT UNSIGNED      NOT NULL AUTO_INCREMENT,
     menu_id       INT UNSIGNED      NOT NULL,
     name          VARCHAR(80)       NOT NULL,
@@ -194,7 +200,7 @@ CREATE TABLE menu_slot (
 -- 4.5 menu_slot_option — pure join table, composite PK
 --                        depends on menu_slot, product
 -- -----------------------------------------------------------------------------
-CREATE TABLE menu_slot_option (
+CREATE TABLE IF NOT EXISTS menu_slot_option (
     menu_slot_id INT UNSIGNED NOT NULL,
     product_id   INT UNSIGNED NOT NULL,
     PRIMARY KEY (menu_slot_id, product_id),
@@ -209,7 +215,7 @@ CREATE TABLE menu_slot_option (
 -- 4.7 product_ingredient — join table with attributes, composite PK
 --                          depends on product, ingredient
 -- -----------------------------------------------------------------------------
-CREATE TABLE product_ingredient (
+CREATE TABLE IF NOT EXISTS product_ingredient (
     product_id        INT UNSIGNED      NOT NULL,
     ingredient_id     INT UNSIGNED      NOT NULL,
     quantity_normal   SMALLINT UNSIGNED NOT NULL DEFAULT 1,
@@ -232,7 +238,7 @@ CREATE TABLE product_ingredient (
 -- 4.9 ingredient_allergen — pure join table, composite PK
 --                           depends on ingredient, allergen
 -- -----------------------------------------------------------------------------
-CREATE TABLE ingredient_allergen (
+CREATE TABLE IF NOT EXISTS ingredient_allergen (
     ingredient_id INT UNSIGNED NOT NULL,
     allergen_id   INT UNSIGNED NOT NULL,
     PRIMARY KEY (ingredient_id, allergen_id),
@@ -246,7 +252,7 @@ CREATE TABLE ingredient_allergen (
 -- -----------------------------------------------------------------------------
 -- 4.11 user — depends on role
 -- -----------------------------------------------------------------------------
-CREATE TABLE user (
+CREATE TABLE IF NOT EXISTS user (
     id                        INT UNSIGNED      NOT NULL AUTO_INCREMENT,
     email                     VARCHAR(254)      NOT NULL,
     password_hash             VARCHAR(255)      NOT NULL,
@@ -275,7 +281,7 @@ CREATE TABLE user (
 -- 4.12 role_visible_source — pure join table, composite PK
 --                            depends on role
 -- -----------------------------------------------------------------------------
-CREATE TABLE role_visible_source (
+CREATE TABLE IF NOT EXISTS role_visible_source (
     role_id INT UNSIGNED NOT NULL,
     source  ENUM('kiosk','counter','drive') NOT NULL,
     PRIMARY KEY (role_id, source),
@@ -287,7 +293,7 @@ CREATE TABLE role_visible_source (
 -- 4.14 role_permission — pure join table, composite PK
 --                        depends on role, permission
 -- -----------------------------------------------------------------------------
-CREATE TABLE role_permission (
+CREATE TABLE IF NOT EXISTS role_permission (
     role_id       INT UNSIGNED NOT NULL,
     permission_id INT UNSIGNED NOT NULL,
     PRIMARY KEY (role_id, permission_id),
@@ -301,7 +307,7 @@ CREATE TABLE role_permission (
 -- -----------------------------------------------------------------------------
 -- 4.15 customer_order — depends on user (acting_user_id)
 -- -----------------------------------------------------------------------------
-CREATE TABLE customer_order (
+CREATE TABLE IF NOT EXISTS customer_order (
     id              INT UNSIGNED NOT NULL AUTO_INCREMENT,
     order_number    VARCHAR(20)  NOT NULL,
     idempotency_key VARCHAR(36)      NULL,
@@ -336,7 +342,7 @@ CREATE TABLE customer_order (
 -- 4.16 order_item — depends on customer_order, product, menu
 --                   polymorphic line (product XOR menu)
 -- -----------------------------------------------------------------------------
-CREATE TABLE order_item (
+CREATE TABLE IF NOT EXISTS order_item (
     id                        INT UNSIGNED      NOT NULL AUTO_INCREMENT,
     order_id                  INT UNSIGNED      NOT NULL,
     item_type                 ENUM('product','menu') NOT NULL,
@@ -370,7 +376,7 @@ CREATE TABLE order_item (
 -- -----------------------------------------------------------------------------
 -- 4.17 order_item_selection — depends on order_item, menu_slot, product
 -- -----------------------------------------------------------------------------
-CREATE TABLE order_item_selection (
+CREATE TABLE IF NOT EXISTS order_item_selection (
     id             INT UNSIGNED NOT NULL AUTO_INCREMENT,
     order_item_id  INT UNSIGNED NOT NULL,
     menu_slot_id   INT UNSIGNED NOT NULL,
@@ -391,7 +397,7 @@ CREATE TABLE order_item_selection (
 -- -----------------------------------------------------------------------------
 -- 4.18 order_item_modifier — depends on order_item, ingredient
 -- -----------------------------------------------------------------------------
-CREATE TABLE order_item_modifier (
+CREATE TABLE IF NOT EXISTS order_item_modifier (
     id                INT UNSIGNED NOT NULL AUTO_INCREMENT,
     order_item_id     INT UNSIGNED NOT NULL,
     ingredient_id     INT UNSIGNED NOT NULL,
@@ -411,7 +417,7 @@ CREATE TABLE order_item_modifier (
 -- 4.19 stock_movement — append-only audit log
 --                       depends on ingredient, customer_order, user
 -- -----------------------------------------------------------------------------
-CREATE TABLE stock_movement (
+CREATE TABLE IF NOT EXISTS stock_movement (
     id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
     ingredient_id INT UNSIGNED NOT NULL,
     movement_type ENUM('sale','cancellation','restock','inventory_correction') NOT NULL,
@@ -437,7 +443,7 @@ CREATE TABLE stock_movement (
 -- 4.20 audit_log — append-only sensitive-action log
 --                  depends on user, role
 -- -----------------------------------------------------------------------------
-CREATE TABLE audit_log (
+CREATE TABLE IF NOT EXISTS audit_log (
     id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
     actor_user_id INT UNSIGNED     NULL,
     actor_role_id INT UNSIGNED     NULL,

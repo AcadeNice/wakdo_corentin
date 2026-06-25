@@ -16,7 +16,10 @@
 
 SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;
 
-CREATE TABLE pin_throttle (
+-- Idempotence (defense en profondeur) : CREATE TABLE IF NOT EXISTS. La cle
+-- unique, l'index et la FK sont inline dans le CREATE TABLE, donc non re-joues
+-- quand la table preexiste. Re-jouer ce fichier ne modifie pas le schema.
+CREATE TABLE IF NOT EXISTS pin_throttle (
     id                INT UNSIGNED      NOT NULL AUTO_INCREMENT,
     actor_user_id     INT UNSIGNED      NOT NULL,
     failed_attempts   SMALLINT UNSIGNED NOT NULL DEFAULT 0,
