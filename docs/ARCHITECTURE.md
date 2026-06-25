@@ -17,13 +17,17 @@ Wakdo simule une borne de commande tactile de restauration rapide, avec back-off
 d'administration, workflow cuisine et API REST interne. Deux surfaces applicatives :
 
 - **Borne (kiosk)** — front statique (HTML/CSS/JS vanilla ES6) servi par Apache,
-  consommant des donnees (JSON statique en P5, API DB-backed au swap P4).
+  consommant l'API REST DB-backed (`/api/*`). Le repli JSON statique initial a ete
+  retire au profit d'un branchement direct sur l'API.
 - **Back-office + API** — application PHP rendue serveur (MVC maison) + endpoints
   `/api/*`, derriere authentification et RBAC.
 
 Trois canaux de commande (`source`) : `kiosk`, `counter`, `drive`. Le cycle de vie
-d'une commande et la machine a etats sont decrits dans `docs/merise/` (domaine
-commande = phase **P4**, schema en base mais workflow applicatif a venir).
+d'une commande et la machine a etats sont decrits dans `docs/merise/`. Le domaine
+commande est livre de bout en bout : creation et encaissement via l'API
+(`POST /api/orders`, `POST /api/orders/{number}/pay` avec decrement de stock),
+file cuisine (KDS), annulation et livraison cote back-office, saisie comptoir et
+drive (POS tactile).
 
 ---
 
@@ -132,8 +136,8 @@ src/app/
   Views/         admin/*  (pages back-office rendues serveur), auth/*  (login/reset)
 src/public/
   admin/         front controller + assets (CSS/JS) du back-office
-  borne/         front kiosk statique (index, categories, products, product, cart,
-                 payment, confirmation) + assets JS modules + data JSON
+  borne/         front kiosk statique (index, categories, products, payment,
+                 confirmation ; panier en panneau persistant) + assets JS modules
 ```
 
 Conventions transverses : controleurs non-`final` (seam de test : sous-classe injectant
@@ -165,7 +169,7 @@ Vue rendue dans admin/layout (sorties echappees, RG-T15) | ou JSON pour /api/*
 ```
 
 La borne (kiosk) est servie en statique par Apache ; ses pages consomment les donnees
-via `fetch` (JSON statique en P5 ; bascule sur `/api/*` DB-backed au swap P4).
+via `fetch` sur l'API DB-backed (`/api/*`).
 
 ---
 
@@ -214,7 +218,7 @@ Threat model STRIDE + classification des donnees : `docs/PROJECT_CONTEXT.md` sec
   `ingredient`, `product_ingredient`, `allergen`, `ingredient_allergen`, `stock_movement`.
 - **RBAC / comptes** : `user`, `role`, `permission`, `role_permission`,
   `role_visible_source`.
-- **Commande (P4, schema pret)** : `customer_order`, `order_item`,
+- **Commande (livre)** : `customer_order`, `order_item`,
   `order_item_selection`, `order_item_modifier`.
 - **Transverses** : `audit_log` (journal immuable), `login_throttle`, `pin_throttle`.
 

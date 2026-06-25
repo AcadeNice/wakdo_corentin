@@ -13,6 +13,9 @@ erDiagram
         varchar name
         text description
         int price_cents
+        int maxi_variant_product_id FK
+        smallint size_cl
+        int base_product_id FK
         smallint vat_rate
         varchar image_path
         tinyint is_available
@@ -46,6 +49,8 @@ erDiagram
     category ||--o{ product : "groups"
     category ||--o{ menu : "groups"
     menu ||--|| product : "anchors (burger_product_id)"
+    product ||--o{ product : "maxi_variant (maxi_variant_product_id)"
+    product ||--o{ product : "size_variant_of (base_product_id)"
     menu ||--o{ menu_slot : "defines_slot"
     menu_slot ||--o{ menu_slot_option : "lists"
     product ||--o{ menu_slot_option : "is_eligible_for"

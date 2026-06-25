@@ -125,6 +125,9 @@ erDiagram
         int category_id FK
         varchar name
         int price_cents
+        int maxi_variant_product_id FK
+        smallint size_cl
+        int base_product_id FK
         smallint vat_rate
         tinyint is_available
         smallint display_order
@@ -155,6 +158,8 @@ erDiagram
     category ||--o{ product : "category_id (RESTRICT)"
     category ||--o{ menu : "category_id (RESTRICT)"
     product ||--o{ menu : "burger_product_id (RESTRICT)"
+    product ||--o{ product : "maxi_variant_product_id (SET NULL)"
+    product ||--o{ product : "base_product_id (CASCADE)"
     menu ||--o{ menu_slot : "menu_id (CASCADE)"
     menu_slot ||--o{ menu_slot_option : "menu_slot_id (CASCADE)"
     product ||--o{ menu_slot_option : "product_id (RESTRICT)"
@@ -171,6 +176,9 @@ erDiagram
         int stock_quantity
         int stock_capacity
         smallint pack_size
+        smallint energy_kcal_100g
+        varchar nutrition_source
+        datetime nutrition_fetched_at
         smallint low_stock_pct
         smallint critical_stock_pct
         tinyint is_active
@@ -235,6 +243,7 @@ erDiagram
         enum source
         int acting_user_id FK
         enum service_mode
+        varchar service_tag
         enum status
         int total_ht_cents
         int total_vat_cents
@@ -410,11 +419,14 @@ Pas de FK. Table racine du sous-domaine Catalogue.
 ### 4.2 `product`
 
 ```
-product (id, #category_id, name, [description], price_cents, vat_rate,
+product (id, #category_id, name, [description], price_cents,
+         [#maxi_variant_product_id], [size_cl], [#base_product_id], vat_rate,
          [image_path], is_available, display_order, created_at, updated_at)
 
   PK  : id
-  FK  : category_id -> category(id) ON DELETE RESTRICT
+  FK  : category_id             -> category(id) ON DELETE RESTRICT
+  FK  : maxi_variant_product_id -> product(id)  ON DELETE SET NULL
+  FK  : base_product_id         -> product(id)  ON DELETE CASCADE
   IDX : (category_id, is_available, display_order)
   CHK : price_cents > 0
   CHK : vat_rate IN (55, 100)
@@ -427,6 +439,9 @@ product (id, #category_id, name, [description], price_cents, vat_rate,
 | `name` | VARCHAR(120) | NO | Libelle du produit |
 | `description` | TEXT | YES | Description longue optionnelle |
 | `price_cents` | INT UNSIGNED | NO | Prix a la carte, TVA incluse, en centimes |
+| `maxi_variant_product_id` | INT UNSIGNED | YES | FK -> product (auto-reference), ON DELETE SET NULL ; variante servie en menu Maxi (migration 0006, voir note de table) |
+| `size_cl` | SMALLINT UNSIGNED | YES | Volume en cl d'une variante de taille de boisson ; NULL si pas de dimension taille (migration 0007) |
+| `base_product_id` | INT UNSIGNED | YES | FK -> product (auto-reference), ON DELETE CASCADE ; ligne de base d'une variante de taille, NULL = base/autonome (migration 0007) |
 | `vat_rate` | SMALLINT UNSIGNED | NO | Pour-mille : 100 = 10%, 55 = 5.5% |
 | `image_path` | VARCHAR(255) | YES | Chemin relatif depuis la racine publique |
 | `is_available` | TINYINT(1) NOT NULL DEFAULT 1 | NO | Bascule de disponibilite manuelle |
@@ -436,6 +451,19 @@ product (id, #category_id, name, [description], price_cents, vat_rate,
 
 **ON DELETE RESTRICT** sur `category_id` : une categorie avec des produits ne peut pas etre supprimee. Empeche les
 produits orphelins.
+
+**Auto-references de variante (migrations 0006 / 0007, voir note 14 du dictionnaire)** : deux groupings
+distincts, tous deux pointant vers `product(id)`.
+- `maxi_variant_product_id` (ON DELETE SET NULL) : variante servie quand un menu est commande au format
+  Maxi (ex. Moyenne Frite -> Grande Frite). SET NULL = degradation gracieuse, le produit de base reste
+  vendable si la variante Grande est supprimee.
+- `size_cl` + `base_product_id` (ON DELETE CASCADE) : variante de TAILLE a la carte (boisson 30/50 cl)
+  modelisee en lignes produit. `base_product_id` NULL = produit de base/autonome (visible catalogue) ;
+  NON NULL = variante de taille (masquee de la grille, atteinte via le picker). CASCADE car une variante
+  de taille n'a pas de sens sans sa base.
+
+Les deux coexistent sur une boisson sans se confondre : `base_product_id` pilote la selection de taille a
+la carte ; `maxi_variant_product_id` pilote la substitution Maxi en menu.
 
 ---
 
@@ -529,6 +557,7 @@ Pas d'horodatages. Table de jointure pure.
 
 ```
 ingredient (id, name, unit, stock_quantity, stock_capacity, pack_size, [pack_label],
+            [energy_kcal_100g], [nutrition_source], [nutrition_fetched_at],
             low_stock_pct, critical_stock_pct, is_active, created_at, updated_at)
 
   PK  : id
@@ -549,6 +578,9 @@ ingredient (id, name, unit, stock_quantity, stock_capacity, pack_size, [pack_lab
 | `stock_capacity` | INT NOT NULL | NO | Niveau "plein" de reference en unites = le 100% utilise pour calculer le pourcentage de stock ; CHECK > 0 protege aussi la division du pourcentage contre la division par zero |
 | `pack_size` | SMALLINT UNSIGNED NOT NULL DEFAULT 1 | NO | Unites par lot de reapprovisionnement |
 | `pack_label` | VARCHAR(80) | YES | Libelle humain du lot |
+| `energy_kcal_100g` | SMALLINT UNSIGNED | YES | Apport energetique pour 100 g, importe depuis l'API externe OpenFoodFacts (migration 0005) |
+| `nutrition_source` | VARCHAR(120) | YES | Provenance de la donnee nutritionnelle, ex. "OpenFoodFacts" (migration 0005) |
+| `nutrition_fetched_at` | DATETIME | YES | Horodatage de l'import nutritionnel, trace la fraicheur (migration 0005) |
 | `low_stock_pct` | SMALLINT UNSIGNED NOT NULL DEFAULT 10 | NO | Bande d’alerte, pourcentage de la capacite (CHECK BETWEEN 0 AND 100) |
 | `critical_stock_pct` | SMALLINT UNSIGNED NOT NULL DEFAULT 5 | NO | Plancher de rupture automatique, pourcentage de la capacite (CHECK BETWEEN 0 AND 100 ; CHECK de table `critical_stock_pct < low_stock_pct`) |
 | `is_active` | TINYINT(1) NOT NULL DEFAULT 1 | NO | Desactiver les ingredients obsoletes |
@@ -576,6 +608,11 @@ produit a nouveau commandable de lui-meme ; un ingredient retirable/optionnel a 
 bloque pas le produit (seul son supplement devient indisponible). Le tableau de bord distingue un
 retrait manuel (`is_available=0`) d'une rupture pilotee par le stock (`is_available=1` mais un ingredient
 requis est critique).
+
+**Enrichissement nutritionnel (migration 0005, voir note 14 du dictionnaire)** : `energy_kcal_100g`,
+`nutrition_source` et `nutrition_fetched_at` (toutes nullables) stockent une donnee importee depuis l'API
+externe OpenFoodFacts (Cr 3.a.3). Opt-in : l'import est declenche par `IngredientController::enrich`
+(action manager/admin), pas au runtime borne ; un ingredient non enrichi reste valide.
 
 ---
 
@@ -811,7 +848,7 @@ Pas d'horodatages. Table de jointure pure.
 
 ```
 customer_order (id, order_number, [idempotency_key], source, [#acting_user_id],
-                service_mode, status,
+                service_mode, [service_tag], status,
                 total_ht_cents, total_vat_cents, total_ttc_cents,
                 [paid_at], [delivered_at], [cancelled_at],
                 created_at, updated_at)
@@ -833,11 +870,12 @@ customer_order (id, order_number, [idempotency_key], source, [#acting_user_id],
 | Colonne | Type | NULL | Notes |
 |---|---|---|---|
 | `id` | INT UNSIGNED AUTO_INCREMENT | NO | PK |
-| `order_number` | VARCHAR(20) | NO | Format `K/C/D-YYYY-MM-DD-NNN` par canal |
+| `order_number` | VARCHAR(20) | NO | Prefixe canal + id sequentiel : `K<id>`/`C<id>`/`D<id>` (existant, voir note de table) |
 | `idempotency_key` | VARCHAR(36) | YES | UUID client, UNIQUE ; deduplique un POST reessaye (security-by-design) |
 | `source` | ENUM('kiosk','counter','drive') | NO | Canal de saisie |
 | `acting_user_id` | INT UNSIGNED | YES | FK -> user ; personnel counter/drive sous PIN ; NULL pour kiosk |
 | `service_mode` | ENUM('dine_in','takeaway','drive') | NO | Mode de consommation (stats uniquement, pas de role fiscal) |
+| `service_tag` | VARCHAR(20) | YES | Numero de chevalet du service en salle (`dine_in`), saisi a la borne ; NULL pour takeaway/drive (migration 0003) |
 | `status` | ENUM('pending_payment','paid','delivered','cancelled') NOT NULL DEFAULT 'pending_payment' | NO | Machine a 4 etats |
 | `total_ht_cents` | INT UNSIGNED | NO | Snapshot du total HT |
 | `total_vat_cents` | INT UNSIGNED | NO | Snapshot du montant de TVA |
@@ -847,6 +885,17 @@ customer_order (id, order_number, [idempotency_key], source, [#acting_user_id],
 | `cancelled_at` | DATETIME | YES | Horodatage de l'annulation |
 | `created_at` | DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP | NO | Utilise comme base de `service_day` |
 | `updated_at` | DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP | NO | Audit |
+
+**Numero de commande (existant, voir note 4 du dictionnaire)** : `order_number` = prefixe canal + id
+sequentiel (`K<id>` / `C<id>` / `D<id>`), ecrit en deux temps (INSERT avec numero provisoire vide, puis
+UPDATE en `prefix . LAST_INSERT_ID()`) dans `OrderRepository`. La cible initiale `K-AAAA-MM-JJ-NNN`
+(compteur journalier) n'a pas ete retenue : la forme `prefixe + id` evite un compteur quotidien. Compromis
+connu : numero sequentiel donc devinable, couple a l'endpoint de paiement anonyme cote borne (piste
+d'amelioration : numero non sequentiel).
+
+**Service en salle (migration 0003)** : `service_tag` (VARCHAR(20), nullable) porte le numero de chevalet
+saisi a la borne pour le mode `dine_in` ; NULL pour `takeaway` / `drive`. Colonne additive, sans contrainte
+de BD (la coherence avec `service_mode` est appliquee au niveau applicatif).
 
 **Attribution du personnel (security-by-design)** : `acting_user_id` (FK -> `user`, ON DELETE SET NULL)
 enregistre le personnel counter/drive qui a pris la commande sous PIN ; NULL pour les commandes kiosk anonymes.
@@ -1235,11 +1284,11 @@ et que toutes les tables se rattachent au MCD.
 | Entite MCD | Table MLD | Type de mapping | Notes |
 |---|---|---|---|
 | `category` (C1) | `category` (4.1) | entite 1:1 | |
-| `product` (C2) | `product` (4.2) | entite 1:1 | |
+| `product` (C2) | `product` (4.2) | entite 1:1 | Additif post-v0.3 : `maxi_variant_product_id` (0006), `size_cl` + `base_product_id` (0007) |
 | `menu` (C3) | `menu` (4.3) | entite 1:1 | Nouveau : `burger_product_id`, `price_normal_cents`, `price_maxi_cents` |
 | `menu_slot` (C4) | `menu_slot` (4.4) | entite 1:1 | Nouvelle entite (v0.2) |
 | `menu_slot_option` (C5) | `menu_slot_option` (4.5) | Table de jointure (PK composite) | Nouvelle entite (v0.2) |
-| `ingredient` (C6) | `ingredient` (4.6) | entite 1:1 | Nouvelle entite (v0.2) |
+| `ingredient` (C6) | `ingredient` (4.6) | entite 1:1 | Nouvelle entite (v0.2) ; additif post-v0.3 : `energy_kcal_100g`, `nutrition_source`, `nutrition_fetched_at` (0005) |
 | `product_ingredient` (C7) | `product_ingredient` (4.7) | Table de jointure avec attributs | Nouvelle entite (v0.2) |
 | `allergen` (C8) | `allergen` (4.8) | entite 1:1 | Nouvelle entite (v0.2) |
 | `ingredient_allergen` (C9) | `ingredient_allergen` (4.9) | Table de jointure (PK composite) | Nouvelle entite (v0.2) |
@@ -1248,7 +1297,7 @@ et que toutes les tables se rattachent au MCD.
 | `role_visible_source` (C12) | `role_visible_source` (4.12) | Table de jointure (PK composite) | Nouvelle entite (v0.2) |
 | `permission` (C13) | `permission` (4.13) | entite 1:1 | |
 | `role_permission` (C14) | `role_permission` (4.14) | Table de jointure (PK composite) | |
-| `customer_order` (C15) | `customer_order` (4.15) | entite 1:1 | Renommee depuis `commande` ; machine a 4 etats ; horodatages de phase |
+| `customer_order` (C15) | `customer_order` (4.15) | entite 1:1 | Renommee depuis `commande` ; machine a 4 etats ; horodatages de phase ; additif post-v0.3 : `service_tag` (0003) |
 | `order_item` (C16) | `order_item` (4.16) | entite 1:1 | Nouveau : `format`, `vat_rate_snapshot` ; CHECK de polymorphisme |
 | `order_item_selection` (C17) | `order_item_selection` (4.17) | entite 1:1 | Nouvelle entite (v0.2) |
 | `order_item_modifier` (C18) | `order_item_modifier` (4.18) | entite 1:1 | Nouvelle entite (v0.2) |
