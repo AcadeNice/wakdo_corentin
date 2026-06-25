@@ -143,6 +143,22 @@ final class FakeDatabase implements DatabaseInterface
     public ?array $productRow = null;
 
     /**
+     * Lignes {id, name} renvoyees par ProductRepository::basesOnly() (R4/F9-1) :
+     * produits de base eligibles aux selects menu / formulaire produit.
+     *
+     * @var list<array<string, mixed>>
+     */
+    public array $baseProductsRows = [];
+
+    /**
+     * Resultat de ProductRepository::productIsBase() / MenuRepository::productIsBase()
+     * (R4/F9-2) : true => l'id designe un produit de BASE (base_product_id IS NULL).
+     * Defaut true : un produit ordinaire est une base ; un test le passe a false pour
+     * simuler une VARIANTE de taille presentee la ou seules les bases sont eligibles.
+     */
+    public bool $productIsBase = true;
+
+    /**
      * Ligne renvoyee par MenuRepository::find() ; null = introuvable.
      *
      * @var array<string, mixed>|null
@@ -447,6 +463,12 @@ final class FakeDatabase implements DatabaseInterface
             return $this->actingUserRow;
         }
 
+        // R4/F9-2 : predicat base-only (productIsBase). Doit passer AVANT la route
+        // generique 'FROM product WHERE id = :id' (productRow) qu'elle matche aussi.
+        if (str_contains($sql, 'FROM product WHERE id = :id') && str_contains($sql, 'base_product_id IS NULL')) {
+            return $this->productIsBase ? ['id' => 1] : null;
+        }
+
         if (str_contains($sql, 'FROM product WHERE id = :id')) {
             return $this->productRow;
         }
@@ -522,6 +544,12 @@ final class FakeDatabase implements DatabaseInterface
 
         if (str_contains($sql, 'FROM category ORDER BY')) {
             return $this->categoriesRows;
+        }
+
+        // R4/F9-1 : liste base-only (basesOnly) pour les selects. Distincte de la
+        // liste admin enrichie (all(), 'FROM product p JOIN category').
+        if (str_contains($sql, 'FROM product WHERE base_product_id IS NULL')) {
+            return $this->baseProductsRows;
         }
 
         if (str_contains($sql, 'FROM product p JOIN category')) {

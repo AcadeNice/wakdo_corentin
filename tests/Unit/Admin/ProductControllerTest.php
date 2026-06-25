@@ -166,6 +166,164 @@ final class ProductControllerTest extends TestCase
         self::assertSame('Produit cree.', $this->session->get('_flash'));
     }
 
+    // --- Champs de variante (F9-3) : size_cl, base_product_id, maxi_variant_product_id ---
+
+    public function testStorePersistsVariantFields(): void
+    {
+        // Une variante de taille : base_product_id pointe une base, size_cl=50.
+        $db = $this->permittedDb();
+        $db->productIsBase = true;  // la base designee EST une base (eligible)
+        $db->productRow = ['id' => 7, 'name' => 'Coca Cola']; // productExists -> true
+
+        $form = $this->validForm(['name' => 'Coca Cola 50cl', 'size_cl' => '50', 'base_product_id' => '7', 'maxi_variant_product_id' => '8']);
+        $response = $this->controller($this->post($form, '/admin/products'), $db)->store();
+
+        self::assertSame(302, $response->status());
+        $insert = $this->findWrite($db, 'INSERT INTO product');
+        self::assertNotNull($insert);
+        self::assertSame(50, $insert['params']['size'] ?? null);
+        self::assertSame(7, $insert['params']['base'] ?? null);
+        self::assertSame(8, $insert['params']['maxi'] ?? null);
+    }
+
+    public function testStoreEmptyVariantFieldsBindNull(): void
+    {
+        // Produit ordinaire : aucun champ de variante -> NULL en base (pas 0).
+        $db = $this->permittedDb();
+        $response = $this->controller($this->post($this->validForm(), '/admin/products'), $db)->store();
+
+        self::assertSame(302, $response->status());
+        $insert = $this->findWrite($db, 'INSERT INTO product');
+        self::assertNotNull($insert);
+        // Cles bien liees (allowlist bind()) ET valeur NULL. Pas de `?? 'x'` ici :
+        // `null ?? 'x'` vaudrait 'x' et ferait echouer l'assertion sur un null legitime.
+        self::assertArrayHasKey('size', $insert['params']);
+        self::assertNull($insert['params']['size']);
+        self::assertArrayHasKey('base', $insert['params']);
+        self::assertNull($insert['params']['base']);
+        self::assertArrayHasKey('maxi', $insert['params']);
+        self::assertNull($insert['params']['maxi']);
+    }
+
+    public function testUpdatePersistsVariantFields(): void
+    {
+        // Edition sans changement prix/TVA -> pas de PIN ; les colonnes de variante
+        // sont bien dans l'UPDATE.
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 5, 'category_id' => 3, 'name' => 'Coca Cola', 'description' => null, 'price_cents' => 190, 'size_cl' => 30, 'base_product_id' => null, 'maxi_variant_product_id' => null, 'vat_rate' => 100, 'image_path' => null, 'is_available' => 1, 'display_order' => 1];
+        $db->productIsBase = true;
+
+        $form = $this->validForm(['name' => 'Coca Cola', 'price_cents' => '190', 'base_product_id' => '7']);
+        $response = $this->controller($this->post($form, '/admin/products/5'), $db)->update(['id' => '5']);
+
+        self::assertSame(302, $response->status());
+        $update = $this->findWrite($db, 'UPDATE product SET');
+        self::assertNotNull($update);
+        self::assertSame(7, $update['params']['base'] ?? null);
+    }
+
+    public function testStoreRejectsBaseReferencingAVariant(): void
+    {
+        // Anti-chaine de variantes (F9-3) : la base designee est elle-meme une
+        // variante (productIsBase=false) -> 422, aucun ecrit.
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 99, 'name' => 'Coca 50cl']; // existe
+        $db->productIsBase = false;                            // mais c'est une variante
+
+        $form = $this->validForm(['base_product_id' => '99']);
+        $response = $this->controller($this->post($form, '/admin/products'), $db)->store();
+
+        self::assertSame(422, $response->status());
+        self::assertFalse($db->wrote('INSERT INTO product'));
+        self::assertStringContainsString('produit de base', $response->body());
+    }
+
+    public function testUpdateRejectsSelfAsBase(): void
+    {
+        // Anti auto-reference (F9-3) : base_product_id = soi-meme -> 422.
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 5, 'category_id' => 3, 'name' => 'X', 'description' => null, 'price_cents' => 190, 'vat_rate' => 100, 'image_path' => null, 'is_available' => 1, 'display_order' => 1];
+
+        $form = $this->validForm(['name' => 'X', 'price_cents' => '190', 'base_product_id' => '5']);
+        $response = $this->controller($this->post($form, '/admin/products/5'), $db)->update(['id' => '5']);
+
+        self::assertSame(422, $response->status());
+        self::assertFalse($db->wrote('UPDATE product SET'));
+        self::assertStringContainsString('sa propre base', $response->body());
+    }
+
+    public function testUpdateRejectsSelfAsMaxiVariant(): void
+    {
+        // Anti auto-reference (F9-3) : maxi_variant_product_id = soi-meme -> 422.
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 5, 'category_id' => 3, 'name' => 'X', 'description' => null, 'price_cents' => 190, 'vat_rate' => 100, 'image_path' => null, 'is_available' => 1, 'display_order' => 1];
+
+        $form = $this->validForm(['name' => 'X', 'price_cents' => '190', 'maxi_variant_product_id' => '5']);
+        $response = $this->controller($this->post($form, '/admin/products/5'), $db)->update(['id' => '5']);
+
+        self::assertSame(422, $response->status());
+        self::assertFalse($db->wrote('UPDATE product SET'));
+        self::assertStringContainsString('sa propre variante Maxi', $response->body());
+    }
+
+    public function testStoreRejectsNegativeSize(): void
+    {
+        // size_cl non entier (ici une valeur non numerique) -> 422.
+        $db = $this->permittedDb();
+
+        $form = $this->validForm(['size_cl' => '-5']);
+        $response = $this->controller($this->post($form, '/admin/products'), $db)->store();
+
+        self::assertSame(422, $response->status());
+        self::assertFalse($db->wrote('INSERT INTO product'));
+    }
+
+    public function testStoreRejectsUnknownBaseProduct(): void
+    {
+        // base_product_id reference un produit inexistant -> 422.
+        $db = $this->permittedDb();
+        $db->productRow = null; // productExists -> false
+
+        $form = $this->validForm(['base_product_id' => '404']);
+        $response = $this->controller($this->post($form, '/admin/products'), $db)->store();
+
+        self::assertSame(422, $response->status());
+        self::assertFalse($db->wrote('INSERT INTO product'));
+    }
+
+    public function testFormOffersBaseCandidatesExcludingSelf(): void
+    {
+        // Le select base_product_id n'expose que des bases (basesOnly) et exclut le
+        // produit edite (pas d'auto-reference dans l'UI).
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 5, 'category_id' => 3, 'name' => 'Coca Cola', 'description' => null, 'price_cents' => 190, 'vat_rate' => 100, 'image_path' => null, 'is_available' => 1, 'display_order' => 1];
+        $db->baseProductsRows = [
+            ['id' => 5, 'name' => 'Coca Cola'],   // soi-meme : exclu
+            ['id' => 7, 'name' => 'Fanta'],       // autre base : propose
+        ];
+
+        $response = $this->controller($this->get('/admin/products/5/edit'), $db)->edit(['id' => '5']);
+
+        self::assertSame(200, $response->status());
+        self::assertStringContainsString('Fanta', $response->body());
+        self::assertStringContainsString('base_product_id', $response->body());
+    }
+
+    public function testIndexMarksVariantRows(): void
+    {
+        // F9-4 : une variante de taille (base_product_id non nul) est marquee
+        // "Variante de X" dans la liste admin, pas affichee comme produit autonome.
+        $db = $this->permittedDb();
+        $db->productsRows = [
+            ['id' => 99, 'category_id' => 2, 'name' => 'Coca Cola 50cl', 'price_cents' => 240, 'vat_rate' => 100, 'is_available' => 1, 'category_name' => 'Boissons', 'base_product_id' => 14, 'base_name' => 'Coca Cola'],
+        ];
+
+        $response = $this->controller($this->get('/admin/products'), $db)->index();
+
+        self::assertSame(200, $response->status());
+        self::assertStringContainsString('Variante de Coca Cola', $response->body());
+    }
+
     public function testStoreValidationErrorNoWrite(): void
     {
         $db = $this->permittedDb();
