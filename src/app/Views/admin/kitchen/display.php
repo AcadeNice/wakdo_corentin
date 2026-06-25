@@ -8,6 +8,11 @@ declare(strict_types=1);
  * de remise n'apparait que pour les roles dotes de order.deliver (kitchen ne l'a pas :
  * il voit la file en lecture seule ; counter/drive/admin remettent).
  *
+ * Chaque commande porte son detail (items -> selections + modifiers) et une bande SLA
+ * (sla_band : fresh / warn / late) calculee cote serveur depuis (now - paid_at),
+ * mappee vers une classe CSS sur la carte (kds-order--fresh / --warn / --late). Le KDS
+ * est rendu exploitable pour PREPARER : la liste lisible des articles est affichee.
+ *
  * @var list<array<string, mixed>> $orders
  * @var bool        $canDeliver
  * @var string      $csrfToken
@@ -20,12 +25,65 @@ $can = !empty($canDeliver);
 
 $sourceLabel = static fn (string $s): string => ['kiosk' => 'Borne', 'counter' => 'Comptoir', 'drive' => 'Drive'][$s] ?? $s;
 $modeLabel = static fn (string $m): string => $m === 'dine_in' ? 'Sur place' : ($m === 'drive' ? 'Drive' : 'A emporter');
+
+// Bande SLA (serveur) -> classe CSS de la carte. Defaut prudent sur valeur inconnue.
+$slaClass = static fn (string $band): string => [
+    'fresh' => 'kds-order--fresh',
+    'warn'  => 'kds-order--warn',
+    'late'  => 'kds-order--late',
+][$band] ?? 'kds-order--fresh';
+
+/**
+ * Libelle lisible d'un article : "<qty>x <label> (Maxi) - <selections> - <modifs>".
+ * S'appuie sur les snapshots (label_snapshot, format) ; les modificateurs sont rendus
+ * "sans <ingredient>" (remove) / "+<ingredient>" (add). Tout est echappe a la sortie.
+ *
+ * @param array<string, mixed> $item
+ */
+$itemLabel = static function (array $item) use ($esc): string {
+    $qty = max(1, (int) ($item['quantity'] ?? 1));
+    $name = (string) ($item['label_snapshot'] ?? '');
+    $main = $esc($qty) . 'x ' . $esc($name);
+    if ((string) ($item['format'] ?? 'normal') === 'maxi') {
+        $main .= ' (Maxi)';
+    }
+
+    $parts = [];
+
+    $selections = isset($item['selections']) && is_array($item['selections']) ? $item['selections'] : [];
+    $selLabels = [];
+    foreach ($selections as $sel) {
+        $label = trim((string) ($sel['label_snapshot'] ?? ''));
+        if ($label !== '') {
+            $selLabels[] = $esc($label);
+        }
+    }
+    if ($selLabels !== []) {
+        $parts[] = implode(', ', $selLabels);
+    }
+
+    $modifiers = isset($item['modifiers']) && is_array($item['modifiers']) ? $item['modifiers'] : [];
+    $modLabels = [];
+    foreach ($modifiers as $mod) {
+        $ing = trim((string) ($mod['ingredient_name'] ?? ''));
+        if ($ing === '') {
+            continue;
+        }
+        $modLabels[] = ((string) ($mod['action'] ?? '') === 'add' ? '+' : 'sans ') . $esc($ing);
+    }
+    if ($modLabels !== []) {
+        $parts[] = implode(', ', $modLabels);
+    }
+
+    return $parts === [] ? $main : $main . ' - ' . implode(' - ', $parts);
+};
 ?>
 <div class="page-header">
     <div>
         <h1 class="page-title">Cuisine</h1>
         <p class="page-subtitle">File des commandes payees, de la plus ancienne a la plus recente.</p>
     </div>
+    <span class="kitchen-clock" id="kitchenTime" aria-hidden="true"></span>
 </div>
 
 <?php if ($rows === []): ?>
@@ -33,9 +91,13 @@ $modeLabel = static fn (string $m): string => $m === 'dine_in' ? 'Sur place' : (
 <?php else: ?>
     <section class="kitchen-grid" aria-label="File des commandes payees">
         <?php foreach ($rows as $o): ?>
-            <article class="kitchen-card">
+            <?php
+            $items = isset($o['items']) && is_array($o['items']) ? $o['items'] : [];
+            $band = (string) ($o['sla_band'] ?? 'fresh');
+            ?>
+            <article class="kitchen-card <?= $esc($slaClass($band)) ?>">
                 <div class="kitchen-card-header">
-                    <span class="kitchen-card-number"><?= $esc($o['order_number'] ?? '') ?></span>
+                    <span class="kitchen-order-num"><?= $esc($o['order_number'] ?? '') ?></span>
                     <span class="kitchen-card-source"><?= $esc($sourceLabel((string) ($o['source'] ?? ''))) ?></span>
                 </div>
                 <div class="kitchen-card-body">
@@ -44,6 +106,15 @@ $modeLabel = static fn (string $m): string => $m === 'dine_in' ? 'Sur place' : (
                         <p class="kitchen-line">Table : <?= $esc($o['service_tag']) ?></p>
                     <?php endif; ?>
                     <p class="kitchen-line">Payee a : <?= $esc($o['paid_at'] ?? '') ?></p>
+                    <?php if ($items === []): ?>
+                        <p class="kitchen-line">Aucun article.</p>
+                    <?php else: ?>
+                        <ul class="kds-items">
+                            <?php foreach ($items as $item): ?>
+                                <li class="kds-item"><?= $itemLabel($item) ?></li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php endif; ?>
                 </div>
                 <?php if ($can): ?>
                     <div class="kitchen-card-footer">

@@ -15,9 +15,10 @@ use App\Order\OrderQueryRepository;
 use App\Tests\Support\FakeDatabase;
 
 /**
- * Stub OrderQueryRepository : sources visibles + file canned, pour tester le rendu
- * du KDS sans base. Le SQL reel de visibleSources/paidQueue n'est pas encore couvert
- * par un test d'integration (a ajouter) ; ici on isole le rendu de la vue.
+ * Stub OrderQueryRepository : sources visibles + file enrichie canned, pour tester le
+ * rendu du KDS sans base. Le SQL reel de visibleSources/paidQueueWithDetail est couvert
+ * par OrderQueryRepositoryDbTest (integration) ; ici on isole le rendu de la vue :
+ * detail des articles (selections + modificateurs) et bande SLA -> classe CSS.
  */
 final class StubKitchenQuery extends OrderQueryRepository
 {
@@ -26,10 +27,34 @@ final class StubKitchenQuery extends OrderQueryRepository
         return ['kiosk', 'counter', 'drive'];
     }
 
-    public function paidQueue(array $sources): array
+    public function paidQueueWithDetail(array $sources, ?int $now = null): array
     {
         return [
-            ['order_number' => 'K42', 'source' => 'kiosk', 'service_mode' => 'dine_in', 'service_tag' => '12', 'total_ttc_cents' => 990, 'paid_at' => '2026-06-19 12:01:00'],
+            [
+                'order_number'    => 'K42',
+                'source'          => 'kiosk',
+                'service_mode'    => 'dine_in',
+                'service_tag'     => '12',
+                'total_ttc_cents' => 990,
+                'paid_at'         => '2026-06-19 12:01:00',
+                'sla_band'        => 'warn',
+                'items'           => [
+                    [
+                        'item_type'      => 'menu',
+                        'format'         => 'maxi',
+                        'label_snapshot' => 'Menu Le 280',
+                        'quantity'       => 1,
+                        'selections'     => [
+                            ['label_snapshot' => 'Coca 50cl'],
+                            ['label_snapshot' => 'Grande Frite'],
+                        ],
+                        'modifiers'      => [
+                            ['ingredient_name' => 'oignon', 'action' => 'remove'],
+                            ['ingredient_name' => 'bacon', 'action' => 'add'],
+                        ],
+                    ],
+                ],
+            ],
         ];
     }
 }
@@ -131,5 +156,28 @@ final class KitchenControllerTest extends TestCase
         self::assertStringContainsString('kitchen-grid', $body);
         // order.deliver accorde (canResult=true) -> bouton de remise present.
         self::assertStringContainsString('Remettre', $body);
+    }
+
+    public function testRendersItemDetailAndModifiers(): void
+    {
+        // Le KDS doit etre exploitable pour PREPARER : libelle, format, selections de
+        // slot et modificateurs lisibles (et non plus seulement paid_at brut).
+        $body = $this->controller($this->permittedDb())->display()->body();
+
+        self::assertStringContainsString('1x Menu Le 280', $body);
+        self::assertStringContainsString('(Maxi)', $body);
+        self::assertStringContainsString('Coca 50cl', $body);
+        self::assertStringContainsString('Grande Frite', $body);
+        self::assertStringContainsString('sans oignon', $body);
+        self::assertStringContainsString('+bacon', $body);
+    }
+
+    public function testAppliesSlaBandCssClass(): void
+    {
+        // La bande SLA (calculee serveur) est rendue en classe CSS sur la carte :
+        // la file canned porte sla_band='warn'.
+        $body = $this->controller($this->permittedDb())->display()->body();
+
+        self::assertStringContainsString('kds-order--warn', $body);
     }
 }
