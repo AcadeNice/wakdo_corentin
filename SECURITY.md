@@ -19,7 +19,7 @@ d'authentification durci dans `docs/uml/security-sequence.md`.
 | Brute-force | double throttle : compteur par compte (`user`) + par IP (`login_throttle`), backoff degressif |
 | Sessions | cookies `HttpOnly` + `Secure` + `SameSite=Strict`, regeneration d'ID a la connexion (anti-fixation), idle 4h / absolu 10h |
 | Injection | PDO prepared statements exclusivement |
-| Upload | validation MIME + taille, stockage hors webroot |
+| Upload | non implemente (aucun flux d'upload livre) ; prevu : validation MIME + taille, stockage hors webroot |
 | En-tetes / PHP | `expose_php=Off`, `allow_url_fopen/include=Off`, `cgi.fix_pathinfo=0`, fonctions d'execution systeme desactivees |
 | RGPD | retention limitee (audit ~12 mois, throttle 24h, commandes ~3 ans), droit consultation/modif/suppression |
 | Secrets | `.env` gitignore, tenu hors de `.git/config` (credential helper lisant `.env`), secret-scan gitleaks en CI |

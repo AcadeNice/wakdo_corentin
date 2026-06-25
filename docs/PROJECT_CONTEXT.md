@@ -117,7 +117,7 @@ Client                Borne (Bloc 1)           API (Bloc 2)          BDD
 
 ### Compatibilite evaluation par bloc
 
-- **Jury Bloc 1** : voit le front seul ; le front peut tomber en fallback sur JSON statiques fournis (`src/public/borne/data/*.json`) si l'API est indisponible.
+- **Jury Bloc 1** : voit le front seul ; le front consomme les donnees via `fetch` sur l'API (`/api/*`). Le fallback JSON statique initialement envisage a ete retire (la borne est branchee directement sur l'API DB-backed).
 - **Jury Bloc 2** : voit le back-office + teste l'API via curl/Postman de maniere autonome, sans dependre du front.
 - **Jury Bloc 5** : lance `docker compose up` ou `docker compose up`, verifie la CI/CD, les crons, l'archi, les scripts.
 
@@ -205,7 +205,7 @@ Reseaux :
 ### Bloc 1 — Borne client (Front)
 
 **IN scope :**
-- Affichage dynamique menus + produits (charges par Ajax depuis API ou JSON fallback)
+- Affichage dynamique menus + produits (charges par `fetch` depuis l'API `/api/*`)
 - Composition panier : produits unitaires OU menus (burger + accompagnement + boisson + sauce)
 - Options taille (normale / grande, +0,50 € sur grande) pour accompagnements et boissons
 - Options de personnalisation simples (ex : sans oignon, avec fromage)
@@ -232,7 +232,7 @@ Reseaux :
 - **Manager** : catalogue (create/update), stock (reappro + inventaire), statistiques ; utilisateurs en **lecture seule** (`user.read`, pas de creation/modification/desactivation), pas d'acces RBAC
 - **Kitchen** : file des commandes `paid` triee par `paid_at` croissant, en **lecture seule** (KDS visuel) ; inventaire
 - **Counter** / **Drive** : saisir une commande (comptoir / drive-thru via casque/intercom), bouton "declarer livree" (geste unique `paid -> delivered`), annuler ; `source` auto-tague depuis `role.order_source` ; inventaire
-- Upload images produits (validation type MIME + taille + stockage dans volume `wakdo_uploads`)
+- Upload images produits : **non implemente** ; prevu (validation type MIME + taille + stockage dans volume `wakdo_uploads`)
 - Historique commandes par statut
 - Stats de base (commandes du jour, CA jour, produits top)
 
