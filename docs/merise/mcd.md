@@ -111,6 +111,9 @@ erDiagram
         varchar name
         text description
         int price_cents
+        int maxi_variant_product_id FK
+        smallint size_cl
+        int base_product_id FK
         smallint vat_rate
         varchar image_path
         tinyint is_available
@@ -144,6 +147,8 @@ erDiagram
     category ||--o{ product : "groups"
     category ||--o{ menu : "groups"
     menu ||--|| product : "anchors (burger_product_id)"
+    product ||--o{ product : "maxi_variant (maxi_variant_product_id)"
+    product ||--o{ product : "size_variant_of (base_product_id)"
     menu ||--o{ menu_slot : "defines_slot"
     menu_slot ||--o{ menu_slot_option : "lists"
     product ||--o{ menu_slot_option : "is_eligible_for"
@@ -159,6 +164,8 @@ erDiagram
 | C4 | defines_slot | menu | (1,N) | menu_slot | (1,1) | Un menu doit definir au moins un slot (boisson, accompagnement, sauce) pour avoir une composition personnalisable. Un slot appartient a exactement un menu. |
 | C5 | lists | menu_slot | (1,N) | menu_slot_option | (1,1) | Un slot doit lister au moins un produit eligible (sinon le client ne peut pas le remplir). Chaque ligne d'option appartient a exactement un slot. |
 | C6 | is_eligible_for | product | (0,N) | menu_slot_option | (1,1) | Un produit peut etre eligible pour un nombre quelconque de slots a travers tous les menus, ou aucun s'il n'est vendu qu'a la carte. Chaque ligne d'option reference exactement un produit. |
+| C7 | maxi_variant (migration 0006) | product (base) | (0,1) | product (variante Maxi) | (0,N) | Auto-reference : un produit pointe vers 0 ou 1 variante servie en menu Maxi (`maxi_variant_product_id`, nullable) ; un produit peut etre la variante Maxi de plusieurs autres. ON DELETE SET NULL (degradation gracieuse). |
+| C8 | size_variant_of (migration 0007) | product (base) | (0,N) | product (variante de taille) | (0,1) | Auto-reference : une variante de taille pointe vers sa ligne de base (`base_product_id`, nullable ; NULL = base/autonome) ; un produit de base peut avoir plusieurs variantes de taille (30/50 cl). ON DELETE CASCADE (une variante de taille n'a pas de sens sans sa base). |
 
 ### 4.3 Notes sur le sous-domaine Catalogue
 
@@ -167,6 +174,8 @@ erDiagram
 **`menu.burger_product_id` comme ancre** : le menu reference un produit burger specifique, pas un slot generique. Cela permet au configurateur d'ingredients (sous-domaine Ingredients & Stock) de resoudre quels ingredients sont modifiables pour une ligne de menu, via `menu -> burger_product_id -> product_ingredient`.
 
 **Format Normal / Maxi** : deux prix (`price_normal_cents`, `price_maxi_cents`) sur `menu` ; format enregistre au niveau de `order_item.format`. Aucun differentiel de prix au niveau du slot individuel n'est stocke (voir note 7 du dictionnaire).
+
+**Variantes de produit (migrations 0006 / 0007, voir note 14 du dictionnaire)** : deux auto-references sur `product`, distinctes par leur role et leur comportement `ON DELETE`. `maxi_variant_product_id` (SET NULL) designe la variante servie quand un menu est commande au format Maxi (ex. Moyenne Frite -> Grande Frite), substituee cote serveur. `size_cl` + `base_product_id` (CASCADE) modelisent une variante de TAILLE a la carte (boisson 30/50 cl) en lignes produit : `base_product_id` NULL = produit de base/autonome visible au catalogue, NON NULL = variante masquee de la grille et atteinte via le picker. Les deux groupings coexistent sur une boisson sans se confondre.
 
 ---
 
@@ -188,6 +197,9 @@ erDiagram
         int stock_capacity
         smallint pack_size
         varchar pack_label
+        smallint energy_kcal_100g
+        varchar nutrition_source
+        datetime nutrition_fetched_at
         smallint low_stock_pct
         smallint critical_stock_pct
         tinyint is_active
@@ -262,6 +274,8 @@ erDiagram
 
 **Disponibilite produit calculee (regle RG-T21, voir `mlt.md`)** : la commandabilite effective est derivee, pas stockee. Un produit est commandable quand `product.is_available = 1` ET que chaque ingredient non retirable (`is_removable = 0`) de son `product_ingredient` a `stock_quantity > stock_capacity * critical_stock_pct / 100`. Un ingredient requis atteignant la bande critique met le produit en rupture automatique sans ecriture et sans cascade ; un retrait manuel (`product.is_available = 0`) est une surcharge forte ; un reapprovisionnement au-dessus de la bande critique rend le produit commandable a nouveau de lui-meme. Un ingredient retirable/optionnel a la bande critique ne bloque pas le produit (seul son supplement devient indisponible). Le tableau de bord distingue un retrait manuel d'une rupture pilotee par le stock.
 
+**Enrichissement nutritionnel (migration 0005, voir note 14 du dictionnaire)** : `energy_kcal_100g`, `nutrition_source` et `nutrition_fetched_at` (toutes nullables) stockent une donnee importee depuis l'API externe OpenFoodFacts (Cr 3.a.3 : exploitation d'informations externes dans le modele de donnees). Opt-in : l'import est declenche par `IngredientController::enrich` (action manager/admin), pas au runtime borne ; un ingredient non enrichi reste valide.
+
 ---
 
 ## 6. Sous-domaine : Order
@@ -277,6 +291,7 @@ erDiagram
         enum source
         int acting_user_id FK
         enum service_mode
+        varchar service_tag
         enum status
         int total_ht_cents
         int total_vat_cents
@@ -381,6 +396,11 @@ deduplique un `POST /api/orders` rejoue. `acting_user_id` (FK -> `user`, ON DELE
 enregistre l'employe de comptoir/drive qui a pris la commande sous PIN ; NULL pour les commandes anonymes de la borne.
 Cela ajoute une association `customer_order |o--o| user : "taken_by"` (cardinalite : une commande est
 prise par (0,1) user ; un user prend (0,N) commandes). Voir note 13 du dictionnaire.
+
+**Numero de commande (existant) et service en salle (migration 0003)** : `order_number` est un attribut
+non cle (UNIQUE) de forme `prefixe canal + id` (`K<id>` / `C<id>` / `D<id>`) ; pas une association. Voir
+note 4 du dictionnaire. `service_tag` (VARCHAR(20), nullable) porte le numero de chevalet du service en
+salle (mode `dine_in`), saisi a la borne ; NULL pour `takeaway` / `drive`. Voir note 14 du dictionnaire.
 
 ---
 
@@ -580,7 +600,7 @@ Le MCD reste au niveau conceptuel. Les decisions suivantes sont reportees au MLD
    des PK composites.
 2. **PK technique vs identifiant metier** : `id INT UNSIGNED AUTO_INCREMENT` sur toutes les entites principales.
    `customer_order` porte en plus `order_number VARCHAR(20) UNIQUE` (lisible par un humain,
-   format `K/C/D-YYYY-MM-DD-NNN` par canal).
+   format prefixe canal + id : `K<id>` / `C<id>` / `D<id>`).
 3. **Regles ON DELETE** : CASCADE vs RESTRICT vs SET NULL. Detaillees dans le MLD.
 4. **Contraintes CHECK** : exclusivite de polymorphisme sur `order_item`, contrainte croisee
    `source/service_mode` sur `customer_order`, invariant arithmetique sur les totaux.

@@ -11,6 +11,9 @@ erDiagram
         int category_id FK
         varchar name
         int price_cents
+        int maxi_variant_product_id FK
+        smallint size_cl
+        int base_product_id FK
         smallint vat_rate
         tinyint is_available
         smallint display_order
@@ -41,6 +44,8 @@ erDiagram
     category ||--o{ product : "category_id (RESTRICT)"
     category ||--o{ menu : "category_id (RESTRICT)"
     product ||--o{ menu : "burger_product_id (RESTRICT)"
+    product ||--o{ product : "maxi_variant_product_id (SET NULL)"
+    product ||--o{ product : "base_product_id (CASCADE)"
     menu ||--o{ menu_slot : "menu_id (CASCADE)"
     menu_slot ||--o{ menu_slot_option : "menu_slot_id (CASCADE)"
     product ||--o{ menu_slot_option : "product_id (RESTRICT)"
