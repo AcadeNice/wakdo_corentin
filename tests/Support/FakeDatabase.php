@@ -159,6 +159,16 @@ final class FakeDatabase implements DatabaseInterface
     public bool $productIsBase = true;
 
     /**
+     * Slug de categorie renvoye par MenuRepository::productCategorySlug() (garde F12) ;
+     * null => productCategorySlug() retourne null (id inconnu / produit sans categorie),
+     * ce qui fait rejeter l'option par le controleur. Defaut 'boissons' : aligne sur le
+     * slot 'drink' du formulaire valide de reference (validForm), donc une option passe
+     * la garde de categorie par defaut. Un test le change pour simuler une option hors
+     * categorie (ex. 'burgers' dans un slot 'drink').
+     */
+    public ?string $productCategorySlug = 'boissons';
+
+    /**
      * Ligne renvoyee par MenuRepository::find() ; null = introuvable.
      *
      * @var array<string, mixed>|null
@@ -461,6 +471,14 @@ final class FakeDatabase implements DatabaseInterface
         // ferait virer au rouge les tests de resolveActingUser.
         if (str_contains($sql, 'pin_hash FROM user WHERE email') && str_contains($sql, 'is_active = 1')) {
             return $this->actingUserRow;
+        }
+
+        // F12 : slug de categorie d'un produit (productCategorySlug), garde de categorie
+        // d'option de slot. Distinguee des routes 'FROM product WHERE id' par le JOIN
+        // category + la projection 'category_slug' ; null => option rejetee (hors
+        // categorie / id inconnu). Doit passer AVANT les routes produit generiques.
+        if (str_contains($sql, 'c.slug AS category_slug FROM product p JOIN category c')) {
+            return $this->productCategorySlug !== null ? ['category_slug' => $this->productCategorySlug] : null;
         }
 
         // R4/F9-2 : predicat base-only (productIsBase). Doit passer AVANT la route

@@ -74,6 +74,29 @@ final class ProductRepository
     }
 
     /**
+     * Produits de BASE (base_product_id IS NULL, R4) avec le slug de leur CATEGORIE,
+     * pour alimenter les OPTIONS de slot du formulaire menu (F12). Le formulaire doit
+     * filtrer les options proposees selon le type de slot (drink -> boissons, etc.) ;
+     * il lui faut donc la categorie de chaque produit, que basesOnly() (projection
+     * stricte {id, name}) ne porte pas. Methode dediee plutot qu'extension de
+     * basesOnly() : ce dernier alimente aussi le select base_product_id du formulaire
+     * produit (ProductController), qui n'a pas besoin de la categorie -- garder son
+     * contrat minimal evite un couplage inutile. Meme predicat anti-variante que
+     * basesOnly(), miroir de la garde serveur MenuRepository::productIsBase().
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function baseOptionsWithCategory(): array
+    {
+        return $this->db->fetchAll(
+            'SELECT p.id, p.name, c.slug AS category_slug '
+            . 'FROM product p JOIN category c ON c.id = p.category_id '
+            . 'WHERE p.base_product_id IS NULL '
+            . 'ORDER BY p.display_order, p.name',
+        );
+    }
+
+    /**
      * @return array<string, mixed>|null
      */
     public function find(int $id): ?array
