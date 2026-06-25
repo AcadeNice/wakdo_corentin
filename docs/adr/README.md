@@ -18,6 +18,8 @@ une decision revisee donne une nouvelle fiche qui *supersede* l'ancienne (statut
 | [0008](0008-makefile-vers-compose-migrate.md) | Du Makefile a `docker compose up` (service wakdo-migrate) | Accepte |
 | [0009](0009-compose-standalone-et-prod-gitignore.md) | docker-compose.yml standalone + docker-compose.prod.yml gitignore | Accepte |
 | [0010](0010-cookie-secure-conditionnel-https.md) | Cookie de session Secure conditionnel au HTTPS | Accepte |
+| [0011](0011-pos-tactile-tuiles-comptoir-drive.md) | POS tactile a tuiles pour la saisie comptoir/drive | Accepte |
+| [0012](0012-page-stock-tableau-de-bord.md) | Page Stock en tableau de bord (alertes + reappro en avant) | Accepte |
 
 ## Modele de fiche
 
