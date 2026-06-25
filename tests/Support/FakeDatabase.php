@@ -121,6 +121,14 @@ final class FakeDatabase implements DatabaseInterface
     public bool $userPinSet = false;
 
     /**
+     * Ligne {password_hash} renvoyee pour la re-verification d'identite au set de PIN
+     * (ProfileController::currentPasswordHash) ; null = compte absent/inactif.
+     *
+     * @var array<string, mixed>|null
+     */
+    public ?array $currentPasswordRow = null;
+
+    /**
      * Lignes renvoyees par ProductRepository::all().
      *
      * @var list<array<string, mixed>>
@@ -148,6 +156,14 @@ final class FakeDatabase implements DatabaseInterface
      * @var array<string, mixed>|null
      */
     public ?array $orderByNumberRow = null;
+
+    /**
+     * Ligne {source} renvoyee pour OrderAdminController::orderSource (garde de
+     * visibilite PRE-3, 6.1) ; null = numero inconnu (traite comme non visible).
+     *
+     * @var array<string, mixed>|null
+     */
+    public ?array $orderSourceRow = null;
 
     /**
      * Lignes renvoyees par MenuRepository::all().
@@ -418,6 +434,13 @@ final class FakeDatabase implements DatabaseInterface
             return $this->userPinSet ? ['id' => 1] : null;
         }
 
+        // Re-verification d'identite au set de PIN (ProfileController) : lecture du
+        // password_hash du compte actif de session. is_active = 1 dans le predicat :
+        // retirer ce filtre en production ferait virer au rouge le test du compte inactif.
+        if (str_contains($sql, 'SELECT password_hash FROM user WHERE id') && str_contains($sql, 'is_active = 1')) {
+            return $this->currentPasswordRow;
+        }
+
         // Exige is_active = 1 (garde RG-T13) : retirer le predicat en production
         // ferait virer au rouge les tests de resolveActingUser.
         if (str_contains($sql, 'pin_hash FROM user WHERE email') && str_contains($sql, 'is_active = 1')) {
@@ -434,6 +457,14 @@ final class FakeDatabase implements DatabaseInterface
 
         if (str_contains($sql, 'FROM menu WHERE id = :id')) {
             return $this->menuRow;
+        }
+
+        // Garde de visibilite PRE-3 (6.1) : lecture ciblee de la seule colonne source
+        // par OrderAdminController::orderSource. Doit passer AVANT la route generique
+        // 'FROM customer_order WHERE order_number' (orderByNumberRow) qu'elle matche
+        // aussi. null = numero inconnu (l'appelant le traite comme non visible).
+        if (str_contains($sql, 'SELECT source FROM customer_order WHERE order_number')) {
+            return $this->orderSourceRow;
         }
 
         if (str_contains($sql, 'FROM customer_order WHERE order_number')) {

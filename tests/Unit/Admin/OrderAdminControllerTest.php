@@ -183,6 +183,81 @@ final class OrderAdminControllerTest extends TestCase
         self::assertSame(403, $response->status());
     }
 
+    // --- DELIVER_ORDER (6.1, garde de visibilite PRE-3 / ERR-2) ---
+
+    private function deliverDb(): FakeDatabase
+    {
+        // order.deliver accorde + permission CSRF franchie en aval ; la source de la
+        // commande est scriptee par chaque test via orderSourceRow.
+        $db = $this->permittedDb();
+        $db->permissionCodes = ['order.read', 'order.deliver'];
+
+        return $db;
+    }
+
+    public function testDeliverRejectsSourceNotVisibleByRole(): void
+    {
+        // ERR-2 (6.1) : le role agissant ne voit que 'drive' (role_visible_source),
+        // mais la commande est de source 'counter' -> 403 FORBIDDEN, aucune transition.
+        $db = $this->deliverDb();
+        $db->roleSources = [['source' => 'drive']];
+        $db->orderSourceRow = ['source' => 'counter'];
+
+        $request = $this->post(['_csrf' => $this->csrf], '/admin/orders/C42/deliver');
+        $response = $this->controllerWith($request, $db)->deliver(['number' => 'C42']);
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($db->wrote('UPDATE customer_order SET status'));
+    }
+
+    public function testDeliverUnknownOrderIsRejectedAsNotVisible(): void
+    {
+        // Numero inconnu -> source null -> chemin "non visible" (403), pas de transition.
+        $db = $this->deliverDb();
+        $db->roleSources = [];          // vue globale
+        $db->orderSourceRow = null;     // numero inconnu
+
+        $request = $this->post(['_csrf' => $this->csrf], '/admin/orders/K99/deliver');
+        $response = $this->controllerWith($request, $db)->deliver(['number' => 'K99']);
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($db->wrote('UPDATE customer_order SET status'));
+    }
+
+    public function testDeliverSucceedsWhenSourceVisibleToRole(): void
+    {
+        // Source visible (le role voit kiosk+counter ; commande 'counter') -> la
+        // transition paid -> delivered est tentee et la liste est re-affichee (302).
+        $db = $this->deliverDb();
+        $db->roleSources = [['source' => 'kiosk'], ['source' => 'counter']];
+        $db->orderSourceRow = ['source' => 'counter'];
+        // OrderRepository::deliver lit la commande (paid) via findByNumber/SELECT statut.
+        $db->orderByNumberRow = ['id' => 100, 'order_number' => 'C42', 'total_ttc_cents' => 1990, 'status' => 'paid'];
+
+        $request = $this->post(['_csrf' => $this->csrf], '/admin/orders/C42/deliver');
+        $response = $this->controllerWith($request, $db)->deliver(['number' => 'C42']);
+
+        self::assertSame(302, $response->status());
+        self::assertSame('/admin/orders', $response->header('Location'));
+        self::assertTrue($db->wrote('UPDATE customer_order SET status'));
+    }
+
+    public function testDeliverGlobalViewRoleSeesAllSources(): void
+    {
+        // role_visible_source vide -> vue globale (admin/manager) : une commande de
+        // n'importe quel canal est remisable. visibleSources renvoie les trois sources.
+        $db = $this->deliverDb();
+        $db->roleSources = [];          // aucune ligne -> vue globale
+        $db->orderSourceRow = ['source' => 'drive'];
+        $db->orderByNumberRow = ['id' => 101, 'order_number' => 'D7', 'total_ttc_cents' => 1500, 'status' => 'paid'];
+
+        $request = $this->post(['_csrf' => $this->csrf], '/admin/orders/D7/deliver');
+        $response = $this->controllerWith($request, $db)->deliver(['number' => 'D7']);
+
+        self::assertSame(302, $response->status());
+        self::assertTrue($db->wrote('UPDATE customer_order SET status'));
+    }
+
     // --- CANCEL_ORDER (7.1, order.cancel + PIN equipier RG-T13) ---
 
     public function testCancelRequiresOrderCancelPermission(): void

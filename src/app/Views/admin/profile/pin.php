@@ -33,6 +33,12 @@ $errorMessage = isset($error) && is_string($error) ? $error : null;
         <input type="hidden" name="_csrf" value="<?= $csrf ?>">
 
         <div class="form-group">
+            <label class="form-label" for="current_password">Mot de passe actuel</label>
+            <input class="form-input" type="password" id="current_password" name="current_password" autocomplete="current-password" required>
+            <small>Confirme votre identite avant de definir un PIN d action sensible.</small>
+        </div>
+
+        <div class="form-group">
             <label class="form-label" for="pin">Nouveau PIN</label>
             <input class="form-input" type="password" id="pin" name="pin" inputmode="numeric" autocomplete="off" required>
         </div>

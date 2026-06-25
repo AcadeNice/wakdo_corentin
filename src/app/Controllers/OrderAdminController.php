@@ -53,6 +53,15 @@ class OrderAdminController extends AdminController
      * Remise au client : paid -> delivered (mlt 6.1). POST + CSRF, garde order.deliver.
      * Pas de PIN (geste routinier). Issue affichee en flash, retour a la liste.
      *
+     * PRE-3 / ERR-2 (6.1) : au-dela de la permission, la SOURCE de la commande doit
+     * etre VISIBLE par le role de l'acteur (role_visible_source). Sans ce controle,
+     * tout role detenant order.deliver pourrait remettre une commande de n'importe
+     * quel canal (ex. un equipier drive remettant une commande comptoir). La file
+     * KDS (KitchenController) est deja filtree par visibleSources a l'affichage ;
+     * cette garde rejoue la regle cote ecriture (defense en profondeur, meme posture
+     * que cancel() qui ne se fie pas a l'affichage de la liste). Hors des sources
+     * visibles -> 403 FORBIDDEN (memes statut/vue que la garde de permission).
+     *
      * @param array<string, string> $params
      */
     public function deliver(array $params = []): Response
@@ -67,8 +76,22 @@ class OrderAdminController extends AdminController
             return $this->invalidCsrf();
         }
 
+        $number = (string) ($params['number'] ?? '');
+
+        // PRE-3 (6.1) : refuse la remise d'une commande dont la source n'est pas dans
+        // les sources visibles du role agissant. visibleSources reutilise
+        // role_visible_source (memes donnees que KitchenController) : liste vide en base
+        // = vue globale (admin/manager voient les trois sources). Le numero inconnu
+        // (source null) retombe sur le chemin "non visible" -> 403 ; la branche
+        // ORDER_NOT_FOUND ci-dessous reste atteignable pour une course (commande
+        // supprimee entre la lecture et la transition).
+        $source = $this->orderSource($number);
+        if ($source === null || !in_array($source, $this->orderQuery()->visibleSources($guard->roleId ?? 0), true)) {
+            return $this->forbidden($guard);
+        }
+
         try {
-            $this->orders()->deliver((string) ($params['number'] ?? ''));
+            $this->orders()->deliver($number);
             $this->setFlash('Commande remise (livree).');
         } catch (OrderValidationException $exception) {
             $this->setFlash(
@@ -178,6 +201,28 @@ class OrderAdminController extends AdminController
         return new OrderQueryRepository($this->db());
     }
 
+    /**
+     * Source (canal) d'une commande par son numero, pour la garde de visibilite
+     * PRE-3 (6.1). Lecture ciblee d'une seule colonne : OrderRepository::findByNumber
+     * renvoie une forme typee {id, order_number, total_ttc_cents, status} qui n'expose
+     * pas la source ; plutot que d'elargir ce contrat partage, on lit ici le seul champ
+     * requis (meme couture db() que logFailedPin). Renvoie null si le numero est
+     * inconnu (traite comme non visible par l'appelant).
+     */
+    protected function orderSource(string $number): ?string
+    {
+        if ($number === '') {
+            return null;
+        }
+        $row = $this->db()->fetch(
+            'SELECT source FROM customer_order WHERE order_number = :n',
+            ['n' => $number],
+        );
+        $source = is_string($row['source'] ?? null) ? (string) $row['source'] : '';
+
+        return $source === '' ? null : $source;
+    }
+
     protected function orders(): OrderRepository
     {
         $db = $this->db();
@@ -245,6 +290,16 @@ class OrderAdminController extends AdminController
     private function notFound(GuardResult $guard): Response
     {
         return $this->adminView('admin/not_found', ['title' => 'Introuvable', 'activeNav' => 'orders'], $guard, 404);
+    }
+
+    /**
+     * Refus de visibilite (ERR-2, 6.1) : la source de la commande n'est pas visible
+     * par le role agissant. Memes statut (403) et vue (admin/forbidden) que la garde
+     * de permission d'AdminController::guard, pour une convention de refus homogene.
+     */
+    private function forbidden(GuardResult $guard): Response
+    {
+        return $this->adminView('admin/forbidden', ['title' => 'Acces refuse', 'activeNav' => 'orders'], $guard, 403);
     }
 
     private function redirect(string $location): Response
