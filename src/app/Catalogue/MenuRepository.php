@@ -165,6 +165,27 @@ final class MenuRepository
     }
 
     /**
+     * Slug de categorie d'un produit, ou null si l'id est inconnu. Garde serveur F12 :
+     * une option de slot doit appartenir a une categorie autorisee pour le slot_type
+     * du slot (mapping unique cote MenuController). Le controleur croise ce slug avec
+     * la liste autorisee et rejette (422) une option hors categorie meme si l'UI de
+     * filtrage est contournee -- defense en profondeur (RG-T18), par-dessus la garde
+     * base-only existante (productIsBase, F9).
+     */
+    public function productCategorySlug(int $id): ?string
+    {
+        $row = $this->db->fetch(
+            'SELECT c.slug AS category_slug FROM product p '
+            . 'JOIN category c ON c.id = p.category_id WHERE p.id = :id',
+            ['id' => $id],
+        );
+
+        $slug = $row['category_slug'] ?? null;
+
+        return is_string($slug) ? $slug : null;
+    }
+
+    /**
      * Pre-verification FK-safe (mlt 8.6 RG-1) : le menu est-il reference par une
      * ligne de commande historique ? La FK order_item.menu_id est RESTRICT.
      */
