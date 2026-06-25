@@ -21,6 +21,14 @@ use App\Tests\Support\FakeDatabase;
 /**
  * Stub de StatsRepository : KPIs canned, sans base (les agregats reels sont
  * couverts par StatsRepositoryDbTest).
+ *
+ * stockHealth() porte ici un etat de stock NON SAIN (une bande low + une
+ * critical, avec la liste alerts correspondante) : le dashboard exerce ainsi le
+ * chemin "stock critique > 0" du fragment admin/dashboard.php. La forme de
+ * 'alerts' suit le contrat de StatsRepository::stockHealth (name/stock_pct/
+ * stock_band), meme si la tuile du dashboard ne consomme que bands.critical
+ * (le rendu detaille de la liste vit dans admin/stats/index.php, couvert par
+ * StatsControllerTest).
  */
 final class DashStubStatsRepository extends StatsRepository
 {
@@ -39,6 +47,36 @@ final class DashStubStatsRepository extends StatsRepository
         return [
             'active_total' => 6,
             'bands'        => ['normal' => 4, 'low' => 1, 'critical' => 1],
+            'alerts'       => [
+                ['name' => 'Cheddar', 'stock_pct' => 3, 'stock_band' => 'critical'],
+                ['name' => 'Cornichon', 'stock_pct' => 8, 'stock_band' => 'low'],
+            ],
+        ];
+    }
+}
+
+/**
+ * Stub a stock SAIN : aucune bande low/critical, liste d'alerte vide. Sert a
+ * verifier le pendant negatif de la tuile stock (0 critique -> tag "OK", pas
+ * "A recommander", classe d'alerte absente).
+ */
+final class DashHealthyStatsRepository extends StatsRepository
+{
+    public function counts(): array
+    {
+        return [
+            'products'    => ['total' => 53, 'available' => 50],
+            'categories'  => ['total' => 9, 'active' => 9],
+            'menus'       => ['total' => 13, 'available' => 12],
+            'ingredients' => ['total' => 7, 'active' => 7],
+        ];
+    }
+
+    public function stockHealth(): array
+    {
+        return [
+            'active_total' => 7,
+            'bands'        => ['normal' => 7, 'low' => 0, 'critical' => 0],
             'alerts'       => [],
         ];
     }
@@ -56,6 +94,9 @@ final class TestDashboardController extends DashboardController
         Database $database,
         private readonly SessionManager $testSession,
         private readonly FakeDatabase $fakeDb,
+        // Stub de stats injectable : par defaut l'etat NON SAIN (low+critical),
+        // surchargeable pour exercer aussi le pendant SAIN de la tuile stock.
+        private readonly ?StatsRepository $statsStub = null,
     ) {
         parent::__construct($request, $config, $database);
     }
@@ -82,7 +123,7 @@ final class TestDashboardController extends DashboardController
 
     protected function statsRepository(): StatsRepository
     {
-        return new DashStubStatsRepository($this->fakeDb);
+        return $this->statsStub ?? new DashStubStatsRepository($this->fakeDb);
     }
 
     /**
@@ -125,11 +166,21 @@ final class DashboardControllerTest extends TestCase
         putenv($key . '=' . $value);
     }
 
-    private function controller(SessionManager $session, FakeDatabase $db): TestDashboardController
+    private function controller(SessionManager $session, FakeDatabase $db, ?StatsRepository $statsStub = null): TestDashboardController
     {
         $request = new Request('GET', '/admin/dashboard', [], [], '', '203.0.113.5');
 
-        return new TestDashboardController($request, new Config(), new Database(new Config()), $session, $db);
+        return new TestDashboardController($request, new Config(), new Database(new Config()), $session, $db, $statsStub);
+    }
+
+    private function authedAdminDb(): FakeDatabase
+    {
+        $db = new FakeDatabase();
+        $db->guardUserRow = ['is_active' => 1];
+        $db->userDisplayRow = ['first_name' => 'Corentin', 'last_name' => 'J', 'role_label' => 'Administrateur'];
+        $db->permissionCodes = ['product.read', 'user.read'];
+
+        return $db;
     }
 
     private function authedSession(): SessionManager
@@ -195,6 +246,41 @@ final class DashboardControllerTest extends TestCase
         // Le menu utilisateur rend la page self-service du PIN (decouvrable, pas
         // seulement par URL directe).
         self::assertStringContainsString('/admin/profile/pin', $body);
+    }
+
+    public function testRendersCriticalStockTileWhenStockNotHealthy(): void
+    {
+        // CIBLE F6 : exerce le chemin "stock NON sain" du fragment dashboard.
+        // Le stub par defaut (DashStubStatsRepository) renvoie bands.critical = 1
+        // et une liste alerts NON VIDE. Le fragment admin/dashboard.php derive
+        // $nCritical de bands.critical et bascule la tuile en mode alerte des que
+        // > 0 (classe "alert", tag "A recommander", valeur affichee).
+        $response = $this->controller($this->authedSession(), $this->authedAdminDb())->index();
+
+        self::assertSame(200, $response->status());
+        $body = $response->body();
+        // La tuile "Stock critique" affiche le compteur de la bande critical.
+        self::assertStringContainsString('Stock critique', $body);
+        // Branche $nCritical > 0 : tag d'action + classe d'alerte sur la tuile.
+        self::assertStringContainsString('A recommander', $body);
+        self::assertStringContainsString('tile alert', $body);
+        // Pendant negatif : l'etat sain ("OK") ne doit pas etre rendu ici.
+        self::assertStringNotContainsString('>OK<', $body);
+    }
+
+    public function testRendersHealthyStockTileWhenNoCriticalIngredient(): void
+    {
+        // Pendant SAIN : 0 critique -> branche $nCritical === 0 (tag "OK", pas de
+        // classe d'alerte). Verrouille les deux cotes de la condition de la tuile.
+        $stub = new DashHealthyStatsRepository(new FakeDatabase());
+        $body = $this->controller($this->authedSession(), $this->authedAdminDb(), $stub)->index()->body();
+
+        self::assertStringContainsString('Stock critique', $body);
+        // Tag exact (>OK<) plutot que 'OK' nu, qui pourrait matcher du contenu
+        // sans rapport (cookie, lookup, etc.).
+        self::assertStringContainsString('>OK<', $body);
+        self::assertStringNotContainsString('A recommander', $body);
+        self::assertStringNotContainsString('tile alert', $body);
     }
 
     public function testForbiddenWhenPermissionDenied(): void
