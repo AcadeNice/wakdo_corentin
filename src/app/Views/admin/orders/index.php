@@ -28,15 +28,18 @@ $modeLabel = static fn (string $m): string => match ($m) {
 $statusLabel = static fn (string $s): string => match ($s) {
     'pending_payment' => 'En attente',
     'paid'            => 'Payee',
+    'preparing'       => 'En preparation',
+    'ready'           => 'Prete',
     'delivered'       => 'Livree',
     'cancelled'       => 'Annulee',
     default           => $s,
 };
 
 $statusPill = static fn (string $s): string => match ($s) {
-    'paid', 'delivered' => 'pill-success',
-    'cancelled'         => 'pill-danger',
-    default             => 'pill-warning',
+    'paid', 'ready', 'delivered' => 'pill-success',
+    'preparing'                  => 'pill-warning',
+    'cancelled'                  => 'pill-danger',
+    default                      => 'pill-warning',
 };
 
 /** @var list<array<string, mixed>> $rows */
@@ -67,8 +70,9 @@ $rows = isset($orders) && is_array($orders) ? $orders : [];
                     <?php
                     $number = (string) ($o['order_number'] ?? '');
                     $status = (string) ($o['status'] ?? '');
-                    // PRE-3 (7.1) : seules les commandes pending_payment/paid sont annulables.
-                    $rowCancellable = in_array($status, ['pending_payment', 'paid'], true);
+                    // PRE-3 (7.1) : les commandes non terminales sont annulables (cancel()
+                    // accepte pending_payment, paid et les etats de cuisine preparing/ready).
+                    $rowCancellable = in_array($status, ['pending_payment', 'paid', 'preparing', 'ready'], true);
                     ?>
                     <tr>
                         <td><strong><?= $esc($number) ?></strong></td>

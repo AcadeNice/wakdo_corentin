@@ -115,9 +115,11 @@ class OrderRepository
     /**
      * Cree une commande comptoir/drive (CREATE_COUNTER_ORDER, mlt 4.1). Meme logique
      * de creation que le kiosk (resolution + INSERT pending_payment), MAIS la commande
-     * est immediatement encaissee (paid + decrement de stock, RG-T20) : POST-1 exige
-     * status='paid', paid_at et acting_user_id poses des la creation. Aucun PIN : la
-     * permission order.create suffit (la creation n'est pas dans l'ensemble sensible).
+     * est immediatement encaissee (decrement de stock, RG-T20) : POST-1 pose paid_at et
+     * acting_user_id des la creation. L'encaissement met desormais la commande en
+     * 'preparing' (pay() : paid_at pose, statut preparing) -- elle part en cuisine sans
+     * geste manuel. Aucun PIN : la permission order.create suffit (la creation n'est pas
+     * dans l'ensemble sensible).
      *
      *  - source auto-tagguee depuis le role de l'equipier (counter / drive, RG-1) ;
      *  - service_mode choisi par l'equipier (dine_in / takeaway / drive) ;
@@ -148,10 +150,10 @@ class OrderRepository
         $prefix = $source === 'drive' ? 'D' : 'C';
         $created = $this->persist($req, $source, $prefix, $actingUserId);
 
-        // POST-1 : encaissement immediat (paid + paid_at + decrement stock RG-T20 avec
-        // user_id=equipier). pay() est idempotent et porte l'acteur dans acting_user_id
-        // (COALESCE) et stock_movement.user_id. Le numero (prefixe canal + id) sert de
-        // cle de transition.
+        // POST-1 : encaissement immediat (preparing + paid_at + decrement stock RG-T20
+        // avec user_id=equipier). pay() met directement en preparation et porte l'acteur
+        // dans acting_user_id (COALESCE) et stock_movement.user_id ; il est idempotent. Le
+        // numero (prefixe canal + id) sert de cle de transition.
         return $this->pay($created['order_number'], $actingUserId);
     }
 
@@ -313,35 +315,47 @@ class OrderRepository
             throw new OrderValidationException('ORDER_NOT_FOUND');
         }
 
+        $status = (string) $order['status'];
+        // Le paiement met DIRECTEMENT en preparation (retour oral : une commande payee
+        // part en cuisine automatiquement, sans geste manuel). 'paid' reste un etat
+        // encaisse valide (commandes anterieures / robustesse), mais une commande
+        // nouvellement payee se pose a 'preparing'. Idempotent si DEJA encaissee
+        // (paid|preparing|ready|delivered) : pas de re-decrement, on reflete l'etat reel.
+        if (in_array($status, ['paid', 'preparing', 'ready', 'delivered'], true)) {
+            return [
+                'id'              => (int) $order['id'],
+                'order_number'    => (string) $order['order_number'],
+                'total_ttc_cents' => (int) $order['total_ttc_cents'],
+                'status'          => $status,
+            ];
+        }
+        if ($status !== 'pending_payment') {
+            throw new OrderValidationException('INVALID_TRANSITION'); // cancelled (terminal).
+        }
+
         $result = [
             'id'              => (int) $order['id'],
             'order_number'    => (string) $order['order_number'],
             'total_ttc_cents' => (int) $order['total_ttc_cents'],
-            'status'          => 'paid',
+            'status'          => 'preparing',
         ];
-
-        $status = (string) $order['status'];
-        if ($status === 'paid') {
-            return $result; // idempotent : deja encaissee, pas de re-decrement.
-        }
-        if ($status !== 'pending_payment') {
-            throw new OrderValidationException('INVALID_TRANSITION'); // delivered / cancelled.
-        }
 
         $orderId = (int) $order['id'];
         $this->db->transaction(function (DatabaseInterface $db) use ($orderId, $actingUserId): void {
+            // Encaissement + entree en preparation dans la MEME transaction : paid_at ET
+            // preparing_at sont poses (paid_at reste l'horloge de reference du SLA / KPIs).
             $affected = $db->execute(
-                'UPDATE customer_order SET status = \'paid\', paid_at = NOW(), '
+                'UPDATE customer_order SET status = \'preparing\', paid_at = NOW(), preparing_at = NOW(), '
                 . 'acting_user_id = COALESCE(:uid, acting_user_id), updated_at = NOW() '
                 . 'WHERE id = :id AND status = \'pending_payment\'',
                 ['uid' => $actingUserId, 'id' => $orderId],
             );
             if ($affected === 0) {
-                // Course perdue : un autre appel a deja transite. S'il a abouti a
-                // `paid`, il a fait le decrement -> on sort idempotent ; sinon la
-                // transition est invalide (statut terminal).
+                // Course perdue : un autre appel a deja transite. S'il a abouti a un etat
+                // encaisse, le decrement est fait -> on sort idempotent ; sinon transition
+                // invalide (statut terminal cancelled).
                 $current = (string) ($db->fetch('SELECT status FROM customer_order WHERE id = :id', ['id' => $orderId])['status'] ?? '');
-                if ($current === 'paid') {
+                if (in_array($current, ['paid', 'preparing', 'ready', 'delivered'], true)) {
                     return;
                 }
                 throw new OrderValidationException('INVALID_TRANSITION');
@@ -408,56 +422,6 @@ class OrderRepository
             // Course perdue : un autre appel a deja transite. Idempotent si delivered.
             $current = (string) ($this->db->fetch('SELECT status FROM customer_order WHERE id = :id', ['id' => (int) $order['id']])['status'] ?? '');
             if ($current === 'delivered') {
-                return $result;
-            }
-            throw new OrderValidationException('INVALID_TRANSITION');
-        }
-
-        return $result;
-    }
-
-    /**
-     * Transition paid -> preparing (prise en charge cuisine, retour oral #8). Geste
-     * routinier du KDS, NON PIN-gated (comme deliver) ; aucun mouvement de stock (le
-     * decrement a eu lieu au paiement). Idempotente (deja preparing -> renvoyee). 404 si
-     * inconnue ; INVALID_TRANSITION si la commande n'est pas au statut paid.
-     *
-     * @return array{id:int, order_number:string, total_ttc_cents:int, status:string}
-     * @throws OrderValidationException
-     */
-    public function markPreparing(string $orderNumber): array
-    {
-        $order = $this->db->fetch(
-            'SELECT id, order_number, total_ttc_cents, status FROM customer_order WHERE order_number = :n',
-            ['n' => $orderNumber],
-        );
-        if ($order === null) {
-            throw new OrderValidationException('ORDER_NOT_FOUND');
-        }
-
-        $result = [
-            'id'              => (int) $order['id'],
-            'order_number'    => (string) $order['order_number'],
-            'total_ttc_cents' => (int) $order['total_ttc_cents'],
-            'status'          => 'preparing',
-        ];
-
-        $status = (string) $order['status'];
-        if ($status === 'preparing') {
-            return $result; // idempotent : deja en preparation.
-        }
-        if ($status !== 'paid') {
-            throw new OrderValidationException('INVALID_TRANSITION');
-        }
-
-        $affected = $this->db->execute(
-            'UPDATE customer_order SET status = \'preparing\', preparing_at = NOW(), '
-            . 'updated_at = NOW() WHERE id = :id AND status = \'paid\'',
-            ['id' => (int) $order['id']],
-        );
-        if ($affected === 0) {
-            $current = (string) ($this->db->fetch('SELECT status FROM customer_order WHERE id = :id', ['id' => (int) $order['id']])['status'] ?? '');
-            if ($current === 'preparing') {
                 return $result;
             }
             throw new OrderValidationException('INVALID_TRANSITION');

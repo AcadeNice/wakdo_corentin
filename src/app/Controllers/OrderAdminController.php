@@ -105,37 +105,16 @@ class OrderAdminController extends AdminController
     }
 
     /**
-     * Etat de cuisine : paid -> preparing (retour oral #8). POST + CSRF, garde
-     * order.read (KDS), meme controle de source-visibilite (PRE-3) que deliver.
-     *
-     * @param array<string, string> $params
-     */
-    public function preparing(array $params = []): Response
-    {
-        return $this->advancePrep($params, 'preparing');
-    }
-
-    /**
      * Etat de cuisine : paid|preparing -> ready (retour oral #8). POST + CSRF, garde
-     * order.read, meme controle de source-visibilite que deliver.
+     * order.read + meme controle de source-visibilite (PRE-3, defense en profondeur
+     * comme deliver/cancel : on ne se fie pas a l'affichage de la file), puis markReady.
+     * Le passage en preparation est desormais automatique au paiement (pay()) : il n'y a
+     * plus de geste manuel "Commencer", seul "Prete" reste cote KDS. Issue affichee en
+     * flash, retour au KDS (/kitchen/display, l'ecran d'ou part le geste).
      *
      * @param array<string, string> $params
      */
     public function ready(array $params = []): Response
-    {
-        return $this->advancePrep($params, 'ready');
-    }
-
-    /**
-     * Tronc commun des transitions de preparation du KDS (preparing / ready) : garde
-     * order.read + CSRF + source visible par le role (PRE-3, defense en profondeur
-     * comme deliver/cancel : on ne se fie pas a l'affichage de la file), puis
-     * markPreparing/markReady. Issue affichee en flash, retour au KDS (/kitchen/display,
-     * l'ecran d'ou part le geste).
-     *
-     * @param array<string, string> $params
-     */
-    private function advancePrep(array $params, string $target): Response
     {
         $guard = $this->guard('order.read');
         if ($guard instanceof Response) {
@@ -155,13 +134,8 @@ class OrderAdminController extends AdminController
         }
 
         try {
-            if ($target === 'preparing') {
-                $this->orders()->markPreparing($number);
-                $this->setFlash('Commande passee en preparation.');
-            } else {
-                $this->orders()->markReady($number);
-                $this->setFlash('Commande marquee prete.');
-            }
+            $this->orders()->markReady($number);
+            $this->setFlash('Commande marquee prete.');
         } catch (OrderValidationException $exception) {
             $this->setFlash(
                 $exception->getMessage() === 'ORDER_NOT_FOUND'
