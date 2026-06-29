@@ -118,9 +118,9 @@ try {
     $router->add('GET', '/admin/orders', [OrderAdminController::class, 'index']);
     // Remise au client : paid -> delivered (order.deliver, geste unique, POST + CSRF).
     $router->add('POST', '/admin/orders/{number}/deliver', [OrderAdminController::class, 'deliver']);
-    // Etats de cuisine (retour oral #8) : segments distincts {number}/preparing|ready,
-    // pas de collision avec /deliver, /cancel ni la liste.
-    $router->add('POST', '/admin/orders/{number}/preparing', [OrderAdminController::class, 'preparing']);
+    // Etat de cuisine (retour oral #8) : marquer une commande prete. Le passage en
+    // preparation est automatique au paiement (pay()), il n'y a plus de geste manuel.
+    // Segment {number}/ready, pas de collision avec /deliver, /cancel ni la liste.
     $router->add('POST', '/admin/orders/{number}/ready', [OrderAdminController::class, 'ready']);
     // Annulation : pending_payment|paid -> cancelled (CANCEL_ORDER mlt 7.1, order.cancel).
     // PIN equipier + audit + restock conditionnel (RG-T13/T14). {number} = un seul

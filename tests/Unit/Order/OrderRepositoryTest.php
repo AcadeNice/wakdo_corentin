@@ -297,13 +297,14 @@ final class OrderRepositoryTest extends TestCase
             'items' => [['type' => 'product', 'product_id' => 12, 'quantity' => 1]],
         ], 7, 'counter');
 
-        // POST-1 : source counter, prefixe 'C' + id, acting_user_id pose, status paid.
+        // POST-1 : source counter, prefixe 'C' + id, acting_user_id pose. L'encaissement
+        // met directement en preparation (pay()) -> status 'preparing'.
         $order = $db->firstWrite('INSERT INTO customer_order');
         self::assertSame('counter', $order['source']);
         self::assertSame(7, $order['acting']);
         $renumber = $db->firstWrite('UPDATE customer_order SET order_number');
         self::assertSame('C100', $renumber['num']);
-        self::assertSame('paid', $res['status']);
+        self::assertSame('preparing', $res['status']);
         self::assertSame('C100', $res['order_number']);
 
         // POST-3 : stock decremente avec user_id = equipier (RG-4/RG-T20).
@@ -329,7 +330,7 @@ final class OrderRepositoryTest extends TestCase
         $order = $db->firstWrite('INSERT INTO customer_order');
         self::assertSame('drive', $order['source']);
         self::assertSame('D100', $db->firstWrite('UPDATE customer_order SET order_number')['num']);
-        self::assertSame('paid', $res['status']);
+        self::assertSame('preparing', $res['status']); // encaissement -> preparation directe
     }
 
     public function testStaffOrderDriveRejectsNonDriveServiceMode(): void
@@ -399,7 +400,7 @@ final class OrderRepositoryTest extends TestCase
 
     // --- pay() : transition + decrement de stock (RG-5 etapes 5-6, RG-T20) ---
 
-    public function testPayTransitionsToPaidAndDecrementsProductRecipe(): void
+    public function testPayTransitionsToPreparingAndDecrementsProductRecipe(): void
     {
         $db = new FakeOrderDatabase();
         $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => 'pending_payment'];
@@ -408,9 +409,15 @@ final class OrderRepositoryTest extends TestCase
 
         $res = $this->repo($db)->pay('K100');
 
-        self::assertSame('paid', $res['status']);
+        // Le paiement met DIRECTEMENT en preparation (retour oral) : statut preparing,
+        // paid_at ET preparing_at poses dans la meme transition.
+        self::assertSame('preparing', $res['status']);
         self::assertSame('K100', $res['order_number']);
         self::assertSame(1, $db->countWrites('UPDATE customer_order SET status'));
+        $sql = $db->firstWriteSql('UPDATE customer_order SET status');
+        self::assertStringContainsString("status = 'preparing'", $sql);
+        self::assertStringContainsString('paid_at = NOW()', $sql);
+        self::assertStringContainsString('preparing_at = NOW()', $sql);
 
         // 2 unites consommees (qn 1 * quantite 2) -> stock -2 sur l'ingredient 5.
         $dec = $db->firstWrite('UPDATE ingredient SET stock_quantity');
@@ -422,19 +429,23 @@ final class OrderRepositoryTest extends TestCase
         self::assertNull($move['uid']); // kiosk : pas d'acteur.
     }
 
-    public function testPayIsIdempotentWhenAlreadyPaid(): void
+    public function testPayIsIdempotentWhenAlreadyEncashed(): void
     {
-        $db = new FakeOrderDatabase();
-        $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => 'paid'];
-        $db->orderItems = [['id' => 1, 'item_type' => 'product', 'product_id' => 12, 'menu_id' => null, 'format' => 'normal', 'quantity' => 2]];
-        $db->compositions[12] = [['ingredient_id' => 5, 'quantity_normal' => 1, 'quantity_maxi' => 1]];
+        // Idempotence : une commande deja encaissee (paid OU preparing -- ce dernier
+        // etant l'etat pose par un paiement) est renvoyee telle quelle, sans re-decrement.
+        foreach (['paid', 'preparing'] as $already) {
+            $db = new FakeOrderDatabase();
+            $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => $already];
+            $db->orderItems = [['id' => 1, 'item_type' => 'product', 'product_id' => 12, 'menu_id' => null, 'format' => 'normal', 'quantity' => 2]];
+            $db->compositions[12] = [['ingredient_id' => 5, 'quantity_normal' => 1, 'quantity_maxi' => 1]];
 
-        $res = $this->repo($db)->pay('K100');
+            $res = $this->repo($db)->pay('K100');
 
-        self::assertSame('paid', $res['status']);
-        self::assertSame(0, $db->countWrites('UPDATE customer_order SET status'));
-        self::assertSame(0, $db->countWrites('UPDATE ingredient SET stock_quantity'));
-        self::assertSame(0, $db->countWrites('INSERT INTO stock_movement'));
+            self::assertSame($already, $res['status'], "pay idempotent depuis $already");
+            self::assertSame(0, $db->countWrites('UPDATE customer_order SET status'));
+            self::assertSame(0, $db->countWrites('UPDATE ingredient SET stock_quantity'));
+            self::assertSame(0, $db->countWrites('INSERT INTO stock_movement'));
+        }
     }
 
     public function testPayRejectsUnknownOrder(): void
@@ -457,18 +468,21 @@ final class OrderRepositoryTest extends TestCase
         $this->repo($db)->pay('K100');
     }
 
-    public function testPayLosesConcurrentRaceReturnsPaidWithoutDecrement(): void
+    public function testPayLosesConcurrentRaceRecoversWithoutDecrement(): void
     {
+        // La garde status='pending_payment' n'affecte 0 ligne : un autre process a deja
+        // transite vers un etat encaisse (le decrement est fait) -> on sort idempotent,
+        // sans re-decrementer le stock.
         $db = new FakeOrderDatabase();
         $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => 'pending_payment'];
         $db->payUpdateAffected = 0; // un autre process a deja transite...
-        $db->recheckStatus = 'paid'; // ...vers paid : on sort idempotent.
+        $db->recheckStatus = 'preparing'; // ...vers un etat encaisse : on sort idempotent.
         $db->orderItems = [['id' => 1, 'item_type' => 'product', 'product_id' => 12, 'menu_id' => null, 'format' => 'normal', 'quantity' => 2]];
         $db->compositions[12] = [['ingredient_id' => 5, 'quantity_normal' => 1, 'quantity_maxi' => 1]];
 
         $res = $this->repo($db)->pay('K100');
 
-        self::assertSame('paid', $res['status']);
+        self::assertSame('preparing', $res['status']);
         self::assertSame(0, $db->countWrites('UPDATE ingredient SET stock_quantity'));
         self::assertSame(0, $db->countWrites('INSERT INTO stock_movement'));
     }
@@ -575,41 +589,6 @@ final class OrderRepositoryTest extends TestCase
             self::assertSame('delivered', $res['status'], "deliver depuis $from");
             self::assertNotSame([], $db->firstWrite('UPDATE customer_order SET status'));
         }
-    }
-
-    public function testMarkPreparingTransitionsPaidToPreparing(): void
-    {
-        $db = new FakeOrderDatabase();
-        $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => 'paid'];
-
-        $res = $this->repo($db)->markPreparing('K100');
-
-        self::assertSame('preparing', $res['status']);
-        $write = $db->firstWrite('UPDATE customer_order SET status');
-        self::assertNotSame([], $write);
-        self::assertStringContainsString("status = 'preparing'", $db->firstWriteSql('UPDATE customer_order SET status'));
-        self::assertStringContainsString('preparing_at = NOW()', $db->firstWriteSql('UPDATE customer_order SET status'));
-    }
-
-    public function testMarkPreparingIsIdempotentWhenAlreadyPreparing(): void
-    {
-        $db = new FakeOrderDatabase();
-        $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => 'preparing'];
-
-        $res = $this->repo($db)->markPreparing('K100');
-
-        self::assertSame('preparing', $res['status']);
-        self::assertSame([], $db->firstWrite('UPDATE customer_order SET status')); // aucune reecriture
-    }
-
-    public function testMarkPreparingRejectsNonPaid(): void
-    {
-        $db = new FakeOrderDatabase();
-        $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => 'pending_payment'];
-
-        $this->expectException(OrderValidationException::class);
-        $this->expectExceptionMessage('INVALID_TRANSITION');
-        $this->repo($db)->markPreparing('K100');
     }
 
     public function testMarkReadyTransitionsFromPaidAndFromPreparing(): void

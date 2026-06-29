@@ -125,12 +125,7 @@ $itemLabel = static function (array $item) use ($esc): string {
                 </div>
                 <?php if ($canPrep || $can): ?>
                     <div class="kitchen-card-footer">
-                        <?php if ($canPrep && $status === 'paid'): ?>
-                            <form method="post" action="/admin/orders/<?= rawurlencode($num) ?>/preparing">
-                                <input type="hidden" name="_csrf" value="<?= $csrf ?>">
-                                <button class="btn btn-secondary" type="submit">Commencer</button>
-                            </form>
-                        <?php elseif ($canPrep && $status === 'preparing'): ?>
+                        <?php if ($canPrep && $status === 'preparing'): ?>
                             <form method="post" action="/admin/orders/<?= rawurlencode($num) ?>/ready">
                                 <input type="hidden" name="_csrf" value="<?= $csrf ?>">
                                 <button class="btn btn-secondary" type="submit">Prete</button>

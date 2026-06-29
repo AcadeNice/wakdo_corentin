@@ -93,7 +93,7 @@ final class OrderControllerTest extends TestCase
         self::assertSame('INVALID_SERVICE_MODE', $data['error']['code'] ?? null);
     }
 
-    public function testPayReturns200Paid(): void
+    public function testPayReturns200Preparing(): void
     {
         $db = new FakeOrderDatabase();
         $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => 'pending_payment'];
@@ -103,7 +103,8 @@ final class OrderControllerTest extends TestCase
         self::assertSame(200, $response->status());
         $data = json_decode($response->body(), true);
         self::assertIsArray($data);
-        self::assertSame('paid', $data['data']['status'] ?? null);
+        // Le paiement met directement en preparation (retour oral) : l'API reflete l'etat reel.
+        self::assertSame('preparing', $data['data']['status'] ?? null);
         self::assertSame('K100', $data['data']['order_number'] ?? null);
     }
 
@@ -122,8 +123,10 @@ final class OrderControllerTest extends TestCase
 
     public function testPayTerminalStatusReturns409(): void
     {
+        // 'cancelled' est le seul statut terminal qui refuse le paiement (INVALID_TRANSITION).
+        // Les etats encaisses (paid/preparing/ready/delivered) sont idempotents -> 200.
         $db = new FakeOrderDatabase();
-        $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => 'delivered'];
+        $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => 'cancelled'];
 
         $response = $this->controller($db, '', '/api/orders/K100/pay')->pay(['number' => 'K100']);
 

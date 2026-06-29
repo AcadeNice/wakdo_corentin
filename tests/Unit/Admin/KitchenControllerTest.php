@@ -18,7 +18,9 @@ use App\Tests\Support\FakeDatabase;
  * Stub OrderQueryRepository : sources visibles + file enrichie canned, pour tester le
  * rendu du KDS sans base. Le SQL reel de visibleSources/paidQueueWithDetail est couvert
  * par OrderQueryRepositoryDbTest (integration) ; ici on isole le rendu de la vue :
- * detail des articles (selections + modificateurs) et bande SLA -> classe CSS.
+ * detail des articles (selections + modificateurs) et bande SLA -> classe CSS. Le statut
+ * canned est 'preparing' : les commandes arrivent desormais en preparation des le
+ * paiement (pay()), il n'y a plus d'etat 'paid' transitoire affiche au KDS.
  */
 final class StubKitchenQuery extends OrderQueryRepository
 {
@@ -35,7 +37,7 @@ final class StubKitchenQuery extends OrderQueryRepository
                 'source'          => 'kiosk',
                 'service_mode'    => 'dine_in',
                 'service_tag'     => '12',
-                'status'          => 'paid',
+                'status'          => 'preparing',
                 'total_ttc_cents' => 990,
                 'paid_at'         => '2026-06-19 12:01:00',
                 'sla_band'        => 'warn',
@@ -211,20 +213,11 @@ final class KitchenControllerTest extends TestCase
 
     public function testRendersPreparationStatusBadge(): void
     {
-        // Retour oral #8 : chaque carte affiche son etat. La file canned est 'paid' ->
-        // badge "En attente".
+        // Retour oral #8 : chaque carte affiche son etat. La file canned est 'preparing'
+        // (les commandes arrivent en preparation des le paiement) -> badge "En preparation".
         $body = $this->controller($this->permittedDb())->display()->body();
         self::assertStringContainsString('kitchen-status', $body);
-        self::assertStringContainsString('En attente', $body);
-    }
-
-    public function testShowsStartButtonForPaidOrderWhenCanPrepare(): void
-    {
-        // order.read garde le KDS (canResult=true) + commande paid -> bouton "Commencer"
-        // postant la transition preparing.
-        $body = $this->controller($this->permittedDb())->display()->body();
-        self::assertStringContainsString('Commencer', $body);
-        self::assertStringContainsString('/admin/orders/K42/preparing', $body);
+        self::assertStringContainsString('En preparation', $body);
     }
 
     public function testShowsReadyButtonForPreparingOrder(): void
