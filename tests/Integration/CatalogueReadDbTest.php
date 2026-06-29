@@ -168,6 +168,35 @@ final class CatalogueReadDbTest extends TestCase
         self::assertSame([], $slotsOut[1]['option_product_ids']);
     }
 
+    /**
+     * Detail produit : sizesForProduct charge la base ET ses variantes de taille.
+     * Regression HY093 : la requete reutilisait un meme placeholder nomme (:base),
+     * interdit en prepare native (EMULATE_PREPARES=false) -> GET /api/products/{id}
+     * d'une base a variantes renvoyait une 500 SQLSTATE[HY093]. Sur vraie base, ce
+     * test echoue par EXCEPTION avant le fix (placeholders distincts) et passe apres.
+     */
+    public function testSizesForProductLoadsBaseAndVariantsWithoutBindingError(): void
+    {
+        $categories = new CategoryRepository($this->db);
+        $products = new ProductRepository($this->db);
+
+        $slug = 'it-cat-' . $this->suffix . '-s';
+        $categories->create(['name' => 'IT Cat S ' . $this->suffix, 'slug' => $slug, 'image_path' => null, 'display_order' => 94, 'is_active' => 1]);
+        $catId = $this->idOfCategory($slug);
+
+        // Base 30 cl + variante 50 cl (base_product_id -> base, ON DELETE CASCADE).
+        $baseName = 'IT Prod ' . $this->suffix . ' soda';
+        $products->create($this->productData($baseName, $catId, 1, 30));
+        $baseId = $this->idOfProduct($baseName);
+        $products->create($this->productData('IT Prod ' . $this->suffix . ' soda50', $catId, 1, 50, $baseId));
+
+        // Ne doit PAS lever (HY093) ; remonte la base + sa variante, triees par volume.
+        $sizes = $products->sizesForProduct($baseId);
+        self::assertCount(2, $sizes);
+        $cls = array_map(static fn (array $r): int => (int) ($r['size_cl'] ?? 0), $sizes);
+        self::assertSame([30, 50], $cls);
+    }
+
     private function idOfCategory(string $slug): int
     {
         return (int) ($this->db->fetch('SELECT id FROM category WHERE slug = :s', ['s' => $slug])['id'] ?? 0);
@@ -201,15 +230,15 @@ final class CatalogueReadDbTest extends TestCase
     /**
      * @return array{category_id: int, name: string, description: ?string, price_cents: int, size_cl: ?int, base_product_id: ?int, maxi_variant_product_id: ?int, vat_rate: int, image_path: ?string, is_available: int, display_order: int}
      */
-    private function productData(string $name, int $categoryId, int $available): array
+    private function productData(string $name, int $categoryId, int $available, ?int $sizeCl = null, ?int $baseProductId = null): array
     {
         return [
             'category_id' => $categoryId,
             'name' => $name,
             'description' => null,
             'price_cents' => 500,
-            'size_cl' => null,
-            'base_product_id' => null,
+            'size_cl' => $sizeCl,
+            'base_product_id' => $baseProductId,
             'maxi_variant_product_id' => null,
             'vat_rate' => 100,
             'image_path' => null,

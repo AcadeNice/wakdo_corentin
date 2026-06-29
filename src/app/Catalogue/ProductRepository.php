@@ -164,11 +164,15 @@ final class ProductRepository
      */
     public function sizesForProduct(int $baseId): array
     {
+        // Placeholders DISTINCTS (base_self / base_variant) portant la meme valeur :
+        // en prepare native (Database, ATTR_EMULATE_PREPARES=false) un meme nom de
+        // placeholder ne peut PAS apparaitre deux fois dans une requete, sinon MariaDB
+        // rejette en SQLSTATE HY093 (Invalid parameter number).
         return $this->db->fetchAll(
             'SELECT id, size_cl, price_cents FROM product '
-            . 'WHERE (id = :base OR base_product_id = :base) AND is_available = 1 '
+            . 'WHERE (id = :base_self OR base_product_id = :base_variant) AND is_available = 1 '
             . 'ORDER BY size_cl IS NULL DESC, size_cl, id',
-            ['base' => $baseId],
+            ['base_self' => $baseId, 'base_variant' => $baseId],
         );
     }
 

@@ -87,7 +87,8 @@ final class FakeCatalogueDatabase implements DatabaseInterface
 
     /**
      * Tailles d'un produit (R4) renvoyees par ProductRepository::sizesForProduct() ;
-     * la requete porte (id = :base OR base_product_id = :base).
+     * la requete porte (id = :base_self OR base_product_id = :base_variant) --
+     * placeholders distincts (EMULATE_PREPARES=false), cf. HY093.
      *
      * @var list<array<string, mixed>>
      */
@@ -150,7 +151,7 @@ final class FakeCatalogueDatabase implements DatabaseInterface
         if (str_contains($sql, 'AS base_id')) {
             return $this->sizesByBaseRows;
         }
-        if (str_contains($sql, '(id = :base OR base_product_id = :base)')) {
+        if (str_contains($sql, '(id = :base_self OR base_product_id = :base_variant)')) {
             return $this->productSizes;
         }
 

@@ -93,7 +93,9 @@ final class ProductRepositorySizesTest extends TestCase
         self::assertCount(2, $sizes);
         self::assertSame('14', $sizes[0]['id']);
         self::assertSame('99', $sizes[1]['id']);
-        // Le parametre :base a bien ete lie a l'id demande.
-        self::assertSame(14, $db->reads[0]['params']['base'] ?? null);
+        // Placeholders DISTINCTS (EMULATE_PREPARES=false, regression HY093) lies tous
+        // deux a l'id demande : un meme nom reutilise ferait echouer la prepare native.
+        self::assertSame(14, $db->reads[0]['params']['base_self'] ?? null);
+        self::assertSame(14, $db->reads[0]['params']['base_variant'] ?? null);
     }
 }
