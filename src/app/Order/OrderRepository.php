@@ -393,19 +393,121 @@ class OrderRepository
         if ($status === 'delivered') {
             return $result; // idempotent : remise deja actee.
         }
-        if ($status !== 'paid') {
+        // Accepte la remise depuis tout etat actif (paid, preparing, ready) : une commande
+        // peut etre remise sans passer par les etats de cuisine (retour oral #8).
+        if (!in_array($status, ['paid', 'preparing', 'ready'], true)) {
             throw new OrderValidationException('INVALID_TRANSITION'); // pending_payment / cancelled.
         }
 
         $affected = $this->db->execute(
             'UPDATE customer_order SET status = \'delivered\', delivered_at = NOW(), '
-            . 'updated_at = NOW() WHERE id = :id AND status = \'paid\'',
+            . 'updated_at = NOW() WHERE id = :id AND status IN (\'paid\', \'preparing\', \'ready\')',
             ['id' => (int) $order['id']],
         );
         if ($affected === 0) {
             // Course perdue : un autre appel a deja transite. Idempotent si delivered.
             $current = (string) ($this->db->fetch('SELECT status FROM customer_order WHERE id = :id', ['id' => (int) $order['id']])['status'] ?? '');
             if ($current === 'delivered') {
+                return $result;
+            }
+            throw new OrderValidationException('INVALID_TRANSITION');
+        }
+
+        return $result;
+    }
+
+    /**
+     * Transition paid -> preparing (prise en charge cuisine, retour oral #8). Geste
+     * routinier du KDS, NON PIN-gated (comme deliver) ; aucun mouvement de stock (le
+     * decrement a eu lieu au paiement). Idempotente (deja preparing -> renvoyee). 404 si
+     * inconnue ; INVALID_TRANSITION si la commande n'est pas au statut paid.
+     *
+     * @return array{id:int, order_number:string, total_ttc_cents:int, status:string}
+     * @throws OrderValidationException
+     */
+    public function markPreparing(string $orderNumber): array
+    {
+        $order = $this->db->fetch(
+            'SELECT id, order_number, total_ttc_cents, status FROM customer_order WHERE order_number = :n',
+            ['n' => $orderNumber],
+        );
+        if ($order === null) {
+            throw new OrderValidationException('ORDER_NOT_FOUND');
+        }
+
+        $result = [
+            'id'              => (int) $order['id'],
+            'order_number'    => (string) $order['order_number'],
+            'total_ttc_cents' => (int) $order['total_ttc_cents'],
+            'status'          => 'preparing',
+        ];
+
+        $status = (string) $order['status'];
+        if ($status === 'preparing') {
+            return $result; // idempotent : deja en preparation.
+        }
+        if ($status !== 'paid') {
+            throw new OrderValidationException('INVALID_TRANSITION');
+        }
+
+        $affected = $this->db->execute(
+            'UPDATE customer_order SET status = \'preparing\', preparing_at = NOW(), '
+            . 'updated_at = NOW() WHERE id = :id AND status = \'paid\'',
+            ['id' => (int) $order['id']],
+        );
+        if ($affected === 0) {
+            $current = (string) ($this->db->fetch('SELECT status FROM customer_order WHERE id = :id', ['id' => (int) $order['id']])['status'] ?? '');
+            if ($current === 'preparing') {
+                return $result;
+            }
+            throw new OrderValidationException('INVALID_TRANSITION');
+        }
+
+        return $result;
+    }
+
+    /**
+     * Transition paid|preparing -> ready (commande prete a remettre, retour oral #8).
+     * Accepte 'paid' en direct (l'equipe peut sauter "en preparation" si la commande est
+     * faite d'emblee). Geste routinier, non PIN-gated ; aucun mouvement de stock.
+     * Idempotente (deja ready -> renvoyee). 404 si inconnue ; INVALID_TRANSITION sinon.
+     *
+     * @return array{id:int, order_number:string, total_ttc_cents:int, status:string}
+     * @throws OrderValidationException
+     */
+    public function markReady(string $orderNumber): array
+    {
+        $order = $this->db->fetch(
+            'SELECT id, order_number, total_ttc_cents, status FROM customer_order WHERE order_number = :n',
+            ['n' => $orderNumber],
+        );
+        if ($order === null) {
+            throw new OrderValidationException('ORDER_NOT_FOUND');
+        }
+
+        $result = [
+            'id'              => (int) $order['id'],
+            'order_number'    => (string) $order['order_number'],
+            'total_ttc_cents' => (int) $order['total_ttc_cents'],
+            'status'          => 'ready',
+        ];
+
+        $status = (string) $order['status'];
+        if ($status === 'ready') {
+            return $result; // idempotent : deja prete.
+        }
+        if (!in_array($status, ['paid', 'preparing'], true)) {
+            throw new OrderValidationException('INVALID_TRANSITION');
+        }
+
+        $affected = $this->db->execute(
+            'UPDATE customer_order SET status = \'ready\', ready_at = NOW(), '
+            . 'updated_at = NOW() WHERE id = :id AND status IN (\'paid\', \'preparing\')',
+            ['id' => (int) $order['id']],
+        );
+        if ($affected === 0) {
+            $current = (string) ($this->db->fetch('SELECT status FROM customer_order WHERE id = :id', ['id' => (int) $order['id']])['status'] ?? '');
+            if ($current === 'ready') {
                 return $result;
             }
             throw new OrderValidationException('INVALID_TRANSITION');
@@ -449,7 +551,7 @@ class OrderRepository
         }
 
         $preStatus = (string) $order['status'];
-        if (!in_array($preStatus, ['pending_payment', 'paid'], true)) {
+        if (!in_array($preStatus, ['pending_payment', 'paid', 'preparing', 'ready'], true)) {
             throw new OrderValidationException('CANNOT_CANCEL_IN_STATE'); // delivered / cancelled (statut terminal).
         }
 
@@ -465,7 +567,7 @@ class OrderRepository
         $this->db->transaction(function (DatabaseInterface $db) use ($orderId, $preStatus, $totalTtc, $actingUserId, $actingRoleId): void {
             $affected = $db->execute(
                 'UPDATE customer_order SET status = \'cancelled\', cancelled_at = NOW(), updated_at = NOW() '
-                . 'WHERE id = :id AND status IN (\'pending_payment\', \'paid\')',
+                . 'WHERE id = :id AND status IN (\'pending_payment\', \'paid\', \'preparing\', \'ready\')',
                 ['id' => $orderId],
             );
             if ($affected === 0) {

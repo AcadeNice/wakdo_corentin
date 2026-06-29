@@ -91,8 +91,8 @@ class OrderQueryRepository
         }
 
         return $this->db->fetchAll(
-            'SELECT order_number, source, service_mode, service_tag, total_ttc_cents, paid_at '
-            . 'FROM customer_order WHERE status = \'paid\' AND source IN (' . implode(', ', $placeholders) . ') '
+            'SELECT order_number, source, service_mode, service_tag, status, total_ttc_cents, paid_at '
+            . 'FROM customer_order WHERE status IN (\'paid\', \'preparing\', \'ready\') AND source IN (' . implode(', ', $placeholders) . ') '
             . 'ORDER BY paid_at ASC, id ASC',
             $params,
         );
@@ -139,8 +139,8 @@ class OrderQueryRepository
         // `id` est selectionne ici (a la difference de paidQueue) : il sert de cle de
         // jointure pour le fetch groupe des lignes, sans etre expose tel quel a la vue.
         $orders = $this->db->fetchAll(
-            'SELECT id, order_number, source, service_mode, service_tag, total_ttc_cents, paid_at '
-            . 'FROM customer_order WHERE status = \'paid\' AND source IN (' . implode(', ', $placeholders) . ') '
+            'SELECT id, order_number, source, service_mode, service_tag, status, total_ttc_cents, paid_at '
+            . 'FROM customer_order WHERE status IN (\'paid\', \'preparing\', \'ready\') AND source IN (' . implode(', ', $placeholders) . ') '
             . 'ORDER BY paid_at ASC, id ASC',
             $params,
         );
@@ -266,10 +266,10 @@ class OrderQueryRepository
     }
 
     /**
-     * KPIs de vente : CA encaisse (statuts paid + delivered), nombre de commandes
-     * encaissees, panier moyen, CA et nombre du JOUR, total de commandes, et la
-     * repartition par statut. Le CA exclut les commandes pending_payment (non
-     * encaissees) et cancelled.
+     * KPIs de vente : CA encaisse (TOUS les statuts post-paiement : paid, preparing,
+     * ready, delivered -- l'argent est encaisse des pay(), avant la preparation), nombre
+     * de commandes encaissees, panier moyen, CA et nombre du JOUR, total de commandes, et
+     * la repartition par statut. Le CA exclut pending_payment (non encaisse) et cancelled.
      *
      * @return array{revenue_cents:int, paid_count:int, avg_basket_cents:int, revenue_today_cents:int, paid_count_today:int, total_orders:int, by_status:array<string,int>}
      */
@@ -277,10 +277,10 @@ class OrderQueryRepository
     {
         $t = $this->db->fetch(
             "SELECT
-                COALESCE(SUM(CASE WHEN status IN ('paid','delivered') THEN total_ttc_cents ELSE 0 END), 0) AS revenue,
-                COALESCE(SUM(status IN ('paid','delivered')), 0) AS paid_count,
-                COALESCE(SUM(CASE WHEN status IN ('paid','delivered') AND created_at >= CURDATE() THEN total_ttc_cents ELSE 0 END), 0) AS revenue_today,
-                COALESCE(SUM(status IN ('paid','delivered') AND created_at >= CURDATE()), 0) AS paid_count_today,
+                COALESCE(SUM(CASE WHEN status IN ('paid','preparing','ready','delivered') THEN total_ttc_cents ELSE 0 END), 0) AS revenue,
+                COALESCE(SUM(status IN ('paid','preparing','ready','delivered')), 0) AS paid_count,
+                COALESCE(SUM(CASE WHEN status IN ('paid','preparing','ready','delivered') AND created_at >= CURDATE() THEN total_ttc_cents ELSE 0 END), 0) AS revenue_today,
+                COALESCE(SUM(status IN ('paid','preparing','ready','delivered') AND created_at >= CURDATE()), 0) AS paid_count_today,
                 COUNT(*) AS total_orders
              FROM customer_order",
         ) ?? [];
@@ -325,7 +325,7 @@ class OrderQueryRepository
             "SELECT DATE(created_at) AS d, COUNT(*) AS orders, "
             . 'COALESCE(SUM(total_ttc_cents), 0) AS revenue '
             . 'FROM customer_order '
-            . "WHERE status IN ('paid', 'delivered') "
+            . "WHERE status IN ('paid', 'preparing', 'ready', 'delivered') "
             . '  AND created_at >= (CURDATE() - INTERVAL ' . ($days - 1) . ' DAY) '
             . 'GROUP BY DATE(created_at)',
         );

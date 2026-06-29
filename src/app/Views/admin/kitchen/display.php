@@ -15,6 +15,7 @@ declare(strict_types=1);
  *
  * @var list<array<string, mixed>> $orders
  * @var bool        $canDeliver
+ * @var bool        $canPrepare
  * @var string      $csrfToken
  */
 
@@ -22,8 +23,11 @@ $esc = static fn ($v): string => htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-
 $csrf = $esc($csrfToken ?? '');
 $rows = isset($orders) && is_array($orders) ? $orders : [];
 $can = !empty($canDeliver);
+$canPrep = !empty($canPrepare);
 
 $sourceLabel = static fn (string $s): string => ['kiosk' => 'Borne', 'counter' => 'Comptoir', 'drive' => 'Drive'][$s] ?? $s;
+// Etat de preparation visible (retour oral #8) -> libelle FR sur la carte.
+$statusLabel = static fn (string $s): string => ['paid' => 'En attente', 'preparing' => 'En preparation', 'ready' => 'Prete'][$s] ?? $s;
 $modeLabel = static fn (string $m): string => $m === 'dine_in' ? 'Sur place' : ($m === 'drive' ? 'Drive' : 'A emporter');
 
 // Bande SLA (serveur) -> classe CSS de la carte. Defaut prudent sur valeur inconnue.
@@ -94,10 +98,13 @@ $itemLabel = static function (array $item) use ($esc): string {
             <?php
             $items = isset($o['items']) && is_array($o['items']) ? $o['items'] : [];
             $band = (string) ($o['sla_band'] ?? 'fresh');
+            $status = (string) ($o['status'] ?? 'paid');
+            $num = (string) ($o['order_number'] ?? '');
             ?>
             <article class="kitchen-card <?= $esc($slaClass($band)) ?>">
                 <div class="kitchen-card-header">
-                    <span class="kitchen-order-num"><?= $esc($o['order_number'] ?? '') ?></span>
+                    <span class="kitchen-order-num"><?= $esc($num) ?></span>
+                    <span class="kitchen-status kitchen-status--<?= $esc($status) ?>"><?= $esc($statusLabel($status)) ?></span>
                     <span class="kitchen-card-source"><?= $esc($sourceLabel((string) ($o['source'] ?? ''))) ?></span>
                 </div>
                 <div class="kitchen-card-body">
@@ -116,12 +123,25 @@ $itemLabel = static function (array $item) use ($esc): string {
                         </ul>
                     <?php endif; ?>
                 </div>
-                <?php if ($can): ?>
+                <?php if ($canPrep || $can): ?>
                     <div class="kitchen-card-footer">
-                        <form method="post" action="/admin/orders/<?= rawurlencode((string) ($o['order_number'] ?? '')) ?>/deliver">
-                            <input type="hidden" name="_csrf" value="<?= $csrf ?>">
-                            <button class="btn btn-primary" type="submit">Remettre (livree)</button>
-                        </form>
+                        <?php if ($canPrep && $status === 'paid'): ?>
+                            <form method="post" action="/admin/orders/<?= rawurlencode($num) ?>/preparing">
+                                <input type="hidden" name="_csrf" value="<?= $csrf ?>">
+                                <button class="btn btn-secondary" type="submit">Commencer</button>
+                            </form>
+                        <?php elseif ($canPrep && $status === 'preparing'): ?>
+                            <form method="post" action="/admin/orders/<?= rawurlencode($num) ?>/ready">
+                                <input type="hidden" name="_csrf" value="<?= $csrf ?>">
+                                <button class="btn btn-secondary" type="submit">Prete</button>
+                            </form>
+                        <?php endif; ?>
+                        <?php if ($can): ?>
+                            <form method="post" action="/admin/orders/<?= rawurlencode($num) ?>/deliver">
+                                <input type="hidden" name="_csrf" value="<?= $csrf ?>">
+                                <button class="btn btn-primary" type="submit">Remettre (livree)</button>
+                            </form>
+                        <?php endif; ?>
                     </div>
                 <?php endif; ?>
             </article>

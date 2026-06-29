@@ -60,20 +60,25 @@ final class OrderQueryRepositoryDbTest extends TestCase
         );
     }
 
-    public function testSalesKpisCountsPaidRevenueOnly(): void
+    public function testSalesKpisCountsEncashedRevenueAcrossPrepStates(): void
     {
         $repo = new OrderQueryRepository($this->db);
         $before = $repo->salesKpis();
 
+        // Encaisse des pay() : paid ET les etats de preparation (preparing/ready) comptent
+        // dans le CA ; pending_payment (non encaisse) ne compte pas. (Regression #8 : une
+        // commande en preparation ne doit pas disparaitre du CA jusqu'a la remise.)
         $this->insertOrder('IT-' . $this->suffix . '-P', 'paid', 1000);
+        $this->insertOrder('IT-' . $this->suffix . '-PR', 'preparing', 700);
         $this->insertOrder('IT-' . $this->suffix . '-N', 'pending_payment', 500);
 
         $after = $repo->salesKpis();
-        // Le CA ne compte QUE le paid (pas le pending_payment).
-        self::assertSame($before['revenue_cents'] + 1000, $after['revenue_cents']);
-        self::assertSame($before['paid_count'] + 1, $after['paid_count']);
-        self::assertSame($before['total_orders'] + 2, $after['total_orders']);
+        // CA = paid + preparing (1700), pending_payment exclu.
+        self::assertSame($before['revenue_cents'] + 1700, $after['revenue_cents']);
+        self::assertSame($before['paid_count'] + 2, $after['paid_count']);
+        self::assertSame($before['total_orders'] + 3, $after['total_orders']);
         self::assertGreaterThanOrEqual(1, $after['by_status']['paid'] ?? 0);
+        self::assertGreaterThanOrEqual(1, $after['by_status']['preparing'] ?? 0);
         self::assertGreaterThanOrEqual(1, $after['by_status']['pending_payment'] ?? 0);
         self::assertSame(intdiv($after['revenue_cents'], max(1, $after['paid_count'])), $after['avg_basket_cents']);
     }
@@ -178,6 +183,28 @@ final class OrderQueryRepositoryDbTest extends TestCase
         self::assertCount(1, $item['modifiers']);
         self::assertSame('remove', (string) $item['modifiers'][0]['action']);
         self::assertSame('Oignon', (string) $item['modifiers'][0]['ingredient_name']);
+    }
+
+    public function testPaidQueueWithDetailIncludesPreparingAndReady(): void
+    {
+        // Retour oral #8 : la file active du KDS couvre paid|preparing|ready, et expose
+        // le statut pour que la vue affiche le badge + le bon bouton. (Requiert la
+        // migration 0009 : l'enum status accepte preparing/ready.)
+        $repo = new OrderQueryRepository($this->db);
+        $prep = 'IT-' . $this->suffix . '-PREP';
+        $rdy  = 'IT-' . $this->suffix . '-RDY';
+        $this->insertOrder($prep, 'preparing', 990);
+        $this->insertOrder($rdy, 'ready', 990);
+
+        $byNumber = [];
+        foreach ($repo->paidQueueWithDetail(['kiosk', 'counter', 'drive']) as $o) {
+            $byNumber[(string) ($o['order_number'] ?? '')] = $o;
+        }
+
+        self::assertArrayHasKey($prep, $byNumber, 'une commande preparing doit etre dans la file active');
+        self::assertArrayHasKey($rdy, $byNumber, 'une commande ready doit etre dans la file active');
+        self::assertSame('preparing', (string) $byNumber[$prep]['status']);
+        self::assertSame('ready', (string) $byNumber[$rdy]['status']);
     }
 
     private function orderIdByNumber(string $number): int
