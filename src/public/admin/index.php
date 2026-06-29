@@ -246,6 +246,16 @@ try {
         $response->send();
     }
 } catch (Throwable $exception) {
+    // Trace serveur SYSTEMATIQUE (stderr conteneur) : independante d'APP_DEBUG.
+    // La prod renvoie un message generique au client (information disclosure), mais
+    // l'incident doit rester diagnosticable cote serveur -> on ne perd jamais la pile.
+    error_log(sprintf(
+        '[wakdo] Unhandled %s: %s @ %s:%d',
+        get_class($exception),
+        $exception->getMessage(),
+        $exception->getFile(),
+        $exception->getLine(),
+    ));
     // En debug on remonte le message pour iterer ; en prod, reponse generique
     // pour ne rien divulguer de la pile interne (information disclosure).
     $payload = $config->isDebug()
