@@ -35,6 +35,7 @@ final class StubKitchenQuery extends OrderQueryRepository
                 'source'          => 'kiosk',
                 'service_mode'    => 'dine_in',
                 'service_tag'     => '12',
+                'status'          => 'paid',
                 'total_ttc_cents' => 990,
                 'paid_at'         => '2026-06-19 12:01:00',
                 'sla_band'        => 'warn',
@@ -59,6 +60,32 @@ final class StubKitchenQuery extends OrderQueryRepository
     }
 }
 
+/**
+ * Variante : une commande deja 'preparing' (pour le bouton "Prete" -> ready).
+ */
+final class StubKitchenQueryPreparing extends OrderQueryRepository
+{
+    public function visibleSources(int $roleId): array
+    {
+        return ['kiosk', 'counter', 'drive'];
+    }
+
+    public function paidQueueWithDetail(array $sources, ?int $now = null): array
+    {
+        return [[
+            'order_number'    => 'K77',
+            'source'          => 'kiosk',
+            'service_mode'    => 'takeaway',
+            'service_tag'     => null,
+            'status'          => 'preparing',
+            'total_ttc_cents' => 500,
+            'paid_at'         => '2026-06-19 12:01:00',
+            'sla_band'        => 'fresh',
+            'items'           => [],
+        ]];
+    }
+}
+
 final class TestKitchenController extends KitchenController
 {
     public function __construct(
@@ -67,6 +94,7 @@ final class TestKitchenController extends KitchenController
         Database $database,
         private readonly SessionManager $testSession,
         private readonly FakeDatabase $fakeDb,
+        private readonly ?OrderQueryRepository $queryStub = null,
     ) {
         parent::__construct($request, $config, $database);
     }
@@ -83,7 +111,7 @@ final class TestKitchenController extends KitchenController
 
     protected function orderQuery(): OrderQueryRepository
     {
-        return new StubKitchenQuery($this->fakeDb);
+        return $this->queryStub ?? new StubKitchenQuery($this->fakeDb);
     }
 }
 
@@ -130,11 +158,11 @@ final class KitchenControllerTest extends TestCase
         return $db;
     }
 
-    private function controller(FakeDatabase $db): TestKitchenController
+    private function controller(FakeDatabase $db, ?OrderQueryRepository $queryStub = null): TestKitchenController
     {
         $request = new Request('GET', '/kitchen/display', [], [], '', '203.0.113.5');
 
-        return new TestKitchenController($request, new Config(), new Database(new Config()), $this->session, $db);
+        return new TestKitchenController($request, new Config(), new Database(new Config()), $this->session, $db, $queryStub);
     }
 
     public function testRequiresOrderRead(): void
@@ -179,5 +207,33 @@ final class KitchenControllerTest extends TestCase
         $body = $this->controller($this->permittedDb())->display()->body();
 
         self::assertStringContainsString('kds-order--warn', $body);
+    }
+
+    public function testRendersPreparationStatusBadge(): void
+    {
+        // Retour oral #8 : chaque carte affiche son etat. La file canned est 'paid' ->
+        // badge "En attente".
+        $body = $this->controller($this->permittedDb())->display()->body();
+        self::assertStringContainsString('kitchen-status', $body);
+        self::assertStringContainsString('En attente', $body);
+    }
+
+    public function testShowsStartButtonForPaidOrderWhenCanPrepare(): void
+    {
+        // order.read garde le KDS (canResult=true) + commande paid -> bouton "Commencer"
+        // postant la transition preparing.
+        $body = $this->controller($this->permittedDb())->display()->body();
+        self::assertStringContainsString('Commencer', $body);
+        self::assertStringContainsString('/admin/orders/K42/preparing', $body);
+    }
+
+    public function testShowsReadyButtonForPreparingOrder(): void
+    {
+        // Commande deja en preparation -> badge "En preparation" + bouton "Prete"
+        // postant la transition ready.
+        $body = $this->controller($this->permittedDb(), new StubKitchenQueryPreparing(new FakeDatabase()))->display()->body();
+        self::assertStringContainsString('En preparation', $body);
+        self::assertStringContainsString('Prete', $body);
+        self::assertStringContainsString('/admin/orders/K77/ready', $body);
     }
 }

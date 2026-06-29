@@ -17,7 +17,7 @@ use App\Order\OrderQueryRepository;
  */
 final class FakeKdsDatabase implements DatabaseInterface
 {
-    /** @var list<array<string, mixed>> commandes paid renvoyees par la file. */
+    /** @var list<array<string, mixed>> commandes actives (paid|preparing|ready) renvoyees par la file. */
     public array $orders = [];
     /** @var list<array<string, mixed>> lignes order_item (tous order_id confondus). */
     public array $items = [];
@@ -33,7 +33,7 @@ final class FakeKdsDatabase implements DatabaseInterface
 
     public function fetchAll(string $sql, array $params = []): array
     {
-        if (str_contains($sql, "WHERE status = 'paid'")) {
+        if (str_contains($sql, "WHERE status IN ('paid', 'preparing', 'ready')")) {
             return $this->orders;
         }
         if (str_contains($sql, 'FROM order_item WHERE order_id IN')) {

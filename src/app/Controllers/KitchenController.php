@@ -40,6 +40,11 @@ class KitchenController extends AdminController
             'activeNav'  => 'kitchen',
             'orders'     => $this->orderQuery()->paidQueueWithDetail($sources),
             'canDeliver' => $this->may($guard, 'order.deliver'),
+            // Avancer l'etat (Commencer -> preparing, Prete -> ready) fait partie de
+            // l'operation du KDS : c'est couvert par order.read (deja garde de la page,
+            // libelle "Voir les commandes et l'ecran de preparation"). Pas de permission
+            // dediee : l'ensemble de roles serait identique a celui de order.read.
+            'canPrepare' => $this->may($guard, 'order.read'),
         ], $guard);
     }
 

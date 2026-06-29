@@ -258,6 +258,75 @@ final class OrderAdminControllerTest extends TestCase
         self::assertTrue($db->wrote('UPDATE customer_order SET status'));
     }
 
+    // --- ETATS DE PREPARATION (#8 : preparing / ready, garde order.read) ---
+
+    private function prepDb(): FakeDatabase
+    {
+        $db = $this->permittedDb();
+        $db->permissionCodes = ['order.read'];
+
+        return $db;
+    }
+
+    public function testPreparingRequiresOrderRead(): void
+    {
+        $db = $this->prepDb();
+        $db->canResult = false; // pas de order.read -> 403 avant toute action
+
+        self::assertSame(403, $this->controller($db)->preparing(['number' => 'K42'])->status());
+    }
+
+    public function testPreparingRejectsInvalidCsrf(): void
+    {
+        // order.prepare accorde mais aucun jeton CSRF (controller() construit un GET).
+        $response = $this->controller($this->prepDb())->preparing(['number' => 'K42']);
+        self::assertSame(403, $response->status());
+    }
+
+    public function testPreparingRejectsSourceNotVisibleByRole(): void
+    {
+        // Meme garde PRE-3 que deliver : role voit 'drive', commande 'counter' -> 403.
+        $db = $this->prepDb();
+        $db->roleSources = [['source' => 'drive']];
+        $db->orderSourceRow = ['source' => 'counter'];
+
+        $request = $this->post(['_csrf' => $this->csrf], '/admin/orders/C42/preparing');
+        $response = $this->controllerWith($request, $db)->preparing(['number' => 'C42']);
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($db->wrote('UPDATE customer_order SET status'));
+    }
+
+    public function testPreparingSucceedsAndRedirectsToKitchen(): void
+    {
+        $db = $this->prepDb();
+        $db->roleSources = [];                                   // vue globale
+        $db->orderSourceRow = ['source' => 'kiosk'];
+        $db->orderByNumberRow = ['id' => 100, 'order_number' => 'K42', 'total_ttc_cents' => 1990, 'status' => 'paid'];
+
+        $request = $this->post(['_csrf' => $this->csrf], '/admin/orders/K42/preparing');
+        $response = $this->controllerWith($request, $db)->preparing(['number' => 'K42']);
+
+        self::assertSame(302, $response->status());
+        self::assertSame('/kitchen/display', $response->header('Location')); // retour au KDS, pas /admin/orders
+        self::assertTrue($db->wrote('UPDATE customer_order SET status'));
+    }
+
+    public function testReadySucceedsAndRedirectsToKitchen(): void
+    {
+        $db = $this->prepDb();
+        $db->roleSources = [];
+        $db->orderSourceRow = ['source' => 'kiosk'];
+        $db->orderByNumberRow = ['id' => 100, 'order_number' => 'K42', 'total_ttc_cents' => 1990, 'status' => 'preparing'];
+
+        $request = $this->post(['_csrf' => $this->csrf], '/admin/orders/K42/ready');
+        $response = $this->controllerWith($request, $db)->ready(['number' => 'K42']);
+
+        self::assertSame(302, $response->status());
+        self::assertSame('/kitchen/display', $response->header('Location'));
+        self::assertTrue($db->wrote('UPDATE customer_order SET status'));
+    }
+
     // --- CANCEL_ORDER (7.1, order.cancel + PIN equipier RG-T13) ---
 
     public function testCancelRequiresOrderCancelPermission(): void

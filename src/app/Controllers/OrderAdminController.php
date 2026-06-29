@@ -105,6 +105,75 @@ class OrderAdminController extends AdminController
     }
 
     /**
+     * Etat de cuisine : paid -> preparing (retour oral #8). POST + CSRF, garde
+     * order.read (KDS), meme controle de source-visibilite (PRE-3) que deliver.
+     *
+     * @param array<string, string> $params
+     */
+    public function preparing(array $params = []): Response
+    {
+        return $this->advancePrep($params, 'preparing');
+    }
+
+    /**
+     * Etat de cuisine : paid|preparing -> ready (retour oral #8). POST + CSRF, garde
+     * order.read, meme controle de source-visibilite que deliver.
+     *
+     * @param array<string, string> $params
+     */
+    public function ready(array $params = []): Response
+    {
+        return $this->advancePrep($params, 'ready');
+    }
+
+    /**
+     * Tronc commun des transitions de preparation du KDS (preparing / ready) : garde
+     * order.read + CSRF + source visible par le role (PRE-3, defense en profondeur
+     * comme deliver/cancel : on ne se fie pas a l'affichage de la file), puis
+     * markPreparing/markReady. Issue affichee en flash, retour au KDS (/kitchen/display,
+     * l'ecran d'ou part le geste).
+     *
+     * @param array<string, string> $params
+     */
+    private function advancePrep(array $params, string $target): Response
+    {
+        $guard = $this->guard('order.read');
+        if ($guard instanceof Response) {
+            return $guard;
+        }
+
+        $form = $this->request->formBody();
+        if (!Csrf::validate($this->sessionManager(), $form['_csrf'] ?? null)) {
+            return $this->invalidCsrf();
+        }
+
+        $number = (string) ($params['number'] ?? '');
+
+        $source = $this->orderSource($number);
+        if ($source === null || !in_array($source, $this->orderQuery()->visibleSources($guard->roleId ?? 0), true)) {
+            return $this->forbidden($guard);
+        }
+
+        try {
+            if ($target === 'preparing') {
+                $this->orders()->markPreparing($number);
+                $this->setFlash('Commande passee en preparation.');
+            } else {
+                $this->orders()->markReady($number);
+                $this->setFlash('Commande marquee prete.');
+            }
+        } catch (OrderValidationException $exception) {
+            $this->setFlash(
+                $exception->getMessage() === 'ORDER_NOT_FOUND'
+                    ? 'Commande introuvable.'
+                    : 'Transition invalide pour cette commande.',
+            );
+        }
+
+        return $this->redirect('/kitchen/display');
+    }
+
+    /**
      * Page de confirmation d'annulation (CANCEL_ORDER, mlt 7.1). Garde order.cancel.
      * Affiche numero/statut/total + le formulaire PIN equipier (modele RG-T13). La
      * commande est chargee en lecture seule (OrderRepository::findByNumber) ; statut

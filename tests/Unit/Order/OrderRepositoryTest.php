@@ -564,6 +564,104 @@ final class OrderRepositoryTest extends TestCase
         self::assertNotSame([], $db->firstWrite('UPDATE customer_order SET status'));
     }
 
+    public function testDeliverAcceptsActiveKitchenStates(): void
+    {
+        // Retour oral #8 : la remise est possible depuis preparing ET ready, pas
+        // seulement paid (une commande peut etre remise sans passer par le KDS).
+        foreach (['preparing', 'ready'] as $from) {
+            $db = new FakeOrderDatabase();
+            $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => $from];
+            $res = $this->repo($db)->deliver('K100');
+            self::assertSame('delivered', $res['status'], "deliver depuis $from");
+            self::assertNotSame([], $db->firstWrite('UPDATE customer_order SET status'));
+        }
+    }
+
+    public function testMarkPreparingTransitionsPaidToPreparing(): void
+    {
+        $db = new FakeOrderDatabase();
+        $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => 'paid'];
+
+        $res = $this->repo($db)->markPreparing('K100');
+
+        self::assertSame('preparing', $res['status']);
+        $write = $db->firstWrite('UPDATE customer_order SET status');
+        self::assertNotSame([], $write);
+        self::assertStringContainsString("status = 'preparing'", $db->firstWriteSql('UPDATE customer_order SET status'));
+        self::assertStringContainsString('preparing_at = NOW()', $db->firstWriteSql('UPDATE customer_order SET status'));
+    }
+
+    public function testMarkPreparingIsIdempotentWhenAlreadyPreparing(): void
+    {
+        $db = new FakeOrderDatabase();
+        $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => 'preparing'];
+
+        $res = $this->repo($db)->markPreparing('K100');
+
+        self::assertSame('preparing', $res['status']);
+        self::assertSame([], $db->firstWrite('UPDATE customer_order SET status')); // aucune reecriture
+    }
+
+    public function testMarkPreparingRejectsNonPaid(): void
+    {
+        $db = new FakeOrderDatabase();
+        $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => 'pending_payment'];
+
+        $this->expectException(OrderValidationException::class);
+        $this->expectExceptionMessage('INVALID_TRANSITION');
+        $this->repo($db)->markPreparing('K100');
+    }
+
+    public function testMarkReadyTransitionsFromPaidAndFromPreparing(): void
+    {
+        // ready accepte 'paid' en direct (saut de l'etape preparation) ET 'preparing'.
+        foreach (['paid', 'preparing'] as $from) {
+            $db = new FakeOrderDatabase();
+            $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => $from];
+            $res = $this->repo($db)->markReady('K100');
+            self::assertSame('ready', $res['status'], "ready depuis $from");
+            self::assertStringContainsString("status = 'ready'", $db->firstWriteSql('UPDATE customer_order SET status'));
+            self::assertStringContainsString('ready_at = NOW()', $db->firstWriteSql('UPDATE customer_order SET status'));
+        }
+    }
+
+    public function testMarkReadyIsIdempotentWhenAlreadyReady(): void
+    {
+        $db = new FakeOrderDatabase();
+        $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => 'ready'];
+
+        $res = $this->repo($db)->markReady('K100');
+
+        self::assertSame('ready', $res['status']);
+        self::assertSame([], $db->firstWrite('UPDATE customer_order SET status'));
+    }
+
+    public function testMarkReadyRejectsTerminalStatus(): void
+    {
+        $db = new FakeOrderDatabase();
+        $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => 'delivered'];
+
+        $this->expectException(OrderValidationException::class);
+        $this->expectExceptionMessage('INVALID_TRANSITION');
+        $this->repo($db)->markReady('K100');
+    }
+
+    public function testCancelAcceptsPreparingState(): void
+    {
+        // Retour oral #8 : une commande en preparation reste annulable (RG-T07) ;
+        // le re-credit suit l'existence de mouvements 'sale' (inchangee).
+        $db = new FakeOrderDatabase();
+        $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => 'preparing'];
+        $db->saleMovementsExist = true;
+        $db->orderItems = [['id' => 1, 'item_type' => 'product', 'product_id' => 12, 'menu_id' => null, 'format' => 'normal', 'quantity' => 1]];
+        $db->compositions[12] = [['ingredient_id' => 5, 'quantity_normal' => 1, 'quantity_maxi' => 1]];
+
+        $res = $this->repo($db)->cancel('K100', 9, 4);
+
+        self::assertSame('cancelled', $res['status']);
+        self::assertNotSame([], $db->firstWrite('INSERT INTO stock_movement')); // re-credit ecrit
+    }
+
     public function testDeliverUnknownThrows(): void
     {
         $db = new FakeOrderDatabase();
