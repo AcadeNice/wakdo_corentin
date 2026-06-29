@@ -303,4 +303,55 @@ class OrderQueryRepository
             'by_status'           => $byStatus,
         ];
     }
+
+    /**
+     * CA et nombre de commandes ENCAISSEES (paid|delivered, meme perimetre que
+     * salesKpis) par JOUR sur les $days derniers jours (fenetre glissante incluant
+     * aujourd'hui), pour le mini-graphe du tableau de bord. Zero-fill : chaque jour de
+     * la fenetre est present meme sans vente (barre a 0) -> graphe lisible, largeur
+     * stable. La liste des jours est ANCREE sur CURDATE() de la BASE (pas l'horloge
+     * PHP) pour que le regroupement DATE(created_at) et le zero-fill partagent la meme
+     * notion de "aujourd'hui" (un decalage de fuseau PHP/DB ferait sinon disparaitre
+     * un jour). $days borne [1, 31] et interpole en ENTIER (INTERVAL n'accepte pas de
+     * parametre lie avec ATTR_EMULATE_PREPARES=false ; le cast (int) ferme l'injection).
+     *
+     * @return list<array{day: string, orders: int, revenue_cents: int}>
+     */
+    public function salesByDay(int $days = 7): array
+    {
+        $days = max(1, min(31, $days));
+
+        $rows = $this->db->fetchAll(
+            "SELECT DATE(created_at) AS d, COUNT(*) AS orders, "
+            . 'COALESCE(SUM(total_ttc_cents), 0) AS revenue '
+            . 'FROM customer_order '
+            . "WHERE status IN ('paid', 'delivered') "
+            . '  AND created_at >= (CURDATE() - INTERVAL ' . ($days - 1) . ' DAY) '
+            . 'GROUP BY DATE(created_at)',
+        );
+
+        /** @var array<string, array{orders: int, revenue_cents: int}> $byDay */
+        $byDay = [];
+        foreach ($rows as $row) {
+            $byDay[(string) ($row['d'] ?? '')] = [
+                'orders'        => (int) ($row['orders'] ?? 0),
+                'revenue_cents' => (int) ($row['revenue'] ?? 0),
+            ];
+        }
+
+        // Ancre la fenetre sur la date de la BASE (fallback horloge PHP si indisponible).
+        $today = (string) ($this->db->fetch('SELECT CURDATE() AS d')['d'] ?? date('Y-m-d'));
+
+        $series = [];
+        for ($i = $days - 1; $i >= 0; $i--) {
+            $day = date('Y-m-d', (int) strtotime($today . ' -' . $i . ' day'));
+            $series[] = [
+                'day'           => $day,
+                'orders'        => $byDay[$day]['orders'] ?? 0,
+                'revenue_cents' => $byDay[$day]['revenue_cents'] ?? 0,
+            ];
+        }
+
+        return $series;
+    }
 }

@@ -16,6 +16,7 @@ use App\Core\Config;
 use App\Core\Database;
 use App\Core\Request;
 use App\Core\Response;
+use App\Order\OrderQueryRepository;
 use App\Tests\Support\FakeDatabase;
 
 /**
@@ -83,6 +84,41 @@ final class DashHealthyStatsRepository extends StatsRepository
 }
 
 /**
+ * Stub d'OrderQueryRepository : KPIs de vente + serie 7 jours canned, sans base
+ * (les agregats reels sont couverts par OrderQueryRepositoryDbTest). Un seul jour
+ * porte un CA non nul -> au moins une barre dessinee dans le graphe.
+ */
+final class DashStubOrderQuery extends OrderQueryRepository
+{
+    public function salesKpis(): array
+    {
+        return [
+            'revenue_cents'       => 45600,
+            'paid_count'          => 12,
+            'avg_basket_cents'    => 3800,
+            'revenue_today_cents' => 1234,
+            'paid_count_today'    => 3,
+            'total_orders'        => 15,
+            'by_status'           => ['paid' => 12, 'pending_payment' => 3],
+        ];
+    }
+
+    public function salesByDay(int $days = 7): array
+    {
+        $out = [];
+        for ($i = 6; $i >= 0; $i--) {
+            $out[] = [
+                'day'           => sprintf('2026-06-%02d', 23 + (6 - $i)),
+                'orders'        => $i === 0 ? 3 : 0,
+                'revenue_cents' => $i === 0 ? 1234 : 0,
+            ];
+        }
+
+        return $out;
+    }
+}
+
+/**
  * Sous-classe de test : injecte session test + FakeDatabase dans la garde,
  * l'autorisation et l'annuaire, sans base reelle.
  */
@@ -97,6 +133,8 @@ final class TestDashboardController extends DashboardController
         // Stub de stats injectable : par defaut l'etat NON SAIN (low+critical),
         // surchargeable pour exercer aussi le pendant SAIN de la tuile stock.
         private readonly ?StatsRepository $statsStub = null,
+        // Stub d'OrderQuery : sinon orderQuery() construirait un repo sur la vraie base.
+        private readonly ?OrderQueryRepository $orderStub = null,
     ) {
         parent::__construct($request, $config, $database);
     }
@@ -124,6 +162,11 @@ final class TestDashboardController extends DashboardController
     protected function statsRepository(): StatsRepository
     {
         return $this->statsStub ?? new DashStubStatsRepository($this->fakeDb);
+    }
+
+    protected function orderQuery(): OrderQueryRepository
+    {
+        return $this->orderStub ?? new OrderQueryRepository($this->fakeDb);
     }
 
     /**
@@ -166,11 +209,11 @@ final class DashboardControllerTest extends TestCase
         putenv($key . '=' . $value);
     }
 
-    private function controller(SessionManager $session, FakeDatabase $db, ?StatsRepository $statsStub = null): TestDashboardController
+    private function controller(SessionManager $session, FakeDatabase $db, ?StatsRepository $statsStub = null, ?OrderQueryRepository $orderStub = null): TestDashboardController
     {
         $request = new Request('GET', '/admin/dashboard', [], [], '', '203.0.113.5');
 
-        return new TestDashboardController($request, new Config(), new Database(new Config()), $session, $db, $statsStub);
+        return new TestDashboardController($request, new Config(), new Database(new Config()), $session, $db, $statsStub, $orderStub);
     }
 
     private function authedAdminDb(): FakeDatabase
@@ -281,6 +324,33 @@ final class DashboardControllerTest extends TestCase
         self::assertStringContainsString('>OK<', $body);
         self::assertStringNotContainsString('A recommander', $body);
         self::assertStringNotContainsString('tile alert', $body);
+    }
+
+    public function testRendersSalesKpisAndChartWhenUserHasStatsRead(): void
+    {
+        // canResult = true -> authorizer->can(roleId, 'stats.read') vrai -> le controleur
+        // enrichit le dashboard avec les KPIs de vente + le graphe (stub OrderQuery canned).
+        $db = $this->authedAdminDb();
+        $db->canResult = true;
+        $body = $this->controller($this->authedSession(), $db, null, new DashStubOrderQuery($db))->index()->body();
+
+        self::assertStringContainsString('CA du jour', $body);
+        self::assertStringContainsString('12,34 EUR', $body);            // revenue_today_cents 1234
+        self::assertStringContainsString('class="dash-chart"', $body);   // graphe SVG inline rendu
+        self::assertStringContainsString('<rect class="dash-bar"', $body); // au moins une barre (jour a CA > 0)
+    }
+
+    public function testHidesSalesKpisWhenUserLacksStatsRead(): void
+    {
+        // canResult = false -> pas de stats.read -> aucun KPI de vente ni graphe ; un
+        // equipier garde le dashboard (catalogue + sante stock), sans voir le CA.
+        $db = $this->authedAdminDb();
+        $db->canResult = false;
+        $body = $this->controller($this->authedSession(), $db, null, new DashStubOrderQuery($db))->index()->body();
+
+        self::assertStringContainsString('Tableau de bord', $body); // page rendue
+        self::assertStringNotContainsString('CA du jour', $body);
+        self::assertStringNotContainsString('class="dash-chart"', $body);
     }
 
     public function testForbiddenWhenPermissionDenied(): void

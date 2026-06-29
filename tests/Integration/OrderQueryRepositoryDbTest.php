@@ -78,6 +78,31 @@ final class OrderQueryRepositoryDbTest extends TestCase
         self::assertSame(intdiv($after['revenue_cents'], max(1, $after['paid_count'])), $after['avg_basket_cents']);
     }
 
+    public function testSalesByDayZeroFillsWindowAndCountsTodaysPaidOrders(): void
+    {
+        $repo = new OrderQueryRepository($this->db);
+        $before = $repo->salesByDay(7);
+
+        self::assertCount(7, $before); // fenetre toujours pleine (zero-fill)
+
+        // Jours en ordre croissant, dernier = aujourd'hui (ancre sur CURDATE() de la base).
+        $days = array_column($before, 'day');
+        $sorted = $days;
+        sort($sorted);
+        self::assertSame($sorted, $days);
+        $today = (string) ($this->db->fetch('SELECT CURDATE() AS d')['d'] ?? '');
+        self::assertSame($today, $days[6]);
+
+        // Une commande payee aujourd'hui s'ajoute au bucket du jour ; une pending_payment
+        // (non encaissee) est exclue, comme dans salesKpis.
+        $this->insertOrder('IT-' . $this->suffix . '-D', 'paid', 1000);
+        $this->insertOrder('IT-' . $this->suffix . '-Q', 'pending_payment', 500);
+        $after = $repo->salesByDay(7);
+
+        self::assertSame($before[6]['revenue_cents'] + 1000, $after[6]['revenue_cents']);
+        self::assertSame($before[6]['orders'] + 1, $after[6]['orders']);
+    }
+
     public function testRecentListsInsertedOrdersWithExpectedColumns(): void
     {
         $repo = new OrderQueryRepository($this->db);
