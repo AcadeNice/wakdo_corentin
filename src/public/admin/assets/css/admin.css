@@ -2136,3 +2136,23 @@ tbody td.mono {
     width: 100%;
     justify-content: center;
 }
+
+/* Mini-graphe CA du tableau de bord (SVG inline genere serveur, CSP-safe). */
+.dash-chart {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-width: 720px;
+    margin: 4px 0 8px;
+}
+.dash-chart .dash-bar {
+    fill: var(--color-yellow);
+}
+.dash-chart .dash-axis {
+    stroke: var(--color-border-dark);
+    stroke-width: 1;
+}
+.dash-chart .dash-label {
+    fill: var(--color-text-muted);
+    font-size: 13px;
+}
