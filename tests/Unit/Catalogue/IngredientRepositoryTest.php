@@ -34,6 +34,18 @@ final class IngredientRepositoryTest extends TestCase
         self::assertSame(0, IngredientRepository::stockPct(10, 0));
     }
 
+    public function testClampToCapacityCapsAtCapacityKeepingOversellNegative(): void
+    {
+        // Capacite = plafond STRICT (decision metier, retour oral) : stock_quantity ne
+        // depasse jamais stock_capacity. Borne HAUTE uniquement -- la survente negative
+        // (stock < 0) reste libre (signal manager), seul le depassement est cale.
+        self::assertSame(300, IngredientRepository::clampToCapacity(340, 300)); // depassement -> plafond
+        self::assertSame(300, IngredientRepository::clampToCapacity(300, 300)); // pile a 100 %
+        self::assertSame(250, IngredientRepository::clampToCapacity(250, 300)); // sous le plafond -> inchange
+        self::assertSame(-10, IngredientRepository::clampToCapacity(-10, 300)); // survente : borne basse libre
+        self::assertSame(50, IngredientRepository::clampToCapacity(50, 0));      // capacite invalide -> pas de clamp
+    }
+
     public function testStockBandNormalAboveLowThreshold(): void
     {
         self::assertSame('normal', IngredientRepository::stockBand(50, 100, 10, 5));

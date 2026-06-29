@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Order;
 
+use App\Catalogue\IngredientRepository;
 use App\Catalogue\MenuRepository;
 use App\Catalogue\ProductRepository;
 use App\Core\DatabaseInterface;
@@ -485,14 +486,24 @@ class OrderRepository
             $restocked = $this->hasSaleMovements($db, $orderId);
             if ($restocked) {
                 foreach ($this->consumption($db, $orderId) as $ingredientId => $units) {
+                    // Plafond strict (IngredientRepository::clampToCapacity, source unique) :
+                    // le re-credit ne peut pas faire repasser le stock au-dessus de la
+                    // capacite -- ex. un restock a comble l'ingredient entre la vente et
+                    // l'annulation. Le mouvement 'cancellation' porte le delta REELLEMENT
+                    // re-credite (capacite - stock si on cale au plafond), coherent avec le
+                    // ledger append-only (RG-T08).
+                    $row = $db->fetch('SELECT stock_quantity, stock_capacity FROM ingredient WHERE id = :id', ['id' => $ingredientId]);
+                    $current = (int) ($row['stock_quantity'] ?? 0);
+                    $capacity = (int) ($row['stock_capacity'] ?? 0);
+                    $newQuantity = IngredientRepository::clampToCapacity($current + $units, $capacity);
                     $db->execute(
-                        'UPDATE ingredient SET stock_quantity = stock_quantity + :u WHERE id = :id',
-                        ['u' => $units, 'id' => $ingredientId],
+                        'UPDATE ingredient SET stock_quantity = :q WHERE id = :id',
+                        ['q' => $newQuantity, 'id' => $ingredientId],
                     );
                     $db->execute(
                         'INSERT INTO stock_movement (ingredient_id, movement_type, delta, order_id, user_id, note) '
                         . 'VALUES (:ing, \'cancellation\', :delta, :oid, :uid, NULL)',
-                        ['ing' => $ingredientId, 'delta' => $units, 'oid' => $orderId, 'uid' => $actingUserId],
+                        ['ing' => $ingredientId, 'delta' => $newQuantity - $current, 'oid' => $orderId, 'uid' => $actingUserId],
                     );
                 }
             }
