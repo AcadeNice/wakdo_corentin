@@ -380,6 +380,17 @@ final class IngredientControllerTest extends TestCase
         self::assertSame(404, $this->controller($this->post($this->validForm(), '/admin/ingredients/9'), $db)->update(['id' => '9'])->status());
     }
 
+    public function testUpdateRejectsCapacityBelowCurrentStock(): void
+    {
+        // Plafond strict cote denominateur : l'ingredient a stock_quantity 40 ; baisser
+        // la capacite a 30 ferait stock_pct = 133 %. Refuse (422), aucune ecriture.
+        $db = $this->permittedDb();
+        $response = $this->controller($this->post($this->validForm(['stock_capacity' => '30']), '/admin/ingredients/5'), $db)->update(['id' => '5']);
+
+        self::assertSame(422, $response->status());
+        self::assertFalse($db->wrote('UPDATE ingredient SET name'));
+    }
+
     public function testToggleFlipsActive(): void
     {
         $db = $this->permittedDb(); // is_active = 1 -> doit basculer a 0
@@ -544,6 +555,19 @@ final class IngredientControllerTest extends TestCase
         self::assertFalse($db->wrote('UPDATE ingredient SET stock_capacity'));
     }
 
+    public function testUpdateThresholdsRejectsCapacityBelowCurrentStock(): void
+    {
+        // Reglage rapide F13 : l'ingredient a stock_quantity 40 ; capacite 30 -> 133 %.
+        // Le plafond strict cote denominateur refuse (422) sans rien ecrire.
+        $db = $this->permittedDb();
+        $form = ['_csrf' => $this->csrf, 'stock_capacity' => '30', 'low_stock_pct' => '10', 'critical_stock_pct' => '5'];
+
+        $response = $this->controller($this->post($form, '/admin/ingredients/5/thresholds'), $db)->updateThresholds(['id' => '5']);
+
+        self::assertSame(422, $response->status());
+        self::assertFalse($db->wrote('UPDATE ingredient SET stock_capacity'));
+    }
+
     public function testUpdateThresholdsNotFound(): void
     {
         $db = $this->permittedDb();
@@ -565,7 +589,7 @@ final class IngredientControllerTest extends TestCase
 
         self::assertSame(302, $response->status());
         self::assertSame(['begin', 'commit'], $db->transactionEvents);
-        self::assertTrue($db->wrote('SET stock_quantity = stock_quantity +'));
+        self::assertTrue($db->wrote('SET stock_quantity = :q')); // ecriture ABSOLUE plafonnee (clamp capacite), plus d'increment SQL
         $movement = $this->writeParams($db, 'INSERT INTO stock_movement');
         self::assertNotNull($movement);
         self::assertSame('restock', $movement['type']);

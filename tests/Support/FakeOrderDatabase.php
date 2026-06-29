@@ -50,6 +50,15 @@ final class FakeOrderDatabase implements DatabaseInterface
     /** @var list<array<string,mixed>> */
     public array $orderItems = [];
 
+    /**
+     * Lignes ingredient {stock_quantity, stock_capacity} indexees par id, lues par le
+     * re-credit d'annulation (clamp plafond strict). Vide => fetch renvoie null =>
+     * capacite 0 => clampToCapacity ne plafonne pas (comportement re-credit historique).
+     *
+     * @var array<int, array<string, mixed>>
+     */
+    public array $ingredients = [];
+
     /** Selections (product_id) par order_item id. */
     /** @var array<int, list<array<string,mixed>>> */
     public array $selectionsByItem = [];
@@ -85,6 +94,9 @@ final class FakeOrderDatabase implements DatabaseInterface
         }
         if (str_contains($sql, 'FROM stock_movement WHERE order_id')) {
             return $this->saleMovementsExist ? ['x' => 1] : null;
+        }
+        if (str_contains($sql, 'FROM ingredient WHERE id = :id')) {
+            return $this->ingredients[(int) $params['id']] ?? null;
         }
 
         return null;

@@ -89,7 +89,7 @@ final class IngredientRepository
             [
                 'name'   => $data['name'],
                 'unit'   => $data['unit'],
-                'qty'    => $data['stock_quantity'],
+                'qty'    => self::clampToCapacity((int) $data['stock_quantity'], (int) $data['stock_capacity']),
                 'cap'    => $data['stock_capacity'],
                 'pack'   => $data['pack_size'],
                 'label'  => $data['pack_label'],
@@ -193,20 +193,27 @@ final class IngredientRepository
     }
 
     /**
-     * Reapprovisionnement (mlt 9.1) : +N packs => stock += N * pack_size, et une
-     * ligne stock_movement(restock) dans la MEME transaction (RG-T08). Sans PIN :
-     * $userId est l'acteur de session (capture par la permission stock.manage,
-     * RG-4), pas un acteur resolu par PIN. Les bornes d'entree (packs >= 1, mlt 9.1
-     * PRE-3) sont validees par l'appelant (controleur, RG-T18), pas ici.
+     * Reapprovisionnement (mlt 9.1) : +N packs => stock += N * pack_size, PLAFONNE a
+     * la capacite (capacite = plafond strict), et une ligne stock_movement(restock)
+     * dans la MEME transaction (RG-T08). Le mouvement enregistre le delta REELLEMENT
+     * applique (capacite - stock si on cale au plafond), pas le delta demande : sinon
+     * le journal append-only ne reconcilie plus avec stock_quantity. Sans PIN : $userId
+     * est l'acteur de session (capture par la permission stock.manage, RG-4), pas un
+     * acteur resolu par PIN. Les bornes d'entree (packs >= 1, mlt 9.1 PRE-3) sont
+     * validees par l'appelant (controleur, RG-T18), pas ici.
      */
     public function restock(int $id, int $packs, ?int $userId, ?string $note = null): void
     {
         $this->db->transaction(function (DatabaseInterface $db) use ($id, $packs, $userId, $note): void {
-            $packSize = (int) ($db->fetch('SELECT pack_size FROM ingredient WHERE id = :id', ['id' => $id])['pack_size'] ?? 0);
-            $delta = $packs * $packSize;
+            $row = $db->fetch('SELECT stock_quantity, stock_capacity, pack_size FROM ingredient WHERE id = :id', ['id' => $id]);
+            $current = (int) ($row['stock_quantity'] ?? 0);
+            $capacity = (int) ($row['stock_capacity'] ?? 0);
+            $packSize = (int) ($row['pack_size'] ?? 0);
+            $newQuantity = self::clampToCapacity($current + $packs * $packSize, $capacity);
+            $delta = $newQuantity - $current;
             $db->execute(
-                'UPDATE ingredient SET stock_quantity = stock_quantity + :delta WHERE id = :id',
-                ['delta' => $delta, 'id' => $id],
+                'UPDATE ingredient SET stock_quantity = :q WHERE id = :id',
+                ['q' => $newQuantity, 'id' => $id],
             );
             $this->insertMovement($db, $id, 'restock', $delta, $userId, $note);
         });
@@ -214,20 +221,24 @@ final class IngredientRepository
 
     /**
      * Inventaire (mlt 9.2) : comptage physique absolu => stock_quantity = compte,
-     * et une ligne stock_movement(inventory_correction, delta = compte - actuel)
-     * dans la MEME transaction. RG-3 : la ligne est ecrite MEME si delta = 0 (un
-     * comptage conforme reste une preuve de controle a tracer). $userId est
-     * l'acteur resolu par le PIN (RG-T13). La borne d'entree (compte >= 0, mlt 9.2
-     * PRE-3) est validee par l'appelant (controleur, RG-T18), pas ici.
+     * PLAFONNE a la capacite (capacite = reference 100 %), et une ligne
+     * stock_movement(inventory_correction, delta = nouveau - actuel) dans la MEME
+     * transaction. RG-3 : la ligne est ecrite MEME si delta = 0 (un comptage conforme
+     * reste une preuve de controle a tracer). $userId est l'acteur resolu par le PIN
+     * (RG-T13). La borne d'entree (compte >= 0, mlt 9.2 PRE-3) est validee par
+     * l'appelant (controleur, RG-T18), pas ici.
      */
     public function inventoryCount(int $id, int $countedQuantity, ?int $userId, ?string $note = null): void
     {
         $this->db->transaction(function (DatabaseInterface $db) use ($id, $countedQuantity, $userId, $note): void {
-            $current = (int) ($db->fetch('SELECT stock_quantity FROM ingredient WHERE id = :id', ['id' => $id])['stock_quantity'] ?? 0);
-            $delta = $countedQuantity - $current;
+            $row = $db->fetch('SELECT stock_quantity, stock_capacity FROM ingredient WHERE id = :id', ['id' => $id]);
+            $current = (int) ($row['stock_quantity'] ?? 0);
+            $capacity = (int) ($row['stock_capacity'] ?? 0);
+            $newQuantity = self::clampToCapacity($countedQuantity, $capacity);
+            $delta = $newQuantity - $current;
             $db->execute(
                 'UPDATE ingredient SET stock_quantity = :q WHERE id = :id',
-                ['q' => $countedQuantity, 'id' => $id],
+                ['q' => $newQuantity, 'id' => $id],
             );
             $this->insertMovement($db, $id, 'inventory_correction', $delta, $userId, $note);
         });
@@ -271,6 +282,23 @@ final class IngredientRepository
                 'note'       => $note,
             ],
         );
+    }
+
+    /**
+     * Plafonne une quantite a la capacite de reference (capacite = plafond STRICT,
+     * decision metier : un ingredient ne depasse jamais 100 % de sa reference). Borne
+     * HAUTE uniquement : une quantite negative (survente assumee) est laissee telle
+     * quelle. Source UNIQUE du clamp, appliquee a TOUTE ecriture du niveau
+     * (create/restock/inventoryCount) -> stock_pct ne depasse jamais 100 %. Garde
+     * defensive si capacity <= 0 (ne devrait pas arriver, CHECK > 0 en base) : pas de clamp.
+     */
+    public static function clampToCapacity(int $quantity, int $capacity): int
+    {
+        if ($capacity > 0 && $quantity > $capacity) {
+            return $capacity;
+        }
+
+        return $quantity;
     }
 
     /**

@@ -667,7 +667,7 @@ final class OrderRepositoryTest extends TestCase
         self::assertSame(1, $db->countWrites('UPDATE customer_order SET status'));
         // 2 unites consommees (qn 1 * quantite 2) -> re-credit +2 sur l'ingredient 5.
         $inc = $db->firstWrite('UPDATE ingredient SET stock_quantity');
-        self::assertSame(2, $inc['u']);
+        self::assertSame(2, $inc['q']);   // ecriture ABSOLUE plafonnee (re-credit clampe a la capacite)
         self::assertSame(5, $inc['id']);
         // Type 'cancellation' code en dur dans le SQL (cf. pay() qui code 'sale').
         self::assertStringContainsString("'cancellation'", $db->firstWriteSql('INSERT INTO stock_movement'));
@@ -697,8 +697,27 @@ final class OrderRepositoryTest extends TestCase
 
         $this->repo($db)->cancel('K100', 9, 4);
 
-        self::assertSame(2, $db->firstWrite('UPDATE ingredient SET stock_quantity')['u']);
+        self::assertSame(2, $db->firstWrite('UPDATE ingredient SET stock_quantity')['q']);
         self::assertStringContainsString("'cancellation'", $db->firstWriteSql('INSERT INTO stock_movement'));
+    }
+
+    public function testCancelRecreditClampsToCapacity(): void
+    {
+        // Plafond strict : si l'ingredient a ete recomble (restock) entre la vente et
+        // l'annulation, le re-credit ne le fait pas repasser au-dessus de 100 %. Le
+        // mouvement 'cancellation' porte le delta REELLEMENT applique (capacite - stock).
+        $db = new FakeOrderDatabase();
+        $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => 'paid'];
+        $db->saleMovementsExist = true;
+        $db->orderItems = [['id' => 1, 'item_type' => 'product', 'product_id' => 12, 'menu_id' => null, 'format' => 'normal', 'quantity' => 2]];
+        $db->compositions[12] = [['ingredient_id' => 5, 'quantity_normal' => 1, 'quantity_maxi' => 1]];
+        $db->ingredients[5] = ['stock_quantity' => 299, 'stock_capacity' => 300]; // quasi plein
+
+        $this->repo($db)->cancel('K100', 9, 4);
+
+        // Re-credit de +2 demande mais cale a 300 (capacite) : ecriture absolue + delta effectif.
+        self::assertSame(300, $db->firstWrite('UPDATE ingredient SET stock_quantity')['q']);
+        self::assertSame(1, $db->firstWrite('INSERT INTO stock_movement')['delta']); // 300 - 299, pas 2
     }
 
     public function testCancelRejectsUnknownOrder(): void

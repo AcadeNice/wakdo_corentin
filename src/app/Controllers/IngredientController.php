@@ -163,11 +163,12 @@ class IngredientController extends AdminController
         }
 
         $id = (int) ($params['id'] ?? 0);
-        if ($this->ingredientRepository()->find($id) === null) {
+        $ingredient = $this->ingredientRepository()->find($id);
+        if ($ingredient === null) {
             return $this->notFound($guard);
         }
 
-        [$data, $errors] = $this->validate($form, $id);
+        [$data, $errors] = $this->validate($form, $id, (int) $ingredient['stock_quantity']);
         if ($errors !== []) {
             return $this->renderForm($guard, $id, $form, $errors, 422);
         }
@@ -343,7 +344,7 @@ class IngredientController extends AdminController
             return $this->notFound($guard);
         }
 
-        [$data, $errors] = $this->validateThresholds($form);
+        [$data, $errors] = $this->validateThresholds($form, (int) $ingredient['stock_quantity']);
         if ($errors !== []) {
             // Premier message d'erreur en bandeau : la modale est rouverte cote client si
             // besoin ; l'equipier voit la raison du rejet sans jargon de champ.
@@ -601,7 +602,7 @@ class IngredientController extends AdminController
      * @param array<string, string> $form
      * @return array{0: array{name: string, unit: string, stock_capacity: int, pack_size: int, pack_label: ?string, low_stock_pct: int, critical_stock_pct: int}, 1: array<string, string>}
      */
-    private function validate(array $form, int $exceptId): array
+    private function validate(array $form, int $exceptId, ?int $currentStock = null): array
     {
         $errors = [];
 
@@ -631,7 +632,7 @@ class IngredientController extends AdminController
         // Capacite + seuils : meme regle (capacite >= 1, % 0-100, critique < alerte strict)
         // que le reglage rapide F13 -> source unique validateThresholds(), pas de copie
         // divergente. Les messages restent indexes par champ pour le formulaire complet.
-        [$thresholds, $thresholdErrors] = $this->validateThresholds($form);
+        [$thresholds, $thresholdErrors] = $this->validateThresholds($form, $currentStock);
         $errors = array_merge($errors, $thresholdErrors);
 
         $data = [
@@ -652,12 +653,16 @@ class IngredientController extends AdminController
      * complet (validate) et l'endpoint leger F13 (updateThresholds) pour qu'une seule
      * regle existe : capacite (reference 100 %) >= 1 ; seuils alerte/critique entiers
      * 0-100 ; critique STRICTEMENT inferieur a alerte (RG-CREATE-ING, garanti aussi par
-     * un CHECK de table). Renvoie [valeurs normalisees, erreurs indexees par champ].
+     * un CHECK de table). Si $currentStock est fourni (edition d'un ingredient existant),
+     * la capacite ne peut pas tomber SOUS le stock courant -- sinon stock_pct > 100 %
+     * (plafond strict cote DENOMINATEUR, pendant du clamp a l'ecriture cote numerateur).
+     * Renvoie [valeurs normalisees, erreurs indexees par champ].
      *
      * @param array<string, string> $form
+     * @param int|null $currentStock stock_quantity courant pour la garde de plafond (null = creation, stock pose a 0).
      * @return array{0: array{stock_capacity: int, low_stock_pct: int, critical_stock_pct: int}, 1: array<string, string>}
      */
-    private function validateThresholds(array $form): array
+    private function validateThresholds(array $form, ?int $currentStock = null): array
     {
         $errors = [];
 
@@ -665,6 +670,12 @@ class IngredientController extends AdminController
         $capValid = ctype_digit($capRaw) && (int) $capRaw >= 1 && (int) $capRaw <= 2147483647;
         if (!$capValid) {
             $errors['stock_capacity'] = 'La capacite (reference 100%) doit etre un entier >= 1.';
+        } elseif ($currentStock !== null && (int) $capRaw < $currentStock) {
+            // Plafond strict cote DENOMINATEUR : baisser la capacite sous le stock courant
+            // ferait stock_pct > 100 %. On REFUSE plutot que de tronquer le stock en douce
+            // (qui mentirait au ledger append-only RG-T08 et melerait edition de capacite
+            // et mouvement de stock) ; l'equipier baisse d'abord le stock via un inventaire.
+            $errors['stock_capacity'] = 'La capacite ne peut pas etre inferieure au stock actuel (' . $currentStock . '). Faites d abord un inventaire pour baisser le stock.';
         }
 
         $lowRaw = trim($form['low_stock_pct'] ?? '');
