@@ -88,7 +88,7 @@ export function openProductOptions(product, categorySlug) {
             <div class="composer-body">
                 <div class="product-options">
                     <img class="product-options__image" src="${escHtml(product.image)}"
-                         alt="${escHtml(product.nom)}" onerror="this.src='assets/images/ui/logo.png';">
+                         alt="${escHtml(product.nom)}" data-fallback="logo">
                     <div class="product-options__sizes" role="group" aria-label="Taille"></div>
                     <p class="product-options__unit" id="po-unit">${formatPrice(unitPrice())} / unite</p>
                     <div class="qty-control" role="group" aria-label="Quantite">

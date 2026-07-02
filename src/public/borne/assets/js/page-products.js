@@ -12,6 +12,7 @@ import { formatPrice, escHtml } from './state.js';
 import { buildAllergenInfoButton, openAllergenModal } from './allergens.js';
 import { openMenuComposer } from './page-product-menu.js';
 import { openProductOptions } from './product-options.js';
+import './img-fallback.js';
 
 const params      = new URLSearchParams(window.location.search);
 const categoryId  = parseInt(params.get('category'), 10) || 1;
@@ -82,7 +83,7 @@ async function renderProducts() {
                         src="${escHtml(product.image)}"
                         alt="${escHtml(product.nom)}"
                         loading="lazy"
-                        onerror="this.src='assets/images/ui/logo.png'; this.alt='Image non disponible';"
+                        data-fallback="logo" data-fallback-alt="Image non disponible"
                     >
                     ${orderable ? '' : '<span class="product-card__badge">Indisponible</span>'}
                 </div>
