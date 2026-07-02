@@ -1,0 +1,109 @@
+<!DOCTYPE html><html lang="fr"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="description" content="Wakdo - Choisissez une categorie de produits">
+    <title>Wakdo - Categories</title>
+    <link rel="canonical" href="https://corentin-wakdo.stark.a3n.fr/categories.html">
+    <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg">
+    <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body class="categories-page">
+
+    <!--
+        Categories screen — static scaffold (9 categories) listed in catalogue order.
+        Image paths: assets/images/categories/{title}.png — verified against filesystem.
+        The cards link to products.html?category=<id>; the product/menu/allergen data
+        is fetched from the REST API by data.js. Generating this list from
+        GET /api/categories is a later UI alignment step.
+    -->
+
+    <header class="site-header">
+        <a href="index.html" class="site-header__back" aria-label="Retour a l'accueil">
+            ← Retour
+        </a>
+        <img class="site-header__logo" src="assets/images/ui/logo.png" alt="Wakdo">
+        <!--
+            Empty div keeps the logo centered via space-between.
+            When the cart icon is added in P5, it replaces this placeholder.
+        -->
+        <div aria-hidden="true" style="width: 80px;"></div>
+    </header>
+
+    <main class="categories-main" aria-label="Categories de produits">
+        <h1 class="categories-main__heading">Que souhaitez-vous commander&nbsp;?</h1>
+        <p class="categories-main__sub">Choisissez une categorie pour decouvrir nos produits</p>
+
+        <!--
+            9 categories in catalogue order. Each card links to a product page
+            (products.html?category=<id>). The link is functional HTML; no JS needed.
+            The category title is used as alt text and visible label.
+        -->
+        <nav class="category-grid" aria-label="Navigation par categorie">
+
+            <!-- id: 1 | title: menus -->
+            <a class="category-card" href="products.html?category=1" aria-label="Voir les menus">
+                <img class="category-card__image" src="assets/images/categories/menus.png" alt="Menus">
+                <span class="category-card__label">Menus</span>
+            </a>
+
+            <!-- id: 2 | title: boissons -->
+            <a class="category-card" href="products.html?category=2" aria-label="Voir les boissons">
+                <img class="category-card__image" src="assets/images/categories/boissons.png" alt="Boissons">
+                <span class="category-card__label">Boissons</span>
+            </a>
+
+            <!-- id: 3 | title: burgers -->
+            <a class="category-card" href="products.html?category=3" aria-label="Voir les burgers">
+                <img class="category-card__image" src="assets/images/categories/burgers.png" alt="Burgers">
+                <span class="category-card__label">Burgers</span>
+            </a>
+
+            <!-- id: 4 | title: frites -->
+            <a class="category-card" href="products.html?category=4" aria-label="Voir les frites">
+                <img class="category-card__image" src="assets/images/categories/frites.png" alt="Frites">
+                <span class="category-card__label">Frites</span>
+            </a>
+
+            <!-- id: 5 | title: encas -->
+            <a class="category-card" href="products.html?category=5" aria-label="Voir les encas">
+                <img class="category-card__image" src="assets/images/categories/encas.png" alt="Encas">
+                <span class="category-card__label">Encas</span>
+            </a>
+
+            <!-- id: 6 | title: wraps -->
+            <a class="category-card" href="products.html?category=6" aria-label="Voir les wraps">
+                <img class="category-card__image" src="assets/images/categories/wraps.png" alt="Wraps">
+                <span class="category-card__label">Wraps</span>
+            </a>
+
+            <!-- id: 7 | title: salades -->
+            <a class="category-card" href="products.html?category=7" aria-label="Voir les salades">
+                <img class="category-card__image" src="assets/images/categories/salades.png" alt="Salades">
+                <span class="category-card__label">Salades</span>
+            </a>
+
+            <!-- id: 8 | title: desserts -->
+            <a class="category-card" href="products.html?category=8" aria-label="Voir les desserts">
+                <img class="category-card__image" src="assets/images/categories/desserts.png" alt="Desserts">
+                <span class="category-card__label">Desserts</span>
+            </a>
+
+            <!-- id: 9 | title: sauces -->
+            <a class="category-card" href="products.html?category=9" aria-label="Voir les sauces">
+                <img class="category-card__image" src="assets/images/categories/sauces.png" alt="Sauces">
+                <span class="category-card__label">Sauces</span>
+            </a>
+
+        </nav>
+    </main>
+
+    <!-- nav.js : persiste le mode de consommation recu en ?mode= depuis l'accueil
+         (syncModeFromURL) AVANT que l'utilisateur ne suive une carte vers products.html.
+         Sans ce script, le mode n'atteint jamais localStorage et le paiement part en
+         service_mode null (422). C'est la 1re page post-accueil, elle doit donc le charger. -->
+    <script type="module" src="assets/js/nav.js"></script>
+    <script type="module" src="assets/js/a11y.js"></script>
+
+
+<button type="button" class="a11y-toggle" data-a11y-dys-toggle="" aria-pressed="false" aria-label="Police adaptee aux personnes dyslexiques"><span class="a11y-toggle__icon" aria-hidden="true">Aa</span><span class="a11y-toggle__label">Police adaptee</span></button></body></html>
