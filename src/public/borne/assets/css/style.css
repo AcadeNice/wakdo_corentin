@@ -598,6 +598,13 @@ button {
     margin: 0;
 }
 
+/* Cellule de grille : enveloppe le lien-carte et son bouton "i" allergene (frere
+   du lien, pas descendant — un interactif ne peut pas etre dans un <a>). Le <li>
+   est l'unique enfant valide du <ul> et ancre le bouton superpose. */
+.product-card-cell {
+    position: relative;
+}
+
 /*
  * product-card — clickable card linking to product detail.
  * The <a> is the grid child; using display:flex so image + text stack.
@@ -617,6 +624,7 @@ button {
     -webkit-tap-highlight-color: transparent;
     text-decoration: none;
     color: inherit;
+    height: 100%;
 }
 
 .product-card:hover,
@@ -1214,7 +1222,7 @@ button {
     box-shadow: var(--shadow-overlay);
 }
 
-.product-card__image-wrap .allergen-info-btn {
+.product-card-cell > .allergen-info-btn {
     position: absolute;
     top: var(--space-2);
     right: var(--space-2);
