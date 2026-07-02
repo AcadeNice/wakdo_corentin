@@ -328,7 +328,7 @@ function renderSlotStep(body, footer, modal, state, slot) {
                         aria-pressed="${state.selections[slot.id] === o.id}"
                         aria-label="${escHtml(label)}">
                         <img class="composer-card__image" src="${escHtml(o.image)}" alt="${escHtml(label)}"
-                             onerror="this.src='assets/images/ui/logo.png';">
+                             data-fallback="logo">
                         <span class="composer-card__name">${escHtml(label)}</span>
                     </button>
                 </li>

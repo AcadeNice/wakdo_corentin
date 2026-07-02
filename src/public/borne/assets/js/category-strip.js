@@ -59,7 +59,7 @@ export function renderStripInto(container, model, modeParam) {
             ${c.active ? 'aria-current="true"' : ''}
         >
             <img class="category-strip__img" src="${escHtml(c.image)}" alt="" aria-hidden="true"
-                 onerror="this.style.visibility='hidden';">
+                 data-fallback="hide">
             <span class="category-strip__label">${escHtml(cap(c.title))}</span>
         </a>
     `).join('');

@@ -140,6 +140,11 @@ button {
     border: 0;
 }
 
+/* Repli d'image en echec (img-fallback.js, mode "hide") : masque sans style inline. */
+.img-fallback-hidden {
+    visibility: hidden;
+}
+
 /* ============================================================
    4. COMPONENT — WELCOME SCREEN (index.html)
    ============================================================ */
@@ -290,6 +295,12 @@ button {
     height: 56px;
     width: auto;
     justify-self: center;
+}
+
+/* Cale la 3e colonne de l'en-tete (equilibre de la grille). Remplace un style
+   inline width:80px pour permettre une CSP style-src 'self' sans 'unsafe-inline'. */
+.site-header__spacer {
+    width: 80px;
 }
 
 .site-header__mode {
