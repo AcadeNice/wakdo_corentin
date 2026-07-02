@@ -234,6 +234,11 @@ try {
     $router->add('POST', '/admin/ingredients/{id}/thresholds', [IngredientController::class, 'updateThresholds']);
     $router->add('GET', '/admin/ingredients/{id}/inventory', [IngredientController::class, 'inventoryForm']);
     $router->add('POST', '/admin/ingredients/{id}/inventory', [IngredientController::class, 'inventory']);
+    // Ajustement libre (F16, retour oral #6) : correction delta signee, stock.count + PIN
+    // (RG-T13, comme l'inventaire : une baisse non attribuee masquerait de la demarque, R9).
+    // {id}/adjust = segment distinct, ne chevauche ni /restock ni /inventory ni /movements.
+    $router->add('GET', '/admin/ingredients/{id}/adjust', [IngredientController::class, 'adjustForm']);
+    $router->add('POST', '/admin/ingredients/{id}/adjust', [IngredientController::class, 'adjust']);
     $router->add('GET', '/admin/ingredients/{id}/movements', [IngredientController::class, 'movements']);
     // Enrichissement nutritionnel depuis une API externe (OpenFoodFacts, Cr 3.a.3) :
     // action explicite ingredient.manage, POST + CSRF, opt-in (pas d'egress automatique).

@@ -202,6 +202,7 @@ $renderBar = static function (array $row) use ($esc, $barClass): string {
                     <div class="stock-list__actions">
                         <?php if ($count): ?>
                             <a class="btn btn-secondary btn-sm" href="/admin/ingredients/<?= $id ?>/inventory">Inventaire</a>
+                            <a class="btn btn-secondary btn-sm" href="/admin/ingredients/<?= $id ?>/adjust">Ajuster</a>
                         <?php endif; ?>
                         <?= $renderThresholdButton($row) ?>
                         <a class="btn btn-ghost btn-sm" href="/admin/ingredients/<?= $id ?>/movements">Mouvements</a>

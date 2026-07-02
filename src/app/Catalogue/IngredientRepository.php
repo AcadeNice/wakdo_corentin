@@ -245,6 +245,32 @@ final class IngredientRepository
     }
 
     /**
+     * Ajustement libre (retour oral #6) : correction SIGNEE du niveau (delta +/-),
+     * PLAFONNEE a la capacite (plafond strict), avec une ligne stock_movement('adjustment')
+     * dans la MEME transaction (RG-T08). Comme restock/inventoryCount, le mouvement
+     * enregistre le delta REELLEMENT applique (apres clamp), pas le delta demande, pour
+     * que le journal append-only reconcilie avec stock_quantity. $userId est l'acteur
+     * resolu par PIN : l'ajustement libre est PIN-garde (RG-T13, comme l'inventaire), car
+     * une baisse non attribuee masquerait de la demarque (R9). La borne d'entree (delta
+     * non nul, borne) est validee par l'appelant (controleur, RG-T18), pas ici.
+     */
+    public function adjust(int $id, int $delta, ?int $userId, ?string $note = null): void
+    {
+        $this->db->transaction(function (DatabaseInterface $db) use ($id, $delta, $userId, $note): void {
+            $row = $db->fetch('SELECT stock_quantity, stock_capacity FROM ingredient WHERE id = :id', ['id' => $id]);
+            $current = (int) ($row['stock_quantity'] ?? 0);
+            $capacity = (int) ($row['stock_capacity'] ?? 0);
+            $newQuantity = self::clampToCapacity($current + $delta, $capacity);
+            $applied = $newQuantity - $current;
+            $db->execute(
+                'UPDATE ingredient SET stock_quantity = :q WHERE id = :id',
+                ['q' => $newQuantity, 'id' => $id],
+            );
+            $this->insertMovement($db, $id, 'adjustment', $applied, $userId, $note);
+        });
+    }
+
+    /**
      * Registre append-only des mouvements d'un ingredient, du plus recent au plus
      * ancien, BORNE (mlt 9.3 READ_STOCK RG-3 prescrit LIMIT :n ; stock_movement
      * croit a chaque vente, on ne materialise pas tout). La FK order_id reste NULL
