@@ -81,9 +81,6 @@ try {
     $router->add('GET', '/reset_password', [PasswordResetController::class, 'showConfirm']);
     $router->add('POST', '/reset_password', [PasswordResetController::class, 'submitConfirm']);
 
-    // RBAC : identite + permissions de la session courante (gardee par SessionGuard).
-    $router->add('GET', '/api/me', [MeController::class, 'show']);
-
     // Commandes borne (P4, domaine 7). API publique kiosk, ANONYME (pas de session) :
     // creation en pending_payment puis encaissement (paid + decrement stock RG-T20).
     // Idempotente sur idempotency_key (anti double-clic / retry reseau). {number} =
@@ -107,6 +104,11 @@ try {
     // Allergenes INCO (info generale, 14 categories). La borne garde son JSON statique
     // (descriptions riches) ; l'endpoint sert d'autres consommateurs eventuels.
     $router->add('GET', '/api/allergens', [CatalogueController::class, 'allergens']);
+
+    // RBAC : identite + permissions de la session courante (JSON). Gardee dans le
+    // controleur par SessionGuard. Sous /admin (et non /api) pour sortir cet endpoint
+    // authentifie du namespace borne public proxifie -> reduction de surface d'attaque.
+    $router->add('GET', '/admin/me', [MeController::class, 'show']);
 
     // Back-office (P3) : pages rendues serveur sous /admin, gardees par SessionGuard.
     $router->add('GET', '/admin/dashboard', [DashboardController::class, 'index']);

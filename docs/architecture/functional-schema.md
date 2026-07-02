@@ -107,7 +107,7 @@ suivis comme evolution (voir le backlog de finition).
 |---|---|---|
 | Borne | `GET /api/categories`, `/products`, `/products/{id}`, `/menus`, `/menus/{id}`, `/allergens` | lecture catalogue (anonyme) |
 | Borne | `POST /api/orders`, `POST /api/orders/{number}/pay`, `GET /api/orders/{number}` | commande + suivi (anonyme, idempotent) |
-| Back-office | pages rendues serveur sous `/admin/*` + `GET /api/me` | session + RBAC |
+| Back-office | pages rendues serveur sous `/admin/*` + `GET /admin/me` | session + RBAC |
 
 CORS : la borne et le back-office partagent l'origine via une passerelle `/api/*`
 (meme origine) ; le middleware CORS reste en defense (origine exacte, sans joker).
