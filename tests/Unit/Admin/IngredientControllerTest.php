@@ -684,6 +684,138 @@ final class IngredientControllerTest extends TestCase
         self::assertFalse($db->wrote('stock_movement'));
     }
 
+    // --- ADJUST (F16, stock.count + PIN) : ajustement libre signe ---
+
+    public function testAdjustWithValidPinRecordsAdjustmentUnderPinActorWithoutAudit(): void
+    {
+        $db = $this->permittedDb(); // stock 40, capacite 100
+        $this->actingPin($db);
+
+        $response = $this->controller($this->post([
+            '_csrf' => $this->csrf, 'delta' => '10', 'note' => 'casse compensee',
+            'pin_email' => 'sam@wakdo.local', 'pin' => '4729',
+        ], '/admin/ingredients/5/adjust'), $db)->adjust(['id' => '5']);
+
+        self::assertSame(302, $response->status());
+        $movement = $this->writeParams($db, 'INSERT INTO stock_movement');
+        self::assertNotNull($movement);
+        self::assertSame('adjustment', $movement['type']);
+        self::assertSame(10, $movement['delta']);  // 40 + 10 = 50, sous la capacite
+        self::assertSame(9, $movement['user']);     // acteur resolu par PIN (RG-4)
+        self::assertSame([], $db->auditActions());  // RG-T14 : pas de double-journal
+    }
+
+    public function testAdjustClampsToCapacityAndRecordsAppliedDelta(): void
+    {
+        $db = $this->permittedDb(); // stock 40, capacite 100
+        $this->actingPin($db);
+
+        $response = $this->controller($this->post([
+            '_csrf' => $this->csrf, 'delta' => '100',
+            'pin_email' => 'sam@wakdo.local', 'pin' => '4729',
+        ], '/admin/ingredients/5/adjust'), $db)->adjust(['id' => '5']);
+
+        self::assertSame(302, $response->status());
+        $movement = $this->writeParams($db, 'INSERT INTO stock_movement');
+        self::assertNotNull($movement);
+        // 40 + 100 = 140 -> plafonne a 100 -> delta REELLEMENT applique = 60 (pas 100).
+        self::assertSame(60, $movement['delta']);
+        $update = $this->writeParams($db, 'UPDATE ingredient SET stock_quantity');
+        self::assertNotNull($update);
+        self::assertSame(100, $update['q']);
+    }
+
+    public function testAdjustAllowsNegativeDelta(): void
+    {
+        $db = $this->permittedDb(); // stock 40
+        $this->actingPin($db);
+
+        $response = $this->controller($this->post([
+            '_csrf' => $this->csrf, 'delta' => '-10',
+            'pin_email' => 'sam@wakdo.local', 'pin' => '4729',
+        ], '/admin/ingredients/5/adjust'), $db)->adjust(['id' => '5']);
+
+        self::assertSame(302, $response->status());
+        $movement = $this->writeParams($db, 'INSERT INTO stock_movement');
+        self::assertNotNull($movement);
+        self::assertSame('adjustment', $movement['type']);
+        self::assertSame(-10, $movement['delta']); // 40 - 10 = 30
+    }
+
+    public function testAdjustWithBadPinLogsFailedAndChangesNoStock(): void
+    {
+        $db = $this->permittedDb();
+        $db->actingUserRow = null; // email/PIN non resolu
+
+        $response = $this->controller($this->post([
+            '_csrf' => $this->csrf, 'delta' => '10',
+            'pin_email' => 'ghost@wakdo.local', 'pin' => '0000',
+        ], '/admin/ingredients/5/adjust'), $db)->adjust(['id' => '5']);
+
+        self::assertSame(422, $response->status());
+        self::assertSame(['pin.failed'], $db->auditActions());
+        self::assertFalse($db->wrote('stock_movement'));
+    }
+
+    public function testAdjustLockedActorReturns422WithoutEffect(): void
+    {
+        $db = $this->permittedDb();
+        $this->actingPin($db);
+        $db->pinThrottleLockoutUntil = date('Y-m-d H:i:s', time() + 300); // verrou actif
+
+        $response = $this->controller($this->post([
+            '_csrf' => $this->csrf, 'delta' => '10',
+            'pin_email' => 'sam@wakdo.local', 'pin' => '4729',
+        ], '/admin/ingredients/5/adjust'), $db)->adjust(['id' => '5']);
+
+        self::assertSame(422, $response->status());
+        self::assertSame([], $db->auditActions());       // pas de pin.failed sous verrou (RG-T22)
+        self::assertFalse($db->wrote('stock_movement'));
+    }
+
+    public function testAdjustRejectsZeroDelta(): void
+    {
+        $db = $this->permittedDb();
+        $this->actingPin($db);
+
+        $response = $this->controller($this->post([
+            '_csrf' => $this->csrf, 'delta' => '0',
+            'pin_email' => 'sam@wakdo.local', 'pin' => '4729',
+        ], '/admin/ingredients/5/adjust'), $db)->adjust(['id' => '5']);
+
+        self::assertSame(422, $response->status());
+        self::assertFalse($db->wrote('stock_movement'));
+    }
+
+    public function testAdjustRejectsNonIntegerDelta(): void
+    {
+        $db = $this->permittedDb();
+        $this->actingPin($db);
+
+        $response = $this->controller($this->post([
+            '_csrf' => $this->csrf, 'delta' => '3.5',
+            'pin_email' => 'sam@wakdo.local', 'pin' => '4729',
+        ], '/admin/ingredients/5/adjust'), $db)->adjust(['id' => '5']);
+
+        self::assertSame(422, $response->status());
+        self::assertFalse($db->wrote('stock_movement'));
+    }
+
+    public function testAdjustForbiddenWithoutStockCount(): void
+    {
+        $db = $this->permittedDb();
+        $db->grantedCodes = ['stock.read', 'stock.manage']; // a stock.manage mais PAS stock.count
+        $this->actingPin($db);
+
+        $response = $this->controller($this->post([
+            '_csrf' => $this->csrf, 'delta' => '10',
+            'pin_email' => 'sam@wakdo.local', 'pin' => '4729',
+        ], '/admin/ingredients/5/adjust'), $db)->adjust(['id' => '5']);
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($db->wrote('stock_movement'));
+    }
+
     // --- Visibilite de l'acteur (RG-4) ---
 
     public function testMovementsShowActorForManager(): void

@@ -525,6 +525,102 @@ class IngredientController extends AdminController
     /**
      * @param array<string, string> $params
      */
+    public function adjustForm(array $params): Response
+    {
+        $guard = $this->guard('stock.count');
+        if ($guard instanceof Response) {
+            return $guard;
+        }
+
+        $id = (int) ($params['id'] ?? 0);
+        $ingredient = $this->ingredientRepository()->find($id);
+        if ($ingredient === null) {
+            return $this->notFound($guard);
+        }
+
+        return $this->renderAdjust($guard, $id, $ingredient, [], []);
+    }
+
+    /**
+     * Ajustement libre du stock (retour oral #6) : correction SIGNEE (delta +/-), sous la
+     * MEME garde que l'inventaire -- stock.count + PIN equipier (RG-T13). Une baisse de
+     * stock non attribuee masquerait de la demarque (R9) : on exige donc le PIN, comme le
+     * comptage d'inventaire, et on trace l'acteur resolu par PIN dans stock_movement.user_id
+     * (mouvement 'adjustment'), sans audit_log au succes (RG-T14). Complement de restock
+     * (hausse en packs, sans PIN) : ici une correction libre, dans les deux sens.
+     *
+     * @param array<string, string> $params
+     */
+    public function adjust(array $params): Response
+    {
+        $guard = $this->guard('stock.count');
+        if ($guard instanceof Response) {
+            return $guard;
+        }
+
+        $form = $this->request->formBody();
+        if (!Csrf::validate($this->sessionManager(), $form['_csrf'] ?? null)) {
+            return $this->invalidCsrf();
+        }
+
+        $id = (int) ($params['id'] ?? 0);
+        $ingredient = $this->ingredientRepository()->find($id);
+        if ($ingredient === null) {
+            return $this->notFound($guard);
+        }
+
+        $errors = [];
+
+        // Delta signe NON NUL : une correction de 0 n'a pas de sens (l'inventaire, lui,
+        // trace meme un delta 0 comme preuve de comptage). Borne a l'entier signe.
+        $deltaRaw = trim($form['delta'] ?? '');
+        $deltaValid = preg_match('/^-?\d+$/', $deltaRaw) === 1
+            && (int) $deltaRaw !== 0
+            && (int) $deltaRaw >= -2147483647 && (int) $deltaRaw <= 2147483647;
+        if (!$deltaValid) {
+            $errors['delta'] = 'L ajustement doit etre un entier non nul (ex. 5 pour ajouter, -3 pour retirer).';
+        }
+
+        $note = trim($form['note'] ?? '');
+        if (mb_strlen($note) > 255) {
+            $errors['note'] = 'Note trop longue (255 caracteres max).';
+        }
+
+        if ($errors !== []) {
+            return $this->renderAdjust($guard, $id, $ingredient, $form, $errors, 422);
+        }
+
+        // RG-T13/RG-4 : ajustement libre = action sensible (peut baisser le stock -> R9
+        // demarque), PIN equipier. Meme flux throttle/decoy/pin.failed que l'inventaire 9.2.
+        $actorId = $guard->userId ?? 0;
+        if ($actorId > 0 && $this->pinThrottle()->isLocked($actorId)) {
+            $this->pinVerifier()->payTimingDecoy($form['pin'] ?? '');
+
+            return $this->renderAdjust($guard, $id, $ingredient, $form, ['pin' => 'Email ou PIN invalide (requis pour l ajustement).'], 422);
+        }
+
+        $actor = $this->pinVerifier()->resolveActingUser(trim($form['pin_email'] ?? ''), $form['pin'] ?? '');
+        if ($actor === null) {
+            $email = trim($form['pin_email'] ?? '');
+            $this->db()->transaction(function (DatabaseInterface $db) use ($email, $id, $actorId): void {
+                $this->logFailedPin($db, $email, $id, 'ajustement');
+                $this->pinThrottle()->recordFailureWithin($db, $actorId);
+            });
+
+            return $this->renderAdjust($guard, $id, $ingredient, $form, ['pin' => 'Email ou PIN invalide (requis pour l ajustement).'], 422);
+        }
+
+        $this->ingredientRepository()->adjust($id, (int) $deltaRaw, $actor['id'], $note !== '' ? $note : null);
+        $this->pinThrottle()->reset($actorId);
+
+        $this->setFlash('Ajustement de stock enregistre.');
+
+        return $this->redirect('/admin/ingredients');
+    }
+
+    /**
+     * @param array<string, string> $params
+     */
     public function movements(array $params): Response
     {
         $guard = $this->guard('stock.read');
@@ -719,7 +815,7 @@ class IngredientController extends AdminController
         throw $exception;
     }
 
-    private function logFailedPin(DatabaseInterface $db, string $email, int $ingredientId): void
+    private function logFailedPin(DatabaseInterface $db, string $email, int $ingredientId, string $context = 'inventaire'): void
     {
         $db->execute(
             'INSERT INTO audit_log (actor_user_id, actor_role_id, action_code, entity_type, entity_id, summary) '
@@ -730,7 +826,7 @@ class IngredientController extends AdminController
                 'code'    => 'pin.failed',
                 'etype'   => 'ingredient',
                 'eid'     => $ingredientId,
-                'summary' => 'Echec PIN inventaire (email tente: ' . $email . ')',
+                'summary' => 'Echec PIN ' . $context . ' (email tente: ' . $email . ')',
             ],
         );
     }
@@ -793,6 +889,23 @@ class IngredientController extends AdminController
             'ingredientId' => $id,
             'ingredient'   => $ingredient,
             'values'       => ['actual_quantity' => (string) ($values['actual_quantity'] ?? ''), 'note' => (string) ($values['note'] ?? '')],
+            'errors'       => $errors,
+        ], $guard, $status);
+    }
+
+    /**
+     * @param array<string, mixed> $ingredient
+     * @param array<string, mixed> $values
+     * @param array<string, string> $errors
+     */
+    private function renderAdjust(GuardResult $guard, int $id, array $ingredient, array $values, array $errors, int $status = 200): Response
+    {
+        return $this->adminView('admin/ingredients/adjust', [
+            'title'        => 'Ajuster le stock - Wakdo Admin',
+            'activeNav'    => 'stock',
+            'ingredientId' => $id,
+            'ingredient'   => $ingredient,
+            'values'       => ['delta' => (string) ($values['delta'] ?? ''), 'note' => (string) ($values['note'] ?? '')],
             'errors'       => $errors,
         ], $guard, $status);
     }
