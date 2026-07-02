@@ -77,7 +77,7 @@ final class FakeDatabase implements DatabaseInterface
     public array $permissionCodes = [];
 
     /**
-     * Ligne role renvoyee pour la lecture du code de role (/api/me) ; null = absent.
+     * Ligne role renvoyee pour la lecture du code de role (/admin/me) ; null = absent.
      *
      * @var array<string, mixed>|null
      */
