@@ -1,0 +1,82 @@
+<!DOCTYPE html><html lang="fr"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!--
+        Le fallback SPA du vhost borne sert index.html pour TOUT chemin profond
+        (RewriteRule ^ index.html). Sans <base>, les assets/liens relatifs se resolvent
+        par rapport au chemin demande (ex. /admin/stats -> /admin/assets/... -> 404 ->
+        coquille non stylee). <base href="/"> ancre toute URL relative a la racine, quel
+        que soit le chemin d'entree : la borne se rend correctement meme sur une URL profonde.
+    -->
+    <base href="/">
+    <!--
+        noindex: this kiosk is not a public website; no SEO indexing needed.
+        nofollow: prevents link-following by bots reaching the kiosk URL.
+    -->
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="description" content="Borne de commande Wakdo - choisissez votre mode de consommation">
+    <title>Wakdo - Bienvenue</title>
+    <link rel="canonical" href="https://corentin-wakdo.stark.a3n.fr/">
+    <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg">
+    <link rel="stylesheet" href="assets/css/style.css">
+    <!--
+        Donnees structurees schema.org (JSON-LD) : decrivent l'etablissement pour
+        les moteurs / agents. Demonstratif (la borne porte noindex), Cr 1.e.3.
+    -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "FastFoodRestaurant",
+        "name": "Wakdo",
+        "servesCuisine": "Restauration rapide",
+        "openingHours": "Mo-Su 10:00-01:00",
+        "paymentAccepted": "Sur place, A emporter, Drive"
+    }
+    </script>
+</head>
+<body>
+
+    <!--
+        Welcome / landing screen.
+        Matches maquette page 1: background photo, white card, two choice buttons.
+        Navigation is purely HTML <a> links — no JS required for this screen.
+    -->
+    <main class="welcome" aria-label="Ecran d'accueil Wakdo">
+
+        <!--
+            mc-landing-banner.png is the background photo (M arches + food).
+            alt="" because it is purely decorative — the content lives in the card.
+        -->
+        <img class="welcome__bg" src="assets/images/ui/mc-landing-banner.png" alt="" aria-hidden="true">
+
+        <section class="welcome__card" aria-labelledby="welcome-heading">
+            <h1 class="welcome__greeting" id="welcome-heading">Bonjour,</h1>
+            <p class="welcome__question">
+                Souhaitez-vous consommer votre menu sur place<br>
+                ou preferez-vous l'emporter&nbsp;?
+            </p>
+
+            <nav class="welcome__choices" aria-label="Mode de consommation">
+                <!--
+                    href passes the choice via query string.
+                    The categories page reads it to display the correct mode label.
+                    No JS required for the navigation itself.
+                -->
+                <a class="choice-btn" href="categories.html?mode=sur-place" role="button" aria-label="Commander sur place">
+                    <img class="choice-btn__image" src="assets/images/ui/illustration-sur-place.png" alt="Table et chaises - Sur place">
+                    <span class="choice-btn__label">Sur Place</span>
+                </a>
+
+                <a class="choice-btn" href="categories.html?mode=a-emporter" role="button" aria-label="Commander a emporter">
+                    <img class="choice-btn__image" src="assets/images/ui/illustration-a-emporter.png" alt="Sac a emporter">
+                    <span class="choice-btn__label">A Emporter</span>
+                </a>
+            </nav>
+        </section>
+
+    </main>
+
+    <script type="module" src="assets/js/a11y.js"></script>
+
+
+<button type="button" class="a11y-toggle" data-a11y-dys-toggle="" aria-pressed="false" aria-label="Police adaptee aux personnes dyslexiques"><span class="a11y-toggle__icon" aria-hidden="true">Aa</span><span class="a11y-toggle__label">Police adaptee</span></button></body></html>

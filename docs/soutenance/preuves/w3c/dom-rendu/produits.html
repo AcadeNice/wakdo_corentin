@@ -1,0 +1,251 @@
+<!DOCTYPE html><html lang="fr"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="description" content="Wakdo - Produits de la categorie selectionnee">
+    <title>Wakdo - Burgers</title>
+    <link rel="canonical" href="https://corentin-wakdo.stark.a3n.fr/products.html">
+    <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg">
+    <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body class="products-page">
+
+    <!--
+        products.html — List of products in a category.
+        Category is determined at runtime from ?category=<id>.
+        JS (page-products.js) reads the catalogue via data.js, which fetches
+        GET /api/products (and /api/categories, /api/menus), then renders cards.
+    -->
+
+    <header class="site-header">
+        <a id="back-to-categories" class="site-header__back" href="categories.html?mode=sur-place" aria-label="Retour aux categories">
+            ← Categories
+        </a>
+        <img class="site-header__logo" src="assets/images/ui/logo.png" alt="Wakdo">
+    </header>
+
+    <div class="order-layout">
+    <main class="products-main" aria-label="Liste des produits">
+
+        <nav class="category-strip" data-category-strip="" aria-label="Categories">
+        <button class="category-strip__arrow category-strip__arrow--prev" type="button" aria-label="Categories precedentes">◀</button>
+        <div class="category-strip__scroller">
+        <a class="category-strip__item" href="products.html?category=62&amp;mode=sur-place" aria-label="La onzièùe">
+            <img class="category-strip__img" src="null" alt="" aria-hidden="true" onerror="this.style.visibility='hidden';" style="visibility: hidden;">
+            <span class="category-strip__label">La onzièùe</span>
+        </a>
+    
+        <a class="category-strip__item" href="products.html?category=61&amp;mode=sur-place" aria-label="Test">
+            <img class="category-strip__img" src="null" alt="" aria-hidden="true" onerror="this.style.visibility='hidden';" style="visibility: hidden;">
+            <span class="category-strip__label">Test</span>
+        </a>
+    
+        <a class="category-strip__item" href="products.html?category=2&amp;mode=sur-place" aria-label="Boissons">
+            <img class="category-strip__img" src="assets/images/categories/boissons.png" alt="" aria-hidden="true" onerror="this.style.visibility='hidden';">
+            <span class="category-strip__label">Boissons</span>
+        </a>
+    
+        <a class="category-strip__item is-active" href="products.html?category=3&amp;mode=sur-place" aria-label="Burgers" aria-current="true">
+            <img class="category-strip__img" src="assets/images/categories/burgers.png" alt="" aria-hidden="true" onerror="this.style.visibility='hidden';">
+            <span class="category-strip__label">Burgers</span>
+        </a>
+    
+        <a class="category-strip__item" href="products.html?category=4&amp;mode=sur-place" aria-label="Frites">
+            <img class="category-strip__img" src="assets/images/categories/frites.png" alt="" aria-hidden="true" onerror="this.style.visibility='hidden';">
+            <span class="category-strip__label">Frites</span>
+        </a>
+    
+        <a class="category-strip__item" href="products.html?category=5&amp;mode=sur-place" aria-label="Encas">
+            <img class="category-strip__img" src="assets/images/categories/encas.png" alt="" aria-hidden="true" onerror="this.style.visibility='hidden';">
+            <span class="category-strip__label">Encas</span>
+        </a>
+    
+        <a class="category-strip__item" href="products.html?category=6&amp;mode=sur-place" aria-label="Wraps">
+            <img class="category-strip__img" src="assets/images/categories/wraps.png" alt="" aria-hidden="true" onerror="this.style.visibility='hidden';">
+            <span class="category-strip__label">Wraps</span>
+        </a>
+    
+        <a class="category-strip__item" href="products.html?category=7&amp;mode=sur-place" aria-label="Salades">
+            <img class="category-strip__img" src="assets/images/categories/salades.png" alt="" aria-hidden="true" onerror="this.style.visibility='hidden';">
+            <span class="category-strip__label">Salades</span>
+        </a>
+    
+        <a class="category-strip__item" href="products.html?category=8&amp;mode=sur-place" aria-label="Desserts">
+            <img class="category-strip__img" src="assets/images/categories/desserts.png" alt="" aria-hidden="true" onerror="this.style.visibility='hidden';">
+            <span class="category-strip__label">Desserts</span>
+        </a>
+    
+        <a class="category-strip__item" href="products.html?category=9&amp;mode=sur-place" aria-label="Sauces">
+            <img class="category-strip__img" src="assets/images/categories/sauces.png" alt="" aria-hidden="true" onerror="this.style.visibility='hidden';">
+            <span class="category-strip__label">Sauces</span>
+        </a>
+    
+        <a class="category-strip__item" href="products.html?category=1&amp;mode=sur-place" aria-label="Menus">
+            <img class="category-strip__img" src="assets/images/categories/menus.png" alt="" aria-hidden="true" onerror="this.style.visibility='hidden';">
+            <span class="category-strip__label">Menus</span>
+        </a>
+    </div>
+        <button class="category-strip__arrow category-strip__arrow--next" type="button" aria-label="Categories suivantes">▶</button>
+    </nav>
+
+        <div class="products-header">
+            <!--
+                Heading is updated by page-products.js once the category
+                data is loaded — default text shown during load.
+            -->
+            <h1 id="products-heading" class="products-main__heading">Nos Burgers</h1>
+            <span class="mode-badge" data-mode-badge="">Sur place</span>
+        </div>
+
+        <!-- Error block: hidden by default, shown if fetch fails -->
+        <p id="products-error" class="products-error" hidden="" role="alert"></p>
+
+        <ul id="products-grid" class="products-grid" aria-label="Grille de produits"><li class="product-card-cell"><a class="product-card" href="#" aria-label="Le 280 - 6,80&nbsp;EUR">
+                <div class="product-card__image-wrap">
+                    <img class="product-card__image" src="assets/images/produits/burgers/280.png" alt="Le 280" loading="lazy" onerror="this.src='assets/images/ui/logo.png'; this.alt='Image non disponible';">
+                    
+                </div>
+                <div class="product-card__body">
+                    <span class="product-card__name">Le 280</span>
+                    <span class="product-card__price">6,80&nbsp;EUR</span>
+                </div>
+            </a><button type="button" class="allergen-info-btn" aria-label="Informations allergenes" title="Informations allergenes">i</button></li><li class="product-card-cell"><a class="product-card" href="#" aria-label="Big Tasty - 8,60&nbsp;EUR">
+                <div class="product-card__image-wrap">
+                    <img class="product-card__image" src="assets/images/produits/burgers/big-tasty-1-viande.png" alt="Big Tasty" loading="lazy" onerror="this.src='assets/images/ui/logo.png'; this.alt='Image non disponible';">
+                    
+                </div>
+                <div class="product-card__body">
+                    <span class="product-card__name">Big Tasty</span>
+                    <span class="product-card__price">8,60&nbsp;EUR</span>
+                </div>
+            </a><button type="button" class="allergen-info-btn" aria-label="Informations allergenes" title="Informations allergenes">i</button></li><li class="product-card-cell"><a class="product-card" href="#" aria-label="Big Tasty Bacon - 8,90&nbsp;EUR">
+                <div class="product-card__image-wrap">
+                    <img class="product-card__image" src="assets/images/produits/burgers/big-tasty-bacon-1-viande.png" alt="Big Tasty Bacon" loading="lazy" onerror="this.src='assets/images/ui/logo.png'; this.alt='Image non disponible';">
+                    
+                </div>
+                <div class="product-card__body">
+                    <span class="product-card__name">Big Tasty Bacon</span>
+                    <span class="product-card__price">8,90&nbsp;EUR</span>
+                </div>
+            </a><button type="button" class="allergen-info-btn" aria-label="Informations allergenes" title="Informations allergenes">i</button></li><li class="product-card-cell"><a class="product-card" href="#" aria-label="Big Mac - 6,00&nbsp;EUR">
+                <div class="product-card__image-wrap">
+                    <img class="product-card__image" src="assets/images/produits/burgers/bigmac.png" alt="Big Mac" loading="lazy" onerror="this.src='assets/images/ui/logo.png'; this.alt='Image non disponible';">
+                    
+                </div>
+                <div class="product-card__body">
+                    <span class="product-card__name">Big Mac</span>
+                    <span class="product-card__price">6,00&nbsp;EUR</span>
+                </div>
+            </a><button type="button" class="allergen-info-btn" aria-label="Informations allergenes" title="Informations allergenes">i</button></li><li class="product-card-cell"><a class="product-card" href="#" aria-label="CBO - 8,90&nbsp;EUR">
+                <div class="product-card__image-wrap">
+                    <img class="product-card__image" src="assets/images/produits/burgers/cbo.png" alt="CBO" loading="lazy" onerror="this.src='assets/images/ui/logo.png'; this.alt='Image non disponible';">
+                    
+                </div>
+                <div class="product-card__body">
+                    <span class="product-card__name">CBO</span>
+                    <span class="product-card__price">8,90&nbsp;EUR</span>
+                </div>
+            </a><button type="button" class="allergen-info-btn" aria-label="Informations allergenes" title="Informations allergenes">i</button></li><li class="product-card-cell"><a class="product-card" href="#" aria-label="MC Chicken - 7,30&nbsp;EUR">
+                <div class="product-card__image-wrap">
+                    <img class="product-card__image" src="assets/images/produits/burgers/mcchicken.png" alt="MC Chicken" loading="lazy" onerror="this.src='assets/images/ui/logo.png'; this.alt='Image non disponible';">
+                    
+                </div>
+                <div class="product-card__body">
+                    <span class="product-card__name">MC Chicken</span>
+                    <span class="product-card__price">7,30&nbsp;EUR</span>
+                </div>
+            </a><button type="button" class="allergen-info-btn" aria-label="Informations allergenes" title="Informations allergenes">i</button></li><li class="product-card-cell"><a class="product-card" href="#" aria-label="MC Crispy - 5,30&nbsp;EUR">
+                <div class="product-card__image-wrap">
+                    <img class="product-card__image" src="assets/images/produits/burgers/mccrispy.png" alt="MC Crispy" loading="lazy" onerror="this.src='assets/images/ui/logo.png'; this.alt='Image non disponible';">
+                    
+                </div>
+                <div class="product-card__body">
+                    <span class="product-card__name">MC Crispy</span>
+                    <span class="product-card__price">5,30&nbsp;EUR</span>
+                </div>
+            </a><button type="button" class="allergen-info-btn" aria-label="Informations allergenes" title="Informations allergenes">i</button></li><li class="product-card-cell"><a class="product-card" href="#" aria-label="MC Fish - 4,85&nbsp;EUR">
+                <div class="product-card__image-wrap">
+                    <img class="product-card__image" src="assets/images/produits/burgers/mcfish.png" alt="MC Fish" loading="lazy" onerror="this.src='assets/images/ui/logo.png'; this.alt='Image non disponible';">
+                    
+                </div>
+                <div class="product-card__body">
+                    <span class="product-card__name">MC Fish</span>
+                    <span class="product-card__price">4,85&nbsp;EUR</span>
+                </div>
+            </a><button type="button" class="allergen-info-btn" aria-label="Informations allergenes" title="Informations allergenes">i</button></li><li class="product-card-cell"><a class="product-card" href="#" aria-label="Royal Bacon - 5,10&nbsp;EUR">
+                <div class="product-card__image-wrap">
+                    <img class="product-card__image" src="assets/images/produits/burgers/royalbacon.png" alt="Royal Bacon" loading="lazy" onerror="this.src='assets/images/ui/logo.png'; this.alt='Image non disponible';">
+                    
+                </div>
+                <div class="product-card__body">
+                    <span class="product-card__name">Royal Bacon</span>
+                    <span class="product-card__price">5,10&nbsp;EUR</span>
+                </div>
+            </a><button type="button" class="allergen-info-btn" aria-label="Informations allergenes" title="Informations allergenes">i</button></li><li class="product-card-cell"><a class="product-card" href="#" aria-label="Royal Cheese - 4,40&nbsp;EUR">
+                <div class="product-card__image-wrap">
+                    <img class="product-card__image" src="assets/images/produits/burgers/royalcheese.png" alt="Royal Cheese" loading="lazy" onerror="this.src='assets/images/ui/logo.png'; this.alt='Image non disponible';">
+                    
+                </div>
+                <div class="product-card__body">
+                    <span class="product-card__name">Royal Cheese</span>
+                    <span class="product-card__price">4,40&nbsp;EUR</span>
+                </div>
+            </a><button type="button" class="allergen-info-btn" aria-label="Informations allergenes" title="Informations allergenes">i</button></li><li class="product-card-cell"><a class="product-card" href="#" aria-label="Royal Deluxe - 5,40&nbsp;EUR">
+                <div class="product-card__image-wrap">
+                    <img class="product-card__image" src="assets/images/produits/burgers/royaldeluxe.png" alt="Royal Deluxe" loading="lazy" onerror="this.src='assets/images/ui/logo.png'; this.alt='Image non disponible';">
+                    
+                </div>
+                <div class="product-card__body">
+                    <span class="product-card__name">Royal Deluxe</span>
+                    <span class="product-card__price">5,40&nbsp;EUR</span>
+                </div>
+            </a><button type="button" class="allergen-info-btn" aria-label="Informations allergenes" title="Informations allergenes">i</button></li><li class="product-card-cell"><a class="product-card" href="#" aria-label="Signature BBQ Beef 2 viandes - 11,40&nbsp;EUR">
+                <div class="product-card__image-wrap">
+                    <img class="product-card__image" src="assets/images/produits/burgers/signature-bbq-beef-2-viandes.png" alt="Signature BBQ Beef 2 viandes" loading="lazy" onerror="this.src='assets/images/ui/logo.png'; this.alt='Image non disponible';">
+                    
+                </div>
+                <div class="product-card__body">
+                    <span class="product-card__name">Signature BBQ Beef 2 viandes</span>
+                    <span class="product-card__price">11,40&nbsp;EUR</span>
+                </div>
+            </a><button type="button" class="allergen-info-btn" aria-label="Informations allergenes" title="Informations allergenes">i</button></li><li class="product-card-cell"><a class="product-card" href="#" aria-label="Signature Beef BBQ - 10,30&nbsp;EUR">
+                <div class="product-card__image-wrap">
+                    <img class="product-card__image" src="assets/images/produits/burgers/signature-beef-bbq-burger-1-viande.png" alt="Signature Beef BBQ" loading="lazy" onerror="this.src='assets/images/ui/logo.png'; this.alt='Image non disponible';">
+                    
+                </div>
+                <div class="product-card__body">
+                    <span class="product-card__name">Signature Beef BBQ</span>
+                    <span class="product-card__price">10,30&nbsp;EUR</span>
+                </div>
+            </a><button type="button" class="allergen-info-btn" aria-label="Informations allergenes" title="Informations allergenes">i</button></li></ul>
+
+    </main>
+
+        <aside class="order-panel" data-order-panel="" aria-label="Ma commande" aria-live="polite">
+        <div class="order-panel__head">
+            <img class="order-panel__logo" src="assets/images/ui/logo.png" alt="Wakdo">
+            <span class="order-panel__title">Ma commande</span>
+            <span class="order-panel__mode">Sur place</span>
+        </div>
+        <div class="order-panel__body"><p class="order-panel__empty">Votre commande est vide.<br>Ajoutez un produit pour commencer.</p></div>
+        <div class="order-panel__foot">
+            <div class="order-panel__total">
+                <span>TOTAL (ttc)</span>
+                <span class="order-panel__total-value">0,00&nbsp;EUR</span>
+            </div>
+            <div class="order-panel__actions">
+                <button class="order-panel__abandon" type="button">Abandon</button>
+                <a class="order-panel__pay" href="payment.html" role="button" aria-disabled="true">Payer</a>
+            </div>
+        </div>
+    </aside>
+    </div>
+
+    <script type="module" src="assets/js/nav.js"></script>
+    <script type="module" src="assets/js/page-products.js"></script>
+    <script type="module" src="assets/js/category-strip.js"></script>
+    <script type="module" src="assets/js/order-panel.js"></script>
+    <script type="module" src="assets/js/a11y.js"></script>
+
+
+<button type="button" class="a11y-toggle" data-a11y-dys-toggle="" aria-pressed="false" aria-label="Police adaptee aux personnes dyslexiques"><span class="a11y-toggle__icon" aria-hidden="true">Aa</span><span class="a11y-toggle__label">Police adaptee</span></button></body></html>

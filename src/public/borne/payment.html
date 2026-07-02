@@ -31,7 +31,7 @@
             src="assets/images/ui/logo.png"
             alt="Wakdo"
         >
-        <span class="mode-badge site-header__mode" data-mode-badge aria-label="Mode de consommation">Sur place</span>
+        <span class="mode-badge site-header__mode" data-mode-badge>Sur place</span>
     </header>
 
     <main class="payment-main" aria-label="Choix du mode de paiement">
@@ -39,7 +39,7 @@
         <h1 class="payment-main__heading">Comment souhaitez-vous payer ?</h1>
 
         <!-- Mini order recap injected by inline script using localStorage -->
-        <div class="payment-recap" id="payment-recap" aria-label="Recapitulatif de commande">
+        <div class="payment-recap" id="payment-recap" role="region" aria-label="Recapitulatif de commande">
             <!-- Filled by page-payment.js -->
         </div>
 

@@ -49,7 +49,7 @@ async function renderProducts() {
         }
 
         if (!products.length) {
-            grid.innerHTML = '<p class="products-empty">Aucun produit disponible dans cette categorie.</p>';
+            grid.innerHTML = '<li class="products-empty">Aucun produit disponible dans cette categorie.</li>';
             return;
         }
 
@@ -92,10 +92,10 @@ async function renderProducts() {
                 </div>
             `;
 
-            // Bouton "i" allergenes superpose a l'image ; son clic ouvre la modale
-            // generale et ne declenche pas la navigation de la carte (stopPropagation).
+            // Bouton "i" allergenes : frere de la carte, JAMAIS dans le <a> (un
+            // element interactif ne peut pas descendre d'un lien — regle HTML verifiee
+            // au validateur W3C). Superpose au coin de l'image via CSS.
             const infoBtn = buildAllergenInfoButton(() => openAllergenModal(allergens));
-            card.querySelector('.product-card__image-wrap').appendChild(infoBtn);
 
             // Clic produit -> modale au-dessus de la grille (paradigme maquette) :
             // menu -> composeur (L2), produit -> options (L3). Le panneau de droite est
@@ -108,7 +108,13 @@ async function renderProducts() {
                 else openProductOptions(product, categorySlug);
             });
 
-            grid.appendChild(card);
+            // Carte + bouton "i" enveloppes dans un <li> : seul enfant valide d'un
+            // <ul>. Le <li> ancre le bouton allergene superpose (CSS position:relative).
+            const cell = document.createElement('li');
+            cell.className = 'product-card-cell';
+            cell.appendChild(card);
+            cell.appendChild(infoBtn);
+            grid.appendChild(cell);
         });
 
     } catch (err) {
