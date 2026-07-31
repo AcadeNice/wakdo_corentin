@@ -62,6 +62,20 @@ test('loadCategories appelle /api/categories, deballe {data} et mappe name->titl
     assert.ok(calls.includes('/api/categories'), 'doit fetch /api/categories');
 });
 
+test('loadCategories memoise : deux appels ne declenchent qu une requete', async () => {
+    // La memoisation est par PROMESSE (data.js:29). page-categories.js et
+    // category-strip.js appellent tous deux loadCategories : sans ce partage, l'ecran
+    // categories et le bandeau produiraient deux requetes pour la meme donnee.
+    const calls = [];
+    const { loadCategories } = await freshData(fixtures(), calls);
+
+    const [a, b] = await Promise.all([loadCategories(), loadCategories()]);
+    await loadCategories();
+
+    assert.equal(calls.filter(u => u === '/api/categories').length, 1);
+    assert.equal(a, b, 'la meme promesse est partagee');
+});
+
 test('loadProducts groupe les produits par slug a la forme borne (type produit)', async () => {
     const { loadProducts } = await freshData(fixtures());
 

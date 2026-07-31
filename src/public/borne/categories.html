@@ -13,11 +13,11 @@
 <body class="categories-page">
 
     <!--
-        Categories screen — static scaffold (9 categories) listed in catalogue order.
-        Image paths: assets/images/categories/{title}.png — verified against filesystem.
-        The cards link to products.html?category=<id>; the product/menu/allergen data
-        is fetched from the REST API by data.js. Generating this list from
-        GET /api/categories is a later UI alignment step.
+        Ecran categories. La grille est peuplee par page-categories.js depuis
+        GET /api/categories : seules les categories actives s'affichent, dans l'ordre
+        defini en back-office. Avant, cette liste etait codee en dur (9 cartes) et
+        une categorie desactivee, renommee ou ajoutee restait fausse sur cet ecran.
+        Les cartes restent des liens natifs : focus et clavier inchanges apres rendu.
     -->
 
     <header class="site-header">
@@ -41,139 +41,16 @@
         <p class="categories-main__sub">Choisissez une categorie pour decouvrir nos produits</p>
 
         <!--
-            9 categories in catalogue order. Each card links to a product page
-            (products.html?category=<id>). The link is functional HTML; no JS needed.
-            The category title is used as alt text and visible label.
+            Deux etats distincts a l'ecran : erreur de chargement (l'API ne repond pas)
+            et catalogue vide (aucune categorie active). Les confondre ferait croire a
+            une erreur de saisie sur une panne. Hors de la grille pour ne pas devenir
+            une cellule desalignee.
         -->
-        <nav class="category-grid" aria-label="Navigation par categorie">
+        <p id="categories-error" class="products-error" hidden role="alert"></p>
+        <p id="categories-empty" class="products-empty" hidden>Aucune categorie disponible pour le moment.</p>
 
-            <!-- id: 1 | title: menus -->
-            <a
-                class="category-card"
-                href="products.html?category=1"
-                aria-label="Voir les menus"
-            >
-                <img
-                    class="category-card__image"
-                    src="assets/images/categories/menus.png"
-                    alt="Menus"
-                >
-                <span class="category-card__label">Menus</span>
-            </a>
-
-            <!-- id: 2 | title: boissons -->
-            <a
-                class="category-card"
-                href="products.html?category=2"
-                aria-label="Voir les boissons"
-            >
-                <img
-                    class="category-card__image"
-                    src="assets/images/categories/boissons.png"
-                    alt="Boissons"
-                >
-                <span class="category-card__label">Boissons</span>
-            </a>
-
-            <!-- id: 3 | title: burgers -->
-            <a
-                class="category-card"
-                href="products.html?category=3"
-                aria-label="Voir les burgers"
-            >
-                <img
-                    class="category-card__image"
-                    src="assets/images/categories/burgers.png"
-                    alt="Burgers"
-                >
-                <span class="category-card__label">Burgers</span>
-            </a>
-
-            <!-- id: 4 | title: frites -->
-            <a
-                class="category-card"
-                href="products.html?category=4"
-                aria-label="Voir les frites"
-            >
-                <img
-                    class="category-card__image"
-                    src="assets/images/categories/frites.png"
-                    alt="Frites"
-                >
-                <span class="category-card__label">Frites</span>
-            </a>
-
-            <!-- id: 5 | title: encas -->
-            <a
-                class="category-card"
-                href="products.html?category=5"
-                aria-label="Voir les encas"
-            >
-                <img
-                    class="category-card__image"
-                    src="assets/images/categories/encas.png"
-                    alt="Encas"
-                >
-                <span class="category-card__label">Encas</span>
-            </a>
-
-            <!-- id: 6 | title: wraps -->
-            <a
-                class="category-card"
-                href="products.html?category=6"
-                aria-label="Voir les wraps"
-            >
-                <img
-                    class="category-card__image"
-                    src="assets/images/categories/wraps.png"
-                    alt="Wraps"
-                >
-                <span class="category-card__label">Wraps</span>
-            </a>
-
-            <!-- id: 7 | title: salades -->
-            <a
-                class="category-card"
-                href="products.html?category=7"
-                aria-label="Voir les salades"
-            >
-                <img
-                    class="category-card__image"
-                    src="assets/images/categories/salades.png"
-                    alt="Salades"
-                >
-                <span class="category-card__label">Salades</span>
-            </a>
-
-            <!-- id: 8 | title: desserts -->
-            <a
-                class="category-card"
-                href="products.html?category=8"
-                aria-label="Voir les desserts"
-            >
-                <img
-                    class="category-card__image"
-                    src="assets/images/categories/desserts.png"
-                    alt="Desserts"
-                >
-                <span class="category-card__label">Desserts</span>
-            </a>
-
-            <!-- id: 9 | title: sauces -->
-            <a
-                class="category-card"
-                href="products.html?category=9"
-                aria-label="Voir les sauces"
-            >
-                <img
-                    class="category-card__image"
-                    src="assets/images/categories/sauces.png"
-                    alt="Sauces"
-                >
-                <span class="category-card__label">Sauces</span>
-            </a>
-
-        </nav>
+        <!-- Cartes injectees par page-categories.js depuis GET /api/categories -->
+        <nav id="category-grid" class="category-grid" aria-label="Navigation par categorie"></nav>
     </main>
 
     <!-- nav.js : persiste le mode de consommation recu en ?mode= depuis l'accueil
@@ -181,6 +58,7 @@
          Sans ce script, le mode n'atteint jamais localStorage et le paiement part en
          service_mode null (422). C'est la 1re page post-accueil, elle doit donc le charger. -->
     <script type="module" src="assets/js/nav.js"></script>
+    <script type="module" src="assets/js/page-categories.js"></script>
     <script type="module" src="assets/js/a11y.js"></script>
 </body>
 </html>
