@@ -8,6 +8,7 @@
  */
 
 import { clearCart, getTotalCents, formatPrice } from './state.js';
+import { clearCheckoutKey } from './checkout.js';
 
 const orderNumberEl = document.getElementById('order-number');
 const orderTotalEl  = document.getElementById('order-total');
@@ -42,6 +43,10 @@ document.addEventListener('DOMContentLoaded', () => {
 if (newOrderBtn) {
     newOrderBtn.addEventListener('click', () => {
         clearCart();
+        // Filet : checkout.js libere deja la cle au succes. On la libere aussi ici pour
+        // que "Nouvelle commande" reparte d'une session de paiement propre meme si on
+        // arrive sur cet ecran par un autre chemin (F18).
+        clearCheckoutKey();
         window.location.href = 'index.html';
     });
 }

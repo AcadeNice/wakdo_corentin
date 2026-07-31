@@ -67,15 +67,25 @@ final class OrderExpireDbTest extends TestCase
         return new OrderRepository($this->db, new ProductRepository($this->db), new MenuRepository($this->db));
     }
 
-    /** Insere une commande avec un age controle (en minutes) et renvoie son id. */
+    /**
+     * Insere une commande avec un age controle (en minutes) et renvoie son id.
+     *
+     * created_at ET updated_at sont vieillis ensemble : depuis F18 le balayage porte sur
+     * GREATEST(created_at, updated_at), donc "abandonnee il y a N minutes" veut dire
+     * qu'aucune activite n'a eu lieu depuis N minutes. Ne vieillir que created_at
+     * simulerait une commande CREEE il y a longtemps mais TOUCHEE a l'instant -- ce que le
+     * balayage doit justement epargner.
+     */
     private function insertOrder(string $tag, string $status, int $ageMinutes): int
     {
         $number = 'IT-' . $this->suffix . '-' . $tag;
+        $age = max(0, $ageMinutes);
         $this->db->execute(
             'INSERT INTO customer_order (order_number, idempotency_key, source, service_mode, status, '
-            . 'total_ht_cents, total_vat_cents, total_ttc_cents, created_at) '
+            . 'total_ht_cents, total_vat_cents, total_ttc_cents, created_at, updated_at) '
             . "VALUES (:num, :key, 'kiosk', 'takeaway', :st, 900, 100, 1000, "
-            . 'NOW() - INTERVAL ' . max(0, $ageMinutes) . ' MINUTE)',
+            . 'NOW() - INTERVAL ' . $age . ' MINUTE, '
+            . 'NOW() - INTERVAL ' . $age . ' MINUTE)',
             ['num' => $number, 'key' => $number . '-k', 'st' => $status],
         );
         $id = (int) ($this->db->fetch(
@@ -198,5 +208,32 @@ final class OrderExpireDbTest extends TestCase
         self::assertNotNull($row);
         self::assertNotSame('', (string) ($row['idempotency_key'] ?? ''));
         self::assertStringStartsWith('IT-' . $this->suffix, (string) ($row['order_number'] ?? ''));
+    }
+
+    public function testAnOldOrderJustModifiedIsSpared(): void
+    {
+        // F18 : une commande creee il y a longtemps mais MODIFIEE a l'instant est
+        // activement utilisee. Le balayage porte donc sur la derniere activite
+        // (GREATEST(created_at, updated_at)) et non sur la creation. Avec l'ancien
+        // predicat, elle mourait sous le client juste apres que le serveur lui a confirme
+        // sa modification -- et il ne s'en sortait qu'au second appui sur Payer.
+        $id = $this->insertOrder('TOUCHED', 'pending_payment', 180);
+        $this->db->execute('UPDATE customer_order SET updated_at = NOW() WHERE id = :id', ['id' => $id]);
+
+        $report = $this->repo()->expireStalePending(60);
+
+        self::assertSame('pending_payment', $this->statusOf($id));
+        self::assertNotContains('IT-' . $this->suffix . '-TOUCHED', $report['order_numbers']);
+    }
+
+    public function testAnOldOrderNeverTouchedIsStillExpired(): void
+    {
+        // Garde miroir du test precedent : le nouveau predicat ne doit pas rendre le
+        // balayage inoperant. Une commande dont RIEN n'a bouge depuis 3 h part bien.
+        $id = $this->insertOrder('STALE2', 'pending_payment', 180);
+
+        $this->repo()->expireStalePending(60);
+
+        self::assertSame('cancelled', $this->statusOf($id));
     }
 }

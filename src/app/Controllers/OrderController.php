@@ -114,7 +114,13 @@ class OrderController extends Controller
         $code = $exception->getMessage();
         $status = match ($code) {
             'ORDER_NOT_FOUND'    => 404,
+            // Conflit d'etat : la commande visee n'est pas dans un etat qui accepte
+            // l'operation. ORDER_CANCELLED est le cas particulier ou la cle d'idempotence
+            // du client porte une commande annulee ou expiree (F18) : la colonne etant
+            // UNIQUE, la cle est definitivement consommee et la borne doit en prendre
+            // une neuve. Un 422 ferait croire a une charge utile mal formee.
             'INVALID_TRANSITION' => 409,
+            'ORDER_CANCELLED'    => 409,
             default              => 422,
         };
 
@@ -133,6 +139,7 @@ class OrderController extends Controller
         return match ($code) {
             'ORDER_NOT_FOUND'          => 'Commande introuvable.',
             'INVALID_TRANSITION'       => 'Transition de statut invalide.',
+            'ORDER_CANCELLED'          => 'Cette commande a ete annulee : recommencez une nouvelle commande.',
             'EMPTY_ORDER'              => 'La commande est vide.',
             'INVALID_SERVICE_MODE'     => 'Mode de service invalide.',
             'INVALID_SERVICE_TAG'      => 'Numero de chevalet invalide.',

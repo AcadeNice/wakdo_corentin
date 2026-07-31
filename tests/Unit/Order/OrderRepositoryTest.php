@@ -241,8 +241,15 @@ final class OrderRepositoryTest extends TestCase
 
     public function testIdempotentReturnsExistingWithoutInsert(): void
     {
+        // Garantie invariante de la cle d'idempotence (RG-T19) : JAMAIS une seconde
+        // commande. Ce qu'elle fait du CONTENU a change avec F18 : la commande en attente
+        // est mise a jour depuis les lignes envoyees, au lieu d'etre renvoyee telle quelle
+        // en les ignorant -- ce qui aurait fait payer un panier perime des que le client
+        // modifiait sa commande. Detail : OrderRepositoryReplaceTest.
         $db = new FakeOrderDatabase();
+        $db->products[12] = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 890, 'vat_rate' => 100, 'is_available' => 1];
         $db->existingByKey = ['id' => 7, 'order_number' => 'K7', 'total_ttc_cents' => 500, 'status' => 'pending_payment'];
+        $db->orderByNumber = ['id' => 7, 'order_number' => 'K7', 'total_ttc_cents' => 500, 'status' => 'pending_payment'];
 
         $res = $this->repo($db)->createPending([
             'idempotency_key' => 'dup',
@@ -252,6 +259,8 @@ final class OrderRepositoryTest extends TestCase
 
         self::assertSame('K7', $res['order_number']);
         self::assertSame(0, $db->countWrites('INSERT INTO customer_order'));
+        // Le total reflete desormais les lignes soumises, pas la valeur figee en base.
+        self::assertSame(890, $res['total_ttc_cents']);
     }
 
     public function testRejectsUnknownProduct(): void

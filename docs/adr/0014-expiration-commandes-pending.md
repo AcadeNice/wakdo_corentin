@@ -1,7 +1,16 @@
 # ADR-0014 — Expiration des commandes restees en attente de paiement
 
-- Statut : Accepte
+- Statut : Accepte, amende le 2026-07-31 par [ADR-0016](0016-modification-commande-avant-paiement.md)
 - Date : 2026-07-31
+
+> **Amendement (ADR-0016).** Le predicat de selection porte desormais sur
+> `GREATEST(created_at, updated_at)` et non sur `created_at` seul. Raison : F18 rend une
+> commande en attente MODIFIABLE, donc « creee il y a longtemps » ne veut plus dire
+> « abandonnee ». Une commande creee a 10h00 et modifiee a 12h01 aurait ete balayee a
+> 12h02, mourant sous le client juste apres que le serveur lui a confirme sa
+> modification. F18 reduit aussi le VOLUME attendu de ce balayage : la borne ne cree plus
+> une commande par passage sur l'ecran de paiement, donc l'orpheline disparait a la
+> source et ce filet redevient ce qu'il devait etre — un filet.
 
 ## Contexte
 Le flux de commande fait **deux appels HTTP** : creation (`POST /api/orders`) puis

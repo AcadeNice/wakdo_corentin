@@ -175,10 +175,13 @@ function openChevalet(onValidate, onDismiss) {
 /* --- Init ---------------------------------------------------------------- */
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Nouvelle visite paiement = nouvelle commande : on repart d'une cle d'idempotence
-    // neuve (les retries d'une meme tentative la reutilisent, cf. checkout.checkoutKey).
-    try { sessionStorage.removeItem('wakdo_order_key'); } catch { /* noop */ }
-
+    // La cle d'idempotence n'est PLUS effacee ici (F18). Elle l'etait pour eviter de
+    // faire payer un panier perime : le serveur renvoyait alors la commande existante en
+    // ignorant les lignes envoyees. Chaque passage sur cet ecran creait donc une nouvelle
+    // commande et laissait la precedente en attente jusqu'au balayage de la nuit.
+    // Desormais le serveur MET A JOUR la commande de la session (replaceItems) : garder
+    // la cle donne une commande unique par session de paiement, dont le contenu suit le
+    // panier. checkout.js la libere au succes, et sur ORDER_CANCELLED.
     const items = getCart();
     if (!items.length) {
         window.location.href = 'categories.html';

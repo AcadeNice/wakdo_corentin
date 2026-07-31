@@ -21,6 +21,7 @@ import {
 } from './state.js';
 import { refreshCartBadge } from './nav.js';
 import { confirmAction } from './confirm-modal.js';
+import { clearCheckoutKey } from './checkout.js';
 
 /**
  * Calcule le total d'une ligne en centimes (menu : avec supplement de taille ;
@@ -216,6 +217,13 @@ export function renderOrderPanel(container) {
                 cancelLabel: 'Continuer ma commande',
                 onConfirm: () => {
                     clearCart();
+                    // La cle d'idempotence vit le temps du PANIER, pas le temps de
+                    // l'onglet (F18). Sans cette ligne, un client qui abandonne le panier
+                    // d'un precedent laisse la cle en place : sa propre commande serait
+                    // alors installee dans la commande en attente de l'autre, dont elle
+                    // heriterait le mode de service, le numero deja affiche a l'autre
+                    // client, et l'horloge d'expiration.
+                    clearCheckoutKey();
                     window.location.href = 'index.html';
                 },
             });
