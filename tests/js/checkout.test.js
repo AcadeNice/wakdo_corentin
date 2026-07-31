@@ -125,3 +125,111 @@ test('submitOrder: panier vide -> jette EMPTY_CART', async () => {
     stubEnv([], 'a-emporter');
     await assert.rejects(() => submitOrder(), /EMPTY_CART/);
 });
+
+/* --- F18 : une seule commande par session de paiement -------------------- */
+
+/* sessionStorage simule : c'est lui qui porte la cle d'idempotence. Le harnais
+ * precedent ne le stubait pas (checkoutKey retombait alors sur une cle jetable), donc
+ * la stabilite de la cle n'etait pas observable. */
+function stubSession(initial = {}) {
+    const store = { ...initial };
+    global.sessionStorage = {
+        getItem: (k) => (k in store ? store[k] : null),
+        setItem: (k, v) => { store[k] = String(v); },
+        removeItem: (k) => { delete store[k]; },
+    };
+    return store;
+}
+
+function productCart() {
+    return [{ id: 14, type: 'produit', quantite: 1 }];
+}
+
+test('submitOrder reutilise la cle deja en session (une commande par session)', async () => {
+    stubEnv(productCart(), 'a-emporter');
+    stubSession({ wakdo_order_key: 'cle-existante' });
+    const bodies = [];
+    global.fetch = async (url, opts) => {
+        bodies.push({ url, body: opts?.body ? JSON.parse(opts.body) : null });
+        if (url === '/api/orders') return { ok: true, json: async () => ({ data: { order_number: 'K12', total_ttc_cents: 190 } }) };
+        return { ok: true, json: async () => ({ data: { order_number: 'K12', total_ttc_cents: 190 } }) };
+    };
+
+    await submitOrder();
+
+    // Le coeur de F18 : le client qui revient modifier son panier repasse par la MEME
+    // cle, donc le serveur met a jour SA commande au lieu d'en creer une seconde.
+    const create = bodies.find(b => b.url === '/api/orders');
+    assert.equal(create.body.idempotency_key, 'cle-existante');
+});
+
+test('submitOrder libere la cle au succes (commande suivante = session neuve)', async () => {
+    stubEnv(productCart(), 'a-emporter');
+    const store = stubSession({ wakdo_order_key: 'cle-existante' });
+    global.fetch = async () => ({ ok: true, json: async () => ({ data: { order_number: 'K12', total_ttc_cents: 190 } }) });
+
+    await submitOrder();
+
+    assert.equal('wakdo_order_key' in store, false);
+});
+
+test('submitOrder: ORDER_CANCELLED -> cle neuve et UNE seule reprise', async () => {
+    stubEnv(productCart(), 'a-emporter');
+    stubSession({ wakdo_order_key: 'cle-morte' });
+    const keys = [];
+    let creates = 0;
+    global.fetch = async (url, opts) => {
+        if (url === '/api/orders') {
+            creates += 1;
+            keys.push(JSON.parse(opts.body).idempotency_key);
+            if (creates === 1) {
+                // La commande derriere la cle a ete annulee ou expiree pendant que le
+                // client hesitait. La colonne etant UNIQUE, la cle est inutilisable.
+                return { ok: false, status: 409, json: async () => ({ error: { code: 'ORDER_CANCELLED' } }) };
+            }
+        }
+        return { ok: true, json: async () => ({ data: { order_number: 'K13', total_ttc_cents: 190 } }) };
+    };
+
+    const res = await submitOrder();
+
+    assert.equal(res.order_number, 'K13');
+    assert.equal(creates, 2, 'exactement une reprise');
+    assert.equal(keys[0], 'cle-morte');
+    assert.notEqual(keys[1], 'cle-morte', 'la reprise doit repartir d une cle neuve');
+});
+
+test('submitOrder ne reprend PAS sur une autre erreur que ORDER_CANCELLED', async () => {
+    stubEnv(productCart(), 'a-emporter');
+    stubSession({ wakdo_order_key: 'cle-valide' });
+    let creates = 0;
+    global.fetch = async (url) => {
+        if (url === '/api/orders') {
+            creates += 1;
+            return { ok: false, status: 422, json: async () => ({ error: { code: 'PRODUCT_UNAVAILABLE' } }) };
+        }
+        return { ok: true, json: async () => ({ data: {} }) };
+    };
+
+    // Une reprise aveugle sur n'importe quelle erreur masquerait un vrai probleme (ici
+    // un article indisponible, que le client doit voir pour corriger son panier).
+    await assert.rejects(() => submitOrder(), /PRODUCT_UNAVAILABLE/);
+    assert.equal(creates, 1, 'aucune reprise');
+});
+
+test('submitOrder: une cle absente est creee et memorisee', async () => {
+    stubEnv(productCart(), 'a-emporter');
+    const store = stubSession({});
+    let sentKey = null;
+    global.fetch = async (url, opts) => {
+        if (url === '/api/orders') sentKey = JSON.parse(opts.body).idempotency_key;
+        return { ok: true, json: async () => ({ data: { order_number: 'K14', total_ttc_cents: 190 } }) };
+    };
+
+    await submitOrder();
+
+    assert.ok(sentKey, 'une cle doit etre envoyee');
+    // Memorisee le temps de la tentative (pour qu'un echec reseau du paiement retombe sur
+    // la meme commande), puis liberee au succes.
+    assert.equal('wakdo_order_key' in store, false);
+});

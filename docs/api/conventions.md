@@ -269,6 +269,31 @@ Codes specifiques nommes par le MLT, en surcharge du socle : `CANNOT_CANCEL_IN_S
 `INVALID_TRANSITION` (409) pour l'annulation (`mlt.md` 7.1, `security-sequence.md`). Meme format
 d'enveloppe.
 
+**`ORDER_CANCELLED` (409, F18).** Rendu par `POST /api/orders` quand la cle
+d'idempotence envoyee porte une commande **annulee ou expiree**. La colonne
+`idempotency_key` etant UNIQUE, cette cle est definitivement consommee : elle ne peut
+plus porter de commande. Sans ce code, un client dont la commande a ete annulee pendant
+qu'il hesitait serait bloque — commande impayable, cle interdisant d'en creer une autre.
+La borne repart alors d'une cle neuve, **une seule fois** (une reprise sur n'importe
+quelle erreur masquerait un vrai probleme, par exemple un article indisponible).
+
+### 8.2bis Ce que garantit la cle d'idempotence (revise par F18)
+
+`POST /api/orders` avec une `idempotency_key` deja connue ne cree pas de seconde commande
+(RG-T19). Ce qu'il fait du CONTENU depend de l'etat de la commande portee :
+
+| Etat de la commande | Comportement | Reponse |
+|---|---|---|
+| `pending_payment` | les lignes sont **remplacees** et les totaux recalcules serveur | 201, meme `order_number`, total a jour |
+| encaissee (`paid`/`preparing`/`ready`/`delivered`) | renvoyee telle quelle, aucune ecriture | 201, etat reel |
+| `cancelled` | refus : la cle est consommee | 409 `ORDER_CANCELLED` |
+
+La garantie n'est donc pas « meme cle, meme reponse quel que soit le corps » mais
+**« meme cle, meme commande, dont le contenu reflete la derniere soumission »**. Le
+changement est assume : il permet au client de modifier son panier avant de payer sans
+qu'une seconde commande soit creee et abandonnee. Detail et mesures de concurrence :
+[ADR-0016](../adr/0016-modification-commande-avant-paiement.md), `mlt.md` 3.3bis.
+
 ### 8.3 Nommage borne vs canonique : le rapprochement dans data.js
 
 Le front de la borne attend un nommage historique heterogene issu des sources de l'ecole

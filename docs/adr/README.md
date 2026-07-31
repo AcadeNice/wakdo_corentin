@@ -23,6 +23,7 @@ une decision revisee donne une nouvelle fiche qui *supersede* l'ancienne (statut
 | [0013](0013-vue-produits-groupee-par-categorie.md) | Vue back-office du catalogue groupee par categorie (en plus de la liste plate) | Accepte |
 | [0014](0014-expiration-commandes-pending.md) | Expiration des commandes restees en attente de paiement (cron 02h00) | Accepte |
 | [0015](0015-allergenes-calcules-par-produit.md) | Allergenes calcules par produit, avec etat de revue explicite | Accepte |
+| [0016](0016-modification-commande-avant-paiement.md) | Modifier une commande avant paiement, et le verrou de ligne qui va avec | Accepte |
 
 ## Modele de fiche
 

@@ -28,6 +28,14 @@ confirmation. HTML/CSS/JS vanilla, servi en statique par Apache.
 - CSP-safe pour le code projet : pas de script inline ajoute (donnees via `data-*`,
   `addEventListener`). La modale construit son DOM par `createElement`/`textContent`,
   ce qui neutralise aussi toute injection.
+- **Session de paiement (F18)** : la cle d'idempotence (`sessionStorage`) survit aux
+  allers-retours entre le panier et l'ecran de paiement. Une session = UNE commande, dont
+  le contenu suit le panier (le serveur la met a jour au lieu d'en creer une seconde).
+  Liberee au succes, et sur `ORDER_CANCELLED` — cas ou la commande a ete annulee ou
+  expiree pendant que le client hesitait : `checkout.js` reprend alors **une seule fois**
+  avec une cle neuve. Toute autre erreur remonte au client sans reprise, pour qu'il voie
+  le vrai probleme (article indisponible, par exemple).
+  Detail : [ADR-0016](../adr/0016-modification-commande-avant-paiement.md).
 
 ## Tests
 Harnais front `node:test` + jsdom : `tests/js/allergens.test.js` (les trois etats,

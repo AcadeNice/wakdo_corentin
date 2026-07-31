@@ -135,6 +135,43 @@ Ces regles s'appliquent a plusieurs operations et sont centralisees ici pour evi
 
 ---
 
+### 3.3bis MODIFY_PENDING_ORDER (F18)
+
+**Ajout du 2026-07-31. Pas dans le MCT d'origine : cette operation est apparue en
+livrant, en constatant ce que la borne faisait reellement.**
+
+**Le probleme.** Le flux borne fait deux appels HTTP (creation puis encaissement).
+Entre les deux, le client peut revenir sur son panier, le modifier, et repartir payer.
+La cle d'idempotence renvoyait alors la commande existante **en ignorant les lignes
+envoyees** — donc l'ancien panier aurait ete facture. La borne contournait en changeant
+de cle a chaque entree sur l'ecran de paiement : une SECONDE commande etait creee et la
+premiere restait en attente jusqu'au balayage de 2h (3.5). Le client obtenait bien ce
+qu'il voulait, mais chaque hesitation brulait un numero de commande et salissait le
+tableau de bord.
+
+| Marqueur | Contenu |
+|-----|---------|
+| **[TRIGGER]** | `POST /api/orders` avec une `idempotency_key` DEJA connue, portant une commande au statut `pending_payment` |
+| **[PRE-1]** | La commande visee existe (sinon `ORDER_NOT_FOUND`, 404) |
+| **[PRE-2]** | Elle est encore `pending_payment`. Une commande encaissee ou annulee n'est PAS modifiable -> `INVALID_TRANSITION` (409) |
+| **[RG-1]** | Le panier envoye est resolu et VALORISE SERVEUR par le meme chemin que la creation (`resolveAndTotal`) : prix, TVA par ligne et snapshots identiques. Une commande modifiee ne peut donc pas etre facturee autrement que la meme commande creee d'un coup (RG-T16). |
+| **[RG-2]** | La garde de rupture RG-T21 s'applique aussi a la modification : un article tombe en rupture depuis la creation ne peut pas etre reconduit -> `PRODUCT_UNAVAILABLE` / `MENU_UNAVAILABLE`. |
+| **[RG-3]** | Panier vide refuse (`EMPTY_ORDER`) : vider une commande la rendrait payable a 0 EUR. La validation precede la transaction, donc rien n'est ecrit. |
+| **[RG-4]** | Remplacement EN BLOC : `DELETE FROM order_item WHERE order_id`, puis reinsertion. Les selections de slot et les modificateurs d'ingredient partent en CASCADE. Purger par `order_id` (et non ligne a ligne) garantit qu'aucun enfant ne survit. |
+| **[RG-5]** | **Aucun effet de stock.** Une commande en attente n'a rien consomme : ni debit, ni re-credit. Le stock ne bouge qu'a l'encaissement (RG-T20) et a l'annulation d'une commande encaissee. Verrouille par test unitaire et par test d'integration sur base reelle. |
+| **[RG-6]** | Le numero de commande, la cle d'idempotence et le statut ne sont PAS reecrits : le numero est deja affiche au client, la cle porte le lien avec sa session de paiement. |
+| **[RG-7]** | **Serialisation avec l'encaissement** : les deux operations verrouillent la ligne `customer_order` (`SELECT ... FOR UPDATE`) au debut de leur transaction. Seul endroit du projet qui prend un verrou explicite ; raisonnement et mesures : [ADR-0016](../adr/0016-modification-commande-avant-paiement.md). |
+| **[RG-8]** | Cle connue portant une commande **annulee ou expiree** -> `ORDER_CANCELLED` (409). La colonne `idempotency_key` etant UNIQUE, la cle est definitivement consommee : sans ce signal le client serait bloque (commande impayable, cle interdisant d'en creer une autre). La borne repart d'une cle neuve, UNE seule fois. |
+| **[POST-1]** | `order_item` (+ enfants) remplaces ; `customer_order.total_ht_cents` / `total_vat_cents` / `total_ttc_cents` / `updated_at` mis a jour. Statut inchange. |
+| **[POST-2]** | Aucune ligne `stock_movement`, aucune ecriture sur `ingredient`. |
+| **[OUT-1]** | HTTP 201 avec le MEME `order_number` et le total recalcule. Aucune seconde commande n'est creee. |
+
+**Consequence sur l'encaissement.** `pay()` relit son total SOUS LE VERROU au lieu de
+la valeur lue avant la transaction : depuis F18 une commande en attente est modifiable,
+et facturer un total perime serait un ecart entre le montant annonce et le contenu reel.
+
+---
+
 ### 3.4 DISPLAY_CONFIRMATION
 
 **Correspond a la section 3.4 du MCT**

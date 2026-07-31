@@ -63,6 +63,7 @@ proprietaire pour la machine a etats.
 stateDiagram-v2
     [*] --> pending_payment : creer la commande (T1)
 
+    pending_payment --> pending_payment : modifier le panier (M1)\n[lignes remplacees, totaux recalcules\nAUCUN effet de stock, statut inchange]
     pending_payment --> preparing : payer (T2)\n[paid_at + preparing_at poses\nstock debite dans la meme transaction]
     pending_payment --> cancelled : annuler (T5)\n[aucun re-credit : rien n a ete debite]
     pending_payment --> cancelled : expirer (T6)\n[planificateur 02h00, sans acteur]
@@ -96,6 +97,18 @@ stateDiagram-v2
 | T5 | `pending_payment`, `paid`, `preparing`, `ready` | `cancelled` | Annulation | `WHERE status IN (...)` ; permission `order.cancel` + PIN equipier ; re-credit du stock **conditionne a l'existence de mouvements `sale`**, pas au statut lu | Comptoir / Drive / Admin | `cancel()` `:507` |
 | T6 | `pending_payment` | `cancelled` | **Expiration automatique** | Age > `ORDER_PENDING_EXPIRY_MINUTES` ; `WHERE status = 'pending_payment'` ; aucun mouvement `sale` ; **aucun effet de stock** | Systeme (planificateur 02h00) | `expireStalePending()` `:618` |
 
+### Boucle sur place (pas une transition)
+
+| # | Etat | Evenement | Garde | Effet | Code |
+|---|---|---|---|---|---|
+| M1 | `pending_payment` -> `pending_payment` | **Modification du panier avant paiement** (F18) | Verrou de ligne pris, statut relu `= 'pending_payment'` ; panier non vide ; articles non en rupture (RG-T21) | Lignes remplacees en bloc (enfants en CASCADE), totaux recalcules serveur. Statut, numero et cle d'idempotence INCHANGES. **Aucun effet de stock.** | `replaceItems()` |
+
+M1 n'est **pas** une transition d'etat : le statut ne change pas, et l'evenement est
+repetable autant de fois que le client modifie son panier. Il figure ici parce qu'il
+change le CONTENU et le MONTANT d'une commande deja persistee — donc ce qui sera
+facture — et parce qu'il partage un verrou avec T2. Detail :
+[ADR-0016](../adr/0016-modification-commande-avant-paiement.md), `mlt.md` 3.3bis.
+
 ### Invariants
 
 - `delivered` et `cancelled` sont **finaux** : aucune transition n'en sort.
@@ -109,8 +122,12 @@ stateDiagram-v2
 - La decision de re-credit de T5 repose sur l'**existence de mouvements `sale`**, pas
   sur le statut lu hors transaction : insensible a la course
   `pending_payment -> preparing -> cancel`.
-- Chaque transition est gardee **dans le WHERE de son UPDATE**. Le projet n'utilise pas
-  `SELECT ... FOR UPDATE` : 0 ligne affectee vaut course perdue.
+- Chaque transition est gardee **dans le WHERE de son UPDATE** : 0 ligne affectee vaut
+  course perdue. **Une exception, nommee** : T2 et M1 prennent en plus un verrou de ligne
+  explicite (`SELECT ... FOR UPDATE`) au debut de leur transaction. Raison mesuree : sur
+  un remplacement, l'UPDATE des totaux peut affecter 0 ligne alors que tout va bien (si
+  le nouveau panier coute le meme prix), ce qui rend le compte de lignes affectees
+  inutilisable comme garde. Detail et mesures : [ADR-0016](../adr/0016-modification-commande-avant-paiement.md).
 - Horodatages : `paid_at` et `preparing_at` a T2, `ready_at` a T3, `delivered_at` a T4,
   `cancelled_at` a T5 et T6. NULL tant que la transition n'a pas eu lieu.
 - T6 ecrit une trace `audit_log` avec `action_code = 'order.expire'` et un acteur

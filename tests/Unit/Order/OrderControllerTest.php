@@ -136,6 +136,54 @@ final class OrderControllerTest extends TestCase
         self::assertSame('INVALID_TRANSITION', $data['error']['code'] ?? null);
     }
 
+    public function testCreateWithASpentKeyReturns409OrderCancelled(): void
+    {
+        // F18 : la cle d'idempotence du client porte une commande annulee par un equipier
+        // ou expiree par le planificateur. La colonne etant UNIQUE, la cle est consommee.
+        // 409 (conflit d'etat) et non 422 : la charge utile est valide, c'est l'etat de la
+        // commande visee qui refuse l'operation. La borne s'en sert pour repartir d'une
+        // cle neuve ; un 422 lui ferait croire a une erreur de saisie.
+        $db = new FakeOrderDatabase();
+        $db->products[12] = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 890, 'vat_rate' => 100, 'is_available' => 1];
+        $db->existingByKey = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => 'cancelled'];
+
+        $body = $this->jsonBody([
+            'idempotency_key' => 'cle-morte',
+            'service_mode' => 'takeaway',
+            'items' => [['type' => 'product', 'product_id' => 12, 'quantity' => 1]],
+        ]);
+        $response = $this->controller($db, $body)->create();
+
+        self::assertSame(409, $response->status());
+        $data = json_decode($response->body(), true);
+        self::assertIsArray($data);
+        self::assertSame('ORDER_CANCELLED', $data['error']['code'] ?? null);
+        // Le message reste cote serveur mais doit orienter le diagnostic.
+        self::assertStringContainsString('annulee', (string) ($data['error']['message'] ?? ''));
+    }
+
+    public function testCreateWithAKnownPendingKeyReturnsTheSameOrderUpdated(): void
+    {
+        $db = new FakeOrderDatabase();
+        $db->products[12] = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 890, 'vat_rate' => 100, 'is_available' => 1];
+        $db->existingByKey = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 500, 'status' => 'pending_payment'];
+        $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 500, 'status' => 'pending_payment'];
+
+        $body = $this->jsonBody([
+            'idempotency_key' => 'cle-session',
+            'service_mode' => 'takeaway',
+            'items' => [['type' => 'product', 'product_id' => 12, 'quantity' => 1]],
+        ]);
+        $response = $this->controller($db, $body)->create();
+
+        // Meme numero, total recalcule : le client a modifie son panier, sa commande suit.
+        self::assertSame(201, $response->status());
+        $data = json_decode($response->body(), true);
+        self::assertIsArray($data);
+        self::assertSame('K100', $data['data']['order_number'] ?? null);
+        self::assertSame(890, $data['data']['total_ttc_cents'] ?? null);
+    }
+
     public function testShowReturnsOrderStatus(): void
     {
         $db = new FakeOrderDatabase();

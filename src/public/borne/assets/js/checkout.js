@@ -100,11 +100,20 @@ function newIdempotencyKey() {
 }
 
 /**
- * Cle d'idempotence STABLE pour la tentative de paiement courante : memorisee en
- * sessionStorage. Un retry (apres echec reseau du pay) reutilise la MEME cle ->
- * l'API renvoie la commande pending existante (findByIdempotencyKey) au lieu d'en
- * creer un doublon (RG-T19). Effacee au succes ; regeneree a chaque entree sur la
- * page de paiement (page-payment.js efface la cle au chargement).
+ * Cle d'idempotence STABLE pour la SESSION DE PAIEMENT courante : memorisee en
+ * sessionStorage. Elle garantit une seule commande par session, quelle que soit la
+ * facon dont le client s'y prend (RG-T19).
+ *
+ * Depuis F18, elle survit aux allers-retours entre le panier et le paiement : si le
+ * client repart modifier son panier puis revient payer, la MEME cle est renvoyee et le
+ * serveur MET A JOUR la commande existante au lieu d'en creer une seconde. Avant, la
+ * cle etait effacee a chaque entree sur l'ecran de paiement, ce qui creait une nouvelle
+ * commande a chaque passage et laissait la precedente en attente jusqu'au balayage de
+ * la nuit.
+ *
+ * Effacee au succes (commande suivante = nouvelle session), et sur ORDER_CANCELLED (la
+ * commande derriere la cle a ete annulee ou expiree : la colonne etant UNIQUE, la cle
+ * est definitivement consommee).
  */
 function checkoutKey() {
     try {
@@ -117,6 +126,13 @@ function checkoutKey() {
     } catch {
         return newIdempotencyKey();
     }
+}
+
+/** Libere la cle de la session de paiement (tentative soldee, ou cle consommee). */
+export function clearCheckoutKey() {
+    try {
+        sessionStorage.removeItem('wakdo_order_key');
+    } catch { /* sessionStorage indispo : noop */ }
 }
 
 /** POST JSON avec enveloppe ; jette une Error(code) en cas d'echec, payload attache. */
@@ -152,14 +168,30 @@ export async function submitOrder({ serviceTag = '' } = {}) {
         menuSlotsById[id] = detail?.slots ?? [];
     }
 
-    const payload = buildOrderPayload(cart, getMode(), serviceTag, menuSlotsById, checkoutKey());
+    const send = () => postJson(
+        '/api/orders',
+        buildOrderPayload(cart, getMode(), serviceTag, menuSlotsById, checkoutKey()),
+    );
 
-    const created = await postJson('/api/orders', payload);
+    let created;
+    try {
+        created = await send();
+    } catch (e) {
+        // UNE seule reprise, et seulement sur ORDER_CANCELLED : la cle porte une commande
+        // annulee par un equipier ou expiree par le planificateur (F10) pendant que le
+        // client hesitait. La colonne idempotency_key etant UNIQUE, cette cle ne peut plus
+        // porter de commande : sans cette reprise le client serait bloque, ni payable ni
+        // recreable. Toute autre erreur remonte telle quelle (pas de reprise aveugle).
+        if (e.message !== 'ORDER_CANCELLED') throw e;
+        clearCheckoutKey();
+        created = await send();
+    }
+
     const number = created?.data?.order_number;
     if (!number) throw new Error(created?.error?.code || 'ORDER_FAILED');
 
     const paid = await postJson(`/api/orders/${encodeURIComponent(number)}/pay`, {});
-    // Succes : la cle d'idempotence a joue son role, on la libere pour la commande suivante.
-    try { sessionStorage.removeItem('wakdo_order_key'); } catch { /* sessionStorage indispo : noop */ }
+    // Succes : la session de paiement est soldee, on libere la cle pour la suivante.
+    clearCheckoutKey();
     return { order_number: number, total_ttc_cents: paid?.data?.total_ttc_cents ?? null };
 }
