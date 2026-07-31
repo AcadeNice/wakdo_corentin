@@ -493,7 +493,8 @@ class OrderRepository
      * n'a pas ete decremente -> consumption() ne le retourne pas -> pas de re-credit.
      *
      * Concurrence (RG-T07/RG-T20) : le statut est relu A L'INTERIEUR de la transaction
-     * via l'UPDATE garde par `status IN ('pending_payment','paid')` ; 0 ligne affectee
+     * via l'UPDATE garde par `status IN ('pending_payment','paid','preparing','ready')` ;
+     * 0 ligne affectee
      * = course perdue (un autre appel a deja transite) -> INVALID_TRANSITION. Le
      * re-credit se base sur le pre-status lu en entree (coherent : seul l'appel qui a
      * remporte la garde poursuit, et il n'y a pas de SELECT FOR UPDATE — RG-T20).
@@ -592,6 +593,122 @@ class OrderRepository
         });
 
         return $result;
+    }
+
+    /**
+     * Balaie les commandes restees en attente de paiement au-dela du delai et les passe
+     * en `cancelled`, avec une trace d'audit SANS acteur (action_code `order.expire`).
+     * Appelee par le planificateur (src/bin/order-expire.php), pas par une route HTTP.
+     *
+     * POURQUOI `cancelled` et pas un 7e statut `expired` : la valeur existe deja, elle
+     * est deja terminale, deja exclue du chiffre d'affaires et de la file cuisine, et
+     * deja libellee "Annulee" a l'ecran. Un nouveau statut obligerait a reprendre chaque
+     * endroit qui enumere les statuts pour un gain purement statistique, alors que le
+     * journal d'audit porte deja la distinction (`order.expire` vs `order.cancel`).
+     *
+     * POURQUOI aucun effet de stock : le debit vit dans la seule transaction de pay().
+     * Une commande en attente n'a donc rien consomme, et la re-crediter creerait du stock
+     * a partir de rien. La methode ne contient AUCUNE ecriture sur `ingredient` ni
+     * `stock_movement` -- invariant verifiable a la lecture, et verrouille par un test.
+     *
+     * POURQUOI une transaction PAR commande : une ligne empoisonnee ne fait pas perdre le
+     * balayage, et chaque verrou reste court dans la fenetre de maintenance.
+     *
+     * @return array{examined:int, expired:int, skipped:int, order_numbers:list<string>}
+     */
+    public function expireStalePending(int $olderThanMinutes, int $limit = 500): array
+    {
+        // INTERVAL et LIMIT n'acceptent pas de parametre lie en prepare native
+        // (ATTR_EMULATE_PREPARES=false) : on interpole, donc on borne en entier d'abord.
+        $minutes = max(1, min(1440, $olderThanMinutes));
+        $take = max(1, min(2000, $limit));
+
+        $candidates = $this->db->fetchAll(
+            'SELECT id, order_number, source, created_at FROM customer_order '
+            . 'WHERE status = \'pending_payment\' '
+            . 'AND created_at < NOW() - INTERVAL ' . $minutes . ' MINUTE '
+            . 'ORDER BY id ASC LIMIT ' . $take,
+        );
+
+        $expired = 0;
+        $skipped = 0;
+        /** @var list<string> $numbers */
+        $numbers = [];
+
+        foreach ($candidates as $row) {
+            $orderId = (int) ($row['id'] ?? 0);
+            $orderNumber = (string) ($row['order_number'] ?? '');
+            $summary = $this->expirySummary((string) ($row['source'] ?? ''), (string) ($row['created_at'] ?? ''));
+            $done = false;
+
+            $this->db->transaction(function (DatabaseInterface $db) use ($orderId, $summary, &$done): void {
+                // Garde de coherence : cas theoriquement impossible (le debit et le passage
+                // en preparation committent ensemble), mais l'ecrire rend la propriete
+                // "on ne re-credite pas ce qui n'a pas ete debite" lisible ici meme.
+                if ($this->hasSaleMovements($db, $orderId)) {
+                    return;
+                }
+
+                // Meme protection de concurrence que pay() et cancel() : la garde de statut
+                // vit dans le WHERE. Si un encaissement a gagne la course, 0 ligne affectee
+                // et on sort sans rien ecrire -- surtout pas d'audit, qui affirmerait une
+                // expiration qui n'a pas eu lieu.
+                $affected = $db->execute(
+                    'UPDATE customer_order SET status = \'cancelled\', cancelled_at = NOW(), updated_at = NOW() '
+                    . 'WHERE id = :id AND status = \'pending_payment\'',
+                    ['id' => $orderId],
+                );
+                if ($affected === 0) {
+                    return;
+                }
+
+                // Acteur NULL = systeme. Personne n'a annule : la machine a nettoye.
+                $db->execute(
+                    'INSERT INTO audit_log (actor_user_id, actor_role_id, action_code, entity_type, entity_id, summary) '
+                    . 'VALUES (:uid, :rid, :code, :etype, :eid, :summary)',
+                    [
+                        'uid'     => null,
+                        'rid'     => null,
+                        'code'    => 'order.expire',
+                        'etype'   => 'customer_order',
+                        'eid'     => $orderId,
+                        'summary' => $summary,
+                    ],
+                );
+                $done = true;
+            });
+
+            if ($done) {
+                $expired++;
+                $numbers[] = $orderNumber;
+                continue;
+            }
+            $skipped++;
+        }
+
+        return [
+            'examined'      => count($candidates),
+            'expired'       => $expired,
+            'skipped'       => $skipped,
+            'order_numbers' => $numbers,
+        ];
+    }
+
+    /**
+     * Resume d'audit d'une expiration, borne a la taille de la colonne (VARCHAR(255)).
+     */
+    private function expirySummary(string $source, string $createdAt): string
+    {
+        $summary = 'Expiration automatique: commande non encaissee';
+        $created = strtotime($createdAt);
+        if ($created !== false) {
+            $summary .= ', creee il y a ' . max(0, (int) floor((time() - $created) / 60)) . ' min';
+        }
+        if ($source !== '') {
+            $summary .= ', canal ' . $source;
+        }
+
+        return substr($summary, 0, 255);
     }
 
     /**

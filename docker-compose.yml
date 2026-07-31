@@ -145,9 +145,11 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       AUDIT_LOG_RETENTION_DAYS: ${AUDIT_LOG_RETENTION_DAYS:-365}
       THROTTLE_PURGE_AFTER_HOURS: ${THROTTLE_PURGE_AFTER_HOURS:-24}
+      ORDER_PENDING_EXPIRY_MINUTES: ${ORDER_PENDING_EXPIRY_MINUTES:-60}
       TZ: ${CRON_TIMEZONE:-Europe/Paris}
     volumes:
       - ./var/backups:/backups
+      - ./src:/var/www/html:ro
     networks:
       - wakdo_internal
     depends_on:

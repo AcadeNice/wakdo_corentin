@@ -123,11 +123,11 @@ Ces regles s'appliquent a plusieurs operations et sont centralisees ici pour evi
 | **[RG-8 — idempotency]** | Le corps porte un `idempotency_key` client (UUID). Avant toute ecriture, `SELECT id, order_number, status FROM customer_order WHERE idempotency_key = :key`. Si trouve, sauter la creation et retourner cette commande (deduplique un retry rejoue — RG-T19). La cle est stockee sur la nouvelle ligne `customer_order`. |
 | **[RG-9 — server-side modificateur re-validation]** | Les modificateurs d'ingredient dans le corps sont re-valides cote serveur contre `product_ingredient` : un `action='remove'` requiert `is_removable=1` ; un `action='add'` requiert `is_addable=1` et snapshote le `extra_price_cents` courant. Les verifications cote client (3.2 RG-4) ne sont pas dignes de confiance ; un POST forge ajoutant un ingredient non addable est rejete (HTTP 422). |
 | **[RG-10 — atomic stock decrement]** | Aucune operation ne se conditionne a une lecture de stock, donc le decrement est une instruction atomique unique `UPDATE ingredient SET stock_quantity = stock_quantity - :units WHERE id = :id` (RG-T20). La ligne s'auto-verrouille pour la duree de la mise a jour, donc les commandes kiosk concurrentes sur le meme ingredient appliquent leurs deltas sans perte de mise a jour et sans souci d'ordonnancement de deadlock ; `stock_quantity` est signe et peut devenir negatif (ampleur de survente remontee aux managers). |
-| **[POST-1]** | Une ligne `customer_order` existe avec `status = 'paid'`, `source = 'kiosk'`, tous les totaux calcules, `paid_at` defini, `idempotency_key` stocke. La phase `pending_payment` n'est pas observable hors de la transaction. |
+| **[POST-1]** | Une ligne `customer_order` existe avec `source = 'kiosk'`, tous les totaux calcules et `idempotency_key` stocke. **Correction 2026-07-31** : la creation et l'encaissement sont DEUX appels HTTP distincts, donc la creation committe au statut `pending_payment` et cette phase EST observable — c'est ce qui rend possible une commande abandonnee, nettoyee par 13.6. L'encaissement pose ensuite `paid_at`, `preparing_at` et le statut `preparing` (voir section 14). |
 | **[POST-2]** | N lignes `order_item` existent, chacune referencant soit un `product_id` (item_type='product') soit un `menu_id` (item_type='menu') — contrainte d'exclusivite verifiee. |
 | **[POST-3]** | `customer_order.order_number` est unique dans la base (contrainte UNIQUE). |
 | **[POST-4]** | `ingredient.stock_quantity` decremente pour chaque unite d'ingredient consommee ; une ligne `stock_movement` de type `sale` par ingredient affecte. |
-| **[OUT-1]** | HTTP 201 : `{data: {id: int, order_number: string, status: 'paid'}}` |
+| **[OUT-1]** | HTTP 201 a la creation : `{data: {id, order_number, status: 'pending_payment'}}` ; l'encaissement est un second appel qui rend le statut `preparing`. |
 | **[OUT-2]** | Evenement logique ORDER_CREATED disponible pour le domaine de preparation (l'affichage de preparation se rafraichit via polling ou push serveur selon l'implementation) |
 | **[ERR-1]** | Panier vide : HTTP 422, `{error: {code: "EMPTY_CART"}}` |
 | **[ERR-2]** | Article indisponible : HTTP 422, `{error: {code: "ITEM_UNAVAILABLE", items: [...]}}` |
@@ -664,29 +664,61 @@ La meme purge s'applique a `pin_throttle` (RG-T22), avec le meme predicat et le 
 seuil `THROTTLE_PURGE_AFTER_HOURS` :
 `DELETE FROM pin_throttle WHERE (lockout_until IS NULL OR lockout_until < NOW()) AND last_attempt_at < NOW() - INTERVAL 24 HOUR`.
 
+### 13.6 Expiration des commandes jamais encaissees (cron 02h00)
+
+| Marqueur | Contenu |
+|-----|---------|
+| **[TRIGGER]** | Cron : `0 2 * * *`. Place apres la fermeture du service client (01h00) et AVANT le dump de 03h00, pour que la sauvegarde de la nuit contienne l'etat nettoye. |
+| **[RG-1]** | Selection : `SELECT id, order_number, source, created_at FROM customer_order WHERE status = 'pending_payment' AND created_at < NOW() - INTERVAL :m MINUTE ORDER BY id ASC LIMIT :n`, avec `:m` = `ORDER_PENDING_EXPIRY_MINUTES` (defaut 60) borne a [1, 1440] et `:n` borne a [1, 2000]. Les deux valeurs sont interpolees en entier : `INTERVAL` et `LIMIT` n'acceptent pas de parametre lie en prepare native. |
+| **[RG-2]** | Une transaction PAR commande, pas une pour tout le lot : une ligne empoisonnee ne fait pas perdre le balayage et chaque verrou reste court. |
+| **[RG-3]** | Protection de concurrence : `UPDATE customer_order SET status = 'cancelled', cancelled_at = NOW(), updated_at = NOW() WHERE id = :id AND status = 'pending_payment'`. Si un encaissement a gagne la course, 0 ligne affectee -> la commande est comptee ignoree et AUCUNE trace n'est ecrite (une trace affirmerait une expiration qui n'a pas eu lieu). |
+| **[RG-4]** | **Aucun effet de stock.** Le debit vit dans la seule transaction de l'encaissement : une commande en attente n'a rien consomme, donc rien a re-crediter. C'est un invariant, pas un choix d'implementation — l'operation ne contient aucune ecriture sur `ingredient` ni `stock_movement`, et deux tests le verrouillent (unitaire + integration sur base reelle). Garde de coherence supplementaire : si la commande portait un mouvement `sale` (cas theoriquement impossible), elle est ignoree. |
+| **[RG-5]** | Trace : `INSERT INTO audit_log (actor_user_id, actor_role_id, action_code, entity_type, entity_id, summary)` avec acteur **NULL** (systeme : personne n'a annule, la machine a nettoye), `action_code = 'order.expire'`, `entity_type = 'customer_order'`, resume borne a 255 caracteres. C'est cette trace qui distingue une expiration d'une annulation humaine (`order.cancel`). |
+| **[RG-6]** | La commande garde sa cle d'idempotence, son numero et ses lignes : on ferme, on ne detruit pas. Un essai tardif avec la meme cle retombe sur une commande annulee et l'encaissement repond en conflit ; le client repart d'une commande neuve. |
+| **[POST-1]** | Les commandes en attente au-dela du delai sont au statut `cancelled` avec `cancelled_at` horodate, une trace `order.expire` chacune, et un stock inchange. |
+| **[POST-2]** | Idempotent : un second passage immediat ne trouve plus de candidate (statut terminal). |
+| **[OUT-1]** | Compte-rendu sur la sortie d'erreur du conteneur : `delai=Nmin examinees=N expirees=N ignorees=N [numeros]`. Code de sortie non nul en cas d'echec, pour que le planificateur le signale. |
+
+Mise en oeuvre : `OrderRepository::expireStalePending()` appele par `src/bin/order-expire.php`.
+Le balayage est du code metier et non du SQL dans un script : c'est une transition de la
+machine a etats, et les cinq autres vivent dans le meme depot. Voir
+`docs/adr/0014-expiration-commandes-pending.md`.
+
+---
+
 ---
 
 ## 14. Machine a etats — recapitulatif de coherence (MLT)
 
-Recapitulatif des transitions de `customer_order.status` couvertes dans le MLT, avec les operations
-correspondantes, la condition SQL, la protection de concurrence et le timestamp de phase defini.
+> **Realigne le 2026-07-31 sur le code livre.** La version precedente de cette section
+> decrivait 4 transitions et declarait `preparing` / `ready` abandonnes. La migration
+> `0009_order_prep_states.sql` les a rendus reels et le retour d'oral du 2026-06-29 a fait
+> du passage en preparation la consequence directe de l'encaissement. Le document de
+> reference de la machine a etats est `docs/uml/state-commande.md` (v0.3), ancre methode
+> par methode.
 
-| Transition | Operation MLT | Condition SQL | Protection concurrence | Timestamp de phase pose |
-|------------|--------------|---------------|------------------------|---------------------|
-| `-> pending_payment` (creation) | CREATE_ORDER (3.3), CREATE_COUNTER_ORDER (4.1) | INSERT avec statut `pending_payment` | Transaction atomique | `created_at` |
-| `pending_payment -> paid` | CREATE_ORDER (3.3), CREATE_COUNTER_ORDER (4.1) | UPDATE dans la meme transaction | Transaction atomique | `paid_at` |
-| `paid -> delivered` | DELIVER_ORDER (6.1) | `WHERE status = 'paid'` | status dans le WHERE (clause AND) | `delivered_at` |
-| `pending_payment/paid -> cancelled` | CANCEL_ORDER (7.1) | `WHERE status IN ('pending_payment', 'paid')` | status dans le WHERE (clause AND) | `cancelled_at` |
+| Transition | Operation | Condition SQL | Protection concurrence | Horodatage pose |
+|------------|-----------|---------------|------------------------|-----------------|
+| `-> pending_payment` (creation) | CREATE_ORDER (3.3), CREATE_COUNTER_ORDER (4.1) | INSERT avec statut `pending_payment` | Transaction propre, **committee** : l'etat est observable entre deux appels HTTP | `created_at` |
+| `pending_payment -> preparing` | PAY_ORDER | `WHERE id = :id AND status = 'pending_payment'` | status dans le WHERE ; 0 ligne affectee et etat deja encaisse -> sortie idempotente | `paid_at` **et** `preparing_at` |
+| `paid`/`preparing` `-> ready` | MARK_READY | `WHERE status IN ('paid','preparing')` | status dans le WHERE | `ready_at` |
+| `paid`/`preparing`/`ready` `-> delivered` | DELIVER_ORDER (6.1) | `WHERE status IN ('paid','preparing','ready')` | status dans le WHERE | `delivered_at` |
+| `pending_payment`/`paid`/`preparing`/`ready` `-> cancelled` | CANCEL_ORDER (7.1) | `WHERE status IN (...)` | status dans le WHERE | `cancelled_at` |
+| `pending_payment -> cancelled` (expiration) | EXPIRE_STALE_PENDING (13.6) | `WHERE id = :id AND status = 'pending_payment'` | status dans le WHERE ; 0 ligne affectee -> ignoree sans trace | `cancelled_at` |
 
-Statuts terminaux (aucune transition ulterieure definie depuis ces etats) : `delivered`, `cancelled`.
+Statuts terminaux : `delivered`, `cancelled`.
 
-**Abandonnes depuis v0.1** :
-- Transitions `paid -> preparing` et `preparing -> ready` — etats intermediaires retires.
-- MARQUER_EN_PREPARATION (section 4.2 du MLT v0.1) — abandonnee.
-- MARQUER_PRETE (section 4.3 du MLT v0.1) — abandonnee.
-- `preparing` et `ready` dans l'ensemble des etats annulables — l'ensemble annulable est desormais
-  `['pending_payment', 'paid']` uniquement.
-- Table `commande_event` et RG-T10 v0.1 — remplacees par les timestamps de phase sur `customer_order`.
+**Le stock ne bouge qu'a deux transitions** : l'encaissement debite (`stock_movement` type
+`sale`), l'annulation re-credite (type `cancellation`) **si et seulement si** des mouvements
+`sale` existent pour cette commande. L'expiration n'ecrit rien sur le stock.
+
+**Statut `paid` : historique.** Aucun chemin de code ne l'ecrit plus depuis que
+l'encaissement met directement en preparation. Il subsiste dans l'enumeration et dans les
+gardes `IN (...)` pour les commandes creees avant ce changement (11 lignes en base de
+demonstration au 2026-07-31). Le retirer casserait ces lignes sans gain.
+
+**Ecart connu, hors perimetre de cette section** : `dictionary.md` 3.10, `mld.md` et
+`mcd.md` decrivent encore une machine a 4 etats. Dette a traiter dans une passe dediee.
 
 ---
 

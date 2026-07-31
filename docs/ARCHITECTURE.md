@@ -77,7 +77,8 @@ Cinq services Docker. Deux modes, par fichier compose :
                 |
         wakdo-db <-- PDO
 
-        wakdo-cron (dcron) : backup BDD + purges retention (RGPD)
+        wakdo-cron (dcron + PHP CLI) : backup BDD, purges retention (RGPD),
+                             expiration des commandes en attente de paiement
 ```
 
 - **Reseau** : `wakdo_internal` (bridge) isole les services ; aucun port hote en mode
@@ -85,7 +86,13 @@ Cinq services Docker. Deux modes, par fichier compose :
 - **Volumes** : `wakdo_db_data` (persistance MariaDB), `wakdo_uploads` (images produits) ;
   bind-mount `./var/backups` pour les dumps.
 - **`wakdo-cron`** utilise `init: true` (tini comme PID 1 : dcron a besoin d'un init
-  parent pour `setpgid` sur ses jobs).
+  parent pour `setpgid` sur ses jobs). Il embarque **PHP en ligne de commande** et monte
+  `./src` en **lecture seule** : certaines taches planifiees appellent le code metier
+  plutot que de reecrire une regle en SQL. L'expiration des commandes en attente de
+  paiement est une transition de la machine a etats de la commande — la mettre en SQL dans
+  un script donnerait deux proprietaires a cette machine (voir
+  `docs/adr/0014-expiration-commandes-pending.md`). Les purges de retention, elles,
+  restent en bash : tables techniques, aucun etat metier, aucune trace a ecrire.
 - Choix d'un **subnet RFC 1918 explicite** sur `wakdo_internal` cote prod : l'hote
   mutualise a un allocateur Docker sature ; le subnet evite l'echec d'allocation auto.
 
