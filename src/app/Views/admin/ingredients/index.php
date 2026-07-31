@@ -141,6 +141,23 @@ $renderBar = static function (array $row) use ($esc, $barClass): string {
     </div>
 </div>
 
+<?php
+// Rappel allergenes (F11b) : une seule phrase, affichee UNIQUEMENT s'il reste des
+// ingredients sans revue. Volontairement pas une colonne du tableau : cette page est
+// un tableau de bord de stock, et la revue des allergenes n'est pas une donnee de
+// stock. Mais sans ce rappel, un ingredient ajoute plus tard ferait basculer des
+// produits en "information non disponible" sur la borne, sans que personne le voie.
+$unreviewed = (int) ($unreviewedAllergens ?? 0);
+?>
+<?php if ($unreviewed > 0): ?>
+    <p class="stock-explainer stock-explainer--warning" role="status">
+        <strong><?= $unreviewed ?></strong>
+        <?= $unreviewed === 1 ? 'ingredient n a pas de revue allergenes' : 'ingredients n ont pas de revue allergenes' ?>.
+        Sur la borne, les produits qui les utilisent affichent "information non disponible"
+        au lieu d une liste d allergenes. Ouvrez la fiche de l ingredient pour la renseigner.
+    </p>
+<?php endif; ?>
+
 <section class="stock-section stock-section--restock">
     <h2 class="stock-section__title">A reapprovisionner</h2>
     <?php if ($toRestock === []): ?>

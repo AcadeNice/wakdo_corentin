@@ -10,6 +10,7 @@ use App\Auth\GuardResult;
 use App\Auth\PasswordHasher;
 use App\Auth\PinThrottle;
 use App\Auth\PinVerifier;
+use App\Catalogue\AllergenRepository;
 use App\Catalogue\IngredientRepository;
 use App\Catalogue\NutritionGateway;
 use App\Catalogue\OpenFoodFactsGateway;
@@ -64,9 +65,17 @@ class IngredientController extends AdminController
         // Calcules cote serveur a partir de stock_band deja resolu par le depot,
         // pour que la vue reste declarative et la valeur testable directement.
         $counts = ['critical' => 0, 'low' => 0, 'normal' => 0];
+        // Ingredients sans revue d'allergenes (F11b) : compte dans la MEME boucle, sans
+        // requete supplementaire. Sans ce rappel, un ingredient ajoute plus tard rendrait
+        // silencieusement des produits "information non disponible" sur la borne, et
+        // l'equipe n'aurait aucun moyen de s'en apercevoir depuis cette page.
+        $unreviewedAllergens = 0;
         foreach ($ingredients as $row) {
             $band = (string) ($row['stock_band'] ?? 'normal');
             $counts[$band] = ($counts[$band] ?? 0) + 1;
+            if (($row['allergens_reviewed_at'] ?? null) === null) {
+                $unreviewedAllergens++;
+            }
         }
 
         return $this->adminView('admin/ingredients/index', [
@@ -74,6 +83,7 @@ class IngredientController extends AdminController
             'activeNav'      => 'stock',
             'ingredients'    => $ingredients,
             'bandCounts'     => $counts,
+            'unreviewedAllergens' => $unreviewedAllergens,
             'canManage'      => $this->may($guard, 'ingredient.manage'),
             'canRestock'     => $this->may($guard, 'stock.manage'),
             'canCount'       => $this->may($guard, 'stock.count'),
@@ -256,6 +266,79 @@ class IngredientController extends AdminController
     protected function nutritionGateway(): NutritionGateway
     {
         return new OpenFoodFactsGateway();
+    }
+
+    /**
+     * REVIEW_ALLERGENS (F11b) : declare les allergenes d'un ingredient. Meme permission
+     * que le CRUD (`ingredient.manage`, dont le libelle couvre deja explicitement
+     * "allergen mapping" depuis le seed RBAC), SANS PIN -- ce n'est pas un geste sur
+     * l'argent ni sur le stock, donc hors de l'ensemble sensible RG-T13.
+     *
+     * La SOURCE est obligatoire : une revue dont on ne peut pas dire d'ou elle vient
+     * n'est pas verifiable, et le lot entier existe pour ne pas afficher au client une
+     * information qu'on ne sait pas justifier. Champ vide -> 422, rien n'est ecrit.
+     *
+     * Les cases arrivent en champs SCALAIRES `allergen_<id>` : Request::formBody ne
+     * conserve que les scalaires, donc `allergens[]` serait perdu en silence. Meme
+     * convention que la matrice `perm_<id>` de RoleController.
+     *
+     * @param array<string, string> $params
+     */
+    public function allergens(array $params): Response
+    {
+        $guard = $this->guard('ingredient.manage');
+        if ($guard instanceof Response) {
+            return $guard;
+        }
+
+        $form = $this->request->formBody();
+        if (!Csrf::validate($this->sessionManager(), $form['_csrf'] ?? null)) {
+            return $this->invalidCsrf();
+        }
+
+        $id = (int) ($params['id'] ?? 0);
+        $ingredient = $this->ingredientRepository()->find($id);
+        if ($ingredient === null) {
+            return $this->notFound($guard);
+        }
+
+        // Le catalogue fait autorite : une case dont l'id n'y figure pas est ignoree
+        // (RG-T18). La FK RESTRICT sur allergen_id est le filet, pas le controle.
+        $catalogue = $this->allergenRepository()->all();
+        $retained = [];
+        foreach ($catalogue as $allergen) {
+            $allergenId = (int) ($allergen['id'] ?? 0);
+            if (($form['allergen_' . $allergenId] ?? '') !== '') {
+                $retained[] = ['id' => $allergenId, 'name' => (string) ($allergen['name'] ?? '')];
+            }
+        }
+
+        // VARCHAR(120) : on tronque plutot que de refuser une source trop bavarde --
+        // perdre la fin d'un libelle est moins grave que perdre la revue entiere.
+        $source = mb_substr(trim($form['source'] ?? ''), 0, 120);
+        if ($source === '') {
+            return $this->renderForm(
+                $guard,
+                $id,
+                $ingredient,
+                ['allergens_source' => 'Indiquez d ou vient l information (fiche fournisseur, emballage). Une revue sans source n est pas verifiable.'],
+                422,
+            );
+        }
+
+        $this->ingredientRepository()->setAllergens($id, $retained, $source, $guard->userId, $guard->roleId);
+        $this->setFlash(
+            $retained === []
+                ? 'Revue enregistree : aucun des 14 allergenes pour cet ingredient.'
+                : count($retained) . ' allergene(s) declare(s) pour cet ingredient.',
+        );
+
+        return $this->redirect('/admin/ingredients/' . $id . '/edit');
+    }
+
+    protected function allergenRepository(): AllergenRepository
+    {
+        return new AllergenRepository($this->db());
     }
 
     /**
@@ -854,9 +937,44 @@ class IngredientController extends AdminController
                 'energy_kcal_100g'     => (string) ($values['energy_kcal_100g'] ?? ''),
                 'nutrition_source'     => (string) ($values['nutrition_source'] ?? ''),
                 'nutrition_fetched_at' => (string) ($values['nutrition_fetched_at'] ?? ''),
+                // Revue des allergenes (F11b, lecture seule ici) : une date vide veut
+                // dire "jamais revu", et la vue doit le DIRE plutot que de laisser
+                // l'absence de case cochee passer pour "sans allergene".
+                'allergens_reviewed_at' => (string) ($values['allergens_reviewed_at'] ?? ''),
+                'allergens_source'      => (string) ($values['allergens_source'] ?? ''),
             ],
             'errors'       => $errors,
+            // Matrice des allergenes : le catalogue des 14 avec l'etat coche de chacun.
+            // Chargee sur l'edition seulement -- a la creation l'ingredient n'existe pas
+            // encore, il n'y a rien a lier.
+            'allergenMatrix' => $id !== 0 ? $this->allergenMatrix($id) : [],
         ], $guard, $status);
+    }
+
+    /**
+     * Le catalogue des 14 allergenes, chacun marque coche ou non pour cet ingredient.
+     * Deux lectures, aucune boucle de requetes.
+     *
+     * @return list<array{id: int, name: string, description: string, checked: bool}>
+     */
+    private function allergenMatrix(int $ingredientId): array
+    {
+        $repo = $this->allergenRepository();
+        $selected = array_fill_keys($repo->allergenIdsForIngredient($ingredientId), true);
+
+        return array_map(
+            static function (array $allergen) use ($selected): array {
+                $id = (int) ($allergen['id'] ?? 0);
+
+                return [
+                    'id'          => $id,
+                    'name'        => (string) ($allergen['name'] ?? ''),
+                    'description' => (string) ($allergen['description'] ?? ''),
+                    'checked'     => isset($selected[$id]),
+                ];
+            },
+            $repo->all(),
+        );
     }
 
     /**

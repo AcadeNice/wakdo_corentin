@@ -40,6 +40,25 @@ Sorties brutes du validateur versionnees comme artefacts :
 - `w3c/borne-statique.json` — `{"messages":[]}` (aucun message sur les 5 pages servies).
 - `w3c/borne-rendu.json` — 0 erreur, 1 avertissement sur `produits`.
 - `w3c/dom-rendu/` — le HTML rendu (accueil, categories, produits) reellement soumis au validateur.
+- `w3c/borne-modale-allergenes.json` — 0 erreur sur le DOM **modale allergenes ouverte**
+  (capture `w3c/dom-rendu/produits-modale-allergenes.html`, faite le 2026-07-31).
+
+**Ajout du 2026-07-31 — la modale allergenes, du DOM genere resté hors validation.**
+Les captures precedentes figeaient l'etat FERME de la page produits : elles contenaient les
+boutons "i" mais pas le panneau que le clic construit. Le balisage de la modale echappait donc
+au validateur, alors qu'il est entierement genere en JavaScript (F11b l'a de plus reecrit :
+liste par produit, bandeaux d'etat, avertissement de traces). Capture faite avec la modale du
+Big Mac ouverte, puis validee : **le seul message est l'avertissement `aria-disabled` deja
+present sur le lien Payer du panneau de commande**, identique a celui de `borne-rendu.json`.
+Le nouveau balisage n'introduit aucun message.
+
+```bash
+# Capture : Playwright ouvre la modale, puis serialise document.documentElement.outerHTML.
+docker run --rm -v "$PWD/docs/soutenance/preuves/w3c/dom-rendu":/data:ro --entrypoint java \
+  ghcr.io/validator/validator:latest -jar /vnu.jar --format json \
+  /data/produits-modale-allergenes.html
+# -> 1 message : info/warning aria-disabled (pre-existant, panneau de commande)
+```
 
 **Niveau 1 rejoue apres le passage de l'ecran categories en dynamique** : la commande ci-dessous a ete relancee sur le nouveau balisage, resultat identique (`{"messages":[]}`), artefact inchange au bit pres.
 

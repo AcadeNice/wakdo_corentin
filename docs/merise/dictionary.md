@@ -203,6 +203,8 @@ Ingredient elementaire utilise dans la composition des produits. Porte les donne
 | `energy_kcal_100g` | SMALLINT UNSIGNED | YES | NULL | — | enrichissement nutritionnel (migration 0005) : apport energetique pour 100 g, importe depuis l'API externe OpenFoodFacts (Cr 3.a.3). Nullable : un ingredient non enrichi reste valide. Voir note 14 |
 | `nutrition_source` | VARCHAR(120) | YES | NULL | — | enrichissement nutritionnel (migration 0005) : provenance de la donnee (ex. "OpenFoodFacts"). Voir note 14 |
 | `nutrition_fetched_at` | DATETIME | YES | NULL | — | enrichissement nutritionnel (migration 0005) : horodatage de l'import, pour tracer la fraicheur. Voir note 14 |
+| `allergens_reviewed_at` | DATETIME | YES | NULL | — | revue des allergenes (migration 0011) : date de la derniere revue. NULL = ingredient non revu, et la borne dit alors "information non disponible" au lieu d'affirmer une absence. Voir note 15 |
+| `allergens_source` | VARCHAR(120) | YES | NULL | — | revue des allergenes (migration 0011) : provenance de la revue (ex. "Fiche technique du fournisseur"). Voir note 15 |
 | `low_stock_pct` | SMALLINT UNSIGNED | NO | 10 | CHECK BETWEEN 0 AND 100 | bande d’alerte, pourcentage de capacite : `stock_quantity <= stock_capacity * low_stock_pct/100` declenche l'indicateur de stock bas |
 | `critical_stock_pct` | SMALLINT UNSIGNED | NO | 5 | CHECK BETWEEN 0 AND 100 | seuil de rupture automatique, pourcentage de capacite : `stock_quantity <= stock_capacity * critical_stock_pct/100` rend le produit calcule en rupture |
 | `is_active` | TINYINT(1) | NO | 1 | — | desactiver les ingredients obsoletes sans supprimer |
@@ -263,6 +265,13 @@ Catalogue des 14 allergenes reglementes (Reglement INCO (UE) 1169/2011).
 **Volume** : 14 lignes au seed (fixe par le reglement UE 1169/2011, liste confirmee au moment du seed).
 Les allergenes d'un produit sont **calcules** en joignant `product_ingredient` ->
 `ingredient_allergen` -> `allergen` ; pas de ressaisie manuelle par produit.
+
+> **Etat de la derivation (2026-07-31).** Ce calcul est desormais implemente et servi
+> a la borne : `AllergenRepository::byProduct()` / `forProduct()`, exposes par
+> `/api/products`, `/api/products/{id}`, `/api/menus`, `/api/menus/{id}` dans les champs
+> `allergens` + `allergens_complete`. La table de liaison a ete peuplee par le seed
+> `0008_ingredient_allergens.sql` a partir de sources publiques. Voir note 15 et
+> `docs/adr/0015-allergenes-calcules-par-produit.md`.
 
 ---
 
@@ -972,6 +981,55 @@ emporte ses variantes de taille. Les deux groupings coexistent sur une boisson s
 
 References : `db/migrations/0003_order_service_tag.sql`, `0005_ingredient_nutrition.sql`,
 `0006_product_maxi_variant.sql`, `0007_product_size_variant.sql`.
+
+---
+
+### Note 15 — Etat de revue des allergenes (migration 0011)
+
+**Le probleme resolu.** La table `ingredient_allergen` (3.9) existe depuis la migration
+0001 mais elle est restee vide jusqu'au 2026-07-31. Une liaison vide est **ambigue** :
+elle ne distingue pas "verifie, cet ingredient ne contient aucun des 14 allergenes
+INCO" de "personne n'a encore regarde". Or ces deux etats doivent produire deux
+messages differents a l'ecran. Confondre le second avec le premier revient a annoncer
+"sans gluten" a un client alors que rien n'a ete verifie.
+
+**Les colonnes** (sur `ingredient`, AFTER `nutrition_fetched_at`) :
+
+- `allergens_reviewed_at` DATETIME NULL — date de la derniere revue. NULL = non revu.
+- `allergens_source` VARCHAR(120) NULL — provenance de la revue, lisible depuis
+  l'application (le back-office l'affiche, il n'y a pas a ouvrir un fichier de seed
+  pour repondre a "d'ou vient cette information ?").
+
+Meme couple provenance + horodatage que la migration 0005 pour la nutrition, sur la
+meme table : la forme n'est pas inventee pour l'occasion.
+
+**Derivation cote produit.** Un produit est dit **complet** quand aucun ingredient de
+sa recette n'a `allergens_reviewed_at` a NULL. Sinon la borne affiche "information non
+disponible, demandez a l'equipe" plutot qu'une liste qui se lirait comme exhaustive.
+Le champ d'API correspondant est `allergens_complete`.
+
+**Propriete de sur-ensemble.** La liste calculee couvre l'integralite des lignes de
+`product_ingredient`, y compris celles marquees `is_removable=1` et `is_addable=1`.
+Elle est donc un sur-ensemble de toute configuration client : retirer un ingredient ne
+peut qu'enlever des allergenes, pas en ajouter. Le sens de l'ecart est donc celui de la
+prudence — c'est pourquoi la borne n'a pas besoin de recalculer la liste apres une
+personnalisation.
+
+**Ecriture et trace.** `IngredientRepository::setAllergens()` remplace l'ensemble
+(delete-and-reinsert), pose la date et la source, et ecrit une ligne `audit_log`
+(`ingredient.allergens`) dans la MEME transaction. Les colonnes disent QUAND et D'OU ;
+l'audit dit QUI. Les autres ecritures d'ingredient (creation, modification, import
+nutritionnel) ne tracent pas ; celle-ci si, parce qu'elle change une information de
+securite alimentaire montree au client.
+
+**Portee des donnees.** Le seed `0008_ingredient_allergens.sql` renseigne les 50
+ingredients du catalogue de demonstration a partir de sources publiques (tables
+allergenes de chaines, fiches fabricant, Open Food Facts, texte du reglement), chaque
+ligne portant sa source et son niveau de preuve. C'est une donnee de DEMONSTRATION
+datee, pas un substitut aux fiches techniques fournisseur d'un etablissement reel.
+Detail et alternatives ecartees : `docs/adr/0015-allergenes-calcules-par-produit.md`.
+
+Reference : `db/migrations/0011_ingredient_allergen_review.sql`. Entite 3.6.
 
 ---
 

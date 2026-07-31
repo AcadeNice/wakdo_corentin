@@ -379,9 +379,22 @@ Ces regles s'appliquent a plusieurs operations et sont centralisees ici pour evi
 | **[RG-UPDATE-ING]** | UPDATE `name`, `unit`, `pack_size`, `pack_label`, `stock_capacity`, `low_stock_pct`, `critical_stock_pct`, `is_active` |
 | **[RG-DEACTIVATE-ING]** | `is_active=0` masque l'ingredient du configurateur. Suppression physique bloquee si reference dans `product_ingredient` (FK `ON DELETE RESTRICT`) ou `stock_movement` (FK `ON DELETE RESTRICT`). |
 | **[RG-COMPOSITION]** | UPDATE `product_ingredient` : pour chaque ingredient de la recette d'un produit, definir `quantity_normal`, `quantity_maxi`, `is_removable`, `is_addable`, `extra_price_cents`. Pattern delete-and-reinsert en transaction. |
-| **[RG-ALLERGEN]** | Gerer `ingredient_allergen` : INSERT ou DELETE des paires `(ingredient_id, allergen_id)`. La liste des allergenes est en lecture seule (14 lignes fixees par le reglement UE 1169/2011). |
-| **[POST-1]** | Lignes `ingredient` / `product_ingredient` / `ingredient_allergen` mises a jour |
+| **[RG-ALLERGEN]** | Gerer `ingredient_allergen` : l'ensemble des paires `(ingredient_id, allergen_id)` d'un ingredient est REMPLACE en bloc (delete-and-reinsert en transaction, comme RG-COMPOSITION). Les ids soumis sont valides contre le catalogue des 14 avant ecriture (RG-T18) ; la FK RESTRICT sur `allergen_id` est le filet, pas le controle. La liste des allergenes reste en lecture seule (14 lignes fixees par le reglement UE 1169/2011). |
+| **[RG-ALLERGEN-SOURCE]** | La provenance de la revue est **obligatoire** : champ vide -> re-affichage 422, aucune ecriture. Une revue dont on ne peut pas dire d'ou elle vient n'est pas verifiable, et l'information est montree au client. Tronquee a 120 caracteres (colonne) plutot que refusee : perdre la fin d'un libelle est moins grave que perdre la revue. |
+| **[RG-ALLERGEN-REVIEW]** | La meme transaction pose `ingredient.allergens_reviewed_at = NOW()` et `allergens_source`. C'est CE marquage qui rend la liste affirmable cote borne : un ensemble vide AVEC la date declare "verifie, aucun des 14" ; sans la date, la borne dit "information non disponible". Ne rien cocher est donc une declaration, pas un non-geste. |
+| **[RG-ALLERGEN-AUDIT]** | Une ligne `audit_log` (`action_code = 'ingredient.allergens'`, `entity_type = 'ingredient'`) est ecrite dans la MEME transaction, avec l'acteur de SESSION et un resume nommant les allergenes retenus. Exception assumee a RG-T14 : les autres ecritures d'ingredient (creation, modification, import nutritionnel) ne tracent pas, celle-ci si, parce qu'elle change une information de securite alimentaire montree au client. Les colonnes disent QUAND et D'OU, l'audit dit QUI. |
+| **[RG-ALLERGEN-NO-STOCK]** | La revue n'ecrit NI `ingredient.stock_quantity` NI `stock_movement`. Declarer un allergene est une information, pas un mouvement de marchandise. Verrouille par test unitaire et par test d'integration sur base reelle (comparaison des quantites et du nombre de mouvements avant/apres). |
+| **[POST-1]** | Lignes `ingredient` / `product_ingredient` / `ingredient_allergen` mises a jour ; pour une revue d'allergenes, `allergens_reviewed_at` + `allergens_source` poses et une ligne `audit_log` ajoutee |
 | **[OUT-1]** | Confirmation, redirection vers la liste des ingredients ou le formulaire de composition de produit |
+
+**Derivation consommee par la borne.** Les allergenes d'un PRODUIT ne sont pas ressaisis :
+ils sont calcules par jointure `product_ingredient` -> `ingredient_allergen` -> `allergen`,
+dedupliques en SQL (deux ingredients d'un meme produit peuvent porter le meme allergene).
+Un produit est dit **complet** quand aucun ingredient de sa recette n'a
+`allergens_reviewed_at` a NULL. La liste couvre l'integralite des lignes de recette, y
+compris les ingredients retirables et les extras ajoutables : elle est donc un
+sur-ensemble de toute configuration client, et l'ecart penche du cote de la prudence.
+Voir [ADR-0015](../adr/0015-allergenes-calcules-par-produit.md) et `dictionary.md` note 15.
 
 ---
 

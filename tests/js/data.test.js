@@ -84,7 +84,9 @@ test('loadProducts groupe les produits par slug a la forme borne (type produit)'
         // sizes (R4) : tableau vide par defaut quand l'API n'en renvoie pas.
         // maxiNom : null par defaut quand l'API n'envoie pas maxi_variant_name.
         // commandable : true par defaut quand l'API n'envoie pas is_orderable.
-        { id: 10, nom: 'Big Mac', prix: 600, image: 'assets/images/produits/burgers/bigmac.png', type: 'produit', maxiNom: null, sizes: [], commandable: true },
+        // allergenesComplets : false par defaut (F11b) -- defaut PRUDENT, a l'inverse
+        // de commandable. Une API muette ne doit pas faire affirmer "sans allergene".
+        { id: 10, nom: 'Big Mac', prix: 600, image: 'assets/images/produits/burgers/bigmac.png', type: 'produit', maxiNom: null, sizes: [], allergenes: [], allergenesComplets: false, commandable: true },
     ]);
 });
 
@@ -115,8 +117,47 @@ test('loadProducts glisse les menus sous la cle menus (type menu, prix = price_n
 
     const data = await loadProducts();
     assert.deepEqual(data.menus, [
-        { id: 1, nom: 'Menu Big Mac', prix: 800, image: 'assets/images/produits/burgers/bigmac.png', type: 'menu', commandable: true },
+        { id: 1, nom: 'Menu Big Mac', prix: 800, image: 'assets/images/produits/burgers/bigmac.png', type: 'menu', allergenes: [], allergenesComplets: false, commandable: true },
     ]);
+});
+
+test('loadProducts reporte les allergenes calcules du produit (F11b)', async () => {
+    const fx = fixtures();
+    fx['/api/products'].data[0].allergens = [
+        { id: 1, code: 'gluten', name: 'Gluten' },
+        { id: 7, code: 'milk', name: 'Lait' },
+    ];
+    fx['/api/products'].data[0].allergens_complete = true;
+    const { loadProducts } = await freshData(fx);
+
+    const data = await loadProducts();
+    assert.equal(data.burgers[0].allergenes.length, 2);
+    assert.equal(data.burgers[0].allergenes[1].name, 'Lait');
+    assert.equal(data.burgers[0].allergenesComplets, true);
+});
+
+test('loadProducts: allergens_complete=false -> allergenesComplets=false (produit non revu)', async () => {
+    const fx = fixtures();
+    fx['/api/products'].data[0].allergens = [];
+    fx['/api/products'].data[0].allergens_complete = false;
+    const { loadProducts } = await freshData(fx);
+
+    const data = await loadProducts();
+    // Liste vide + non revu : la modale doit renvoyer vers l'equipe, pas affirmer
+    // une absence. C'est le drapeau qui porte la difference, pas la liste.
+    assert.equal(data.burgers[0].allergenes.length, 0);
+    assert.equal(data.burgers[0].allergenesComplets, false);
+});
+
+test('loadProducts reporte les allergenes du menu (burger impose)', async () => {
+    const fx = fixtures();
+    fx['/api/menus'].data[0].allergens = [{ id: 1, code: 'gluten', name: 'Gluten' }];
+    fx['/api/menus'].data[0].allergens_complete = true;
+    const { loadProducts } = await freshData(fx);
+
+    const data = await loadProducts();
+    assert.equal(data.menus[0].allergenes.length, 1);
+    assert.equal(data.menus[0].allergenesComplets, true);
 });
 
 test('loadProducts: is_orderable=false -> commandable=false (rupture RG-T21)', async () => {

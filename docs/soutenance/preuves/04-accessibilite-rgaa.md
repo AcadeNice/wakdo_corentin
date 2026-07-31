@@ -36,7 +36,7 @@ Chaque affirmation est mappee au code de critere attendu (Cr 1.c.x) et sourcee e
 - **Cartes produit dynamiques** : `aria-label` combinant nom + prix, et `aria-disabled="true"` sur une tuile en rupture : `page-products.js:75-76`.
 - **Stepper de quantite** dans le panneau commande : chaque groupe `role="group"` + `aria-label="Quantite de <libelle>"`, boutons `aria-label="Diminuer/Augmenter la quantite de <libelle>"`, retrait `aria-label="Retirer <libelle> de la commande"` : `order-panel.js:115-137`.
 - **Boutons de paiement** : `aria-label="Payer par carte bancaire"` / `aria-label="Payer en especes"` : `payment.html:58,74`.
-- **Bouton d'information allergenes** : `aria-label="Informations allergenes"` + `title` : `allergens.js:35-36`.
+- **Bouton d'information allergenes** : `aria-label="Informations allergenes"` + `title` : `allergens.js:62-63`.
 
 ### Landmarks et regions vivantes
 
@@ -103,7 +103,7 @@ L'information ne repose pas sur la seule couleur : un libelle textuel ou une ico
   - met le fond en `aria-hidden` pendant l'ouverture (l.36-37) ;
   - place le focus initial sur « Annuler » pour qu'un `Entree` accidentel ne declenche pas l'action destructrice (l.69-70).
   Ce comportement est un piege **voulu et sortable** (Echap + boucle), pas un piege bloquant : c'est la definition attendue d'une modale accessible.
-- **Modale allergenes** : fermeture `Echap` (`allergens.js:18-22, 116`), fermeture clic-fond (l.110-114), `role="dialog"` + `aria-modal="true"` (l.61-63), bouton de fermeture etiquete (l.68-72).
+- **Modale allergenes** : fermeture `Echap` (`allergens.js:44-48, 209`), fermeture clic-fond (l.188-192), `role="dialog"` + `aria-modal="true"` (l.113-115), bouton de fermeture etiquete (l.121-123). Depuis F11b, l'avertissement "information non disponible" porte `role="alert"` (l.175) : un lecteur d'ecran l'annonce sans attendre que le client parcoure le panneau, ce qui compte pour une information de securite alimentaire.
 - **Tests** : `tests/js/confirm-modal.test.js` verifie `role="dialog"` + `aria-modal`, la fermeture par Echap et clic-fond sans effet destructeur (l.23-62).
 
 **Verdict Cr 1.c.4 : conforme avec reserve.** Le focus reste visible et non perdu sur le perimetre lu ; la coherence de **style** du focus est partielle (voir section 8 : quelques controles secondaires reposent sur l'anneau natif du navigateur, non stylise).
@@ -136,13 +136,13 @@ Verdicts : **conforme** (preuve dans le code) · **partiel** (couvert mais reser
 |---|---|---|---|
 | Focus clavier visible | `style.css` 18 regles `:focus-visible` (226,314,373,507,536,623,724,824,1155,1372,1819-1826,1902,1984) | conforme | Halo jaune / `outline` epais decale. |
 | `outline:none` compense | `style.css:226-232,507-512,1155-1160` | conforme | Chaque suppression a un substitut visible ; pas de reset global du focus. |
-| Coherence du style de focus | `style.css:1855` (`.size-btn`), `1199`/`1249` (allergenes) | partiel | Quelques controles secondaires reposent sur l'anneau natif (non perdu, mais non stylise). |
+| Coherence du style de focus | `style.css:1855` (`.size-btn`), `1218`/`1268` (allergenes) | partiel | Quelques controles secondaires reposent sur l'anneau natif (non perdu, mais non stylise). |
 
 ### Theme 11 — Formulaires / controles
 
 | Critere | Preuve (fichier:ligne) | Verdict | Commentaire |
 |---|---|---|---|
-| Controle a une etiquette | `payment.html:58,74` ; `order-panel.js:115-137` ; `allergens.js:35` | conforme | `aria-label` sur boutons paiement, stepper, retrait, info allergenes. |
+| Controle a une etiquette | `payment.html:58,74` ; `order-panel.js:115-137` ; `allergens.js:62` | conforme | `aria-label` sur boutons paiement, stepper, retrait, info allergenes. |
 | Champ de saisie etiquete | `style.css:1888-1905` (chevalet) | partiel | Le champ chevalet a un focus visible ; le libelle textuel proche vit dans une modale JS hors des 5 pages lues, a verifier. |
 | Etat desactive expose | `order-panel.js:182` ; `style.css:519-527,1724-1727` | conforme | `aria-disabled` sur « Payer » panier vide et boutons desactives. |
 
@@ -179,7 +179,7 @@ Verdicts : **conforme** (preuve dans le code) · **partiel** (couvert mais reser
 
 1. **Aucun audit avec lecteur d'ecran reel.** Le mapping ARIA est correct dans le code, mais le rendu effectif sous NVDA/VoiceOver/TalkBack n'a pas ete teste sur cette borne. Toute affirmation de restitution vocale reelle est [UNVERIFIED].
 2. **Ratios de contraste non mesures a l'outil.** Les tokens sont choisis pour viser AA (`#767676` sur blanc, jaune fonce pour les accents), mais aucun rapport d'outil (ex. verificateur de contraste) n'est joint. Verdict « partiel » assume sur le critere contraste.
-3. **Coherence du style de focus partielle.** Le focus n'est pas perdu (pas de reset global), mais quelques controles secondaires (`.size-btn` `style.css:1855`, bouton info allergenes `style.css:1199`, fermeture modale allergenes `style.css:1249`) reposent sur l'anneau de focus natif du navigateur plutot que sur le halo jaune maison. C'est conforme (focus visible) mais visuellement heterogene.
+3. **Coherence du style de focus partielle.** Le focus n'est pas perdu (pas de reset global), mais quelques controles secondaires (`.size-btn` `style.css:1855`, bouton info allergenes `style.css:1218`, fermeture modale allergenes `style.css:1268`) reposent sur l'anneau de focus natif du navigateur plutot que sur le halo jaune maison. C'est conforme (focus visible) mais visuellement heterogene.
 4. **Champ chevalet hors des 5 pages lues.** Le picker de chevalet (sur place) a un focus visible en CSS (`style.css:1888-1905`) mais son etiquette textuelle vit dans une modale JS non incluse dans les 5 pages de ce perimetre ; verdict « partiel » par prudence.
 5. **Contenu genere = surface a re-tester.** Les cartes produit et le panneau commande sont construits en JavaScript. Les attributs ARIA sont poses dans le code (`page-products.js`, `order-panel.js`), mais leur presence a l'ecran depend de l'execution correcte du rendu ; a demontrer en live plutot qu'a affirmer.
 

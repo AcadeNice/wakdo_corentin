@@ -248,6 +248,11 @@ try {
     // Enrichissement nutritionnel depuis une API externe (OpenFoodFacts, Cr 3.a.3) :
     // action explicite ingredient.manage, POST + CSRF, opt-in (pas d'egress automatique).
     $router->add('POST', '/admin/ingredients/{id}/enrich', [IngredientController::class, 'enrich']);
+    // Revue des allergenes (F11b) : declare les allergenes INCO reellement portes par
+    // l'ingredient. ingredient.manage (le libelle de la permission couvre deja "allergen
+    // mapping"), POST + CSRF, SANS PIN (ni argent ni stock, hors ensemble sensible RG-T13).
+    // La source est obligatoire, et le geste est trace (audit_log ingredient.allergens).
+    $router->add('POST', '/admin/ingredients/{id}/allergens', [IngredientController::class, 'allergens']);
 
     // CORS (docs/api/conventions.md section 10) : preflight OPTIONS traite AVANT le
     // routeur (pas de route OPTIONS) ; sinon dispatch puis decoration de la reponse.

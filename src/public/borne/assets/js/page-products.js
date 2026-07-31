@@ -9,7 +9,7 @@
 
 import { getProductsByCategory, getCategoryById, CATEGORY_ID_TO_SLUG, loadAllergens } from './data.js';
 import { formatPrice, escHtml } from './state.js';
-import { buildAllergenInfoButton, openAllergenModal } from './allergens.js';
+import { buildAllergenInfoButton, openProductAllergenModal } from './allergens.js';
 import { openMenuComposer } from './page-product-menu.js';
 import { openProductOptions } from './product-options.js';
 import './img-fallback.js';
@@ -54,11 +54,13 @@ async function renderProducts() {
             return;
         }
 
-        // Liste generale des allergenes (modale "i"). Chargee une fois, partagee par
-        // toutes les cartes ; un echec ne doit pas casser l'affichage produits.
-        let allergens = [];
+        // Reference INCO (les 14 descriptions) pour la modale "i". Chargee une fois,
+        // partagee par toutes les cartes ; un echec ne doit pas casser l'affichage
+        // produits NI masquer les allergenes : les noms viennent de l'API produit, la
+        // reference n'ajoute que les explications (F11b).
+        let allergenReference = [];
         try {
-            allergens = await loadAllergens();
+            allergenReference = await loadAllergens();
         } catch (e) {
             console.error('loadAllergens error:', e);
         }
@@ -95,8 +97,9 @@ async function renderProducts() {
 
             // Bouton "i" allergenes : frere de la carte, JAMAIS dans le <a> (un
             // element interactif ne peut pas descendre d'un lien — regle HTML verifiee
-            // au validateur W3C). Superpose au coin de l'image via CSS.
-            const infoBtn = buildAllergenInfoButton(() => openAllergenModal(allergens));
+            // au validateur W3C). Superpose au coin de l'image via CSS. La modale porte
+            // les allergenes de CE produit, pas la liste des 14 (F11b).
+            const infoBtn = buildAllergenInfoButton(() => openProductAllergenModal(product, allergenReference));
 
             // Clic produit -> modale au-dessus de la grille (paradigme maquette) :
             // menu -> composeur (L2), produit -> options (L3). Le panneau de droite est
