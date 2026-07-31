@@ -109,6 +109,7 @@ $navClass = static function (string $code, string $current): string {
             <?php endif; ?>
             <?php if ($can('product.read')): ?>
                 <a href="/admin/products" class="<?= $navClass('products', $active) ?>">Produits</a>
+                <a href="/admin/products/by-category" class="<?= $navClass('products-by-category', $active) ?>">Produits par categorie</a>
             <?php endif; ?>
             <?php if ($can('menu.read')): ?>
                 <a href="/admin/menus" class="<?= $navClass('menus', $active) ?>">Menus</a>

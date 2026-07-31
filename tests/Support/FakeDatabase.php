@@ -136,6 +136,14 @@ final class FakeDatabase implements DatabaseInterface
     public array $productsRows = [];
 
     /**
+     * Lignes PLATES renvoyees a la requete ProductRepository::basesByCategory() (F20) ;
+     * le depot les groupe lui-meme par category_id.
+     *
+     * @var list<array<string, mixed>>
+     */
+    public array $basesByCategoryRows = [];
+
+    /**
      * Ligne renvoyee par ProductRepository::find() ; null = introuvable.
      *
      * @var array<string, mixed>|null
@@ -562,6 +570,14 @@ final class FakeDatabase implements DatabaseInterface
 
         if (str_contains($sql, 'FROM category ORDER BY')) {
             return $this->categoriesRows;
+        }
+
+        // F20 : bases groupees par categorie (basesByCategory). Desambigue par
+        // 'AS variant_count', alias propre a cette requete : elle alias la table
+        // (FROM product p) et ne joint pas category, donc ni la branche basesOnly
+        // ci-dessous ni la branche all() plus bas ne l'attrapent.
+        if (str_contains($sql, 'AS variant_count')) {
+            return $this->basesByCategoryRows;
         }
 
         // R4/F9-1 : liste base-only (basesOnly) pour les selects. Distincte de la

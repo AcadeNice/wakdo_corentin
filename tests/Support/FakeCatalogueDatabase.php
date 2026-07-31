@@ -86,6 +86,15 @@ final class FakeCatalogueDatabase implements DatabaseInterface
     public array $sizesByBaseRows = [];
 
     /**
+     * Lignes PLATES (id, category_id, name, price_cents, vat_rate, is_available,
+     * display_order, variant_count) renvoyees a la requete basesByCategory() (F20) ;
+     * le repo les groupe lui-meme par category_id.
+     *
+     * @var list<array<string, mixed>>
+     */
+    public array $basesByCategoryRows = [];
+
+    /**
      * Tailles d'un produit (R4) renvoyees par ProductRepository::sizesForProduct() ;
      * la requete porte (id = :base_self OR base_product_id = :base_variant) --
      * placeholders distincts (EMULATE_PREPARES=false), cf. HY093.
@@ -144,6 +153,14 @@ final class FakeCatalogueDatabase implements DatabaseInterface
         // de composition() (meme table) par SELECT DISTINCT, propre a cette requete.
         if (str_contains($sql, 'SELECT DISTINCT pi.product_id')) {
             return $this->autoUnavailableRows;
+        }
+
+        // F20 : bases groupees par categorie (basesByCategory). Desambigue par
+        // 'AS variant_count', alias propre a cette requete : elle lit FROM product avec
+        // l'alias p, donc la branche basesOnly ('FROM product WHERE ...', sans alias)
+        // ne l'attrape pas, et elle ne joint pas category.
+        if (str_contains($sql, 'AS variant_count')) {
+            return $this->basesByCategoryRows;
         }
 
         // R4 : tailles groupees (sizesByBase) et tailles d'un produit (sizesForProduct).

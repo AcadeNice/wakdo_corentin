@@ -22,6 +22,7 @@ $euros = static fn (int $cents): string => number_format($cents / 100, 2, ',', '
         <p class="page-subtitle">Gestion des produits du catalogue</p>
     </div>
     <div class="page-actions">
+        <a class="btn btn-secondary" href="/admin/products/by-category">Vue par categorie</a>
         <a class="btn btn-primary" href="/admin/products/new">Nouveau produit</a>
     </div>
 </div>

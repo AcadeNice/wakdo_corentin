@@ -20,6 +20,7 @@ une decision revisee donne une nouvelle fiche qui *supersede* l'ancienne (statut
 | [0010](0010-cookie-secure-conditionnel-https.md) | Cookie de session Secure conditionnel au HTTPS | Accepte |
 | [0011](0011-pos-tactile-tuiles-comptoir-drive.md) | POS tactile a tuiles pour la saisie comptoir/drive | Accepte |
 | [0012](0012-page-stock-tableau-de-bord.md) | Page Stock en tableau de bord (alertes + reappro en avant) | Accepte |
+| [0013](0013-vue-produits-groupee-par-categorie.md) | Vue back-office du catalogue groupee par categorie (en plus de la liste plate) | Accepte |
 
 ## Modele de fiche
 

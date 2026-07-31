@@ -12,6 +12,7 @@ use App\Auth\PinThrottle;
 use App\Auth\PinVerifier;
 use App\Catalogue\CategoryRepository;
 use App\Catalogue\IngredientRepository;
+use App\Catalogue\MenuRepository;
 use App\Catalogue\ProductRepository;
 use App\Core\DatabaseInterface;
 use App\Core\Response;
@@ -49,6 +50,118 @@ class ProductController extends AdminController
             // (is_available=0) : la vue signale les deux differemment.
             'autoUnavailable' => $this->productRepository()->autoUnavailableIds(),
         ], $guard);
+    }
+
+    /**
+     * Vue de LECTURE du catalogue rangee comme la borne l'affiche : une section par
+     * categorie, dans l'ordre des onglets de la borne, avec les variantes de taille
+     * repliees sur leur base (F20). Complete la liste plate (index) sans la remplacer :
+     * la liste plate reste la seule qui montre et gere les variantes ligne par ligne.
+     *
+     * Quatre lectures a nombre FIXE, jamais une par article :
+     *  - les categories, qui servent d'ossature ordonnee des sections ;
+     *  - les produits de base groupes par categorie ;
+     *  - le set des produits en rupture calculee (RG-T21) ;
+     *  - les menus, parce qu'un menu n'est pas une ligne de la table product : sans eux
+     *    la section Menus dirait "aucun article" alors que la borne y montre les menus.
+     *
+     * Produits et menus sont normalises ICI en une seule forme d'article (avec son etat
+     * de disponibilite deja resolu) : la vue reste declarative et l'etat est testable
+     * directement, comme pour le tableau de bord stock (ADR-0012).
+     *
+     * @param array<string, string> $params
+     */
+    public function byCategory(array $params = []): Response
+    {
+        $guard = $this->guard('product.read');
+        if ($guard instanceof Response) {
+            return $guard;
+        }
+
+        $categories        = $this->categoryRepository()->all();
+        $productsByCat     = $this->productRepository()->basesByCategory();
+        $autoUnavailable   = array_fill_keys($this->productRepository()->autoUnavailableIds(), true);
+        $menus             = $this->menuRepository()->all();
+        $canUpdateProduct  = $this->may($guard, 'product.update');
+        $canUpdateMenu     = $this->may($guard, 'menu.update');
+
+        /** @var array<int, list<array<string, mixed>>> $articles */
+        $articles = [];
+        foreach ($productsByCat as $categoryId => $rows) {
+            foreach ($rows as $row) {
+                $id = (int) $row['id'];
+                $articles[$categoryId][] = [
+                    'name'          => (string) $row['name'],
+                    'price_cents'   => (int) $row['price_cents'],
+                    'vat_rate'      => (int) $row['vat_rate'],
+                    'kind'          => 'produit',
+                    'state'         => $this->availabilityState((int) $row['is_available'], isset($autoUnavailable[$id])),
+                    'variant_count' => (int) $row['variant_count'],
+                    'edit_url'      => $canUpdateProduct ? '/admin/products/' . $id . '/edit' : null,
+                ];
+            }
+        }
+        foreach ($menus as $row) {
+            $categoryId = (int) ($row['category_id'] ?? 0);
+            // Un menu impose son burger : il devient non commandable quand ce burger
+            // tombe en rupture calculee. Meme regle que la borne (RG-T21, F2).
+            $burgerId = (int) ($row['burger_product_id'] ?? 0);
+            $articles[$categoryId][] = [
+                'name'          => (string) ($row['name'] ?? ''),
+                'price_cents'   => (int) ($row['price_normal_cents'] ?? 0),
+                'vat_rate'      => null,
+                'kind'          => 'menu',
+                'state'         => $this->availabilityState((int) ($row['is_available'] ?? 0), isset($autoUnavailable[$burgerId])),
+                'variant_count' => 0,
+                'edit_url'      => $canUpdateMenu ? '/admin/menus/' . (int) ($row['id'] ?? 0) . '/edit' : null,
+            ];
+        }
+
+        $total = 0;
+        $orderable = 0;
+        foreach ($articles as $rows) {
+            foreach ($rows as $row) {
+                $total++;
+                if ($row['state'] === 'available') {
+                    $orderable++;
+                }
+            }
+        }
+
+        return $this->adminView('admin/products/by_category', [
+            'title'          => 'Produits par categorie - Wakdo Admin',
+            'activeNav'      => 'products-by-category',
+            'categories'     => $categories,
+            'articles'       => $articles,
+            'totalArticles'  => $total,
+            'nOrderable'     => $orderable,
+            'nNotOrderable'  => $total - $orderable,
+        ], $guard);
+    }
+
+    /**
+     * Etat de disponibilite a l'affichage, en TROIS valeurs distinctes : un retrait
+     * manuel (is_available = 0) et une rupture calculee par le stock (RG-T21) ont des
+     * causes et des remedes differents, les confondre enverrait l'equipier chercher au
+     * mauvais endroit. Le retrait manuel prime.
+     */
+    private function availabilityState(int $isAvailable, bool $autoRupture): string
+    {
+        if ($isAvailable !== 1) {
+            return 'unavailable';
+        }
+
+        return $autoRupture ? 'auto_rupture' : 'available';
+    }
+
+    /**
+     * RG-T03 : la permission est-elle detenue par le role de la session courante ?
+     * Utilise pour adapter l'affichage (un lien qui repondrait 403 n'est pas rendu) sans
+     * remplacer la garde par-route, qui reste seule a faire foi.
+     */
+    private function may(GuardResult $guard, string $permission): bool
+    {
+        return $guard->roleId !== null && $this->authorizer()->can($guard->roleId, $permission);
     }
 
     /**
@@ -366,6 +479,11 @@ class ProductController extends AdminController
     protected function categoryRepository(): CategoryRepository
     {
         return new CategoryRepository($this->db());
+    }
+
+    protected function menuRepository(): MenuRepository
+    {
+        return new MenuRepository($this->db());
     }
 
     protected function pinVerifier(): PinVerifier
