@@ -88,6 +88,13 @@ export function loadProducts() {
                 // en a une, sinon null. Le composeur de menu l'affiche en format Maxi.
                 maxiNom: p.maxi_variant_name ?? null,
                 sizes: Array.isArray(p.sizes) ? p.sizes : [],
+                // allergenes (F11b) : calcules serveur depuis la recette, deja
+                // dedupliques. allergenesComplets = false des qu'un ingredient n'a pas
+                // ete revu -> la modale n'affirme alors rien. Le defaut est PRUDENT
+                // (=== true) : une API anterieure au lot ne porte pas le drapeau, et
+                // "pas de drapeau" ne doit jamais se lire "verifie sans allergene".
+                allergenes: Array.isArray(p.allergens) ? p.allergens : [],
+                allergenesComplets: p.allergens_complete === true,
                 // commandable : false si rupture de stock calculee (RG-T21, is_orderable
                 // serveur) -> la borne grise la tuile et bloque le clic. Defaut true si
                 // l'API ne porte pas le flag (compat).
@@ -97,7 +104,15 @@ export function loadProducts() {
         for (const m of menus) {
             const slug = slugByCategoryId[m.category_id];
             if (slug === undefined) continue;
-            bySlug[slug].push({ id: m.id, nom: m.name, prix: m.price_normal_cents, image: m.image_path, type: 'menu', commandable: m.is_orderable !== false });
+            // Menu : allergenes du BURGER IMPOSE (meme granularite que commandable).
+            // L'accompagnement et la boisson sont choisis dans le composeur, ou chaque
+            // option porte deja les siens.
+            bySlug[slug].push({
+                id: m.id, nom: m.name, prix: m.price_normal_cents, image: m.image_path, type: 'menu',
+                allergenes: Array.isArray(m.allergens) ? m.allergens : [],
+                allergenesComplets: m.allergens_complete === true,
+                commandable: m.is_orderable !== false,
+            });
         }
         return bySlug;
     }).catch(e => { _productsPromise = null; throw e; });

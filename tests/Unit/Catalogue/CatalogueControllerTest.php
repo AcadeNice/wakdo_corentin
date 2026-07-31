@@ -141,7 +141,7 @@ final class CatalogueControllerTest extends TestCase
 
         $product = $payload['data'][0];
         self::assertSame(
-            ['id', 'category_id', 'name', 'description', 'price_cents', 'image_path', 'display_order', 'maxi_variant_name', 'sizes', 'is_orderable'],
+            ['id', 'category_id', 'name', 'description', 'price_cents', 'image_path', 'display_order', 'maxi_variant_name', 'sizes', 'allergens', 'allergens_complete', 'is_orderable'],
             array_keys($product),
         );
         self::assertSame(12, $product['id']);
@@ -352,7 +352,7 @@ final class CatalogueControllerTest extends TestCase
 
         $menu = $payload['data'][0];
         self::assertSame(
-            ['id', 'category_id', 'burger_product_id', 'name', 'description', 'price_normal_cents', 'price_maxi_cents', 'image_path', 'display_order', 'is_orderable'],
+            ['id', 'category_id', 'burger_product_id', 'name', 'description', 'price_normal_cents', 'price_maxi_cents', 'image_path', 'display_order', 'allergens', 'allergens_complete', 'is_orderable'],
             array_keys($menu),
         );
         self::assertSame(1, $menu['id']);
@@ -484,5 +484,194 @@ final class CatalogueControllerTest extends TestCase
         self::assertCount(1, $slots);
         self::assertSame('extra', $slots[0]['slot_type']);
         self::assertSame([], $slots[0]['option_product_ids']);
+    }
+
+    // -------------------------------------------------------------------------
+    // F11b — allergenes calcules par produit
+    // -------------------------------------------------------------------------
+
+    /**
+     * Deux produits listes ; le 12 porte gluten + lait, le 13 rien.
+     *
+     * @return FakeCatalogueDatabase
+     */
+    private function dbWithTwoProducts(): FakeCatalogueDatabase
+    {
+        $db = new FakeCatalogueDatabase();
+        $db->productsRows = [
+            ['id' => '12', 'category_id' => '3', 'name' => 'Cheeseburger', 'description' => null, 'price_cents' => '890', 'vat_rate' => '100', 'image_path' => null, 'display_order' => '1', 'maxi_variant_name' => null],
+            ['id' => '13', 'category_id' => '3', 'name' => 'Salade', 'description' => null, 'price_cents' => '450', 'vat_rate' => '100', 'image_path' => null, 'display_order' => '2', 'maxi_variant_name' => null],
+        ];
+        $db->allergensByProductRows = [
+            ['product_id' => '12', 'allergen_id' => '1', 'code' => 'gluten', 'name' => 'Gluten'],
+            ['product_id' => '12', 'allergen_id' => '7', 'code' => 'milk', 'name' => 'Lait'],
+        ];
+
+        return $db;
+    }
+
+    public function testProductsCarryTheirComputedAllergens(): void
+    {
+        $db = $this->dbWithTwoProducts();
+
+        $payload = $this->decode($this->controller($db, '/api/products')->products()->body());
+
+        [$burger, $salad] = $payload['data'];
+        self::assertSame(
+            [['id' => 1, 'code' => 'gluten', 'name' => 'Gluten'], ['id' => 7, 'code' => 'milk', 'name' => 'Lait']],
+            $burger['allergens'],
+        );
+        // Aucune ligne mappee -> liste vide. Ce que cette absence SIGNIFIE est porte
+        // par allergens_complete, pas par la liste.
+        self::assertSame([], $salad['allergens']);
+    }
+
+    public function testAllProductsAreCompleteWhenNoIngredientIsUnreviewed(): void
+    {
+        $db = $this->dbWithTwoProducts();
+        $db->unreviewedByProductRows = [];
+
+        $payload = $this->decode($this->controller($db, '/api/products')->products()->body());
+
+        self::assertTrue($payload['data'][0]['allergens_complete']);
+        self::assertTrue($payload['data'][1]['allergens_complete']);
+    }
+
+    public function testProductWithAnUnreviewedIngredientIsFlaggedIncomplete(): void
+    {
+        $db = $this->dbWithTwoProducts();
+        // Le 13 a un ingredient jamais revu : sa liste vide n'est PAS affirmable. La
+        // borne doit renvoyer vers l'equipe au lieu d'annoncer "aucun allergene".
+        $db->unreviewedByProductRows = [['product_id' => '13', 'unreviewed' => '1']];
+
+        $payload = $this->decode($this->controller($db, '/api/products')->products()->body());
+
+        self::assertTrue($payload['data'][0]['allergens_complete']);
+        self::assertFalse($payload['data'][1]['allergens_complete']);
+    }
+
+    public function testProductsReadsAllergensInASingleQueryForTheWholeList(): void
+    {
+        $db = $this->dbWithTwoProducts();
+
+        $this->controller($db, '/api/products')->products();
+
+        // Deux lectures d'allergenes AU TOTAL (le mapping + l'etat de revue), pas
+        // deux par produit : le N+1 sur le chemin le plus chaud de la borne est la
+        // regression a empecher.
+        $allergenReads = array_filter(
+            $db->reads,
+            static fn (array $r): bool => str_contains($r['sql'], 'ingredient_allergen')
+                || str_contains($r['sql'], 'allergens_reviewed_at'),
+        );
+        self::assertCount(2, $allergenReads);
+    }
+
+    public function testProductDetailCarriesItsAllergensAndCompleteness(): void
+    {
+        $db = new FakeCatalogueDatabase();
+        $db->productRow = [
+            'id' => '12', 'category_id' => '3', 'name' => 'Cheeseburger', 'description' => null,
+            'price_cents' => '890', 'vat_rate' => '100', 'image_path' => null, 'display_order' => '1',
+            'maxi_variant_name' => null,
+        ];
+        $db->allergensForProductRows = [['allergen_id' => '1', 'code' => 'gluten', 'name' => 'Gluten']];
+        $db->unreviewedCountRow = null;
+
+        $payload = $this->decode($this->controller($db, '/api/products/12')->product(['id' => '12'])->body());
+
+        self::assertSame([['id' => 1, 'code' => 'gluten', 'name' => 'Gluten']], $payload['data']['allergens']);
+        self::assertTrue($payload['data']['allergens_complete']);
+    }
+
+    public function testProductDetailIsIncompleteWhenAnIngredientIsUnreviewed(): void
+    {
+        $db = new FakeCatalogueDatabase();
+        $db->productRow = [
+            'id' => '12', 'category_id' => '3', 'name' => 'Cheeseburger', 'description' => null,
+            'price_cents' => '890', 'vat_rate' => '100', 'image_path' => null, 'display_order' => '1',
+            'maxi_variant_name' => null,
+        ];
+        $db->unreviewedCountRow = ['n' => '2'];
+
+        $payload = $this->decode($this->controller($db, '/api/products/12')->product(['id' => '12'])->body());
+
+        self::assertFalse($payload['data']['allergens_complete']);
+    }
+
+    public function testMenuCarriesTheAllergensOfItsImposedBurger(): void
+    {
+        $db = new FakeCatalogueDatabase();
+        $db->menusRows = [[
+            'id' => '1', 'category_id' => '1', 'burger_product_id' => '12',
+            'name' => 'Menu Cheeseburger', 'description' => null,
+            'price_normal_cents' => '990', 'price_maxi_cents' => '1190',
+            'image_path' => null, 'display_order' => '1',
+        ]];
+        $db->allergensByProductRows = [
+            ['product_id' => '12', 'allergen_id' => '1', 'code' => 'gluten', 'name' => 'Gluten'],
+            // Produit 99 hors du menu : ne doit pas fuiter dans la reponse.
+            ['product_id' => '99', 'allergen_id' => '5', 'code' => 'peanuts', 'name' => 'Arachides'],
+        ];
+
+        $payload = $this->decode($this->controller($db, '/api/menus')->menus()->body());
+
+        // Meme granularite que is_orderable sur un menu : le burger IMPOSE. Ce que
+        // l'accompagnement et la boisson choisis ajoutent est resolu a la composition,
+        // chaque produit portant deja ses propres allergenes.
+        self::assertSame([['id' => 1, 'code' => 'gluten', 'name' => 'Gluten']], $payload['data'][0]['allergens']);
+    }
+
+    public function testMenuIsIncompleteWhenItsBurgerHasAnUnreviewedIngredient(): void
+    {
+        $db = new FakeCatalogueDatabase();
+        $db->menusRows = [[
+            'id' => '1', 'category_id' => '1', 'burger_product_id' => '12',
+            'name' => 'Menu Cheeseburger', 'description' => null,
+            'price_normal_cents' => '990', 'price_maxi_cents' => '1190',
+            'image_path' => null, 'display_order' => '1',
+        ]];
+        $db->unreviewedByProductRows = [['product_id' => '12', 'unreviewed' => '1']];
+
+        $payload = $this->decode($this->controller($db, '/api/menus')->menus()->body());
+
+        self::assertFalse($payload['data'][0]['allergens_complete']);
+    }
+
+    public function testMenuDetailAlsoCarriesAllergensAlongsideSlots(): void
+    {
+        $db = new FakeCatalogueDatabase();
+        $db->menuRow = [
+            'id' => '1', 'category_id' => '1', 'burger_product_id' => '12',
+            'name' => 'Menu', 'description' => null,
+            'price_normal_cents' => '990', 'price_maxi_cents' => '1190',
+            'image_path' => null, 'display_order' => '1',
+        ];
+        $db->allergensForProductRows = [['allergen_id' => '7', 'code' => 'milk', 'name' => 'Lait']];
+        $db->menuSlotRows = [];
+
+        $payload = $this->decode($this->controller($db, '/api/menus/1')->menu(['id' => '1'])->body());
+
+        self::assertSame([['id' => 7, 'code' => 'milk', 'name' => 'Lait']], $payload['data']['allergens']);
+        self::assertTrue($payload['data']['allergens_complete']);
+        self::assertSame([], $payload['data']['slots']);
+    }
+
+    public function testMissingProductStillShortCircuitsWithoutAnyAllergenRead(): void
+    {
+        $db = new FakeCatalogueDatabase();
+        $db->productRow = null;
+
+        $response = $this->controller($db, '/api/products/404')->product(['id' => '404']);
+
+        self::assertSame(404, $response->status());
+        // Le 404 ne doit pas payer les lectures d'allergenes : le produit absent sort
+        // avant. Garde du court-circuit deja en place pour les tailles.
+        $allergenReads = array_filter(
+            $db->reads,
+            static fn (array $r): bool => str_contains($r['sql'], 'ingredient_allergen')
+                || str_contains($r['sql'], 'allergens_reviewed_at'),
+        );
+        self::assertSame([], $allergenReads);
     }
 }

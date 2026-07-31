@@ -1316,6 +1316,37 @@ button {
     font-size: var(--font-size-sm);
 }
 
+/* Trois etats de la modale allergenes (F11b). La hierarchie visuelle suit la
+   hierarchie du message : l'avertissement "non revu" doit se voir AVANT que le
+   client valide, l'absence verifiee rassure, les traces informent. */
+
+.allergen-modal-none {
+    margin-top: var(--space-2);
+    padding: var(--space-3);
+    border-left: 4px solid var(--color-border-default);
+    background: var(--color-bg-page);
+    border-radius: var(--radius-md);
+    color: var(--color-text-primary);
+}
+
+/* Le rouge de marque porte deja l'alerte dans cette interface (badge Indisponible) :
+   on le reutilise plutot que d'introduire une couleur de plus. */
+.allergen-modal-incomplete {
+    margin-top: var(--space-3);
+    padding: var(--space-3);
+    border-left: 4px solid var(--color-brand-red);
+    background: var(--color-bg-page);
+    border-radius: var(--radius-md);
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-bold);
+}
+
+.allergen-modal-traces {
+    margin-top: var(--space-3);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
 .composer-card__price {
     font-size: var(--font-size-sm);
     color: var(--color-text-muted);

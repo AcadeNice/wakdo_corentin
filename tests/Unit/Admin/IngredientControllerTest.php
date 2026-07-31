@@ -842,4 +842,248 @@ final class IngredientControllerTest extends TestCase
         self::assertSame(200, $response->status());
         self::assertStringNotContainsString('Auteur', $response->body()); // colonne masquee (RG-4)
     }
+
+    // -------------------------------------------------------------------------
+    // F11b — revue des allergenes d'un ingredient
+    // -------------------------------------------------------------------------
+
+    /**
+     * Catalogue reduit a trois lignes : suffit a exercer la validation contre le
+     * catalogue sans recopier les 14.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function allergenCatalogue(): array
+    {
+        return [
+            ['id' => 1, 'code' => 'gluten', 'name' => 'Gluten', 'description' => 'Cereales.'],
+            ['id' => 7, 'code' => 'milk', 'name' => 'Lait', 'description' => 'Lait.'],
+            ['id' => 11, 'code' => 'sesame', 'name' => 'Graines de sesame', 'description' => 'Sesame.'],
+        ];
+    }
+
+    private function dbWithAllergenCatalogue(): FakeDatabase
+    {
+        $db = $this->permittedDb();
+        $db->allergensRows = $this->allergenCatalogue();
+
+        return $db;
+    }
+
+    public function testIndexRemindsHowManyIngredientsLackAnAllergenReview(): void
+    {
+        $db = $this->permittedDb();
+        $db->ingredientsRows = [
+            $this->ingredient(['id' => 5, 'name' => 'Cheddar', 'allergens_reviewed_at' => '2026-07-31 10:00:00']),
+            $this->ingredient(['id' => 6, 'name' => 'Pain', 'allergens_reviewed_at' => null]),
+            $this->ingredient(['id' => 7, 'name' => 'Tomate', 'allergens_reviewed_at' => null]),
+        ];
+
+        $body = $this->controller($this->get('/admin/ingredients'), $db)->index()->body();
+
+        // Le rappel dit COMBIEN et POURQUOI : sinon un ingredient ajoute plus tard fait
+        // basculer des produits en "information non disponible" sans que ca se voie.
+        self::assertStringContainsString('2', $body);
+        self::assertStringContainsString('revue allergenes', $body);
+    }
+
+    public function testIndexStaysSilentWhenEveryIngredientIsReviewed(): void
+    {
+        $db = $this->permittedDb();
+        $db->ingredientsRows = [
+            $this->ingredient(['id' => 5, 'name' => 'Cheddar', 'allergens_reviewed_at' => '2026-07-31 10:00:00']),
+        ];
+
+        $body = $this->controller($this->get('/admin/ingredients'), $db)->index()->body();
+
+        // Pas de bandeau permanent : un rappel toujours affiche devient du decor.
+        self::assertStringNotContainsString('revue allergenes', $body);
+    }
+
+    public function testEditRendersTheAllergenMatrixWithScalarCheckboxNames(): void
+    {
+        $db = $this->dbWithAllergenCatalogue();
+        $db->ingredientAllergenRows = [['allergen_id' => 7]];
+
+        $response = $this->controller($this->get('/admin/ingredients/5/edit'), $db)->edit(['id' => '5']);
+
+        self::assertSame(200, $response->status());
+        // Champs SCALAIRES `allergen_<id>` : Request::formBody ne garde que les
+        // scalaires (meme raison que perm_<id> sur la matrice des roles). Des cases
+        // nommees allergens[] seraient perdues en silence.
+        self::assertStringContainsString('name="allergen_1"', $response->body());
+        self::assertStringContainsString('name="allergen_7"', $response->body());
+        self::assertStringContainsString('Graines de sesame', $response->body());
+    }
+
+    public function testEditPreChecksTheAllergensAlreadyDeclared(): void
+    {
+        $db = $this->dbWithAllergenCatalogue();
+        $db->ingredientAllergenRows = [['allergen_id' => 7]];
+
+        $body = $this->controller($this->get('/admin/ingredients/5/edit'), $db)->edit(['id' => '5'])->body();
+
+        // Le lait est coche, le gluten non : sinon une revue enregistree se perdrait
+        // au prochain envoi du formulaire.
+        self::assertMatchesRegularExpression('/name="allergen_7"[^>]*checked/', $body);
+        self::assertDoesNotMatchRegularExpression('/name="allergen_1"[^>]*checked/', $body);
+    }
+
+    public function testEditSaysNotReviewedWhenTheMarkerIsNull(): void
+    {
+        $db = $this->dbWithAllergenCatalogue();
+        $db->ingredientRow = $this->ingredient(['allergens_reviewed_at' => null, 'allergens_source' => null]);
+
+        $body = $this->controller($this->get('/admin/ingredients/5/edit'), $db)->edit(['id' => '5'])->body();
+
+        // L'ecran doit dire l'etat REEL : non revu. Un ecran muet laisserait croire
+        // que l'absence de case cochee vaut "sans allergene".
+        self::assertStringContainsString('Jamais revu', $body);
+    }
+
+    public function testEditShowsWhenAndFromWhereTheReviewWasDone(): void
+    {
+        $db = $this->dbWithAllergenCatalogue();
+        $db->ingredientRow = $this->ingredient([
+            'allergens_reviewed_at' => '2026-07-31 10:00:00',
+            'allergens_source'      => 'Fiche fournisseur 2026',
+        ]);
+
+        $body = $this->controller($this->get('/admin/ingredients/5/edit'), $db)->edit(['id' => '5'])->body();
+
+        self::assertStringContainsString('2026-07-31 10:00:00', $body);
+        self::assertStringContainsString('Fiche fournisseur 2026', $body);
+    }
+
+    public function testAllergensStoresOnlyTheCheckedIdsOfTheCatalogue(): void
+    {
+        $db = $this->dbWithAllergenCatalogue();
+        $request = $this->post([
+            '_csrf'       => $this->csrf,
+            'allergen_1'  => '1',
+            'allergen_7'  => '1',
+            'allergen_99' => '1', // hors catalogue : doit etre ignore (RG-T18)
+            'source'      => 'Fiche fournisseur 2026',
+        ], '/admin/ingredients/5/allergens');
+
+        $response = $this->controller($request, $db)->allergens(['id' => '5']);
+
+        self::assertSame(302, $response->status());
+        self::assertSame('/admin/ingredients/5/edit', $response->header('Location'));
+        $inserts = array_values(array_filter(
+            $db->writes,
+            static fn (array $w): bool => str_contains($w['sql'], 'INSERT INTO ingredient_allergen'),
+        ));
+        self::assertCount(2, $inserts);
+        self::assertSame([1, 7], array_map(static fn (array $w): int => (int) $w['params']['alg'], $inserts));
+    }
+
+    public function testAllergensRefusesAReviewWithoutASource(): void
+    {
+        $db = $this->dbWithAllergenCatalogue();
+        $request = $this->post([
+            '_csrf'      => $this->csrf,
+            'allergen_1' => '1',
+            'source'     => '   ',
+        ], '/admin/ingredients/5/allergens');
+
+        $response = $this->controller($request, $db)->allergens(['id' => '5']);
+
+        // Une revue sans provenance n'est pas verifiable : c'est exactement ce que ce
+        // lot combat. Le formulaire est re-affiche en 422, rien n'est ecrit.
+        self::assertSame(422, $response->status());
+        self::assertNull($this->writeParams($db, 'UPDATE ingredient SET allergens_reviewed_at'));
+        self::assertNull($this->writeParams($db, 'DELETE FROM ingredient_allergen'));
+    }
+
+    public function testAllergensAcceptsAnEmptySetAsAnExplicitAbsence(): void
+    {
+        $db = $this->dbWithAllergenCatalogue();
+        $request = $this->post([
+            '_csrf'  => $this->csrf,
+            'source' => 'Emballage fournisseur',
+        ], '/admin/ingredients/5/allergens');
+
+        $response = $this->controller($request, $db)->allergens(['id' => '5']);
+
+        self::assertSame(302, $response->status());
+        // Aucune case cochee = "verifie, aucun des 14", pas un non-geste. Le marqueur
+        // de revue doit donc etre pose.
+        self::assertNotNull($this->writeParams($db, 'UPDATE ingredient SET allergens_reviewed_at'));
+    }
+
+    public function testAllergensRecordsTheSessionActorInTheAudit(): void
+    {
+        $db = $this->dbWithAllergenCatalogue();
+        $request = $this->post([
+            '_csrf'      => $this->csrf,
+            'allergen_1' => '1',
+            'source'     => 'Fiche fournisseur',
+        ], '/admin/ingredients/5/allergens');
+
+        $this->controller($request, $db)->allergens(['id' => '5']);
+
+        // Les colonnes disent QUAND et D'OU ; l'audit dit QUI. Sur une information de
+        // securite alimentaire montree au client, les trois comptent.
+        $params = $this->writeParams($db, 'INSERT INTO audit_log');
+        self::assertNotNull($params);
+        self::assertSame('ingredient.allergens', $params['code']);
+        self::assertSame(1, $params['uid']); // user_id de la session de test
+    }
+
+    public function testAllergensRejectsAMissingCsrfToken(): void
+    {
+        $db = $this->dbWithAllergenCatalogue();
+        $request = $this->post(['allergen_1' => '1', 'source' => 'Fiche'], '/admin/ingredients/5/allergens');
+
+        $response = $this->controller($request, $db)->allergens(['id' => '5']);
+
+        // Convention du back-office : jeton invalide -> 403 en TEXTE BRUT. On verifie le
+        // corps, pas seulement le code : un refus de permission rend aussi un 403, mais
+        // avec la vue interdite -- sans cette assertion le test passerait pour la
+        // mauvaise raison.
+        self::assertSame(403, $response->status());
+        self::assertSame('Requete invalide.', $response->body());
+        self::assertSame([], $db->writes);
+    }
+
+    public function testAllergensOnAnUnknownIngredientIs404AndWritesNothing(): void
+    {
+        $db = $this->dbWithAllergenCatalogue();
+        $db->ingredientRow = null;
+        $request = $this->post(['_csrf' => $this->csrf, 'source' => 'Fiche'], '/admin/ingredients/404/allergens');
+
+        $response = $this->controller($request, $db)->allergens(['id' => '404']);
+
+        self::assertSame(404, $response->status());
+        self::assertSame([], $db->writes);
+    }
+
+    public function testAllergensRequiresTheIngredientManagePermission(): void
+    {
+        $db = $this->dbWithAllergenCatalogue();
+        $db->canResult = false; // permission refusee
+        $request = $this->post(['_csrf' => $this->csrf, 'source' => 'Fiche'], '/admin/ingredients/5/allergens');
+
+        $response = $this->controller($request, $db)->allergens(['id' => '5']);
+
+        self::assertSame(403, $response->status());
+        self::assertSame([], $db->writes);
+    }
+
+    public function testAllergensTruncatesAnOverlongSourceInsteadOfFailing(): void
+    {
+        $db = $this->dbWithAllergenCatalogue();
+        $request = $this->post([
+            '_csrf'  => $this->csrf,
+            'source' => str_repeat('a', 300), // colonne VARCHAR(120)
+        ], '/admin/ingredients/5/allergens');
+
+        $response = $this->controller($request, $db)->allergens(['id' => '5']);
+
+        self::assertSame(302, $response->status());
+        $params = $this->writeParams($db, 'UPDATE ingredient SET allergens_reviewed_at');
+        self::assertNotNull($params);
+        self::assertSame(120, mb_strlen((string) $params['src']));
+    }
 }

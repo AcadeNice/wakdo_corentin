@@ -558,6 +558,7 @@ Pas d'horodatages. Table de jointure pure.
 ```
 ingredient (id, name, unit, stock_quantity, stock_capacity, pack_size, [pack_label],
             [energy_kcal_100g], [nutrition_source], [nutrition_fetched_at],
+            [allergens_reviewed_at], [allergens_source],
             low_stock_pct, critical_stock_pct, is_active, created_at, updated_at)
 
   PK  : id
@@ -581,6 +582,8 @@ ingredient (id, name, unit, stock_quantity, stock_capacity, pack_size, [pack_lab
 | `energy_kcal_100g` | SMALLINT UNSIGNED | YES | Apport energetique pour 100 g, importe depuis l'API externe OpenFoodFacts (migration 0005) |
 | `nutrition_source` | VARCHAR(120) | YES | Provenance de la donnee nutritionnelle, ex. "OpenFoodFacts" (migration 0005) |
 | `nutrition_fetched_at` | DATETIME | YES | Horodatage de l'import nutritionnel, trace la fraicheur (migration 0005) |
+| `allergens_reviewed_at` | DATETIME | YES | Date de la derniere revue des allergenes (migration 0011). NULL = non revu : la borne dit alors "information non disponible" au lieu d'affirmer une absence |
+| `allergens_source` | VARCHAR(120) | YES | Provenance de la revue des allergenes (migration 0011), affichee dans le back-office |
 | `low_stock_pct` | SMALLINT UNSIGNED NOT NULL DEFAULT 10 | NO | Bande d’alerte, pourcentage de la capacite (CHECK BETWEEN 0 AND 100) |
 | `critical_stock_pct` | SMALLINT UNSIGNED NOT NULL DEFAULT 5 | NO | Plancher de rupture automatique, pourcentage de la capacite (CHECK BETWEEN 0 AND 100 ; CHECK de table `critical_stock_pct < low_stock_pct`) |
 | `is_active` | TINYINT(1) NOT NULL DEFAULT 1 | NO | Desactiver les ingredients obsoletes |

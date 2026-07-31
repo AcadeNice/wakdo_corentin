@@ -285,6 +285,20 @@ canonique vers ce que la borne attend. Les anciens fichiers JSON statiques sous
 | `prix` | `price_cents` |
 | `image` | `image_path` |
 | `type` | `item_type` (`product` / `menu`) |
+| `allergenes` | `allergens` (liste `{id, code, name}` calculee depuis la recette) |
+| `allergenesComplets` | `allergens_complete` |
+
+**Allergenes (F11b).** `/api/products`, `/api/products/{id}`, `/api/menus` et
+`/api/menus/{id}` portent deux champs : `allergens`, la liste CALCULEE depuis la recette
+(`product_ingredient` -> `ingredient_allergen` -> `allergen`, dedupliquee cote SQL), et
+`allergens_complete`, faux des qu'un ingredient de la recette n'a pas ete revu. Les deux
+sont indissociables : une liste vide avec `allergens_complete: true` affirme l'absence,
+la meme liste vide avec `false` veut dire "non verifie". Cote borne, `data.js` applique un
+defaut PRUDENT — une reponse sans le drapeau vaut `false`, pas `true`. Sur un menu la
+liste est celle du burger impose (meme granularite que `is_orderable`).
+`/api/allergens` conserve son role : les 14 categories INCO avec leur **description**
+reglementaire, utilisee pour expliquer chaque allergene du produit.
+Voir [ADR-0015](../adr/0015-allergenes-calcules-par-produit.md).
 
 ---
 

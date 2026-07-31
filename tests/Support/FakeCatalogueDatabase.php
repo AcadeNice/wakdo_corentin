@@ -120,6 +120,45 @@ final class FakeCatalogueDatabase implements DatabaseInterface
     public array $allergensRows = [];
 
     /**
+     * Lignes PLATES (product_id, allergen_id, code, name) renvoyees a la requete
+     * AllergenRepository::byProduct() (F11b) ; le depot les groupe par product_id.
+     *
+     * @var list<array<string, mixed>>
+     */
+    public array $allergensByProductRows = [];
+
+    /**
+     * Lignes (product_id, unreviewed) renvoyees a AllergenRepository::unreviewedByProduct()
+     * (F11b) : nombre d'ingredients du produit dont les allergenes n'ont pas ete revus.
+     *
+     * @var list<array<string, mixed>>
+     */
+    public array $unreviewedByProductRows = [];
+
+    /**
+     * Lignes (allergen_id, code, name) renvoyees a AllergenRepository::forProduct().
+     *
+     * @var list<array<string, mixed>>
+     */
+    public array $allergensForProductRows = [];
+
+    /**
+     * Ligne {n} renvoyee a AllergenRepository::unreviewedCountForProduct() ; null =
+     * aucun ingredient non revu.
+     *
+     * @var array<string, mixed>|null
+     */
+    public ?array $unreviewedCountRow = null;
+
+    /**
+     * Lignes {allergen_id} renvoyees a AllergenRepository::allergenIdsForIngredient()
+     * (precochage du formulaire back-office).
+     *
+     * @var list<array<string, mixed>>
+     */
+    public array $ingredientAllergenRows = [];
+
+    /**
      * Trace des lectures pour asserter le court-circuit du detail (id <= 0).
      *
      * @var list<array{sql: string, params: array<string|int, mixed>}>
@@ -136,6 +175,11 @@ final class FakeCatalogueDatabase implements DatabaseInterface
 
         if (str_contains($sql, 'FROM menu m JOIN category') && str_contains($sql, 'WHERE m.id = :id')) {
             return $this->menuRow;
+        }
+
+        // F11b : nombre d'ingredients non revus d'UN produit (unreviewedCountForProduct).
+        if (str_contains($sql, 'i.allergens_reviewed_at IS NULL')) {
+            return $this->unreviewedCountRow;
         }
 
         return null;
@@ -194,6 +238,24 @@ final class FakeCatalogueDatabase implements DatabaseInterface
 
         if (str_contains($sql, 'FROM menu_slot s')) {
             return $this->menuSlotRows;
+        }
+
+        // F11b : les trois lectures d'allergenes calcules. Elles precedent la branche
+        // 'FROM allergen' (catalogue des 14) car elles JOIGNENT allergen sans y lire
+        // FROM ; l'ordre reste explicite plutot que dependant de cette nuance.
+        // Le detail d'un produit est teste AVANT la liste : meme jointure, il ne s'en
+        // distingue que par sa clause WHERE.
+        if (str_contains($sql, 'JOIN ingredient_allergen ia') && str_contains($sql, 'WHERE pi.product_id = :id')) {
+            return $this->allergensForProductRows;
+        }
+        if (str_contains($sql, 'JOIN ingredient_allergen ia')) {
+            return $this->allergensByProductRows;
+        }
+        if (str_contains($sql, 'i.allergens_reviewed_at IS NULL')) {
+            return $this->unreviewedByProductRows;
+        }
+        if (str_contains($sql, 'FROM ingredient_allergen WHERE ingredient_id = :id')) {
+            return $this->ingredientAllergenRows;
         }
 
         if (str_contains($sql, 'FROM allergen')) {

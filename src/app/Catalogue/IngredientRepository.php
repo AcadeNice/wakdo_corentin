@@ -45,6 +45,7 @@ final class IngredientRepository
         $rows = $this->db->fetchAll(
             'SELECT id, name, unit, stock_quantity, stock_capacity, pack_size, pack_label, '
             . 'energy_kcal_100g, nutrition_source, nutrition_fetched_at, '
+            . 'allergens_reviewed_at, allergens_source, '
             . 'low_stock_pct, critical_stock_pct, is_active FROM ingredient ORDER BY name',
         );
 
@@ -57,8 +58,12 @@ final class IngredientRepository
     public function find(int $id): ?array
     {
         $row = $this->db->fetch(
+            // allergens_reviewed_at / allergens_source (F11b) : la liste de colonnes est
+            // EXPLICITE, donc les oublier ferait afficher "Jamais revu" a un ingredient
+            // pourtant revu. Le formulaire lit ces deux champs par renderForm().
             'SELECT id, name, unit, stock_quantity, stock_capacity, pack_size, pack_label, '
             . 'energy_kcal_100g, nutrition_source, nutrition_fetched_at, '
+            . 'allergens_reviewed_at, allergens_source, '
             . 'low_stock_pct, critical_stock_pct, is_active FROM ingredient WHERE id = :id',
             ['id' => $id],
         );
@@ -181,6 +186,82 @@ final class IngredientRepository
             . 'nutrition_fetched_at = NOW() WHERE id = :id',
             ['kcal' => $data['energy_kcal_100g'], 'src' => $data['source'], 'id' => $id],
         );
+    }
+
+    /**
+     * Remplace integralement les allergenes declares d'un ingredient (F11b) dans UNE
+     * transaction (RG-T08). Trois effets indissociables, plus une trace :
+     *
+     *  1. delete-and-reinsert de `ingredient_allergen` -- meme choix que
+     *     ProductRepository::setComposition() : reposer l'ensemble est plus simple et
+     *     plus sur qu'une reconciliation en place, la PK composite garantissant
+     *     l'unicite. L'appelant a deja valide les ids contre le catalogue des 14
+     *     (RG-T18) ; la FK RESTRICT sur allergen_id est le filet.
+     *  2. `allergens_reviewed_at = NOW()` : c'est CE geste qui rend la liste
+     *     affirmable. Une liste videe volontairement devient alors "verifie, aucun
+     *     des 14 allergenes" et non plus "personne n'a regarde".
+     *  3. `allergens_source` : d'ou vient la revue, lisible depuis l'application.
+     *
+     * Et une ligne `audit_log` dans la MEME transaction (ADR-0004 : la trace avec
+     * l'effet). Les autres ecritures d'ingredient (creation, modification, import
+     * nutritionnel) ne tracent pas ; celle-ci si, parce qu'elle change une information
+     * de securite alimentaire montree au client. Les deux colonnes disent QUAND et
+     * D'OU ; l'audit dit QUI.
+     *
+     * @param list<array{id: int, name: string}> $allergens allergenes retenus, deja
+     *        valides contre le catalogue. Liste vide = declaration explicite d'absence.
+     */
+    public function setAllergens(
+        int $id,
+        array $allergens,
+        string $source,
+        ?int $actorUserId,
+        ?int $actorRoleId,
+    ): void {
+        $this->db->transaction(function (DatabaseInterface $db) use ($id, $allergens, $source, $actorUserId, $actorRoleId): void {
+            $db->execute('DELETE FROM ingredient_allergen WHERE ingredient_id = :id', ['id' => $id]);
+            foreach ($allergens as $allergen) {
+                $db->execute(
+                    'INSERT INTO ingredient_allergen (ingredient_id, allergen_id) VALUES (:ing, :alg)',
+                    ['ing' => $id, 'alg' => $allergen['id']],
+                );
+            }
+
+            $db->execute(
+                'UPDATE ingredient SET allergens_reviewed_at = NOW(), allergens_source = :src WHERE id = :id',
+                ['src' => $source, 'id' => $id],
+            );
+
+            $db->execute(
+                'INSERT INTO audit_log (actor_user_id, actor_role_id, action_code, entity_type, entity_id, summary) '
+                . 'VALUES (:uid, :rid, :code, :etype, :eid, :summary)',
+                [
+                    'uid'     => $actorUserId,
+                    'rid'     => $actorRoleId,
+                    'code'    => 'ingredient.allergens',
+                    'etype'   => 'ingredient',
+                    'eid'     => $id,
+                    'summary' => self::allergenSummary($allergens, $source),
+                ],
+            );
+        });
+    }
+
+    /**
+     * Resume lisible pour le journal d'audit. Nomme les allergenes retenus plutot que
+     * leurs ids : la trace doit se lire sans requete complementaire. Bornee a 255
+     * caracteres (colonne summary) -- 14 libelles courts y tiennent, la troncature est
+     * une garde, pas un cas courant.
+     *
+     * @param list<array{id: int, name: string}> $allergens
+     */
+    private static function allergenSummary(array $allergens, string $source): string
+    {
+        $names = array_map(static fn (array $a): string => $a['name'], $allergens);
+        $declared = $names === [] ? 'aucun des 14' : implode(', ', $names);
+        $suffix = $source === '' ? '' : ' (source: ' . $source . ')';
+
+        return mb_substr('Allergenes revus : ' . $declared . $suffix, 0, 255);
     }
 
     public function isReferenced(int $id): bool

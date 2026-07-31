@@ -242,6 +242,22 @@ final class FakeDatabase implements DatabaseInterface
     public array $movementsRows = [];
 
     /**
+     * Catalogue des 14 allergenes INCO renvoye par AllergenRepository::all() (F11b) :
+     * alimente la matrice de cases du formulaire ingredient.
+     *
+     * @var list<array<string, mixed>>
+     */
+    public array $allergensRows = [];
+
+    /**
+     * Lignes {allergen_id} renvoyees par AllergenRepository::allergenIdsForIngredient()
+     * (F11b) : les cases deja cochees pour cet ingredient.
+     *
+     * @var list<array<string, mixed>>
+     */
+    public array $ingredientAllergenRows = [];
+
+    /**
      * Lignes renvoyees par ProductRepository::composition() (JOIN product_ingredient/ingredient).
      *
      * @var list<array<string, mixed>>
@@ -618,6 +634,14 @@ final class FakeDatabase implements DatabaseInterface
 
         if (str_contains($sql, 'FROM role WHERE is_active = 1 ORDER BY label')) {
             return $this->rolesRows;
+        }
+
+        // F11b : catalogue des 14 et cases deja cochees pour un ingredient.
+        if (str_contains($sql, 'FROM ingredient_allergen WHERE ingredient_id = :id')) {
+            return $this->ingredientAllergenRows;
+        }
+        if (str_contains($sql, 'FROM allergen ORDER BY id')) {
+            return $this->allergensRows;
         }
 
         if (str_contains($sql, 'FROM stock_movement WHERE ingredient_id')) {
