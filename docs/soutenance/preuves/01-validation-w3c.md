@@ -22,7 +22,9 @@ Le validateur employe est le **W3C Nu Html Checker** (`vnu`), c'est-a-dire **le 
 La validation est menee a **deux niveaux**, car la borne rend une partie de son contenu cote client (JavaScript) :
 
 - **Niveau 1 — pages servies** : le HTML tel que le serveur l'envoie (fichiers `src/public/borne/*.html`).
-- **Niveau 2 — DOM rendu** : le HTML apres execution du JavaScript (cartes produit, grille peuplee), capture via Playwright contre la borne en ligne avec des donnees reelles. C'est ce que verrait un jury en validant la page rendue.
+- **Niveau 2 — DOM rendu** : le HTML apres execution du JavaScript (grille categories, cartes produit), capture via Playwright contre la borne en ligne avec des donnees reelles. C'est ce que verrait un jury en validant la page rendue.
+
+Depuis le passage de l'ecran categories sur `GET /api/categories`, cet ecran releve du niveau 2 comme l'ecran produits : sa grille est peuplee par `page-categories.js`, la page servie ne contient plus aucune carte.
 
 ---
 
@@ -38,6 +40,10 @@ Sorties brutes du validateur versionnees comme artefacts :
 - `w3c/borne-statique.json` — `{"messages":[]}` (aucun message sur les 5 pages servies).
 - `w3c/borne-rendu.json` — 0 erreur, 1 avertissement sur `produits`.
 - `w3c/dom-rendu/` — le HTML rendu (accueil, categories, produits) reellement soumis au validateur.
+
+**Niveau 1 rejoue apres le passage de l'ecran categories en dynamique** : la commande ci-dessous a ete relancee sur le nouveau balisage, resultat identique (`{"messages":[]}`), artefact inchange au bit pres.
+
+**Reserve datee sur le niveau 2** : `w3c/dom-rendu/categories.html` est la capture d'AVANT ce changement (elle contient encore la grille servie en dur). La recapture est faite en une seule campagne a la fin des lots qui touchent au balisage de la borne, et apres nettoyage des donnees de demonstration — capturer maintenant figerait dans une piece destinee au jury deux categories de test creees pendant les essais du back-office. Le niveau 1 ci-dessus, lui, est a jour.
 
 ### Commande reproductible (pages servies)
 

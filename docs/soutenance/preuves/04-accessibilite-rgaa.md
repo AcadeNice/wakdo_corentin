@@ -23,11 +23,11 @@ Chaque affirmation est mappee au code de critere attendu (Cr 1.c.x) et sourcee e
 
 ### Images (RGAA theme 1)
 
-- **Images informatives avec `alt` pertinent.** Chaque carte categorie porte un `alt` decrivant la categorie : `categories.html:56-60` (`alt="Menus"`), et les 8 autres cartes suivent le meme motif (`categories.html:64-174`). Les boutons de choix d'accueil : `index.html:78-82` (`alt="Table et chaises - Sur place"`) et `index.html:92-96` (`alt="Sac a emporter"`).
+- **Images informatives avec `alt` pertinent.** Les cartes categorie sont generees depuis le catalogue et portent un `alt` egal au libelle de la categorie : `page-categories.js:69-70`. Une categorie sans visuel n'emet aucune balise `<img>` plutot qu'une image sans source (`page-categories.js:68-71`). Les boutons de choix d'accueil : `index.html:78-82` (`alt="Table et chaises - Sur place"`) et `index.html:92-96` (`alt="Sac a emporter"`).
 - **Image decorative neutralisee.** La photo de fond d'accueil porte `alt=""` **et** `aria-hidden="true"` : `index.html:52-57`. Le contenu utile vit dans la carte, l'image n'est donc pas annoncee.
 - **Logo.** Le logo d'en-tete porte `alt="Wakdo"` sur les pages concernees : `categories.html:27-31`, `products.html:31-35`, `payment.html:29-33`, `confirmation.html:22-26`.
 - **Icones SVG purement decoratives** marquees `aria-hidden="true"` + `focusable="false"` : SVG carte/especes de paiement `payment.html:61,77`, coche de confirmation `confirmation.html:34`.
-- **Images injectees dynamiquement.** Les cartes produit generees par JS recoivent un `alt` egal au nom du produit et un fallback qui reecrit le `alt` en cas d'echec de chargement : `page-products.js:78-86` (`alt="${escHtml(product.nom)}"`, `onerror` posant `this.alt='Image non disponible'`). L'icone corbeille du panneau de commande est decorative : `alt=""` + `aria-hidden="true"`, l'information etant portee par l'`aria-label` du bouton parent : `order-panel.js:132-139`.
+- **Images injectees dynamiquement.** Les cartes produit et categorie generees par JS recoivent un `alt` egal au nom de l'article. Le repli en cas d'echec de chargement passe par l'attribut `data-fallback`, lu par un ecouteur delegue au niveau du document — et non par un `onerror` en ligne, que la CSP stricte de la borne interdit : `page-products.js:81-87` et `page-categories.js:69-70` (`data-fallback="logo" data-fallback-alt="Image non disponible"`), coeur du repli `img-fallback.js:23-36`. L'icone corbeille du panneau de commande est decorative : `alt=""` + `aria-hidden="true"`, l'information etant portee par l'`aria-label` du bouton parent : `order-panel.js:132-139`.
 
 ### aria-label et roles sur les controles
 
@@ -40,7 +40,7 @@ Chaque affirmation est mappee au code de critere attendu (Cr 1.c.x) et sourcee e
 
 ### Landmarks et regions vivantes
 
-- **Landmarks** sur chaque page : `main` avec `aria-label` (ex. `index.html:46`, `products.html:39`, `payment.html:37`, `confirmation.html:29`), `nav` etiquetees (`index.html:66`, `categories.html:48`, `products.html:41`).
+- **Landmarks** sur chaque page : `main` avec `aria-label` (ex. `index.html:46`, `products.html:39`, `payment.html:37`, `confirmation.html:29`), `nav` etiquetees (`index.html:66`, `categories.html:53`, `products.html:41`).
 - **`aria-live`** : le panneau de commande annonce ses mises a jour (`aside ... aria-live="polite"`, `products.html:61`) ; la banniere de confirmation est un `role="status" aria-live="polite"` (`confirmation.html:31`) ; les blocs d'erreur sont `role="alert"` (`products.html:53`, `payment.html:46`).
 - **`lang="fr"`** present sur les 5 pages (verifie : 1 occurrence par fichier).
 
@@ -60,7 +60,7 @@ Fonctionnalite complete, prevue **et** integree, avec bascule utilisateur persis
 - **`@font-face`** declares (poids 400 et 700) avec `font-display: swap` : `style.css:1926-1939`.
 - **Bascule par classe racine.** `html.dys-font` redefinit `--font-family-base` vers la pile OpenDyslexic, appliquee a toute l'interface : `style.css:1944-1946`.
 - **Module de bascule** `a11y.js` : lit la preference (`isDyslexiaEnabled`, l.27-33), applique/retire la classe sur `<html>` (`applyDyslexiaPreference`, l.40-44), persiste dans `localStorage` (`persistDyslexiaPreference`, l.51-59), construit un bouton `aria-pressed` refletant l'etat (`buildDyslexiaToggle`, l.68-98), injecte le bouton de facon idempotente (`initDyslexiaToggle`, l.106-125) et s'auto-initialise au `DOMContentLoaded` (l.129-131).
-- **Bouton present sur chaque ecran** : le tag `<script type="module" src="assets/js/a11y.js">` est charge par les 5 pages (`index.html:104`, `categories.html:184`, `products.html:68`, `payment.html:92`, `confirmation.html:70`).
+- **Bouton present sur chaque ecran** : le tag `<script type="module" src="assets/js/a11y.js">` est charge par les 5 pages (`index.html:104`, `categories.html:62`, `products.html:68`, `payment.html:92`, `confirmation.html:70`).
 - **Robustesse.** L'acces storage est encapsule en `try/catch` : mode prive ou quota indisponible retombe sur la police de base sans erreur (l.28-32, l.52-58).
 - **Style du bouton** : controle fixe en bas-gauche, `z-index` eleve, hors collision avec le bouton Retour et le panneau panier : `style.css:1952-1970`.
 - **Tests unitaires** (jsdom, sans navigateur) : `tests/js/a11y.test.js` couvre lecture de preference, application de classe, injection idempotente, reflet `aria-pressed`, cycle de clic + persistance, et le cas storage qui jette (l.39-106).
@@ -92,7 +92,9 @@ L'information ne repose pas sur la seule couleur : un libelle textuel ou une ico
 
 ### Navigation native, pas de piege
 
-- **Navigation par liens HTML natifs.** L'accueil et les cartes categorie sont de simples `<a href>` : la tabulation et l'activation clavier fonctionnent sans JavaScript (`index.html:72-98`, `categories.html:51-174`). Le commentaire de code le souligne (`index.html:44`, `categories.html:44`).
+- **Navigation par liens HTML natifs.** Les choix d'accueil sont de simples `<a href>` servis directement dans le HTML : la tabulation et l'activation clavier y fonctionnent sans JavaScript (`index.html:72-98`, commentaire `index.html:44`). Les cartes categorie, elles, sont **generees par JavaScript** depuis `GET /api/categories` (`page-categories.js:63-79`) : cet ecran depend donc du JS pour s'afficher, comme les ecrans produits et paiement. Une fois rendues, ce sont de vrais `<a href>` — le focus, la tabulation et l'activation clavier sont natifs, pas simules (`page-categories.js:73`).
+
+  **Reserve assumee, a defendre a l'oral.** La page portait auparavant une liste de neuf cartes ecrite en dur, qui s'affichait sans JavaScript mais ne refletait pas le catalogue reel : une categorie desactivee, renommee ou ajoutee en back-office restait fausse a l'ecran. Le choix retenu est d'afficher le catalogue juste plutot que de fonctionner sans JavaScript sur un ecran qui, de toute facon, ne permet pas de commander sans JavaScript (composeur, panier et paiement en dependent). Un repli statique aurait reintroduit exactement la donnee codee en dur que ce lot supprime.
 - **Cartes produit focusables au clavier.** Bien que le clic ouvre une modale, la carte reste un `<a>` avec `href` pour conserver focus et activation clavier (`page-products.js:70-74`, commentaire l.72-73).
 - **Modales sans piege bloquant, avec focus gere.** La modale de confirmation d'un geste destructeur (`confirm-modal.js`) :
   - piege le `Tab`/`Shift+Tab` en boucle sur ses boutons (l.50-59) ;
@@ -116,9 +118,9 @@ Verdicts : **conforme** (preuve dans le code) · **partiel** (couvert mais reser
 
 | Critere | Preuve (fichier:ligne) | Verdict | Commentaire |
 |---|---|---|---|
-| Image informative a une alternative | `categories.html:56-60,64-174` ; `index.html:78-96` | conforme | `alt` decrivant chaque categorie / illustration de mode. |
+| Image informative a une alternative | `page-categories.js:69-70` ; `index.html:78-96` | conforme | `alt` = libelle de categorie (genere depuis le catalogue) / illustration de mode. |
 | Image decorative correctement ignoree | `index.html:52-57` | conforme | `alt=""` + `aria-hidden="true"` sur le fond d'accueil. |
-| Alternative des images injectees | `page-products.js:78-86` | conforme | `alt` = nom produit ; `onerror` reecrit `alt` en fallback. |
+| Alternative des images injectees | `page-products.js:81-87` ; `page-categories.js:69-70` ; `img-fallback.js:23-36` | conforme | `alt` = nom de l'article ; repli par `data-fallback` delegue, aucun `onerror` en ligne (CSP stricte). |
 | Icones/SVG decoratifs ignores | `payment.html:61,77` ; `confirmation.html:34` ; `order-panel.js:138` | conforme | `aria-hidden="true"` + `focusable="false"` / `alt=""`. |
 
 ### Theme 3 — Couleurs
