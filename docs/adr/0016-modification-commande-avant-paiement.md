@@ -99,21 +99,85 @@ l'appui, le DELETE d'un enfant ne la verrouille pas — il y a donc une **fenetr
 entre le DELETE et l'INSERT** d'un remplacement. S'appuyer sur cet effet de bord serait
 bati sur du sable.
 
-**Decision.** `lockOrder()` prend un verrou de ligne explicite, appele par les deux seules
-operations concernees (M1 et T2), en **premiere instruction** de leur transaction. La
-serialisation devient explicite : quand `lockOrder` rend la main, toute modification
-concurrente a deja committe, donc tout instantane ouvert ensuite la contient.
+**Decision, en deux temps.** `lockOrder()` prend un verrou de ligne explicite, appele par
+les deux operations concernees (M1 et T2), en **premiere instruction** de leur
+transaction. La serialisation devient explicite : quand `lockOrder` rend la main, toute
+modification concurrente a deja committe.
 
-**Ce qui reste a surveiller, et qui est teste.** Le verrou n'immunise que s'il est pris
-AVANT toute lecture non verrouillante : une lecture simple placee avant lui figerait
-l'instantane trop tot et ramenerait exactement le defaut mesure. Cet invariant est plus
-naturel et plus lisible que « aucun SELECT avant la garde » — un lecteur qui voit
-`lockOrder` en tete comprend qu'il doit y rester — mais il n'est pas auto-verifiant. Un
-test de non-regression le verrouille donc explicitement : il echoue si une lecture du
-contenu de la commande precede la prise de verrou.
+Mais un verrou de ligne seul laissait subsister le piege de la lecture precoce : une
+relecture adversariale l'a **mesure** sur cette conception meme — avec une lecture simple
+posee avant le verrou, le `FOR UPDATE` rendait le NOUVEAU total (420) tandis que la
+lecture qui suivait rendait les ANCIENNES lignes. Pire, le verrou donnait alors au
+relecteur une **fausse impression de protection structurelle**, ce qui rendait le piege
+plus facile a poser qu'avant.
+
+D'ou le second temps : **les lectures du contenu de la commande sont elles-memes
+verrouillantes** (`order_item`, `order_item_selection`, `order_item_modifier` dans
+`consumption()`). Une lecture verrouillante lit la derniere version committee et non
+l'instantane de la transaction, quoi qu'il se passe avant elle. La fraicheur devient donc
+**structurelle** au lieu de dependre de l'ordre des instructions. Le catalogue
+(`product_ingredient`) n'est PAS verrouille : c'est de la donnee de reference partagee,
+pas le contenu de cette commande, et la verrouiller depuis ce chemin bloquerait des
+lectures de catalogue sans rapport.
+
+Un test de non-regression garde en plus l'ordre (le verrou avant toute lecture du
+contenu), en ceinture et bretelles.
 
 Le prix paye est nomme : une exception au motif unique du projet, confinee a une methode
-privee documentee. C'est ce que je defends a l'oral, mesures a l'appui.
+privee documentee et a une methode de calcul. C'est ce que je defends a l'oral, mesures a
+l'appui.
+
+### (b bis) L'en-tete de service suit le panier, sinon le marqueur fiscal est faux
+
+Le defaut le plus grave de la premiere version de ce lot ne demandait meme pas de
+concurrence, et une relecture adversariale l'a trouve. `replaceItems` ne rafraichissait
+que les lignes et les totaux : `service_mode` et `service_tag` restaient ceux de la
+creation.
+
+Sequence, entierement realisable par des gestes normaux : le client choisit « sur place »,
+saisit le chevalet 12, son paiement echoue (la borne conserve panier ET cle), il retourne
+a l'accueil, passe « a emporter », et paie. La commande etait alors **encaissee en
+`dine_in` avec le chevalet 12**. Or le projet traite ce marqueur comme la distinction
+fiscale (TVA salle contre vente a emporter) : il aurait ete faux sur une commande payee,
+donc sur le chiffre d'affaires. Et un equipier aurait porte un plateau a la table 12 que
+personne n'occupe. Le sens miroir cassait aussi : passer de « a emporter » a « sur place »
+jetait le chevalet saisi, laissant le client attendre a une table non identifiable.
+Aucun code d'erreur, aucune trace : l'ecart etait silencieux.
+
+L'en-tete est donc rafraichi **dans la meme transaction** que les lignes, en rejouant
+exactement la validation de la creation (`resolveHeader`, extrait pour etre partage) : le
+mode est valide contre son ensemble, le chevalet n'est conserve qu'en salle, et RG-T09
+(source `drive` impose le mode `drive`) est enoncee dans le code plutot que laissee a la
+contrainte de base — sinon une evolution du flux rendrait un 500 au lieu d'un refus
+metier lisible.
+
+### (b ter) La cle vit le temps du PANIER, pas le temps de l'onglet
+
+Garder la cle pour pouvoir modifier la commande la fait aussi durer **au-dela du client**,
+et une borne est partagee. Sequence trouvee en relecture : le client A laisse une commande
+en attente et s'en va ; le client B abandonne le panier de A, compose le sien, paie. La
+commande de B venait s'installer **dans la commande de A** — heritant son mode de service,
+son `created_at` (donc son horloge d'expiration), et son numero deja affiche a A. Si A
+revenait consulter son suivi, il lisait la commande de B.
+
+Correctif : `clearCheckoutKey()` est appele partout ou `clearCart()` l'est hors succes —
+l'abandon du panneau de commande et le bouton « Nouvelle commande ». **Panier vide vaut
+session de paiement soldee.** Le cas « deux bornes / deux onglets avec la meme cle » n'est
+pas atteignable (`sessionStorage` est par onglet, la cle est tiree au hasard) : le seul
+partage reel etait celui-ci, deux clients successifs dans le meme onglet.
+
+### (b quater) Le balayage porte sur la derniere activite
+
+`expireStalePending` selectionnait sur `created_at`, que `replaceItems` ne rafraichit pas.
+Une commande creee a 10h00 et **modifiee a 12h01** satisfaisait encore le predicat a 12h02 :
+elle mourait sous le client, juste apres que le serveur lui a confirme sa modification. Le
+balayage affirmait dans son audit une expiration « restee en attente » alors que la
+commande venait d'etre touchee.
+
+Le predicat devient `GREATEST(created_at, updated_at)`. L'intention du balayage — liberer
+ce qui est reellement laisse en plan — est respectee au lieu d'etre contredite. Amende a
+[ADR-0014](0014-expiration-commandes-pending.md), dont c'est une consequence directe :
+rendre une commande modifiable change ce que « abandonnee » veut dire.
 
 ### (c) L'encaissement relit son total sous le verrou
 
@@ -175,8 +239,16 @@ signal (les deux gardes rendent 1 ligne affectee alors que le stock est faux).
 - (-) Un renvoi de tentative reelle (memes lignes) fait quelques ecritures inutiles au
   lieu d'aucune. Assume : la simplicite d'un remplacement systematique vaut mieux qu'une
   comparaison de paniers, dont une erreur ferait payer un contenu perime.
-- (-) La borne conserve sa cle plus longtemps qu'avant. Borne par la duree de vie de
-  `sessionStorage` (l'onglet), liberee au succes et sur `ORDER_CANCELLED`.
+- (-) La borne conserve sa cle plus longtemps qu'avant. Bornee au PANIER : liberee au
+  succes, sur `ORDER_CANCELLED`, a l'abandon du panier et sur « Nouvelle commande ».
+- (-) **Reliquat pre-existant, inscrit ici pour ne pas le decouvrir en soutenance.** La
+  garde de rupture (RG-T21) est evaluee AVANT le verrou et `pay()` ne la rejoue pas : deux
+  clients peuvent chacun passer la garde sur la derniere portion d'un ingredient et etre
+  tous deux encaisses. Comme `stock_quantity` est un entier signe sans contrainte
+  `>= 0`, le stock passe simplement en negatif, sans erreur, et personne n'est prevenu a
+  l'encaissement. La fenetre existait deja entre creation et paiement ; F18 ne l'aggrave
+  pas materiellement. La corriger est une autre fonctionnalite (reserver le stock a
+  l'encaissement, ou ajouter la contrainte pour rendre la survente visible).
 
 Fichiers : `src/app/Order/OrderRepository.php` (`replaceItems`, `lockOrder`,
 `resolveAndTotal`, `insertLines`, `createPending`, `pay`),

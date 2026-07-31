@@ -366,6 +366,86 @@ final class OrderReplaceDbTest extends TestCase
         self::assertNotSame($first['total_ttc_cents'], $second['total_ttc_cents']);
     }
 
+    public function testTheServiceModeFollowsTheClientNotTheFirstSubmission(): void
+    {
+        // Scenario reel, entierement realisable par des gestes normaux : le client cree sa
+        // commande en salle avec un chevalet, son paiement echoue, il repasse a emporter,
+        // puis il paie. Sans rafraichissement de l'en-tete, la commande PAYEE resterait
+        // enregistree "sur place" avec le chevalet -- or le projet traite ce marqueur comme
+        // la distinction fiscale (TVA salle contre vente a emporter), donc le chiffre
+        // d'affaires serait faux, et un equipier porterait un plateau a une table vide.
+        $created = $this->repo()->createPending([
+            'idempotency_key' => 'IT-F18R-' . $this->suffix . '-mode',
+            'service_mode'    => 'dine_in',
+            'service_tag'     => '12',
+            'items'           => [['type' => 'product', 'product_id' => $this->productA, 'quantity' => 1]],
+        ]);
+        $before = $this->db->fetch(
+            'SELECT service_mode, service_tag FROM customer_order WHERE id = :id',
+            ['id' => $created['id']],
+        );
+        self::assertSame('dine_in', $before['service_mode']);
+        self::assertSame('12', $before['service_tag']);
+
+        $this->repo()->replaceItems($created['order_number'], [
+            'service_mode' => 'takeaway',
+            'items'        => [['type' => 'product', 'product_id' => $this->productB, 'quantity' => 1]],
+        ]);
+
+        $after = $this->db->fetch(
+            'SELECT service_mode, service_tag FROM customer_order WHERE id = :id',
+            ['id' => $created['id']],
+        );
+        self::assertSame('takeaway', $after['service_mode']);
+        // Le chevalet est efface : un numero de table n'a aucun sens sur une vente a
+        // emporter, et le laisser enverrait un plateau a une table.
+        self::assertNull($after['service_tag']);
+    }
+
+    public function testSwitchingBackToDineInStoresTheNewChevalet(): void
+    {
+        $created = $this->repo()->createPending([
+            'idempotency_key' => 'IT-F18R-' . $this->suffix . '-mode2',
+            'service_mode'    => 'takeaway',
+            'items'           => [['type' => 'product', 'product_id' => $this->productA, 'quantity' => 1]],
+        ]);
+
+        $this->repo()->replaceItems($created['order_number'], [
+            'service_mode' => 'dine_in',
+            'service_tag'  => '7',
+            'items'        => [['type' => 'product', 'product_id' => $this->productB, 'quantity' => 1]],
+        ]);
+
+        // Sens miroir : le chevalet saisi au second passage est pose. Sans cela le client
+        // attendrait a une table que personne ne peut identifier.
+        $after = $this->db->fetch(
+            'SELECT service_mode, service_tag FROM customer_order WHERE id = :id',
+            ['id' => $created['id']],
+        );
+        self::assertSame('dine_in', $after['service_mode']);
+        self::assertSame('7', $after['service_tag']);
+    }
+
+    public function testTheDatabaseConstraintOnTotalsStillHoldsAfterAReplacement(): void
+    {
+        $created = $this->createOrder($this->productA, 1);
+
+        $this->repo()->replaceItems($created['order_number'], [
+            'service_mode' => 'takeaway',
+            'items'        => [['type' => 'product', 'product_id' => $this->productB, 'quantity' => 7]],
+        ]);
+
+        // chk_customer_order_total_coherent impose ttc = ht + vat, et chk_..._total_ttc
+        // impose ttc > 0. Un remplacement qui les violerait leverait une exception de
+        // contrainte : ce test prouve que le calcul recalcule reste conforme au schema.
+        $row = $this->orderRow($created['id']);
+        self::assertGreaterThan(0, (int) $row['total_ttc_cents']);
+        self::assertSame(
+            (int) $row['total_ttc_cents'],
+            (int) $row['total_ht_cents'] + (int) $row['total_vat_cents'],
+        );
+    }
+
     public function testPaymentAfterAModificationChargesTheNewTotal(): void
     {
         $created = $this->createOrder($this->productA, 1);

@@ -69,7 +69,7 @@ final class OrderRepositoryReplaceTest extends TestCase
         self::assertSame(1390, $res['total_ttc_cents']);
         self::assertSame('K100', $res['order_number']);
         self::assertSame('pending_payment', $res['status']);
-        $totals = $db->firstWrite('UPDATE customer_order SET total_ht_cents');
+        $totals = $db->firstWrite('UPDATE customer_order SET service_mode');
         self::assertSame(1390, $totals['ttc']);
         // HT = round(890*1000/1100) + 2*round(250*1000/1100) = 809 + 2*227 = 1263.
         self::assertSame(1263, $totals['ht']);
@@ -95,7 +95,7 @@ final class OrderRepositoryReplaceTest extends TestCase
         self::assertSame($atCreation['total_ttc_cents'], $atReplace['total_ttc_cents']);
         self::assertSame(
             $created->firstWrite('INSERT INTO customer_order')['ht'],
-            $db->firstWrite('UPDATE customer_order SET total_ht_cents')['ht'],
+            $db->firstWrite('UPDATE customer_order SET service_mode')['ht'],
         );
     }
 
@@ -149,14 +149,109 @@ final class OrderRepositoryReplaceTest extends TestCase
         $this->repo($db)->replaceItems('K100', $this->req([['type' => 'product', 'product_id' => 13, 'quantity' => 1]]));
     }
 
-    public function testRefusesToModifyACancelledOrder(): void
+    public function testACancelledOrderSignalsThatTheKeyIsSpentNotAGenericConflict(): void
     {
         $db = $this->pendingDb();
+        // La commande a ete annulee par un equipier, ou expiree par le planificateur,
+        // entre la lecture de la cle et la prise de verrou.
         $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => 'cancelled'];
 
+        try {
+            $this->repo($db)->replaceItems('K100', $this->req([['type' => 'product', 'product_id' => 13, 'quantity' => 1]]));
+            self::fail('une commande annulee ne doit pas etre modifiable');
+        } catch (OrderValidationException $exception) {
+            // ORDER_CANCELLED et non INVALID_TRANSITION : c'est ce code precis qui
+            // declenche la reprise unique de la borne (cle neuve). Avec un conflit
+            // generique, le client voyait "le paiement n'a pas pu aboutir" et ne se
+            // debloquait qu'au SECOND appui -- ce qui se lit comme une borne en panne.
+            self::assertSame('ORDER_CANCELLED', $exception->getMessage());
+        }
+    }
+
+    public function testRefusesToModifyAnOrderAlreadyInTheKitchen(): void
+    {
+        $db = $this->pendingDb();
+        $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => 'ready'];
+
+        // Un etat encaisse n'est ni modifiable ni reprenable : son stock est deja debite.
+        // La distinction avec 'cancelled' compte, la borne ne reprend que sur ce dernier.
         $this->expectException(OrderValidationException::class);
         $this->expectExceptionMessage('INVALID_TRANSITION');
         $this->repo($db)->replaceItems('K100', $this->req([['type' => 'product', 'product_id' => 13, 'quantity' => 1]]));
+    }
+
+    // -------------------------------------------------------------------------
+    // L'en-tete de service suit le panier
+    // -------------------------------------------------------------------------
+
+    public function testRefreshesTheServiceModeAndTag(): void
+    {
+        $db = $this->pendingDb();
+
+        // Le client avait cree sa commande en salle ; il repasse a emporter.
+        $this->repo($db)->replaceItems('K100', [
+            'service_mode' => 'takeaway',
+            'items' => [['type' => 'product', 'product_id' => 13, 'quantity' => 1]],
+        ]);
+
+        // C'est le trou le plus grave que la relecture adversariale a trouve : sans ce
+        // rafraichissement, la commande etait ENCAISSEE sur l'ancien mode. Or le projet
+        // traite ce marqueur comme la distinction fiscale (TVA salle contre vente a
+        // emporter) : il serait faux sur une commande payee, donc sur le chiffre
+        // d'affaires. Et un equipier porterait un plateau a une table vide.
+        $header = $db->firstWrite('UPDATE customer_order SET service_mode');
+        self::assertSame('takeaway', $header['mode']);
+        self::assertNull($header['tag']);
+    }
+
+    public function testKeepsTheChevaletNumberWhenSwitchingToDineIn(): void
+    {
+        $db = $this->pendingDb();
+
+        $this->repo($db)->replaceItems('K100', [
+            'service_mode' => 'dine_in',
+            'service_tag'  => '7',
+            'items' => [['type' => 'product', 'product_id' => 13, 'quantity' => 1]],
+        ]);
+
+        // Sens miroir : le chevalet saisi au second passage doit etre pose, pas jete.
+        // Sinon le client attend a une table que personne ne peut identifier.
+        $header = $db->firstWrite('UPDATE customer_order SET service_mode');
+        self::assertSame('dine_in', $header['mode']);
+        self::assertSame('7', $header['tag']);
+    }
+
+    public function testAnInvalidServiceModeIsRefusedBeforeAnyWrite(): void
+    {
+        $db = $this->pendingDb();
+
+        try {
+            $this->repo($db)->replaceItems('K100', [
+                'service_mode' => 'teleportation',
+                'items' => [['type' => 'product', 'product_id' => 13, 'quantity' => 1]],
+            ]);
+            self::fail('un mode de service invalide doit etre refuse');
+        } catch (OrderValidationException $exception) {
+            self::assertSame('INVALID_SERVICE_MODE', $exception->getMessage());
+        }
+
+        // Meme validation qu'a la creation, et appliquee AVANT la transaction.
+        self::assertSame([], $db->writes);
+    }
+
+    public function testADriveOrderCannotLeaveDriveMode(): void
+    {
+        $db = $this->pendingDb();
+        $db->orderByNumber = ['id' => 100, 'order_number' => 'D100', 'total_ttc_cents' => 890, 'status' => 'pending_payment', 'source' => 'drive'];
+
+        // RG-T09 enoncee dans le code plutot que laissee a la contrainte de base : sans
+        // elle, chk_customer_order_drive_mode rendrait un 500 au lieu d'un refus metier.
+        $this->expectException(OrderValidationException::class);
+        $this->expectExceptionMessage('INVALID_SERVICE_MODE');
+        $this->repo($db)->replaceItems('D100', [
+            'service_mode' => 'takeaway',
+            'items' => [['type' => 'product', 'product_id' => 13, 'quantity' => 1]],
+        ]);
     }
 
     public function testAPaidOrderIsNotTouchedAtAllWhenRefused(): void
@@ -236,11 +331,13 @@ final class OrderRepositoryReplaceTest extends TestCase
         $this->repo($db)->replaceItems('K100', $this->req([['type' => 'product', 'product_id' => 13, 'quantity' => 1]]));
 
         // Le numero est deja affiche au client et la cle porte l'idempotence : les
-        // reecrire ferait perdre le lien avec la session de paiement en cours.
-        $totalsSql = $db->firstWriteSql('UPDATE customer_order SET total_ht_cents');
+        // reecrire ferait perdre le lien avec la session de paiement en cours. Le statut
+        // non plus : la modification n'est pas une transition.
+        $totalsSql = $db->firstWriteSql('UPDATE customer_order SET service_mode');
         self::assertStringNotContainsString('order_number', $totalsSql);
         self::assertStringNotContainsString('idempotency_key', $totalsSql);
         self::assertStringNotContainsString('status', $totalsSql);
+        self::assertStringNotContainsString('created_at', $totalsSql);
     }
 
     // -------------------------------------------------------------------------
@@ -277,12 +374,38 @@ final class OrderRepositoryReplaceTest extends TestCase
         // Un verrou pris d'un seul cote ne serialise rien. Cette assertion est le pendant
         // de la precedente : si l'encaissement cessait de le prendre, une modification
         // pourrait s'intercaler et le debit de stock porterait sur des lignes remplacees.
+        // L'encaissement prend PLUSIEURS verrous (la commande, puis son contenu) ; ce qui
+        // compte ici est que le PREMIER porte sur la ligne de commande.
         $lock = array_values(array_filter(
             $db->reads,
             static fn (array $r): bool => str_contains($r['sql'], 'FOR UPDATE'),
         ));
-        self::assertCount(1, $lock);
+        self::assertNotSame([], $lock);
+        self::assertStringContainsString('FROM customer_order', $lock[0]['sql']);
         self::assertSame(['n' => 'K100'], $lock[0]['params']);
+    }
+
+    public function testPaymentLocksTheOrderContentItAggregates(): void
+    {
+        $db = $this->pendingDb();
+        $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => 'pending_payment'];
+        $db->orderItems = [['id' => 1, 'item_type' => 'product', 'product_id' => 12, 'menu_id' => null, 'format' => 'normal', 'quantity' => 1]];
+        $db->compositions[12] = [['ingredient_id' => 5, 'quantity_normal' => 2, 'quantity_maxi' => 2, 'is_removable' => 0]];
+
+        $this->repo($db)->pay('K100');
+
+        // La lecture d'agregation est VERROUILLANTE : elle voit donc toujours la derniere
+        // version committee, quoi qu'il se passe avant elle dans la transaction. Mesure a
+        // l'origine de ce choix : avec une lecture simple, une seule lecture ajoutee plus
+        // tot dans la transaction figeait l'instantane et le stock etait debite d'apres des
+        // lignes deja remplacees -- sans qu'aucune garde ne bronche. Verrouiller rend la
+        // fraicheur structurelle plutot que dependante de l'ordre des instructions.
+        $itemsRead = array_values(array_filter(
+            $db->reads,
+            static fn (array $r): bool => str_contains($r['sql'], 'FROM order_item WHERE order_id'),
+        ));
+        self::assertNotSame([], $itemsRead);
+        self::assertStringContainsString('FOR UPDATE', $itemsRead[0]['sql']);
     }
 
     public function testPaymentLocksBeforeAnyNonLockingReadInsideItsTransaction(): void

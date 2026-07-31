@@ -171,6 +171,30 @@ test('renderOrderPanel: Abandon demande confirmation avant d effacer', () => {
     assert.equal(JSON.parse(localStorage.getItem('wakdo_cart')).length, 1);
 });
 
+test('renderOrderPanel: Abandon confirme libere aussi la cle de paiement (F18)', () => {
+    // Scenario multi-client, le vrai risque d'une borne partagee : le client A laisse une
+    // commande en attente et s'en va ; le client B abandonne le panier de A et compose le
+    // sien. Si la cle d'idempotence de A survivait, la commande de B viendrait s'installer
+    // DANS la commande de A -- elle heriterait son mode de service, son horloge
+    // d'expiration, et son numero deja affiche a A. La cle doit donc vivre le temps du
+    // PANIER, pas le temps de l'onglet.
+    global.sessionStorage = {
+        _s: { wakdo_order_key: 'cle-du-client-precedent' },
+        getItem(k) { return k in this._s ? this._s[k] : null; },
+        setItem(k, v) { this._s[k] = String(v); },
+        removeItem(k) { delete this._s[k]; },
+    };
+    localStorage.setItem('wakdo_cart', JSON.stringify([simple()]));
+    const el = document.createElement('aside');
+    renderOrderPanel(el);
+
+    el.querySelector('.order-panel__abandon').click();
+    document.querySelector('.confirm-modal__confirm').click();
+
+    assert.equal(JSON.parse(localStorage.getItem('wakdo_cart') || '[]').length, 0);
+    assert.equal(global.sessionStorage.getItem('wakdo_order_key'), null);
+});
+
 test('renderOrderPanel: libelle de ligne echappe (anti-XSS RG-T15)', () => {
     localStorage.setItem('wakdo_cart', JSON.stringify([simple({ libelle: '<img src=x onerror=alert(1)>' })]));
     const el = document.createElement('aside');
