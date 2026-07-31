@@ -82,7 +82,7 @@ Detail et justifications : `docs/PROJECT_CONTEXT.md` section 6.
                                 v
                         wakdo-db   (MariaDB 11.4)
 
-                  wakdo-cron       (backup BDD + purge audit-log + purge throttle)
+                  wakdo-cron       (backup BDD + purge audit-log + purge throttle + expiration commandes en attente)
 ```
 
 Reseaux, volumes, services et decoupage reseau interne / reseau proxy : voir `docs/PROJECT_CONTEXT.md` section 5.

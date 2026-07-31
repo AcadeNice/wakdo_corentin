@@ -20,6 +20,15 @@ final class FakeOrderDatabase implements DatabaseInterface
     /** @var list<array{sql:string, params:array<string,mixed>}> */
     public array $writes = [];
 
+    /**
+     * Lectures tracees, comme dans les deux autres doubles. Sert a verrouiller sur la
+     * requete ce qu'un bouton ne peut pas montrer : ici le bornage des valeurs
+     * interpolees dans INTERVAL / LIMIT, qu'aucun parametre lie ne peut porter.
+     *
+     * @var list<array{sql:string, params:array<string,mixed>}>
+     */
+    public array $reads = [];
+
     /** @var array<int, array<string,mixed>> produits indexes par id (find). */
     public array $products = [];
     /** @var array<int, array<string,mixed>> menus indexes par id (find). */
@@ -51,6 +60,26 @@ final class FakeOrderDatabase implements DatabaseInterface
     public array $orderItems = [];
 
     /**
+     * Candidates renvoyees a la selection d'expireStalePending (F10) : commandes restees
+     * en attente de paiement au-dela du delai.
+     *
+     * @var list<array<string,mixed>>
+     */
+    public array $stalePendingRows = [];
+
+    /** Lignes affectees par l'UPDATE garde de l'expiration (0 = course perdue). */
+    public int $expireUpdateAffected = 1;
+
+    /**
+     * Mouvements 'sale' PAR commande, pour composer un lot melant une commande propre et
+     * une commande deja encaissee. Repli sur le booleen global $saleMovementsExist quand
+     * l'id n'y figure pas.
+     *
+     * @var array<int, bool>
+     */
+    public array $saleMovementsByOrder = [];
+
+    /**
      * Lignes ingredient {stock_quantity, stock_capacity} indexees par id, lues par le
      * re-credit d'annulation (clamp plafond strict). Vide => fetch renvoie null =>
      * capacite 0 => clampToCapacity ne plafonne pas (comportement re-credit historique).
@@ -74,6 +103,8 @@ final class FakeOrderDatabase implements DatabaseInterface
 
     public function fetch(string $sql, array $params = []): ?array
     {
+        $this->reads[] = ['sql' => $sql, 'params' => $params];
+
         if (str_contains($sql, 'LAST_INSERT_ID')) {
             return ['id' => $this->autoId];
         }
@@ -93,6 +124,13 @@ final class FakeOrderDatabase implements DatabaseInterface
             return $this->menus[(int) $params['id']] ?? null;
         }
         if (str_contains($sql, 'FROM stock_movement WHERE order_id')) {
+            // Reponse PAR commande si scriptee (lot mixte de l'expiration), sinon bouton
+            // global (comportement historique des tests d'annulation).
+            $orderId = (int) ($params['oid'] ?? 0);
+            if (array_key_exists($orderId, $this->saleMovementsByOrder)) {
+                return $this->saleMovementsByOrder[$orderId] ? ['x' => 1] : null;
+            }
+
             return $this->saleMovementsExist ? ['x' => 1] : null;
         }
         if (str_contains($sql, 'FROM ingredient WHERE id = :id')) {
@@ -104,6 +142,12 @@ final class FakeOrderDatabase implements DatabaseInterface
 
     public function fetchAll(string $sql, array $params = []): array
     {
+        $this->reads[] = ['sql' => $sql, 'params' => $params];
+
+        // F10 : candidates a l'expiration. Predicat propre a cette requete.
+        if (str_contains($sql, "FROM customer_order WHERE status = 'pending_payment'")) {
+            return $this->stalePendingRows;
+        }
         if (str_contains($sql, 'FROM menu_slot s')) {
             return $this->slotRows[(int) $params['id']] ?? [];
         }
@@ -134,6 +178,14 @@ final class FakeOrderDatabase implements DatabaseInterface
 
         if (str_contains($sql, 'INSERT INTO customer_order') || str_contains($sql, 'INSERT INTO order_item ')) {
             $this->autoId++;
+        }
+        // F10 : l'UPDATE garde de l'expiration, AVANT la branche generique -- sinon il
+        // recupererait le bouton payUpdateAffected destine a pay(). Les deux conditions
+        // ensemble sont propres a l'expiration : cancel() ecrit aussi
+        // SET status = 'cancelled' mais avec une garde WHERE ... status IN (...), et pay()
+        // garde bien AND status = 'pending_payment' mais ecrit SET status = 'preparing'.
+        if (str_contains($sql, "SET status = 'cancelled'") && str_contains($sql, "AND status = 'pending_payment'")) {
+            return $this->expireUpdateAffected;
         }
         if (str_contains($sql, 'UPDATE customer_order SET status')) {
             return $this->payUpdateAffected;

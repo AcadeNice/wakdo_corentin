@@ -14,6 +14,12 @@ FROM alpine:3.20
 # - tzdata         : support des timezones (necessaire pour CRON_TIMEZONE)
 # - bash           : les scripts backup utilisent des features bash (pipefail)
 # - coreutils      : date, du, find avec options GNU (plus lisible que busybox)
+# - php83 + pdo_mysql : certaines taches planifiees appellent le CODE METIER plutot
+#   que de reecrire une regle en SQL. L'expiration des commandes en attente
+#   (src/bin/order-expire.php) est une transition de la machine a etats de la commande :
+#   les cinq autres vivent dans OrderRepository, la sixieme doit y vivre aussi, sinon la
+#   machine a etats a deux proprietaires. Les purges de retention, elles, restent en bash
+#   (tables techniques, aucun etat metier, aucune trace a ecrire).
 RUN set -eux; \
     apk add --no-cache \
         dcron \
@@ -21,8 +27,18 @@ RUN set -eux; \
         gzip \
         tzdata \
         bash \
-        coreutils; \
+        coreutils \
+        php83 \
+        php83-pdo \
+        php83-pdo_mysql; \
+    ln -sf /usr/bin/php83 /usr/bin/php; \
     rm -rf /var/cache/apk/* /tmp/*
+
+# Verification a la CONSTRUCTION : un nom de paquet errone doit faire echouer l'image
+# ici, pas se decouvrir a 02h00 dans un log que personne ne lit.
+RUN set -eux; \
+    php -v; \
+    php -m | grep -q pdo_mysql
 
 # Dossiers projet :
 # /scripts : scripts metier (backup, purge, agregations) montes en COPY

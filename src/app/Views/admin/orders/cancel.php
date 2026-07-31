@@ -27,13 +27,18 @@ $status = (string) ($o['status'] ?? '');
 $statusLabel = static fn (string $s): string => match ($s) {
     'pending_payment' => 'En attente',
     'paid'            => 'Payee',
+    'preparing'       => 'En preparation',
+    'ready'           => 'Prete',
     'delivered'       => 'Livree',
     'cancelled'       => 'Annulee',
     default           => $s,
 };
 
-// PRE-3 (7.1) : seuls pending_payment / paid peuvent transiter vers cancelled.
-$cancellable = in_array($status, ['pending_payment', 'paid'], true);
+// PRE-3 (7.1) : l'ensemble annulable est celui du domaine (OrderRepository::cancel).
+// Il inclut les etats de cuisine depuis la migration 0009 : sans eux, la liste
+// proposait le lien Annuler sur une commande en preparation et cette page repondait
+// qu'elle n'etait pas annulable. Meme ensemble que orders/index.php.
+$cancellable = in_array($status, ['pending_payment', 'paid', 'preparing', 'ready'], true);
 ?>
 <div class="page-header">
     <div>

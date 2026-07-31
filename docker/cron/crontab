@@ -19,6 +19,14 @@
 # 04h15 : purge de retention du journal d'audit (mlt.md 13.4, AUDIT_LOG_RETENTION_DAYS).
 15 4 * * * /scripts/purge-audit-log.sh 2>&1
 
+# 02h00 : expiration des commandes restees en attente de paiement (mlt.md 13.6,
+# ORDER_PENDING_EXPIRY_MINUTES). Place a 02h00 pour deux raisons : le service client
+# ferme a 01h00, donc aucun client n'est en train de payer ; et le passage tombe AVANT
+# le dump de 03h00, donc la sauvegarde de la nuit contient l'etat nettoye.
+# Pas d'enveloppe bash : le point d'entree PHP porte deja la validation de configuration
+# et le code de sortie.
+0 2 * * * php /var/www/html/bin/order-expire.php 2>&1
+
 # 04h45 : purge des compteurs de throttle sans verrou actif (mlt.md 13.5, THROTTLE_PURGE_AFTER_HOURS).
 45 4 * * * /scripts/purge-throttle.sh 2>&1
 
