@@ -74,6 +74,56 @@ final class ProductRepository
     }
 
     /**
+     * Produits de BASE groupes par categorie (F20), pour la vue back-office qui montre
+     * le catalogue comme la borne l'affiche.
+     *
+     * Meme predicat anti-variante que basesOnly() / availableForCatalogue() : une
+     * variante de taille n'est pas un produit autonome, elle est repliee sur sa base et
+     * comptee dans variant_count. Sans ce predicat, la 50 cl apparaitrait a cote de la
+     * 30 cl comme deux articles distincts, ce que la borne ne fait pas.
+     *
+     * Le compte de tailles est une SOUS-REQUETE correlee plutot qu'une seconde requete :
+     * un seul aller-retour, donc pas de N+1 quand le catalogue grossit (meme parti que
+     * le EXISTS de sizesByBase()).
+     *
+     * L'ORDER BY n'ordonne que l'INTERIEUR d'un groupe. L'ordre des groupes est porte
+     * par CategoryRepository::all() (display_order de la categorie), qui sert d'ossature
+     * a la vue : c'est ce qui aligne l'affichage sur l'ordre des onglets de la borne.
+     * Pas de JOIN category ici : seul category_id est utile, le libelle vient de
+     * l'ossature.
+     *
+     * @return array<int, list<array<string, mixed>>> category_id => [{id, name, ...}, ...]
+     */
+    public function basesByCategory(): array
+    {
+        $rows = $this->db->fetchAll(
+            'SELECT p.id, p.category_id, p.name, p.price_cents, p.vat_rate, p.is_available, '
+            . 'p.display_order, '
+            . '(SELECT COUNT(*) FROM product v WHERE v.base_product_id = p.id) AS variant_count '
+            . 'FROM product p '
+            . 'WHERE p.base_product_id IS NULL '
+            . 'ORDER BY p.display_order, p.name',
+        );
+
+        /** @var array<int, list<array<string, mixed>>> $byCategory */
+        $byCategory = [];
+        foreach ($rows as $row) {
+            $categoryId = (int) ($row['category_id'] ?? 0);
+            $byCategory[$categoryId][] = [
+                'id'            => (int) ($row['id'] ?? 0),
+                'name'          => (string) ($row['name'] ?? ''),
+                'price_cents'   => (int) ($row['price_cents'] ?? 0),
+                'vat_rate'      => (int) ($row['vat_rate'] ?? 100),
+                'is_available'  => (int) ($row['is_available'] ?? 0),
+                'display_order' => (int) ($row['display_order'] ?? 0),
+                'variant_count' => (int) ($row['variant_count'] ?? 0),
+            ];
+        }
+
+        return $byCategory;
+    }
+
+    /**
      * Produits de BASE (base_product_id IS NULL, R4) avec le slug de leur CATEGORIE,
      * pour alimenter les OPTIONS de slot du formulaire menu (F12). Le formulaire doit
      * filtrer les options proposees selon le type de slot (drink -> boissons, etc.) ;

@@ -757,4 +757,167 @@ final class ProductControllerTest extends TestCase
         self::assertNotNull($auditAt);
         self::assertTrue($begin < $auditAt && $auditAt < $commit, 'audit_log doit etre ecrit entre begin et commit');
     }
+
+    /* --- F20 : vue produits par categorie ---------------------------------- */
+
+    /**
+     * Jeu de donnees commun : 3 categories (dont une masquee), 2 produits a la carte,
+     * 1 menu. Les lignes sont dans la forme que renvoie chaque requete.
+     */
+    private function byCategoryDb(): FakeDatabase
+    {
+        $db = $this->permittedDb();
+        $db->categoriesRows = [
+            ['id' => 1, 'name' => 'menus', 'slug' => 'menus', 'image_path' => 'm.png', 'display_order' => 1, 'is_active' => 1],
+            ['id' => 2, 'name' => 'boissons', 'slug' => 'boissons', 'image_path' => 'b.png', 'display_order' => 2, 'is_active' => 1],
+            ['id' => 9, 'name' => 'sauces', 'slug' => 'sauces', 'image_path' => 's.png', 'display_order' => 9, 'is_active' => 0],
+        ];
+        $db->basesByCategoryRows = [
+            ['id' => 14, 'category_id' => 2, 'name' => 'Coca Cola', 'price_cents' => 190, 'vat_rate' => 100, 'is_available' => 1, 'display_order' => 1, 'variant_count' => 1],
+            ['id' => 15, 'category_id' => 2, 'name' => 'Eau', 'price_cents' => 100, 'vat_rate' => 55, 'is_available' => 1, 'display_order' => 3, 'variant_count' => 0],
+        ];
+        $db->menusRows = [
+            ['id' => 4, 'category_id' => 1, 'burger_product_id' => 10, 'name' => 'Menu Big Mac', 'price_normal_cents' => 800, 'price_maxi_cents' => 950, 'is_available' => 1, 'display_order' => 1, 'category_name' => 'menus', 'burger_name' => 'Big Mac'],
+        ];
+        return $db;
+    }
+
+    public function testByCategoryRequiresProductRead(): void
+    {
+        $db = $this->byCategoryDb();
+        $db->canResult = false;
+
+        self::assertSame(403, $this->controller($this->get('/admin/products/by-category'), $db)->byCategory()->status());
+    }
+
+    public function testByCategoryGroupsProductsUnderCategoryHeadingsInBorneOrder(): void
+    {
+        $response = $this->controller($this->get('/admin/products/by-category'), $this->byCategoryDb())->byCategory();
+
+        self::assertSame(200, $response->status());
+        $body = $response->body();
+        // L'ordre des groupes est celui du display_order de categorie, donc celui des
+        // onglets de la borne : menus (1) avant boissons (2) avant sauces (9). On
+        // s'ancre sur l'identifiant de section, pas sur le libelle : "Menus" apparait
+        // aussi dans la barre laterale et rendrait l'assertion vraie par accident.
+        $posMenus = strpos($body, 'catalogue-cat-1');
+        $posBoissons = strpos($body, 'catalogue-cat-2');
+        $posSauces = strpos($body, 'catalogue-cat-9');
+        self::assertIsInt($posMenus);
+        self::assertIsInt($posBoissons);
+        self::assertIsInt($posSauces);
+        self::assertTrue($posMenus < $posBoissons && $posBoissons < $posSauces);
+        self::assertStringContainsString('Coca Cola', $body);
+        self::assertStringContainsString('Eau', $body);
+    }
+
+    public function testByCategoryShowsMenusInTheirCategory(): void
+    {
+        // Un menu n'est pas une ligne de la table product : sans lecture dediee, la
+        // section Menus afficherait "aucun produit" alors que la borne y montre les
+        // menus. La vue doit donc porter les deux natures d'article.
+        $response = $this->controller($this->get('/admin/products/by-category'), $this->byCategoryDb())->byCategory();
+
+        self::assertStringContainsString('Menu Big Mac', $response->body());
+    }
+
+    public function testByCategoryFoldsSizeVariantsOnTheirBase(): void
+    {
+        // Coca Cola porte 1 variante de taille : elle est comptee sur la base, pas
+        // affichee comme un article autonome (R4).
+        $response = $this->controller($this->get('/admin/products/by-category'), $this->byCategoryDb())->byCategory();
+
+        $body = $response->body();
+        self::assertStringContainsString('1 taille', $body);
+        self::assertStringNotContainsString('Variante de', $body);
+    }
+
+    public function testByCategoryShowsTheThreeAvailabilityStates(): void
+    {
+        $db = $this->byCategoryDb();
+        $db->basesByCategoryRows[] = ['id' => 16, 'category_id' => 2, 'name' => 'Fanta', 'price_cents' => 190, 'vat_rate' => 100, 'is_available' => 0, 'display_order' => 4, 'variant_count' => 0];
+        // RG-T21 : Eau en rupture calculee par le stock, distincte du retrait manuel.
+        $db->autoUnavailableRows = [['product_id' => 15]];
+
+        $body = $this->controller($this->get('/admin/products/by-category'), $db)->byCategory()->body();
+
+        self::assertStringContainsString('Disponible', $body);
+        self::assertStringContainsString('Rupture auto', $body);
+        self::assertStringContainsString('Indisponible', $body);
+    }
+
+    public function testByCategoryMarksACategoryHiddenFromTheBorne(): void
+    {
+        // Une categorie inactive n'apparait pas sur la borne, meme si ses produits sont
+        // marques disponibles : l'equipier doit le lire en clair, sinon il cherchera en
+        // vain pourquoi un produit "disponible" reste introuvable a la commande.
+        $body = $this->controller($this->get('/admin/products/by-category'), $this->byCategoryDb())->byCategory()->body();
+
+        self::assertStringContainsString('Masquee sur la borne', $body);
+    }
+
+    public function testByCategoryComputesCountersServerSide(): void
+    {
+        $db = $this->byCategoryDb();
+        $db->basesByCategoryRows[] = ['id' => 16, 'category_id' => 2, 'name' => 'Fanta', 'price_cents' => 190, 'vat_rate' => 100, 'is_available' => 0, 'display_order' => 4, 'variant_count' => 0];
+
+        $body = $this->controller($this->get('/admin/products/by-category'), $db)->byCategory()->body();
+
+        // 3 produits de base + 1 menu = 4 articles ; 3 commandables, 1 non commandable.
+        self::assertMatchesRegularExpression('/catalogue-summary__count">\s*4\s*</', $body);
+        self::assertMatchesRegularExpression('/catalogue-summary__count">\s*3\s*</', $body);
+        self::assertMatchesRegularExpression('/catalogue-summary__count">\s*1\s*</', $body);
+    }
+
+    public function testByCategoryHidesEditLinkWithoutProductUpdate(): void
+    {
+        // Un role de lecture seule (ex. cuisine) ne doit pas voir un lien qui repondrait
+        // 403 : la garde reste par-route, l'affichage s'y adapte.
+        $db = $this->byCategoryDb();
+        $db->grantedCodes = ['product.read'];
+
+        $body = $this->controller($this->get('/admin/products/by-category'), $db)->byCategory()->body();
+
+        self::assertStringContainsString('Coca Cola', $body);
+        self::assertStringNotContainsString('/edit', $body);
+    }
+
+    public function testByCategoryShowsEditLinkWithProductUpdate(): void
+    {
+        $db = $this->byCategoryDb();
+        $db->grantedCodes = ['product.read', 'product.update'];
+
+        $body = $this->controller($this->get('/admin/products/by-category'), $db)->byCategory()->body();
+
+        self::assertStringContainsString('/admin/products/14/edit', $body);
+    }
+
+    public function testByCategoryReportsAnEmptyCategory(): void
+    {
+        $db = $this->byCategoryDb();
+        $db->basesByCategoryRows = [];
+        $db->menusRows = [];
+
+        $body = $this->controller($this->get('/admin/products/by-category'), $db)->byCategory()->body();
+
+        self::assertStringContainsString('Aucun article dans cette categorie.', $body);
+    }
+
+    public function testByCategoryReadsAFixedNumberOfQueries(): void
+    {
+        // Quatre lectures a nombre fixe (categories, bases groupees, rupture auto,
+        // menus) : la page ne doit pas partir en N+1 quand le catalogue grossit.
+        $db = $this->byCategoryDb();
+        $this->controller($this->get('/admin/products/by-category'), $db)->byCategory();
+
+        $catalogueReads = array_filter(
+            $db->reads,
+            static fn (array $r): bool => str_contains($r['sql'], 'AS variant_count')
+                || str_contains($r['sql'], 'FROM category ORDER BY')
+                || str_contains($r['sql'], 'SELECT DISTINCT pi.product_id')
+                || str_contains($r['sql'], 'FROM menu m JOIN category'),
+        );
+
+        self::assertCount(4, $catalogueReads);
+    }
 }

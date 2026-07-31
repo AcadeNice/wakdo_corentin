@@ -188,6 +188,11 @@ try {
     // CRUD Produits (product.read/create/update/delete). PIN equipier + audit sur
     // changement prix/TVA (update) et suppression (delete).
     $router->add('GET', '/admin/products', [ProductController::class, 'index']);
+    // F20 : seconde LECTURE de la meme ressource, rangee par categorie comme la borne
+    // l'affiche (variantes de taille repliees sur leur base, menus inclus). Meme
+    // permission product.read que la liste plate. Chemin litteral a 3 segments : aucune
+    // collision avec /admin/products/{id}/edit (4 segments) ni /admin/products/new.
+    $router->add('GET', '/admin/products/by-category', [ProductController::class, 'byCategory']);
     $router->add('GET', '/admin/products/new', [ProductController::class, 'create']);
     $router->add('POST', '/admin/products', [ProductController::class, 'store']);
     $router->add('GET', '/admin/products/{id}/edit', [ProductController::class, 'edit']);

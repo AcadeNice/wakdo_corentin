@@ -101,4 +101,61 @@ final class ProductRepositoryDbTest extends TestCase
         self::assertSame(1, $repo->delete($id));
         self::assertNull($repo->find($id));
     }
+
+    public function testBasesByCategoryExcludesVariantsAndCountsThemOnTheirBase(): void
+    {
+        // Le double de test ne peut verifier que le TEXTE du SQL. Ici on verifie le
+        // predicat contre le vrai schema seede : aucune variante ne remonte comme
+        // article autonome, et le compte de tailles d'une base correspond au nombre
+        // reel de ses variantes en base.
+        $repo = new ProductRepository($this->db);
+
+        $byCategory = $repo->basesByCategory();
+        self::assertNotSame([], $byCategory, 'le catalogue seede ne doit pas etre vide');
+
+        $ids = [];
+        foreach ($byCategory as $rows) {
+            foreach ($rows as $row) {
+                $ids[] = (int) $row['id'];
+            }
+        }
+        self::assertNotSame([], $ids);
+
+        $placeholders = [];
+        $params = [];
+        foreach ($ids as $i => $productId) {
+            $placeholders[] = ':p' . $i;
+            $params['p' . $i] = $productId;
+        }
+        $variantsAmongResults = (int) ($this->db->fetch(
+            'SELECT COUNT(*) AS n FROM product WHERE base_product_id IS NOT NULL '
+            . 'AND id IN (' . implode(', ', $placeholders) . ')',
+            $params,
+        )['n'] ?? -1);
+        self::assertSame(0, $variantsAmongResults, 'aucune variante de taille ne doit remonter');
+
+        // Une base a variantes existe dans le jeu seede (tailles de boissons, R4) :
+        // on croise son compte annonce avec le compte reel.
+        $baseWithVariants = $this->db->fetch(
+            'SELECT base_product_id AS id, COUNT(*) AS n FROM product '
+            . 'WHERE base_product_id IS NOT NULL GROUP BY base_product_id ORDER BY n DESC LIMIT 1',
+        );
+        if ($baseWithVariants === null) {
+            self::markTestSkipped('Aucune variante de taille dans le jeu seede.');
+        }
+
+        $baseId = (int) ($baseWithVariants['id'] ?? 0);
+        $realCount = (int) ($baseWithVariants['n'] ?? 0);
+        $announced = null;
+        foreach ($byCategory as $rows) {
+            foreach ($rows as $row) {
+                if ((int) $row['id'] === $baseId) {
+                    $announced = (int) $row['variant_count'];
+                }
+            }
+        }
+
+        self::assertNotNull($announced, 'la base a variantes doit figurer dans le resultat');
+        self::assertSame($realCount, $announced);
+    }
 }
