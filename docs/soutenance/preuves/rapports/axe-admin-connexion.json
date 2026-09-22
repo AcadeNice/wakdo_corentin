@@ -1,7 +1,7 @@
 {
   "page": "admin-connexion",
   "url": "http://admin.wakdo.test/login",
-  "date": "2026-09-22T14:07:32.072Z",
+  "date": "2026-09-22T14:53:10.747Z",
   "moteur": {
     "axe": {
       "name": "axe-core",
@@ -39,9 +39,9 @@
       "compartiment": "conforme",
       "selecteur": ".login-logo-sub",
       "extrait": "<span class=\"login-logo-sub\">Back-office de gestion</span>",
-      "avant_plan": "#6b7280",
+      "avant_plan": "#69707d",
       "arriere_plan": "#ffffff",
-      "ratio": 4.83,
+      "ratio": 4.98,
       "seuil_attendu": "4.5:1",
       "taille_px": "9.0pt (12px)",
       "graisse": "normal"

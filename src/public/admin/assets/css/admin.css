@@ -19,7 +19,11 @@
     --color-border-dark: #D1D5DB;
     --color-text:        #1A1A1A;
     --color-text-sec:    #4A4A4A;
-    --color-text-muted:  #6B7280;
+    /* #69707D : tient AA (4.5:1) sur les trois fonds neutres reellement utilises
+       (4.98:1 blanc, 4.77:1 --color-surface, 4.57:1 --color-page). L'ancien
+       #6B7280 tombait a 4.43:1 sur --color-page — voir
+       docs/soutenance/preuves/06-audit-accessibilite-mesure.md, section 5.3. */
+    --color-text-muted:  #69707D;
     --color-surface:     #F9FAFB;
 
     /* Accent Wakdo — parcimonieux */
@@ -60,7 +64,15 @@
 
     /* Accent doux + ombres douces (direction A+C) */
     --color-yellow-soft: #FFF3D1;
-    --color-yellow-ink:  #C8920A;
+    /* #AE7F09 : plus fonce que le #B8860B envisage en preuve 06, parce que ce
+       token n'est pas utilise que sur blanc. Il colore aussi la lettre de repli
+       de .pos-tile__pastille et l'icone .pin-modal-ico, TOUTES DEUX sur le fond
+       --color-yellow-soft (#FFF3D1), plus sombre que le blanc. #B8860B y
+       plafonne a 2.94:1 (sous le seuil 3:1, texte large) ; #AE7F09 tient sur
+       les deux fonds : 3.60:1 sur blanc (span "do"), 3.25:1 sur #FFF3D1
+       (pastille). Voir docs/soutenance/preuves/06-audit-accessibilite-mesure.md,
+       section 5.2. */
+    --color-yellow-ink:  #AE7F09;
     --shadow-card:       0 1px 3px rgba(26,26,26,0.04), 0 6px 20px rgba(26,26,26,0.06);
     --shadow-card-hover: 0 2px 6px rgba(26,26,26,0.06), 0 12px 30px rgba(26,26,26,0.10);
 }
@@ -1685,13 +1697,16 @@ tbody td.mono {
     padding: 10px;
     background: var(--color-surface);
 }
-/* Pastille de repli (initiale) quand aucune image n'est disponible cote back-office. */
+/* Pastille de repli (initiale) quand aucune image n'est disponible cote back-office.
+ * C'est cet element qui a impose #AE7F09 plutot que #B8860B pour --color-yellow-ink
+ * (voir le commentaire du token en tete de fichier) : lettre en 24px/800, donc seuil
+ * large-text 3:1, sur fond --color-yellow-soft. */
 .pos-tile__pastille {
     width: 56px;
     height: 56px;
     border-radius: 50%;
     background: var(--color-yellow-soft, #FFF3D1);
-    color: var(--color-yellow-ink, #C8920A);
+    color: var(--color-yellow-ink, #AE7F09);
     display: flex;
     align-items: center;
     justify-content: center;
