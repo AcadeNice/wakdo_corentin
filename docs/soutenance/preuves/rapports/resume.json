@@ -1,0 +1,239 @@
+{
+  "date": "2026-09-22T14:07:36.406Z",
+  "outil": {
+    "axe": {
+      "name": "axe-core",
+      "version": "4.13.0"
+    },
+    "regles": [
+      "wcag2a",
+      "wcag2aa",
+      "wcag21a",
+      "wcag21aa"
+    ]
+  },
+  "ecrans": 11,
+  "pages": [
+    {
+      "page": "accueil",
+      "url": "http://kiosk.wakdo.test/index.html",
+      "total_violations": 0,
+      "noeuds_en_faute": 0,
+      "par_gravite": {
+        "critical": 0,
+        "serious": 0,
+        "moderate": 0,
+        "minor": 0
+      },
+      "regles": [],
+      "regles_indeterminees": [],
+      "contrastes_mesures": 6,
+      "contrastes_non_calculables": 0,
+      "contraste_minimum_mesure": 17.4,
+      "contrastes_sous_le_seuil": 0
+    },
+    {
+      "page": "admin-commandes",
+      "url": "http://admin.wakdo.test/admin/orders",
+      "total_violations": 1,
+      "noeuds_en_faute": 2,
+      "par_gravite": {
+        "critical": 0,
+        "serious": 2,
+        "moderate": 0,
+        "minor": 0
+      },
+      "regles": [
+        "color-contrast"
+      ],
+      "regles_indeterminees": [],
+      "contrastes_mesures": 27,
+      "contrastes_non_calculables": 0,
+      "contraste_minimum_mesure": 2.77,
+      "contrastes_sous_le_seuil": 2
+    },
+    {
+      "page": "admin-connexion",
+      "url": "http://admin.wakdo.test/login",
+      "total_violations": 0,
+      "noeuds_en_faute": 0,
+      "par_gravite": {
+        "critical": 0,
+        "serious": 0,
+        "moderate": 0,
+        "minor": 0
+      },
+      "regles": [],
+      "regles_indeterminees": [],
+      "contrastes_mesures": 8,
+      "contrastes_non_calculables": 0,
+      "contraste_minimum_mesure": 4.83,
+      "contrastes_sous_le_seuil": 0
+    },
+    {
+      "page": "admin-ingredients",
+      "url": "http://admin.wakdo.test/admin/ingredients",
+      "total_violations": 1,
+      "noeuds_en_faute": 2,
+      "par_gravite": {
+        "critical": 0,
+        "serious": 2,
+        "moderate": 0,
+        "minor": 0
+      },
+      "regles": [
+        "color-contrast"
+      ],
+      "regles_indeterminees": [],
+      "contrastes_mesures": 90,
+      "contrastes_non_calculables": 0,
+      "contraste_minimum_mesure": 2.77,
+      "contrastes_sous_le_seuil": 2
+    },
+    {
+      "page": "admin-produits",
+      "url": "http://admin.wakdo.test/admin/products",
+      "total_violations": 1,
+      "noeuds_en_faute": 2,
+      "par_gravite": {
+        "critical": 0,
+        "serious": 2,
+        "moderate": 0,
+        "minor": 0
+      },
+      "regles": [
+        "color-contrast"
+      ],
+      "regles_indeterminees": [],
+      "contrastes_mesures": 82,
+      "contrastes_non_calculables": 0,
+      "contraste_minimum_mesure": 2.77,
+      "contrastes_sous_le_seuil": 2
+    },
+    {
+      "page": "admin-tableau-de-bord",
+      "url": "http://admin.wakdo.test/admin/dashboard",
+      "total_violations": 1,
+      "noeuds_en_faute": 3,
+      "par_gravite": {
+        "critical": 0,
+        "serious": 3,
+        "moderate": 0,
+        "minor": 0
+      },
+      "regles": [
+        "color-contrast"
+      ],
+      "regles_indeterminees": [
+        "color-contrast"
+      ],
+      "contrastes_mesures": 50,
+      "contrastes_non_calculables": 7,
+      "contraste_minimum_mesure": 2.77,
+      "contrastes_sous_le_seuil": 3
+    },
+    {
+      "page": "categories",
+      "url": "http://kiosk.wakdo.test/categories.html",
+      "total_violations": 0,
+      "noeuds_en_faute": 0,
+      "par_gravite": {
+        "critical": 0,
+        "serious": 0,
+        "moderate": 0,
+        "minor": 0
+      },
+      "regles": [],
+      "regles_indeterminees": [],
+      "contrastes_mesures": 14,
+      "contrastes_non_calculables": 0,
+      "contraste_minimum_mesure": 8.12,
+      "contrastes_sous_le_seuil": 0
+    },
+    {
+      "page": "confirmation",
+      "url": "http://kiosk.wakdo.test/confirmation.html",
+      "total_violations": 1,
+      "noeuds_en_faute": 1,
+      "par_gravite": {
+        "critical": 0,
+        "serious": 1,
+        "moderate": 0,
+        "minor": 0
+      },
+      "regles": [
+        "color-contrast"
+      ],
+      "regles_indeterminees": [],
+      "contrastes_mesures": 11,
+      "contrastes_non_calculables": 0,
+      "contraste_minimum_mesure": 4.16,
+      "contrastes_sous_le_seuil": 1
+    },
+    {
+      "page": "paiement",
+      "url": "http://kiosk.wakdo.test/payment.html",
+      "total_violations": 0,
+      "noeuds_en_faute": 0,
+      "par_gravite": {
+        "critical": 0,
+        "serious": 0,
+        "moderate": 0,
+        "minor": 0
+      },
+      "regles": [],
+      "regles_indeterminees": [],
+      "contrastes_mesures": 11,
+      "contrastes_non_calculables": 0,
+      "contraste_minimum_mesure": 4.54,
+      "contrastes_sous_le_seuil": 0
+    },
+    {
+      "page": "produits",
+      "url": "http://kiosk.wakdo.test/products.html?category=2",
+      "total_violations": 0,
+      "noeuds_en_faute": 0,
+      "par_gravite": {
+        "critical": 0,
+        "serious": 0,
+        "moderate": 0,
+        "minor": 0
+      },
+      "regles": [],
+      "regles_indeterminees": [
+        "color-contrast"
+      ],
+      "contrastes_mesures": 50,
+      "contrastes_non_calculables": 2,
+      "contraste_minimum_mesure": 8.12,
+      "contrastes_sous_le_seuil": 0
+    },
+    {
+      "page": "produits-modale-options",
+      "url": "http://kiosk.wakdo.test/products.html?category=2",
+      "total_violations": 0,
+      "noeuds_en_faute": 0,
+      "par_gravite": {
+        "critical": 0,
+        "serious": 0,
+        "moderate": 0,
+        "minor": 0
+      },
+      "regles": [],
+      "regles_indeterminees": [
+        "aria-hidden-focus",
+        "color-contrast"
+      ],
+      "contrastes_mesures": 58,
+      "contrastes_non_calculables": 2,
+      "contraste_minimum_mesure": 8.12,
+      "contrastes_sous_le_seuil": 0
+    }
+  ],
+  "total_noeuds_en_faute_par_gravite": {
+    "critical": 0,
+    "serious": 10,
+    "moderate": 0,
+    "minor": 0
+  }
+}

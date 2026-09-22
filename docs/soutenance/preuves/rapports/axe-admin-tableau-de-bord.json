@@ -1,0 +1,1077 @@
+{
+  "page": "admin-tableau-de-bord",
+  "url": "http://admin.wakdo.test/admin/dashboard",
+  "date": "2026-09-22T14:07:33.101Z",
+  "moteur": {
+    "axe": {
+      "name": "axe-core",
+      "version": "4.13.0"
+    },
+    "regles": [
+      "wcag2a",
+      "wcag2aa",
+      "wcag21a",
+      "wcag21aa"
+    ]
+  },
+  "navigateur": {
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.6778.33 Safari/537.36",
+    "windowWidth": 1440,
+    "windowHeight": 900,
+    "orientationAngle": 0,
+    "orientationType": "landscape-primary"
+  },
+  "violations": [
+    {
+      "id": "color-contrast",
+      "impact": "serious",
+      "tags": [
+        "cat.color",
+        "wcag2aa",
+        "wcag143",
+        "TTv5",
+        "TT13.c",
+        "EN-301-549",
+        "EN-9.1.4.3",
+        "ACT",
+        "RGAAv4",
+        "RGAA-3.2.1"
+      ],
+      "description": "Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds",
+      "help": "Elements must meet minimum color contrast ratio thresholds",
+      "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/color-contrast?application=playwright",
+      "nodes": [
+        {
+          "any": [
+            {
+              "id": "color-contrast",
+              "data": {
+                "fgColor": "#c8920a",
+                "bgColor": "#ffffff",
+                "contrastRatio": 2.77,
+                "fontSize": "15.8pt (21px)",
+                "fontWeight": "bold",
+                "messageKey": null,
+                "expectedContrastRatio": "3:1"
+              },
+              "relatedNodes": [
+                {
+                  "html": "<nav class=\"sidebar\">",
+                  "target": [
+                    "nav"
+                  ]
+                }
+              ],
+              "impact": "serious",
+              "message": "Element has insufficient color contrast of 2.77 (foreground color: #c8920a, background color: #ffffff, font size: 15.8pt (21px), font weight: bold). Expected contrast ratio of 3:1"
+            }
+          ],
+          "all": [],
+          "none": [],
+          "impact": "serious",
+          "html": "<span>do</span>",
+          "target": [
+            ".sidebar-brand-name > span"
+          ],
+          "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.77 (foreground color: #c8920a, background color: #ffffff, font size: 15.8pt (21px), font weight: bold). Expected contrast ratio of 3:1"
+        },
+        {
+          "any": [
+            {
+              "id": "color-contrast",
+              "data": {
+                "fgColor": "#6b7280",
+                "bgColor": "#f5f5f5",
+                "contrastRatio": 4.43,
+                "fontSize": "9.8pt (13px)",
+                "fontWeight": "normal",
+                "messageKey": null,
+                "expectedContrastRatio": "4.5:1"
+              },
+              "relatedNodes": [
+                {
+                  "html": "<body data-user-email=\"admin@wakdo.local\">",
+                  "target": [
+                    "body"
+                  ]
+                }
+              ],
+              "impact": "serious",
+              "message": "Element has insufficient color contrast of 4.43 (foreground color: #6b7280, background color: #f5f5f5, font size: 9.8pt (13px), font weight: normal). Expected contrast ratio of 4.5:1"
+            }
+          ],
+          "all": [],
+          "none": [],
+          "impact": "serious",
+          "html": "<p class=\"page-subtitle\">Bienvenue, Wakdo Admin — voici l'essentiel de votre restaurant aujourd'hui.</p>",
+          "target": [
+            ".page-header:nth-child(1) > div > p"
+          ],
+          "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.43 (foreground color: #6b7280, background color: #f5f5f5, font size: 9.8pt (13px), font weight: normal). Expected contrast ratio of 4.5:1"
+        },
+        {
+          "any": [
+            {
+              "id": "color-contrast",
+              "data": {
+                "fgColor": "#6b7280",
+                "bgColor": "#f5f5f5",
+                "contrastRatio": 4.43,
+                "fontSize": "9.8pt (13px)",
+                "fontWeight": "normal",
+                "messageKey": null,
+                "expectedContrastRatio": "4.5:1"
+              },
+              "relatedNodes": [
+                {
+                  "html": "<body data-user-email=\"admin@wakdo.local\">",
+                  "target": [
+                    "body"
+                  ]
+                }
+              ],
+              "impact": "serious",
+              "message": "Element has insufficient color contrast of 4.43 (foreground color: #6b7280, background color: #f5f5f5, font size: 9.8pt (13px), font weight: normal). Expected contrast ratio of 4.5:1"
+            }
+          ],
+          "all": [],
+          "none": [],
+          "impact": "serious",
+          "html": "<p class=\"page-subtitle\">0,00 EUR aujourd'hui — 0 commande(s) payee(s).</p>",
+          "target": [
+            ".page-header:nth-child(3) > div > p"
+          ],
+          "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.43 (foreground color: #6b7280, background color: #f5f5f5, font size: 9.8pt (13px), font weight: normal). Expected contrast ratio of 4.5:1"
+        }
+      ]
+    }
+  ],
+  "indetermines": [
+    {
+      "id": "color-contrast",
+      "impact": "serious",
+      "tags": [
+        "cat.color",
+        "wcag2aa",
+        "wcag143",
+        "TTv5",
+        "TT13.c",
+        "EN-301-549",
+        "EN-9.1.4.3",
+        "ACT",
+        "RGAAv4",
+        "RGAA-3.2.1"
+      ],
+      "description": "Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds",
+      "help": "Elements must meet minimum color contrast ratio thresholds",
+      "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/color-contrast?application=playwright",
+      "nodes": [
+        {
+          "any": [
+            {
+              "id": "color-contrast",
+              "data": {
+                "contrastRatio": 0,
+                "fontSize": "9.8pt (13px)",
+                "fontWeight": "normal",
+                "messageKey": "imgNode",
+                "expectedContrastRatio": "4.5:1"
+              },
+              "relatedNodes": [
+                {
+                  "html": "<svg class=\"dash-chart\" viewBox=\"0 0 700 200\" role=\"img\" aria-label=\"Chiffre d affaires des 7 derniers jours, total 0,00 EUR\" preserveAspectRatio=\"xMidYMid meet\">",
+                  "target": [
+                    ".dash-chart"
+                  ]
+                }
+              ],
+              "impact": "serious",
+              "message": "Element's background color could not be determined because element contains an image node"
+            }
+          ],
+          "all": [],
+          "none": [],
+          "impact": "serious",
+          "html": "<text class=\"dash-label\" x=\"60.3\" y=\"180\" text-anchor=\"middle\">16/09</text>",
+          "target": [
+            "text[x=\"60.3\"]"
+          ],
+          "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because element contains an image node"
+        },
+        {
+          "any": [
+            {
+              "id": "color-contrast",
+              "data": {
+                "contrastRatio": 0,
+                "fontSize": "9.8pt (13px)",
+                "fontWeight": "normal",
+                "messageKey": "imgNode",
+                "expectedContrastRatio": "4.5:1"
+              },
+              "relatedNodes": [
+                {
+                  "html": "<svg class=\"dash-chart\" viewBox=\"0 0 700 200\" role=\"img\" aria-label=\"Chiffre d affaires des 7 derniers jours, total 0,00 EUR\" preserveAspectRatio=\"xMidYMid meet\">",
+                  "target": [
+                    ".dash-chart"
+                  ]
+                }
+              ],
+              "impact": "serious",
+              "message": "Element's background color could not be determined because element contains an image node"
+            }
+          ],
+          "all": [],
+          "none": [],
+          "impact": "serious",
+          "html": "<text class=\"dash-label\" x=\"156.9\" y=\"180\" text-anchor=\"middle\">17/09</text>",
+          "target": [
+            "text[x=\"156.9\"]"
+          ],
+          "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because element contains an image node"
+        },
+        {
+          "any": [
+            {
+              "id": "color-contrast",
+              "data": {
+                "contrastRatio": 0,
+                "fontSize": "9.8pt (13px)",
+                "fontWeight": "normal",
+                "messageKey": "imgNode",
+                "expectedContrastRatio": "4.5:1"
+              },
+              "relatedNodes": [
+                {
+                  "html": "<svg class=\"dash-chart\" viewBox=\"0 0 700 200\" role=\"img\" aria-label=\"Chiffre d affaires des 7 derniers jours, total 0,00 EUR\" preserveAspectRatio=\"xMidYMid meet\">",
+                  "target": [
+                    ".dash-chart"
+                  ]
+                }
+              ],
+              "impact": "serious",
+              "message": "Element's background color could not be determined because element contains an image node"
+            }
+          ],
+          "all": [],
+          "none": [],
+          "impact": "serious",
+          "html": "<text class=\"dash-label\" x=\"253.4\" y=\"180\" text-anchor=\"middle\">18/09</text>",
+          "target": [
+            "text[x=\"253.4\"]"
+          ],
+          "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because element contains an image node"
+        },
+        {
+          "any": [
+            {
+              "id": "color-contrast",
+              "data": {
+                "contrastRatio": 0,
+                "fontSize": "9.8pt (13px)",
+                "fontWeight": "normal",
+                "messageKey": "imgNode",
+                "expectedContrastRatio": "4.5:1"
+              },
+              "relatedNodes": [
+                {
+                  "html": "<svg class=\"dash-chart\" viewBox=\"0 0 700 200\" role=\"img\" aria-label=\"Chiffre d affaires des 7 derniers jours, total 0,00 EUR\" preserveAspectRatio=\"xMidYMid meet\">",
+                  "target": [
+                    ".dash-chart"
+                  ]
+                }
+              ],
+              "impact": "serious",
+              "message": "Element's background color could not be determined because element contains an image node"
+            }
+          ],
+          "all": [],
+          "none": [],
+          "impact": "serious",
+          "html": "<text class=\"dash-label\" x=\"350\" y=\"180\" text-anchor=\"middle\">19/09</text>",
+          "target": [
+            "text[x=\"350\"]"
+          ],
+          "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because element contains an image node"
+        },
+        {
+          "any": [
+            {
+              "id": "color-contrast",
+              "data": {
+                "contrastRatio": 0,
+                "fontSize": "9.8pt (13px)",
+                "fontWeight": "normal",
+                "messageKey": "imgNode",
+                "expectedContrastRatio": "4.5:1"
+              },
+              "relatedNodes": [
+                {
+                  "html": "<svg class=\"dash-chart\" viewBox=\"0 0 700 200\" role=\"img\" aria-label=\"Chiffre d affaires des 7 derniers jours, total 0,00 EUR\" preserveAspectRatio=\"xMidYMid meet\">",
+                  "target": [
+                    ".dash-chart"
+                  ]
+                }
+              ],
+              "impact": "serious",
+              "message": "Element's background color could not be determined because element contains an image node"
+            }
+          ],
+          "all": [],
+          "none": [],
+          "impact": "serious",
+          "html": "<text class=\"dash-label\" x=\"446.6\" y=\"180\" text-anchor=\"middle\">20/09</text>",
+          "target": [
+            "text[x=\"446.6\"]"
+          ],
+          "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because element contains an image node"
+        },
+        {
+          "any": [
+            {
+              "id": "color-contrast",
+              "data": {
+                "contrastRatio": 0,
+                "fontSize": "9.8pt (13px)",
+                "fontWeight": "normal",
+                "messageKey": "imgNode",
+                "expectedContrastRatio": "4.5:1"
+              },
+              "relatedNodes": [
+                {
+                  "html": "<svg class=\"dash-chart\" viewBox=\"0 0 700 200\" role=\"img\" aria-label=\"Chiffre d affaires des 7 derniers jours, total 0,00 EUR\" preserveAspectRatio=\"xMidYMid meet\">",
+                  "target": [
+                    ".dash-chart"
+                  ]
+                }
+              ],
+              "impact": "serious",
+              "message": "Element's background color could not be determined because element contains an image node"
+            }
+          ],
+          "all": [],
+          "none": [],
+          "impact": "serious",
+          "html": "<text class=\"dash-label\" x=\"543.1\" y=\"180\" text-anchor=\"middle\">21/09</text>",
+          "target": [
+            "text[x=\"543.1\"]"
+          ],
+          "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because element contains an image node"
+        },
+        {
+          "any": [
+            {
+              "id": "color-contrast",
+              "data": {
+                "contrastRatio": 0,
+                "fontSize": "9.8pt (13px)",
+                "fontWeight": "normal",
+                "messageKey": "imgNode",
+                "expectedContrastRatio": "4.5:1"
+              },
+              "relatedNodes": [
+                {
+                  "html": "<svg class=\"dash-chart\" viewBox=\"0 0 700 200\" role=\"img\" aria-label=\"Chiffre d affaires des 7 derniers jours, total 0,00 EUR\" preserveAspectRatio=\"xMidYMid meet\">",
+                  "target": [
+                    ".dash-chart"
+                  ]
+                }
+              ],
+              "impact": "serious",
+              "message": "Element's background color could not be determined because element contains an image node"
+            }
+          ],
+          "all": [],
+          "none": [],
+          "impact": "serious",
+          "html": "<text class=\"dash-label\" x=\"639.7\" y=\"180\" text-anchor=\"middle\">22/09</text>",
+          "target": [
+            "text[x=\"639.7\"]"
+          ],
+          "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because element contains an image node"
+        }
+      ]
+    }
+  ],
+  "contrastes_mesures": [
+    {
+      "compartiment": "conforme",
+      "selecteur": ".topbar-user-avatar",
+      "extrait": "<div class=\"topbar-user-avatar\">WA</div>",
+      "avant_plan": "#ffc72c",
+      "arriere_plan": "#1a1a1a",
+      "ratio": 11.15,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".topbar-user-name",
+      "extrait": "<div class=\"topbar-user-name\">Wakdo Admin</div>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".topbar-user-role",
+      "extrait": "<div class=\"topbar-user-role\">Administrator</div>",
+      "avant_plan": "#6b7280",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.83,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-brand-name",
+      "extrait": "<span class=\"sidebar-brand-name\">Wak<span>do</span></span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "3:1",
+      "taille_px": "15.8pt (21px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-section:nth-child(2) > .sidebar-section-label",
+      "extrait": "<div class=\"sidebar-section-label\">Vue d'ensemble</div>",
+      "avant_plan": "#6b7280",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.83,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".active",
+      "extrait": "<a href=\"/admin/dashboard\" class=\"sidebar-item active\">Tableau de bord</a>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#fff3d1",
+      "ratio": 15.74,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-section:nth-child(3) > .sidebar-section-label",
+      "extrait": "<div class=\"sidebar-section-label\">Catalogue</div>",
+      "avant_plan": "#6b7280",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.83,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"categories\"]",
+      "extrait": "<a href=\"/admin/categories\" class=\"sidebar-item\">Categories</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"products\"]",
+      "extrait": "<a href=\"/admin/products\" class=\"sidebar-item\">Produits</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"by-category\"]",
+      "extrait": "<a href=\"/admin/products/by-category\" class=\"sidebar-item\">Produits par categorie</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"menus\"]",
+      "extrait": "<a href=\"/admin/menus\" class=\"sidebar-item\">Menus</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-section:nth-child(4) > .sidebar-section-label",
+      "extrait": "<div class=\"sidebar-section-label\">Stock</div>",
+      "avant_plan": "#6b7280",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.83,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"ingredients\"]",
+      "extrait": "<a href=\"/admin/ingredients\" class=\"sidebar-item\">Ingredients</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-section:nth-child(5) > .sidebar-section-label",
+      "extrait": "<div class=\"sidebar-section-label\">Pilotage</div>",
+      "avant_plan": "#6b7280",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.83,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-item[href$=\"orders\"]:nth-child(2)",
+      "extrait": "<a href=\"/counter/orders\" class=\"sidebar-item\">Saisie commande</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"stats\"]",
+      "extrait": "<a href=\"/admin/stats\" class=\"sidebar-item\">Statistiques</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-item[href$=\"orders\"]:nth-child(4)",
+      "extrait": "<a href=\"/admin/orders\" class=\"sidebar-item\">Commandes</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"display\"]",
+      "extrait": "<a href=\"/kitchen/display\" class=\"sidebar-item\">Cuisine (KDS)</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-section:nth-child(6) > .sidebar-section-label",
+      "extrait": "<div class=\"sidebar-section-label\">Administration</div>",
+      "avant_plan": "#6b7280",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.83,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"users\"]",
+      "extrait": "<a href=\"/admin/users\" class=\"sidebar-item\">Utilisateurs</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"roles\"]",
+      "extrait": "<a href=\"/admin/roles\" class=\"sidebar-item\">Roles</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "h1",
+      "extrait": "<h1 class=\"page-title\">Tableau de bord</h1>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#f5f5f5",
+      "ratio": 15.96,
+      "seuil_attendu": "3:1",
+      "taille_px": "15.0pt (20px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "article:nth-child(1) > .tile-top > .tile-tag",
+      "extrait": "<span class=\"tile-tag\">En vente</span>",
+      "avant_plan": "#065f46",
+      "arriere_plan": "#d1fae5",
+      "ratio": 6.77,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "article:nth-child(1) > .tile-value",
+      "extrait": "<div class=\"tile-value\">58</div>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "3:1",
+      "taille_px": "30.0pt (40px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "article:nth-child(1) > .tile-label",
+      "extrait": "<div class=\"tile-label\">Produits actifs</div>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "article:nth-child(2) > .tile-top > .tile-tag",
+      "extrait": "<span class=\"tile-tag\">Classees</span>",
+      "avant_plan": "#065f46",
+      "arriere_plan": "#d1fae5",
+      "ratio": 6.77,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "article:nth-child(2) > .tile-value",
+      "extrait": "<div class=\"tile-value\">9</div>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "3:1",
+      "taille_px": "30.0pt (40px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "article:nth-child(2) > .tile-label",
+      "extrait": "<div class=\"tile-label\">Categories</div>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "article:nth-child(3) > .tile-top > .tile-tag",
+      "extrait": "<span class=\"tile-tag\">Proposes</span>",
+      "avant_plan": "#065f46",
+      "arriere_plan": "#d1fae5",
+      "ratio": 6.77,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "article:nth-child(3) > .tile-value",
+      "extrait": "<div class=\"tile-value\">13</div>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "3:1",
+      "taille_px": "30.0pt (40px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "article:nth-child(3) > .tile-label",
+      "extrait": "<div class=\"tile-label\">Menus</div>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "article:nth-child(4) > .tile-top > .tile-tag",
+      "extrait": "<span class=\"tile-tag\">OK</span>",
+      "avant_plan": "#065f46",
+      "arriere_plan": "#d1fae5",
+      "ratio": 6.77,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "article:nth-child(4) > .tile-value",
+      "extrait": "<div class=\"tile-value\">0</div>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "3:1",
+      "taille_px": "30.0pt (40px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "article:nth-child(4) > .tile-label",
+      "extrait": "<div class=\"tile-label\">Stock critique</div>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".page-header:nth-child(3) > div > h2",
+      "extrait": "<h2 class=\"page-title\">Ventes</h2>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#f5f5f5",
+      "ratio": 15.96,
+      "seuil_attendu": "3:1",
+      "taille_px": "15.0pt (20px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".stat-card:nth-child(1) > .stat-card__value",
+      "extrait": "<div class=\"stat-card__value\">0,00 EUR</div>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "3:1",
+      "taille_px": "21.0pt (28px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".stat-card:nth-child(1) > .stat-card__label",
+      "extrait": "<div class=\"stat-card__label\">CA du jour</div>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".stat-card:nth-child(1) > .stat-card__sub.muted",
+      "extrait": "<div class=\"stat-card__sub muted\">0,00 EUR au total</div>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.2pt (12.25px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".stat-card:nth-child(2) > .stat-card__value",
+      "extrait": "<div class=\"stat-card__value\">0</div>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "3:1",
+      "taille_px": "21.0pt (28px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".stat-card:nth-child(2) > .stat-card__label",
+      "extrait": "<div class=\"stat-card__label\">Commandes payees (jour)</div>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".stat-card:nth-child(2) > .stat-card__sub.muted",
+      "extrait": "<div class=\"stat-card__sub muted\">0 au total</div>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.2pt (12.25px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".stat-card:nth-child(3) > .stat-card__value",
+      "extrait": "<div class=\"stat-card__value\">0,00 EUR</div>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "3:1",
+      "taille_px": "21.0pt (28px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".stat-card:nth-child(3) > .stat-card__label",
+      "extrait": "<div class=\"stat-card__label\">Panier moyen</div>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".stat-card:nth-child(3) > .stat-card__sub.muted",
+      "extrait": "<div class=\"stat-card__sub muted\">par commande payee</div>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.2pt (12.25px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".page-header:nth-child(5) > div > h2",
+      "extrait": "<h2 class=\"page-title\">CA des 7 derniers jours</h2>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#f5f5f5",
+      "ratio": 15.96,
+      "seuil_attendu": "3:1",
+      "taille_px": "15.0pt (20px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".a11y-toggle__icon",
+      "extrait": "<span class=\"a11y-toggle__icon\" aria-hidden=\"true\">Aa</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".a11y-toggle__label",
+      "extrait": "<span class=\"a11y-toggle__label\">Police adaptee</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "violation",
+      "selecteur": ".sidebar-brand-name > span",
+      "extrait": "<span>do</span>",
+      "avant_plan": "#c8920a",
+      "arriere_plan": "#ffffff",
+      "ratio": 2.77,
+      "seuil_attendu": "3:1",
+      "taille_px": "15.8pt (21px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "violation",
+      "selecteur": ".page-header:nth-child(1) > div > p",
+      "extrait": "<p class=\"page-subtitle\">Bienvenue, Wakdo Admin — voici l'essentiel de votre restaurant aujourd'hui.",
+      "avant_plan": "#6b7280",
+      "arriere_plan": "#f5f5f5",
+      "ratio": 4.43,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "violation",
+      "selecteur": ".page-header:nth-child(3) > div > p",
+      "extrait": "<p class=\"page-subtitle\">0,00 EUR aujourd'hui — 0 commande(s) payee(s).</p>",
+      "avant_plan": "#6b7280",
+      "arriere_plan": "#f5f5f5",
+      "ratio": 4.43,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    }
+  ],
+  "conformes_resume": [
+    {
+      "id": "aria-allowed-attr",
+      "noeuds": 5
+    },
+    {
+      "id": "aria-conditional-attr",
+      "noeuds": 5
+    },
+    {
+      "id": "aria-deprecated-role",
+      "noeuds": 1
+    },
+    {
+      "id": "aria-hidden-body",
+      "noeuds": 1
+    },
+    {
+      "id": "aria-hidden-focus",
+      "noeuds": 1
+    },
+    {
+      "id": "aria-prohibited-attr",
+      "noeuds": 5
+    },
+    {
+      "id": "aria-required-attr",
+      "noeuds": 1
+    },
+    {
+      "id": "aria-roles",
+      "noeuds": 1
+    },
+    {
+      "id": "aria-valid-attr",
+      "noeuds": 5
+    },
+    {
+      "id": "aria-valid-attr-value",
+      "noeuds": 5
+    },
+    {
+      "id": "button-name",
+      "noeuds": 2
+    },
+    {
+      "id": "bypass",
+      "noeuds": 1
+    },
+    {
+      "id": "color-contrast",
+      "noeuds": 47
+    },
+    {
+      "id": "document-title",
+      "noeuds": 1
+    },
+    {
+      "id": "html-has-lang",
+      "noeuds": 1
+    },
+    {
+      "id": "html-lang-valid",
+      "noeuds": 1
+    },
+    {
+      "id": "image-alt",
+      "noeuds": 1
+    },
+    {
+      "id": "link-name",
+      "noeuds": 13
+    },
+    {
+      "id": "meta-viewport",
+      "noeuds": 1
+    },
+    {
+      "id": "nested-interactive",
+      "noeuds": 4
+    },
+    {
+      "id": "svg-img-alt",
+      "noeuds": 1
+    }
+  ],
+  "non_applicables": [
+    "area-alt",
+    "aria-braille-equivalent",
+    "aria-command-name",
+    "aria-input-field-name",
+    "aria-meter-name",
+    "aria-progressbar-name",
+    "aria-required-children",
+    "aria-required-parent",
+    "aria-tab-name",
+    "aria-toggle-field-name",
+    "aria-tooltip-name",
+    "autocomplete-valid",
+    "avoid-inline-spacing",
+    "blink",
+    "definition-list",
+    "dlitem",
+    "duplicate-id-aria",
+    "form-field-multiple-labels",
+    "frame-focusable-content",
+    "frame-title",
+    "frame-title-unique",
+    "html-xml-lang-mismatch",
+    "input-button-name",
+    "input-image-alt",
+    "label",
+    "link-in-text-block",
+    "list",
+    "listitem",
+    "marquee",
+    "meta-refresh",
+    "no-autoplay-audio",
+    "object-alt",
+    "role-img-alt",
+    "scrollable-region-focusable",
+    "select-name",
+    "server-side-image-map",
+    "summary-name",
+    "td-headers-attr",
+    "th-has-data-cells",
+    "valid-lang",
+    "video-caption"
+  ]
+}

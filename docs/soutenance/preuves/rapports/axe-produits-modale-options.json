@@ -1,0 +1,1187 @@
+{
+  "page": "produits-modale-options",
+  "url": "http://kiosk.wakdo.test/products.html?category=2",
+  "date": "2026-09-22T14:07:30.385Z",
+  "moteur": {
+    "axe": {
+      "name": "axe-core",
+      "version": "4.13.0"
+    },
+    "regles": [
+      "wcag2a",
+      "wcag2aa",
+      "wcag21a",
+      "wcag21aa"
+    ]
+  },
+  "navigateur": {
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.6778.33 Safari/537.36",
+    "windowWidth": 1080,
+    "windowHeight": 1920,
+    "orientationAngle": 0,
+    "orientationType": "landscape-primary"
+  },
+  "violations": [],
+  "indetermines": [
+    {
+      "id": "aria-hidden-focus",
+      "impact": "serious",
+      "tags": [
+        "cat.name-role-value",
+        "wcag2a",
+        "wcag412",
+        "TTv5",
+        "TT6.a",
+        "EN-301-549",
+        "EN-9.4.1.2",
+        "RGAAv4",
+        "RGAA-10.8.1"
+      ],
+      "description": "Ensure aria-hidden elements are not focusable nor contain focusable elements",
+      "help": "ARIA hidden element must not be focusable or contain focusable elements",
+      "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/aria-hidden-focus?application=playwright",
+      "nodes": [
+        {
+          "any": [],
+          "all": [
+            {
+              "id": "focusable-modal-open",
+              "data": null,
+              "relatedNodes": [
+                {
+                  "html": "<a class=\"skip-link\" href=\"#main-content\" aria-hidden=\"true\">Aller au contenu</a>",
+                  "target": [
+                    ".skip-link"
+                  ]
+                }
+              ],
+              "impact": "serious",
+              "message": "Check that focusable elements are not tabbable in the current state"
+            }
+          ],
+          "none": [],
+          "impact": "serious",
+          "html": "<a class=\"skip-link\" href=\"#main-content\" aria-hidden=\"true\">Aller au contenu</a>",
+          "target": [
+            ".skip-link"
+          ],
+          "failureSummary": "Fix all of the following:\n  Check that focusable elements are not tabbable in the current state"
+        },
+        {
+          "any": [],
+          "all": [
+            {
+              "id": "focusable-modal-open",
+              "data": null,
+              "relatedNodes": [
+                {
+                  "html": "<a id=\"back-to-categories\" class=\"site-header__back\" href=\"categories.html\" aria-label=\"Retour aux categories\">\n            ← Categories\n        </a>",
+                  "target": [
+                    "#back-to-categories"
+                  ]
+                }
+              ],
+              "impact": "serious",
+              "message": "Check that focusable elements are not tabbable in the current state"
+            }
+          ],
+          "none": [],
+          "impact": "serious",
+          "html": "<header class=\"site-header\" aria-hidden=\"true\">",
+          "target": [
+            "header"
+          ],
+          "failureSummary": "Fix all of the following:\n  Check that focusable elements are not tabbable in the current state"
+        },
+        {
+          "any": [],
+          "all": [
+            {
+              "id": "focusable-modal-open",
+              "data": null,
+              "relatedNodes": [
+                {
+                  "html": "<button class=\"category-strip__arrow category-strip__arrow--prev\" type=\"button\" aria-label=\"Categories precedentes\">◀</button>",
+                  "target": [
+                    ".category-strip__arrow--prev"
+                  ]
+                },
+                {
+                  "html": "<a class=\"category-strip__item\" href=\"products.html?category=1\" aria-label=\"Menus\">\n            <img class=\"category-strip__img\" src=\"assets/images/categories/menus.png\" alt=\"\" aria-hidden=\"true\" data-fallback=\"hide\">\n            <span class=\"category-strip__label\">Menus</span>\n        </a>",
+                  "target": [
+                    "a[href=\"products.html?category=1\"]"
+                  ]
+                },
+                {
+                  "html": "<a class=\"category-strip__item is-active\" href=\"products.html?category=2\" aria-label=\"Boissons\" aria-current=\"true\">",
+                  "target": [
+                    ".is-active"
+                  ]
+                },
+                {
+                  "html": "<a class=\"category-strip__item\" href=\"products.html?category=3\" aria-label=\"Burgers\">\n            <img class=\"category-strip__img\" src=\"assets/images/categories/burgers.png\" alt=\"\" aria-hidden=\"true\" data-fallback=\"hide\">\n            <span class=\"category-strip__label\">Burgers</span>\n        </a>",
+                  "target": [
+                    "a[href=\"products.html?category=3\"]"
+                  ]
+                },
+                {
+                  "html": "<a class=\"category-strip__item\" href=\"products.html?category=4\" aria-label=\"Frites\">\n            <img class=\"category-strip__img\" src=\"assets/images/categories/frites.png\" alt=\"\" aria-hidden=\"true\" data-fallback=\"hide\">\n            <span class=\"category-strip__label\">Frites</span>\n        </a>",
+                  "target": [
+                    "a[href=\"products.html?category=4\"]"
+                  ]
+                },
+                {
+                  "html": "<a class=\"category-strip__item\" href=\"products.html?category=5\" aria-label=\"Encas\">\n            <img class=\"category-strip__img\" src=\"assets/images/categories/encas.png\" alt=\"\" aria-hidden=\"true\" data-fallback=\"hide\">\n            <span class=\"category-strip__label\">Encas</span>\n        </a>",
+                  "target": [
+                    "a[href=\"products.html?category=5\"]"
+                  ]
+                },
+                {
+                  "html": "<a class=\"category-strip__item\" href=\"products.html?category=6\" aria-label=\"Wraps\">\n            <img class=\"category-strip__img\" src=\"assets/images/categories/wraps.png\" alt=\"\" aria-hidden=\"true\" data-fallback=\"hide\">\n            <span class=\"category-strip__label\">Wraps</span>\n        </a>",
+                  "target": [
+                    "a[href=\"products.html?category=6\"]"
+                  ]
+                },
+                {
+                  "html": "<a class=\"category-strip__item\" href=\"products.html?category=7\" aria-label=\"Salades\">\n            <img class=\"category-strip__img\" src=\"assets/images/categories/salades.png\" alt=\"\" aria-hidden=\"true\" data-fallback=\"hide\">\n            <span class=\"category-strip__label\">Salades</span>\n        </a>",
+                  "target": [
+                    "a[href=\"products.html?category=7\"]"
+                  ]
+                },
+                {
+                  "html": "<a class=\"category-strip__item\" href=\"products.html?category=8\" aria-label=\"Desserts\">\n            <img class=\"category-strip__img\" src=\"assets/images/categories/desserts.png\" alt=\"\" aria-hidden=\"true\" data-fallback=\"hide\">\n            <span class=\"category-strip__label\">Desserts</span>\n        </a>",
+                  "target": [
+                    "a[href=\"products.html?category=8\"]"
+                  ]
+                },
+                {
+                  "html": "<a class=\"category-strip__item\" href=\"products.html?category=9\" aria-label=\"Sauces\">\n            <img class=\"category-strip__img\" src=\"assets/images/categories/sauces.png\" alt=\"\" aria-hidden=\"true\" data-fallback=\"hide\">\n            <span class=\"category-strip__label\">Sauces</span>\n        </a>",
+                  "target": [
+                    "a[href=\"products.html?category=9\"]"
+                  ]
+                },
+                {
+                  "html": "<button class=\"category-strip__arrow category-strip__arrow--next\" type=\"button\" aria-label=\"Categories suivantes\">▶</button>",
+                  "target": [
+                    ".category-strip__arrow--next"
+                  ]
+                },
+                {
+                  "html": "<a class=\"product-card\" href=\"#\" aria-label=\"Coca Cola - 1,90 EUR\">",
+                  "target": [
+                    "a[aria-label=\"Coca Cola - 1,90 EUR\"]"
+                  ]
+                },
+                {
+                  "html": "<button type=\"button\" class=\"allergen-info-btn\" aria-label=\"Informations allergenes\" title=\"Informations allergenes\">i</button>",
+                  "target": [
+                    ".product-card-cell:nth-child(1) > .allergen-info-btn[aria-label=\"Informations allergenes\"][title=\"Informations allergenes\"]"
+                  ]
+                },
+                {
+                  "html": "<a class=\"product-card\" href=\"#\" aria-label=\"Coca Sans Sucres - 1,90 EUR\">",
+                  "target": [
+                    "a[aria-label=\"Coca Sans Sucres - 1,90 EUR\"]"
+                  ]
+                },
+                {
+                  "html": "<button type=\"button\" class=\"allergen-info-btn\" aria-label=\"Informations allergenes\" title=\"Informations allergenes\">i</button>",
+                  "target": [
+                    ".product-card-cell:nth-child(2) > .allergen-info-btn[aria-label=\"Informations allergenes\"][title=\"Informations allergenes\"]"
+                  ]
+                },
+                {
+                  "html": "<a class=\"product-card\" href=\"#\" aria-label=\"Eau - 1,00 EUR\">",
+                  "target": [
+                    "a[aria-label=\"Eau - 1,00 EUR\"]"
+                  ]
+                },
+                {
+                  "html": "<button type=\"button\" class=\"allergen-info-btn\" aria-label=\"Informations allergenes\" title=\"Informations allergenes\">i</button>",
+                  "target": [
+                    ".product-card-cell:nth-child(3) > .allergen-info-btn[aria-label=\"Informations allergenes\"][title=\"Informations allergenes\"]"
+                  ]
+                },
+                {
+                  "html": "<a class=\"product-card\" href=\"#\" aria-label=\"Fanta Orange - 1,90 EUR\">",
+                  "target": [
+                    "a[aria-label=\"Fanta Orange - 1,90 EUR\"]"
+                  ]
+                },
+                {
+                  "html": "<button type=\"button\" class=\"allergen-info-btn\" aria-label=\"Informations allergenes\" title=\"Informations allergenes\">i</button>",
+                  "target": [
+                    ".product-card-cell:nth-child(4) > .allergen-info-btn[aria-label=\"Informations allergenes\"][title=\"Informations allergenes\"]"
+                  ]
+                },
+                {
+                  "html": "<a class=\"product-card\" href=\"#\" aria-label=\"Ice Tea Peche - 1,90 EUR\">",
+                  "target": [
+                    "a[aria-label=\"Ice Tea Peche - 1,90 EUR\"]"
+                  ]
+                },
+                {
+                  "html": "<button type=\"button\" class=\"allergen-info-btn\" aria-label=\"Informations allergenes\" title=\"Informations allergenes\">i</button>",
+                  "target": [
+                    ".product-card-cell:nth-child(5) > .allergen-info-btn[aria-label=\"Informations allergenes\"][title=\"Informations allergenes\"]"
+                  ]
+                },
+                {
+                  "html": "<a class=\"product-card\" href=\"#\" aria-label=\"Ice Tea Citron - 1,90 EUR\">",
+                  "target": [
+                    "a[aria-label=\"Ice Tea Citron - 1,90 EUR\"]"
+                  ]
+                },
+                {
+                  "html": "<button type=\"button\" class=\"allergen-info-btn\" aria-label=\"Informations allergenes\" title=\"Informations allergenes\">i</button>",
+                  "target": [
+                    ".product-card-cell:nth-child(6) > .allergen-info-btn[aria-label=\"Informations allergenes\"][title=\"Informations allergenes\"]"
+                  ]
+                },
+                {
+                  "html": "<a class=\"product-card\" href=\"#\" aria-label=\"Jus d'Orange - 2,10 EUR\">",
+                  "target": [
+                    "a[aria-label=\"Jus d'Orange - 2,10 EUR\"]"
+                  ]
+                },
+                {
+                  "html": "<button type=\"button\" class=\"allergen-info-btn\" aria-label=\"Informations allergenes\" title=\"Informations allergenes\">i</button>",
+                  "target": [
+                    ".product-card-cell:nth-child(7) > .allergen-info-btn[aria-label=\"Informations allergenes\"][title=\"Informations allergenes\"]"
+                  ]
+                },
+                {
+                  "html": "<a class=\"product-card\" href=\"#\" aria-label=\"Jus de Pommes Bio - 2,30 EUR\">",
+                  "target": [
+                    "a[aria-label=\"Jus de Pommes Bio - 2,30 EUR\"]"
+                  ]
+                },
+                {
+                  "html": "<button type=\"button\" class=\"allergen-info-btn\" aria-label=\"Informations allergenes\" title=\"Informations allergenes\">i</button>",
+                  "target": [
+                    ".product-card-cell:nth-child(8) > .allergen-info-btn[aria-label=\"Informations allergenes\"][title=\"Informations allergenes\"]"
+                  ]
+                },
+                {
+                  "html": "<button class=\"order-panel__qty-btn\" data-action=\"dec\" data-index=\"0\" type=\"button\" aria-label=\"Diminuer la quantite de Audit A11Y - article 1\">−</button>",
+                  "target": [
+                    ".order-panel__qty-btn[data-action=\"dec\"][data-index=\"0\"]"
+                  ]
+                },
+                {
+                  "html": "<button class=\"order-panel__qty-btn\" data-action=\"inc\" data-index=\"0\" type=\"button\" aria-label=\"Augmenter la quantite de Audit A11Y - article 1\">+</button>",
+                  "target": [
+                    ".order-panel__qty-btn[data-action=\"inc\"][data-index=\"0\"]"
+                  ]
+                },
+                {
+                  "html": "<button class=\"order-panel__remove\" data-index=\"0\" type=\"button\" aria-label=\"Retirer Audit A11Y - article 1 de la commande\">\n                    <img src=\"assets/images/ui/trash.png\" alt=\"\" aria-hidden=\"true\" width=\"20\" height=\"20\">\n                </button>",
+                  "target": [
+                    ".order-panel__remove[data-index=\"0\"]"
+                  ]
+                },
+                {
+                  "html": "<button class=\"order-panel__qty-btn\" data-action=\"dec\" data-index=\"1\" type=\"button\" aria-label=\"Diminuer la quantite de Audit A11Y - article 2\">−</button>",
+                  "target": [
+                    ".order-panel__qty-btn[data-action=\"dec\"][data-index=\"1\"]"
+                  ]
+                },
+                {
+                  "html": "<button class=\"order-panel__qty-btn\" data-action=\"inc\" data-index=\"1\" type=\"button\" aria-label=\"Augmenter la quantite de Audit A11Y - article 2\">+</button>",
+                  "target": [
+                    ".order-panel__qty-btn[data-action=\"inc\"][data-index=\"1\"]"
+                  ]
+                },
+                {
+                  "html": "<button class=\"order-panel__remove\" data-index=\"1\" type=\"button\" aria-label=\"Retirer Audit A11Y - article 2 de la commande\">\n                    <img src=\"assets/images/ui/trash.png\" alt=\"\" aria-hidden=\"true\" width=\"20\" height=\"20\">\n                </button>",
+                  "target": [
+                    ".order-panel__remove[data-index=\"1\"]"
+                  ]
+                },
+                {
+                  "html": "<button class=\"order-panel__abandon\" type=\"button\">Abandon</button>",
+                  "target": [
+                    ".order-panel__abandon"
+                  ]
+                },
+                {
+                  "html": "<a class=\"order-panel__pay\" href=\"payment.html\" role=\"button\" aria-disabled=\"false\">Payer</a>",
+                  "target": [
+                    ".order-panel__pay"
+                  ]
+                }
+              ],
+              "impact": "serious",
+              "message": "Check that focusable elements are not tabbable in the current state"
+            }
+          ],
+          "none": [],
+          "impact": "serious",
+          "html": "<div class=\"order-layout\" aria-hidden=\"true\">",
+          "target": [
+            ".order-layout"
+          ],
+          "failureSummary": "Fix all of the following:\n  Check that focusable elements are not tabbable in the current state"
+        },
+        {
+          "any": [],
+          "all": [
+            {
+              "id": "focusable-modal-open",
+              "data": null,
+              "relatedNodes": [
+                {
+                  "html": "<button type=\"button\" class=\"a11y-toggle\" data-a11y-dys-toggle=\"\" aria-pressed=\"false\" aria-label=\"Police adaptee aux personnes dyslexiques\" aria-hidden=\"true\"><span class=\"a11y-toggle__icon\" aria-hidden=\"true\">Aa</span><span class=\"a11y-toggle__label\">Police adaptee</span></button>",
+                  "target": [
+                    ".a11y-toggle"
+                  ]
+                }
+              ],
+              "impact": "serious",
+              "message": "Check that focusable elements are not tabbable in the current state"
+            }
+          ],
+          "none": [],
+          "impact": "serious",
+          "html": "<button type=\"button\" class=\"a11y-toggle\" data-a11y-dys-toggle=\"\" aria-pressed=\"false\" aria-label=\"Police adaptee aux personnes dyslexiques\" aria-hidden=\"true\"><span class=\"a11y-toggle__icon\" aria-hidden=\"true\">Aa</span><span class=\"a11y-toggle__label\">Police adaptee</span></button>",
+          "target": [
+            ".a11y-toggle"
+          ],
+          "failureSummary": "Fix all of the following:\n  Check that focusable elements are not tabbable in the current state"
+        }
+      ]
+    },
+    {
+      "id": "color-contrast",
+      "impact": "serious",
+      "tags": [
+        "cat.color",
+        "wcag2aa",
+        "wcag143",
+        "TTv5",
+        "TT13.c",
+        "EN-301-549",
+        "EN-9.1.4.3",
+        "ACT",
+        "RGAAv4",
+        "RGAA-3.2.1"
+      ],
+      "description": "Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds",
+      "help": "Elements must meet minimum color contrast ratio thresholds",
+      "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/color-contrast?application=playwright",
+      "nodes": [
+        {
+          "any": [
+            {
+              "id": "color-contrast",
+              "data": {
+                "messageKey": "nonBmp"
+              },
+              "relatedNodes": [],
+              "impact": "serious",
+              "message": "Element content contains only non-text characters"
+            }
+          ],
+          "all": [],
+          "none": [],
+          "impact": "serious",
+          "html": "<button class=\"order-panel__qty-btn\" data-action=\"dec\" data-index=\"0\" type=\"button\" aria-label=\"Diminuer la quantite de Audit A11Y - article 1\">−</button>",
+          "target": [
+            ".order-panel__qty-btn[data-action=\"dec\"][data-index=\"0\"]"
+          ],
+          "failureSummary": "Fix any of the following:\n  Element content contains only non-text characters"
+        },
+        {
+          "any": [
+            {
+              "id": "color-contrast",
+              "data": {
+                "messageKey": "nonBmp"
+              },
+              "relatedNodes": [],
+              "impact": "serious",
+              "message": "Element content contains only non-text characters"
+            }
+          ],
+          "all": [],
+          "none": [],
+          "impact": "serious",
+          "html": "<button class=\"order-panel__qty-btn\" data-action=\"dec\" data-index=\"1\" type=\"button\" aria-label=\"Diminuer la quantite de Audit A11Y - article 2\">−</button>",
+          "target": [
+            ".order-panel__qty-btn[data-action=\"dec\"][data-index=\"1\"]"
+          ],
+          "failureSummary": "Fix any of the following:\n  Element content contains only non-text characters"
+        }
+      ]
+    }
+  ],
+  "contrastes_mesures": [
+    {
+      "compartiment": "conforme",
+      "selecteur": "#back-to-categories",
+      "extrait": "<a id=\"back-to-categories\" class=\"site-header__back\" href=\"categories.html\" aria-label=\"Retour aux c",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href=\"products.html?category=1\"] > .category-strip__label",
+      "extrait": "<span class=\"category-strip__label\">Menus</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".is-active > .category-strip__label",
+      "extrait": "<span class=\"category-strip__label\">Boissons</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#fff8e6",
+      "ratio": 16.42,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href=\"products.html?category=3\"] > .category-strip__label",
+      "extrait": "<span class=\"category-strip__label\">Burgers</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href=\"products.html?category=4\"] > .category-strip__label",
+      "extrait": "<span class=\"category-strip__label\">Frites</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href=\"products.html?category=5\"] > .category-strip__label",
+      "extrait": "<span class=\"category-strip__label\">Encas</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href=\"products.html?category=6\"] > .category-strip__label",
+      "extrait": "<span class=\"category-strip__label\">Wraps</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href=\"products.html?category=7\"] > .category-strip__label",
+      "extrait": "<span class=\"category-strip__label\">Salades</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href=\"products.html?category=8\"] > .category-strip__label",
+      "extrait": "<span class=\"category-strip__label\">Desserts</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "#products-heading",
+      "extrait": "<h1 id=\"products-heading\" class=\"products-main__heading\">Nos Boissons</h1>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#f5f5f5",
+      "ratio": 15.96,
+      "seuil_attendu": "3:1",
+      "taille_px": "24.0pt (32px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".mode-badge",
+      "extrait": "<span class=\"mode-badge\" data-mode-badge=\"\">Sur place</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffc72c",
+      "ratio": 11.15,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[aria-label=\"Coca Cola - 1,90 EUR\"] > .product-card__body > .product-card__name",
+      "extrait": "<span class=\"product-card__name\">Coca Cola</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "12.0pt (16px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[aria-label=\"Coca Cola - 1,90 EUR\"] > .product-card__body > .product-card__price",
+      "extrait": "<span class=\"product-card__price\">1,90&nbsp;EUR</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "3:1",
+      "taille_px": "15.0pt (20px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".product-card-cell:nth-child(1) > .allergen-info-btn[aria-label=\"Informations allergenes\"][title=\"Informations allergenes\"]",
+      "extrait": "<button type=\"button\" class=\"allergen-info-btn\" aria-label=\"Informations allergenes\" title=\"Informat",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "12.0pt (16px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[aria-label=\"Coca Sans Sucres - 1,90 EUR\"] > .product-card__body > .product-card__name",
+      "extrait": "<span class=\"product-card__name\">Coca Sans Sucres</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "12.0pt (16px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[aria-label=\"Coca Sans Sucres - 1,90 EUR\"] > .product-card__body > .product-card__price",
+      "extrait": "<span class=\"product-card__price\">1,90&nbsp;EUR</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "3:1",
+      "taille_px": "15.0pt (20px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".product-card-cell:nth-child(2) > .allergen-info-btn[aria-label=\"Informations allergenes\"][title=\"Informations allergenes\"]",
+      "extrait": "<button type=\"button\" class=\"allergen-info-btn\" aria-label=\"Informations allergenes\" title=\"Informat",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "12.0pt (16px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[aria-label=\"Eau - 1,00 EUR\"] > .product-card__body > .product-card__name",
+      "extrait": "<span class=\"product-card__name\">Eau</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "12.0pt (16px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[aria-label=\"Eau - 1,00 EUR\"] > .product-card__body > .product-card__price",
+      "extrait": "<span class=\"product-card__price\">1,00&nbsp;EUR</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "3:1",
+      "taille_px": "15.0pt (20px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".product-card-cell:nth-child(3) > .allergen-info-btn[aria-label=\"Informations allergenes\"][title=\"Informations allergenes\"]",
+      "extrait": "<button type=\"button\" class=\"allergen-info-btn\" aria-label=\"Informations allergenes\" title=\"Informat",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "12.0pt (16px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[aria-label=\"Fanta Orange - 1,90 EUR\"] > .product-card__body > .product-card__name",
+      "extrait": "<span class=\"product-card__name\">Fanta Orange</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "12.0pt (16px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[aria-label=\"Fanta Orange - 1,90 EUR\"] > .product-card__body > .product-card__price",
+      "extrait": "<span class=\"product-card__price\">1,90&nbsp;EUR</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "3:1",
+      "taille_px": "15.0pt (20px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".product-card-cell:nth-child(4) > .allergen-info-btn[aria-label=\"Informations allergenes\"][title=\"Informations allergenes\"]",
+      "extrait": "<button type=\"button\" class=\"allergen-info-btn\" aria-label=\"Informations allergenes\" title=\"Informat",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "12.0pt (16px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[aria-label=\"Ice Tea Peche - 1,90 EUR\"] > .product-card__body > .product-card__name",
+      "extrait": "<span class=\"product-card__name\">Ice Tea Peche</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "12.0pt (16px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[aria-label=\"Ice Tea Peche - 1,90 EUR\"] > .product-card__body > .product-card__price",
+      "extrait": "<span class=\"product-card__price\">1,90&nbsp;EUR</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "3:1",
+      "taille_px": "15.0pt (20px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".product-card-cell:nth-child(5) > .allergen-info-btn[aria-label=\"Informations allergenes\"][title=\"Informations allergenes\"]",
+      "extrait": "<button type=\"button\" class=\"allergen-info-btn\" aria-label=\"Informations allergenes\" title=\"Informat",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "12.0pt (16px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[aria-label=\"Ice Tea Citron - 1,90 EUR\"] > .product-card__body > .product-card__name",
+      "extrait": "<span class=\"product-card__name\">Ice Tea Citron</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "12.0pt (16px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[aria-label=\"Ice Tea Citron - 1,90 EUR\"] > .product-card__body > .product-card__price",
+      "extrait": "<span class=\"product-card__price\">1,90&nbsp;EUR</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "3:1",
+      "taille_px": "15.0pt (20px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".product-card-cell:nth-child(6) > .allergen-info-btn[aria-label=\"Informations allergenes\"][title=\"Informations allergenes\"]",
+      "extrait": "<button type=\"button\" class=\"allergen-info-btn\" aria-label=\"Informations allergenes\" title=\"Informat",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "12.0pt (16px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[aria-label=\"Jus d'Orange - 2,10 EUR\"] > .product-card__body > .product-card__name",
+      "extrait": "<span class=\"product-card__name\">Jus d'Orange</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "12.0pt (16px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[aria-label=\"Jus d'Orange - 2,10 EUR\"] > .product-card__body > .product-card__price",
+      "extrait": "<span class=\"product-card__price\">2,10&nbsp;EUR</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "3:1",
+      "taille_px": "15.0pt (20px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".product-card-cell:nth-child(7) > .allergen-info-btn[aria-label=\"Informations allergenes\"][title=\"Informations allergenes\"]",
+      "extrait": "<button type=\"button\" class=\"allergen-info-btn\" aria-label=\"Informations allergenes\" title=\"Informat",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "12.0pt (16px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[aria-label=\"Jus de Pommes Bio - 2,30 EUR\"] > .product-card__body > .product-card__name",
+      "extrait": "<span class=\"product-card__name\">Jus de Pommes Bio</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "12.0pt (16px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[aria-label=\"Jus de Pommes Bio - 2,30 EUR\"] > .product-card__body > .product-card__price",
+      "extrait": "<span class=\"product-card__price\">2,30&nbsp;EUR</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "3:1",
+      "taille_px": "15.0pt (20px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".product-card-cell:nth-child(8) > .allergen-info-btn[aria-label=\"Informations allergenes\"][title=\"Informations allergenes\"]",
+      "extrait": "<button type=\"button\" class=\"allergen-info-btn\" aria-label=\"Informations allergenes\" title=\"Informat",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "12.0pt (16px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".order-panel__title",
+      "extrait": "<span class=\"order-panel__title\">Ma commande</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "3:1",
+      "taille_px": "15.0pt (20px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".order-panel__mode",
+      "extrait": "<span class=\"order-panel__mode\">Sur place</span>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#f5f5f5",
+      "ratio": 8.12,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".order-panel__line:nth-child(1) > .order-panel__line-main > .order-panel__line-name",
+      "extrait": "<span class=\"order-panel__line-name\">Audit A11Y - article 1</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "12.0pt (16px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".order-panel__line:nth-child(1) > .order-panel__line-main > .order-panel__line-price",
+      "extrait": "<span class=\"order-panel__line-price\">5,00&nbsp;EUR</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "12.0pt (16px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".order-panel__line:nth-child(1) > .order-panel__line-controls > .order-panel__qty[role=\"group\"] > .order-panel__qty-value",
+      "extrait": "<span class=\"order-panel__qty-value\">2</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "12.0pt (16px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".order-panel__line:nth-child(2) > .order-panel__line-main > .order-panel__line-name",
+      "extrait": "<span class=\"order-panel__line-name\">Audit A11Y - article 2</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "12.0pt (16px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".order-panel__line:nth-child(2) > .order-panel__line-main > .order-panel__line-price",
+      "extrait": "<span class=\"order-panel__line-price\">2,00&nbsp;EUR</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "12.0pt (16px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".order-panel__line:nth-child(2) > .order-panel__line-controls > .order-panel__qty[role=\"group\"] > .order-panel__qty-value",
+      "extrait": "<span class=\"order-panel__qty-value\">1</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "12.0pt (16px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".order-panel__total > span:nth-child(1)",
+      "extrait": "<span>TOTAL (ttc)</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "15.0pt (20px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".order-panel__total-value",
+      "extrait": "<span class=\"order-panel__total-value\">7,00&nbsp;EUR</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "3:1",
+      "taille_px": "18.0pt (24px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".order-panel__abandon",
+      "extrait": "<button class=\"order-panel__abandon\" type=\"button\">Abandon</button>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "12.0pt (16px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".order-panel__pay",
+      "extrait": "<a class=\"order-panel__pay\" href=\"payment.html\" role=\"button\" aria-disabled=\"false\">Payer</a>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffc72c",
+      "ratio": 11.15,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "12.0pt (16px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".a11y-toggle__icon",
+      "extrait": "<span class=\"a11y-toggle__icon\" aria-hidden=\"true\">Aa</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "3:1",
+      "taille_px": "15.0pt (20px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".a11y-toggle__label",
+      "extrait": "<span class=\"a11y-toggle__label\">Police adaptee</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "#po-title",
+      "extrait": "<h2 class=\"composer-title\" id=\"po-title\">Coca Cola</h2>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "3:1",
+      "taille_px": "24.0pt (32px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".size-btn--selected",
+      "extrait": "<button type=\"button\" class=\"size-btn size-btn--selected\" data-product-id=\"14\" role=\"radio\" aria-che",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "3:1",
+      "taille_px": "15.0pt (20px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "button[data-product-id=\"54\"]",
+      "extrait": "<button type=\"button\" class=\"size-btn\" data-product-id=\"54\" role=\"radio\" aria-checked=\"false\">50 cl<",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "15.0pt (20px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "#po-unit",
+      "extrait": "<p class=\"product-options__unit\" id=\"po-unit\">1,90&nbsp;EUR / unite</p>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "12.0pt (16px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "#po-qty",
+      "extrait": "<span class=\"qty-value\" id=\"po-qty\" aria-live=\"polite\">1</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "3:1",
+      "taille_px": "15.0pt (20px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".product-options__total",
+      "extrait": "<p class=\"product-options__total\" aria-live=\"polite\" aria-atomic=\"true\">Total : <strong id=\"po-total",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "15.0pt (20px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "#po-total",
+      "extrait": "<strong id=\"po-total\">1,90&nbsp;EUR</strong>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "3:1",
+      "taille_px": "15.0pt (20px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "#po-cancel",
+      "extrait": "<button class=\"btn btn--secondary\" type=\"button\" id=\"po-cancel\">Annuler</button>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "3:1",
+      "taille_px": "15.0pt (20px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "#po-add",
+      "extrait": "<button class=\"btn btn--primary\" type=\"button\" id=\"po-add\">Ajouter a ma commande</button>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffc72c",
+      "ratio": 11.15,
+      "seuil_attendu": "3:1",
+      "taille_px": "15.0pt (20px)",
+      "graisse": "bold"
+    }
+  ],
+  "conformes_resume": [
+    {
+      "id": "aria-allowed-attr",
+      "noeuds": 9
+    },
+    {
+      "id": "aria-conditional-attr",
+      "noeuds": 9
+    },
+    {
+      "id": "aria-deprecated-role",
+      "noeuds": 5
+    },
+    {
+      "id": "aria-hidden-body",
+      "noeuds": 1
+    },
+    {
+      "id": "aria-hidden-focus",
+      "noeuds": 5
+    },
+    {
+      "id": "aria-prohibited-attr",
+      "noeuds": 9
+    },
+    {
+      "id": "aria-required-attr",
+      "noeuds": 5
+    },
+    {
+      "id": "aria-roles",
+      "noeuds": 5
+    },
+    {
+      "id": "aria-valid-attr",
+      "noeuds": 9
+    },
+    {
+      "id": "aria-valid-attr-value",
+      "noeuds": 9
+    },
+    {
+      "id": "avoid-inline-spacing",
+      "noeuds": 1
+    },
+    {
+      "id": "button-name",
+      "noeuds": 6
+    },
+    {
+      "id": "bypass",
+      "noeuds": 1
+    },
+    {
+      "id": "color-contrast",
+      "noeuds": 58
+    },
+    {
+      "id": "document-title",
+      "noeuds": 1
+    },
+    {
+      "id": "duplicate-id-aria",
+      "noeuds": 1
+    },
+    {
+      "id": "html-has-lang",
+      "noeuds": 1
+    },
+    {
+      "id": "html-lang-valid",
+      "noeuds": 1
+    },
+    {
+      "id": "image-alt",
+      "noeuds": 1
+    },
+    {
+      "id": "meta-viewport",
+      "noeuds": 1
+    },
+    {
+      "id": "nested-interactive",
+      "noeuds": 7
+    }
+  ],
+  "non_applicables": [
+    "area-alt",
+    "aria-braille-equivalent",
+    "aria-command-name",
+    "aria-input-field-name",
+    "aria-meter-name",
+    "aria-progressbar-name",
+    "aria-required-children",
+    "aria-required-parent",
+    "aria-tab-name",
+    "aria-toggle-field-name",
+    "aria-tooltip-name",
+    "autocomplete-valid",
+    "blink",
+    "definition-list",
+    "dlitem",
+    "form-field-multiple-labels",
+    "frame-focusable-content",
+    "frame-title",
+    "frame-title-unique",
+    "html-xml-lang-mismatch",
+    "input-button-name",
+    "input-image-alt",
+    "label",
+    "link-in-text-block",
+    "link-name",
+    "list",
+    "listitem",
+    "marquee",
+    "meta-refresh",
+    "no-autoplay-audio",
+    "object-alt",
+    "role-img-alt",
+    "scrollable-region-focusable",
+    "select-name",
+    "server-side-image-map",
+    "summary-name",
+    "svg-img-alt",
+    "td-headers-attr",
+    "th-has-data-cells",
+    "valid-lang",
+    "video-caption"
+  ]
+}
