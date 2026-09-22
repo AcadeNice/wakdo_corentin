@@ -1,0 +1,33 @@
+name: Probe CD
+# Sonde TEMPORAIRE. But unique : etablir par une execution reelle si un job
+# dispose du socket Docker de l'hote, ce qui decide la conception du deploiement
+# continu mono-hote. Le runner stark-wakdo monte bien /var/run/docker.sock ;
+# reste a savoir s'il le transmet aux conteneurs de job (le defaut varie selon
+# les versions de forgejo-runner, et ce depot n'a aucun precedent).
+# A SUPPRIMER une fois la reponse obtenue.
+
+on:
+  push:
+    branches: ['ci/**']
+
+jobs:
+  probe:
+    runs-on: docker
+    steps:
+      - name: Le job voit-il le socket Docker
+        run: |
+          set +e
+          echo "=== socket ==="
+          ls -l /var/run/docker.sock 2>&1 || echo "ABSENT: /var/run/docker.sock"
+          echo "=== DOCKER_HOST ==="
+          echo "${DOCKER_HOST:-non defini}"
+          echo "=== client docker present ? ==="
+          command -v docker || echo "pas de client docker dans l image de job"
+          echo "=== le demon repond-il ? ==="
+          apt-get update -qq >/dev/null 2>&1
+          apt-get install -y -qq curl >/dev/null 2>&1
+          curl -s --unix-socket /var/run/docker.sock http://localhost/version 2>&1 | head -c 400
+          echo
+          echo "=== chemin de deploiement visible depuis le job ? ==="
+          ls -d /home/acadenice/corentin_wakdo 2>&1 || echo "ABSENT depuis le job (normal si pas monte)"
+          exit 0
