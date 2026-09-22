@@ -1,8 +1,7 @@
 name: Probe canal
-# Sonde TEMPORAIRE. Trois questions booleennes : le nom du job rouge repond.
-# Contexte : la cle d'hote de stark est identique depuis localhost, 127.0.0.1 et
-# 172.17.0.1, et un seul serveur SSH ecoute. L'epinglage est donc juste cote hote,
-# mais un job le refuse. On cherche ou est le desaccord.
+# Sonde TEMPORAIRE. La route par defaut du conteneur de job ne mene PAS a stark :
+# il faut donc une adresse explicite. Deux candidates, un job chacune, le vert
+# designe celle a retenir. On compare la cle d'hote presentee a celle de stark.
 
 on:
   push:
@@ -12,40 +11,38 @@ env:
   CLE_HOTE_ATTENDUE: "AAAAC3NzaC1lZDI1NTE5AAAAIExEMKL3ZKHil4u3+9r9LXTElp8hjHisHDXb/zQD8kCb"
 
 jobs:
-  g1-la-passerelle-est-bien-l-hote:
+  h1-adresse-reseau-des-jobs-10-44-0-1:
     runs-on: docker
     steps:
-      - name: La route par defaut mene-t-elle a 172.17.0.1
+      - name: stark repond-il en SSH sur sa patte du reseau des jobs
+        run: |
+          set -eu
+          apt-get update -qq >/dev/null
+          apt-get install -y -qq openssh-client >/dev/null
+          VUE="$(ssh-keyscan -t ed25519 -T 8 10.44.0.1 2>/dev/null | awk '{print $3}' | head -1)"
+          echo "cle vue : ${VUE:-AUCUNE}"
+          test "$VUE" = "$CLE_HOTE_ATTENDUE"
+
+  h2-adresse-principale-62-210-93-152:
+    runs-on: docker
+    steps:
+      - name: stark repond-il en SSH sur son adresse principale
+        run: |
+          set -eu
+          apt-get update -qq >/dev/null
+          apt-get install -y -qq openssh-client >/dev/null
+          VUE="$(ssh-keyscan -t ed25519 -T 8 62.210.93.152 2>/dev/null | awk '{print $3}' | head -1)"
+          echo "cle vue : ${VUE:-AUCUNE}"
+          test "$VUE" = "$CLE_HOTE_ATTENDUE"
+
+  h3-quelle-est-la-passerelle-reelle:
+    runs-on: docker
+    steps:
+      - name: La passerelle du job est-elle sur le reseau 10.44.0.0/24
         run: |
           set -eu
           apt-get update -qq >/dev/null
           apt-get install -y -qq iproute2 >/dev/null
           GW="$(ip route show default | awk '/default/ {print $3; exit}')"
           echo "passerelle = $GW"
-          test "$GW" = "172.17.0.1"
-
-  g2-la-machine-jointe-presente-la-bonne-cle:
-    runs-on: docker
-    steps:
-      - name: Relever la cle d hote depuis le job et la comparer
-        run: |
-          set -eu
-          apt-get update -qq >/dev/null
-          apt-get install -y -qq openssh-client iproute2 >/dev/null
-          GW="$(ip route show default | awk '/default/ {print $3; exit}')"
-          VUE="$(ssh-keyscan -t ed25519 -T 8 "$GW" 2>/dev/null | awk '{print $3}' | head -1)"
-          echo "vue depuis le job : ${VUE:-AUCUNE}"
-          test "$VUE" = "$CLE_HOTE_ATTENDUE"
-
-  g3-le-secret-contient-la-bonne-cle-d-hote:
-    runs-on: docker
-    steps:
-      - name: Comparer le secret a la cle attendue
-        env:
-          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
-        run: |
-          set -eu
-          DANS_SECRET="$(printf '%s' "$DEPLOY_KNOWN_HOSTS" | awk '{print $3}' | head -1)"
-          echo "longueur du secret : $(printf '%s' "$DEPLOY_KNOWN_HOSTS" | wc -c) caracteres"
-          echo "motif d hote declare : $(printf '%s' "$DEPLOY_KNOWN_HOSTS" | awk '{print $1}' | head -1)"
-          test "$DANS_SECRET" = "$CLE_HOTE_ATTENDUE"
+          case "$GW" in 10.44.0.*) exit 0 ;; *) exit 1 ;; esac
