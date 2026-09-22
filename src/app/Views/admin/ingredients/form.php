@@ -12,6 +12,7 @@ declare(strict_types=1);
  * @var array<string, mixed>   $values
  * @var array<string, string>  $errors
  * @var string                 $csrfToken
+ * @var list<array{id: int, name: string, description: string, checked: bool}> $allergenMatrix
  */
 
 $csrf = htmlspecialchars($csrfToken ?? '', ENT_QUOTES, 'UTF-8');
@@ -101,6 +102,70 @@ $err = static fn (string $k): string => isset($errs[$k]) && is_string($errs[$k])
         <form method="post" action="/admin/ingredients/<?= $id ?>/enrich">
             <input type="hidden" name="_csrf" value="<?= $csrf ?>">
             <button class="btn btn-secondary" type="submit">Importer la valeur nutritionnelle (OpenFoodFacts)</button>
+        </form>
+    </section>
+
+    <?php
+    /** @var list<array{id: int, name: string, description: string, checked: bool}> $matrix */
+    $matrix = isset($allergenMatrix) && is_array($allergenMatrix) ? $allergenMatrix : [];
+    $reviewedAt = $val('allergens_reviewed_at');
+    $allergenSource = $val('allergens_source');
+    ?>
+    <section class="card" aria-labelledby="allergens-title">
+        <h2 id="allergens-title">Allergenes de cet ingredient</h2>
+
+        <?php if ($reviewedAt === ''): ?>
+            <p class="allergen-review allergen-review--none" role="status">
+                <strong>Jamais revu.</strong> Tant que cet ingredient n a pas ete revu, la borne
+                n affirme rien sur les produits qui l utilisent : elle invite le client a demander
+                a l equipe. C est volontaire — ne rien cocher ne veut pas dire "sans allergene".
+            </p>
+        <?php else: ?>
+            <p class="allergen-review">
+                Revu le <strong><?= $reviewedAt ?></strong><?= $allergenSource !== '' ? ' - source : <strong>' . $allergenSource . '</strong>' : '' ?>.
+            </p>
+        <?php endif; ?>
+
+        <?php if ($err('allergens_source') !== ''): ?>
+            <p class="form-error" role="alert"><?= htmlspecialchars($err('allergens_source'), ENT_QUOTES, 'UTF-8') ?></p>
+        <?php endif; ?>
+
+        <!--
+            Cases en champs SCALAIRES `allergen_<id>` : Request::formBody ne conserve que
+            les scalaires, donc des cases `allergens[]` seraient perdues. Meme convention
+            que la matrice `perm_<id>` des roles.
+        -->
+        <form method="post" action="/admin/ingredients/<?= $id ?>/allergens">
+            <input type="hidden" name="_csrf" value="<?= $csrf ?>">
+
+            <fieldset class="form-group">
+                <legend>Cochez les allergenes reellement presents (reglement UE INCO 1169/2011)</legend>
+                <ul class="allergen-matrix">
+                    <?php foreach ($matrix as $allergen): ?>
+                        <li>
+                            <label class="form-label">
+                                <input type="checkbox" name="allergen_<?= (int) $allergen['id'] ?>" value="1"<?= $allergen['checked'] ? ' checked' : '' ?>>
+                                <?= htmlspecialchars($allergen['name'], ENT_QUOTES, 'UTF-8') ?>
+                            </label>
+                            <?php if ($allergen['description'] !== ''): ?>
+                                <small><?= htmlspecialchars($allergen['description'], ENT_QUOTES, 'UTF-8') ?></small>
+                            <?php endif; ?>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+            </fieldset>
+
+            <div class="form-group">
+                <label class="form-label" for="source">D ou vient l information ? (obligatoire)</label>
+                <input class="form-input" type="text" id="source" name="source" maxlength="120"
+                       placeholder="ex. fiche technique du fournisseur, etiquette de l emballage"
+                       value="<?= $allergenSource ?>" required>
+                <small>Une revue sans provenance n est pas verifiable. Cette source est affichee dans le back-office et tracee.</small>
+            </div>
+
+            <div class="form-actions">
+                <button class="btn btn-primary" type="submit">Enregistrer la revue des allergenes</button>
+            </div>
         </form>
     </section>
 <?php endif; ?>

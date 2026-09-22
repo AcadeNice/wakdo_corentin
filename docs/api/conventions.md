@@ -51,10 +51,9 @@ Code de reference : routes dans `src/public/admin/index.php`, controleurs dans
 | Famille | Prefixe | Rendu | Authentification | Exemple |
 |---|---|---|---|---|
 | Pages back-office | aucun | HTML (vue serveur + `layout.php`) | session admin | `/login`, `/forgot_password` |
-| API REST | `/api/` | JSON (enveloppe section 7) | selon la ressource (section 10) | `/api/health`, `/api/categories` (prevu) |
+| API REST | `/api/` | JSON (enveloppe section 7) | selon la ressource (section 10) | `/api/health`, `/api/categories` (livre) |
 
-La borne (kiosk) consommera l'API REST `/api/*` (P4). En attendant, elle lit un repli JSON
-statique sous `src/public/borne/data/` (voir section 8.3).
+La borne (kiosk) consomme l'API REST `/api/*` en lecture pour le catalogue (voir section 8.3).
 
 ---
 
@@ -107,7 +106,7 @@ is_active) et d'`Authorizer` (RG-T03, permissions rechargees depuis la base). Re
 si la session est absente, expiree ou le compte desactive. Les autorisations par operation
 (et le PIN des actions sensibles, RG-T13) se cablent quand les operations existent (P3).
 
-### 5.2 API kiosk - lecture catalogue + commande (prevu P4, public)
+### 5.2 API kiosk - lecture catalogue + commande (livre, public)
 
 La borne est publique (aucune session) ; cf. `mlt.md` CREATE_ORDER, declencheur kiosk.
 
@@ -270,24 +269,61 @@ Codes specifiques nommes par le MLT, en surcharge du socle : `CANNOT_CANCEL_IN_S
 `INVALID_TRANSITION` (409) pour l'annulation (`mlt.md` 7.1, `security-sequence.md`). Meme format
 d'enveloppe.
 
-### 8.3 Divergence connue : repli JSON de la borne
+**`ORDER_CANCELLED` (409, F18).** Rendu par `POST /api/orders` quand la cle
+d'idempotence envoyee porte une commande **annulee ou expiree**. La colonne
+`idempotency_key` etant UNIQUE, cette cle est definitivement consommee : elle ne peut
+plus porter de commande. Sans ce code, un client dont la commande a ete annulee pendant
+qu'il hesitait serait bloque — commande impayable, cle interdisant d'en creer une autre.
+La borne repart alors d'une cle neuve, **une seule fois** (une reprise sur n'importe
+quelle erreur masquerait un vrai probleme, par exemple un article indisponible).
 
-Le repli statique de la borne (`src/public/borne/data/categories.json`, `produits.json`) provient
-des sources de l'ecole et porte un nommage different et heterogene (`title`/`nom`, `prix`, `image`,
-`type`). Ce contrat est fige par le brief ecole et consomme tel quel par le JS de la borne via
-`data.js`.
+### 8.2bis Ce que garantit la cle d'idempotence (revise par F18)
 
-La convention canonique reste celle de 8.1. Le rapprochement se fait en un point unique : la couche
-`data.js` (bascule prevue en P4). Quand l'API exposera `/api/categories` et `/api/products`, elle
-servira la forme canonique ; `data.js` mappera vers ce que la borne attend.
+`POST /api/orders` avec une `idempotency_key` deja connue ne cree pas de seconde commande
+(RG-T19). Ce qu'il fait du CONTENU depend de l'etat de la commande portee :
 
-| Repli borne | Canonique API / dictionnaire |
+| Etat de la commande | Comportement | Reponse |
+|---|---|---|
+| `pending_payment` | les lignes sont **remplacees** et les totaux recalcules serveur | 201, meme `order_number`, total a jour |
+| encaissee (`paid`/`preparing`/`ready`/`delivered`) | renvoyee telle quelle, aucune ecriture | 201, etat reel |
+| `cancelled` | refus : la cle est consommee | 409 `ORDER_CANCELLED` |
+
+La garantie n'est donc pas « meme cle, meme reponse quel que soit le corps » mais
+**« meme cle, meme commande, dont le contenu reflete la derniere soumission »**. Le
+changement est assume : il permet au client de modifier son panier avant de payer sans
+qu'une seconde commande soit creee et abandonnee. Detail et mesures de concurrence :
+[ADR-0016](../adr/0016-modification-commande-avant-paiement.md), `mlt.md` 3.3bis.
+
+### 8.3 Nommage borne vs canonique : le rapprochement dans data.js
+
+Le front de la borne attend un nommage historique heterogene issu des sources de l'ecole
+(`title`/`nom`, `prix`, `image`, `type`). L'API sert la forme canonique de 8.1
+(`/api/categories`, `/api/products`, `/api/menus`, `/api/allergens`). Le rapprochement se fait
+en un point unique : la couche `data.js`, qui deballe l'enveloppe `{ data }` et mappe la forme
+canonique vers ce que la borne attend. Les anciens fichiers JSON statiques sous
+`src/public/borne/data/` ont ete retires.
+
+| Forme borne | Canonique API / dictionnaire |
 |---|---|
 | `title` (categorie) | `name` |
 | `nom` (produit) | `name` |
 | `prix` | `price_cents` |
 | `image` | `image_path` |
 | `type` | `item_type` (`product` / `menu`) |
+| `allergenes` | `allergens` (liste `{id, code, name}` calculee depuis la recette) |
+| `allergenesComplets` | `allergens_complete` |
+
+**Allergenes (F11b).** `/api/products`, `/api/products/{id}`, `/api/menus` et
+`/api/menus/{id}` portent deux champs : `allergens`, la liste CALCULEE depuis la recette
+(`product_ingredient` -> `ingredient_allergen` -> `allergen`, dedupliquee cote SQL), et
+`allergens_complete`, faux des qu'un ingredient de la recette n'a pas ete revu. Les deux
+sont indissociables : une liste vide avec `allergens_complete: true` affirme l'absence,
+la meme liste vide avec `false` veut dire "non verifie". Cote borne, `data.js` applique un
+defaut PRUDENT — une reponse sans le drapeau vaut `false`, pas `true`. Sur un menu la
+liste est celle du burger impose (meme granularite que `is_orderable`).
+`/api/allergens` conserve son role : les 14 categories INCO avec leur **description**
+reglementaire, utilisee pour expliquer chaque allergene du produit.
+Voir [ADR-0015](../adr/0015-allergenes-calcules-par-produit.md).
 
 ---
 

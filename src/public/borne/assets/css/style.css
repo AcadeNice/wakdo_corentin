@@ -140,6 +140,11 @@ button {
     border: 0;
 }
 
+/* Repli d'image en echec (img-fallback.js, mode "hide") : masque sans style inline. */
+.img-fallback-hidden {
+    visibility: hidden;
+}
+
 /* ============================================================
    4. COMPONENT — WELCOME SCREEN (index.html)
    ============================================================ */
@@ -292,7 +297,12 @@ button {
     justify-self: center;
 }
 
-.site-header__cart,
+/* Cale la 3e colonne de l'en-tete (equilibre de la grille). Remplace un style
+   inline width:80px pour permettre une CSP style-src 'self' sans 'unsafe-inline'. */
+.site-header__spacer {
+    width: 80px;
+}
+
 .site-header__mode {
     justify-self: end;
 }
@@ -454,49 +464,6 @@ button {
    7. SHARED COMPONENTS — header extensions + badges + buttons
    ============================================================ */
 
-/* Cart link in header (products / product / cart pages) */
-.site-header__cart {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 56px;
-    height: 56px;
-    border-radius: var(--radius-sm);
-    transition: background var(--transition-fast);
-    font-size: 1.6rem;
-    color: var(--color-text-primary);
-    text-decoration: none;
-}
-
-.site-header__cart:hover,
-.site-header__cart:focus-visible {
-    background: rgba(255, 199, 44, 0.18);
-    outline: none;
-}
-
-.cart-icon {
-    line-height: 1;
-}
-
-.cart-badge {
-    position: absolute;
-    top: 4px;
-    right: 4px;
-    min-width: 20px;
-    height: 20px;
-    padding: 0 4px;
-    border-radius: var(--radius-pill);
-    background: var(--color-brand-red);
-    color: #fff;
-    font-size: var(--font-size-xs);
-    font-weight: var(--font-weight-bold);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    line-height: 1;
-}
-
 /* Mode badge — shown in header for context */
 .mode-badge {
     display: inline-block;
@@ -642,6 +609,13 @@ button {
     margin: 0;
 }
 
+/* Cellule de grille : enveloppe le lien-carte et son bouton "i" allergene (frere
+   du lien, pas descendant — un interactif ne peut pas etre dans un <a>). Le <li>
+   est l'unique enfant valide du <ul> et ancre le bouton superpose. */
+.product-card-cell {
+    position: relative;
+}
+
 /*
  * product-card — clickable card linking to product detail.
  * The <a> is the grid child; using display:flex so image + text stack.
@@ -661,6 +635,7 @@ button {
     -webkit-tap-highlight-color: transparent;
     text-decoration: none;
     color: inherit;
+    height: 100%;
 }
 
 .product-card:hover,
@@ -674,6 +649,35 @@ button {
 .product-card:active {
     transform: translateY(0);
     box-shadow: var(--shadow-card);
+}
+
+/* Rupture de stock (RG-T21) : tuile visible mais non commandable. Grisee, non
+   cliquable, sans effet de survol (l'image est attenuee, pas l'etat ne ment pas). */
+.product-card--unavailable {
+    opacity: 0.55;
+    filter: grayscale(0.6);
+    cursor: not-allowed;
+}
+
+.product-card--unavailable:hover,
+.product-card--unavailable:focus-visible {
+    border-color: var(--color-border-default);
+    box-shadow: var(--shadow-card);
+    transform: none;
+}
+
+/* Badge "Indisponible" superpose a l'image d'une tuile en rupture. */
+.product-card__badge {
+    position: absolute;
+    top: var(--space-2);
+    left: var(--space-2);
+    z-index: 2;
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-sm);
+    background: var(--color-brand-dark);
+    color: #fff;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-bold);
 }
 
 .product-card__image-wrap {
@@ -715,214 +719,8 @@ button {
 }
 
 /* ============================================================
-   9. COMPONENT — PRODUCT DETAIL (product.html)
+   10. COMPONENT — QUANTITY CONTROLS (modale options produit)
    ============================================================ */
-
-.product-page {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    background: var(--color-bg-page);
-}
-
-.product-main {
-    flex: 1;
-    padding: var(--space-6);
-    max-width: 800px;
-    margin: 0 auto;
-    width: 100%;
-}
-
-.product-error {
-    color: var(--color-brand-red);
-    font-size: var(--font-size-md);
-    padding: var(--space-5);
-}
-
-.product-detail {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-6);
-}
-
-.product-detail__skeleton {
-    /* Placeholder shown while JS loads data */
-    width: 100%;
-    height: 300px;
-    background: var(--color-bg-card);
-    border-radius: var(--radius-md);
-    animation: skeleton-pulse 1.4s ease-in-out infinite;
-}
-
-@keyframes skeleton-pulse {
-    0%, 100% { opacity: 1; }
-    50%       { opacity: 0.4; }
-}
-
-.product-detail__image-wrap {
-    width: 100%;
-    max-width: 480px;
-    margin: 0 auto;
-    background: var(--color-bg-card);
-    border-radius: var(--radius-md);
-    box-shadow: var(--shadow-card);
-    overflow: hidden;
-    aspect-ratio: 1 / 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.product-detail__image {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    padding: var(--space-5);
-}
-
-.product-detail__info {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-4);
-}
-
-.product-detail__name {
-    font-size: var(--font-size-xl);
-    font-weight: var(--font-weight-bold);
-    color: var(--color-text-primary);
-    line-height: 1.2;
-}
-
-.product-detail__price {
-    font-size: var(--font-size-2xl);
-    font-weight: var(--font-weight-bold);
-    color: var(--color-brand-dark);
-}
-
-.product-detail__composition {
-    background: var(--color-bg-card);
-    border-left: 4px solid var(--color-brand-yellow);
-    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-    padding: var(--space-4) var(--space-5);
-}
-
-.product-detail__composition-title {
-    font-size: var(--font-size-base);
-    font-weight: var(--font-weight-bold);
-    margin-bottom: var(--space-2);
-    color: var(--color-text-primary);
-}
-
-.product-detail__composition-text {
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
-    line-height: 1.5;
-}
-
-.product-detail__add {
-    width: 100%;
-    margin-top: var(--space-2);
-}
-
-/* ============================================================
-   10. COMPONENT — CART (cart.html)
-   ============================================================ */
-
-.cart-page {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    background: var(--color-bg-page);
-}
-
-.cart-main {
-    flex: 1;
-    padding: var(--space-6);
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-5);
-    max-width: 900px;
-    margin: 0 auto;
-    width: 100%;
-}
-
-.cart-main__heading {
-    font-size: var(--font-size-xl);
-    font-weight: var(--font-weight-bold);
-    color: var(--color-text-primary);
-}
-
-.cart-empty {
-    text-align: center;
-    padding: var(--space-10) var(--space-6);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: var(--space-5);
-}
-
-.cart-empty__message {
-    font-size: var(--font-size-lg);
-    color: var(--color-text-secondary);
-}
-
-.cart-list {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
-    list-style: none;
-    padding: 0;
-    margin: 0;
-}
-
-/* One cart line */
-.cart-line {
-    display: flex;
-    align-items: center;
-    gap: var(--space-4);
-    background: var(--color-bg-card);
-    border-radius: var(--radius-md);
-    box-shadow: var(--shadow-card);
-    padding: var(--space-3) var(--space-4);
-}
-
-.cart-line__image {
-    width: 72px;
-    height: 72px;
-    object-fit: contain;
-    flex-shrink: 0;
-    border-radius: var(--radius-sm);
-    background: var(--color-bg-page);
-}
-
-.cart-line__info {
-    flex: 1;
-    min-width: 0;
-}
-
-.cart-line__name {
-    display: block;
-    font-size: var(--font-size-base);
-    font-weight: var(--font-weight-bold);
-    color: var(--color-text-primary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.cart-line__unit-price {
-    display: block;
-    font-size: var(--font-size-sm);
-    color: var(--color-text-muted);
-}
-
-/* Quantity controls */
-.cart-line__qty {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    flex-shrink: 0;
-}
 
 .qty-btn {
     width: 44px;
@@ -953,73 +751,6 @@ button {
     text-align: center;
     font-size: var(--font-size-md);
     font-weight: var(--font-weight-bold);
-}
-
-.cart-line__total {
-    font-size: var(--font-size-md);
-    font-weight: var(--font-weight-bold);
-    color: var(--color-text-primary);
-    flex-shrink: 0;
-    min-width: 80px;
-    text-align: right;
-}
-
-.cart-line__remove {
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: var(--space-2);
-    border-radius: var(--radius-sm);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    transition: background var(--transition-fast);
-}
-
-.cart-line__remove:hover,
-.cart-line__remove:focus-visible {
-    background: rgba(218, 2, 14, 0.10);
-    outline: none;
-}
-
-/* Order summary block */
-.cart-summary {
-    background: var(--color-bg-card);
-    border-radius: var(--radius-md);
-    box-shadow: var(--shadow-card);
-    padding: var(--space-5);
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
-}
-
-.cart-summary__line {
-    display: flex;
-    justify-content: space-between;
-    font-size: var(--font-size-base);
-    color: var(--color-text-secondary);
-}
-
-.cart-summary__line--total {
-    padding-top: var(--space-3);
-    border-top: 2px solid var(--color-border-default);
-    font-size: var(--font-size-lg);
-    font-weight: var(--font-weight-bold);
-    color: var(--color-text-primary);
-}
-
-/* Cart action row */
-.cart-actions {
-    display: flex;
-    gap: var(--space-4);
-    justify-content: space-between;
-    flex-wrap: wrap;
-    padding-bottom: var(--space-8);
-}
-
-.cart-actions .btn {
-    flex: 1 1 200px;
 }
 
 /* ============================================================
@@ -1239,15 +970,6 @@ button {
         grid-template-columns: repeat(2, 1fr);
     }
 
-    .cart-line {
-        flex-wrap: wrap;
-        gap: var(--space-3);
-    }
-
-    .cart-line__info {
-        flex: 1 1 calc(100% - 80px);
-    }
-
     .payment-methods {
         flex-direction: column;
         align-items: stretch;
@@ -1263,14 +985,10 @@ button {
     .products-main {
         padding: var(--space-4);
     }
-
-    .cart-main {
-        padding: var(--space-4);
-    }
 }
 
 /* ============================================================
-   14. COMPONENT — MENU COMPOSER MODAL (product.html, type=menu)
+   14. COMPONENT — MENU COMPOSER MODAL (modale ouverte depuis la grille produits)
    ============================================================ */
 
 /*
@@ -1288,6 +1006,42 @@ button {
     padding: var(--space-4);
     /* Subtle fade-in so the overlay does not feel abrupt */
     animation: composer-fade-in var(--transition-base) both;
+}
+
+/* Modale de confirmation d'un geste destructeur (Abandon). */
+.confirm-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: 210;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-4);
+    animation: composer-fade-in var(--transition-base) both;
+}
+
+.confirm-modal {
+    background: var(--color-bg-card);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-overlay);
+    padding: var(--space-6);
+    max-width: 28rem;
+    width: 100%;
+    text-align: center;
+}
+
+.confirm-modal__message {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-bold);
+    margin: 0 0 var(--space-5);
+}
+
+.confirm-modal__actions {
+    display: flex;
+    gap: var(--space-3);
+    justify-content: center;
+    flex-wrap: wrap;
 }
 
 @keyframes composer-fade-in {
@@ -1479,15 +1233,11 @@ button {
     box-shadow: var(--shadow-overlay);
 }
 
-.product-card__image-wrap .allergen-info-btn {
+.product-card-cell > .allergen-info-btn {
     position: absolute;
     top: var(--space-2);
     right: var(--space-2);
     z-index: 2;
-}
-
-.product-detail__info .allergen-info-btn {
-    margin-top: var(--space-3);
 }
 
 .allergen-modal-overlay {
@@ -1562,6 +1312,37 @@ button {
 }
 
 .allergen-desc {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+/* Trois etats de la modale allergenes (F11b). La hierarchie visuelle suit la
+   hierarchie du message : l'avertissement "non revu" doit se voir AVANT que le
+   client valide, l'absence verifiee rassure, les traces informent. */
+
+.allergen-modal-none {
+    margin-top: var(--space-2);
+    padding: var(--space-3);
+    border-left: 4px solid var(--color-border-default);
+    background: var(--color-bg-page);
+    border-radius: var(--radius-md);
+    color: var(--color-text-primary);
+}
+
+/* Le rouge de marque porte deja l'alerte dans cette interface (badge Indisponible) :
+   on le reutilise plutot que d'introduire une couleur de plus. */
+.allergen-modal-incomplete {
+    margin-top: var(--space-3);
+    padding: var(--space-3);
+    border-left: 4px solid var(--color-brand-red);
+    background: var(--color-bg-page);
+    border-radius: var(--radius-md);
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-bold);
+}
+
+.allergen-modal-traces {
+    margin-top: var(--space-3);
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
 }
@@ -1759,31 +1540,6 @@ button {
     margin-right: auto;
 }
 
-/* ---------- Cart line composition display -------------------- */
-
-.cart-line__composition {
-    list-style: none;
-    padding: var(--space-1) 0 0;
-    margin: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-
-.cart-line__comp-item {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-muted);
-    line-height: 1.4;
-}
-
-.cart-line__comp-suppl {
-    font-size: var(--font-size-xs);
-    color: var(--color-brand-yellow-dk);
-    font-weight: var(--font-weight-bold);
-    line-height: 1.4;
-    padding-top: var(--space-1);
-}
-
 /* ---------- Responsive — narrow screens --------------------- */
 
 @media (max-width: 600px) {
@@ -1891,8 +1647,7 @@ button {
 }
 
 .order-panel__line {
-    position: relative;
-    padding: var(--space-3) var(--space-6) var(--space-3) 0;
+    padding: var(--space-3) 0;
     border-bottom: 1px solid var(--color-border-default);
 }
 
@@ -1923,14 +1678,49 @@ button {
     content: "+ ";
 }
 
+/* Ligne de controles : stepper de quantite a gauche, retrait a droite. */
+.order-panel__line-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: var(--space-2);
+}
+
+.order-panel__qty {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+/* Boutons +/- : cible tactile confortable (borne). */
+.order-panel__qty-btn {
+    min-width: 44px;
+    min-height: 44px;
+    border: 2px solid var(--color-border-default);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-card);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-bold);
+    line-height: 1;
+    cursor: pointer;
+}
+
+.order-panel__qty-value {
+    min-width: 2ch;
+    text-align: center;
+    font-weight: var(--font-weight-bold);
+}
+
 .order-panel__remove {
-    position: absolute;
-    top: var(--space-3);
-    right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
     border: none;
     background: none;
     cursor: pointer;
-    padding: var(--space-1);
     line-height: 0;
 }
 

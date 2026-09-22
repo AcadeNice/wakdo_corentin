@@ -27,7 +27,7 @@ test('modeLabel: libelle humain ; vide si mode absent ou inconnu (ne ment pas)',
 test('needsModeRedirect: page profonde SANS mode valide -> redirige', () => {
     assert.equal(needsModeRedirect('/payment.html', null), true);
     assert.equal(needsModeRedirect('/products.html', undefined), true);
-    assert.equal(needsModeRedirect('/cart.html', 'bidon'), true);
+    assert.equal(needsModeRedirect('/payment.html', 'bidon'), true);
     assert.equal(needsModeRedirect('/categories.html', ''), true);
 });
 

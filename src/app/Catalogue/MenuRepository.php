@@ -63,8 +63,9 @@ final class MenuRepository
      * disponibles (is_available = 1) ET en categorie active (c.is_active = 1).
      * Projection enrichie (description, image_path) absente de all() back-office.
      * Liste LEGERE : sans les slots (le detail /api/menus/{id} les porte). La
-     * disponibilite du burger impose (B1) reste un raffinement de la dispo calculee
-     * RG-T21, differe au seed des recettes.
+     * disponibilite du burger impose (B1, RG-T21) est calculee par CatalogueController
+     * (croisement avec ProductRepository::autoUnavailableIds) et exposee en is_orderable :
+     * un menu dont le burger est en rupture est grise par la borne (granularite burger seul).
      *
      * @return array<int, array<string, mixed>>
      */
@@ -144,6 +145,44 @@ final class MenuRepository
     public function productExists(int $id): bool
     {
         return $this->db->fetch('SELECT id FROM product WHERE id = :id', ['id' => $id]) !== null;
+    }
+
+    /**
+     * Le produit existe-t-il ET est-il un produit de BASE (base_product_id IS NULL,
+     * R4) ? Garde serveur de l'eligibilite au menu (F9-2) : un menu ne peut prendre
+     * comme burger principal NI comme option de slot une VARIANTE de taille (ex.
+     * "Coca Cola 50cl"), qui n'est pas un produit autonome. Predicat plus strict que
+     * productExists() : il rejette une variante meme si l'UI est contournee. Le
+     * formulaire menu n'expose deja que des bases (ProductRepository::basesOnly),
+     * cette garde verrouille le chemin serveur en plus.
+     */
+    public function productIsBase(int $id): bool
+    {
+        return $this->db->fetch(
+            'SELECT id FROM product WHERE id = :id AND base_product_id IS NULL',
+            ['id' => $id],
+        ) !== null;
+    }
+
+    /**
+     * Slug de categorie d'un produit, ou null si l'id est inconnu. Garde serveur F12 :
+     * une option de slot doit appartenir a une categorie autorisee pour le slot_type
+     * du slot (mapping unique cote MenuController). Le controleur croise ce slug avec
+     * la liste autorisee et rejette (422) une option hors categorie meme si l'UI de
+     * filtrage est contournee -- defense en profondeur (RG-T18), par-dessus la garde
+     * base-only existante (productIsBase, F9).
+     */
+    public function productCategorySlug(int $id): ?string
+    {
+        $row = $this->db->fetch(
+            'SELECT c.slug AS category_slug FROM product p '
+            . 'JOIN category c ON c.id = p.category_id WHERE p.id = :id',
+            ['id' => $id],
+        );
+
+        $slug = $row['category_slug'] ?? null;
+
+        return is_string($slug) ? $slug : null;
     }
 
     /**

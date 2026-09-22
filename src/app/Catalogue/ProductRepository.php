@@ -28,7 +28,16 @@ final class ProductRepository
     }
 
     /**
-     * Liste pour le back-office, avec le libelle de categorie.
+     * Liste pour le back-office, avec le libelle de categorie et, pour une VARIANTE
+     * de taille (base_product_id non nul, R4), le nom de sa base. La liste admin
+     * affiche AINSI toutes les lignes produit -- bases ET variantes -- mais marque
+     * chaque variante "Variante de X" : l'admin la voit, comprend qu'elle n'est pas
+     * un produit autonome, et peut la delier/relier via le formulaire. La projection
+     * remonte base_product_id pour que la vue distingue les deux.
+     *
+     * Cette methode N'ALIMENTE PLUS les selects du formulaire menu (qui doivent etre
+     * base-only, R4/F9-1) : ceux-ci passent par basesOnly(). all() peut donc porter
+     * le LEFT JOIN d'enrichissement sans fausser une liste deroulante.
      *
      * @return array<int, array<string, mixed>>
      */
@@ -36,8 +45,103 @@ final class ProductRepository
     {
         return $this->db->fetchAll(
             'SELECT p.id, p.category_id, p.name, p.price_cents, p.vat_rate, p.is_available, '
-            . 'p.display_order, c.name AS category_name '
+            . 'p.display_order, p.size_cl, p.base_product_id, c.name AS category_name, '
+            . 'b.name AS base_name '
             . 'FROM product p JOIN category c ON c.id = p.category_id '
+            . 'LEFT JOIN product b ON b.id = p.base_product_id '
+            . 'ORDER BY p.display_order, p.name',
+        );
+    }
+
+    /**
+     * Produits de BASE uniquement (base_product_id IS NULL, R4), pour alimenter les
+     * listes deroulantes du formulaire menu (burger principal + options de slot,
+     * F9-1) et le select base_product_id du formulaire produit. Une VARIANTE de
+     * taille (ex. "Coca Cola 50cl") n'est jamais un produit autonome : la proposer
+     * comme burger/option/base ferait apparaitre la variante comme un produit a part
+     * entiere. Le predicat anti-variante vit ici (cote requete), miroir de la garde
+     * serveur MenuRepository::productIsBase(). Projection minimale {id, name} : seules
+     * colonnes utiles a un <option>.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function basesOnly(): array
+    {
+        return $this->db->fetchAll(
+            'SELECT id, name FROM product WHERE base_product_id IS NULL '
+            . 'ORDER BY display_order, name',
+        );
+    }
+
+    /**
+     * Produits de BASE groupes par categorie (F20), pour la vue back-office qui montre
+     * le catalogue comme la borne l'affiche.
+     *
+     * Meme predicat anti-variante que basesOnly() / availableForCatalogue() : une
+     * variante de taille n'est pas un produit autonome, elle est repliee sur sa base et
+     * comptee dans variant_count. Sans ce predicat, la 50 cl apparaitrait a cote de la
+     * 30 cl comme deux articles distincts, ce que la borne ne fait pas.
+     *
+     * Le compte de tailles est une SOUS-REQUETE correlee plutot qu'une seconde requete :
+     * un seul aller-retour, donc pas de N+1 quand le catalogue grossit (meme parti que
+     * le EXISTS de sizesByBase()).
+     *
+     * L'ORDER BY n'ordonne que l'INTERIEUR d'un groupe. L'ordre des groupes est porte
+     * par CategoryRepository::all() (display_order de la categorie), qui sert d'ossature
+     * a la vue : c'est ce qui aligne l'affichage sur l'ordre des onglets de la borne.
+     * Pas de JOIN category ici : seul category_id est utile, le libelle vient de
+     * l'ossature.
+     *
+     * @return array<int, list<array<string, mixed>>> category_id => [{id, name, ...}, ...]
+     */
+    public function basesByCategory(): array
+    {
+        $rows = $this->db->fetchAll(
+            'SELECT p.id, p.category_id, p.name, p.price_cents, p.vat_rate, p.is_available, '
+            . 'p.display_order, '
+            . '(SELECT COUNT(*) FROM product v WHERE v.base_product_id = p.id) AS variant_count '
+            . 'FROM product p '
+            . 'WHERE p.base_product_id IS NULL '
+            . 'ORDER BY p.display_order, p.name',
+        );
+
+        /** @var array<int, list<array<string, mixed>>> $byCategory */
+        $byCategory = [];
+        foreach ($rows as $row) {
+            $categoryId = (int) ($row['category_id'] ?? 0);
+            $byCategory[$categoryId][] = [
+                'id'            => (int) ($row['id'] ?? 0),
+                'name'          => (string) ($row['name'] ?? ''),
+                'price_cents'   => (int) ($row['price_cents'] ?? 0),
+                'vat_rate'      => (int) ($row['vat_rate'] ?? 100),
+                'is_available'  => (int) ($row['is_available'] ?? 0),
+                'display_order' => (int) ($row['display_order'] ?? 0),
+                'variant_count' => (int) ($row['variant_count'] ?? 0),
+            ];
+        }
+
+        return $byCategory;
+    }
+
+    /**
+     * Produits de BASE (base_product_id IS NULL, R4) avec le slug de leur CATEGORIE,
+     * pour alimenter les OPTIONS de slot du formulaire menu (F12). Le formulaire doit
+     * filtrer les options proposees selon le type de slot (drink -> boissons, etc.) ;
+     * il lui faut donc la categorie de chaque produit, que basesOnly() (projection
+     * stricte {id, name}) ne porte pas. Methode dediee plutot qu'extension de
+     * basesOnly() : ce dernier alimente aussi le select base_product_id du formulaire
+     * produit (ProductController), qui n'a pas besoin de la categorie -- garder son
+     * contrat minimal evite un couplage inutile. Meme predicat anti-variante que
+     * basesOnly(), miroir de la garde serveur MenuRepository::productIsBase().
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function baseOptionsWithCategory(): array
+    {
+        return $this->db->fetchAll(
+            'SELECT p.id, p.name, c.slug AS category_slug '
+            . 'FROM product p JOIN category c ON c.id = p.category_id '
+            . 'WHERE p.base_product_id IS NULL '
             . 'ORDER BY p.display_order, p.name',
         );
     }
@@ -50,9 +154,12 @@ final class ProductRepository
         // maxi_variant_product_id : expose la variante Grande de l'accompagnement
         // pour que OrderRepository::resolveSelections puisse substituer au format
         // Maxi (cote serveur uniquement ; la borne n'en a pas besoin).
+        // size_cl + base_product_id (R4) : remontes pour que le formulaire produit
+        // pre-remplisse les champs de variante a l'edition (F9-3).
         return $this->db->fetch(
-            'SELECT id, category_id, name, description, price_cents, maxi_variant_product_id, '
-            . 'vat_rate, image_path, is_available, display_order FROM product WHERE id = :id',
+            'SELECT id, category_id, name, description, price_cents, size_cl, base_product_id, '
+            . 'maxi_variant_product_id, vat_rate, image_path, is_available, display_order '
+            . 'FROM product WHERE id = :id',
             ['id' => $id],
         );
     }
@@ -63,8 +170,10 @@ final class ProductRepository
      * (c.is_active = 1), pour ne jamais proposer un produit dont l'onglet de
      * categorie n'apparait pas. vat_rate n'est pas selectionne : le calcul fiscal
      * vit cote serveur a la commande, la borne ne l'affiche pas. Filtre de
-     * disponibilite = flag is_available ; la dispo CALCULEE RG-T21 (exclusion des
-     * ruptures auto via autoUnavailableIds) se branchera au seed des recettes.
+     * disponibilite = flag is_available (retrait manuel) ; la dispo CALCULEE RG-T21
+     * (rupture par stock) n'exclut PAS la ligne ici : CatalogueController la croise
+     * avec autoUnavailableIds() pour exposer is_orderable, et la borne grise la tuile
+     * (visible mais non commandable) au lieu de la masquer.
      *
      * base_product_id IS NULL (R4) : les VARIANTES de taille (ex. "Coca Cola 50cl")
      * ne sont jamais des tuiles catalogue autonomes ; elles sont atteintes via le
@@ -82,11 +191,11 @@ final class ProductRepository
         // un libelle d'affichage seulement.
         return $this->db->fetchAll(
             'SELECT p.id, p.category_id, p.name, p.description, p.price_cents, p.size_cl, '
-            . 'p.image_path, p.display_order, mv.name AS maxi_variant_name '
+            . 'p.image_path, p.display_order, c.name AS category_name, mv.name AS maxi_variant_name '
             . 'FROM product p JOIN category c ON c.id = p.category_id '
             . 'LEFT JOIN product mv ON mv.id = p.maxi_variant_product_id '
             . 'WHERE p.is_available = 1 AND c.is_active = 1 AND p.base_product_id IS NULL '
-            . 'ORDER BY p.display_order, p.name',
+            . 'ORDER BY c.display_order, c.name, p.display_order, p.name',
         );
     }
 
@@ -105,11 +214,15 @@ final class ProductRepository
      */
     public function sizesForProduct(int $baseId): array
     {
+        // Placeholders DISTINCTS (base_self / base_variant) portant la meme valeur :
+        // en prepare native (Database, ATTR_EMULATE_PREPARES=false) un meme nom de
+        // placeholder ne peut PAS apparaitre deux fois dans une requete, sinon MariaDB
+        // rejette en SQLSTATE HY093 (Invalid parameter number).
         return $this->db->fetchAll(
             'SELECT id, size_cl, price_cents FROM product '
-            . 'WHERE (id = :base OR base_product_id = :base) AND is_available = 1 '
+            . 'WHERE (id = :base_self OR base_product_id = :base_variant) AND is_available = 1 '
             . 'ORDER BY size_cl IS NULL DESC, size_cl, id',
-            ['base' => $baseId],
+            ['base_self' => $baseId, 'base_variant' => $baseId],
         );
     }
 
@@ -181,29 +294,114 @@ final class ProductRepository
         return $this->db->fetch('SELECT id FROM category WHERE id = :id', ['id' => $categoryId]) !== null;
     }
 
+    public function productExists(int $id): bool
+    {
+        return $this->db->fetch('SELECT id FROM product WHERE id = :id', ['id' => $id]) !== null;
+    }
+
     /**
-     * @param array{category_id: int, name: string, description: ?string, price_cents: int, vat_rate: int, image_path: ?string, is_available: int, display_order: int} $data
+     * Le produit existe-t-il ET est-il une BASE (base_product_id IS NULL, R4) ?
+     * Sert a valider les FK de variante du formulaire produit (F9-3) : une base ne
+     * peut pointer vers une AUTRE variante (pas de chaine de variantes), et la cible
+     * d'une variante de taille doit elle-meme etre une base. Retourne false si l'id
+     * est inconnu OU si la ligne est deja une variante.
+     */
+    public function productIsBase(int $id): bool
+    {
+        return $this->db->fetch(
+            'SELECT id FROM product WHERE id = :id AND base_product_id IS NULL',
+            ['id' => $id],
+        ) !== null;
+    }
+
+    /**
+     * @param array{category_id: int, name: string, description: ?string, price_cents: int, size_cl: ?int, base_product_id: ?int, maxi_variant_product_id: ?int, vat_rate: int, image_path: ?string, is_available: int, display_order: int} $data
      */
     public function create(array $data): void
     {
         $this->db->execute(
-            'INSERT INTO product (category_id, name, description, price_cents, vat_rate, image_path, is_available, display_order) '
-            . 'VALUES (:category, :name, :description, :price, :vat, :image, :available, :ord)',
+            'INSERT INTO product (category_id, name, description, price_cents, size_cl, base_product_id, '
+            . 'maxi_variant_product_id, vat_rate, image_path, is_available, display_order) '
+            . 'VALUES (:category, :name, :description, :price, :size, :base, :maxi, :vat, :image, :available, :ord)',
             $this->bind($data),
         );
     }
 
     /**
-     * @param array{category_id: int, name: string, description: ?string, price_cents: int, vat_rate: int, image_path: ?string, is_available: int, display_order: int} $data
+     * @param array{category_id: int, name: string, description: ?string, price_cents: int, size_cl: ?int, base_product_id: ?int, maxi_variant_product_id: ?int, vat_rate: int, image_path: ?string, is_available: int, display_order: int} $data
      */
     public function update(int $id, array $data): void
     {
         $this->db->execute(
             'UPDATE product SET category_id = :category, name = :name, description = :description, '
-            . 'price_cents = :price, vat_rate = :vat, image_path = :image, is_available = :available, '
-            . 'display_order = :ord WHERE id = :id',
+            . 'price_cents = :price, size_cl = :size, base_product_id = :base, '
+            . 'maxi_variant_product_id = :maxi, vat_rate = :vat, image_path = :image, '
+            . 'is_available = :available, display_order = :ord WHERE id = :id',
             $this->bind($data) + ['id' => $id],
         );
+    }
+
+    /**
+     * Deplace une produit d'un rang vers le haut ou vers le bas, et renumerote
+     * toute sa categorie de 1 a N dans la foulee.
+     *
+     * Renumeroter integralement plutot qu'echanger deux valeurs est volontaire :
+     * l'ordre saisi a la main a laisse des doublons et des zeros (un formulaire
+     * laisse vide valait 0, donc le le produit remontait en tete). Un simple
+     * echange conserverait ces trous ; une renumerotation les efface des le
+     * premier clic, et l'ordre affiche devient exactement l'ordre stocke.
+     *
+     * L'ordre de reference est celui de la liste affichee (display_order puis
+     * name) : ce que l'utilisateur voit est ce sur quoi il agit.
+     *
+     * @return bool false si le produit est introuvable ou deja en bout de liste
+     */
+    public function reorderWithinCategory(int $id, string $direction): bool
+    {
+        $ligne = $this->db->fetch(
+            'SELECT category_id FROM product WHERE id = :id AND base_product_id IS NULL',
+            ['id' => $id],
+        );
+        if ($ligne === null) {
+            return false;
+        }
+
+        // Meme predicat et meme tri que basesByCategory() : les variantes de
+        // taille ne sont pas rangeables, elles suivent leur produit de base.
+        $ids = array_map(
+            static fn (array $r): int => (int) ($r['id'] ?? 0),
+            $this->db->fetchAll(
+                'SELECT id FROM product WHERE category_id = :cat AND base_product_id IS NULL '
+                . 'ORDER BY display_order, name',
+                ['cat' => (int) ($ligne['category_id'] ?? 0)],
+            ),
+        );
+
+        $position = array_search($id, $ids, true);
+        if ($position === false) {
+            return false;
+        }
+
+        $cible = $direction === 'up' ? $position - 1 : $position + 1;
+        if ($cible < 0 || $cible >= count($ids)) {
+            // Deja en haut ou en bas : rien a faire, et surtout pas d'erreur.
+            return false;
+        }
+
+        [$ids[$position], $ids[$cible]] = [$ids[$cible], $ids[$position]];
+
+        // Une seule transaction : un ordre partiellement reecrit serait pire que
+        // l'ordre de depart.
+        $this->db->transaction(static function (DatabaseInterface $db) use ($ids): void {
+            foreach ($ids as $rang => $identifiant) {
+                $db->execute(
+                    'UPDATE product SET display_order = :ord WHERE id = :id',
+                    ['ord' => $rang + 1, 'id' => $identifiant],
+                );
+            }
+        });
+
+        return true;
     }
 
     public function delete(int $id): int
@@ -341,7 +539,7 @@ final class ProductRepository
     /**
      * Allowlist d'affectation de masse (RG-T16) : seules ces colonnes sont liees.
      *
-     * @param array{category_id: int, name: string, description: ?string, price_cents: int, vat_rate: int, image_path: ?string, is_available: int, display_order: int} $data
+     * @param array{category_id: int, name: string, description: ?string, price_cents: int, size_cl: ?int, base_product_id: ?int, maxi_variant_product_id: ?int, vat_rate: int, image_path: ?string, is_available: int, display_order: int} $data
      * @return array<string, mixed>
      */
     private function bind(array $data): array
@@ -351,6 +549,11 @@ final class ProductRepository
             'name'        => $data['name'],
             'description' => $data['description'],
             'price'       => $data['price_cents'],
+            // Champs de variante (R4/0006-0007), tous nullables : null = produit de
+            // base/autonome sans dimension taille ni substitution Maxi.
+            'size'        => $data['size_cl'],
+            'base'        => $data['base_product_id'],
+            'maxi'        => $data['maxi_variant_product_id'],
             'vat'         => $data['vat_rate'],
             'image'       => $data['image_path'],
             'available'   => $data['is_available'],

@@ -73,7 +73,7 @@ final class MeControllerTest extends TestCase
 
     private function controller(SessionManager $session, FakeDatabase $db): TestMeController
     {
-        $request = new Request('GET', '/api/me', [], [], '', '203.0.113.5');
+        $request = new Request('GET', '/admin/me', [], [], '', '203.0.113.5');
 
         return new TestMeController($request, new Config(), new Database(new Config()), $session, $db);
     }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Order;
 
+use App\Catalogue\IngredientRepository;
 use App\Catalogue\MenuRepository;
 use App\Catalogue\ProductRepository;
 use App\Core\DatabaseInterface;
@@ -103,6 +104,33 @@ class OrderRepository
         $key = trim((string) ($req['idempotency_key'] ?? ''));
         $existing = $this->findByIdempotencyKey($key);
         if ($existing !== null) {
+            // La cle est deja connue. Ce qu'on en fait depend de l'etat de la commande
+            // qu'elle porte -- et c'est le coeur de F18.
+            $status = $existing['status'];
+
+            if ($status === 'pending_payment') {
+                // Le client peut avoir MODIFIE son panier entre deux passages a l'ecran de
+                // paiement. Avant F18, on renvoyait la commande telle quelle en ignorant
+                // les lignes envoyees : la borne devait donc changer de cle pour ne pas
+                // faire payer l'ancien panier, ce qui creait une SECONDE commande et
+                // abandonnait la premiere. On met desormais a jour celle qui existe.
+                // Un vrai renvoi de tentative (memes lignes) repose les memes lignes et
+                // aboutit au meme total : le resultat observable est identique.
+                return $this->replaceItems($existing['order_number'], $req);
+            }
+
+            if ($status === 'cancelled') {
+                // idempotency_key est UNIQUE : cette cle ne peut plus porter de commande.
+                // Sans ce signal, un client dont la commande a ete annulee par un equipier
+                // ou expiree par le planificateur (F10) pendant qu'il hesitait resterait
+                // bloque : sa commande n'est plus payable et sa cle interdit d'en creer une
+                // autre. Le code dit a la borne de repartir d'une cle neuve.
+                throw new OrderValidationException('ORDER_CANCELLED');
+            }
+
+            // Deja encaissee (paid | preparing | ready | delivered) : renvoi idempotent de
+            // l'etat reel. Une commande encaissee n'est plus modifiable -- son stock est
+            // debite, changer ses lignes rendrait le journal des mouvements incoherent.
             return $existing;
         }
 
@@ -112,11 +140,115 @@ class OrderRepository
     }
 
     /**
+     * Remplace le contenu d'une commande encore en ATTENTE DE PAIEMENT (F18) : le client
+     * a change son panier avant de payer. Les lignes sont purgees puis reinserees et les
+     * totaux recalcules, dans UNE transaction.
+     *
+     * Ce que cette operation ne fait PAS, et pourquoi :
+     *  - elle ne touche pas au stock. Une commande en attente n'a rien consomme (le
+     *    debit vit dans la transaction de l'encaissement) : ni debit ni re-credit ici.
+     *  - elle ne touche ni le numero de commande, ni la cle d'idempotence, ni le statut.
+     *    Le numero est deja affiche au client ; la cle porte le lien avec sa session.
+     *  - elle refuse une commande deja encaissee ou annulee (INVALID_TRANSITION). Changer
+     *    les lignes d'une commande dont le stock est debite rendrait le journal des
+     *    mouvements incoherent avec le contenu facture.
+     *
+     * Le prix est recalcule SERVEUR par le meme chemin qu'a la creation
+     * (resolveAndTotal), y compris la garde de rupture RG-T21 : un article tombe en
+     * rupture depuis la creation ne peut pas etre reconduit dans le panier modifie.
+     *
+     * @param array<string, mixed> $req meme forme que createPending (items, service_mode)
+     * @return array{id:int, order_number:string, total_ttc_cents:int, status:string}
+     * @throws OrderValidationException ORDER_NOT_FOUND, INVALID_TRANSITION, EMPTY_ORDER,
+     *                                 ou une reference invalide / en rupture.
+     */
+    public function replaceItems(string $orderNumber, array $req): array
+    {
+        // Resolution + totaux + en-tete EN LECTURE SEULE, avant d'ouvrir la transaction :
+        // un panier vide, un mode invalide ou un article en rupture est refuse sans avoir
+        // rien ecrit ni verrouille.
+        [$serviceMode, $serviceTag] = $this->resolveHeader($req);
+        [$lines, $totalTtc, $totalHt, $totalVat] = $this->resolveAndTotal($req);
+
+        $result = [
+            'id'              => 0,
+            'order_number'    => $orderNumber,
+            'total_ttc_cents' => $totalTtc,
+            'status'          => 'pending_payment',
+        ];
+
+        $this->db->transaction(function (DatabaseInterface $db) use ($orderNumber, $serviceMode, $serviceTag, $lines, $totalTtc, $totalHt, $totalVat, &$result): void {
+            $order = $this->lockOrder($db, $orderNumber);
+            if ($order === null) {
+                throw new OrderValidationException('ORDER_NOT_FOUND');
+            }
+            $status = (string) $order['status'];
+            if ($status === 'cancelled') {
+                // Distinct de INVALID_TRANSITION : la commande est MORTE, donc la cle
+                // d'idempotence du client est consommee (colonne UNIQUE). Ce code precis
+                // permet a la borne de repartir d'une cle neuve DES LE PREMIER essai. Avec
+                // un INVALID_TRANSITION, elle affichait un echec generique et ne se
+                // reparait qu'au second appui : ca se lit comme une borne en panne.
+                throw new OrderValidationException('ORDER_CANCELLED');
+            }
+            if ($status !== 'pending_payment') {
+                // Encaissee (paid|preparing|ready|delivered) : non modifiable, et surtout
+                // non reprenable — son stock est deja debite.
+                throw new OrderValidationException('INVALID_TRANSITION');
+            }
+
+            // RG-T09 enoncee ici plutot que deduite : une commande de source 'drive' doit
+            // rester en mode 'drive' (contrainte chk_customer_order_drive_mode). Le cas est
+            // aujourd'hui inatteignable — une commande comptoir/drive est encaissee des sa
+            // creation, donc elle n'est jamais 'pending_payment' — mais s'appuyer sur une
+            // inatteignabilite laisserait la contrainte de base rendre un 500 au lieu d'un
+            // refus metier lisible si ce flux changeait.
+            if ((string) ($order['source'] ?? '') === 'drive' && $serviceMode !== 'drive') {
+                throw new OrderValidationException('INVALID_SERVICE_MODE');
+            }
+
+            $orderId = (int) $order['id'];
+
+            // Purge par order_id : les selections de slot et les modificateurs
+            // d'ingredient partent en CASCADE avec leurs lignes (FK order_item_id).
+            $db->execute('DELETE FROM order_item WHERE order_id = :id', ['id' => $orderId]);
+            $this->insertLines($db, $orderId, $lines);
+
+            // L'EN-TETE est rafraichi avec les lignes, dans la meme transaction. Sans
+            // cela, un client qui passe de "sur place" a "a emporter" entre deux passages
+            // serait encaisse sur l'ancien mode : c'est le marqueur que le projet traite
+            // comme la distinction fiscale (TVA salle contre vente a emporter) qui serait
+            // faux sur une commande PAYEE, et un equipier porterait un plateau a une table
+            // que personne n'occupe. Le sens miroir est aussi couvert : passer en salle
+            // pose le chevalet saisi au lieu de le jeter.
+            $db->execute(
+                'UPDATE customer_order SET service_mode = :mode, service_tag = :tag, '
+                . 'total_ht_cents = :ht, total_vat_cents = :vat, '
+                . 'total_ttc_cents = :ttc, updated_at = NOW() WHERE id = :id',
+                [
+                    'mode' => $serviceMode,
+                    'tag'  => $serviceTag !== '' ? $serviceTag : null,
+                    'ht'   => $totalHt,
+                    'vat'  => $totalVat,
+                    'ttc'  => $totalTtc,
+                    'id'   => $orderId,
+                ],
+            );
+
+            $result['id'] = $orderId;
+        });
+
+        return $result;
+    }
+
+    /**
      * Cree une commande comptoir/drive (CREATE_COUNTER_ORDER, mlt 4.1). Meme logique
      * de creation que le kiosk (resolution + INSERT pending_payment), MAIS la commande
-     * est immediatement encaissee (paid + decrement de stock, RG-T20) : POST-1 exige
-     * status='paid', paid_at et acting_user_id poses des la creation. Aucun PIN : la
-     * permission order.create suffit (la creation n'est pas dans l'ensemble sensible).
+     * est immediatement encaissee (decrement de stock, RG-T20) : POST-1 pose paid_at et
+     * acting_user_id des la creation. L'encaissement met desormais la commande en
+     * 'preparing' (pay() : paid_at pose, statut preparing) -- elle part en cuisine sans
+     * geste manuel. Aucun PIN : la permission order.create suffit (la creation n'est pas
+     * dans l'ensemble sensible).
      *
      *  - source auto-tagguee depuis le role de l'equipier (counter / drive, RG-1) ;
      *  - service_mode choisi par l'equipier (dine_in / takeaway / drive) ;
@@ -147,10 +279,10 @@ class OrderRepository
         $prefix = $source === 'drive' ? 'D' : 'C';
         $created = $this->persist($req, $source, $prefix, $actingUserId);
 
-        // POST-1 : encaissement immediat (paid + paid_at + decrement stock RG-T20 avec
-        // user_id=equipier). pay() est idempotent et porte l'acteur dans acting_user_id
-        // (COALESCE) et stock_movement.user_id. Le numero (prefixe canal + id) sert de
-        // cle de transition.
+        // POST-1 : encaissement immediat (preparing + paid_at + decrement stock RG-T20
+        // avec user_id=equipier). pay() met directement en preparation et porte l'acteur
+        // dans acting_user_id (COALESCE) et stock_movement.user_id ; il est idempotent. Le
+        // numero (prefixe canal + id) sert de cle de transition.
         return $this->pay($created['order_number'], $actingUserId);
     }
 
@@ -170,33 +302,12 @@ class OrderRepository
     {
         $key = trim((string) ($req['idempotency_key'] ?? ''));
 
-        $serviceMode = (string) ($req['service_mode'] ?? '');
-        if (!in_array($serviceMode, ['dine_in', 'takeaway', 'drive'], true)) {
-            throw new OrderValidationException('INVALID_SERVICE_MODE');
-        }
-        $serviceTag = $serviceMode === 'dine_in' ? trim((string) ($req['service_tag'] ?? '')) : '';
-        if ($serviceTag !== '' && mb_strlen($serviceTag) > 20) {
-            throw new OrderValidationException('INVALID_SERVICE_TAG');
-        }
+        [$serviceMode, $serviceTag] = $this->resolveHeader($req);
 
-        $items = isset($req['items']) && is_array($req['items']) ? $req['items'] : [];
-        if ($items === []) {
-            throw new OrderValidationException('EMPTY_ORDER');
-        }
-
-        // Resolution + calcul (lecture seule) AVANT la transaction d'ecriture.
-        $lines = array_map(fn (array $item): array => $this->resolveLine($item), $items);
-
-        $totalTtc = 0;
-        $totalHt = 0;
-        foreach ($lines as $l) {
-            $totalTtc += $l['unit_ttc'] * $l['quantity'];
-            $totalHt += $l['unit_ht'] * $l['quantity'];
-        }
-        $totalVat = $totalTtc - $totalHt;
-        if ($totalTtc <= 0) {
-            throw new OrderValidationException('EMPTY_ORDER');
-        }
+        // Resolution + calcul (lecture seule) AVANT la transaction d'ecriture. Partage
+        // avec replaceItems() : le calcul de prix doit etre le MEME a la creation et a la
+        // modification, sinon un panier modifie pourrait etre facture autrement.
+        [$lines, $totalTtc, $totalHt, $totalVat] = $this->resolveAndTotal($req);
 
         $result = ['id' => 0, 'order_number' => '', 'total_ttc_cents' => $totalTtc, 'status' => 'pending_payment'];
 
@@ -224,47 +335,160 @@ class OrderRepository
                 ['num' => $orderNumber, 'id' => $orderId],
             );
 
-            foreach ($lines as $l) {
-                $db->execute(
-                    'INSERT INTO order_item '
-                    . '(order_id, item_type, product_id, menu_id, format, label_snapshot, '
-                    . ' unit_price_cents_snapshot, vat_rate_snapshot, quantity) '
-                    . 'VALUES (:oid, :type, :pid, :mid, :fmt, :label, :price, :vat, :qty)',
-                    [
-                        'oid'   => $orderId,
-                        'type'  => $l['item_type'],
-                        'pid'   => $l['product_id'],
-                        'mid'   => $l['menu_id'],
-                        'fmt'   => $l['format'],
-                        'label' => $l['label'],
-                        'price' => $l['unit_ttc'],
-                        'vat'   => $l['vat_rate'],
-                        'qty'   => $l['quantity'],
-                    ],
-                );
-                $itemId = (int) ($db->fetch('SELECT LAST_INSERT_ID() AS id')['id'] ?? 0);
-
-                foreach ($l['selections'] as $sel) {
-                    $db->execute(
-                        'INSERT INTO order_item_selection (order_item_id, menu_slot_id, product_id, label_snapshot) '
-                        . 'VALUES (:oiid, :slot, :pid, :label)',
-                        ['oiid' => $itemId, 'slot' => $sel['menu_slot_id'], 'pid' => $sel['product_id'], 'label' => $sel['label']],
-                    );
-                }
-                foreach ($l['modifiers'] as $mod) {
-                    $db->execute(
-                        'INSERT INTO order_item_modifier (order_item_id, ingredient_id, action, extra_price_cents) '
-                        . 'VALUES (:oiid, :ing, :act, :extra)',
-                        ['oiid' => $itemId, 'ing' => $mod['ingredient_id'], 'act' => $mod['action'], 'extra' => $mod['extra_price_cents']],
-                    );
-                }
-            }
+            $this->insertLines($db, $orderId, $lines);
 
             $result['id'] = $orderId;
             $result['order_number'] = $orderNumber;
         });
 
         return $result;
+    }
+
+    /**
+     * Verrouille la ligne de commande pour la duree de la transaction courante et rend
+     * son id + son statut, ou null si le numero est inconnu.
+     *
+     * POURQUOI un verrou explicite ICI, alors que tout le reste du projet garde ses
+     * transitions dans le WHERE de leur UPDATE (0 ligne affectee = course perdue) :
+     *
+     *  1. Le motif habituel ne sait pas distinguer un NO-OP LEGITIME d'une course perdue
+     *     sur un remplacement. Si le client retire un article puis en remet un de meme
+     *     prix, l'UPDATE des totaux affecte 0 ligne alors que tout s'est bien passe.
+     *     Sur une transition de statut le cas ne se pose pas : la valeur change toujours.
+     *  2. Le danger reel n'est pas le compte de lignes mais une INCOHERENCE ENTRE TABLES.
+     *     L'encaissement lit order_item pour calculer le stock a debiter. Si une
+     *     modification remplace ces lignes en parallele, le debit peut porter sur des
+     *     lignes qui ne sont plus sur la commande : du stock consomme pour des articles
+     *     que le client n'a pas commandes, et un journal des mouvements qui ne
+     *     reconcilie plus. Un verrou pris par les DEUX operations les serialise sur la
+     *     ligne de commande, ce qu'aucune garde de WHERE ne fait.
+     *
+     * C'est le seul endroit du projet qui prend un verrou explicite, et il est nomme pour
+     * que ce choix reste visible. Voir docs/adr/0016-modification-commande-avant-paiement.md.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function lockOrder(DatabaseInterface $db, string $orderNumber): ?array
+    {
+        return $db->fetch(
+            'SELECT id, order_number, status, source, total_ttc_cents FROM customer_order '
+            . 'WHERE order_number = :n FOR UPDATE',
+            ['n' => $orderNumber],
+        );
+    }
+
+    /**
+     * Valide et normalise l'EN-TETE de service : mode de consommation et numero de
+     * chevalet. Extrait de persist() pour etre rejoue a l'identique par replaceItems() —
+     * une commande modifiee doit subir exactement la meme validation qu'une commande
+     * creee, sinon le mode enregistre pourrait divergerait de ce que le client a choisi.
+     *
+     * Le chevalet n'a de sens qu'en salle : hors `dine_in` il est vide, ce qui evite de
+     * conserver un numero de table sur une commande passee a emporter.
+     *
+     * @param array<string, mixed> $req
+     * @return array{0: string, 1: string} [service_mode, service_tag]
+     * @throws OrderValidationException INVALID_SERVICE_MODE, INVALID_SERVICE_TAG
+     */
+    private function resolveHeader(array $req): array
+    {
+        $serviceMode = (string) ($req['service_mode'] ?? '');
+        if (!in_array($serviceMode, ['dine_in', 'takeaway', 'drive'], true)) {
+            throw new OrderValidationException('INVALID_SERVICE_MODE');
+        }
+        $serviceTag = $serviceMode === 'dine_in' ? trim((string) ($req['service_tag'] ?? '')) : '';
+        if ($serviceTag !== '' && mb_strlen($serviceTag) > 20) {
+            throw new OrderValidationException('INVALID_SERVICE_TAG');
+        }
+
+        return [$serviceMode, $serviceTag];
+    }
+
+    /**
+     * Resolution des lignes + totaux, en LECTURE SEULE. Extrait de persist() pour etre
+     * partage avec replaceItems() : le prix d'un panier doit se calculer exactement de
+     * la meme facon a la creation et a la modification, sinon une commande modifiee
+     * pourrait etre facturee autrement que la meme commande creee d'un coup.
+     *
+     * @param array<string, mixed> $req
+     * @return array{0: list<array<string, mixed>>, 1: int, 2: int, 3: int} [lignes, ttc, ht, tva]
+     * @throws OrderValidationException panier vide, reference invalide ou en rupture.
+     */
+    private function resolveAndTotal(array $req): array
+    {
+        $items = isset($req['items']) && is_array($req['items']) ? $req['items'] : [];
+        if ($items === []) {
+            throw new OrderValidationException('EMPTY_ORDER');
+        }
+
+        // RG-T21 : garde a la creation ET a la modification de commande. Un produit (ou le
+        // burger d'un menu) en rupture calculee par le stock est REFUSE, quel que soit le
+        // canal et meme par acces direct (la borne ne fait que griser l'affichage, F2).
+        // C'est la couche qui fait foi. Set calcule UNE seule fois (pas de N+1 sur les
+        // lignes). Consequence voulue sur la modification : un article tombe en rupture
+        // depuis la creation ne peut pas etre reconduit dans le panier modifie.
+        $unavailable = array_fill_keys($this->products->autoUnavailableIds(), true);
+
+        $lines = array_map(fn (array $item): array => $this->resolveLine($item, $unavailable), $items);
+
+        $totalTtc = 0;
+        $totalHt = 0;
+        foreach ($lines as $l) {
+            $totalTtc += $l['unit_ttc'] * $l['quantity'];
+            $totalHt += $l['unit_ht'] * $l['quantity'];
+        }
+        if ($totalTtc <= 0) {
+            throw new OrderValidationException('EMPTY_ORDER');
+        }
+
+        return [$lines, $totalTtc, $totalHt, $totalTtc - $totalHt];
+    }
+
+    /**
+     * Insere les lignes d'une commande et leurs enfants (selections de slot,
+     * modificateurs d'ingredient). Appele DANS une transaction, par persist() a la
+     * creation et par replaceItems() apres purge. Les snapshots (RG-T05) sont figes
+     * ici : label, prix unitaire et taux de TVA de la ligne.
+     *
+     * @param list<array<string, mixed>> $lines lignes resolues par resolveAndTotal()
+     */
+    private function insertLines(DatabaseInterface $db, int $orderId, array $lines): void
+    {
+        foreach ($lines as $l) {
+            $db->execute(
+                'INSERT INTO order_item '
+                . '(order_id, item_type, product_id, menu_id, format, label_snapshot, '
+                . ' unit_price_cents_snapshot, vat_rate_snapshot, quantity) '
+                . 'VALUES (:oid, :type, :pid, :mid, :fmt, :label, :price, :vat, :qty)',
+                [
+                    'oid'   => $orderId,
+                    'type'  => $l['item_type'],
+                    'pid'   => $l['product_id'],
+                    'mid'   => $l['menu_id'],
+                    'fmt'   => $l['format'],
+                    'label' => $l['label'],
+                    'price' => $l['unit_ttc'],
+                    'vat'   => $l['vat_rate'],
+                    'qty'   => $l['quantity'],
+                ],
+            );
+            $itemId = (int) ($db->fetch('SELECT LAST_INSERT_ID() AS id')['id'] ?? 0);
+
+            foreach ($l['selections'] as $sel) {
+                $db->execute(
+                    'INSERT INTO order_item_selection (order_item_id, menu_slot_id, product_id, label_snapshot) '
+                    . 'VALUES (:oiid, :slot, :pid, :label)',
+                    ['oiid' => $itemId, 'slot' => $sel['menu_slot_id'], 'pid' => $sel['product_id'], 'label' => $sel['label']],
+                );
+            }
+            foreach ($l['modifiers'] as $mod) {
+                $db->execute(
+                    'INSERT INTO order_item_modifier (order_item_id, ingredient_id, action, extra_price_cents) '
+                    . 'VALUES (:oiid, :ing, :act, :extra)',
+                    ['oiid' => $itemId, 'ing' => $mod['ingredient_id'], 'act' => $mod['action'], 'extra' => $mod['extra_price_cents']],
+                );
+            }
+        }
     }
 
     /**
@@ -306,35 +530,64 @@ class OrderRepository
             throw new OrderValidationException('ORDER_NOT_FOUND');
         }
 
+        $status = (string) $order['status'];
+        // Le paiement met DIRECTEMENT en preparation (retour oral : une commande payee
+        // part en cuisine automatiquement, sans geste manuel). 'paid' reste un etat
+        // encaisse valide (commandes anterieures / robustesse), mais une commande
+        // nouvellement payee se pose a 'preparing'. Idempotent si DEJA encaissee
+        // (paid|preparing|ready|delivered) : pas de re-decrement, on reflete l'etat reel.
+        if (in_array($status, ['paid', 'preparing', 'ready', 'delivered'], true)) {
+            return [
+                'id'              => (int) $order['id'],
+                'order_number'    => (string) $order['order_number'],
+                'total_ttc_cents' => (int) $order['total_ttc_cents'],
+                'status'          => $status,
+            ];
+        }
+        if ($status !== 'pending_payment') {
+            throw new OrderValidationException('INVALID_TRANSITION'); // cancelled (terminal).
+        }
+
         $result = [
             'id'              => (int) $order['id'],
             'order_number'    => (string) $order['order_number'],
             'total_ttc_cents' => (int) $order['total_ttc_cents'],
-            'status'          => 'paid',
+            'status'          => 'preparing',
         ];
 
-        $status = (string) $order['status'];
-        if ($status === 'paid') {
-            return $result; // idempotent : deja encaissee, pas de re-decrement.
-        }
-        if ($status !== 'pending_payment') {
-            throw new OrderValidationException('INVALID_TRANSITION'); // delivered / cancelled.
-        }
-
         $orderId = (int) $order['id'];
-        $this->db->transaction(function (DatabaseInterface $db) use ($orderId, $actingUserId): void {
+        $this->db->transaction(function (DatabaseInterface $db) use ($orderNumber, $orderId, $actingUserId, &$result): void {
+            // Verrou + relecture AUTORITAIRE du total. Depuis F18 une commande en attente
+            // est MODIFIABLE : le total lu hors transaction ci-dessus peut deja etre
+            // perime, et le facturer serait un ecart entre le montant annonce et le
+            // contenu reel. Le meme verrou serialise l'encaissement avec une modification
+            // concurrente, pour que le debit de stock porte sur les lignes DEFINITIVES
+            // (voir lockOrder pour le raisonnement complet).
+            $locked = $this->lockOrder($db, $orderNumber);
+            if ($locked === null) {
+                throw new OrderValidationException('ORDER_NOT_FOUND');
+            }
+            $result['total_ttc_cents'] = (int) $locked['total_ttc_cents'];
+
+            // Encaissement + entree en preparation dans la MEME transaction : paid_at ET
+            // preparing_at sont poses (paid_at reste l'horloge de reference du SLA / KPIs).
             $affected = $db->execute(
-                'UPDATE customer_order SET status = \'paid\', paid_at = NOW(), '
+                'UPDATE customer_order SET status = \'preparing\', paid_at = NOW(), preparing_at = NOW(), '
                 . 'acting_user_id = COALESCE(:uid, acting_user_id), updated_at = NOW() '
                 . 'WHERE id = :id AND status = \'pending_payment\'',
                 ['uid' => $actingUserId, 'id' => $orderId],
             );
             if ($affected === 0) {
-                // Course perdue : un autre appel a deja transite. S'il a abouti a
-                // `paid`, il a fait le decrement -> on sort idempotent ; sinon la
-                // transition est invalide (statut terminal).
+                // Course perdue : un autre appel a deja transite. S'il a abouti a un etat
+                // encaisse, le decrement est fait -> on sort idempotent ; sinon transition
+                // invalide (statut terminal cancelled).
                 $current = (string) ($db->fetch('SELECT status FROM customer_order WHERE id = :id', ['id' => $orderId])['status'] ?? '');
-                if ($current === 'paid') {
+                if (in_array($current, ['paid', 'preparing', 'ready', 'delivered'], true)) {
+                    // On renvoie le statut REEL, pas 'preparing' pose en optimiste : la
+                    // commande peut deja etre 'ready' ou 'delivered' si l'appel gagnant est
+                    // ancien. Annoncer 'preparing' pour une commande remise serait faux.
+                    $result['status'] = $current;
+
                     return;
                 }
                 throw new OrderValidationException('INVALID_TRANSITION');
@@ -386,19 +639,71 @@ class OrderRepository
         if ($status === 'delivered') {
             return $result; // idempotent : remise deja actee.
         }
-        if ($status !== 'paid') {
+        // Accepte la remise depuis tout etat actif (paid, preparing, ready) : une commande
+        // peut etre remise sans passer par les etats de cuisine (retour oral #8).
+        if (!in_array($status, ['paid', 'preparing', 'ready'], true)) {
             throw new OrderValidationException('INVALID_TRANSITION'); // pending_payment / cancelled.
         }
 
         $affected = $this->db->execute(
             'UPDATE customer_order SET status = \'delivered\', delivered_at = NOW(), '
-            . 'updated_at = NOW() WHERE id = :id AND status = \'paid\'',
+            . 'updated_at = NOW() WHERE id = :id AND status IN (\'paid\', \'preparing\', \'ready\')',
             ['id' => (int) $order['id']],
         );
         if ($affected === 0) {
             // Course perdue : un autre appel a deja transite. Idempotent si delivered.
             $current = (string) ($this->db->fetch('SELECT status FROM customer_order WHERE id = :id', ['id' => (int) $order['id']])['status'] ?? '');
             if ($current === 'delivered') {
+                return $result;
+            }
+            throw new OrderValidationException('INVALID_TRANSITION');
+        }
+
+        return $result;
+    }
+
+    /**
+     * Transition paid|preparing -> ready (commande prete a remettre, retour oral #8).
+     * Accepte 'paid' en direct (l'equipe peut sauter "en preparation" si la commande est
+     * faite d'emblee). Geste routinier, non PIN-gated ; aucun mouvement de stock.
+     * Idempotente (deja ready -> renvoyee). 404 si inconnue ; INVALID_TRANSITION sinon.
+     *
+     * @return array{id:int, order_number:string, total_ttc_cents:int, status:string}
+     * @throws OrderValidationException
+     */
+    public function markReady(string $orderNumber): array
+    {
+        $order = $this->db->fetch(
+            'SELECT id, order_number, total_ttc_cents, status FROM customer_order WHERE order_number = :n',
+            ['n' => $orderNumber],
+        );
+        if ($order === null) {
+            throw new OrderValidationException('ORDER_NOT_FOUND');
+        }
+
+        $result = [
+            'id'              => (int) $order['id'],
+            'order_number'    => (string) $order['order_number'],
+            'total_ttc_cents' => (int) $order['total_ttc_cents'],
+            'status'          => 'ready',
+        ];
+
+        $status = (string) $order['status'];
+        if ($status === 'ready') {
+            return $result; // idempotent : deja prete.
+        }
+        if (!in_array($status, ['paid', 'preparing'], true)) {
+            throw new OrderValidationException('INVALID_TRANSITION');
+        }
+
+        $affected = $this->db->execute(
+            'UPDATE customer_order SET status = \'ready\', ready_at = NOW(), '
+            . 'updated_at = NOW() WHERE id = :id AND status IN (\'paid\', \'preparing\')',
+            ['id' => (int) $order['id']],
+        );
+        if ($affected === 0) {
+            $current = (string) ($this->db->fetch('SELECT status FROM customer_order WHERE id = :id', ['id' => (int) $order['id']])['status'] ?? '');
+            if ($current === 'ready') {
                 return $result;
             }
             throw new OrderValidationException('INVALID_TRANSITION');
@@ -420,10 +725,18 @@ class OrderRepository
      * n'a pas ete decremente -> consumption() ne le retourne pas -> pas de re-credit.
      *
      * Concurrence (RG-T07/RG-T20) : le statut est relu A L'INTERIEUR de la transaction
-     * via l'UPDATE garde par `status IN ('pending_payment','paid')` ; 0 ligne affectee
+     * via l'UPDATE garde par `status IN ('pending_payment','paid','preparing','ready')` ;
+     * 0 ligne affectee
      * = course perdue (un autre appel a deja transite) -> INVALID_TRANSITION. Le
      * re-credit se base sur le pre-status lu en entree (coherent : seul l'appel qui a
-     * remporte la garde poursuit, et il n'y a pas de SELECT FOR UPDATE — RG-T20).
+     * remporte la garde poursuit).
+     *
+     * L'annulation ne prend PAS de verrou explicite, contrairement a pay() et
+     * replaceItems() depuis F18 : ici la garde par lignes affectees suffit, parce que la
+     * valeur du statut CHANGE toujours (-> 'cancelled'), donc 0 ligne veut dire sans
+     * ambiguite "course perdue". C'est precisement ce qui n'est pas vrai d'un
+     * remplacement de panier, ou les nouveaux totaux peuvent egaler les anciens (voir
+     * lockOrder et docs/adr/0016-modification-commande-avant-paiement.md).
      *
      * @param int|null $actingUserId equipier resolu par PIN (audit_log.actor_user_id +
      *                               stock_movement.user_id) ; le controleur le fournit.
@@ -442,7 +755,7 @@ class OrderRepository
         }
 
         $preStatus = (string) $order['status'];
-        if (!in_array($preStatus, ['pending_payment', 'paid'], true)) {
+        if (!in_array($preStatus, ['pending_payment', 'paid', 'preparing', 'ready'], true)) {
             throw new OrderValidationException('CANNOT_CANCEL_IN_STATE'); // delivered / cancelled (statut terminal).
         }
 
@@ -458,7 +771,7 @@ class OrderRepository
         $this->db->transaction(function (DatabaseInterface $db) use ($orderId, $preStatus, $totalTtc, $actingUserId, $actingRoleId): void {
             $affected = $db->execute(
                 'UPDATE customer_order SET status = \'cancelled\', cancelled_at = NOW(), updated_at = NOW() '
-                . 'WHERE id = :id AND status IN (\'pending_payment\', \'paid\')',
+                . 'WHERE id = :id AND status IN (\'pending_payment\', \'paid\', \'preparing\', \'ready\')',
                 ['id' => $orderId],
             );
             if ($affected === 0) {
@@ -479,14 +792,24 @@ class OrderRepository
             $restocked = $this->hasSaleMovements($db, $orderId);
             if ($restocked) {
                 foreach ($this->consumption($db, $orderId) as $ingredientId => $units) {
+                    // Plafond strict (IngredientRepository::clampToCapacity, source unique) :
+                    // le re-credit ne peut pas faire repasser le stock au-dessus de la
+                    // capacite -- ex. un restock a comble l'ingredient entre la vente et
+                    // l'annulation. Le mouvement 'cancellation' porte le delta REELLEMENT
+                    // re-credite (capacite - stock si on cale au plafond), coherent avec le
+                    // ledger append-only (RG-T08).
+                    $row = $db->fetch('SELECT stock_quantity, stock_capacity FROM ingredient WHERE id = :id', ['id' => $ingredientId]);
+                    $current = (int) ($row['stock_quantity'] ?? 0);
+                    $capacity = (int) ($row['stock_capacity'] ?? 0);
+                    $newQuantity = IngredientRepository::clampToCapacity($current + $units, $capacity);
                     $db->execute(
-                        'UPDATE ingredient SET stock_quantity = stock_quantity + :u WHERE id = :id',
-                        ['u' => $units, 'id' => $ingredientId],
+                        'UPDATE ingredient SET stock_quantity = :q WHERE id = :id',
+                        ['q' => $newQuantity, 'id' => $ingredientId],
                     );
                     $db->execute(
                         'INSERT INTO stock_movement (ingredient_id, movement_type, delta, order_id, user_id, note) '
                         . 'VALUES (:ing, \'cancellation\', :delta, :oid, :uid, NULL)',
-                        ['ing' => $ingredientId, 'delta' => $units, 'oid' => $orderId, 'uid' => $actingUserId],
+                        ['ing' => $ingredientId, 'delta' => $newQuantity - $current, 'oid' => $orderId, 'uid' => $actingUserId],
                     );
                 }
             }
@@ -509,6 +832,128 @@ class OrderRepository
         });
 
         return $result;
+    }
+
+    /**
+     * Balaie les commandes restees en attente de paiement au-dela du delai et les passe
+     * en `cancelled`, avec une trace d'audit SANS acteur (action_code `order.expire`).
+     * Appelee par le planificateur (src/bin/order-expire.php), pas par une route HTTP.
+     *
+     * POURQUOI `cancelled` et pas un 7e statut `expired` : la valeur existe deja, elle
+     * est deja terminale, deja exclue du chiffre d'affaires et de la file cuisine, et
+     * deja libellee "Annulee" a l'ecran. Un nouveau statut obligerait a reprendre chaque
+     * endroit qui enumere les statuts pour un gain purement statistique, alors que le
+     * journal d'audit porte deja la distinction (`order.expire` vs `order.cancel`).
+     *
+     * POURQUOI aucun effet de stock : le debit vit dans la seule transaction de pay().
+     * Une commande en attente n'a donc rien consomme, et la re-crediter creerait du stock
+     * a partir de rien. La methode ne contient AUCUNE ecriture sur `ingredient` ni
+     * `stock_movement` -- invariant verifiable a la lecture, et verrouille par un test.
+     *
+     * POURQUOI une transaction PAR commande : une ligne empoisonnee ne fait pas perdre le
+     * balayage, et chaque verrou reste court dans la fenetre de maintenance.
+     *
+     * @return array{examined:int, expired:int, skipped:int, order_numbers:list<string>}
+     */
+    public function expireStalePending(int $olderThanMinutes, int $limit = 500): array
+    {
+        // INTERVAL et LIMIT n'acceptent pas de parametre lie en prepare native
+        // (ATTR_EMULATE_PREPARES=false) : on interpole, donc on borne en entier d'abord.
+        $minutes = max(1, min(1440, $olderThanMinutes));
+        $take = max(1, min(2000, $limit));
+
+        // Le predicat porte sur la DERNIERE ACTIVITE, pas sur la creation (corrige avec
+        // F18). Depuis qu'une commande en attente est modifiable, une commande creee a
+        // 10h00 et modifiee a 12h01 serait balayee a 12h02 par un predicat sur created_at :
+        // elle mourrait sous le client, juste apres que le serveur lui a confirme sa
+        // modification. GREATEST(created_at, updated_at) respecte l'intention du balayage
+        // — liberer ce qui est reellement laisse en plan — au lieu de la contredire.
+        $candidates = $this->db->fetchAll(
+            'SELECT id, order_number, source, created_at FROM customer_order '
+            . 'WHERE status = \'pending_payment\' '
+            . 'AND GREATEST(created_at, updated_at) < NOW() - INTERVAL ' . $minutes . ' MINUTE '
+            . 'ORDER BY id ASC LIMIT ' . $take,
+        );
+
+        $expired = 0;
+        $skipped = 0;
+        /** @var list<string> $numbers */
+        $numbers = [];
+
+        foreach ($candidates as $row) {
+            $orderId = (int) ($row['id'] ?? 0);
+            $orderNumber = (string) ($row['order_number'] ?? '');
+            $summary = $this->expirySummary((string) ($row['source'] ?? ''), (string) ($row['created_at'] ?? ''));
+            $done = false;
+
+            $this->db->transaction(function (DatabaseInterface $db) use ($orderId, $summary, &$done): void {
+                // Garde de coherence : cas theoriquement impossible (le debit et le passage
+                // en preparation committent ensemble), mais l'ecrire rend la propriete
+                // "on ne re-credite pas ce qui n'a pas ete debite" lisible ici meme.
+                if ($this->hasSaleMovements($db, $orderId)) {
+                    return;
+                }
+
+                // Meme protection de concurrence que pay() et cancel() : la garde de statut
+                // vit dans le WHERE. Si un encaissement a gagne la course, 0 ligne affectee
+                // et on sort sans rien ecrire -- surtout pas d'audit, qui affirmerait une
+                // expiration qui n'a pas eu lieu.
+                $affected = $db->execute(
+                    'UPDATE customer_order SET status = \'cancelled\', cancelled_at = NOW(), updated_at = NOW() '
+                    . 'WHERE id = :id AND status = \'pending_payment\'',
+                    ['id' => $orderId],
+                );
+                if ($affected === 0) {
+                    return;
+                }
+
+                // Acteur NULL = systeme. Personne n'a annule : la machine a nettoye.
+                $db->execute(
+                    'INSERT INTO audit_log (actor_user_id, actor_role_id, action_code, entity_type, entity_id, summary) '
+                    . 'VALUES (:uid, :rid, :code, :etype, :eid, :summary)',
+                    [
+                        'uid'     => null,
+                        'rid'     => null,
+                        'code'    => 'order.expire',
+                        'etype'   => 'customer_order',
+                        'eid'     => $orderId,
+                        'summary' => $summary,
+                    ],
+                );
+                $done = true;
+            });
+
+            if ($done) {
+                $expired++;
+                $numbers[] = $orderNumber;
+                continue;
+            }
+            $skipped++;
+        }
+
+        return [
+            'examined'      => count($candidates),
+            'expired'       => $expired,
+            'skipped'       => $skipped,
+            'order_numbers' => $numbers,
+        ];
+    }
+
+    /**
+     * Resume d'audit d'une expiration, borne a la taille de la colonne (VARCHAR(255)).
+     */
+    private function expirySummary(string $source, string $createdAt): string
+    {
+        $summary = 'Expiration automatique: commande non encaissee';
+        $created = strtotime($createdAt);
+        if ($created !== false) {
+            $summary .= ', creee il y a ' . max(0, (int) floor((time() - $created) / 60)) . ' min';
+        }
+        if ($source !== '') {
+            $summary .= ', canal ' . $source;
+        }
+
+        return substr($summary, 0, 255);
     }
 
     /**
@@ -535,8 +980,24 @@ class OrderRepository
      */
     private function consumption(DatabaseInterface $db, int $orderId): array
     {
+        // LECTURES VERROUILLANTES sur le contenu de la commande (F18). Une lecture
+        // verrouillante voit toujours la derniere version committee, alors qu'une lecture
+        // simple lit l'instantane de la transaction — pose PARESSEUSEMENT a la premiere
+        // lecture non verrouillante, donc potentiellement AVANT qu'une modification
+        // concurrente ait committe.
+        //
+        // Mesure faite sur MariaDB 11.4 : avec une seule lecture simple ajoutee en tete de
+        // la transaction d'encaissement, la commande etait facturee au NOUVEAU total et le
+        // stock debite d'apres les ANCIENNES lignes, les deux UPDATE de garde rendant 1
+        // ligne affectee — donc aucun signal, ni cote encaissement ni cote modification.
+        // Verrouiller ces lectures rend la fraicheur STRUCTURELLE au lieu de la faire
+        // dependre de l'ordre des instructions, que rien n'empeche de changer.
+        //
+        // Le catalogue (product_ingredient, via ProductRepository::composition) n'est PAS
+        // verrouille : c'est de la donnee de reference partagee, pas le contenu de cette
+        // commande, et la verrouiller depuis ce chemin bloquerait des lectures de catalogue.
         $items = $db->fetchAll(
-            'SELECT id, item_type, product_id, menu_id, format, quantity FROM order_item WHERE order_id = :oid',
+            'SELECT id, item_type, product_id, menu_id, format, quantity FROM order_item WHERE order_id = :oid FOR UPDATE',
             ['oid' => $orderId],
         );
 
@@ -557,7 +1018,7 @@ class OrderRepository
                 if ($menu !== null) {
                     $productIds[] = (int) $menu['burger_product_id'];
                 }
-                foreach ($db->fetchAll('SELECT product_id FROM order_item_selection WHERE order_item_id = :oiid', ['oiid' => $itemId]) as $sel) {
+                foreach ($db->fetchAll('SELECT product_id FROM order_item_selection WHERE order_item_id = :oiid FOR UPDATE', ['oiid' => $itemId]) as $sel) {
                     $productIds[] = (int) $sel['product_id'];
                 }
             }
@@ -567,7 +1028,7 @@ class OrderRepository
             // ciblent le produit support (burger), dont les ingredients ne recoupent
             // pas ceux des selections (boisson / accompagnement).
             $actions = [];
-            foreach ($db->fetchAll('SELECT ingredient_id, action FROM order_item_modifier WHERE order_item_id = :oiid', ['oiid' => $itemId]) as $mod) {
+            foreach ($db->fetchAll('SELECT ingredient_id, action FROM order_item_modifier WHERE order_item_id = :oiid FOR UPDATE', ['oiid' => $itemId]) as $mod) {
                 $actions[(int) $mod['ingredient_id']] = (string) $mod['action'];
             }
 
@@ -597,9 +1058,10 @@ class OrderRepository
      * Resout une ligne (produit ou menu) : lit le catalogue, valide, calcule le prix.
      *
      * @param array<string, mixed> $item
+     * @param array<int, bool> $unavailable set des product_id en rupture calculee (RG-T21)
      * @return array{item_type:string, product_id:?int, menu_id:?int, format:string, label:string, unit_ttc:int, unit_ht:int, vat_rate:int, quantity:int, selections:list<array{menu_slot_id:int,product_id:int,label:string}>, modifiers:list<array{ingredient_id:int,action:string,extra_price_cents:int}>}
      */
-    private function resolveLine(array $item): array
+    private function resolveLine(array $item, array $unavailable = []): array
     {
         $type = (string) ($item['type'] ?? '');
         $quantity = max(1, (int) ($item['quantity'] ?? 1));
@@ -608,6 +1070,10 @@ class OrderRepository
         if ($type === 'product') {
             $product = $this->products->find((int) ($item['product_id'] ?? 0));
             if ($product === null || (int) ($product['is_available'] ?? 0) !== 1) {
+                throw new OrderValidationException('PRODUCT_UNAVAILABLE');
+            }
+            // RG-T21 : rupture calculee (ingredient requis sous la bande critique).
+            if (isset($unavailable[(int) $product['id']])) {
                 throw new OrderValidationException('PRODUCT_UNAVAILABLE');
             }
             $unitBase = (int) $product['price_cents'];
@@ -621,6 +1087,14 @@ class OrderRepository
         if ($type === 'menu') {
             $menu = $this->menus->find((int) ($item['menu_id'] ?? 0));
             if ($menu === null || (int) ($menu['is_available'] ?? 0) !== 1) {
+                throw new OrderValidationException('MENU_UNAVAILABLE');
+            }
+            // RG-T21, granularite "burger impose seul" (coherente avec l'affichage borne
+            // F2) : si le burger principal est en rupture calculee, le menu n'est pas
+            // commandable. La rupture d'un accompagnement/boisson requis n'est PAS
+            // verifiee ici (decision produit : granularite burger seul, a elargir au
+            // besoin via les produits des slots requis).
+            if (isset($unavailable[(int) ($menu['burger_product_id'] ?? 0)])) {
                 throw new OrderValidationException('MENU_UNAVAILABLE');
             }
             $burger = $this->products->find((int) $menu['burger_product_id']);

@@ -335,10 +335,10 @@ Domaines : Identification des processus a automatiser / Programmation de scripts
 
 | Bloc | Competences | Criteres total | Statut |
 |---|---|---|---|
-| Bloc 1 (tronc) | 9 (C1.a-e + C2.a-d) | 44 | Obligatoire |
-| Bloc 2 (tronc) | 11 (C3.a-d + C4.a-g) | 35 | Obligatoire |
+| Bloc 1 (tronc) | 9 (C1.a-e + C2.a-d) | 42 | Obligatoire |
+| Bloc 2 (tronc) | 11 (C3.a-d + C4.a-g) | 41 | Obligatoire |
 | Bloc 5 (option DevOps) | 4 (C7.a-d) | 13 | **Option choisie** |
-| **Total Wakdo** | **24 competences** | **~92 criteres** | — |
+| **Total Wakdo** | **24 competences** | **96 criteres** | — |
 
 ---
 

@@ -7,9 +7,13 @@ namespace App\Controllers;
 use Throwable;
 use App\Auth\Csrf;
 use App\Auth\LogMailer;
+use App\Auth\Mailer;
 use App\Auth\PasswordHasher;
 use App\Auth\PasswordResetService;
 use App\Auth\SessionManager;
+use App\Auth\SmtpClient;
+use App\Auth\SmtpMailer;
+use App\Auth\StreamSmtpTransport;
 use App\Core\Controller;
 use App\Core\Response;
 
@@ -124,7 +128,33 @@ class PasswordResetController extends Controller
             $this->database,
             $this->config,
             new PasswordHasher($this->config),
-            new LogMailer(),
+            $this->mailer(),
+        );
+    }
+
+    /**
+     * SMTP reel si configure (SMTP_HOST + SMTP_USER + SMTP_PASSWORD presents),
+     * sinon repli sur LogMailer (le lien est journalise, pas d'envoi) : le dev
+     * reste sans infra mail, la prod envoie via le relais.
+     */
+    protected function mailer(): Mailer
+    {
+        $host = $this->config->get('SMTP_HOST');
+        $user = $this->config->get('SMTP_USER');
+        $password = $this->config->get('SMTP_PASSWORD');
+
+        if ($host === null || $user === null || $password === null) {
+            return new LogMailer();
+        }
+
+        return new SmtpMailer(
+            new SmtpClient(new StreamSmtpTransport()),
+            $host,
+            (int) ($this->config->get('SMTP_PORT', '587') ?? '587'),
+            $user,
+            $password,
+            $this->config->get('MAIL_FROM_EMAIL', 'noreply@localhost') ?? 'noreply@localhost',
+            $this->config->get('MAIL_FROM_NAME', 'Wakdo') ?? 'Wakdo',
         );
     }
 

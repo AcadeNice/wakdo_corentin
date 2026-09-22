@@ -125,6 +125,46 @@ final class IngredientRepositoryDbTest extends TestCase
         self::assertSame(-70, (int) $movements[0]['delta']);
     }
 
+    public function testRestockClampsToCapacityAndRecordsEffectiveDelta(): void
+    {
+        $repo = new IngredientRepository($this->db);
+        // 290/300 : un pack de 50 demanderait 340 -> cale a 300 (capacite = plafond strict).
+        $id = $this->createIngredient($repo, ['stock_quantity' => 290, 'stock_capacity' => 300, 'pack_size' => 50]);
+
+        $repo->restock($id, 1, $this->userId, 'Livraison pleine');
+
+        $found = $repo->find($id);
+        self::assertSame(300, (int) ($found['stock_quantity'] ?? -1)); // plafonne, pas 340
+        self::assertSame(100, (int) ($found['stock_pct'] ?? -1));      // jamais > 100 %
+        $movements = $repo->movements($id);
+        self::assertSame('restock', (string) $movements[0]['movement_type']);
+        self::assertSame(10, (int) $movements[0]['delta']);            // delta REELLEMENT applique (300-290), pas 50
+    }
+
+    public function testInventoryCountClampsToCapacity(): void
+    {
+        $repo = new IngredientRepository($this->db);
+        // Comptage physique 350 sur une capacite 300 -> cale a 300 (capacite = reference 100 %).
+        $id = $this->createIngredient($repo, ['stock_quantity' => 100, 'stock_capacity' => 300]);
+
+        $repo->inventoryCount($id, 350, $this->userId, 'Comptage exceptionnel');
+
+        $found = $repo->find($id);
+        self::assertSame(300, (int) ($found['stock_quantity'] ?? -1));
+        self::assertSame(100, (int) ($found['stock_pct'] ?? -1));
+        $movements = $repo->movements($id);
+        self::assertSame('inventory_correction', (string) $movements[0]['movement_type']);
+        self::assertSame(200, (int) $movements[0]['delta']);          // 300 - 100
+    }
+
+    public function testCreateClampsInitialQuantityToCapacity(): void
+    {
+        $repo = new IngredientRepository($this->db);
+        // Valeur initiale > capacite -> calee a la capacite des la creation (plafond strict).
+        $id = $this->createIngredient($repo, ['stock_quantity' => 500, 'stock_capacity' => 300]);
+        self::assertSame(300, (int) ($repo->find($id)['stock_quantity'] ?? -1));
+    }
+
     public function testReferencedIngredientCannotBeHardDeletedButCanBeDeactivated(): void
     {
         $repo = new IngredientRepository($this->db);

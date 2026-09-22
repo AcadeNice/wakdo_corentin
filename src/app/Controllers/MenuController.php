@@ -37,6 +37,32 @@ class MenuController extends AdminController
     private const SLOT_TYPES = ['drink', 'side', 'sauce', 'dessert', 'extra'];
 
     /**
+     * F12 : SOURCE UNIQUE du mapping slot_type -> categorie(s) eligibles (slugs FR du
+     * seed 0002). Une option de slot ne peut etre qu'un produit dont la categorie est
+     * dans la liste de son slot_type. Ce meme tableau est (a) passe a la vue puis au
+     * builder JS (filtrage UI dynamique), et (b) reutilise par la garde serveur
+     * parseSlots() (rejet 422 d'une option hors categorie) -- pas de double definition
+     * divergente.
+     *
+     * Regle metier (decidee avec l'utilisateur) :
+     *  - drink/sauce/dessert : leur categorie homonyme ;
+     *  - side : les accompagnements (frites + encas + salades) ;
+     *  - extra : slot LIBRE = toute categorie SAUF 'menus' (pas de menu dans un menu)
+     *    et 'burgers' (le burger est l'ancre du menu, champ separe, jamais une option).
+     * 'menus' n'apparait dans aucune liste : un menu ne se compose pas d'un autre menu.
+     * Le slug 'wraps' n'est eligible que via 'extra' (slot libre).
+     *
+     * @var array<string, list<string>>
+     */
+    private const SLOT_CATEGORIES = [
+        'drink'   => ['boissons'],
+        'sauce'   => ['sauces'],
+        'dessert' => ['desserts'],
+        'side'    => ['frites', 'encas', 'salades'],
+        'extra'   => ['boissons', 'frites', 'encas', 'wraps', 'salades', 'desserts', 'sauces'],
+    ];
+
+    /**
      * @param array<string, string> $params
      */
     public function index(array $params = []): Response
@@ -309,10 +335,13 @@ class MenuController extends AdminController
             $errors['category_id'] = 'Categorie requise et valide.';
         }
 
+        // F9-2 : le burger principal doit etre un produit de BASE (R4). productIsBase
+        // rejette une variante de taille meme si l'UI (base-only) est contournee :
+        // une variante n'est pas un produit autonome commercialisable en menu.
         $burgerRaw = trim($form['burger_product_id'] ?? '');
         $burgerId = ctype_digit($burgerRaw) ? (int) $burgerRaw : 0;
-        if ($burgerId === 0 || !$this->menuRepository()->productExists($burgerId)) {
-            $errors['burger_product_id'] = 'Le produit burger de base est requis et doit exister.';
+        if ($burgerId === 0 || !$this->menuRepository()->productIsBase($burgerId)) {
+            $errors['burger_product_id'] = 'Le produit burger de base est requis et doit etre un produit de base (pas une variante de taille).';
         }
 
         $name = trim($form['name'] ?? '');
@@ -385,12 +414,37 @@ class MenuController extends AdminController
             $slotType = is_string($raw['slot_type'] ?? null) ? $raw['slot_type'] : '';
             $required = !empty($raw['is_required']) ? 1 : 0;
 
+            // Categories autorisees pour ce slot_type (F12, mapping unique). Tableau
+            // vide pour un slot_type inconnu : aucune option n'y est alors eligible,
+            // mais le type invalide est rejete plus bas avant d'utiliser ce resultat.
+            $allowedCategories = self::SLOT_CATEGORIES[$slotType] ?? [];
+
+            // F9-2 : une option de slot doit etre un produit de BASE (R4). Un id de
+            // variante de taille (base_product_id non nul) est REJETE explicitement
+            // (422) plutot que filtre en silence : choisir une variante comme option
+            // serait un contournement de l'UI base-only, et un drop muet ferait perdre
+            // un choix sans message clair. Un id inconnu reste filtre (allowlist).
+            // F12 : par-dessus, l'option doit appartenir a une categorie autorisee pour
+            // le slot_type ; une option hors categorie est REJETEE (422), pas filtree,
+            // pour la meme raison (contournement de l'UI de filtrage = erreur visible).
             $optionIds = [];
+            $hasVariantOption = false;
+            $hasWrongCategoryOption = false;
             foreach (is_array($raw['options'] ?? null) ? $raw['options'] : [] as $opt) {
                 $pid = is_numeric($opt) ? (int) $opt : 0;
-                if ($pid > 0 && $this->menuRepository()->productExists($pid)) {
-                    $optionIds[] = $pid;
+                if ($pid <= 0 || !$this->menuRepository()->productExists($pid)) {
+                    continue; // id inconnu : filtre (allowlist), pas une erreur
                 }
+                if (!$this->menuRepository()->productIsBase($pid)) {
+                    $hasVariantOption = true;
+                    continue; // variante de taille : non eligible comme option de menu
+                }
+                $categorySlug = $this->menuRepository()->productCategorySlug($pid);
+                if ($categorySlug === null || !in_array($categorySlug, $allowedCategories, true)) {
+                    $hasWrongCategoryOption = true;
+                    continue; // hors categorie pour ce slot_type : non eligible
+                }
+                $optionIds[] = $pid;
             }
             $optionIds = array_values(array_unique($optionIds));
 
@@ -400,6 +454,14 @@ class MenuController extends AdminController
             }
             if (!in_array($slotType, self::SLOT_TYPES, true)) {
                 $errors['slots'] = 'Type de slot invalide.';
+                continue;
+            }
+            if ($hasVariantOption) {
+                $errors['slots'] = 'Une variante de taille ne peut pas etre proposee comme option de menu (choisissez le produit de base).';
+                continue;
+            }
+            if ($hasWrongCategoryOption) {
+                $errors['slots'] = 'Une option proposee n\'appartient pas a une categorie compatible avec le type de ce slot.';
                 continue;
             }
             if ($optionIds === []) {
@@ -459,8 +521,18 @@ class MenuController extends AdminController
             'activeNav'  => 'menus',
             'menuId'     => $id,
             'categories' => $this->categoryRepository()->all(),
-            'products'   => $this->productRepository()->all(),
+            // F9-1 : listes deroulantes base-only (burger principal + options de
+            // slot). basesOnly() exclut les variantes de taille (R4) ; all() les
+            // inclut (liste admin), il ne doit donc pas alimenter ces selects. Le
+            // burger principal (select dedie) consomme cette liste {id, name}.
+            'products'   => $this->productRepository()->basesOnly(),
+            // F12 : options de slot, base-only ENRICHIES du slug de categorie, pour
+            // que le builder JS filtre les choix proposes selon le type de slot.
+            'slotProducts' => $this->productRepository()->baseOptionsWithCategory(),
             'slotTypes'  => self::SLOT_TYPES,
+            // F12 : mapping slot_type -> categories, source unique partagee avec la
+            // garde serveur (self::SLOT_CATEGORIES) et exposee au builder JS.
+            'slotCategories' => self::SLOT_CATEGORIES,
             'values'     => [
                 'category_id'        => (string) ($values['category_id'] ?? ''),
                 'burger_product_id'  => (string) ($values['burger_product_id'] ?? ''),

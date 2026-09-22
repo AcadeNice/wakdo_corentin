@@ -23,9 +23,12 @@ Accueil
    -> Remerciement
 ```
 
-Le kiosk construit, lui, eclate cet ecran unique en **pages distinctes** et n'a
-pas de panneau de commande persistant. C'est l'origine du sentiment "ca ne
-correspond pas".
+Le kiosk construit a desormais rejoint ce paradigme : l'ecran de commande
+(`products.html`) porte un **panneau de commande persistant** a droite, les options
+produit et le composeur de menu s'ouvrent **en modale** par-dessus la grille, et le
+**chevalet** (saisie du numero de table) s'ouvre en modale au paiement sur place. Les
+pages intermediaires `product.html` et `cart.html` du premier jet ont ete retirees.
+Cette note garde la trace de la decomposition maquette -> code et des ecarts resorbes.
 
 ## 2. Decomposition ecran par ecran
 
@@ -87,25 +90,29 @@ correspond pas".
 | Maquette | Kiosk construit | Verdict |
 |----------|-----------------|---------|
 | 1. Accueil sur place / a emporter | `index.html` | conforme |
-| 2 + 6. Ecran de commande unique (bandeau + grille + **panneau persistant**) | eclate en `categories.html` -> `products.html` -> `cart.html` | divergence structurante : multi-pages, et **pas de panneau de commande persistant** |
+| 2 + 6. Ecran de commande unique (bandeau + grille + **panneau persistant**) | `products.html` : bandeau categories (`category-strip.js`) + grille + **panneau de commande persistant** a droite (`order-panel.js`) | conforme |
 | (pas de page categories separee) | `categories.html` plein ecran "Que souhaitez-vous commander ?" | ecran **ajoute** (la maquette met les categories en bandeau) |
-| 3-5. Composeur menu = **assistant modal en etapes** | `page-product-menu.js` = composition **libre** | divergence (le refactor "consommer les slots /api/menus" est deja en file P4) |
-| 8. Modale d'option produit (taille + quantite) | `product.html` (page) | divergence : page au lieu de modale |
-| 9. Ecran **chevalet** dedie (saisie numero) | numero gere par l'API (chunk 1a), affiche en confirmation | manquant cote ecran |
+| 3-5. Composeur menu = **assistant modal en etapes** | `page-product-menu.js` : composeur **modal pilote par les slots** de `/api/menus/{id}` (format Maxi puis 1 etape par slot) | conforme |
+| 8. Modale d'option produit (taille + quantite) | `product-options.js` : **modale** d'options (taille R4 + stepper de quantite) au-dessus de la grille | conforme |
+| 9. Ecran **chevalet** dedie (saisie numero) | **modale chevalet** au paiement sur place (`page-payment.js`), numero pose via l'API ; rappele en confirmation | conforme |
 | (aucun ecran de paiement) | `payment.html` "Carte bancaire / Especes" | ecran **ajoute** par le build |
 | 10. Remerciement | `confirmation.html` | conforme |
 
-## 4. Ecarts structurants (le fond du sujet)
+## 4. Ecarts structurants (resorbes)
 
-1. **Paradigme inverse.** Maquette = **mono-ecran** (un plan de commande avec
-   categories en bandeau et un panneau recapitulatif persistant a droite, modales
-   par-dessus). Build = **multi-pages** classiques (categories -> produits ->
-   produit -> panier). C'est l'ecart structurant principal.
-2. **Panneau de commande lateral absent.** La piece centrale de la maquette
-   (numero de commande, lignes editables avec corbeille, TOTAL ttc, Abandon /
-   Payer, visible en permanence) n'est pas presente dans le build.
-3. **Composition de menu.** Maquette = assistant modal en etapes ; build =
-   composition libre cote client (`page-product-menu.js`).
+Les ecarts structurants du premier jet ont ete realignes sur la maquette :
+
+1. **Paradigme.** L'ecran de commande (`products.html`) suit le plan mono-ecran de
+   la maquette : categories en bandeau (`category-strip.js`), grille produits, et
+   panneau recapitulatif persistant a droite ; les options et le composeur de menu
+   s'ouvrent en modale par-dessus. Les pages `product.html` et `cart.html` du
+   premier jet ont ete retirees.
+2. **Panneau de commande lateral.** La piece centrale de la maquette (numero de
+   commande, lignes editables avec quantite et retrait, TOTAL ttc, Abandon / Payer)
+   est rendue par `order-panel.js`, visible en permanence sur l'ecran de commande.
+3. **Composition de menu.** Le composeur (`page-product-menu.js`) est un assistant
+   modal en etapes pilote par les slots de `/api/menus/{id}` (format Maxi puis une
+   etape par slot), conforme a l'enchainement de la maquette.
 
 ## 5. Rebrand McDonald's -> Wakdo
 
@@ -116,6 +123,8 @@ note n'est donc pas le rebrand mais la **structure** des ecrans.
 
 ## 6. Suite
 
-Re-alignement du kiosk sur la maquette (panneau persistant + bandeau categories +
-composeur en modale) = chantier UI conduit via un cycle FD dedie. Backlog des
-divergences = section 3 ci-dessus.
+Le re-alignement du kiosk sur la maquette (panneau persistant + bandeau categories
++ composeur en modale + chevalet en modale) est livre. La borne lit le catalogue
+via l'API REST (`/api/categories|products|menus|allergens`). Reste a faire : la
+generation dynamique de l'ecran categories depuis `GET /api/categories` (section 3,
+ecran categories) et le polissage visuel du rebrand Wakdo.

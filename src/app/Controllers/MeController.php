@@ -7,7 +7,7 @@ namespace App\Controllers;
 use App\Core\Response;
 
 /**
- * GET /api/me : identite et permissions de l'utilisateur de la session courante.
+ * GET /admin/me : identite et permissions de l'utilisateur de la session courante.
  *
  * Premier consommateur reel de SessionGuard (RG-6 + RG-T02) et d'Authorizer
  * (RG-T03) : la garde rejette toute session absente/expiree/inactive (401), sinon

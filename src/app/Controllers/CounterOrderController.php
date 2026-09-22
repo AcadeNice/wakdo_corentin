@@ -56,18 +56,25 @@ class CounterOrderController extends AdminController
         }
 
         $source = $this->source();
+        $orderQuery = $this->orderQuery();
 
         // RG-1 (5.1, source filter) : ne lister que les commandes du canal. recent()
         // ramene les plus recentes tous canaux ; on filtre sur la source derivee du
         // chemin pour que le comptoir ne voie pas le drive et inversement.
         $orders = array_values(array_filter(
-            $this->orderQuery()->recent(50),
+            $orderQuery->recent(50),
             static fn (array $o): bool => (string) ($o['source'] ?? '') === $source,
         ));
 
+        // File "En cours" (RG-T12) : commandes du canal au statut paid non livrees,
+        // la plus ancienne d'abord (tri paid_at croissant fait par paidQueue). Filtree
+        // a la SEULE source du canal pour que l'equipier ne voie que ce qu'il sert.
+        $inProgress = $orderQuery->paidQueue([$source]);
+
         return $this->channelView('admin/counter/index', $source, [
-            'title'  => $this->channelTitle($source) . ' - Wakdo Admin',
-            'orders' => $orders,
+            'title'      => $this->channelTitle($source) . ' - Wakdo Admin',
+            'orders'     => $orders,
+            'inProgress' => $inProgress,
         ], $guard);
     }
 
@@ -115,6 +122,11 @@ class CounterOrderController extends AdminController
         $source = $this->source();
         $serviceMode = (string) ($form['service_mode'] ?? '');
 
+        // Numero de table (confort comptoir) : ne porte de sens qu'en sur place. On ne
+        // le transmet qu'en dine_in ; persist() le rejette de toute facon hors dine_in,
+        // mais ne pas le passer evite un INVALID_SERVICE_TAG sur une saisie residuelle.
+        $serviceTag = $serviceMode === 'dine_in' ? trim((string) ($form['service_tag'] ?? '')) : '';
+
         // Chemin unifie : le panier construit par counter-order.js arrive serialise
         // dans items_json. Quand il est present, il fait foi ; les quantites legacy
         // qty_<id> ne servent qu'au repli sans JS (degradation gracieuse).
@@ -127,9 +139,14 @@ class CounterOrderController extends AdminController
             return $this->renderForm($guard, $source, $form, 'Ajoutez au moins un produit ou un menu.', 422);
         }
 
+        $req = ['service_mode' => $serviceMode, 'items' => $items];
+        if ($serviceTag !== '') {
+            $req['service_tag'] = $serviceTag;
+        }
+
         try {
             $order = $this->orders()->createStaffOrder(
-                ['service_mode' => $serviceMode, 'items' => $items],
+                $req,
                 $guard->userId ?? 0,
                 $source,
             );
@@ -347,10 +364,18 @@ class CounterOrderController extends AdminController
         $productRepository = $this->productRepository();
         $products = $productRepository->availableForCatalogue();
 
+        // RG-T21 (parite borne) : rupture calculee par le stock, en UNE requete (set
+        // d'ids). availableForCatalogue() ne filtre que le retrait manuel (is_available)
+        // ; un produit liste mais en rupture devient non commandable -> le POS grise la
+        // tuile au lieu de laisser composer une commande vouee a echouer (meme echo UX
+        // que CatalogueController cote borne ; l'enforcement reste serveur a la commande).
+        $unavailable = array_fill_keys($productRepository->autoUnavailableIds(), true);
+
         // Modificateurs proposables par produit a la carte : seuls les produits dont la
         // recette offre au moins un ingredient retirable/ajoutable portent une compo.
-        $products = array_map(function (array $product) use ($productRepository): array {
+        $products = array_map(function (array $product) use ($productRepository, $unavailable): array {
             $product['modifiers'] = $this->proposableModifiers($productRepository, (int) ($product['id'] ?? 0));
+            $product['is_orderable'] = !isset($unavailable[(int) ($product['id'] ?? 0)]);
 
             return $product;
         }, $products);
@@ -358,8 +383,9 @@ class CounterOrderController extends AdminController
         return $this->channelView('admin/counter/new', $source, [
             'title'       => 'Nouvelle commande ' . ($source === 'drive' ? 'drive' : 'comptoir') . ' - Wakdo Admin',
             'products'    => $products,
-            'menus'       => $this->menusWithSlots($productRepository),
+            'menus'       => $this->menusWithSlots($productRepository, $unavailable),
             'serviceMode' => (string) ($values['service_mode'] ?? ($source === 'drive' ? 'drive' : 'dine_in')),
+            'serviceTag'  => (string) ($values['service_tag'] ?? ''),
             'error'       => $error,
         ], $guard, $status);
     }
@@ -374,16 +400,21 @@ class CounterOrderController extends AdminController
      * cote borne ; `burger_modifiers` calque proposableModifiers() (la selection de
      * modificateurs d'un menu cible le burger, comme resolveModifiers cote serveur).
      *
+     * @param array<int, true> $unavailable set d'ids produits en rupture calculee (RG-T21),
+     *        partage avec renderForm pour ne pas refaire la requete autoUnavailableIds.
      * @return list<array<string, mixed>>
      */
-    private function menusWithSlots(ProductRepository $productRepository): array
+    private function menusWithSlots(ProductRepository $productRepository, array $unavailable): array
     {
         $menuRepository = $this->menuRepository();
         $menus = $menuRepository->availableForCatalogue();
 
-        return array_map(function (array $menu) use ($menuRepository, $productRepository): array {
+        return array_map(function (array $menu) use ($menuRepository, $productRepository, $unavailable): array {
             $menu['slots'] = $menuRepository->slotsWithOptions((int) ($menu['id'] ?? 0));
             $menu['burger_modifiers'] = $this->proposableModifiers($productRepository, (int) ($menu['burger_product_id'] ?? 0));
+            // RG-T21 (granularite burger impose seul, parite borne) : un menu dont le
+            // burger principal est en rupture calculee n'est plus commandable -> grise.
+            $menu['is_orderable'] = !isset($unavailable[(int) ($menu['burger_product_id'] ?? 0)]);
 
             return $menu;
         }, $menus);

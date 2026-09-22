@@ -1,10 +1,10 @@
 /*
  * product-options.js — Modale d'options produit (P5 L3, taille R4).
  *
- * Remplace la navigation vers product.html : cliquer un produit simple ouvre une
- * modale (image, prix unitaire, stepper de quantite, total) au-dessus de la grille,
- * facon maquette ("Une petite soif ?"). A l'ajout, le panneau de commande persistant
- * (L1) est re-rendu pour refleter immediatement la commande -> pas de navigation.
+ * Ouvre une modale d'options au clic produit, au lieu d'une navigation : cliquer un
+ * produit simple ouvre une modale (image, prix unitaire, stepper de quantite, total)
+ * au-dessus de la grille, facon maquette ("Une petite soif ?"). A l'ajout, le panneau
+ * de commande persistant (L1) est re-rendu pour refleter immediatement la commande.
  *
  * Taille (R4) : la dimension 30/50 cl de la maquette existe desormais en base sous
  * forme de LIGNES produit distinctes (product.sizes : [{product_id, size_cl,
@@ -88,7 +88,7 @@ export function openProductOptions(product, categorySlug) {
             <div class="composer-body">
                 <div class="product-options">
                     <img class="product-options__image" src="${escHtml(product.image)}"
-                         alt="${escHtml(product.nom)}" onerror="this.src='assets/images/ui/logo.png';">
+                         alt="${escHtml(product.nom)}" data-fallback="logo">
                     <div class="product-options__sizes" role="group" aria-label="Taille"></div>
                     <p class="product-options__unit" id="po-unit">${formatPrice(unitPrice())} / unite</p>
                     <div class="qty-control" role="group" aria-label="Quantite">

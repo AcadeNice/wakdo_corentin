@@ -71,14 +71,24 @@ flowchart TD
     L -->|oubli mdp| RP["/forgot_password -> /reset_password"]
     R -->|admin| DB["Tableau de bord (/admin/dashboard)"]
     R -->|manager| ST["Statistiques (/admin/stats)"]
+    R -->|kitchen| KIT["File de preparation (/kitchen/display)\nMARK_READY (tous) ; remise reservee a counter/drive/admin"]
+    R -->|counter| CNT["Commandes comptoir (/counter/orders)"]
+    R -->|drive| DRV["Commandes drive (/drive/orders)"]
 
     DB --> NAV["Navigation laterale\n(conditionnee aux permissions)"]
     ST --> NAV
     NAV --> CAT["Categories / Produits / Menus\n(+ editeur de recette)"]
     NAV --> STK["Stock / Ingredients\n(reappro, inventaire, mouvements)"]
     NAV --> USR["Utilisateurs / Roles (RBAC)"]
-    NAV --> ORD["Commandes (liste, lecture seule)"]
+    NAV --> ORD["Commandes (liste + annulation)"]
     NAV --> PRO["Profil : PIN + mention RGPD (/admin/privacy)"]
+
+    CNT -->|nouvelle commande| CNTN["Formulaire (/counter/orders/new)"]
+    CNTN -->|valider, retour a la liste| CNT
+    DRV -->|nouvelle commande| DRVN["Formulaire (/drive/orders/new)"]
+    DRVN -->|valider, retour a la liste| DRV
+    CNT -.->|remise de commande| KIT
+    DRV -.->|remise de commande| KIT
 
     CAT -.->|action sensible : prix/TVA, suppression| PIN["PIN equipier + audit_log\n(meme transaction)"]
     STK -.->|inventaire| PIN
@@ -95,9 +105,12 @@ flowchart TD
 | Echec de PIN | trace `pin.failed` + throttle degressif | RG-T22 |
 
 **Landing par role** (seed `role.default_route`) : admin -> `/admin/dashboard`,
-manager -> `/admin/stats`. Les autres roles (kitchen, counter, drive) sont definis
-en base ; leurs ecrans operationnels (file cuisine, saisie comptoir/drive) sont
-suivis comme evolution (voir le backlog de finition).
+manager -> `/admin/stats`, kitchen -> `/kitchen/display`, counter -> `/counter/orders`,
+drive -> `/drive/orders`. Les trois ecrans operationnels (file cuisine, saisie
+comptoir/drive) sont livres et routes : `KitchenController::display` (lecture de la file
+`paid`/`preparing`/`ready` + action `MARK_READY`) et `CounterOrderController` (liste +
+creation de commande, `index`/`create`/`store`) — voir `src/public/admin/index.php` pour le
+detail des routes.
 
 ---
 
@@ -107,7 +120,7 @@ suivis comme evolution (voir le backlog de finition).
 |---|---|---|
 | Borne | `GET /api/categories`, `/products`, `/products/{id}`, `/menus`, `/menus/{id}`, `/allergens` | lecture catalogue (anonyme) |
 | Borne | `POST /api/orders`, `POST /api/orders/{number}/pay`, `GET /api/orders/{number}` | commande + suivi (anonyme, idempotent) |
-| Back-office | pages rendues serveur sous `/admin/*` + `GET /api/me` | session + RBAC |
+| Back-office | pages rendues serveur sous `/admin/*` + `GET /admin/me` | session + RBAC |
 
 CORS : la borne et le back-office partagent l'origine via une passerelle `/api/*`
 (meme origine) ; le middleware CORS reste en defense (origine exacte, sans joker).

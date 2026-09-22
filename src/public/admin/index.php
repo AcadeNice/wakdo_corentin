@@ -81,9 +81,6 @@ try {
     $router->add('GET', '/reset_password', [PasswordResetController::class, 'showConfirm']);
     $router->add('POST', '/reset_password', [PasswordResetController::class, 'submitConfirm']);
 
-    // RBAC : identite + permissions de la session courante (gardee par SessionGuard).
-    $router->add('GET', '/api/me', [MeController::class, 'show']);
-
     // Commandes borne (P4, domaine 7). API publique kiosk, ANONYME (pas de session) :
     // creation en pending_payment puis encaissement (paid + decrement stock RG-T20).
     // Idempotente sur idempotency_key (anti double-clic / retry reseau). {number} =
@@ -108,6 +105,11 @@ try {
     // (descriptions riches) ; l'endpoint sert d'autres consommateurs eventuels.
     $router->add('GET', '/api/allergens', [CatalogueController::class, 'allergens']);
 
+    // RBAC : identite + permissions de la session courante (JSON). Gardee dans le
+    // controleur par SessionGuard. Sous /admin (et non /api) pour sortir cet endpoint
+    // authentifie du namespace borne public proxifie -> reduction de surface d'attaque.
+    $router->add('GET', '/admin/me', [MeController::class, 'show']);
+
     // Back-office (P3) : pages rendues serveur sous /admin, gardees par SessionGuard.
     $router->add('GET', '/admin/dashboard', [DashboardController::class, 'index']);
     // Tableau de bord statistiques (stats.read) : landing du role manager. KPIs
@@ -118,6 +120,10 @@ try {
     $router->add('GET', '/admin/orders', [OrderAdminController::class, 'index']);
     // Remise au client : paid -> delivered (order.deliver, geste unique, POST + CSRF).
     $router->add('POST', '/admin/orders/{number}/deliver', [OrderAdminController::class, 'deliver']);
+    // Etat de cuisine (retour oral #8) : marquer une commande prete. Le passage en
+    // preparation est automatique au paiement (pay()), il n'y a plus de geste manuel.
+    // Segment {number}/ready, pas de collision avec /deliver, /cancel ni la liste.
+    $router->add('POST', '/admin/orders/{number}/ready', [OrderAdminController::class, 'ready']);
     // Annulation : pending_payment|paid -> cancelled (CANCEL_ORDER mlt 7.1, order.cancel).
     // PIN equipier + audit + restock conditionnel (RG-T13/T14). {number} = un seul
     // segment (numero K/C/D + id) ; /cancel ne chevauche ni /deliver ni la liste.
@@ -170,6 +176,7 @@ try {
     $router->add('GET', '/admin/categories/{id}/edit', [CategoryController::class, 'edit']);
     $router->add('POST', '/admin/categories/{id}', [CategoryController::class, 'update']);
     $router->add('POST', '/admin/categories/{id}/toggle', [CategoryController::class, 'toggle']);
+    $router->add('POST', '/admin/categories/{id}/move', [CategoryController::class, 'move']);
 
     // Profil self-service : definition du PIN d'action sensible (RG-T13).
     $router->add('GET', '/admin/profile/pin', [ProfileController::class, 'showPin']);
@@ -182,12 +189,18 @@ try {
     // CRUD Produits (product.read/create/update/delete). PIN equipier + audit sur
     // changement prix/TVA (update) et suppression (delete).
     $router->add('GET', '/admin/products', [ProductController::class, 'index']);
+    // F20 : seconde LECTURE de la meme ressource, rangee par categorie comme la borne
+    // l'affiche (variantes de taille repliees sur leur base, menus inclus). Meme
+    // permission product.read que la liste plate. Chemin litteral a 3 segments : aucune
+    // collision avec /admin/products/{id}/edit (4 segments) ni /admin/products/new.
+    $router->add('GET', '/admin/products/by-category', [ProductController::class, 'byCategory']);
     $router->add('GET', '/admin/products/new', [ProductController::class, 'create']);
     $router->add('POST', '/admin/products', [ProductController::class, 'store']);
     $router->add('GET', '/admin/products/{id}/edit', [ProductController::class, 'edit']);
     $router->add('POST', '/admin/products/{id}', [ProductController::class, 'update']);
     $router->add('GET', '/admin/products/{id}/delete', [ProductController::class, 'confirmDelete']);
     $router->add('POST', '/admin/products/{id}/delete', [ProductController::class, 'destroy']);
+    $router->add('POST', '/admin/products/{id}/move', [ProductController::class, 'move']);
     // Editeur de recette (composition product_ingredient). Permission ingredient.manage
     // (composition), distincte du CRUD produit ; sans PIN. Debloque la dispo calculee
     // RG-T21 et ferme la dette #27 (trace cascade a la suppression).
@@ -221,12 +234,27 @@ try {
     $router->add('POST', '/admin/ingredients/{id}/delete', [IngredientController::class, 'destroy']);
     $router->add('GET', '/admin/ingredients/{id}/restock', [IngredientController::class, 'restockForm']);
     $router->add('POST', '/admin/ingredients/{id}/restock', [IngredientController::class, 'restock']);
+    // Reglage rapide des seuils (F13) : capacite/alerte/critique edites depuis la page
+    // Stock via une modale, sans passer par le formulaire complet. stock.manage (calibrage
+    // du stock), CSRF, SANS PIN (config, pas un comptage d'inventaire). {id} = un seul
+    // segment ; /thresholds ne chevauche ni /restock ni /inventory.
+    $router->add('POST', '/admin/ingredients/{id}/thresholds', [IngredientController::class, 'updateThresholds']);
     $router->add('GET', '/admin/ingredients/{id}/inventory', [IngredientController::class, 'inventoryForm']);
     $router->add('POST', '/admin/ingredients/{id}/inventory', [IngredientController::class, 'inventory']);
+    // Ajustement libre (F16, retour oral #6) : correction delta signee, stock.count + PIN
+    // (RG-T13, comme l'inventaire : une baisse non attribuee masquerait de la demarque, R9).
+    // {id}/adjust = segment distinct, ne chevauche ni /restock ni /inventory ni /movements.
+    $router->add('GET', '/admin/ingredients/{id}/adjust', [IngredientController::class, 'adjustForm']);
+    $router->add('POST', '/admin/ingredients/{id}/adjust', [IngredientController::class, 'adjust']);
     $router->add('GET', '/admin/ingredients/{id}/movements', [IngredientController::class, 'movements']);
     // Enrichissement nutritionnel depuis une API externe (OpenFoodFacts, Cr 3.a.3) :
     // action explicite ingredient.manage, POST + CSRF, opt-in (pas d'egress automatique).
     $router->add('POST', '/admin/ingredients/{id}/enrich', [IngredientController::class, 'enrich']);
+    // Revue des allergenes (F11b) : declare les allergenes INCO reellement portes par
+    // l'ingredient. ingredient.manage (le libelle de la permission couvre deja "allergen
+    // mapping"), POST + CSRF, SANS PIN (ni argent ni stock, hors ensemble sensible RG-T13).
+    // La source est obligatoire, et le geste est trace (audit_log ingredient.allergens).
+    $router->add('POST', '/admin/ingredients/{id}/allergens', [IngredientController::class, 'allergens']);
 
     // CORS (docs/api/conventions.md section 10) : preflight OPTIONS traite AVANT le
     // routeur (pas de route OPTIONS) ; sinon dispatch puis decoration de la reponse.
@@ -241,6 +269,16 @@ try {
         $response->send();
     }
 } catch (Throwable $exception) {
+    // Trace serveur SYSTEMATIQUE (stderr conteneur) : independante d'APP_DEBUG.
+    // La prod renvoie un message generique au client (information disclosure), mais
+    // l'incident doit rester diagnosticable cote serveur -> on ne perd jamais la pile.
+    error_log(sprintf(
+        '[wakdo] Unhandled %s: %s @ %s:%d',
+        get_class($exception),
+        $exception->getMessage(),
+        $exception->getFile(),
+        $exception->getLine(),
+    ));
     // En debug on remonte le message pour iterer ; en prod, reponse generique
     // pour ne rien divulguer de la pile interne (information disclosure).
     $payload = $config->isDebug()

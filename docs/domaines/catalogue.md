@@ -10,6 +10,12 @@ catalogue consomme par la borne.
   (`product.read/create/update/delete`), `MenuController` (`menu.read/create/update/delete`).
 - Menus composes : burger de base + `menu_slot` / `menu_slot_option`, editeur slots en
   JS vanilla CSP-safe (champ cache `slots_json`), reecriture delete-and-reinsert en tx.
+- Deux LECTURES du catalogue cote back-office, meme permission `product.read` :
+  la liste plate (`/admin/products`, seule a montrer et gerer les variantes de taille ligne
+  par ligne, plus le CRUD) et la vue groupee par categorie (`/admin/products/by-category`,
+  `ProductController::byCategory` + `ProductRepository::basesByCategory`) qui range le
+  catalogue dans l'ordre des onglets de la borne, replie les variantes sur leur base et
+  inclut les menus. Etats et compteurs resolus cote serveur, vue declarative.
 
 ## Regles metier
 - RG-T16 (allowlist colonnes), RG-T18 (validation serveur bornee : prix > 0, TVA dans
@@ -22,7 +28,8 @@ catalogue consomme par la borne.
 ## Decisions
 [ADR-0002](../adr/0002-back-office-mvc-rendu-serveur.md) (MVC serveur),
 [ADR-0006](../adr/0006-http-409-conflit-422-validation.md) (409/422),
-[ADR-0004](../adr/0004-pin-action-sensible-audit.md) (PIN + audit).
+[ADR-0004](../adr/0004-pin-action-sensible-audit.md) (PIN + audit),
+[ADR-0013](../adr/0013-vue-produits-groupee-par-categorie.md) (vue groupee par categorie).
 
 ## Tables
 `category`, `product`, `menu`, `menu_slot`, `menu_slot_option`. Detail :

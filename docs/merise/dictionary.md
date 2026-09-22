@@ -4,7 +4,7 @@
 **Version** : v0.3 — prod-like, 22 entites (19 prod-like + couche security-by-design, incl. les entites `login_throttle` et `pin_throttle`)
 **Date** : 2026-06-04 (ajouts security-by-design 2026-06-11)
 **Branche** : `feat/p1-conception`
-**Statut** : prod-like — toutes les decisions D1-D8 + stock appliquees (voir `docs/notes/revue-alignement-p1.md` §7) ; couche security-by-design en cours (voir note 13)
+**Statut** : prod-like — toutes les decisions D1-D8 + stock appliquees (voir `docs/notes/revue-alignement-p1.md` §7) ; couche security-by-design en cours (voir note 13) ; colonnes additives post-v0.3 des migrations 0003/0005/0006/0007 alignees sur le deploye (voir note 14)
 **Auteur** : BYAN (couche methodologie)
 
 ---
@@ -114,6 +114,9 @@ Un article vendable unique, disponible a la carte ou comme composant dans un slo
 | `name` | VARCHAR(120) | NO | — | INDEX | `nom` | renomme depuis `nom` |
 | `description` | TEXT | YES | NULL | — | (ajoute) | renseigne plus tard via l'admin |
 | `price_cents` | INT UNSIGNED | NO | — | CHECK > 0 | `prix` (FLOAT) | conversion FLOAT -> INT centimes au seed (voir note 1) |
+| `maxi_variant_product_id` | INT UNSIGNED | YES | NULL | FK -> `product(id)`, ON DELETE SET NULL | (migration 0006) | auto-reference : variante servie quand un menu est commande au format Maxi (ex. Moyenne Frite -> Grande Frite). Data-driven (la regle vit dans la donnee). SET NULL = degradation gracieuse : si la variante Grande est retiree du catalogue, le produit de base reste vendable, il perd seulement sa substitution Maxi. Voir note 14 |
+| `size_cl` | SMALLINT UNSIGNED | YES | NULL | — | (migration 0007) | variante de TAILLE a la carte : volume en centilitres d'une boisson fontaine (ex. 30 / 50 cl). NULL = produit sans dimension taille (bouteille, non-boisson). La ligne de base ET la variante portent leur volume pour l'affichage du picker. Voir note 14 |
+| `base_product_id` | INT UNSIGNED | YES | NULL | FK -> `product(id)`, ON DELETE CASCADE | (migration 0007) | auto-reference vers la ligne de base d'une variante de taille. NULL = produit de base ou autonome (visible dans la grille catalogue) ; NON NULL = variante de taille (masquee de la grille, atteinte via le picker). CASCADE : une variante de taille n'a pas de sens sans sa base (suppression de la base -> suppression de ses variantes). Voir note 14 |
 | `vat_rate` | SMALLINT UNSIGNED | NO | 100 | CHECK IN (55, 100) | (ajoute) | taux de TVA en pour-mille : 100 = 10%, 55 = 5,5%. Defaut 10%. Voir note 9 |
 | `image_path` | VARCHAR(255) | YES | NULL | — | `image` | chemin relatif, voir note 8 |
 | `is_available` | TINYINT(1) | NO | 1 | — | (ajoute) | bascule de disponibilite manuelle depuis l'admin |
@@ -197,6 +200,11 @@ Ingredient elementaire utilise dans la composition des produits. Porte les donne
 | `stock_capacity` | INT | NO | — | CHECK > 0 | niveau "plein" de reference en unites = les 100% servant a calculer le pourcentage de stock. Le `CHECK > 0` protege aussi la division du pourcentage contre la division par zero |
 | `pack_size` | SMALLINT UNSIGNED | NO | 1 | CHECK > 0 | unites par pack de reapprovisionnement (ex. 100 pour un sac de 100 portions) |
 | `pack_label` | VARCHAR(80) | YES | NULL | — | libelle humain du pack (ex. "Sac 100 portions") |
+| `energy_kcal_100g` | SMALLINT UNSIGNED | YES | NULL | — | enrichissement nutritionnel (migration 0005) : apport energetique pour 100 g, importe depuis l'API externe OpenFoodFacts (Cr 3.a.3). Nullable : un ingredient non enrichi reste valide. Voir note 14 |
+| `nutrition_source` | VARCHAR(120) | YES | NULL | — | enrichissement nutritionnel (migration 0005) : provenance de la donnee (ex. "OpenFoodFacts"). Voir note 14 |
+| `nutrition_fetched_at` | DATETIME | YES | NULL | — | enrichissement nutritionnel (migration 0005) : horodatage de l'import, pour tracer la fraicheur. Voir note 14 |
+| `allergens_reviewed_at` | DATETIME | YES | NULL | — | revue des allergenes (migration 0011) : date de la derniere revue. NULL = ingredient non revu, et la borne dit alors "information non disponible" au lieu d'affirmer une absence. Voir note 15 |
+| `allergens_source` | VARCHAR(120) | YES | NULL | — | revue des allergenes (migration 0011) : provenance de la revue (ex. "Fiche technique du fournisseur"). Voir note 15 |
 | `low_stock_pct` | SMALLINT UNSIGNED | NO | 10 | CHECK BETWEEN 0 AND 100 | bande d’alerte, pourcentage de capacite : `stock_quantity <= stock_capacity * low_stock_pct/100` declenche l'indicateur de stock bas |
 | `critical_stock_pct` | SMALLINT UNSIGNED | NO | 5 | CHECK BETWEEN 0 AND 100 | seuil de rupture automatique, pourcentage de capacite : `stock_quantity <= stock_capacity * critical_stock_pct/100` rend le produit calcule en rupture |
 | `is_active` | TINYINT(1) | NO | 1 | — | desactiver les ingredients obsoletes sans supprimer |
@@ -258,6 +266,13 @@ Catalogue des 14 allergenes reglementes (Reglement INCO (UE) 1169/2011).
 Les allergenes d'un produit sont **calcules** en joignant `product_ingredient` ->
 `ingredient_allergen` -> `allergen` ; pas de ressaisie manuelle par produit.
 
+> **Etat de la derivation (2026-07-31).** Ce calcul est desormais implemente et servi
+> a la borne : `AllergenRepository::byProduct()` / `forProduct()`, exposes par
+> `/api/products`, `/api/products/{id}`, `/api/menus`, `/api/menus/{id}` dans les champs
+> `allergens` + `allergens_complete`. La table de liaison a ete peuplee par le seed
+> `0008_ingredient_allergens.sql` a partir de sources publiques. Voir note 15 et
+> `docs/adr/0015-allergenes-calcules-par-produit.md`.
+
 ---
 
 ### 3.9 `ingredient_allergen`
@@ -281,23 +296,27 @@ Transaction client : 1 commande = 1 panier valide a un instant donne.
 | Attribut | Type | NULL | Default | Contrainte | Notes |
 |---|---|---|---|---|---|
 | `id` | INT UNSIGNED | NO | AUTO_INCREMENT | PK | |
-| `order_number` | VARCHAR(20) | NO | — | UNIQUE | format lisible par l'humain : `K`/`C`/`D`-YYYY-MM-DD-NNN. Prefixe par canal : K=kiosk, C=counter, D=drive. Voir note 4. |
+| `order_number` | VARCHAR(20) | NO | — | UNIQUE | numero lisible : prefixe canal + id sequentiel, soit `K<id>` / `C<id>` / `D<id>` (K=kiosk, C=counter, D=drive). Ecrit en deux temps (INSERT puis UPDATE avec `LAST_INSERT_ID()`). Voir note 4. |
 | `idempotency_key` | VARCHAR(36) | YES | NULL | UNIQUE | UUID genere par le client pour dedupliquer un `POST /api/orders` reessaye (anti-double-charge). UNIQUE rejette les doublons ; plusieurs NULL autorises. Security-by-design, voir note 13 |
 | `source` | ENUM('kiosk','counter','drive') | NO | — | INDEX | canal de saisie (qui a saisi la commande). Valeurs en anglais, voir note 5. |
 | `acting_user_id` | INT UNSIGNED | YES | NULL | FK -> `user(id)`, ON DELETE SET NULL | personnel back-office (counter/drive) ayant cree la commande, capture sous PIN. NULL pour `kiosk` (anonyme). Imputabilite ciblee sans imposer un login par personne sur la borne. Voir note 13 |
 | `service_mode` | ENUM('dine_in','takeaway','drive') | NO | — | — | mode de consommation, conserve pour les stats/KPI uniquement. Aucun role fiscal (voir note 9). La source `drive` implique le service_mode `drive` (contrainte croisee appliquee au niveau applicatif). |
-| `status` | ENUM('pending_payment','paid','delivered','cancelled') | NO | 'pending_payment' | INDEX | machine a 4 etats : `pending_payment -> paid -> delivered` (+ `cancelled`). Voir note 6. |
+| `service_tag` | VARCHAR(20) | YES | NULL | — | numero de chevalet pour le service EN SALLE (migration 0003), saisi a la borne quand le client choisit `dine_in` ; permet d'apporter la commande a la bonne table (B4). NULL pour `takeaway` / `drive`. Voir note 14 |
+| `status` | ENUM('pending_payment','paid','preparing','ready','delivered','cancelled') | NO | 'pending_payment' | INDEX | machine a 6 etats (migration `0009_order_prep_states.sql`, retour oral #8) : `pending_payment -> preparing -> ready -> delivered` (+ `cancelled`). `paid` reste dans l'ENUM comme statut historique (aucun chemin de code actuel ne l'ecrit plus ; `ready` est optionnel). Voir note 6. |
 | `total_ht_cents` | INT UNSIGNED | NO | — | CHECK >= 0 | total hors TVA, snapshot a la validation de la commande |
 | `total_vat_cents` | INT UNSIGNED | NO | — | CHECK >= 0 | montant de TVA, snapshot |
 | `total_ttc_cents` | INT UNSIGNED | NO | — | CHECK > 0 | total TTC ; doit egaler total_ht_cents + total_vat_cents (verifie a la couche MLT) |
-| `paid_at` | DATETIME | YES | NULL | — | timestamp de la transition vers `paid` (NULL avant paiement) |
+| `paid_at` | DATETIME | YES | NULL | — | timestamp de la transition vers `paid`/`preparing` (encaissement ; NULL avant paiement) |
+| `preparing_at` | DATETIME | YES | NULL | — | timestamp de la transition vers `preparing` (migration 0009), posee dans la meme transaction que `paid_at`. Voir note 6. |
+| `ready_at` | DATETIME | YES | NULL | — | timestamp de la transition vers `ready` (migration 0009), optionnelle. Voir note 6. |
 | `delivered_at` | DATETIME | YES | NULL | — | timestamp de la transition vers `delivered` (NULL avant la remise) |
 | `cancelled_at` | DATETIME | YES | NULL | — | timestamp d'annulation (NULL si non annulee) |
 | `created_at` | DATETIME | NO | CURRENT_TIMESTAMP | INDEX | utilise pour les agregations de stats en direct ; sert aussi de base a `service_day` |
 | `updated_at` | DATETIME | NO | CURRENT_TIMESTAMP ON UPDATE | — | audit |
 
 **Retire de v0.1** : `tva_taux_pourmille` (deplace au niveau ligne — `order_item.vat_rate_snapshot`),
-`paye_a` (renomme `paid_at`). Etats machine `preparing` et `ready` retires (voir note 6).
+`paye_a` (renomme `paid_at`). Etats machine `preparing`/`ready` retires en v0.2 puis
+**reintroduits par la migration 0009** (voir note 6) : ne plus les traiter comme retires.
 
 **Calcul de `service_day`** (regroupement KPI) :
 ```
@@ -539,7 +558,7 @@ Journal d'audit append-only de tous les changements de stock par ingredient.
 |---|---|---|---|---|---|
 | `id` | INT UNSIGNED | NO | AUTO_INCREMENT | PK | |
 | `ingredient_id` | INT UNSIGNED | NO | — | FK -> `ingredient(id)`, ON DELETE RESTRICT | ingredient affecte |
-| `movement_type` | ENUM('sale','cancellation','restock','inventory_correction') | NO | — | INDEX | nature du mouvement |
+| `movement_type` | ENUM('sale','cancellation','restock','inventory_correction','adjustment') | NO | — | INDEX | nature du mouvement |
 | `delta` | INT | NO | — | — | changement signe : negatif pour la consommation (vente), positif pour reapprovisionnement/annulation/correction |
 | `order_id` | INT UNSIGNED | YES | NULL | FK -> `customer_order(id)`, ON DELETE SET NULL | commande liee pour les mouvements `sale` et `cancellation` ; NULL pour restock/correction |
 | `user_id` | INT UNSIGNED | YES | NULL | FK -> `user(id)`, ON DELETE SET NULL | utilisateur ayant declenche le mouvement (NULL pour les decrements de vente automatises) |
@@ -557,6 +576,10 @@ Journal d'audit append-only de tous les changements de stock par ingredient.
 - `restock` : le manager ou l'admin enregistre une livraison (`+= N * pack_size`).
 - `inventory_correction` : comptage physique matin/soir ; le systeme enregistre l'ecart
   (delta = reel - theorique).
+- `adjustment` (migration `0010_stock_movement_adjustment.sql`) : correction libre et signee
+  (delta +/-) hors comptage physique, plafonnee a `stock_capacity`. PIN equipier obligatoire
+  (RG-T13, comme l'inventaire) : une baisse non attribuee masquerait de la demarque. Distinct
+  de `restock` (hausse en packs, sans PIN) et de `inventory_correction` (comptage absolu).
 
 **Volume** : ~5-15 mouvements par commande sur tous les ingredients ; un index sur
 `(ingredient_id, created_at)` est recommande pour les requetes d'historique par ingredient.
@@ -687,15 +710,28 @@ et evite tous les conflits.
 `order_item` est conserve comme nom de table de ligne : `item` n'est pas reserve, et le
 prefixe `order_` rend claire la relation parent.
 
-### Note 4 — Prefixe de numero de commande par canal
+### Note 4 — Prefixe de numero de commande par canal (existant : prefixe + id)
 
-Format : `K`/`C`/`D`-YYYY-MM-DD-NNN (kiosk / counter / drive).
+Format reel (decision utilisateur) : prefixe canal + id de la commande, soit `K<id>` / `C<id>` /
+`D<id>` (kiosk / counter / drive). Implemente dans `src/app/Order/OrderRepository.php` : la commande
+est inseree avec un `order_number` provisoire vide, puis l'`order_number` est ecrit en `prefix .
+LAST_INSERT_ID()` (ex. `K42`, `C7`, `D13`).
 
-Rationale : le prefixe encode le canal, ce qui est utile pour une identification visuelle rapide
-par le personnel cuisine et comptoir sans interroger la colonne `source`. Le compteur sequentiel NNN
-repart chaque jour par canal. Sans collision sur une journee, vu le volume attendu.
+Rationale : le prefixe encode le canal, utile pour une identification visuelle rapide par le personnel
+cuisine et comptoir sans interroger la colonne `source`. Le suffixe est l'id sequentiel auto-incremente :
+pas de compteur quotidien a tenir ni de `service_day` a gerer cote numerotation (rasoir d'Ockham,
+mantra #37).
 
-Alternative rejetee : prefixe neutre `W-` pour tous les canaux (plus simple, mais perd la lisibilite
+Ecart assume avec la cible v0.x initiale `K-AAAA-MM-JJ-NNN` (compteur journalier par canal) :
+cette derniere n'a pas ete retenue a l'implementation, jugee plus lourde sans valeur metier
+proportionnelle pour le volume attendu. La forme acte ici est celle qui tourne.
+
+Compromis connu : un numero `prefixe + id` est sequentiel, donc devinable (un client peut incrementer
+l'id). Couple a l'endpoint de paiement anonyme cote borne (lecture/encaissement par `order_number`
+sans authentification), c'est une surface a surveiller. Piste d'amelioration : numero non sequentiel
+(ex. suffixe aleatoire court) si le suivi anonyme par numero devait s'ouvrir davantage.
+
+Alternative rejetee : prefixe neutre `W` pour tous les canaux (plus simple, mais perd la lisibilite
 du canal pour le personnel).
 
 ### Note 5 — `source` vs `service_mode` (canal vs mode de consommation)
@@ -712,19 +748,27 @@ Les deux dimensions sont independantes pour `kiosk` et `counter` (un client born
 `dine_in` ou `takeaway`). `drive` est le seul cas ou les deux dimensions s'alignent :
 `source=drive` implique `service_mode=drive`. Cette contrainte croisee est verifiee au niveau applicatif.
 
-### Note 6 — Machine a 4 etats reduite
+### Note 6 — Machine a 6 etats (preparing/ready reintroduits par la migration 0009)
 
 v0.1 avait 6 etats (`pending_payment`, `paid`, `preparing`, `ready`, `delivered`, `cancelled`).
-v0.2 reduit a 4 etats : `pending_payment -> paid -> delivered` (+ `cancelled`).
+v0.2 (juin 2026) avait reduit a 4 etats : `pending_payment -> paid -> delivered` (+ `cancelled`),
+rationale alors : dans un contexte fast-food, l'affichage cuisine (KDS) est un systeme visuel —
+le personnel voit le ticket et agit ; `preparing`/`ready` ajoutaient de la complexite sans valeur
+metier proportionnelle.
 
-Rationale (Decision 4 de `revue-alignement-p1.md` §7) : dans un contexte fast-food, l'affichage
-cuisine (KDS) est un systeme visuel — le personnel voit le ticket et agit. `preparing` et `ready` etaient
-des etats intermediaires qui ajoutaient de la complexite sans valeur metier proportionnelle. L'unique
-action cuisine est `deliver` (le personnel counter/drive remet la commande), fusionnant
-`preparing + ready + delivered` en un seul geste. Le KPI est le temps total : `delivered_at - paid_at`
-(SLA ~10 min). Le codage couleur du KDS est calcule depuis `now - paid_at`, sans etat stocke supplementaire.
+**Reintroduits (retour oral #8, migration `0009_order_prep_states.sql`, 2026-07-31)** : le
+retour d'usage a montre que la reduction a 4 etats etait trop agressive — l'equipe voulait
+voir et faire avancer l'etat de preparation, pas seulement deduire un delai depuis `paid_at`.
+Machine actuelle : `pending_payment -> preparing -> ready -> delivered` (+ `cancelled`).
+`paid` reste dans l'ENUM comme statut historique (guards `status IN (...)` pour les commandes
+anterieures au realignement) ; aucun chemin de code actuel ne l'ecrit plus, l'encaissement
+posant directement `preparing`. `ready` est optionnel : `DELIVER_ORDER` accepte aussi bien
+`paid`, `preparing` que `ready`. Le KPI de bout en bout `delivered_at - paid_at` (SLA ~10 min)
+reste mesure. Detail transition par transition : `mlt.md` section 14, `docs/uml/state-commande.md`.
 
-**Etats et timestamps retires** : `preparing_at`, `ready_at` ne sont pas stockes.
+**Etats et timestamps stockes** : `preparing_at`, `ready_at` sont bien stockes (colonnes
+ajoutees par la migration 0009, memes conventions que `paid_at`/`delivered_at`) — voir la
+table d'attributs ci-dessus.
 
 ### Note 7 — Cascade de format Normal / Maxi
 
@@ -909,6 +953,98 @@ est un backoff degressif aux bornes propres (PIN_THROTTLE_*). Meme purge cron qu
 
 References : `docs/notes/revue-alignement-p1.md` §7 (decisions D), carte d'impact security-by-design
 (2026-06-11). Modele de menace et matrice de classification des donnees : `PROJECT_CONTEXT.md` §19 (a venir).
+
+### Note 14 — Colonnes additives post-v0.3 (migrations 0003 / 0005 / 0006 / 0007)
+
+Ces colonnes etendent le schema apres v0.3 par des migrations purement additives (ajout de colonnes
+nullables et de FK auto-referentes ; aucune donnee existante a retro-remplir, aucune table nouvelle).
+Le runner applique les `*.sql` dans l'ordre lexicographique via `schema_migrations`. Elles sont alignees
+ici sur le schema reellement deploye.
+
+**Migration 0003 — `customer_order.service_tag` VARCHAR(20) NULL (AFTER service_mode).** Numero de
+chevalet pour le service en salle (mode `dine_in`), saisi a la borne ; NULL pour `takeaway` / `drive`.
+Permet d'apporter la commande a la bonne table (B4). Entite 3.10.
+
+**Migration 0005 — enrichissement nutritionnel de `ingredient` (AFTER pack_label).**
+`energy_kcal_100g` SMALLINT UNSIGNED NULL, `nutrition_source` VARCHAR(120) NULL,
+`nutrition_fetched_at` DATETIME NULL. Donnees importees depuis l'API externe OpenFoodFacts (Cr 3.a.3 :
+exploitation d'informations externes dans le modele de donnees). Opt-in et egress maitrise : aucun appel
+automatique au runtime borne ; la passerelle (`App\Catalogue\OpenFoodFactsGateway`) est invoquee seulement
+par `IngredientController::enrich` (action explicite manager/admin). Toutes nullables : un ingredient non
+enrichi reste valide. Entite 3.6.
+
+**Migration 0006 — `product.maxi_variant_product_id` INT UNSIGNED NULL, FK -> `product(id)` ON DELETE
+SET NULL (AFTER price_cents).** Auto-reference : variante servie quand un menu est commande au format
+Maxi (ex. Moyenne Frite -> Grande Frite), substituee cote serveur dans `OrderRepository::resolveSelections`
+sans choix supplementaire. Approche data-driven (la regle vit dans la donnee, pas dans le code), et le
+decrement de stock frappe alors le bon produit. SET NULL plutot que RESTRICT : si la variante Grande est
+supprimee du catalogue, le produit de base reste vendable et perd seulement sa substitution Maxi
+(degradation gracieuse) ; la reference est un confort metier, pas une integrite forte de commande (les
+commandes figent deja leurs snapshots). Entite 3.2.
+
+**Migration 0007 — variante de TAILLE de `product` (AFTER price_cents).** `size_cl` SMALLINT UNSIGNED
+NULL, `base_product_id` INT UNSIGNED NULL avec FK -> `product(id)` ON DELETE CASCADE. La dimension taille
+des boissons fontaine (la maquette borne propose 30 / 50 cl) est modelisee en lignes produit distinctes
+(meme approche que Moyenne/Grande Frite) : le domaine commande facture deja par `product_id`, le flux reste
+inchange, la borne resout la taille choisie en `product_id`. `base_product_id` NULL = produit de base ou
+autonome (visible dans la grille catalogue) ; NON NULL = variante de taille (masquee de la grille, atteinte
+via le picker). CASCADE plutot que SET NULL (a la difference de 0006) : une variante de taille n'a aucun
+sens sans sa base (une "Coca Cola 50 cl" orpheline n'est pas commercialisable), donc supprimer la base
+emporte ses variantes de taille. Les deux groupings coexistent sur une boisson sans se confondre :
+`base_product_id` pilote la selection de taille a la carte (picker 30/50 cl) ; `maxi_variant_product_id`
+(0006) pilote la substitution Maxi en menu. Entite 3.2.
+
+References : `db/migrations/0003_order_service_tag.sql`, `0005_ingredient_nutrition.sql`,
+`0006_product_maxi_variant.sql`, `0007_product_size_variant.sql`.
+
+---
+
+### Note 15 — Etat de revue des allergenes (migration 0011)
+
+**Le probleme resolu.** La table `ingredient_allergen` (3.9) existe depuis la migration
+0001 mais elle est restee vide jusqu'au 2026-07-31. Une liaison vide est **ambigue** :
+elle ne distingue pas "verifie, cet ingredient ne contient aucun des 14 allergenes
+INCO" de "personne n'a encore regarde". Or ces deux etats doivent produire deux
+messages differents a l'ecran. Confondre le second avec le premier revient a annoncer
+"sans gluten" a un client alors que rien n'a ete verifie.
+
+**Les colonnes** (sur `ingredient`, AFTER `nutrition_fetched_at`) :
+
+- `allergens_reviewed_at` DATETIME NULL — date de la derniere revue. NULL = non revu.
+- `allergens_source` VARCHAR(120) NULL — provenance de la revue, lisible depuis
+  l'application (le back-office l'affiche, il n'y a pas a ouvrir un fichier de seed
+  pour repondre a "d'ou vient cette information ?").
+
+Meme couple provenance + horodatage que la migration 0005 pour la nutrition, sur la
+meme table : la forme n'est pas inventee pour l'occasion.
+
+**Derivation cote produit.** Un produit est dit **complet** quand aucun ingredient de
+sa recette n'a `allergens_reviewed_at` a NULL. Sinon la borne affiche "information non
+disponible, demandez a l'equipe" plutot qu'une liste qui se lirait comme exhaustive.
+Le champ d'API correspondant est `allergens_complete`.
+
+**Propriete de sur-ensemble.** La liste calculee couvre l'integralite des lignes de
+`product_ingredient`, y compris celles marquees `is_removable=1` et `is_addable=1`.
+Elle est donc un sur-ensemble de toute configuration client : retirer un ingredient ne
+peut qu'enlever des allergenes, pas en ajouter. Le sens de l'ecart est donc celui de la
+prudence — c'est pourquoi la borne n'a pas besoin de recalculer la liste apres une
+personnalisation.
+
+**Ecriture et trace.** `IngredientRepository::setAllergens()` remplace l'ensemble
+(delete-and-reinsert), pose la date et la source, et ecrit une ligne `audit_log`
+(`ingredient.allergens`) dans la MEME transaction. Les colonnes disent QUAND et D'OU ;
+l'audit dit QUI. Les autres ecritures d'ingredient (creation, modification, import
+nutritionnel) ne tracent pas ; celle-ci si, parce qu'elle change une information de
+securite alimentaire montree au client.
+
+**Portee des donnees.** Le seed `0008_ingredient_allergens.sql` renseigne les 50
+ingredients du catalogue de demonstration a partir de sources publiques (tables
+allergenes de chaines, fiches fabricant, Open Food Facts, texte du reglement), chaque
+ligne portant sa source et son niveau de preuve. C'est une donnee de DEMONSTRATION
+datee, pas un substitut aux fiches techniques fournisseur d'un etablissement reel.
+Detail et alternatives ecartees : `docs/adr/0015-allergenes-calcules-par-produit.md`.
+
+Reference : `db/migrations/0011_ingredient_allergen_review.sql`. Entite 3.6.
 
 ---
 

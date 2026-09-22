@@ -18,6 +18,7 @@ use App\Tests\Support\FakeDatabase;
 /**
  * Stub OrderQueryRepository : liste canned multi-source (rendu de la liste teste sans
  * base). recent() ramene tous canaux ; le controleur filtre par source derivee du chemin.
+ * paidQueue() ramene la file "En cours" canned, deja filtree par source par l'appelant.
  */
 final class StubChannelOrders extends OrderQueryRepository
 {
@@ -28,6 +29,22 @@ final class StubChannelOrders extends OrderQueryRepository
             ['order_number' => 'D200', 'source' => 'drive', 'service_mode' => 'drive', 'service_tag' => null, 'status' => 'paid', 'total_ttc_cents' => 990, 'created_at' => '2026-06-22 10:05:00', 'paid_at' => '2026-06-22 10:05:01'],
             ['order_number' => 'K9', 'source' => 'kiosk', 'service_mode' => 'takeaway', 'service_tag' => null, 'status' => 'paid', 'total_ttc_cents' => 500, 'created_at' => '2026-06-22 10:06:00', 'paid_at' => '2026-06-22 10:06:01'],
         ];
+    }
+
+    public function paidQueue(array $sources): array
+    {
+        // File "En cours" du canal : ne ramene que des commandes dont la source est
+        // dans $sources (le controleur passe la SEULE source du canal courant). C100 est
+        // sur place avec un numero de table (12) ; D200 est un drive sans table.
+        $all = [
+            ['order_number' => 'C100', 'source' => 'counter', 'service_mode' => 'dine_in', 'service_tag' => '12', 'total_ttc_cents' => 890, 'paid_at' => '2026-06-22 10:00:01'],
+            ['order_number' => 'D200', 'source' => 'drive', 'service_mode' => 'drive', 'service_tag' => null, 'total_ttc_cents' => 990, 'paid_at' => '2026-06-22 10:05:01'],
+        ];
+
+        return array_values(array_filter(
+            $all,
+            static fn (array $o): bool => in_array($o['source'], $sources, true),
+        ));
     }
 }
 
@@ -167,7 +184,11 @@ final class CounterOrderControllerTest extends TestCase
         self::assertSame(200, $response->status());
         $body = $response->body();
         self::assertStringContainsString('Cheeseburger', $body);
-        self::assertStringContainsString('qty_12', $body);   // champ quantite par produit
+        // POS tactile : le catalogue est embarque dans un script JSON inerte (id/prix),
+        // pas en champs qty_<id>. La grille de tuiles est rendue cote client.
+        self::assertStringContainsString('id="pos-products"', $body);
+        self::assertStringContainsString('"id":12', $body);
+        self::assertStringContainsString('id="pos-grid"', $body);
         self::assertStringContainsString('service_mode', $body);
     }
 
@@ -232,7 +253,10 @@ final class CounterOrderControllerTest extends TestCase
         self::assertSame(200, $response->status());
         $body = $response->body();
         self::assertStringContainsString('Menu Cheeseburger', $body);
-        self::assertStringContainsString('data-menu-id="5"', $body);   // bouton configurer
+        // POS tactile : les menus + slots sont embarques dans un script JSON inerte
+        // (la tuile menu et la modale sont rendues cote client par counter-order.js).
+        self::assertStringContainsString('id="pos-menus"', $body);
+        self::assertStringContainsString('"id":5', $body);
         self::assertStringContainsString('items_json', $body);          // champ cache du panier
         self::assertStringContainsString('counter-order.js', $body);    // script du composeur
     }
@@ -271,6 +295,39 @@ final class CounterOrderControllerTest extends TestCase
         $selInsert = $this->writeParams($db, 'INSERT INTO order_item_selection');
         self::assertSame(16, $selInsert['slot']);
         self::assertSame(22, $selInsert['pid']);
+    }
+
+    public function testStoreCreatesMenuOrderWithQuantityTwo(): void
+    {
+        // G : un item menu via items_json avec quantity:2 persiste qty=2 sur order_item ;
+        // les selections de slot ne sont pas dupliquees par la quantite (un seul INSERT).
+        $db = $this->permittedDb();
+        $db->menuRow = ['id' => 5, 'name' => 'Menu Cheeseburger', 'burger_product_id' => 12, 'price_normal_cents' => 990, 'price_maxi_cents' => 1190, 'is_available' => 1];
+        $db->productRow = ['id' => 22, 'name' => 'Frites', 'price_cents' => 250, 'vat_rate' => 100, 'maxi_variant_product_id' => null, 'is_available' => 1];
+        $db->menuSlotRows = [
+            ['id' => 16, 'name' => 'Accompagnement', 'slot_type' => 'side', 'is_required' => 1, 'display_order' => 1, 'product_id' => 22],
+        ];
+        $db->lastInsertId = 100;
+        $db->orderByNumberRow = ['id' => 100, 'order_number' => 'C100', 'total_ttc_cents' => 1980, 'status' => 'pending_payment'];
+
+        $items = json_encode([
+            ['type' => 'menu', 'menu_id' => 5, 'quantity' => 2, 'format' => 'normal', 'selections' => [['menu_slot_id' => 16, 'product_id' => 22]]],
+        ]);
+        $request = $this->post(['_csrf' => $this->csrf, 'service_mode' => 'dine_in', 'items_json' => (string) $items], '/counter/orders');
+
+        $response = $this->controller($request, $db)->store();
+
+        self::assertSame(302, $response->status());
+        $itemInsert = $this->writeParams($db, 'INSERT INTO order_item ');
+        self::assertSame('menu', $itemInsert['type']);
+        self::assertSame(5, $itemInsert['mid']);
+        self::assertSame(2, $itemInsert['qty']);
+        // La selection de slot est persistee UNE fois (independante de la quantite).
+        $selectionWrites = array_values(array_filter(
+            $db->writes,
+            static fn (array $w): bool => str_contains($w['sql'], 'INSERT INTO order_item_selection'),
+        ));
+        self::assertCount(1, $selectionWrites);
     }
 
     public function testStoreCreatesProductOrderViaItemsJson(): void
@@ -340,15 +397,16 @@ final class CounterOrderControllerTest extends TestCase
 
         self::assertSame(200, $response->status());
         $body = $response->body();
-        // data-products encode le JSON avec htmlspecialchars : les guillemets sont
-        // echappes en &quot;. On cherche les fragments echappes (forme reellement rendue).
-        self::assertStringContainsString('ingredient_id&quot;:3', $body);
-        self::assertStringContainsString('ingredient_id&quot;:8', $body);
+        // POS tactile : la composition PROPOSABLE est embarquee dans le script JSON inerte
+        // #pos-products (type="application/json"). json_encode avec JSON_HEX_TAG protege
+        // l'insertion dans un <script> (un '<' deviendrait < ; pas de </script>
+        // injectable). On cherche les fragments JSON reellement rendus (guillemets bruts,
+        // surs dans un script). La tuile "A composer" et la modale sont rendues client-side.
+        self::assertStringContainsString('id="pos-products"', $body);
+        self::assertStringContainsString('"ingredient_id":3', $body);
+        self::assertStringContainsString('"ingredient_id":8', $body);
         self::assertStringContainsString('Oignon', $body);
         self::assertStringContainsString('Bacon', $body);
-        // Bouton de personnalisation expose pour le produit a modificateurs.
-        self::assertStringContainsString('product-configure', $body);
-        self::assertStringContainsString('Personnaliser', $body);
     }
 
     public function testStoreCreatesProductOrderWithModifiers(): void
@@ -454,6 +512,252 @@ final class CounterOrderControllerTest extends TestCase
 
         self::assertSame(422, $response->status());
         self::assertFalse($db->wrote('INSERT INTO customer_order'));
+    }
+
+    public function testCounterIndexShowsInProgressQueueSection(): void
+    {
+        // 5 : la file "En cours" du canal (paid non livre) apparait en haut, filtree
+        // a la source counter (C100 present, D200 du drive absent).
+        $response = $this->controller($this->get('/counter/orders'), $this->permittedDb())->index();
+
+        self::assertSame(200, $response->status());
+        $body = $response->body();
+        self::assertStringContainsString('En cours', $body);
+        self::assertStringContainsString('Historique recent', $body);
+        self::assertStringContainsString('C100', $body);
+        self::assertStringNotContainsString('D200', $body);
+        // 4 : la file porte une colonne "Table" et affiche le numero de la commande
+        // sur place (C100 -> table 12).
+        self::assertStringContainsString('<th>Table</th>', $body);
+        self::assertStringContainsString('>12</td>', $body);
+    }
+
+    public function testDriveCreateFreezesServiceModeToDrive(): void
+    {
+        // 2 : au drive, service_mode n'est PAS un select editable. Il est fige a 'Drive'
+        // (affichage) + transmis par un champ cache (un select readonly resterait
+        // editable, donc on ne s'y fie pas).
+        $response = $this->controller($this->get('/drive/orders/new'), $this->permittedDb())->create();
+
+        self::assertSame(200, $response->status());
+        $body = $response->body();
+        // Champ cache porteur de la valeur drive (soumis).
+        self::assertStringContainsString('type="hidden" name="service_mode" id="service_mode" value="drive"', $body);
+        // Aucun select de mode au drive (l'affichage est fige).
+        self::assertStringNotContainsString('<select class="form-input" id="service_mode"', $body);
+    }
+
+    public function testCounterCreateKeepsEditableServiceModeSelect(): void
+    {
+        // 2 (contre-exemple) : au comptoir, le select dine_in/takeaway reste editable.
+        $response = $this->controller($this->get('/counter/orders/new'), $this->permittedDb())->create();
+
+        self::assertSame(200, $response->status());
+        $body = $response->body();
+        self::assertStringContainsString('<select class="form-input" id="service_mode"', $body);
+        self::assertStringContainsString('Sur place', $body);
+        self::assertStringContainsString('A emporter', $body);
+    }
+
+    public function testCreateExposesConfigurableProductModifiersInJson(): void
+    {
+        // POS tactile : un produit a modificateurs est expose dans #pos-products avec sa
+        // composition proposable. Le client en rend une tuile "A composer" qui ouvre la
+        // modale au tap (la saisie de la quantite et des modificateurs se fait en modale).
+        $db = $this->permittedDb();
+        $db->productsRows = [
+            ['id' => 12, 'category_id' => 1, 'category_name' => 'Burgers', 'name' => 'Cheeseburger', 'description' => null, 'price_cents' => 890, 'image_path' => null, 'display_order' => 1],
+        ];
+        $db->compositionRows = [
+            ['product_id' => 12, 'ingredient_id' => 3, 'ingredient_name' => 'Oignon', 'is_removable' => 1, 'is_addable' => 0, 'extra_price_cents' => 0, 'quantity_normal' => 1, 'quantity_maxi' => 1],
+        ];
+
+        $response = $this->controller($this->get('/counter/orders/new'), $db)->create();
+
+        self::assertSame(200, $response->status());
+        $body = $response->body();
+        // Le produit et sa composition sont dans le JSON inerte (pas de champ qty_<id>).
+        self::assertStringContainsString('id="pos-products"', $body);
+        self::assertStringContainsString('"id":12', $body);
+        self::assertStringContainsString('"ingredient_id":3', $body);
+        self::assertStringContainsString('Oignon', $body);
+        // Plus de champ quantite par produit (la saisie passe par les tuiles + modale).
+        self::assertStringNotContainsString('name="qty_12"', $body);
+    }
+
+    public function testCreateExposesCategoryNamesForTabs(): void
+    {
+        // POS tactile : les onglets de categories sont construits cote client a partir
+        // de category_name embarque dans le JSON de chaque produit/menu.
+        $db = $this->permittedDb();
+        $db->productsRows = [
+            ['id' => 12, 'category_id' => 1, 'category_name' => 'Burgers', 'name' => 'Cheeseburger', 'description' => null, 'price_cents' => 890, 'image_path' => null, 'display_order' => 1],
+            ['id' => 22, 'category_id' => 2, 'category_name' => 'Accompagnements', 'name' => 'Frites', 'description' => null, 'price_cents' => 250, 'image_path' => null, 'display_order' => 1],
+        ];
+
+        $response = $this->controller($this->get('/counter/orders/new'), $db)->create();
+
+        self::assertSame(200, $response->status());
+        $body = $response->body();
+        self::assertStringContainsString('id="pos-tabs"', $body);
+        self::assertStringContainsString('"category_name":"Burgers"', $body);
+        self::assertStringContainsString('"category_name":"Accompagnements"', $body);
+    }
+
+    public function testCreateExposesBothMenuPrices(): void
+    {
+        // 6 : les deux prix d'un menu (Normal / Maxi, en centimes) sont exposes dans le
+        // JSON inerte ; le client affiche "Normal X / Maxi Y" sur la tuile et la modale.
+        $db = $this->permittedDb();
+        $db->menusRows = [
+            ['id' => 5, 'category_id' => 1, 'burger_product_id' => 12, 'name' => 'Menu Cheeseburger', 'description' => null, 'price_normal_cents' => 990, 'price_maxi_cents' => 1190, 'image_path' => null, 'display_order' => 1],
+        ];
+
+        $response = $this->controller($this->get('/counter/orders/new'), $db)->create();
+
+        self::assertSame(200, $response->status());
+        $body = $response->body();
+        self::assertStringContainsString('id="pos-menus"', $body);
+        self::assertStringContainsString('"price_normal":990', $body);
+        self::assertStringContainsString('"price_maxi":1190', $body);
+    }
+
+    public function testCreateMarksProductOutOfStockAsNotOrderable(): void
+    {
+        // RG-T21 (parite borne) : un produit liste (is_available=1) mais en rupture
+        // calculee par le stock (membre du set autoUnavailableIds) est expose
+        // commandable=false dans #pos-products ; un produit hors rupture reste
+        // commandable=true. Le POS grise la tuile non commandable (echo UX), comme la
+        // borne ; l'enforcement reste serveur a la creation de commande.
+        $db = $this->permittedDb();
+        $db->productsRows = [
+            ['id' => 12, 'category_id' => 1, 'category_name' => 'Burgers', 'name' => 'Cheeseburger', 'description' => null, 'price_cents' => 890, 'image_path' => null, 'display_order' => 1],
+            ['id' => 22, 'category_id' => 2, 'category_name' => 'Accompagnements', 'name' => 'Frites', 'description' => null, 'price_cents' => 250, 'image_path' => null, 'display_order' => 1],
+        ];
+        // autoUnavailableIds() (clause is_removable = 0) : le produit 12 est en rupture.
+        $db->autoUnavailableRows = [
+            ['product_id' => 12],
+        ];
+
+        $response = $this->controller($this->get('/counter/orders/new'), $db)->create();
+
+        self::assertSame(200, $response->status());
+        $body = $response->body();
+        // Le produit en rupture (12) porte commandable=false ; l'autre (22) reste true.
+        self::assertStringContainsString('"id":12', $body);
+        self::assertStringContainsString('"id":22', $body);
+        self::assertStringContainsString('"commandable":false', $body);
+        self::assertStringContainsString('"commandable":true', $body);
+    }
+
+    public function testCreateMarksMenuWithRupturedBurgerAsNotOrderable(): void
+    {
+        // RG-T21 (granularite burger impose seul) : un menu dont le burger principal
+        // (burger_product_id) est en rupture calculee est expose commandable=false dans
+        // #pos-menus -> le POS grise la tuile menu (parite borne).
+        $db = $this->permittedDb();
+        $db->menusRows = [
+            ['id' => 5, 'category_id' => 1, 'burger_product_id' => 12, 'name' => 'Menu Cheeseburger', 'description' => null, 'price_normal_cents' => 990, 'price_maxi_cents' => 1190, 'image_path' => null, 'display_order' => 1],
+        ];
+        // Le burger 12 du menu est en rupture (set autoUnavailableIds).
+        $db->autoUnavailableRows = [
+            ['product_id' => 12],
+        ];
+
+        $response = $this->controller($this->get('/counter/orders/new'), $db)->create();
+
+        self::assertSame(200, $response->status());
+        $body = $response->body();
+        self::assertStringContainsString('"id":5', $body);
+        self::assertStringContainsString('"commandable":false', $body);
+    }
+
+    public function testCreateMarksAllOrderableWhenNoRupture(): void
+    {
+        // Contre-exemple : sans rupture (autoUnavailableIds vide), produits ET menus sont
+        // tous commandable=true (aucune tuile grisee).
+        $db = $this->permittedDb();
+        $db->productsRows = [
+            ['id' => 22, 'category_id' => 2, 'category_name' => 'Accompagnements', 'name' => 'Frites', 'description' => null, 'price_cents' => 250, 'image_path' => null, 'display_order' => 1],
+        ];
+        $db->menusRows = [
+            ['id' => 5, 'category_id' => 1, 'burger_product_id' => 12, 'name' => 'Menu Cheeseburger', 'description' => null, 'price_normal_cents' => 990, 'price_maxi_cents' => 1190, 'image_path' => null, 'display_order' => 1],
+        ];
+        $db->autoUnavailableRows = [];
+
+        $response = $this->controller($this->get('/counter/orders/new'), $db)->create();
+
+        self::assertSame(200, $response->status());
+        $body = $response->body();
+        self::assertStringContainsString('"commandable":true', $body);
+        self::assertStringNotContainsString('"commandable":false', $body);
+    }
+
+    public function testStorePassesServiceTagInDineIn(): void
+    {
+        // 7a : un numero de table saisi en sur place est transmis a createStaffOrder et
+        // persiste (service_tag) sur la commande.
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 890, 'vat_rate' => 100, 'maxi_variant_product_id' => null, 'is_available' => 1];
+        $db->lastInsertId = 100;
+        $db->orderByNumberRow = ['id' => 100, 'order_number' => 'C100', 'total_ttc_cents' => 890, 'status' => 'pending_payment'];
+
+        $items = json_encode([['type' => 'product', 'product_id' => 12, 'quantity' => 1]]);
+        $request = $this->post(['_csrf' => $this->csrf, 'service_mode' => 'dine_in', 'service_tag' => '12', 'items_json' => (string) $items], '/counter/orders');
+
+        $response = $this->controller($request, $db)->store();
+
+        self::assertSame(302, $response->status());
+        $insert = $this->writeParams($db, 'INSERT INTO customer_order');
+        self::assertSame('12', $insert['tag']);
+    }
+
+    public function testStoreDropsServiceTagWhenNotDineIn(): void
+    {
+        // 7a : un numero de table soumis hors sur place (takeaway) n'est pas transmis ;
+        // service_tag persiste NULL (la table n'a de sens qu'en sur place).
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 890, 'vat_rate' => 100, 'maxi_variant_product_id' => null, 'is_available' => 1];
+        $db->lastInsertId = 100;
+        $db->orderByNumberRow = ['id' => 100, 'order_number' => 'C100', 'total_ttc_cents' => 890, 'status' => 'pending_payment'];
+
+        $items = json_encode([['type' => 'product', 'product_id' => 12, 'quantity' => 1]]);
+        $request = $this->post(['_csrf' => $this->csrf, 'service_mode' => 'takeaway', 'service_tag' => '12', 'items_json' => (string) $items], '/counter/orders');
+
+        $response = $this->controller($request, $db)->store();
+
+        self::assertSame(302, $response->status());
+        $insert = $this->writeParams($db, 'INSERT INTO customer_order');
+        self::assertNull($insert['tag']);
+    }
+
+    public function testNavRoutesDriveRoleToDriveLanding(): void
+    {
+        // 3 : le lien "Saisie commande" du layout pointe vers le canal du role courant.
+        // Un equipier drive (role.order_source = drive, remonte par displayInfo) est
+        // route vers /drive/orders.
+        $db = $this->permittedDb();
+        $db->userDisplayRow = ['first_name' => 'Dana', 'last_name' => 'D', 'role_label' => 'Drive', 'order_source' => 'drive'];
+
+        $response = $this->controller($this->get('/drive/orders'), $db)->index();
+
+        self::assertSame(200, $response->status());
+        $body = $response->body();
+        self::assertStringContainsString('href="/drive/orders" class="sidebar-item active">Saisie commande', $body);
+    }
+
+    public function testNavRoutesCounterRoleToCounterLanding(): void
+    {
+        // 3 (contre-exemple) : un role comptoir (order_source counter / NULL) est route
+        // vers /counter/orders.
+        $db = $this->permittedDb();
+        $db->userDisplayRow = ['first_name' => 'Sam', 'last_name' => 'C', 'role_label' => 'Comptoir', 'order_source' => 'counter'];
+
+        $response = $this->controller($this->get('/counter/orders'), $db)->index();
+
+        self::assertSame(200, $response->status());
+        $body = $response->body();
+        self::assertStringContainsString('href="/counter/orders" class="sidebar-item active">Saisie commande', $body);
     }
 
     /**

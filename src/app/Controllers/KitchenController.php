@@ -32,11 +32,20 @@ class KitchenController extends AdminController
 
         $sources = $this->orderQuery()->visibleSources($guard->roleId ?? 0);
 
+        // paidQueueWithDetail : memes commandes que paidQueue, enrichies du detail des
+        // articles (selections + modificateurs) et d'une bande SLA derivee de paid_at,
+        // pour que le KDS soit exploitable pour PREPARER (et pas seulement lister).
         return $this->adminView('admin/kitchen/display', [
             'title'      => 'Cuisine - Wakdo Admin',
             'activeNav'  => 'kitchen',
-            'orders'     => $this->orderQuery()->paidQueue($sources),
+            'orders'     => $this->orderQuery()->paidQueueWithDetail($sources),
             'canDeliver' => $this->may($guard, 'order.deliver'),
+            // Marquer une commande prete (Prete -> ready) fait partie de l'operation du
+            // KDS : c'est couvert par order.read (deja garde de la page, libelle "Voir les
+            // commandes et l'ecran de preparation"). Le passage en preparation est
+            // automatique au paiement (pay()), il n'y a plus de geste manuel "Commencer".
+            // Pas de permission dediee : l'ensemble de roles serait identique a order.read.
+            'canPrepare' => $this->may($guard, 'order.read'),
         ], $guard);
     }
 

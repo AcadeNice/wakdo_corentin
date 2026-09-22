@@ -3,14 +3,16 @@
  *
  * Reads ?category=<id> from the query string, maps to a slug via
  * CATEGORY_ID_TO_SLUG, then fetches the matching product array.
- * On product card click, navigates to product.html?id=<id>&category=<slug>.
+ * On product card click, opens an in-page modal (composer for a menu, options
+ * for a simple product) above the grid ; the order panel reflects the addition.
  */
 
 import { getProductsByCategory, getCategoryById, CATEGORY_ID_TO_SLUG, loadAllergens } from './data.js';
 import { formatPrice, escHtml } from './state.js';
-import { buildAllergenInfoButton, openAllergenModal } from './allergens.js';
+import { buildAllergenInfoButton, openProductAllergenModal } from './allergens.js';
 import { openMenuComposer } from './page-product-menu.js';
 import { openProductOptions } from './product-options.js';
+import './img-fallback.js';
 
 const params      = new URLSearchParams(window.location.search);
 const categoryId  = parseInt(params.get('category'), 10) || 1;
@@ -48,25 +50,33 @@ async function renderProducts() {
         }
 
         if (!products.length) {
-            grid.innerHTML = '<p class="products-empty">Aucun produit disponible dans cette categorie.</p>';
+            grid.innerHTML = '<li class="products-empty">Aucun produit disponible dans cette categorie.</li>';
             return;
         }
 
-        // Liste generale des allergenes (modale "i"). Chargee une fois, partagee par
-        // toutes les cartes ; un echec ne doit pas casser l'affichage produits.
-        let allergens = [];
+        // Reference INCO (les 14 descriptions) pour la modale "i". Chargee une fois,
+        // partagee par toutes les cartes ; un echec ne doit pas casser l'affichage
+        // produits NI masquer les allergenes : les noms viennent de l'API produit, la
+        // reference n'ajoute que les explications (F11b).
+        let allergenReference = [];
         try {
-            allergens = await loadAllergens();
+            allergenReference = await loadAllergens();
         } catch (e) {
             console.error('loadAllergens error:', e);
         }
 
         grid.innerHTML = '';
         products.forEach(product => {
+            // commandable : false = rupture de stock (RG-T21). La tuile reste visible
+            // (le client voit le produit de la carte) mais grisee et non cliquable.
+            const orderable = product.commandable !== false;
             const card = document.createElement('a');
-            card.className = 'product-card';
-            card.href = `product.html?id=${product.id}&category=${categorySlug}`;
-            card.setAttribute('aria-label', `${product.nom} - ${formatPrice(product.prix)}`);
+            card.className = orderable ? 'product-card' : 'product-card product-card--unavailable';
+            // Le <a> reste pour le focus/clavier (a11y) ; href='#' inerte, le handler
+            // click ci-dessous fait foi (preventDefault + ouverture de la modale).
+            card.href = '#';
+            card.setAttribute('aria-label', `${product.nom} - ${formatPrice(product.prix)}${orderable ? '' : ' - indisponible'}`);
+            if (!orderable) card.setAttribute('aria-disabled', 'true');
 
             card.innerHTML = `
                 <div class="product-card__image-wrap">
@@ -75,8 +85,9 @@ async function renderProducts() {
                         src="${escHtml(product.image)}"
                         alt="${escHtml(product.nom)}"
                         loading="lazy"
-                        onerror="this.src='assets/images/ui/logo.png'; this.alt='Image non disponible';"
+                        data-fallback="logo" data-fallback-alt="Image non disponible"
                     >
+                    ${orderable ? '' : '<span class="product-card__badge">Indisponible</span>'}
                 </div>
                 <div class="product-card__body">
                     <span class="product-card__name">${escHtml(product.nom)}</span>
@@ -84,21 +95,30 @@ async function renderProducts() {
                 </div>
             `;
 
-            // Bouton "i" allergenes superpose a l'image ; son clic ouvre la modale
-            // generale et ne declenche pas la navigation de la carte (stopPropagation).
-            const infoBtn = buildAllergenInfoButton(() => openAllergenModal(allergens));
-            card.querySelector('.product-card__image-wrap').appendChild(infoBtn);
+            // Bouton "i" allergenes : frere de la carte, JAMAIS dans le <a> (un
+            // element interactif ne peut pas descendre d'un lien — regle HTML verifiee
+            // au validateur W3C). Superpose au coin de l'image via CSS. La modale porte
+            // les allergenes de CE produit, pas la liste des 14 (F11b).
+            const infoBtn = buildAllergenInfoButton(() => openProductAllergenModal(product, allergenReference));
 
-            // Clic produit -> modale au-dessus de la grille (paradigme maquette) au lieu
-            // de naviguer vers product.html : menu -> composeur (L2), produit -> options
-            // (L3). Le <a href> reste un repli (lien direct / sans JS).
+            // Clic produit -> modale au-dessus de la grille (paradigme maquette) :
+            // menu -> composeur (L2), produit -> options (L3). Le panneau de droite est
+            // l'unique vue panier ; pas de navigation au clic. Une tuile en rupture ne
+            // fait rien (ni navigation ni modale).
             card.addEventListener('click', (e) => {
                 e.preventDefault();
+                if (!orderable) return;
                 if (product.type === 'menu') openMenuComposer(product, categorySlug);
                 else openProductOptions(product, categorySlug);
             });
 
-            grid.appendChild(card);
+            // Carte + bouton "i" enveloppes dans un <li> : seul enfant valide d'un
+            // <ul>. Le <li> ancre le bouton allergene superpose (CSS position:relative).
+            const cell = document.createElement('li');
+            cell.className = 'product-card-cell';
+            cell.appendChild(card);
+            cell.appendChild(infoBtn);
+            grid.appendChild(cell);
         });
 
     } catch (err) {

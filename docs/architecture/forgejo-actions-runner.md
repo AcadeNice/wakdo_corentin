@@ -67,6 +67,34 @@ docker run -d --restart=always \
   daemon
 ```
 
+### Etat mesure le 2026-09-22
+
+Deux constats, verifies sur la machine, a connaitre avant de toucher au runner.
+
+**Le privilege Docker est a deux niveaux.** Le conteneur du runner a le socket
+(il en a besoin pour lancer les conteneurs de job). Les conteneurs de job ne
+l'ont pas : quatre jobs de sonde poussees sur la forge le montrent — telecharger
+le client Docker passe, mais `test -S /var/run/docker.sock` echoue dans le job,
+le demon ne repond pas, et lancer un conteneur frere echoue. Un job d'integration
+est donc non privilegie. C'est cette separation qui justifie le canal restreint du
+deploiement (voir `deployment.md`) : lui donner le socket reviendrait a accorder
+les pleins pouvoirs sur la machine de production a tout code passant en integration.
+
+**Les bornes de ressources ne sont pas en vigueur.** Le compose qui definit ce
+runner porte `mem_limit: 1g`, `memswap_limit: 1g` et `cpus: 2.0`, poses le
+2026-09-16. Le conteneur en marche, lui, a demarre le 2026-09-10 a 14h36 et n'a
+jamais ete recree depuis : `docker inspect` renvoie processeur 0 et memoire 0.
+Les limites existent sur le papier, pas dans le noyau. Recreer le conteneur les
+applique. Tant que ce n'est pas fait, un job peut consommer toute la machine —
+qui heberge aussi la production.
+
+**La concurrence n'est pas reglee explicitement.** Aucun `config.yml` n'est
+monte : le runner tourne sur ses valeurs par defaut. Mesure du 2026-09-22 sur la
+poussee 423 : quatre jobs independants se sont enchaines sans le moindre
+chevauchement (09:51:08-14, 09:51:16-19, 09:51:19-22, 09:51:23-31), donc un seul
+job a la fois. Le comportement voulu est obtenu, mais par defaut et non par choix
+ecrit ; le fixer explicitement vaut mieux que de l'heriter.
+
 Notes :
 - `--group-add $DOCKER_GID` : acces au socket Docker pour executer les jobs
   dans des conteneurs (sans tourner en root).

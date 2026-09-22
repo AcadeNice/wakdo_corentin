@@ -89,6 +89,12 @@ services:
       PASSWORD_RESET_TTL: ${PASSWORD_RESET_TTL}
       UPLOAD_MAX_SIZE_MB: ${UPLOAD_MAX_SIZE_MB}
       UPLOAD_ALLOWED_MIME: ${UPLOAD_ALLOWED_MIME}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      MAIL_FROM_EMAIL: ${MAIL_FROM_EMAIL:-}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Wakdo}
     volumes:
       - ./src:/var/www/html
       - wakdo_uploads:/var/www/html/public/uploads
@@ -139,9 +145,11 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       AUDIT_LOG_RETENTION_DAYS: ${AUDIT_LOG_RETENTION_DAYS:-365}
       THROTTLE_PURGE_AFTER_HOURS: ${THROTTLE_PURGE_AFTER_HOURS:-24}
+      ORDER_PENDING_EXPIRY_MINUTES: ${ORDER_PENDING_EXPIRY_MINUTES:-60}
       TZ: ${CRON_TIMEZONE:-Europe/Paris}
     volumes:
       - ./var/backups:/backups
+      - ./src:/var/www/html:ro
     networks:
       - wakdo_internal
     depends_on:

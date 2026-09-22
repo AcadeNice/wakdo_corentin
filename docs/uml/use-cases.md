@@ -211,7 +211,7 @@ flowchart LR
 
 | Cas | Operation MCT | Permission | Description | Entites |
 |---|---|---|---|---|
-| Saisir une commande comptoir/drive | 4.1 CREATE_COUNTER_ORDER | `order.create` | Composer une commande pour un client au comptoir (`counter`) ou au drive (`drive`). Logique identique a CREATE_ORDER ; `source` auto-tague depuis `role.order_source`. Numero `C-`/`D-YYYY-MM-DD-NNN`. | `customer_order`, `order_item`, `order_item_selection`, `order_item_modifier`, `ingredient`, `stock_movement` |
+| Saisir une commande comptoir/drive | 4.1 CREATE_COUNTER_ORDER | `order.create` | Composer une commande pour un client au comptoir (`counter`) ou au drive (`drive`). Logique identique a CREATE_ORDER ; `source` auto-tague depuis `role.order_source`. Numero prefixe canal + id (`C<id>`/`D<id>`, voir dictionnaire note 4). | `customer_order`, `order_item`, `order_item_selection`, `order_item_modifier`, `ingredient`, `stock_movement` |
 | Consulter la file de preparation | 5.1 LIST_ORDERS_DISPLAY | `order.read` | Voir les commandes `paid` triees par `paid_at` croissant, filtrees par `role_visible_source` (counter voit kiosk+counter ; drive voit drive). Couleur KDS = `now - paid_at`. | `customer_order`, `order_item`, `order_item_selection`, `order_item_modifier`, `role_visible_source` |
 | Remettre la commande | 6.1 DELIVER_ORDER | `order.deliver` | Geste unique `paid -> delivered`, `delivered_at = NOW()`. | `customer_order` |
 | Annuler une commande | 7.1 CANCEL_ORDER | `order.cancel` | Transition vers `cancelled` depuis `pending_payment`/`paid`, `cancelled_at = NOW()`. Re-credit du stock si `paid`. | `customer_order`, `ingredient`, `stock_movement` |

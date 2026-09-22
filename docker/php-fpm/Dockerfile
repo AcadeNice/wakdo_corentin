@@ -39,6 +39,14 @@ RUN set -eux; \
 COPY php.ini /usr/local/etc/php/conf.d/zz-wakdo.ini
 COPY www.conf /usr/local/etc/php-fpm.d/zz-wakdo.conf
 
+# Dossier des images deposees depuis le back-office, cree ICI avec le bon
+# proprietaire. Raison : un volume nomme vide herite des droits du point de
+# montage de l'image au premier demarrage. Sans cette ligne, le volume arrive
+# a root:root en 755, PHP-FPM tourne en www-data, et tout envoi d'image echoue
+# sur une machine neuve -- sans que rien ne le signale avant le premier essai.
+RUN mkdir -p /var/www/html/public/uploads/products /var/www/html/public/uploads/categories \
+    && chown -R www-data:www-data /var/www/html/public/uploads
+
 # WORKDIR = racine applicative. Le code sera bind-mounte en dev via
 # docker-compose.yml et COPY-e en prod (override compose-prod).
 WORKDIR /var/www/html

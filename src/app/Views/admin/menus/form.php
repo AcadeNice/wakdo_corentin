@@ -10,8 +10,10 @@ declare(strict_types=1);
  *
  * @var int                              $menuId
  * @var array<int, array<string, mixed>> $categories
- * @var array<int, array<string, mixed>> $products
+ * @var array<int, array<string, mixed>> $products       burgers de base (select ancre)
+ * @var array<int, array<string, mixed>> $slotProducts   options de slot {id, name, category_slug} (F12)
  * @var list<string>                     $slotTypes
+ * @var array<string, list<string>>      $slotCategories slot_type -> categories autorisees (F12)
  * @var array<string, mixed>             $values
  * @var string                           $slotsJson
  * @var array<string, string>            $errors
@@ -30,8 +32,12 @@ $errs = isset($errors) && is_array($errors) ? $errors : [];
 $cats = isset($categories) && is_array($categories) ? $categories : [];
 /** @var array<int, array<string, mixed>> $prods */
 $prods = isset($products) && is_array($products) ? $products : [];
+/** @var array<int, array<string, mixed>> $slotProds */
+$slotProds = isset($slotProducts) && is_array($slotProducts) ? $slotProducts : [];
 /** @var list<string> $types */
 $types = isset($slotTypes) && is_array($slotTypes) ? $slotTypes : [];
+/** @var array<string, list<string>> $slotCats */
+$slotCats = isset($slotCategories) && is_array($slotCategories) ? $slotCategories : [];
 
 $val = static fn (string $k): string => htmlspecialchars((string) ($vals[$k] ?? ''), ENT_QUOTES, 'UTF-8');
 $err = static fn (string $k): string => isset($errs[$k]) && is_string($errs[$k]) ? $errs[$k] : '';
@@ -41,9 +47,16 @@ $available = (bool) ($vals['is_available'] ?? true);
 
 // Donnees pour le builder JS, passees en attributs data-* (CSP 'self' : pas de
 // script inline). htmlspecialchars rend le JSON sur-able comme valeur d'attribut.
+// F12 : chaque option de slot porte sa categorie (category) pour que le builder
+// filtre les choix proposes selon le type de slot ; le mapping slot_type ->
+// categories (slotCategories) provient de la meme source que la garde serveur.
 $slimProducts = array_map(
-    static fn (array $p): array => ['id' => (int) ($p['id'] ?? 0), 'name' => (string) ($p['name'] ?? '')],
-    $prods,
+    static fn (array $p): array => [
+        'id' => (int) ($p['id'] ?? 0),
+        'name' => (string) ($p['name'] ?? ''),
+        'category' => (string) ($p['category_slug'] ?? ''),
+    ],
+    $slotProds,
 );
 $attr = static fn (mixed $data): string => htmlspecialchars(
     (string) json_encode($data, JSON_UNESCAPED_UNICODE),
@@ -124,6 +137,7 @@ $slotsData = isset($slotsJson) && is_string($slotsJson) && $slotsJson !== '' ? $
         <div id="slot-builder"
              data-products="<?= $attr($slimProducts) ?>"
              data-slot-types="<?= $attr($types) ?>"
+             data-slot-categories="<?= $attr($slotCats) ?>"
              data-slots="<?= htmlspecialchars($slotsData, ENT_QUOTES, 'UTF-8') ?>"></div>
         <button class="btn btn-secondary" type="button" id="add-slot">Ajouter un slot</button>
     </fieldset>

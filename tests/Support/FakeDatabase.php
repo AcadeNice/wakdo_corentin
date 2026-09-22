@@ -77,7 +77,7 @@ final class FakeDatabase implements DatabaseInterface
     public array $permissionCodes = [];
 
     /**
-     * Ligne role renvoyee pour la lecture du code de role (/api/me) ; null = absent.
+     * Ligne role renvoyee pour la lecture du code de role (/admin/me) ; null = absent.
      *
      * @var array<string, mixed>|null
      */
@@ -121,6 +121,14 @@ final class FakeDatabase implements DatabaseInterface
     public bool $userPinSet = false;
 
     /**
+     * Ligne {password_hash} renvoyee pour la re-verification d'identite au set de PIN
+     * (ProfileController::currentPasswordHash) ; null = compte absent/inactif.
+     *
+     * @var array<string, mixed>|null
+     */
+    public ?array $currentPasswordRow = null;
+
+    /**
      * Lignes renvoyees par ProductRepository::all().
      *
      * @var list<array<string, mixed>>
@@ -128,11 +136,63 @@ final class FakeDatabase implements DatabaseInterface
     public array $productsRows = [];
 
     /**
+     * Lignes PLATES renvoyees a la requete ProductRepository::basesByCategory() (F20) ;
+     * le depot les groupe lui-meme par category_id.
+     *
+     * @var list<array<string, mixed>>
+     */
+    public array $basesByCategoryRows = [];
+
+    /**
      * Ligne renvoyee par ProductRepository::find() ; null = introuvable.
      *
      * @var array<string, mixed>|null
      */
     public ?array $productRow = null;
+
+    /**
+     * Lignes {id, name} renvoyees par ProductRepository::basesOnly() (R4/F9-1) :
+     * produits de base eligibles aux selects menu / formulaire produit.
+     *
+     * @var list<array<string, mixed>>
+     */
+    public array $baseProductsRows = [];
+
+    /**
+     * Resultat de ProductRepository::productIsBase() / MenuRepository::productIsBase()
+     * (R4/F9-2) : true => l'id designe un produit de BASE (base_product_id IS NULL).
+     * Defaut true : un produit ordinaire est une base ; un test le passe a false pour
+     * simuler une VARIANTE de taille presentee la ou seules les bases sont eligibles.
+     */
+    public bool $productIsBase = true;
+
+    /**
+     * Ligne {category_id} renvoyee par ProductRepository::reorderWithinCategory()
+     * pour son SELECT initial (categorie du produit a deplacer) ; null = produit
+     * introuvable ou variante (base_product_id non NULL, exclue par la requete).
+     *
+     * @var array<string, mixed>|null
+     */
+    public ?array $reorderProductRow = null;
+
+    /**
+     * Lignes {id} renvoyees par ProductRepository::reorderWithinCategory() pour la
+     * liste ORDONNEE des produits de BASE de la categorie deplacee (deuxieme
+     * lecture, apres le lookup initial ci-dessus).
+     *
+     * @var list<array<string, mixed>>
+     */
+    public array $reorderCategoryIdsRows = [];
+
+    /**
+     * Slug de categorie renvoye par MenuRepository::productCategorySlug() (garde F12) ;
+     * null => productCategorySlug() retourne null (id inconnu / produit sans categorie),
+     * ce qui fait rejeter l'option par le controleur. Defaut 'boissons' : aligne sur le
+     * slot 'drink' du formulaire valide de reference (validForm), donc une option passe
+     * la garde de categorie par defaut. Un test le change pour simuler une option hors
+     * categorie (ex. 'burgers' dans un slot 'drink').
+     */
+    public ?string $productCategorySlug = 'boissons';
 
     /**
      * Ligne renvoyee par MenuRepository::find() ; null = introuvable.
@@ -148,6 +208,14 @@ final class FakeDatabase implements DatabaseInterface
      * @var array<string, mixed>|null
      */
     public ?array $orderByNumberRow = null;
+
+    /**
+     * Ligne {source} renvoyee pour OrderAdminController::orderSource (garde de
+     * visibilite PRE-3, 6.1) ; null = numero inconnu (traite comme non visible).
+     *
+     * @var array<string, mixed>|null
+     */
+    public ?array $orderSourceRow = null;
 
     /**
      * Lignes renvoyees par MenuRepository::all().
@@ -190,6 +258,22 @@ final class FakeDatabase implements DatabaseInterface
      * @var list<array<string, mixed>>
      */
     public array $movementsRows = [];
+
+    /**
+     * Catalogue des 14 allergenes INCO renvoye par AllergenRepository::all() (F11b) :
+     * alimente la matrice de cases du formulaire ingredient.
+     *
+     * @var list<array<string, mixed>>
+     */
+    public array $allergensRows = [];
+
+    /**
+     * Lignes {allergen_id} renvoyees par AllergenRepository::allergenIdsForIngredient()
+     * (F11b) : les cases deja cochees pour cet ingredient.
+     *
+     * @var list<array<string, mixed>>
+     */
+    public array $ingredientAllergenRows = [];
 
     /**
      * Lignes renvoyees par ProductRepository::composition() (JOIN product_ingredient/ingredient).
@@ -418,10 +502,40 @@ final class FakeDatabase implements DatabaseInterface
             return $this->userPinSet ? ['id' => 1] : null;
         }
 
+        // Re-verification d'identite au set de PIN (ProfileController) : lecture du
+        // password_hash du compte actif de session. is_active = 1 dans le predicat :
+        // retirer ce filtre en production ferait virer au rouge le test du compte inactif.
+        if (str_contains($sql, 'SELECT password_hash FROM user WHERE id') && str_contains($sql, 'is_active = 1')) {
+            return $this->currentPasswordRow;
+        }
+
         // Exige is_active = 1 (garde RG-T13) : retirer le predicat en production
         // ferait virer au rouge les tests de resolveActingUser.
         if (str_contains($sql, 'pin_hash FROM user WHERE email') && str_contains($sql, 'is_active = 1')) {
             return $this->actingUserRow;
+        }
+
+        // F12 : slug de categorie d'un produit (productCategorySlug), garde de categorie
+        // d'option de slot. Distinguee des routes 'FROM product WHERE id' par le JOIN
+        // category + la projection 'category_slug' ; null => option rejetee (hors
+        // categorie / id inconnu). Doit passer AVANT les routes produit generiques.
+        if (str_contains($sql, 'c.slug AS category_slug FROM product p JOIN category c')) {
+            return $this->productCategorySlug !== null ? ['category_slug' => $this->productCategorySlug] : null;
+        }
+
+        // ProductRepository::reorderWithinCategory() : lookup initial (categorie du
+        // produit a deplacer). Doit passer AVANT la route productIsBase juste en
+        // dessous : les deux requetes partagent le meme predicat de fin
+        // ('WHERE id = :id AND base_product_id IS NULL'), seule la colonne SELECT
+        // differe (category_id ici, id la-bas).
+        if (str_contains($sql, 'SELECT category_id FROM product WHERE id')) {
+            return $this->reorderProductRow;
+        }
+
+        // R4/F9-2 : predicat base-only (productIsBase). Doit passer AVANT la route
+        // generique 'FROM product WHERE id = :id' (productRow) qu'elle matche aussi.
+        if (str_contains($sql, 'FROM product WHERE id = :id') && str_contains($sql, 'base_product_id IS NULL')) {
+            return $this->productIsBase ? ['id' => 1] : null;
         }
 
         if (str_contains($sql, 'FROM product WHERE id = :id')) {
@@ -434,6 +548,14 @@ final class FakeDatabase implements DatabaseInterface
 
         if (str_contains($sql, 'FROM menu WHERE id = :id')) {
             return $this->menuRow;
+        }
+
+        // Garde de visibilite PRE-3 (6.1) : lecture ciblee de la seule colonne source
+        // par OrderAdminController::orderSource. Doit passer AVANT la route generique
+        // 'FROM customer_order WHERE order_number' (orderByNumberRow) qu'elle matche
+        // aussi. null = numero inconnu (l'appelant le traite comme non visible).
+        if (str_contains($sql, 'SELECT source FROM customer_order WHERE order_number')) {
+            return $this->orderSourceRow;
         }
 
         if (str_contains($sql, 'FROM customer_order WHERE order_number')) {
@@ -493,6 +615,29 @@ final class FakeDatabase implements DatabaseInterface
             return $this->categoriesRows;
         }
 
+        // F20 : bases groupees par categorie (basesByCategory). Desambigue par
+        // 'AS variant_count', alias propre a cette requete : elle alias la table
+        // (FROM product p) et ne joint pas category, donc ni la branche basesOnly
+        // ci-dessous ni la branche all() plus bas ne l'attrapent.
+        if (str_contains($sql, 'AS variant_count')) {
+            return $this->basesByCategoryRows;
+        }
+
+        // ProductRepository::reorderWithinCategory() : liste ORDONNEE des ids de la
+        // categorie deplacee (deuxieme lecture). Doit passer AVANT basesOnly()
+        // juste en dessous : cette derniere ne filtre pas par category_id, donc ne
+        // matcherait pas de toute facon, mais l'ordre explicite evite toute
+        // ambiguite si son SQL evolue un jour.
+        if (str_contains($sql, 'WHERE category_id = :cat AND base_product_id IS NULL')) {
+            return $this->reorderCategoryIdsRows;
+        }
+
+        // R4/F9-1 : liste base-only (basesOnly) pour les selects. Distincte de la
+        // liste admin enrichie (all(), 'FROM product p JOIN category').
+        if (str_contains($sql, 'FROM product WHERE base_product_id IS NULL')) {
+            return $this->baseProductsRows;
+        }
+
         if (str_contains($sql, 'FROM product p JOIN category')) {
             return $this->productsRows;
         }
@@ -525,6 +670,14 @@ final class FakeDatabase implements DatabaseInterface
 
         if (str_contains($sql, 'FROM role WHERE is_active = 1 ORDER BY label')) {
             return $this->rolesRows;
+        }
+
+        // F11b : catalogue des 14 et cases deja cochees pour un ingredient.
+        if (str_contains($sql, 'FROM ingredient_allergen WHERE ingredient_id = :id')) {
+            return $this->ingredientAllergenRows;
+        }
+        if (str_contains($sql, 'FROM allergen ORDER BY id')) {
+            return $this->allergensRows;
         }
 
         if (str_contains($sql, 'FROM stock_movement WHERE ingredient_id')) {

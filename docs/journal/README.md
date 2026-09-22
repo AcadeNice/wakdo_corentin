@@ -33,8 +33,13 @@ Les fichiers sont ordonnes chronologiquement par leur nom.
 | 2026-06-04 | [conception-prodlike-revision](2026-06-04--conception-prodlike-revision.md) | Revue d'alignement P1 + decisions prod-like du modele de donnees (drop commande_event, nommage EN, TVA par produit apres fact-check BOFiP, perso menus/ingredients, allergenes, ~16 entites) | `feat/p1-conception` |
 | 2026-06-15 | [p3-throttle-pin-rg-t22](2026-06-15--p3-throttle-pin-rg-t22.md) | P3 securite : throttle du PIN d'action sensible (RG-T22) — design multi-agents + verification adversariale, dimension "utilisateur agissant", entite 22 `pin_throttle` | `feat/p3-pin-throttle` -> `dev` |
 | 2026-06-16 | [audit-reel-livrables-p2-p3](2026-06-16--audit-reel-livrables-p2-p3.md) | Verification sur pieces des livrables du 2026-06-15 (sweep 10 dimensions + adversarial) : socle SbD confirme, miss confirmes par gravite (php.ini non deploye, CI sans tests DB, XSS kiosk, liens morts...) et remediations | `docs/journal-audit-2026-06-16` -> `dev` (PR #19/#20/#21) |
+| 2026-06-04 | [p1-merise-v0.2-rewrite-and-forgejo-migration](2026-06-04--p1-merise-v0.2-rewrite-and-forgejo-migration.md) | P1 Merise v0.2 (prod-like) reecrit + migration vers Forgejo auto-heberge | `feat/p1-conception` |
+| 2026-06-17 | [makefile-to-compose-migrate](2026-06-17--makefile-to-compose-migrate.md) | Du Makefile a `docker compose up` : service one-shot `wakdo-migrate` (migrate + seed idempotents) | `feat/compose-migrate` -> `dev` |
+| 2026-06-17 | [session-infra-doc-e2e](2026-06-17--session-infra-doc-e2e.md) | Session infra compose, documentation Forge, amorce des tests E2E Playwright | `dev` (PR #37/#38/#39 et suivantes) |
+| 2026-06-18 | [front-login-ui-admin-p4-commande](2026-06-18--front-login-ui-admin-p4-commande.md) | Page login, refonte UI admin (equipiers non-techniques), humanisation des libelles, amorce P4 commande (creation + encaissement) | `dev` (PR #48 a #58) |
+| 2026-06-25 | [audit-remediation-et-features-94-105](2026-06-25--audit-remediation-et-features-94-105.md) | Synthese #94-#105 : CD push-based vers Vision + preuve de version, modeles compose prod, SMTP reel reset (Brevo), durcissement borne (Maxi 50cl, rupture non commandable, panier persistant, confirm abandon, allergenes /api), POS tactile comptoir/drive, page Stock en tableau de bord | `dev`/`main` (PR #94 a #105) |
 
-*Mis a jour a chaque nouvelle entree.*
+*Mis a jour a chaque nouvelle entree. Les entrees sont ordonnees par leur nom de fichier (date) ; cet index les liste dans l'ordre de redaction.*
 
 ---
 

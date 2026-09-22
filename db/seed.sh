@@ -1,10 +1,18 @@
 #!/usr/bin/env bash
 #
-# Wakdo - seed runner.
+# Wakdo - seed runner (hote, via `docker exec`).
 #
 # Applique les fichiers db/seeds/*.sql dans l'ordre lexicographique, de maniere
-# idempotente : une table seed_history enregistre les fichiers deja charges.
+# idempotente : la table seeds_applied enregistre les fichiers deja charges.
 # Les seeds doivent etre joues APRES les migrations (les tables doivent exister).
+#
+# Contrepartie hote de db/migrate.sh : meme role que la phase seed du service de
+# boot wakdo-migrate (db/migrate-container.sh), mais lance manuellement depuis
+# l'hote. Le suivi DOIT utiliser la MEME table que le runner conteneur
+# (seeds_applied) pour que les deux interoperent : rejouer l'un apres l'autre ne
+# replaye RIEN. Auparavant ce script suivait une table distincte (seed_history),
+# ce qui lui faisait re-jouer des seeds deja charges par wakdo-migrate (INSERT
+# bruts -> echec sur contrainte UNIQUE).
 #
 # Cible : le service docker-compose `wakdo-db`. Identifiants lus dans .env.
 #
@@ -34,7 +42,9 @@ if [ ! -d "$SEEDS_DIR" ]; then
   exit 0
 fi
 
-db "$DB_NAME" -e "CREATE TABLE IF NOT EXISTS seed_history (
+# Meme schema de suivi que db/migrate-container.sh (seeds_applied) : nom de table
+# et colonnes identiques, pour que les deux runners partagent le meme journal.
+db "$DB_NAME" -e "CREATE TABLE IF NOT EXISTS seeds_applied (
   filename   VARCHAR(255) NOT NULL PRIMARY KEY,
   applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;"
@@ -47,7 +57,7 @@ if [ "${1:-}" = "--status" ]; then
   echo "[seed] etat des seeds (base $DB_NAME) :"
   for f in "${files[@]}"; do
     base="$(basename "$f")"
-    n="$(db "$DB_NAME" -N -s -e "SELECT COUNT(*) FROM seed_history WHERE filename='$base';")"
+    n="$(db "$DB_NAME" -N -s -e "SELECT COUNT(*) FROM seeds_applied WHERE filename='$base';")"
     [ "$n" = "0" ] && echo "  PENDING  $base" || echo "  loaded   $base"
   done
   exit 0
@@ -56,11 +66,11 @@ fi
 loaded=0
 for f in "${files[@]}"; do
   base="$(basename "$f")"
-  n="$(db "$DB_NAME" -N -s -e "SELECT COUNT(*) FROM seed_history WHERE filename='$base';")"
+  n="$(db "$DB_NAME" -N -s -e "SELECT COUNT(*) FROM seeds_applied WHERE filename='$base';")"
   if [ "$n" = "0" ]; then
     echo "[seed] chargement de $base ..."
     db "$DB_NAME" < "$f"
-    db "$DB_NAME" -e "INSERT INTO seed_history (filename) VALUES ('$base');"
+    db "$DB_NAME" -e "INSERT INTO seeds_applied (filename) VALUES ('$base');"
     loaded=$((loaded + 1))
   else
     echo "[seed] $base deja charge, ignore"

@@ -23,15 +23,33 @@ final class UserDirectoryTest extends TestCase
     public function testDisplayInfoReturnsNameAndRoleLabel(): void
     {
         $this->db->userDisplayRow = [
-            'first_name' => 'Corentin',
-            'last_name'  => 'J',
-            'email'      => 'corentin@wakdo.local',
-            'role_label' => 'Administrateur',
+            'first_name'   => 'Corentin',
+            'last_name'    => 'J',
+            'email'        => 'corentin@wakdo.local',
+            'role_label'   => 'Administrateur',
+            'order_source' => null,
         ];
 
         self::assertSame(
-            ['name' => 'Corentin J', 'role_label' => 'Administrateur', 'email' => 'corentin@wakdo.local'],
+            ['name' => 'Corentin J', 'role_label' => 'Administrateur', 'email' => 'corentin@wakdo.local', 'order_source' => ''],
             (new UserDirectory($this->db))->displayInfo(7),
+        );
+    }
+
+    public function testDisplayInfoExposesOrderSourceForChannelRoles(): void
+    {
+        // order_source remonte du role : sert au layout a router "Saisie commande".
+        $this->db->userDisplayRow = [
+            'first_name'   => 'Dana',
+            'last_name'    => 'D',
+            'email'        => 'dana@wakdo.local',
+            'role_label'   => 'Drive Staff',
+            'order_source' => 'drive',
+        ];
+
+        self::assertSame(
+            ['name' => 'Dana D', 'role_label' => 'Drive Staff', 'email' => 'dana@wakdo.local', 'order_source' => 'drive'],
+            (new UserDirectory($this->db))->displayInfo(8),
         );
     }
 
@@ -40,7 +58,7 @@ final class UserDirectoryTest extends TestCase
         $this->db->userDisplayRow = null;
 
         self::assertSame(
-            ['name' => 'Utilisateur', 'role_label' => '', 'email' => ''],
+            ['name' => 'Utilisateur', 'role_label' => '', 'email' => '', 'order_source' => ''],
             (new UserDirectory($this->db))->displayInfo(999),
         );
     }

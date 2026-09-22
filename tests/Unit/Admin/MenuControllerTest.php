@@ -175,6 +175,65 @@ final class MenuControllerTest extends TestCase
         self::assertSame('Menu cree.', $this->session->get('_flash'));
     }
 
+    public function testStoreRejectsVariantAsBurger(): void
+    {
+        // F9-2 : garde serveur. Le burger principal est une VARIANTE de taille
+        // (productIsBase=false) -> 422 meme si l'UI base-only est contournee.
+        $db = $this->permittedDb();
+        $db->productIsBase = false; // l'id burger designe une variante
+
+        $response = $this->controller($this->post($this->validForm(), '/admin/menus'), $db)->store();
+
+        self::assertSame(422, $response->status());
+        self::assertFalse($db->wrote('INSERT INTO menu'));
+        self::assertStringContainsString('produit de base', $response->body());
+    }
+
+    public function testStoreRejectsVariantAsSlotOption(): void
+    {
+        // F9-2 : une variante de taille proposee comme OPTION de slot -> 422.
+        // productExists=true (la ligne existe) mais productIsBase=false.
+        $db = $this->permittedDb();
+        $db->productIsBase = false;
+
+        $response = $this->controller($this->post($this->validForm(), '/admin/menus'), $db)->store();
+
+        self::assertSame(422, $response->status());
+        self::assertFalse($db->wrote('INSERT INTO menu'));
+    }
+
+    public function testStoreRejectsOptionOutOfCategoryForSlotType(): void
+    {
+        // F12 : garde serveur de categorie. Un slot 'drink' n'autorise que la categorie
+        // 'boissons' ; une option en categorie 'burgers' (UI de filtrage contournee) est
+        // rejetee (422), meme si elle existe et est une base. Defense en profondeur
+        // par-dessus la garde base-only (RG-T18).
+        $db = $this->permittedDb();
+        $db->productIsBase = true;            // l'option est bien une base
+        $db->productCategorySlug = 'burgers'; // ... mais hors categorie pour un slot drink
+
+        $response = $this->controller($this->post($this->validForm(), '/admin/menus'), $db)->store();
+
+        self::assertSame(422, $response->status());
+        self::assertFalse($db->wrote('INSERT INTO menu'));
+        self::assertStringContainsString('categorie compatible', $response->body());
+    }
+
+    public function testStoreAcceptsOptionInAllowedCategory(): void
+    {
+        // F12 : symetrique du rejet. Une option en categorie autorisee pour le slot_type
+        // (slot 'drink' + categorie 'boissons') passe la garde et le menu est cree.
+        $db = $this->permittedDb();
+        $db->productIsBase = true;
+        $db->productCategorySlug = 'boissons'; // categorie compatible avec un slot 'drink'
+
+        $response = $this->controller($this->post($this->validForm(), '/admin/menus'), $db)->store();
+
+        self::assertSame(302, $response->status());
+        self::assertTrue($db->wrote('INSERT INTO menu'));
+        self::assertTrue($db->wrote('INSERT INTO menu_slot_option'));
+    }
+
     public function testStoreRejectsWithoutSlots(): void
     {
         $db = $this->permittedDb();

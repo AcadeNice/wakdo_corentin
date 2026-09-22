@@ -115,7 +115,7 @@ Ces regles s'appliquent a plusieurs operations et sont centralisees ici pour evi
 | **[PRE-3]** | Le corps JSON du POST est valide (validation de schema a la couche API) |
 | **[RG-1]** | Verification de disponibilite cote serveur : pour chaque article, verifier `product.is_available = 1` ou `menu.is_available = 1`. Si un article est indisponible, rejeter avec la liste des articles indisponibles. |
 | **[RG-2 — service_day]** | Le `service_day` d'une commande donnee est calcule a l'execution de la requete comme : `CASE WHEN HOUR(created_at) < 10 THEN DATE(created_at) - INTERVAL 1 DAY ELSE DATE(created_at) END`. La coupure est a 10:00. Ce n'est PAS stocke comme colonne — calcule uniquement a l'execution de la requete. La formule v0.1 avec `INTERVAL 4 HOUR 30 MINUTE` etait incorrecte et est abandonnee. |
-| **[RG-3 — order number]** | Format du numero de commande : `K-YYYY-MM-DD-NNN` ou NNN est le compteur sequentiel pour le service_day courant pour la source `kiosk` (SELECT COUNT + 1 avec un verrou au niveau table ou un insert serialise pour eviter une generation en double sous concurrence). La source est `kiosk` (definie par l'endpoint kiosk, derivee du point d'entree public). |
+| **[RG-3 — order number]** | Format du numero de commande : prefixe canal + id auto-incremente, soit `K<id>` pour la source `kiosk` (ex. `K42`). Genere en deux temps dans la transaction : INSERT avec `order_number` provisoire vide, puis UPDATE `prefix . LAST_INSERT_ID()`. Pas de compteur par service_day (voir dictionnaire note 4). La source est `kiosk` (derivee de l'endpoint public). Le numero provisoire vide partage avant l'UPDATE reste une surface de robustesse a durcir sous forte concurrence (suivi au backlog). |
 | **[RG-4 — VAT by line]** | Pour chaque `order_item` : `vat_rate_snapshot` est copie depuis `product.vat_rate`. Montants de ligne : `unit_ttc = unit_price_cents_snapshot` ; `unit_ht = ROUND(unit_ttc * 1000 / (1000 + vat_rate_snapshot))` ; `unit_vat = unit_ttc - unit_ht`. Totaux de commande : `total_ttc_cents = SUM(unit_ttc * quantity)` sur toutes les lignes ; `total_ht_cents = SUM(unit_ht * quantity)` ; `total_vat_cents = total_ttc_cents - total_ht_cents`. Invariant : `total_ttc_cents = total_ht_cents + total_vat_cents` (verifie avant l'INSERT). |
 | **[RG-5 — atomic transaction]** | Toutes les ecritures dans une seule transaction de base de donnees : (1) INSERT `customer_order` (status `pending_payment`, source `kiosk`, service_mode depuis le panier, totaux calcules) ; (2) INSERT des lignes `order_item` (label_snapshot, unit_price_cents_snapshot, vat_rate_snapshot, quantity, format, item_type, product_id ou menu_id) ; (3) INSERT des lignes `order_item_selection` pour chaque slot rempli dans un article menu (order_item_id, menu_slot_id, product_id, label_snapshot) ; (4) INSERT des lignes `order_item_modifier` pour chaque modification d'ingredient (order_item_id, ingredient_id, action, extra_price_cents snapshot) ; (5) pour chaque ingredient consomme : calculer units = `(order_item.format = 'maxi' ? product_ingredient.quantity_maxi : product_ingredient.quantity_normal) * order_item.quantity`, ajuste par les modificateurs (remove => pas de decrement pour cet ingredient ; add => decrement supplementaire) ; appliquer le decrement atomique `UPDATE ingredient SET stock_quantity = stock_quantity - :units WHERE id = :id` (instruction unique auto-verrouillante, sans lecture-gate prealable, RG-T20) ; `stock_quantity` est signe et peut devenir negatif (ampleur de survente, remontee aux managers) — le decrement ne se conditionne pas a un plancher ; INSERT `stock_movement` (type `sale`, delta = -units, order_id, user_id = NULL pour le kiosk) ; (6) UPDATE `customer_order` SET status = `paid`, `paid_at = NOW()`. Les six etapes committent ensemble ou sont entierement annulees. |
 | **[RG-6 — cross-constraint]** | La source `kiosk` n'implique aucune contrainte particuliere de service_mode ; le client selectionne `dine_in` ou `takeaway`. La contrainte croisee drive (RG-T09) ne s'applique pas aux commandes provenant du kiosk. |
@@ -123,15 +123,53 @@ Ces regles s'appliquent a plusieurs operations et sont centralisees ici pour evi
 | **[RG-8 — idempotency]** | Le corps porte un `idempotency_key` client (UUID). Avant toute ecriture, `SELECT id, order_number, status FROM customer_order WHERE idempotency_key = :key`. Si trouve, sauter la creation et retourner cette commande (deduplique un retry rejoue — RG-T19). La cle est stockee sur la nouvelle ligne `customer_order`. |
 | **[RG-9 — server-side modificateur re-validation]** | Les modificateurs d'ingredient dans le corps sont re-valides cote serveur contre `product_ingredient` : un `action='remove'` requiert `is_removable=1` ; un `action='add'` requiert `is_addable=1` et snapshote le `extra_price_cents` courant. Les verifications cote client (3.2 RG-4) ne sont pas dignes de confiance ; un POST forge ajoutant un ingredient non addable est rejete (HTTP 422). |
 | **[RG-10 — atomic stock decrement]** | Aucune operation ne se conditionne a une lecture de stock, donc le decrement est une instruction atomique unique `UPDATE ingredient SET stock_quantity = stock_quantity - :units WHERE id = :id` (RG-T20). La ligne s'auto-verrouille pour la duree de la mise a jour, donc les commandes kiosk concurrentes sur le meme ingredient appliquent leurs deltas sans perte de mise a jour et sans souci d'ordonnancement de deadlock ; `stock_quantity` est signe et peut devenir negatif (ampleur de survente remontee aux managers). |
-| **[POST-1]** | Une ligne `customer_order` existe avec `status = 'paid'`, `source = 'kiosk'`, tous les totaux calcules, `paid_at` defini, `idempotency_key` stocke. La phase `pending_payment` n'est pas observable hors de la transaction. |
+| **[POST-1]** | Une ligne `customer_order` existe avec `source = 'kiosk'`, tous les totaux calcules et `idempotency_key` stocke. **Correction 2026-07-31** : la creation et l'encaissement sont DEUX appels HTTP distincts, donc la creation committe au statut `pending_payment` et cette phase EST observable — c'est ce qui rend possible une commande abandonnee, nettoyee par 13.6. L'encaissement pose ensuite `paid_at`, `preparing_at` et le statut `preparing` (voir section 14). |
 | **[POST-2]** | N lignes `order_item` existent, chacune referencant soit un `product_id` (item_type='product') soit un `menu_id` (item_type='menu') — contrainte d'exclusivite verifiee. |
 | **[POST-3]** | `customer_order.order_number` est unique dans la base (contrainte UNIQUE). |
 | **[POST-4]** | `ingredient.stock_quantity` decremente pour chaque unite d'ingredient consommee ; une ligne `stock_movement` de type `sale` par ingredient affecte. |
-| **[OUT-1]** | HTTP 201 : `{data: {id: int, order_number: string, status: 'paid'}}` |
+| **[OUT-1]** | HTTP 201 a la creation : `{data: {id, order_number, status: 'pending_payment'}}` ; l'encaissement est un second appel qui rend le statut `preparing`. |
 | **[OUT-2]** | Evenement logique ORDER_CREATED disponible pour le domaine de preparation (l'affichage de preparation se rafraichit via polling ou push serveur selon l'implementation) |
 | **[ERR-1]** | Panier vide : HTTP 422, `{error: {code: "EMPTY_CART"}}` |
 | **[ERR-2]** | Article indisponible : HTTP 422, `{error: {code: "ITEM_UNAVAILABLE", items: [...]}}` |
 | **[ERR-3]** | Erreur DB / timeout : HTTP 500 avec rollback, `{error: {code: "DB_ERROR"}}` |
+
+---
+
+### 3.3bis MODIFY_PENDING_ORDER (F18)
+
+**Ajout du 2026-07-31. Pas dans le MCT d'origine : cette operation est apparue en
+livrant, en constatant ce que la borne faisait reellement.**
+
+**Le probleme.** Le flux borne fait deux appels HTTP (creation puis encaissement).
+Entre les deux, le client peut revenir sur son panier, le modifier, et repartir payer.
+La cle d'idempotence renvoyait alors la commande existante **en ignorant les lignes
+envoyees** — donc l'ancien panier aurait ete facture. La borne contournait en changeant
+de cle a chaque entree sur l'ecran de paiement : une SECONDE commande etait creee et la
+premiere restait en attente jusqu'au balayage de 2h (3.5). Le client obtenait bien ce
+qu'il voulait, mais chaque hesitation brulait un numero de commande et salissait le
+tableau de bord.
+
+| Marqueur | Contenu |
+|-----|---------|
+| **[TRIGGER]** | `POST /api/orders` avec une `idempotency_key` DEJA connue, portant une commande au statut `pending_payment` |
+| **[PRE-1]** | La commande visee existe (sinon `ORDER_NOT_FOUND`, 404) |
+| **[PRE-2]** | Elle est encore `pending_payment`. Une commande encaissee ou annulee n'est PAS modifiable -> `INVALID_TRANSITION` (409) |
+| **[RG-1]** | Le panier envoye est resolu et VALORISE SERVEUR par le meme chemin que la creation (`resolveAndTotal`) : prix, TVA par ligne et snapshots identiques. Une commande modifiee ne peut donc pas etre facturee autrement que la meme commande creee d'un coup (RG-T16). |
+| **[RG-2]** | La garde de rupture RG-T21 s'applique aussi a la modification : un article tombe en rupture depuis la creation ne peut pas etre reconduit -> `PRODUCT_UNAVAILABLE` / `MENU_UNAVAILABLE`. |
+| **[RG-3]** | Panier vide refuse (`EMPTY_ORDER`) : vider une commande la rendrait payable a 0 EUR. La validation precede la transaction, donc rien n'est ecrit. |
+| **[RG-4]** | Remplacement EN BLOC : `DELETE FROM order_item WHERE order_id`, puis reinsertion. Les selections de slot et les modificateurs d'ingredient partent en CASCADE. Purger par `order_id` (et non ligne a ligne) garantit qu'aucun enfant ne survit. |
+| **[RG-5]** | **Aucun effet de stock.** Une commande en attente n'a rien consomme : ni debit, ni re-credit. Le stock ne bouge qu'a l'encaissement (RG-T20) et a l'annulation d'une commande encaissee. Verrouille par test unitaire et par test d'integration sur base reelle. |
+| **[RG-6]** | Le numero de commande, la cle d'idempotence, le statut et `created_at` ne sont PAS reecrits : le numero est deja affiche au client, la cle porte le lien avec sa session de paiement. |
+| **[RG-6bis]** | L'EN-TETE de service (`service_mode`, `service_tag`) EST rafraichi, dans la meme transaction que les lignes, avec la validation de la creation (`resolveHeader`) et RG-T09. Sans cela, un client passant de « sur place » a « a emporter » entre deux passages serait encaisse sur l'ancien mode : c'est le marqueur traite comme la distinction fiscale (TVA salle contre vente a emporter) qui serait faux sur une commande PAYEE, et un plateau partirait vers une table vide. Le chevalet n'est conserve qu'en `dine_in`. |
+| **[RG-7]** | **Serialisation avec l'encaissement** : les deux operations verrouillent la ligne `customer_order` (`SELECT ... FOR UPDATE`) au debut de leur transaction. Seul endroit du projet qui prend un verrou explicite ; raisonnement et mesures : [ADR-0016](../adr/0016-modification-commande-avant-paiement.md). |
+| **[RG-8]** | Cle connue portant une commande **annulee ou expiree** -> `ORDER_CANCELLED` (409). La colonne `idempotency_key` etant UNIQUE, la cle est definitivement consommee : sans ce signal le client serait bloque (commande impayable, cle interdisant d'en creer une autre). La borne repart d'une cle neuve, UNE seule fois. |
+| **[POST-1]** | `order_item` (+ enfants) remplaces ; `customer_order.total_ht_cents` / `total_vat_cents` / `total_ttc_cents` / `updated_at` mis a jour. Statut inchange. |
+| **[POST-2]** | Aucune ligne `stock_movement`, aucune ecriture sur `ingredient`. |
+| **[OUT-1]** | HTTP 201 avec le MEME `order_number` et le total recalcule. Aucune seconde commande n'est creee. |
+
+**Consequence sur l'encaissement.** `pay()` relit son total SOUS LE VERROU au lieu de
+la valeur lue avant la transaction : depuis F18 une commande en attente est modifiable,
+et facturer un total perime serait un ecart entre le montant annonce et le contenu reel.
 
 ---
 
@@ -163,7 +201,7 @@ Ces regles s'appliquent a plusieurs operations et sont centralisees ici pour evi
 | **[PRE-3]** | Le panier contient au moins 1 article |
 | **[RG-1]** | Logique de creation identique a CREATE_ORDER (RG-1 a RG-7 s'appliquent), avec les differences suivantes : `source` est auto-tagguee depuis `role.order_source` (role comptoir -> `counter`, role drive -> `drive`) ; `service_mode` est selectionne par le membre du personnel (`dine_in` / `takeaway` / `drive`) ; `user_id` est defini a l'id de l'utilisateur authentifie dans les lignes `stock_movement` (au lieu de NULL pour le kiosk). |
 | **[RG-2 — cross-constraint]** | Si `source = 'drive'` alors `service_mode` doit etre `'drive'` (RG-T09) ; verifie avant l'INSERT. HTTP 422 si viole. |
-| **[RG-3 — order number]** | Format : `C-YYYY-MM-DD-NNN` pour la source comptoir ; `D-YYYY-MM-DD-NNN` pour la source drive. Le compteur sequentiel NNN est par source par service_day. |
+| **[RG-3 — order number]** | Format : prefixe canal + id auto-incremente, soit `C<id>` (comptoir) ou `D<id>` (drive). Meme generation en deux temps que CREATE_ORDER RG-3. Pas de compteur par service_day (voir dictionnaire note 4). |
 | **[RG-4 — stock]** | Meme logique de decrement de stock que CREATE_ORDER RG-5 ; `stock_movement.user_id` est defini a l'id du membre du personnel authentifie. |
 | **[RG-5 — staff attribution + decrement]** | `customer_order.acting_user_id` est defini a l'id du membre du personnel authentifie (imputabilite ciblee sur les commandes comptoir/drive ; les commandes kiosk restent NULL). La re-validation des modificateurs cote serveur (3.3 RG-9), l'idempotence (RG-T19) et le decrement de stock atomique (RG-T20) s'appliquent a l'identique. Aucun PIN n'est requis pour creer une commande (la permission `order.create` suffit) ; la creation de commande n'est pas dans l'ensemble des actions sensibles. |
 | **[POST-1]** | Une ligne `customer_order` avec `status = 'paid'`, `source = 'counter'` ou `'drive'`, `paid_at` defini, `acting_user_id` defini. |
@@ -379,9 +417,22 @@ Ces regles s'appliquent a plusieurs operations et sont centralisees ici pour evi
 | **[RG-UPDATE-ING]** | UPDATE `name`, `unit`, `pack_size`, `pack_label`, `stock_capacity`, `low_stock_pct`, `critical_stock_pct`, `is_active` |
 | **[RG-DEACTIVATE-ING]** | `is_active=0` masque l'ingredient du configurateur. Suppression physique bloquee si reference dans `product_ingredient` (FK `ON DELETE RESTRICT`) ou `stock_movement` (FK `ON DELETE RESTRICT`). |
 | **[RG-COMPOSITION]** | UPDATE `product_ingredient` : pour chaque ingredient de la recette d'un produit, definir `quantity_normal`, `quantity_maxi`, `is_removable`, `is_addable`, `extra_price_cents`. Pattern delete-and-reinsert en transaction. |
-| **[RG-ALLERGEN]** | Gerer `ingredient_allergen` : INSERT ou DELETE des paires `(ingredient_id, allergen_id)`. La liste des allergenes est en lecture seule (14 lignes fixees par le reglement UE 1169/2011). |
-| **[POST-1]** | Lignes `ingredient` / `product_ingredient` / `ingredient_allergen` mises a jour |
+| **[RG-ALLERGEN]** | Gerer `ingredient_allergen` : l'ensemble des paires `(ingredient_id, allergen_id)` d'un ingredient est REMPLACE en bloc (delete-and-reinsert en transaction, comme RG-COMPOSITION). Les ids soumis sont valides contre le catalogue des 14 avant ecriture (RG-T18) ; la FK RESTRICT sur `allergen_id` est le filet, pas le controle. La liste des allergenes reste en lecture seule (14 lignes fixees par le reglement UE 1169/2011). |
+| **[RG-ALLERGEN-SOURCE]** | La provenance de la revue est **obligatoire** : champ vide -> re-affichage 422, aucune ecriture. Une revue dont on ne peut pas dire d'ou elle vient n'est pas verifiable, et l'information est montree au client. Tronquee a 120 caracteres (colonne) plutot que refusee : perdre la fin d'un libelle est moins grave que perdre la revue. |
+| **[RG-ALLERGEN-REVIEW]** | La meme transaction pose `ingredient.allergens_reviewed_at = NOW()` et `allergens_source`. C'est CE marquage qui rend la liste affirmable cote borne : un ensemble vide AVEC la date declare "verifie, aucun des 14" ; sans la date, la borne dit "information non disponible". Ne rien cocher est donc une declaration, pas un non-geste. |
+| **[RG-ALLERGEN-AUDIT]** | Une ligne `audit_log` (`action_code = 'ingredient.allergens'`, `entity_type = 'ingredient'`) est ecrite dans la MEME transaction, avec l'acteur de SESSION et un resume nommant les allergenes retenus. Exception assumee a RG-T14 : les autres ecritures d'ingredient (creation, modification, import nutritionnel) ne tracent pas, celle-ci si, parce qu'elle change une information de securite alimentaire montree au client. Les colonnes disent QUAND et D'OU, l'audit dit QUI. |
+| **[RG-ALLERGEN-NO-STOCK]** | La revue n'ecrit NI `ingredient.stock_quantity` NI `stock_movement`. Declarer un allergene est une information, pas un mouvement de marchandise. Verrouille par test unitaire et par test d'integration sur base reelle (comparaison des quantites et du nombre de mouvements avant/apres). |
+| **[POST-1]** | Lignes `ingredient` / `product_ingredient` / `ingredient_allergen` mises a jour ; pour une revue d'allergenes, `allergens_reviewed_at` + `allergens_source` poses et une ligne `audit_log` ajoutee |
 | **[OUT-1]** | Confirmation, redirection vers la liste des ingredients ou le formulaire de composition de produit |
+
+**Derivation consommee par la borne.** Les allergenes d'un PRODUIT ne sont pas ressaisis :
+ils sont calcules par jointure `product_ingredient` -> `ingredient_allergen` -> `allergen`,
+dedupliques en SQL (deux ingredients d'un meme produit peuvent porter le meme allergene).
+Un produit est dit **complet** quand aucun ingredient de sa recette n'a
+`allergens_reviewed_at` a NULL. La liste couvre l'integralite des lignes de recette, y
+compris les ingredients retirables et les extras ajoutables : elle est donc un
+sur-ensemble de toute configuration client, et l'ecart penche du cote de la prudence.
+Voir [ADR-0015](../adr/0015-allergenes-calcules-par-produit.md) et `dictionary.md` note 15.
 
 ---
 
@@ -664,29 +715,62 @@ La meme purge s'applique a `pin_throttle` (RG-T22), avec le meme predicat et le 
 seuil `THROTTLE_PURGE_AFTER_HOURS` :
 `DELETE FROM pin_throttle WHERE (lockout_until IS NULL OR lockout_until < NOW()) AND last_attempt_at < NOW() - INTERVAL 24 HOUR`.
 
+### 13.6 Expiration des commandes jamais encaissees (cron 02h00)
+
+| Marqueur | Contenu |
+|-----|---------|
+| **[TRIGGER]** | Cron : `0 2 * * *`. Place apres la fermeture du service client (01h00) et AVANT le dump de 03h00, pour que la sauvegarde de la nuit contienne l'etat nettoye. |
+| **[RG-1]** | Selection : `SELECT id, order_number, source, created_at FROM customer_order WHERE status = 'pending_payment' AND GREATEST(created_at, updated_at) < NOW() - INTERVAL :m MINUTE ORDER BY id ASC LIMIT :n`, avec `:m` = `ORDER_PENDING_EXPIRY_MINUTES` (defaut 60) borne a [1, 1440] et `:n` borne a [1, 2000]. Les deux valeurs sont interpolees en entier : `INTERVAL` et `LIMIT` n'acceptent pas de parametre lie en prepare native. |
+| **[RG-1bis]** | Le predicat porte sur la DERNIERE ACTIVITE (revise avec F18). Depuis qu'une commande en attente est modifiable (3.3bis), un predicat sur `created_at` seul aurait balaye une commande creee il y a trois heures mais **modifiee a l'instant** : elle serait morte sous le client juste apres que le serveur lui a confirme sa modification, et l'audit aurait affirme une expiration « restee en attente » sur une commande fraichement touchee. Deux tests d'integration gardent les deux sens : une commande ancienne mais touchee est epargnee, une commande dont rien n'a bouge part bien. |
+| **[RG-2]** | Une transaction PAR commande, pas une pour tout le lot : une ligne empoisonnee ne fait pas perdre le balayage et chaque verrou reste court. |
+| **[RG-3]** | Protection de concurrence : `UPDATE customer_order SET status = 'cancelled', cancelled_at = NOW(), updated_at = NOW() WHERE id = :id AND status = 'pending_payment'`. Si un encaissement a gagne la course, 0 ligne affectee -> la commande est comptee ignoree et AUCUNE trace n'est ecrite (une trace affirmerait une expiration qui n'a pas eu lieu). |
+| **[RG-4]** | **Aucun effet de stock.** Le debit vit dans la seule transaction de l'encaissement : une commande en attente n'a rien consomme, donc rien a re-crediter. C'est un invariant, pas un choix d'implementation — l'operation ne contient aucune ecriture sur `ingredient` ni `stock_movement`, et deux tests le verrouillent (unitaire + integration sur base reelle). Garde de coherence supplementaire : si la commande portait un mouvement `sale` (cas theoriquement impossible), elle est ignoree. |
+| **[RG-5]** | Trace : `INSERT INTO audit_log (actor_user_id, actor_role_id, action_code, entity_type, entity_id, summary)` avec acteur **NULL** (systeme : personne n'a annule, la machine a nettoye), `action_code = 'order.expire'`, `entity_type = 'customer_order'`, resume borne a 255 caracteres. C'est cette trace qui distingue une expiration d'une annulation humaine (`order.cancel`). |
+| **[RG-6]** | La commande garde sa cle d'idempotence, son numero et ses lignes : on ferme, on ne detruit pas. Un essai tardif avec la meme cle retombe sur une commande annulee et l'encaissement repond en conflit ; le client repart d'une commande neuve. |
+| **[POST-1]** | Les commandes en attente au-dela du delai sont au statut `cancelled` avec `cancelled_at` horodate, une trace `order.expire` chacune, et un stock inchange. |
+| **[POST-2]** | Idempotent : un second passage immediat ne trouve plus de candidate (statut terminal). |
+| **[OUT-1]** | Compte-rendu sur la sortie d'erreur du conteneur : `delai=Nmin examinees=N expirees=N ignorees=N [numeros]`. Code de sortie non nul en cas d'echec, pour que le planificateur le signale. |
+
+Mise en oeuvre : `OrderRepository::expireStalePending()` appele par `src/bin/order-expire.php`.
+Le balayage est du code metier et non du SQL dans un script : c'est une transition de la
+machine a etats, et les cinq autres vivent dans le meme depot. Voir
+`docs/adr/0014-expiration-commandes-pending.md`.
+
+---
+
 ---
 
 ## 14. Machine a etats — recapitulatif de coherence (MLT)
 
-Recapitulatif des transitions de `customer_order.status` couvertes dans le MLT, avec les operations
-correspondantes, la condition SQL, la protection de concurrence et le timestamp de phase defini.
+> **Realigne le 2026-07-31 sur le code livre.** La version precedente de cette section
+> decrivait 4 transitions et declarait `preparing` / `ready` abandonnes. La migration
+> `0009_order_prep_states.sql` les a rendus reels et le retour d'oral du 2026-06-29 a fait
+> du passage en preparation la consequence directe de l'encaissement. Le document de
+> reference de la machine a etats est `docs/uml/state-commande.md` (v0.3), ancre methode
+> par methode.
 
-| Transition | Operation MLT | Condition SQL | Protection concurrence | Timestamp de phase pose |
-|------------|--------------|---------------|------------------------|---------------------|
-| `-> pending_payment` (creation) | CREATE_ORDER (3.3), CREATE_COUNTER_ORDER (4.1) | INSERT avec statut `pending_payment` | Transaction atomique | `created_at` |
-| `pending_payment -> paid` | CREATE_ORDER (3.3), CREATE_COUNTER_ORDER (4.1) | UPDATE dans la meme transaction | Transaction atomique | `paid_at` |
-| `paid -> delivered` | DELIVER_ORDER (6.1) | `WHERE status = 'paid'` | status dans le WHERE (clause AND) | `delivered_at` |
-| `pending_payment/paid -> cancelled` | CANCEL_ORDER (7.1) | `WHERE status IN ('pending_payment', 'paid')` | status dans le WHERE (clause AND) | `cancelled_at` |
+| Transition | Operation | Condition SQL | Protection concurrence | Horodatage pose |
+|------------|-----------|---------------|------------------------|-----------------|
+| `-> pending_payment` (creation) | CREATE_ORDER (3.3), CREATE_COUNTER_ORDER (4.1) | INSERT avec statut `pending_payment` | Transaction propre, **committee** : l'etat est observable entre deux appels HTTP | `created_at` |
+| `pending_payment -> preparing` | PAY_ORDER | `WHERE id = :id AND status = 'pending_payment'` | status dans le WHERE ; 0 ligne affectee et etat deja encaisse -> sortie idempotente | `paid_at` **et** `preparing_at` |
+| `paid`/`preparing` `-> ready` | MARK_READY | `WHERE status IN ('paid','preparing')` | status dans le WHERE | `ready_at` |
+| `paid`/`preparing`/`ready` `-> delivered` | DELIVER_ORDER (6.1) | `WHERE status IN ('paid','preparing','ready')` | status dans le WHERE | `delivered_at` |
+| `pending_payment`/`paid`/`preparing`/`ready` `-> cancelled` | CANCEL_ORDER (7.1) | `WHERE status IN (...)` | status dans le WHERE | `cancelled_at` |
+| `pending_payment -> cancelled` (expiration) | EXPIRE_STALE_PENDING (13.6) | `WHERE id = :id AND status = 'pending_payment'` | status dans le WHERE ; 0 ligne affectee -> ignoree sans trace | `cancelled_at` |
 
-Statuts terminaux (aucune transition ulterieure definie depuis ces etats) : `delivered`, `cancelled`.
+Statuts terminaux : `delivered`, `cancelled`.
 
-**Abandonnes depuis v0.1** :
-- Transitions `paid -> preparing` et `preparing -> ready` — etats intermediaires retires.
-- MARQUER_EN_PREPARATION (section 4.2 du MLT v0.1) — abandonnee.
-- MARQUER_PRETE (section 4.3 du MLT v0.1) — abandonnee.
-- `preparing` et `ready` dans l'ensemble des etats annulables — l'ensemble annulable est desormais
-  `['pending_payment', 'paid']` uniquement.
-- Table `commande_event` et RG-T10 v0.1 — remplacees par les timestamps de phase sur `customer_order`.
+**Le stock ne bouge qu'a deux transitions** : l'encaissement debite (`stock_movement` type
+`sale`), l'annulation re-credite (type `cancellation`) **si et seulement si** des mouvements
+`sale` existent pour cette commande. L'expiration n'ecrit rien sur le stock.
+
+**Statut `paid` : historique.** Aucun chemin de code ne l'ecrit plus depuis que
+l'encaissement met directement en preparation. Il subsiste dans l'enumeration et dans les
+gardes `IN (...)` pour les commandes creees avant ce changement (11 lignes en base de
+demonstration au 2026-07-31). Le retirer casserait ces lignes sans gain.
+
+**Ecart resorbe le 2026-09-22** : `dictionary.md` 3.10, `mld.md`, `mcd.md` et `mct.md`
+decrivent desormais la meme machine que cette section. La dette est soldee.
 
 ---
 

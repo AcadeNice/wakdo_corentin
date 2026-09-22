@@ -82,7 +82,7 @@ Detail et justifications : `docs/PROJECT_CONTEXT.md` section 6.
                                 v
                         wakdo-db   (MariaDB 11.4)
 
-                  wakdo-cron       (backup BDD + purge audit-log + purge throttle)
+                  wakdo-cron       (backup BDD + purge audit-log + purge throttle + expiration commandes en attente)
 ```
 
 Reseaux, volumes, services et decoupage reseau interne / reseau proxy : voir `docs/PROJECT_CONTEXT.md` section 5.
@@ -201,7 +201,7 @@ La CI Forgejo execute secret-scan, php-lint, static-tests (PHPStan niveau 6 + PH
 
 ## Deploiement
 
-*CI Forgejo Actions sur PR vers `dev`/`main` (secret-scan gitleaks, php-lint, static-tests PHPStan + PHPUnit, js-tests), avec auto-merge sur CI verte. Deploiement a declenchement humain via `scripts/deploy.sh` (recupere `main` depuis Forgejo puis `docker compose build --pull && up -d` ; les images sont buildees localement depuis les Dockerfiles, le one-shot `wakdo-migrate` applique migrations + seed). L'automatisation visee est pull-based (un job cron cote hote detectant un nouveau `main`), a armer ensuite. Voir `docs/PROJECT_CONTEXT.md` section 7 Bloc 5.*
+*CI Forgejo Actions sur PR vers `dev`/`main` (secret-scan gitleaks, php-lint, static-tests PHPStan + PHPUnit, js-tests), avec auto-merge sur CI verte. Deploiement via `scripts/deploy.sh` (recupere `main` depuis Forgejo puis `docker compose build --pull && up -d` ; les images sont buildees localement depuis les Dockerfiles, le one-shot `wakdo-migrate` applique migrations + seed). Le deploiement est CONTINU : tout commit arrivant sur `main` declenche le workflow Deploy, qui demande a l'hote de se deployer par un canal restreint (commande forcee, une seule commande possible), puis verifie que `/api/health` sert bien le commit attendu avant de passer au vert. `scripts/deploy.sh` reste lancable a la main et refuse de partir si l'arbre de travail n'est pas propre. Voir `docs/PROJECT_CONTEXT.md` section 7 Bloc 5.*
 
 ---
 

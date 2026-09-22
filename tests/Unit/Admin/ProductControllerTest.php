@@ -11,15 +11,22 @@ use App\Controllers\ProductController;
 use App\Core\Config;
 use App\Core\Database;
 use App\Core\DatabaseInterface;
+use App\Core\ImageUploader;
 use App\Core\Request;
 use App\Tests\Support\FakeDatabase;
+use App\Tests\Support\TestableImageUploader;
 
 /**
  * Sous-classe de test : grace au seam db(), une seule surcharge DB suffit ;
- * sessionManager() injecte la session test.
+ * sessionManager() injecte la session test. imageUploader() pointe vers un
+ * dossier temporaire (uploadBaseDir) au lieu de src/public/uploads, via le meme
+ * double TestableImageUploader que ImageUploaderTest (is_uploaded_file()/
+ * move_uploaded_file() n'ont de sens qu'apres un vrai envoi HTTP).
  */
 final class TestProductController extends ProductController
 {
+    public string $uploadBaseDir = '';
+
     public function __construct(
         Request $request,
         Config $config,
@@ -39,15 +46,24 @@ final class TestProductController extends ProductController
     {
         return $this->fakeDb;
     }
+
+    protected function imageUploader(): ImageUploader
+    {
+        return new TestableImageUploader($this->config, $this->uploadBaseDir);
+    }
 }
 
 final class ProductControllerTest extends TestCase
 {
+    /** PNG 1x1 valide et complet (signature + IHDR + IDAT + IEND), 68 octets. */
+    private const PNG_1X1 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+
     /** @var list<string> */
     private array $touchedKeys = [];
 
     private SessionManager $session;
     private string $csrf = '';
+    private string $uploadBaseDir = '';
 
     protected function setUp(): void
     {
@@ -66,6 +82,8 @@ final class ProductControllerTest extends TestCase
         $this->session->set('logged_in_at', $now - 100);
         $this->session->set('last_activity', $now - 50);
         $this->csrf = Csrf::token($this->session);
+
+        $this->uploadBaseDir = sys_get_temp_dir() . '/wakdo_uploads_test_' . bin2hex(random_bytes(6));
     }
 
     protected function tearDown(): void
@@ -74,12 +92,91 @@ final class ProductControllerTest extends TestCase
             putenv($key);
         }
         $this->touchedKeys = [];
+        $this->removeDirectory($this->uploadBaseDir);
     }
 
     private function setEnv(string $key, string $value): void
     {
         $this->touchedKeys[] = $key;
         putenv($key . '=' . $value);
+    }
+
+    private function removeDirectory(string $dir): void
+    {
+        if (!is_dir($dir)) {
+            return;
+        }
+
+        $items = scandir($dir);
+        foreach ($items === false ? [] : $items as $item) {
+            if ($item === '.' || $item === '..') {
+                continue;
+            }
+            $path = $dir . '/' . $item;
+            if (is_dir($path)) {
+                $this->removeDirectory($path);
+            } else {
+                @unlink($path);
+            }
+        }
+        @rmdir($dir);
+    }
+
+    private function writeTemp(string $bytes): string
+    {
+        $path = tempnam(sys_get_temp_dir(), 'wakdo_src_');
+        self::assertNotFalse($path);
+        file_put_contents($path, $bytes);
+
+        return $path;
+    }
+
+    /**
+     * @return array<string, mixed> une entree $_FILES pour une image valide reelle
+     */
+    private function uploadedImage(): array
+    {
+        $tmp = $this->writeTemp(base64_decode(self::PNG_1X1));
+
+        return [
+            'name'     => 'produit.png',
+            'type'     => 'image/png',
+            'tmp_name' => $tmp,
+            'error'    => UPLOAD_ERR_OK,
+            'size'     => (int) filesize($tmp),
+        ];
+    }
+
+    /**
+     * Depose une "ancienne" image deja stockee (comme le ferait un envoi
+     * precedent) directement sous uploadBaseDir, et renvoie son chemin relatif
+     * tel qu'il serait lu depuis product.image_path.
+     */
+    private function plantUploadedImage(string $subdir): string
+    {
+        $name = bin2hex(random_bytes(16)) . '.png';
+        $directory = $this->uploadBaseDir . '/' . $subdir;
+        mkdir($directory, 0755, true);
+        file_put_contents($directory . '/' . $name, base64_decode(self::PNG_1X1));
+
+        return 'uploads/' . $subdir . '/' . $name;
+    }
+
+    /**
+     * @param array<string, string> $form
+     * @param array<string, mixed> $file une entree $_FILES sous la cle image_file
+     */
+    private function postWithFile(array $form, string $path, array $file): Request
+    {
+        return new Request(
+            'POST',
+            $path,
+            [],
+            ['content-type' => 'application/x-www-form-urlencoded'],
+            http_build_query($form),
+            '203.0.113.5',
+            ['image_file' => $file],
+        );
     }
 
     private function permittedDb(): FakeDatabase
@@ -108,7 +205,10 @@ final class ProductControllerTest extends TestCase
 
     private function controller(Request $request, FakeDatabase $db): TestProductController
     {
-        return new TestProductController($request, new Config(), new Database(new Config()), $this->session, $db);
+        $controller = new TestProductController($request, new Config(), new Database(new Config()), $this->session, $db);
+        $controller->uploadBaseDir = $this->uploadBaseDir;
+
+        return $controller;
     }
 
     /**
@@ -164,6 +264,164 @@ final class ProductControllerTest extends TestCase
         self::assertTrue($db->wrote('INSERT INTO product'));
         self::assertFalse($db->wrote('INSERT INTO audit_log')); // create = pas d'action sensible
         self::assertSame('Produit cree.', $this->session->get('_flash'));
+    }
+
+    // --- Champs de variante (F9-3) : size_cl, base_product_id, maxi_variant_product_id ---
+
+    public function testStorePersistsVariantFields(): void
+    {
+        // Une variante de taille : base_product_id pointe une base, size_cl=50.
+        $db = $this->permittedDb();
+        $db->productIsBase = true;  // la base designee EST une base (eligible)
+        $db->productRow = ['id' => 7, 'name' => 'Coca Cola']; // productExists -> true
+
+        $form = $this->validForm(['name' => 'Coca Cola 50cl', 'size_cl' => '50', 'base_product_id' => '7', 'maxi_variant_product_id' => '8']);
+        $response = $this->controller($this->post($form, '/admin/products'), $db)->store();
+
+        self::assertSame(302, $response->status());
+        $insert = $this->findWrite($db, 'INSERT INTO product');
+        self::assertNotNull($insert);
+        self::assertSame(50, $insert['params']['size'] ?? null);
+        self::assertSame(7, $insert['params']['base'] ?? null);
+        self::assertSame(8, $insert['params']['maxi'] ?? null);
+    }
+
+    public function testStoreEmptyVariantFieldsBindNull(): void
+    {
+        // Produit ordinaire : aucun champ de variante -> NULL en base (pas 0).
+        $db = $this->permittedDb();
+        $response = $this->controller($this->post($this->validForm(), '/admin/products'), $db)->store();
+
+        self::assertSame(302, $response->status());
+        $insert = $this->findWrite($db, 'INSERT INTO product');
+        self::assertNotNull($insert);
+        // Cles bien liees (allowlist bind()) ET valeur NULL. Pas de `?? 'x'` ici :
+        // `null ?? 'x'` vaudrait 'x' et ferait echouer l'assertion sur un null legitime.
+        self::assertArrayHasKey('size', $insert['params']);
+        self::assertNull($insert['params']['size']);
+        self::assertArrayHasKey('base', $insert['params']);
+        self::assertNull($insert['params']['base']);
+        self::assertArrayHasKey('maxi', $insert['params']);
+        self::assertNull($insert['params']['maxi']);
+    }
+
+    public function testUpdatePersistsVariantFields(): void
+    {
+        // Edition sans changement prix/TVA -> pas de PIN ; les colonnes de variante
+        // sont bien dans l'UPDATE.
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 5, 'category_id' => 3, 'name' => 'Coca Cola', 'description' => null, 'price_cents' => 190, 'size_cl' => 30, 'base_product_id' => null, 'maxi_variant_product_id' => null, 'vat_rate' => 100, 'image_path' => null, 'is_available' => 1, 'display_order' => 1];
+        $db->productIsBase = true;
+
+        $form = $this->validForm(['name' => 'Coca Cola', 'price_cents' => '190', 'base_product_id' => '7']);
+        $response = $this->controller($this->post($form, '/admin/products/5'), $db)->update(['id' => '5']);
+
+        self::assertSame(302, $response->status());
+        $update = $this->findWrite($db, 'UPDATE product SET');
+        self::assertNotNull($update);
+        self::assertSame(7, $update['params']['base'] ?? null);
+    }
+
+    public function testStoreRejectsBaseReferencingAVariant(): void
+    {
+        // Anti-chaine de variantes (F9-3) : la base designee est elle-meme une
+        // variante (productIsBase=false) -> 422, aucun ecrit.
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 99, 'name' => 'Coca 50cl']; // existe
+        $db->productIsBase = false;                            // mais c'est une variante
+
+        $form = $this->validForm(['base_product_id' => '99']);
+        $response = $this->controller($this->post($form, '/admin/products'), $db)->store();
+
+        self::assertSame(422, $response->status());
+        self::assertFalse($db->wrote('INSERT INTO product'));
+        self::assertStringContainsString('produit de base', $response->body());
+    }
+
+    public function testUpdateRejectsSelfAsBase(): void
+    {
+        // Anti auto-reference (F9-3) : base_product_id = soi-meme -> 422.
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 5, 'category_id' => 3, 'name' => 'X', 'description' => null, 'price_cents' => 190, 'vat_rate' => 100, 'image_path' => null, 'is_available' => 1, 'display_order' => 1];
+
+        $form = $this->validForm(['name' => 'X', 'price_cents' => '190', 'base_product_id' => '5']);
+        $response = $this->controller($this->post($form, '/admin/products/5'), $db)->update(['id' => '5']);
+
+        self::assertSame(422, $response->status());
+        self::assertFalse($db->wrote('UPDATE product SET'));
+        self::assertStringContainsString('sa propre base', $response->body());
+    }
+
+    public function testUpdateRejectsSelfAsMaxiVariant(): void
+    {
+        // Anti auto-reference (F9-3) : maxi_variant_product_id = soi-meme -> 422.
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 5, 'category_id' => 3, 'name' => 'X', 'description' => null, 'price_cents' => 190, 'vat_rate' => 100, 'image_path' => null, 'is_available' => 1, 'display_order' => 1];
+
+        $form = $this->validForm(['name' => 'X', 'price_cents' => '190', 'maxi_variant_product_id' => '5']);
+        $response = $this->controller($this->post($form, '/admin/products/5'), $db)->update(['id' => '5']);
+
+        self::assertSame(422, $response->status());
+        self::assertFalse($db->wrote('UPDATE product SET'));
+        self::assertStringContainsString('sa propre variante Maxi', $response->body());
+    }
+
+    public function testStoreRejectsNegativeSize(): void
+    {
+        // size_cl non entier (ici une valeur non numerique) -> 422.
+        $db = $this->permittedDb();
+
+        $form = $this->validForm(['size_cl' => '-5']);
+        $response = $this->controller($this->post($form, '/admin/products'), $db)->store();
+
+        self::assertSame(422, $response->status());
+        self::assertFalse($db->wrote('INSERT INTO product'));
+    }
+
+    public function testStoreRejectsUnknownBaseProduct(): void
+    {
+        // base_product_id reference un produit inexistant -> 422.
+        $db = $this->permittedDb();
+        $db->productRow = null; // productExists -> false
+
+        $form = $this->validForm(['base_product_id' => '404']);
+        $response = $this->controller($this->post($form, '/admin/products'), $db)->store();
+
+        self::assertSame(422, $response->status());
+        self::assertFalse($db->wrote('INSERT INTO product'));
+    }
+
+    public function testFormOffersBaseCandidatesExcludingSelf(): void
+    {
+        // Le select base_product_id n'expose que des bases (basesOnly) et exclut le
+        // produit edite (pas d'auto-reference dans l'UI).
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 5, 'category_id' => 3, 'name' => 'Coca Cola', 'description' => null, 'price_cents' => 190, 'vat_rate' => 100, 'image_path' => null, 'is_available' => 1, 'display_order' => 1];
+        $db->baseProductsRows = [
+            ['id' => 5, 'name' => 'Coca Cola'],   // soi-meme : exclu
+            ['id' => 7, 'name' => 'Fanta'],       // autre base : propose
+        ];
+
+        $response = $this->controller($this->get('/admin/products/5/edit'), $db)->edit(['id' => '5']);
+
+        self::assertSame(200, $response->status());
+        self::assertStringContainsString('Fanta', $response->body());
+        self::assertStringContainsString('base_product_id', $response->body());
+    }
+
+    public function testIndexMarksVariantRows(): void
+    {
+        // F9-4 : une variante de taille (base_product_id non nul) est marquee
+        // "Variante de X" dans la liste admin, pas affichee comme produit autonome.
+        $db = $this->permittedDb();
+        $db->productsRows = [
+            ['id' => 99, 'category_id' => 2, 'name' => 'Coca Cola 50cl', 'price_cents' => 240, 'vat_rate' => 100, 'is_available' => 1, 'category_name' => 'Boissons', 'base_product_id' => 14, 'base_name' => 'Coca Cola'],
+        ];
+
+        $response = $this->controller($this->get('/admin/products'), $db)->index();
+
+        self::assertSame(200, $response->status());
+        self::assertStringContainsString('Variante de Coca Cola', $response->body());
     }
 
     public function testStoreValidationErrorNoWrite(): void
@@ -598,5 +856,363 @@ final class ProductControllerTest extends TestCase
         self::assertIsInt($commit);
         self::assertNotNull($auditAt);
         self::assertTrue($begin < $auditAt && $auditAt < $commit, 'audit_log doit etre ecrit entre begin et commit');
+    }
+
+    /* --- F20 : vue produits par categorie ---------------------------------- */
+
+    /**
+     * Jeu de donnees commun : 3 categories (dont une masquee), 2 produits a la carte,
+     * 1 menu. Les lignes sont dans la forme que renvoie chaque requete.
+     */
+    private function byCategoryDb(): FakeDatabase
+    {
+        $db = $this->permittedDb();
+        $db->categoriesRows = [
+            ['id' => 1, 'name' => 'menus', 'slug' => 'menus', 'image_path' => 'm.png', 'display_order' => 1, 'is_active' => 1],
+            ['id' => 2, 'name' => 'boissons', 'slug' => 'boissons', 'image_path' => 'b.png', 'display_order' => 2, 'is_active' => 1],
+            ['id' => 9, 'name' => 'sauces', 'slug' => 'sauces', 'image_path' => 's.png', 'display_order' => 9, 'is_active' => 0],
+        ];
+        $db->basesByCategoryRows = [
+            ['id' => 14, 'category_id' => 2, 'name' => 'Coca Cola', 'price_cents' => 190, 'vat_rate' => 100, 'is_available' => 1, 'display_order' => 1, 'variant_count' => 1],
+            ['id' => 15, 'category_id' => 2, 'name' => 'Eau', 'price_cents' => 100, 'vat_rate' => 55, 'is_available' => 1, 'display_order' => 3, 'variant_count' => 0],
+        ];
+        $db->menusRows = [
+            ['id' => 4, 'category_id' => 1, 'burger_product_id' => 10, 'name' => 'Menu Big Mac', 'price_normal_cents' => 800, 'price_maxi_cents' => 950, 'is_available' => 1, 'display_order' => 1, 'category_name' => 'menus', 'burger_name' => 'Big Mac'],
+        ];
+        return $db;
+    }
+
+    public function testByCategoryRequiresProductRead(): void
+    {
+        $db = $this->byCategoryDb();
+        $db->canResult = false;
+
+        self::assertSame(403, $this->controller($this->get('/admin/products/by-category'), $db)->byCategory()->status());
+    }
+
+    public function testByCategoryGroupsProductsUnderCategoryHeadingsInBorneOrder(): void
+    {
+        $response = $this->controller($this->get('/admin/products/by-category'), $this->byCategoryDb())->byCategory();
+
+        self::assertSame(200, $response->status());
+        $body = $response->body();
+        // L'ordre des groupes est celui du display_order de categorie, donc celui des
+        // onglets de la borne : menus (1) avant boissons (2) avant sauces (9). On
+        // s'ancre sur l'identifiant de section, pas sur le libelle : "Menus" apparait
+        // aussi dans la barre laterale et rendrait l'assertion vraie par accident.
+        $posMenus = strpos($body, 'catalogue-cat-1');
+        $posBoissons = strpos($body, 'catalogue-cat-2');
+        $posSauces = strpos($body, 'catalogue-cat-9');
+        self::assertIsInt($posMenus);
+        self::assertIsInt($posBoissons);
+        self::assertIsInt($posSauces);
+        self::assertTrue($posMenus < $posBoissons && $posBoissons < $posSauces);
+        self::assertStringContainsString('Coca Cola', $body);
+        self::assertStringContainsString('Eau', $body);
+    }
+
+    public function testByCategoryShowsMenusInTheirCategory(): void
+    {
+        // Un menu n'est pas une ligne de la table product : sans lecture dediee, la
+        // section Menus afficherait "aucun produit" alors que la borne y montre les
+        // menus. La vue doit donc porter les deux natures d'article.
+        $response = $this->controller($this->get('/admin/products/by-category'), $this->byCategoryDb())->byCategory();
+
+        self::assertStringContainsString('Menu Big Mac', $response->body());
+    }
+
+    public function testByCategoryFoldsSizeVariantsOnTheirBase(): void
+    {
+        // Coca Cola porte 1 variante de taille : elle est comptee sur la base, pas
+        // affichee comme un article autonome (R4).
+        $response = $this->controller($this->get('/admin/products/by-category'), $this->byCategoryDb())->byCategory();
+
+        $body = $response->body();
+        self::assertStringContainsString('1 taille', $body);
+        self::assertStringNotContainsString('Variante de', $body);
+    }
+
+    public function testByCategoryShowsTheThreeAvailabilityStates(): void
+    {
+        $db = $this->byCategoryDb();
+        $db->basesByCategoryRows[] = ['id' => 16, 'category_id' => 2, 'name' => 'Fanta', 'price_cents' => 190, 'vat_rate' => 100, 'is_available' => 0, 'display_order' => 4, 'variant_count' => 0];
+        // RG-T21 : Eau en rupture calculee par le stock, distincte du retrait manuel.
+        $db->autoUnavailableRows = [['product_id' => 15]];
+
+        $body = $this->controller($this->get('/admin/products/by-category'), $db)->byCategory()->body();
+
+        self::assertStringContainsString('Disponible', $body);
+        self::assertStringContainsString('Rupture auto', $body);
+        self::assertStringContainsString('Indisponible', $body);
+    }
+
+    public function testByCategoryMarksACategoryHiddenFromTheBorne(): void
+    {
+        // Une categorie inactive n'apparait pas sur la borne, meme si ses produits sont
+        // marques disponibles : l'equipier doit le lire en clair, sinon il cherchera en
+        // vain pourquoi un produit "disponible" reste introuvable a la commande.
+        $body = $this->controller($this->get('/admin/products/by-category'), $this->byCategoryDb())->byCategory()->body();
+
+        self::assertStringContainsString('Masquee sur la borne', $body);
+    }
+
+    public function testByCategoryComputesCountersServerSide(): void
+    {
+        $db = $this->byCategoryDb();
+        $db->basesByCategoryRows[] = ['id' => 16, 'category_id' => 2, 'name' => 'Fanta', 'price_cents' => 190, 'vat_rate' => 100, 'is_available' => 0, 'display_order' => 4, 'variant_count' => 0];
+
+        $body = $this->controller($this->get('/admin/products/by-category'), $db)->byCategory()->body();
+
+        // 3 produits de base + 1 menu = 4 articles ; 3 commandables, 1 non commandable.
+        self::assertMatchesRegularExpression('/catalogue-summary__count">\s*4\s*</', $body);
+        self::assertMatchesRegularExpression('/catalogue-summary__count">\s*3\s*</', $body);
+        self::assertMatchesRegularExpression('/catalogue-summary__count">\s*1\s*</', $body);
+    }
+
+    public function testByCategoryHidesEditLinkWithoutProductUpdate(): void
+    {
+        // Un role de lecture seule (ex. cuisine) ne doit pas voir un lien qui repondrait
+        // 403 : la garde reste par-route, l'affichage s'y adapte.
+        $db = $this->byCategoryDb();
+        $db->grantedCodes = ['product.read'];
+
+        $body = $this->controller($this->get('/admin/products/by-category'), $db)->byCategory()->body();
+
+        self::assertStringContainsString('Coca Cola', $body);
+        self::assertStringNotContainsString('/edit', $body);
+    }
+
+    public function testByCategoryShowsEditLinkWithProductUpdate(): void
+    {
+        $db = $this->byCategoryDb();
+        $db->grantedCodes = ['product.read', 'product.update'];
+
+        $body = $this->controller($this->get('/admin/products/by-category'), $db)->byCategory()->body();
+
+        self::assertStringContainsString('/admin/products/14/edit', $body);
+    }
+
+    public function testByCategoryReportsAnEmptyCategory(): void
+    {
+        $db = $this->byCategoryDb();
+        $db->basesByCategoryRows = [];
+        $db->menusRows = [];
+
+        $body = $this->controller($this->get('/admin/products/by-category'), $db)->byCategory()->body();
+
+        self::assertStringContainsString('Aucun article dans cette categorie.', $body);
+    }
+
+    public function testByCategoryReadsAFixedNumberOfQueries(): void
+    {
+        // Quatre lectures a nombre fixe (categories, bases groupees, rupture auto,
+        // menus) : la page ne doit pas partir en N+1 quand le catalogue grossit.
+        $db = $this->byCategoryDb();
+        $this->controller($this->get('/admin/products/by-category'), $db)->byCategory();
+
+        $catalogueReads = array_filter(
+            $db->reads,
+            static fn (array $r): bool => str_contains($r['sql'], 'AS variant_count')
+                || str_contains($r['sql'], 'FROM category ORDER BY')
+                || str_contains($r['sql'], 'SELECT DISTINCT pi.product_id')
+                || str_contains($r['sql'], 'FROM menu m JOIN category'),
+        );
+
+        self::assertCount(4, $catalogueReads);
+    }
+
+    /* --- Image produit (ImageUploader) -------------------------------------- */
+
+    public function testStoreWithValidImageStoresFileAndPersistsPath(): void
+    {
+        $db = $this->permittedDb();
+        $image = $this->uploadedImage();
+
+        $response = $this->controller($this->postWithFile($this->validForm(), '/admin/products', $image), $db)->store();
+
+        self::assertSame(302, $response->status());
+        $insert = $this->findWrite($db, 'INSERT INTO product');
+        self::assertNotNull($insert);
+        $relative = (string) ($insert['params']['image'] ?? '');
+        self::assertMatchesRegularExpression('#^uploads/products/[a-f0-9]{32}\.png$#', $relative);
+        self::assertFileExists($this->uploadBaseDir . '/' . substr($relative, strlen('uploads/')));
+    }
+
+    public function testStoreWithInvalidImageReturns422AndWritesNoFile(): void
+    {
+        $db = $this->permittedDb();
+        $badImage = [
+            'name' => 'photo.png', 'type' => 'image/png',
+            'tmp_name' => $this->writeTemp('ceci n est pas une image'),
+            'error' => UPLOAD_ERR_OK, 'size' => 24,
+        ];
+
+        $response = $this->controller($this->postWithFile($this->validForm(), '/admin/products', $badImage), $db)->store();
+
+        self::assertSame(422, $response->status());
+        self::assertFalse($db->wrote('INSERT INTO product'));
+        self::assertStringContainsString('Format d image non accepte', $response->body());
+        self::assertDirectoryDoesNotExist($this->uploadBaseDir . '/products');
+    }
+
+    public function testStoreWithValidImageButAnotherInvalidFieldNeverWritesTheFile(): void
+    {
+        // L'image est valide, mais un autre champ ne l'est pas : verifier tot,
+        // ecrire tard (docblock ImageUploader::validate()) doit tenir meme quand
+        // l'image elle-meme n'est pas en cause.
+        $db = $this->permittedDb();
+        $image = $this->uploadedImage();
+
+        $response = $this->controller(
+            $this->postWithFile($this->validForm(['name' => '']), '/admin/products', $image),
+            $db,
+        )->store();
+
+        self::assertSame(422, $response->status());
+        self::assertFalse($db->wrote('INSERT INTO product'));
+        self::assertDirectoryDoesNotExist($this->uploadBaseDir . '/products');
+    }
+
+    public function testUpdateReplacesImageAndRemovesTheOldOneOnlyAfterSuccess(): void
+    {
+        $db = $this->permittedDb();
+        $oldRelative = $this->plantUploadedImage('products');
+        $db->productRow = ['id' => 5, 'category_id' => 3, 'name' => 'Coca Cola', 'description' => null, 'price_cents' => 190, 'vat_rate' => 100, 'image_path' => $oldRelative, 'is_available' => 1, 'display_order' => 1];
+
+        $response = $this->controller(
+            $this->postWithFile($this->validForm(['name' => 'Coca Cola', 'price_cents' => '190']), '/admin/products/5', $this->uploadedImage()),
+            $db,
+        )->update(['id' => '5']);
+
+        self::assertSame(302, $response->status());
+        self::assertFileDoesNotExist($this->uploadBaseDir . '/' . substr($oldRelative, strlen('uploads/')));
+        $update = $this->findWrite($db, 'UPDATE product SET');
+        self::assertNotNull($update);
+        $newRelative = (string) ($update['params']['image'] ?? '');
+        self::assertMatchesRegularExpression('#^uploads/products/[a-f0-9]{32}\.png$#', $newRelative);
+        self::assertFileExists($this->uploadBaseDir . '/' . substr($newRelative, strlen('uploads/')));
+    }
+
+    public function testUpdateKeepsTheOldImageWhenTheDatabaseWriteFails(): void
+    {
+        // Exigence centrale (docblock du controleur) : l'ancienne image n'est
+        // effacee qu'UNE FOIS la base a jour. Simule une panne d'ecriture pour le
+        // prouver, plutot que de le supposer de la lecture du code.
+        $db = $this->permittedDb();
+        $oldRelative = $this->plantUploadedImage('products');
+        $db->productRow = ['id' => 5, 'category_id' => 3, 'name' => 'Coca Cola', 'description' => null, 'price_cents' => 190, 'vat_rate' => 100, 'image_path' => $oldRelative, 'is_available' => 1, 'display_order' => 1];
+        $db->failOnExecute = new \RuntimeException('panne disque simulee');
+
+        try {
+            $this->controller(
+                $this->postWithFile($this->validForm(['name' => 'Coca Cola', 'price_cents' => '190']), '/admin/products/5', $this->uploadedImage()),
+                $db,
+            )->update(['id' => '5']);
+            self::fail('une exception etait attendue (panne DB simulee)');
+        } catch (\RuntimeException $exception) {
+            self::assertSame('panne disque simulee', $exception->getMessage());
+        }
+
+        self::assertFileExists($this->uploadBaseDir . '/' . substr($oldRelative, strlen('uploads/')));
+    }
+
+    public function testDestroyRemovesTheUploadedProductImage(): void
+    {
+        $db = $this->permittedDb();
+        $relative = $this->plantUploadedImage('products');
+        $db->productRow = ['id' => 5, 'name' => 'Big Mac', 'image_path' => $relative];
+        $this->actingPin($db);
+
+        $response = $this->controller(
+            $this->post(['_csrf' => $this->csrf, 'pin_email' => 'staff@wakdo.local', 'pin' => '4729'], '/admin/products/5/delete'),
+            $db,
+        )->destroy(['id' => '5']);
+
+        self::assertSame(302, $response->status());
+        self::assertFileDoesNotExist($this->uploadBaseDir . '/' . substr($relative, strlen('uploads/')));
+    }
+
+    public function testDestroyNeverTouchesAShippedCatalogueImage(): void
+    {
+        $db = $this->permittedDb();
+        $catalogueRelative = 'assets/images/produits/burgers/big-mac.png';
+        $catalogueAbsolute = $this->uploadBaseDir . '/' . $catalogueRelative;
+        mkdir(dirname($catalogueAbsolute), 0755, true);
+        file_put_contents($catalogueAbsolute, 'image du catalogue livre avec le projet');
+
+        $db->productRow = ['id' => 5, 'name' => 'Big Mac', 'image_path' => $catalogueRelative];
+        $this->actingPin($db);
+
+        $response = $this->controller(
+            $this->post(['_csrf' => $this->csrf, 'pin_email' => 'staff@wakdo.local', 'pin' => '4729'], '/admin/products/5/delete'),
+            $db,
+        )->destroy(['id' => '5']);
+
+        self::assertSame(302, $response->status());
+        self::assertFileExists($catalogueAbsolute);
+    }
+
+    /* --- Rangement du catalogue (move) --------------------------------------- */
+
+    public function testMoveRejectsInvalidCsrf(): void
+    {
+        $db = $this->permittedDb();
+
+        $response = $this->controller($this->post(['_csrf' => 'wrong', 'direction' => 'up'], '/admin/products/20/move'), $db)->move(['id' => '20']);
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($db->wrote('UPDATE product SET display_order'));
+    }
+
+    public function testMoveRequiresProductUpdatePermission(): void
+    {
+        $db = $this->permittedDb();
+        $db->canResult = false;
+
+        $response = $this->controller($this->post(['_csrf' => $this->csrf, 'direction' => 'up'], '/admin/products/20/move'), $db)->move(['id' => '20']);
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($db->wrote('UPDATE product SET display_order'));
+    }
+
+    public function testMoveUpRedirectsAndSetsFlashOnSuccess(): void
+    {
+        $db = $this->permittedDb();
+        $db->reorderProductRow = ['category_id' => 3];
+        $db->reorderCategoryIdsRows = [['id' => 10], ['id' => 20]];
+
+        $response = $this->controller($this->post(['_csrf' => $this->csrf, 'direction' => 'up'], '/admin/products/20/move'), $db)->move(['id' => '20']);
+
+        self::assertSame(302, $response->status());
+        self::assertSame('/admin/products/by-category', $response->header('Location'));
+        self::assertSame('Ordre du catalogue mis a jour.', $this->session->get('_flash'));
+        self::assertTrue($db->wrote('UPDATE product SET display_order'));
+    }
+
+    public function testMoveAlreadyAtTopIsANoOpAndDoesNotSetFlash(): void
+    {
+        $db = $this->permittedDb();
+        $db->reorderProductRow = ['category_id' => 3];
+        $db->reorderCategoryIdsRows = [['id' => 10], ['id' => 20]];
+
+        $response = $this->controller($this->post(['_csrf' => $this->csrf, 'direction' => 'up'], '/admin/products/10/move'), $db)->move(['id' => '10']);
+
+        self::assertSame(302, $response->status());
+        self::assertNull($this->session->get('_flash'));
+        self::assertFalse($db->wrote('UPDATE product SET display_order'));
+    }
+
+    public function testMoveWithInvalidDirectionRedirectsWithoutWriting(): void
+    {
+        $db = $this->permittedDb();
+        $db->reorderProductRow = ['category_id' => 3];
+        $db->reorderCategoryIdsRows = [['id' => 10], ['id' => 20]];
+
+        $response = $this->controller($this->post(['_csrf' => $this->csrf, 'direction' => 'sideways'], '/admin/products/20/move'), $db)->move(['id' => '20']);
+
+        self::assertSame(302, $response->status());
+        self::assertSame('/admin/products/by-category', $response->header('Location'));
+        self::assertNull($this->session->get('_flash'));
+        self::assertFalse($db->wrote('UPDATE product SET display_order'));
     }
 }

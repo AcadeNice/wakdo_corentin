@@ -56,6 +56,9 @@ Thumbs.db
 *.log
 /logs/
 
+# === Marqueur de version (ecrit par scripts/deploy.sh sur l'hote, propre au deploiement) ===
+/src/VERSION
+
 # === Data / Uploads / Backups ===
 # /var/ : contient /var/backups/ (bind-mount des dumps BDD du conteneur cron)
 # et tout futur artefact run-time (caches persistes, logs).

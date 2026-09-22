@@ -13,6 +13,10 @@ declare(strict_types=1);
 $csrf = htmlspecialchars($csrfToken ?? '', ENT_QUOTES, 'UTF-8');
 /** @var array<int, array<string, mixed>> $rows */
 $rows = isset($categories) && is_array($categories) ? $categories : [];
+// Reindexation : le rang sert a griser la fleche du haut sur la premiere
+// ligne et celle du bas sur la derniere.
+$rows = array_values($rows);
+$dernierRang = count($rows) - 1;
 
 $esc = static fn (mixed $v): string => htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
 ?>
@@ -42,7 +46,7 @@ $esc = static fn (mixed $v): string => htmlspecialchars((string) $v, ENT_QUOTES,
                 <?php if ($rows === []): ?>
                     <tr><td colspan="5" class="muted">Aucune categorie.</td></tr>
                 <?php endif; ?>
-                <?php foreach ($rows as $row): ?>
+                <?php foreach ($rows as $rang => $row): ?>
                     <?php
                     $id = (int) ($row['id'] ?? 0);
                     $active = (int) ($row['is_active'] ?? 0) === 1;
@@ -50,7 +54,20 @@ $esc = static fn (mixed $v): string => htmlspecialchars((string) $v, ENT_QUOTES,
                     <tr>
                         <td class="fw-600"><?= $esc($row['name'] ?? '') ?></td>
                         <td class="muted"><?= $esc($row['slug'] ?? '') ?></td>
-                        <td class="muted"><?= $esc($row['display_order'] ?? 0) ?></td>
+                        <td class="order-cell">
+                            <span class="muted"><?= $esc($row['display_order'] ?? 0) ?></span>
+                            <?php $libelle = $esc($row['name'] ?? ''); ?>
+                            <form method="post" action="/admin/categories/<?= $id ?>/move" style="display:inline;">
+                                <input type="hidden" name="_csrf" value="<?= $csrf ?>">
+                                <input type="hidden" name="direction" value="up">
+                                <button class="btn-order" type="submit" aria-label="Monter <?= $libelle ?>" title="Monter"<?= $rang === 0 ? ' disabled' : '' ?>>&#9650;</button>
+                            </form>
+                            <form method="post" action="/admin/categories/<?= $id ?>/move" style="display:inline;">
+                                <input type="hidden" name="_csrf" value="<?= $csrf ?>">
+                                <input type="hidden" name="direction" value="down">
+                                <button class="btn-order" type="submit" aria-label="Descendre <?= $libelle ?>" title="Descendre"<?= $rang === $dernierRang ? ' disabled' : '' ?>>&#9660;</button>
+                            </form>
+                        </td>
                         <td>
                             <?php if ($active): ?>
                                 <span class="pill pill-success">Visible</span>

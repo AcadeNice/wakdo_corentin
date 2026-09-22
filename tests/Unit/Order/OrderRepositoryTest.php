@@ -121,6 +121,86 @@ final class OrderRepositoryTest extends TestCase
         self::assertSame(8, $sel['slot']);
     }
 
+    public function testMenuMaxiSwapsDrinkSelectionToLargeVariant(): void
+    {
+        // Au format maxi, la boisson fontaine Coca Cola (variante = Coca Cola 50cl,
+        // id 15) doit etre persistee comme la 50 cl : meme mecanique que l'accompagnement
+        // Grande Frite (maxi_variant_product_id), pour que le stock decremente la 50 cl
+        // et que le snapshot reflete "Coca Cola 50cl". Aucune garde sur le slot_type.
+        $db = new FakeOrderDatabase();
+        $db->menus[5] = ['id' => 5, 'burger_product_id' => 12, 'name' => 'Menu', 'price_normal_cents' => 990, 'price_maxi_cents' => 1200, 'is_available' => 1];
+        $db->products[12] = ['id' => 12, 'name' => 'Burger', 'price_cents' => 600, 'vat_rate' => 100, 'is_available' => 1];
+        $db->products[14] = ['id' => 14, 'name' => 'Coca Cola', 'price_cents' => 190, 'vat_rate' => 100, 'is_available' => 1, 'maxi_variant_product_id' => 15];
+        $db->products[15] = ['id' => 15, 'name' => 'Coca Cola 50cl', 'price_cents' => 240, 'vat_rate' => 100, 'is_available' => 1, 'maxi_variant_product_id' => null];
+        $db->slotRows[5] = [['id' => 9, 'name' => 'Boisson', 'slot_type' => 'drink', 'is_required' => 1, 'display_order' => 1, 'product_id' => 14]];
+
+        $this->repo($db)->createPending([
+            'service_mode' => 'takeaway',
+            'items' => [['type' => 'menu', 'menu_id' => 5, 'quantity' => 1, 'format' => 'maxi',
+                'selections' => [['menu_slot_id' => 9, 'product_id' => 14]]]], // borne envoie la 30 cl
+        ]);
+
+        $sel = $db->firstWrite('INSERT INTO order_item_selection');
+        self::assertSame(15, $sel['pid']); // swap -> Coca Cola 50cl
+        self::assertSame('Coca Cola 50cl', $sel['label']);
+        self::assertSame(9, $sel['slot']);
+    }
+
+    public function testMenuMaxiKeepsBottledDrinkWithoutVariant(): void
+    {
+        // Une boisson en bouteille (Eau) n'a pas de variante 50 cl : meme en Maxi la
+        // selection reste l'Eau de base (degradation gracieuse, modele fast-food).
+        $db = new FakeOrderDatabase();
+        $db->menus[5] = ['id' => 5, 'burger_product_id' => 12, 'name' => 'Menu', 'price_normal_cents' => 990, 'price_maxi_cents' => 1200, 'is_available' => 1];
+        $db->products[12] = ['id' => 12, 'name' => 'Burger', 'price_cents' => 600, 'vat_rate' => 100, 'is_available' => 1];
+        $db->products[16] = ['id' => 16, 'name' => 'Eau', 'price_cents' => 150, 'vat_rate' => 100, 'is_available' => 1, 'maxi_variant_product_id' => null];
+        $db->slotRows[5] = [['id' => 9, 'name' => 'Boisson', 'slot_type' => 'drink', 'is_required' => 1, 'display_order' => 1, 'product_id' => 16]];
+
+        $this->repo($db)->createPending([
+            'service_mode' => 'takeaway',
+            'items' => [['type' => 'menu', 'menu_id' => 5, 'quantity' => 1, 'format' => 'maxi',
+                'selections' => [['menu_slot_id' => 9, 'product_id' => 16]]]],
+        ]);
+
+        $sel = $db->firstWrite('INSERT INTO order_item_selection');
+        self::assertSame(16, $sel['pid']); // pas de variante -> reste l'Eau
+        self::assertSame('Eau', $sel['label']);
+    }
+
+    public function testProductInStockRuptureRejectedAtOrderCreation(): void
+    {
+        // RG-T21 : un produit liste (is_available=1) mais en rupture calculee par le
+        // stock est REFUSE a la creation de commande (garde serveur load-bearing, pas
+        // seulement grise sur la borne). Couvre le bypass URL directe / repli sans-JS.
+        $db = new FakeOrderDatabase();
+        $db->products[12] = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 890, 'vat_rate' => 100, 'is_available' => 1];
+        $db->autoUnavailableRows = [['product_id' => 12]];
+
+        $this->expectException(OrderValidationException::class);
+        $this->expectExceptionMessage('PRODUCT_UNAVAILABLE');
+        $this->repo($db)->createPending([
+            'service_mode' => 'takeaway',
+            'items' => [['type' => 'product', 'product_id' => 12, 'quantity' => 1]],
+        ]);
+    }
+
+    public function testMenuRejectedAtOrderWhenBurgerInStockRupture(): void
+    {
+        // RG-T21 (granularite burger seul) : le burger impose en rupture calculee rend
+        // le menu non commandable cote serveur, meme is_available=1.
+        $db = new FakeOrderDatabase();
+        $db->menus[5] = ['id' => 5, 'burger_product_id' => 12, 'name' => 'Menu', 'price_normal_cents' => 990, 'price_maxi_cents' => 1200, 'is_available' => 1];
+        $db->products[12] = ['id' => 12, 'name' => 'Burger', 'price_cents' => 600, 'vat_rate' => 100, 'is_available' => 1];
+        $db->autoUnavailableRows = [['product_id' => 12]];
+
+        $this->expectException(OrderValidationException::class);
+        $this->expectExceptionMessage('MENU_UNAVAILABLE');
+        $this->repo($db)->createPending([
+            'service_mode' => 'takeaway',
+            'items' => [['type' => 'menu', 'menu_id' => 5, 'quantity' => 1, 'format' => 'normal', 'selections' => []]],
+        ]);
+    }
+
     public function testMenuNormalKeepsBaseSideSelection(): void
     {
         // Format normal : aucune substitution, l'accompagnement reste la Moyenne
@@ -161,8 +241,15 @@ final class OrderRepositoryTest extends TestCase
 
     public function testIdempotentReturnsExistingWithoutInsert(): void
     {
+        // Garantie invariante de la cle d'idempotence (RG-T19) : JAMAIS une seconde
+        // commande. Ce qu'elle fait du CONTENU a change avec F18 : la commande en attente
+        // est mise a jour depuis les lignes envoyees, au lieu d'etre renvoyee telle quelle
+        // en les ignorant -- ce qui aurait fait payer un panier perime des que le client
+        // modifiait sa commande. Detail : OrderRepositoryReplaceTest.
         $db = new FakeOrderDatabase();
+        $db->products[12] = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 890, 'vat_rate' => 100, 'is_available' => 1];
         $db->existingByKey = ['id' => 7, 'order_number' => 'K7', 'total_ttc_cents' => 500, 'status' => 'pending_payment'];
+        $db->orderByNumber = ['id' => 7, 'order_number' => 'K7', 'total_ttc_cents' => 500, 'status' => 'pending_payment'];
 
         $res = $this->repo($db)->createPending([
             'idempotency_key' => 'dup',
@@ -172,6 +259,8 @@ final class OrderRepositoryTest extends TestCase
 
         self::assertSame('K7', $res['order_number']);
         self::assertSame(0, $db->countWrites('INSERT INTO customer_order'));
+        // Le total reflete desormais les lignes soumises, pas la valeur figee en base.
+        self::assertSame(890, $res['total_ttc_cents']);
     }
 
     public function testRejectsUnknownProduct(): void
@@ -217,13 +306,14 @@ final class OrderRepositoryTest extends TestCase
             'items' => [['type' => 'product', 'product_id' => 12, 'quantity' => 1]],
         ], 7, 'counter');
 
-        // POST-1 : source counter, prefixe 'C' + id, acting_user_id pose, status paid.
+        // POST-1 : source counter, prefixe 'C' + id, acting_user_id pose. L'encaissement
+        // met directement en preparation (pay()) -> status 'preparing'.
         $order = $db->firstWrite('INSERT INTO customer_order');
         self::assertSame('counter', $order['source']);
         self::assertSame(7, $order['acting']);
         $renumber = $db->firstWrite('UPDATE customer_order SET order_number');
         self::assertSame('C100', $renumber['num']);
-        self::assertSame('paid', $res['status']);
+        self::assertSame('preparing', $res['status']);
         self::assertSame('C100', $res['order_number']);
 
         // POST-3 : stock decremente avec user_id = equipier (RG-4/RG-T20).
@@ -249,7 +339,7 @@ final class OrderRepositoryTest extends TestCase
         $order = $db->firstWrite('INSERT INTO customer_order');
         self::assertSame('drive', $order['source']);
         self::assertSame('D100', $db->firstWrite('UPDATE customer_order SET order_number')['num']);
-        self::assertSame('paid', $res['status']);
+        self::assertSame('preparing', $res['status']); // encaissement -> preparation directe
     }
 
     public function testStaffOrderDriveRejectsNonDriveServiceMode(): void
@@ -319,7 +409,7 @@ final class OrderRepositoryTest extends TestCase
 
     // --- pay() : transition + decrement de stock (RG-5 etapes 5-6, RG-T20) ---
 
-    public function testPayTransitionsToPaidAndDecrementsProductRecipe(): void
+    public function testPayTransitionsToPreparingAndDecrementsProductRecipe(): void
     {
         $db = new FakeOrderDatabase();
         $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => 'pending_payment'];
@@ -328,9 +418,15 @@ final class OrderRepositoryTest extends TestCase
 
         $res = $this->repo($db)->pay('K100');
 
-        self::assertSame('paid', $res['status']);
+        // Le paiement met DIRECTEMENT en preparation (retour oral) : statut preparing,
+        // paid_at ET preparing_at poses dans la meme transition.
+        self::assertSame('preparing', $res['status']);
         self::assertSame('K100', $res['order_number']);
         self::assertSame(1, $db->countWrites('UPDATE customer_order SET status'));
+        $sql = $db->firstWriteSql('UPDATE customer_order SET status');
+        self::assertStringContainsString("status = 'preparing'", $sql);
+        self::assertStringContainsString('paid_at = NOW()', $sql);
+        self::assertStringContainsString('preparing_at = NOW()', $sql);
 
         // 2 unites consommees (qn 1 * quantite 2) -> stock -2 sur l'ingredient 5.
         $dec = $db->firstWrite('UPDATE ingredient SET stock_quantity');
@@ -342,19 +438,23 @@ final class OrderRepositoryTest extends TestCase
         self::assertNull($move['uid']); // kiosk : pas d'acteur.
     }
 
-    public function testPayIsIdempotentWhenAlreadyPaid(): void
+    public function testPayIsIdempotentWhenAlreadyEncashed(): void
     {
-        $db = new FakeOrderDatabase();
-        $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => 'paid'];
-        $db->orderItems = [['id' => 1, 'item_type' => 'product', 'product_id' => 12, 'menu_id' => null, 'format' => 'normal', 'quantity' => 2]];
-        $db->compositions[12] = [['ingredient_id' => 5, 'quantity_normal' => 1, 'quantity_maxi' => 1]];
+        // Idempotence : une commande deja encaissee (paid OU preparing -- ce dernier
+        // etant l'etat pose par un paiement) est renvoyee telle quelle, sans re-decrement.
+        foreach (['paid', 'preparing'] as $already) {
+            $db = new FakeOrderDatabase();
+            $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => $already];
+            $db->orderItems = [['id' => 1, 'item_type' => 'product', 'product_id' => 12, 'menu_id' => null, 'format' => 'normal', 'quantity' => 2]];
+            $db->compositions[12] = [['ingredient_id' => 5, 'quantity_normal' => 1, 'quantity_maxi' => 1]];
 
-        $res = $this->repo($db)->pay('K100');
+            $res = $this->repo($db)->pay('K100');
 
-        self::assertSame('paid', $res['status']);
-        self::assertSame(0, $db->countWrites('UPDATE customer_order SET status'));
-        self::assertSame(0, $db->countWrites('UPDATE ingredient SET stock_quantity'));
-        self::assertSame(0, $db->countWrites('INSERT INTO stock_movement'));
+            self::assertSame($already, $res['status'], "pay idempotent depuis $already");
+            self::assertSame(0, $db->countWrites('UPDATE customer_order SET status'));
+            self::assertSame(0, $db->countWrites('UPDATE ingredient SET stock_quantity'));
+            self::assertSame(0, $db->countWrites('INSERT INTO stock_movement'));
+        }
     }
 
     public function testPayRejectsUnknownOrder(): void
@@ -377,18 +477,21 @@ final class OrderRepositoryTest extends TestCase
         $this->repo($db)->pay('K100');
     }
 
-    public function testPayLosesConcurrentRaceReturnsPaidWithoutDecrement(): void
+    public function testPayLosesConcurrentRaceRecoversWithoutDecrement(): void
     {
+        // La garde status='pending_payment' n'affecte 0 ligne : un autre process a deja
+        // transite vers un etat encaisse (le decrement est fait) -> on sort idempotent,
+        // sans re-decrementer le stock.
         $db = new FakeOrderDatabase();
         $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => 'pending_payment'];
         $db->payUpdateAffected = 0; // un autre process a deja transite...
-        $db->recheckStatus = 'paid'; // ...vers paid : on sort idempotent.
+        $db->recheckStatus = 'preparing'; // ...vers un etat encaisse : on sort idempotent.
         $db->orderItems = [['id' => 1, 'item_type' => 'product', 'product_id' => 12, 'menu_id' => null, 'format' => 'normal', 'quantity' => 2]];
         $db->compositions[12] = [['ingredient_id' => 5, 'quantity_normal' => 1, 'quantity_maxi' => 1]];
 
         $res = $this->repo($db)->pay('K100');
 
-        self::assertSame('paid', $res['status']);
+        self::assertSame('preparing', $res['status']);
         self::assertSame(0, $db->countWrites('UPDATE ingredient SET stock_quantity'));
         self::assertSame(0, $db->countWrites('INSERT INTO stock_movement'));
     }
@@ -482,6 +585,69 @@ final class OrderRepositoryTest extends TestCase
         self::assertSame('delivered', $res['status']);
         self::assertSame('K100', $res['order_number']);
         self::assertNotSame([], $db->firstWrite('UPDATE customer_order SET status'));
+    }
+
+    public function testDeliverAcceptsActiveKitchenStates(): void
+    {
+        // Retour oral #8 : la remise est possible depuis preparing ET ready, pas
+        // seulement paid (une commande peut etre remise sans passer par le KDS).
+        foreach (['preparing', 'ready'] as $from) {
+            $db = new FakeOrderDatabase();
+            $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => $from];
+            $res = $this->repo($db)->deliver('K100');
+            self::assertSame('delivered', $res['status'], "deliver depuis $from");
+            self::assertNotSame([], $db->firstWrite('UPDATE customer_order SET status'));
+        }
+    }
+
+    public function testMarkReadyTransitionsFromPaidAndFromPreparing(): void
+    {
+        // ready accepte 'paid' en direct (saut de l'etape preparation) ET 'preparing'.
+        foreach (['paid', 'preparing'] as $from) {
+            $db = new FakeOrderDatabase();
+            $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => $from];
+            $res = $this->repo($db)->markReady('K100');
+            self::assertSame('ready', $res['status'], "ready depuis $from");
+            self::assertStringContainsString("status = 'ready'", $db->firstWriteSql('UPDATE customer_order SET status'));
+            self::assertStringContainsString('ready_at = NOW()', $db->firstWriteSql('UPDATE customer_order SET status'));
+        }
+    }
+
+    public function testMarkReadyIsIdempotentWhenAlreadyReady(): void
+    {
+        $db = new FakeOrderDatabase();
+        $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => 'ready'];
+
+        $res = $this->repo($db)->markReady('K100');
+
+        self::assertSame('ready', $res['status']);
+        self::assertSame([], $db->firstWrite('UPDATE customer_order SET status'));
+    }
+
+    public function testMarkReadyRejectsTerminalStatus(): void
+    {
+        $db = new FakeOrderDatabase();
+        $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => 'delivered'];
+
+        $this->expectException(OrderValidationException::class);
+        $this->expectExceptionMessage('INVALID_TRANSITION');
+        $this->repo($db)->markReady('K100');
+    }
+
+    public function testCancelAcceptsPreparingState(): void
+    {
+        // Retour oral #8 : une commande en preparation reste annulable (RG-T07) ;
+        // le re-credit suit l'existence de mouvements 'sale' (inchangee).
+        $db = new FakeOrderDatabase();
+        $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => 'preparing'];
+        $db->saleMovementsExist = true;
+        $db->orderItems = [['id' => 1, 'item_type' => 'product', 'product_id' => 12, 'menu_id' => null, 'format' => 'normal', 'quantity' => 1]];
+        $db->compositions[12] = [['ingredient_id' => 5, 'quantity_normal' => 1, 'quantity_maxi' => 1]];
+
+        $res = $this->repo($db)->cancel('K100', 9, 4);
+
+        self::assertSame('cancelled', $res['status']);
+        self::assertNotSame([], $db->firstWrite('INSERT INTO stock_movement')); // re-credit ecrit
     }
 
     public function testDeliverUnknownThrows(): void
@@ -587,7 +753,7 @@ final class OrderRepositoryTest extends TestCase
         self::assertSame(1, $db->countWrites('UPDATE customer_order SET status'));
         // 2 unites consommees (qn 1 * quantite 2) -> re-credit +2 sur l'ingredient 5.
         $inc = $db->firstWrite('UPDATE ingredient SET stock_quantity');
-        self::assertSame(2, $inc['u']);
+        self::assertSame(2, $inc['q']);   // ecriture ABSOLUE plafonnee (re-credit clampe a la capacite)
         self::assertSame(5, $inc['id']);
         // Type 'cancellation' code en dur dans le SQL (cf. pay() qui code 'sale').
         self::assertStringContainsString("'cancellation'", $db->firstWriteSql('INSERT INTO stock_movement'));
@@ -617,8 +783,27 @@ final class OrderRepositoryTest extends TestCase
 
         $this->repo($db)->cancel('K100', 9, 4);
 
-        self::assertSame(2, $db->firstWrite('UPDATE ingredient SET stock_quantity')['u']);
+        self::assertSame(2, $db->firstWrite('UPDATE ingredient SET stock_quantity')['q']);
         self::assertStringContainsString("'cancellation'", $db->firstWriteSql('INSERT INTO stock_movement'));
+    }
+
+    public function testCancelRecreditClampsToCapacity(): void
+    {
+        // Plafond strict : si l'ingredient a ete recomble (restock) entre la vente et
+        // l'annulation, le re-credit ne le fait pas repasser au-dessus de 100 %. Le
+        // mouvement 'cancellation' porte le delta REELLEMENT applique (capacite - stock).
+        $db = new FakeOrderDatabase();
+        $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => 'paid'];
+        $db->saleMovementsExist = true;
+        $db->orderItems = [['id' => 1, 'item_type' => 'product', 'product_id' => 12, 'menu_id' => null, 'format' => 'normal', 'quantity' => 2]];
+        $db->compositions[12] = [['ingredient_id' => 5, 'quantity_normal' => 1, 'quantity_maxi' => 1]];
+        $db->ingredients[5] = ['stock_quantity' => 299, 'stock_capacity' => 300]; // quasi plein
+
+        $this->repo($db)->cancel('K100', 9, 4);
+
+        // Re-credit de +2 demande mais cale a 300 (capacite) : ecriture absolue + delta effectif.
+        self::assertSame(300, $db->firstWrite('UPDATE ingredient SET stock_quantity')['q']);
+        self::assertSame(1, $db->firstWrite('INSERT INTO stock_movement')['delta']); // 300 - 299, pas 2
     }
 
     public function testCancelRejectsUnknownOrder(): void

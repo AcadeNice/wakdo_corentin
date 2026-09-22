@@ -68,6 +68,11 @@ abstract class AdminController extends AuthenticatedController
             'permissions'      => $this->authorizer()->permissionsFor($roleId),
             'csrfToken'       => Csrf::token($this->sessionManager()),
             'activeNav'       => '',
+            // Canal de saisie du role courant ('counter' | 'drive') pour que le lien
+            // "Saisie commande" du layout envoie un equipier drive vers /drive/orders
+            // et un equipier comptoir vers /counter/orders. Derive de role.order_source
+            // (remonte par displayInfo, qui joint deja la table role).
+            'orderChannel'    => $info['order_source'] === 'drive' ? 'drive' : 'counter',
             'flash'           => $this->takeFlash(),
         ];
 

@@ -198,6 +198,99 @@ final class IngredientControllerTest extends TestCase
         self::assertStringContainsString('Alerte', $response->body());
     }
 
+    public function testIndexShowsBusinessExplainerBanner(): void
+    {
+        // Le bandeau explique le lien metier stock -> disponibilite borne (RG-T21),
+        // l'info qui manquait dans l'ancien tableau brut.
+        $db = $this->permittedDb();
+        $db->ingredientsRows = [$this->ingredient()];
+
+        $body = $this->controller($this->get('/admin/ingredients'), $db)->index()->body();
+
+        self::assertStringContainsString('stock-explainer', $body);
+        self::assertStringContainsString('borne', $body);
+    }
+
+    public function testIndexPromotesLowAndCriticalIntoRestockSection(): void
+    {
+        // Un ingredient critique (3% < seuil 5) doit apparaitre dans la section
+        // "A reapprovisionner" mise en avant, pas seulement dans la liste calme.
+        $db = $this->permittedDb();
+        $db->ingredientsRows = [$this->ingredient(['name' => 'Buns', 'stock_quantity' => 3])];
+
+        $body = $this->controller($this->get('/admin/ingredients'), $db)->index()->body();
+
+        self::assertStringContainsString('A reapprovisionner', $body);
+        self::assertStringContainsString('stock-section--restock', $body);
+        self::assertStringContainsString('Buns', $body);
+        self::assertStringContainsString('Critique', $body);
+    }
+
+    public function testIndexShowsPositiveEmptyStateWhenNothingLow(): void
+    {
+        // Tous au-dessus des seuils -> etat vide positif dans la section restock.
+        $db = $this->permittedDb();
+        $db->ingredientsRows = [$this->ingredient(['stock_quantity' => 100])]; // 100% -> normal
+
+        $body = $this->controller($this->get('/admin/ingredients'), $db)->index()->body();
+
+        self::assertStringContainsString('au-dessus de leurs seuils', $body);
+    }
+
+    public function testIndexCountsIngredientsPerBand(): void
+    {
+        // Resume en haut : 1 critique (3%), 1 alerte (8%), 1 au-dessus (100%).
+        $db = $this->permittedDb();
+        $db->ingredientsRows = [
+            $this->ingredient(['name' => 'Buns', 'stock_quantity' => 3]),
+            $this->ingredient(['name' => 'Cheddar', 'stock_quantity' => 8]),
+            $this->ingredient(['name' => 'Salade', 'stock_quantity' => 100]),
+        ];
+
+        $body = $this->controller($this->get('/admin/ingredients'), $db)->index()->body();
+
+        // Chaque compteur est verrouille a SON libelle (sinon une regex generique
+        // passerait meme avec les trois compteurs inverses).
+        self::assertMatchesRegularExpression('/stock-summary__count">1<\/span>\s*<span class="stock-summary__label">critiques/', $body);
+        self::assertMatchesRegularExpression('/stock-summary__count">1<\/span>\s*<span class="stock-summary__label">en alerte/', $body);
+        self::assertMatchesRegularExpression('/stock-summary__count">1<\/span>\s*<span class="stock-summary__label">au-dessus du seuil/', $body);
+    }
+
+    public function testIndexExposesThresholdButtonWithCurrentValuesForStockManager(): void
+    {
+        // F13 : la page Stock porte un acces rapide "Regler les seuils" decore des
+        // valeurs courantes (data-attributes) qui pre-remplissent la modale, plus la
+        // modale rendue serveur (VRAI form POST). Visible pour stock.manage.
+        $db = $this->permittedDb();
+        $db->ingredientsRows = [$this->ingredient(['stock_capacity' => 100, 'low_stock_pct' => 12, 'critical_stock_pct' => 4])];
+
+        $body = $this->controller($this->get('/admin/ingredients'), $db)->index()->body();
+
+        self::assertStringContainsString('Regler les seuils', $body);
+        self::assertStringContainsString('data-threshold-open', $body);
+        self::assertStringContainsString('data-capacity="100"', $body);
+        self::assertStringContainsString('data-low="12"', $body);
+        self::assertStringContainsString('data-critical="4"', $body);
+        // Modale rendue serveur avec un VRAI form POST (pas de fetch) + champs cibles.
+        self::assertStringContainsString('data-threshold-modal', $body);
+        self::assertStringContainsString('name="stock_capacity"', $body);
+        self::assertStringContainsString('name="critical_stock_pct"', $body);
+    }
+
+    public function testIndexHidesThresholdAccessWithoutStockManage(): void
+    {
+        // Sans stock.manage (lecture seule), ni le bouton ni la modale ne sont rendus :
+        // l'acces rapide suit la permission de calibrage.
+        $db = $this->permittedDb();
+        $db->grantedCodes = ['stock.read'];
+        $db->ingredientsRows = [$this->ingredient()];
+
+        $body = $this->controller($this->get('/admin/ingredients'), $db)->index()->body();
+
+        self::assertStringNotContainsString('data-threshold-open', $body);
+        self::assertStringNotContainsString('data-threshold-modal', $body);
+    }
+
     public function testIndexForbiddenWithoutStockRead(): void
     {
         $db = $this->permittedDb();
@@ -287,6 +380,17 @@ final class IngredientControllerTest extends TestCase
         self::assertSame(404, $this->controller($this->post($this->validForm(), '/admin/ingredients/9'), $db)->update(['id' => '9'])->status());
     }
 
+    public function testUpdateRejectsCapacityBelowCurrentStock(): void
+    {
+        // Plafond strict cote denominateur : l'ingredient a stock_quantity 40 ; baisser
+        // la capacite a 30 ferait stock_pct = 133 %. Refuse (422), aucune ecriture.
+        $db = $this->permittedDb();
+        $response = $this->controller($this->post($this->validForm(['stock_capacity' => '30']), '/admin/ingredients/5'), $db)->update(['id' => '5']);
+
+        self::assertSame(422, $response->status());
+        self::assertFalse($db->wrote('UPDATE ingredient SET name'));
+    }
+
     public function testToggleFlipsActive(): void
     {
         $db = $this->permittedDb(); // is_active = 1 -> doit basculer a 0
@@ -369,6 +473,113 @@ final class IngredientControllerTest extends TestCase
         self::assertStringContainsString('reference', $response->body());
     }
 
+    // --- THRESHOLDS (F13, stock.manage, SANS PIN) : reglage rapide capacite + seuils ---
+
+    public function testUpdateThresholdsWritesOnlyTheThreeColumns(): void
+    {
+        $db = $this->permittedDb();
+        $form = ['_csrf' => $this->csrf, 'stock_capacity' => '200', 'low_stock_pct' => '15', 'critical_stock_pct' => '5'];
+
+        $response = $this->controller($this->post($form, '/admin/ingredients/5/thresholds'), $db)->updateThresholds(['id' => '5']);
+
+        self::assertSame(302, $response->status());
+        self::assertSame('/admin/ingredients', $response->header('Location'));
+        $params = $this->writeParams($db, 'UPDATE ingredient SET stock_capacity');
+        self::assertNotNull($params);
+        self::assertSame(200, $params['cap']);
+        self::assertSame(15, $params['low']);
+        self::assertSame(5, $params['crit']);
+        // Endpoint leger : ne touche ni le stock ni le catalogue (name/unit/pack/is_active).
+        $sql = $this->writeSql($db, 'UPDATE ingredient SET stock_capacity');
+        self::assertStringNotContainsString('stock_quantity', $sql);
+        self::assertStringNotContainsString('is_active', $sql);
+        self::assertStringNotContainsString('name', $sql);
+        self::assertStringNotContainsString('pack_size', $sql);
+    }
+
+    public function testUpdateThresholdsRejectsCapacityBelowOne(): void
+    {
+        $db = $this->permittedDb();
+        $form = ['_csrf' => $this->csrf, 'stock_capacity' => '0', 'low_stock_pct' => '15', 'critical_stock_pct' => '5'];
+
+        $response = $this->controller($this->post($form, '/admin/ingredients/5/thresholds'), $db)->updateThresholds(['id' => '5']);
+
+        self::assertSame(422, $response->status());
+        self::assertFalse($db->wrote('UPDATE ingredient SET stock_capacity'));
+        self::assertStringContainsString('capacite', $response->body());
+    }
+
+    public function testUpdateThresholdsRejectsPercentageAboveHundred(): void
+    {
+        $db = $this->permittedDb();
+        $form = ['_csrf' => $this->csrf, 'stock_capacity' => '100', 'low_stock_pct' => '120', 'critical_stock_pct' => '5'];
+
+        $response = $this->controller($this->post($form, '/admin/ingredients/5/thresholds'), $db)->updateThresholds(['id' => '5']);
+
+        self::assertSame(422, $response->status());
+        self::assertFalse($db->wrote('UPDATE ingredient SET stock_capacity'));
+    }
+
+    public function testUpdateThresholdsRejectsCriticalNotStrictlyBelowLow(): void
+    {
+        $db = $this->permittedDb();
+        $form = ['_csrf' => $this->csrf, 'stock_capacity' => '100', 'low_stock_pct' => '10', 'critical_stock_pct' => '10'];
+
+        $response = $this->controller($this->post($form, '/admin/ingredients/5/thresholds'), $db)->updateThresholds(['id' => '5']);
+
+        self::assertSame(422, $response->status());
+        self::assertFalse($db->wrote('UPDATE ingredient SET stock_capacity'));
+        self::assertStringContainsString('strictement inferieur', $response->body());
+    }
+
+    public function testUpdateThresholdsForbiddenWithoutStockManage(): void
+    {
+        $db = $this->permittedDb();
+        $db->grantedCodes = ['stock.read']; // lecture sans stock.manage
+        $form = ['_csrf' => $this->csrf, 'stock_capacity' => '100', 'low_stock_pct' => '10', 'critical_stock_pct' => '5'];
+
+        $response = $this->controller($this->post($form, '/admin/ingredients/5/thresholds'), $db)->updateThresholds(['id' => '5']);
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($db->wrote('UPDATE ingredient SET stock_capacity'));
+    }
+
+    public function testUpdateThresholdsRejectsInvalidCsrf(): void
+    {
+        $db = $this->permittedDb();
+        $form = ['_csrf' => 'bad', 'stock_capacity' => '100', 'low_stock_pct' => '10', 'critical_stock_pct' => '5'];
+
+        $response = $this->controller($this->post($form, '/admin/ingredients/5/thresholds'), $db)->updateThresholds(['id' => '5']);
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($db->wrote('UPDATE ingredient SET stock_capacity'));
+    }
+
+    public function testUpdateThresholdsRejectsCapacityBelowCurrentStock(): void
+    {
+        // Reglage rapide F13 : l'ingredient a stock_quantity 40 ; capacite 30 -> 133 %.
+        // Le plafond strict cote denominateur refuse (422) sans rien ecrire.
+        $db = $this->permittedDb();
+        $form = ['_csrf' => $this->csrf, 'stock_capacity' => '30', 'low_stock_pct' => '10', 'critical_stock_pct' => '5'];
+
+        $response = $this->controller($this->post($form, '/admin/ingredients/5/thresholds'), $db)->updateThresholds(['id' => '5']);
+
+        self::assertSame(422, $response->status());
+        self::assertFalse($db->wrote('UPDATE ingredient SET stock_capacity'));
+    }
+
+    public function testUpdateThresholdsNotFound(): void
+    {
+        $db = $this->permittedDb();
+        $db->ingredientRow = null;
+        $form = ['_csrf' => $this->csrf, 'stock_capacity' => '100', 'low_stock_pct' => '10', 'critical_stock_pct' => '5'];
+
+        $response = $this->controller($this->post($form, '/admin/ingredients/9/thresholds'), $db)->updateThresholds(['id' => '9']);
+
+        self::assertSame(404, $response->status());
+        self::assertFalse($db->wrote('UPDATE ingredient SET stock_capacity'));
+    }
+
     // --- RESTOCK (9.1, stock.manage, SANS PIN) ---
 
     public function testRestockAddsPacksAndRecordsMovementUnderSessionActor(): void
@@ -378,7 +589,7 @@ final class IngredientControllerTest extends TestCase
 
         self::assertSame(302, $response->status());
         self::assertSame(['begin', 'commit'], $db->transactionEvents);
-        self::assertTrue($db->wrote('SET stock_quantity = stock_quantity +'));
+        self::assertTrue($db->wrote('SET stock_quantity = :q')); // ecriture ABSOLUE plafonnee (clamp capacite), plus d'increment SQL
         $movement = $this->writeParams($db, 'INSERT INTO stock_movement');
         self::assertNotNull($movement);
         self::assertSame('restock', $movement['type']);
@@ -473,6 +684,138 @@ final class IngredientControllerTest extends TestCase
         self::assertFalse($db->wrote('stock_movement'));
     }
 
+    // --- ADJUST (F16, stock.count + PIN) : ajustement libre signe ---
+
+    public function testAdjustWithValidPinRecordsAdjustmentUnderPinActorWithoutAudit(): void
+    {
+        $db = $this->permittedDb(); // stock 40, capacite 100
+        $this->actingPin($db);
+
+        $response = $this->controller($this->post([
+            '_csrf' => $this->csrf, 'delta' => '10', 'note' => 'casse compensee',
+            'pin_email' => 'sam@wakdo.local', 'pin' => '4729',
+        ], '/admin/ingredients/5/adjust'), $db)->adjust(['id' => '5']);
+
+        self::assertSame(302, $response->status());
+        $movement = $this->writeParams($db, 'INSERT INTO stock_movement');
+        self::assertNotNull($movement);
+        self::assertSame('adjustment', $movement['type']);
+        self::assertSame(10, $movement['delta']);  // 40 + 10 = 50, sous la capacite
+        self::assertSame(9, $movement['user']);     // acteur resolu par PIN (RG-4)
+        self::assertSame([], $db->auditActions());  // RG-T14 : pas de double-journal
+    }
+
+    public function testAdjustClampsToCapacityAndRecordsAppliedDelta(): void
+    {
+        $db = $this->permittedDb(); // stock 40, capacite 100
+        $this->actingPin($db);
+
+        $response = $this->controller($this->post([
+            '_csrf' => $this->csrf, 'delta' => '100',
+            'pin_email' => 'sam@wakdo.local', 'pin' => '4729',
+        ], '/admin/ingredients/5/adjust'), $db)->adjust(['id' => '5']);
+
+        self::assertSame(302, $response->status());
+        $movement = $this->writeParams($db, 'INSERT INTO stock_movement');
+        self::assertNotNull($movement);
+        // 40 + 100 = 140 -> plafonne a 100 -> delta REELLEMENT applique = 60 (pas 100).
+        self::assertSame(60, $movement['delta']);
+        $update = $this->writeParams($db, 'UPDATE ingredient SET stock_quantity');
+        self::assertNotNull($update);
+        self::assertSame(100, $update['q']);
+    }
+
+    public function testAdjustAllowsNegativeDelta(): void
+    {
+        $db = $this->permittedDb(); // stock 40
+        $this->actingPin($db);
+
+        $response = $this->controller($this->post([
+            '_csrf' => $this->csrf, 'delta' => '-10',
+            'pin_email' => 'sam@wakdo.local', 'pin' => '4729',
+        ], '/admin/ingredients/5/adjust'), $db)->adjust(['id' => '5']);
+
+        self::assertSame(302, $response->status());
+        $movement = $this->writeParams($db, 'INSERT INTO stock_movement');
+        self::assertNotNull($movement);
+        self::assertSame('adjustment', $movement['type']);
+        self::assertSame(-10, $movement['delta']); // 40 - 10 = 30
+    }
+
+    public function testAdjustWithBadPinLogsFailedAndChangesNoStock(): void
+    {
+        $db = $this->permittedDb();
+        $db->actingUserRow = null; // email/PIN non resolu
+
+        $response = $this->controller($this->post([
+            '_csrf' => $this->csrf, 'delta' => '10',
+            'pin_email' => 'ghost@wakdo.local', 'pin' => '0000',
+        ], '/admin/ingredients/5/adjust'), $db)->adjust(['id' => '5']);
+
+        self::assertSame(422, $response->status());
+        self::assertSame(['pin.failed'], $db->auditActions());
+        self::assertFalse($db->wrote('stock_movement'));
+    }
+
+    public function testAdjustLockedActorReturns422WithoutEffect(): void
+    {
+        $db = $this->permittedDb();
+        $this->actingPin($db);
+        $db->pinThrottleLockoutUntil = date('Y-m-d H:i:s', time() + 300); // verrou actif
+
+        $response = $this->controller($this->post([
+            '_csrf' => $this->csrf, 'delta' => '10',
+            'pin_email' => 'sam@wakdo.local', 'pin' => '4729',
+        ], '/admin/ingredients/5/adjust'), $db)->adjust(['id' => '5']);
+
+        self::assertSame(422, $response->status());
+        self::assertSame([], $db->auditActions());       // pas de pin.failed sous verrou (RG-T22)
+        self::assertFalse($db->wrote('stock_movement'));
+    }
+
+    public function testAdjustRejectsZeroDelta(): void
+    {
+        $db = $this->permittedDb();
+        $this->actingPin($db);
+
+        $response = $this->controller($this->post([
+            '_csrf' => $this->csrf, 'delta' => '0',
+            'pin_email' => 'sam@wakdo.local', 'pin' => '4729',
+        ], '/admin/ingredients/5/adjust'), $db)->adjust(['id' => '5']);
+
+        self::assertSame(422, $response->status());
+        self::assertFalse($db->wrote('stock_movement'));
+    }
+
+    public function testAdjustRejectsNonIntegerDelta(): void
+    {
+        $db = $this->permittedDb();
+        $this->actingPin($db);
+
+        $response = $this->controller($this->post([
+            '_csrf' => $this->csrf, 'delta' => '3.5',
+            'pin_email' => 'sam@wakdo.local', 'pin' => '4729',
+        ], '/admin/ingredients/5/adjust'), $db)->adjust(['id' => '5']);
+
+        self::assertSame(422, $response->status());
+        self::assertFalse($db->wrote('stock_movement'));
+    }
+
+    public function testAdjustForbiddenWithoutStockCount(): void
+    {
+        $db = $this->permittedDb();
+        $db->grantedCodes = ['stock.read', 'stock.manage']; // a stock.manage mais PAS stock.count
+        $this->actingPin($db);
+
+        $response = $this->controller($this->post([
+            '_csrf' => $this->csrf, 'delta' => '10',
+            'pin_email' => 'sam@wakdo.local', 'pin' => '4729',
+        ], '/admin/ingredients/5/adjust'), $db)->adjust(['id' => '5']);
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($db->wrote('stock_movement'));
+    }
+
     // --- Visibilite de l'acteur (RG-4) ---
 
     public function testMovementsShowActorForManager(): void
@@ -498,5 +841,249 @@ final class IngredientControllerTest extends TestCase
 
         self::assertSame(200, $response->status());
         self::assertStringNotContainsString('Auteur', $response->body()); // colonne masquee (RG-4)
+    }
+
+    // -------------------------------------------------------------------------
+    // F11b — revue des allergenes d'un ingredient
+    // -------------------------------------------------------------------------
+
+    /**
+     * Catalogue reduit a trois lignes : suffit a exercer la validation contre le
+     * catalogue sans recopier les 14.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function allergenCatalogue(): array
+    {
+        return [
+            ['id' => 1, 'code' => 'gluten', 'name' => 'Gluten', 'description' => 'Cereales.'],
+            ['id' => 7, 'code' => 'milk', 'name' => 'Lait', 'description' => 'Lait.'],
+            ['id' => 11, 'code' => 'sesame', 'name' => 'Graines de sesame', 'description' => 'Sesame.'],
+        ];
+    }
+
+    private function dbWithAllergenCatalogue(): FakeDatabase
+    {
+        $db = $this->permittedDb();
+        $db->allergensRows = $this->allergenCatalogue();
+
+        return $db;
+    }
+
+    public function testIndexRemindsHowManyIngredientsLackAnAllergenReview(): void
+    {
+        $db = $this->permittedDb();
+        $db->ingredientsRows = [
+            $this->ingredient(['id' => 5, 'name' => 'Cheddar', 'allergens_reviewed_at' => '2026-07-31 10:00:00']),
+            $this->ingredient(['id' => 6, 'name' => 'Pain', 'allergens_reviewed_at' => null]),
+            $this->ingredient(['id' => 7, 'name' => 'Tomate', 'allergens_reviewed_at' => null]),
+        ];
+
+        $body = $this->controller($this->get('/admin/ingredients'), $db)->index()->body();
+
+        // Le rappel dit COMBIEN et POURQUOI : sinon un ingredient ajoute plus tard fait
+        // basculer des produits en "information non disponible" sans que ca se voie.
+        self::assertStringContainsString('2', $body);
+        self::assertStringContainsString('revue allergenes', $body);
+    }
+
+    public function testIndexStaysSilentWhenEveryIngredientIsReviewed(): void
+    {
+        $db = $this->permittedDb();
+        $db->ingredientsRows = [
+            $this->ingredient(['id' => 5, 'name' => 'Cheddar', 'allergens_reviewed_at' => '2026-07-31 10:00:00']),
+        ];
+
+        $body = $this->controller($this->get('/admin/ingredients'), $db)->index()->body();
+
+        // Pas de bandeau permanent : un rappel toujours affiche devient du decor.
+        self::assertStringNotContainsString('revue allergenes', $body);
+    }
+
+    public function testEditRendersTheAllergenMatrixWithScalarCheckboxNames(): void
+    {
+        $db = $this->dbWithAllergenCatalogue();
+        $db->ingredientAllergenRows = [['allergen_id' => 7]];
+
+        $response = $this->controller($this->get('/admin/ingredients/5/edit'), $db)->edit(['id' => '5']);
+
+        self::assertSame(200, $response->status());
+        // Champs SCALAIRES `allergen_<id>` : Request::formBody ne garde que les
+        // scalaires (meme raison que perm_<id> sur la matrice des roles). Des cases
+        // nommees allergens[] seraient perdues en silence.
+        self::assertStringContainsString('name="allergen_1"', $response->body());
+        self::assertStringContainsString('name="allergen_7"', $response->body());
+        self::assertStringContainsString('Graines de sesame', $response->body());
+    }
+
+    public function testEditPreChecksTheAllergensAlreadyDeclared(): void
+    {
+        $db = $this->dbWithAllergenCatalogue();
+        $db->ingredientAllergenRows = [['allergen_id' => 7]];
+
+        $body = $this->controller($this->get('/admin/ingredients/5/edit'), $db)->edit(['id' => '5'])->body();
+
+        // Le lait est coche, le gluten non : sinon une revue enregistree se perdrait
+        // au prochain envoi du formulaire.
+        self::assertMatchesRegularExpression('/name="allergen_7"[^>]*checked/', $body);
+        self::assertDoesNotMatchRegularExpression('/name="allergen_1"[^>]*checked/', $body);
+    }
+
+    public function testEditSaysNotReviewedWhenTheMarkerIsNull(): void
+    {
+        $db = $this->dbWithAllergenCatalogue();
+        $db->ingredientRow = $this->ingredient(['allergens_reviewed_at' => null, 'allergens_source' => null]);
+
+        $body = $this->controller($this->get('/admin/ingredients/5/edit'), $db)->edit(['id' => '5'])->body();
+
+        // L'ecran doit dire l'etat REEL : non revu. Un ecran muet laisserait croire
+        // que l'absence de case cochee vaut "sans allergene".
+        self::assertStringContainsString('Jamais revu', $body);
+    }
+
+    public function testEditShowsWhenAndFromWhereTheReviewWasDone(): void
+    {
+        $db = $this->dbWithAllergenCatalogue();
+        $db->ingredientRow = $this->ingredient([
+            'allergens_reviewed_at' => '2026-07-31 10:00:00',
+            'allergens_source'      => 'Fiche fournisseur 2026',
+        ]);
+
+        $body = $this->controller($this->get('/admin/ingredients/5/edit'), $db)->edit(['id' => '5'])->body();
+
+        self::assertStringContainsString('2026-07-31 10:00:00', $body);
+        self::assertStringContainsString('Fiche fournisseur 2026', $body);
+    }
+
+    public function testAllergensStoresOnlyTheCheckedIdsOfTheCatalogue(): void
+    {
+        $db = $this->dbWithAllergenCatalogue();
+        $request = $this->post([
+            '_csrf'       => $this->csrf,
+            'allergen_1'  => '1',
+            'allergen_7'  => '1',
+            'allergen_99' => '1', // hors catalogue : doit etre ignore (RG-T18)
+            'source'      => 'Fiche fournisseur 2026',
+        ], '/admin/ingredients/5/allergens');
+
+        $response = $this->controller($request, $db)->allergens(['id' => '5']);
+
+        self::assertSame(302, $response->status());
+        self::assertSame('/admin/ingredients/5/edit', $response->header('Location'));
+        $inserts = array_values(array_filter(
+            $db->writes,
+            static fn (array $w): bool => str_contains($w['sql'], 'INSERT INTO ingredient_allergen'),
+        ));
+        self::assertCount(2, $inserts);
+        self::assertSame([1, 7], array_map(static fn (array $w): int => (int) $w['params']['alg'], $inserts));
+    }
+
+    public function testAllergensRefusesAReviewWithoutASource(): void
+    {
+        $db = $this->dbWithAllergenCatalogue();
+        $request = $this->post([
+            '_csrf'      => $this->csrf,
+            'allergen_1' => '1',
+            'source'     => '   ',
+        ], '/admin/ingredients/5/allergens');
+
+        $response = $this->controller($request, $db)->allergens(['id' => '5']);
+
+        // Une revue sans provenance n'est pas verifiable : c'est exactement ce que ce
+        // lot combat. Le formulaire est re-affiche en 422, rien n'est ecrit.
+        self::assertSame(422, $response->status());
+        self::assertNull($this->writeParams($db, 'UPDATE ingredient SET allergens_reviewed_at'));
+        self::assertNull($this->writeParams($db, 'DELETE FROM ingredient_allergen'));
+    }
+
+    public function testAllergensAcceptsAnEmptySetAsAnExplicitAbsence(): void
+    {
+        $db = $this->dbWithAllergenCatalogue();
+        $request = $this->post([
+            '_csrf'  => $this->csrf,
+            'source' => 'Emballage fournisseur',
+        ], '/admin/ingredients/5/allergens');
+
+        $response = $this->controller($request, $db)->allergens(['id' => '5']);
+
+        self::assertSame(302, $response->status());
+        // Aucune case cochee = "verifie, aucun des 14", pas un non-geste. Le marqueur
+        // de revue doit donc etre pose.
+        self::assertNotNull($this->writeParams($db, 'UPDATE ingredient SET allergens_reviewed_at'));
+    }
+
+    public function testAllergensRecordsTheSessionActorInTheAudit(): void
+    {
+        $db = $this->dbWithAllergenCatalogue();
+        $request = $this->post([
+            '_csrf'      => $this->csrf,
+            'allergen_1' => '1',
+            'source'     => 'Fiche fournisseur',
+        ], '/admin/ingredients/5/allergens');
+
+        $this->controller($request, $db)->allergens(['id' => '5']);
+
+        // Les colonnes disent QUAND et D'OU ; l'audit dit QUI. Sur une information de
+        // securite alimentaire montree au client, les trois comptent.
+        $params = $this->writeParams($db, 'INSERT INTO audit_log');
+        self::assertNotNull($params);
+        self::assertSame('ingredient.allergens', $params['code']);
+        self::assertSame(1, $params['uid']); // user_id de la session de test
+    }
+
+    public function testAllergensRejectsAMissingCsrfToken(): void
+    {
+        $db = $this->dbWithAllergenCatalogue();
+        $request = $this->post(['allergen_1' => '1', 'source' => 'Fiche'], '/admin/ingredients/5/allergens');
+
+        $response = $this->controller($request, $db)->allergens(['id' => '5']);
+
+        // Convention du back-office : jeton invalide -> 403 en TEXTE BRUT. On verifie le
+        // corps, pas seulement le code : un refus de permission rend aussi un 403, mais
+        // avec la vue interdite -- sans cette assertion le test passerait pour la
+        // mauvaise raison.
+        self::assertSame(403, $response->status());
+        self::assertSame('Requete invalide.', $response->body());
+        self::assertSame([], $db->writes);
+    }
+
+    public function testAllergensOnAnUnknownIngredientIs404AndWritesNothing(): void
+    {
+        $db = $this->dbWithAllergenCatalogue();
+        $db->ingredientRow = null;
+        $request = $this->post(['_csrf' => $this->csrf, 'source' => 'Fiche'], '/admin/ingredients/404/allergens');
+
+        $response = $this->controller($request, $db)->allergens(['id' => '404']);
+
+        self::assertSame(404, $response->status());
+        self::assertSame([], $db->writes);
+    }
+
+    public function testAllergensRequiresTheIngredientManagePermission(): void
+    {
+        $db = $this->dbWithAllergenCatalogue();
+        $db->canResult = false; // permission refusee
+        $request = $this->post(['_csrf' => $this->csrf, 'source' => 'Fiche'], '/admin/ingredients/5/allergens');
+
+        $response = $this->controller($request, $db)->allergens(['id' => '5']);
+
+        self::assertSame(403, $response->status());
+        self::assertSame([], $db->writes);
+    }
+
+    public function testAllergensTruncatesAnOverlongSourceInsteadOfFailing(): void
+    {
+        $db = $this->dbWithAllergenCatalogue();
+        $request = $this->post([
+            '_csrf'  => $this->csrf,
+            'source' => str_repeat('a', 300), // colonne VARCHAR(120)
+        ], '/admin/ingredients/5/allergens');
+
+        $response = $this->controller($request, $db)->allergens(['id' => '5']);
+
+        self::assertSame(302, $response->status());
+        $params = $this->writeParams($db, 'UPDATE ingredient SET allergens_reviewed_at');
+        self::assertNotNull($params);
+        self::assertSame(120, mb_strlen((string) $params['src']));
     }
 }

@@ -14,10 +14,26 @@
 
 SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;
 
-ALTER TABLE ingredient
-    ADD COLUMN energy_kcal_100g     SMALLINT UNSIGNED NULL AFTER pack_label,
-    ADD COLUMN nutrition_source     VARCHAR(120)      NULL AFTER energy_kcal_100g,
-    ADD COLUMN nutrition_fetched_at DATETIME          NULL AFTER nutrition_source;
+-- Idempotence : meme garde information_schema que 0007 (re-jouable sans erreur).
+-- Les trois colonnes sont ajoutees ensemble ; l'existence de la premiere
+-- (`energy_kcal_100g`) suffit donc a court-circuiter le groupe. Si elle existe
+-- deja, on execute un no-op (DO 0). Le schema resultant est inchange.
+SET @col_exists := (
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema = DATABASE() AND table_name = 'ingredient' AND column_name = 'energy_kcal_100g'
+);
+
+SET @ddl := IF(
+    @col_exists = 0,
+    'ALTER TABLE ingredient
+        ADD COLUMN energy_kcal_100g     SMALLINT UNSIGNED NULL AFTER pack_label,
+        ADD COLUMN nutrition_source     VARCHAR(120)      NULL AFTER energy_kcal_100g,
+        ADD COLUMN nutrition_fetched_at DATETIME          NULL AFTER nutrition_source',
+    'DO 0'
+);
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 -- energy_kcal_100g : apport energetique pour 100 g (SMALLINT UNSIGNED suffit ; les
 -- valeurs reelles restent < 1000). nutrition_source : provenance ("OpenFoodFacts").

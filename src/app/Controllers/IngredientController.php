@@ -10,6 +10,7 @@ use App\Auth\GuardResult;
 use App\Auth\PasswordHasher;
 use App\Auth\PinThrottle;
 use App\Auth\PinVerifier;
+use App\Catalogue\AllergenRepository;
 use App\Catalogue\IngredientRepository;
 use App\Catalogue\NutritionGateway;
 use App\Catalogue\OpenFoodFactsGateway;
@@ -47,14 +48,47 @@ class IngredientController extends AdminController
             return $guard;
         }
 
+        return $this->renderIndex($guard);
+    }
+
+    /**
+     * Rend le tableau de bord stock. Factorise pour servir la lecture (index, 200) et le
+     * re-rendu en erreur du reglage rapide de seuils (updateThresholds, 422). $error est
+     * affiche en bandeau si present. Les drapeaux de permission pilotent l'affichage des
+     * actions (la garde reelle reste par-route).
+     */
+    private function renderIndex(GuardResult $guard, ?string $error = null, int $status = 200): Response
+    {
+        $ingredients = $this->ingredientRepository()->all();
+
+        // Compteurs par bande pour le resume du tableau de bord (3 pastilles).
+        // Calcules cote serveur a partir de stock_band deja resolu par le depot,
+        // pour que la vue reste declarative et la valeur testable directement.
+        $counts = ['critical' => 0, 'low' => 0, 'normal' => 0];
+        // Ingredients sans revue d'allergenes (F11b) : compte dans la MEME boucle, sans
+        // requete supplementaire. Sans ce rappel, un ingredient ajoute plus tard rendrait
+        // silencieusement des produits "information non disponible" sur la borne, et
+        // l'equipe n'aurait aucun moyen de s'en apercevoir depuis cette page.
+        $unreviewedAllergens = 0;
+        foreach ($ingredients as $row) {
+            $band = (string) ($row['stock_band'] ?? 'normal');
+            $counts[$band] = ($counts[$band] ?? 0) + 1;
+            if (($row['allergens_reviewed_at'] ?? null) === null) {
+                $unreviewedAllergens++;
+            }
+        }
+
         return $this->adminView('admin/ingredients/index', [
-            'title'       => 'Stock - Wakdo Admin',
-            'activeNav'   => 'stock',
-            'ingredients' => $this->ingredientRepository()->all(),
-            'canManage'   => $this->may($guard, 'ingredient.manage'),
-            'canRestock'  => $this->may($guard, 'stock.manage'),
-            'canCount'    => $this->may($guard, 'stock.count'),
-        ], $guard);
+            'title'          => 'Stock - Wakdo Admin',
+            'activeNav'      => 'stock',
+            'ingredients'    => $ingredients,
+            'bandCounts'     => $counts,
+            'unreviewedAllergens' => $unreviewedAllergens,
+            'canManage'      => $this->may($guard, 'ingredient.manage'),
+            'canRestock'     => $this->may($guard, 'stock.manage'),
+            'canCount'       => $this->may($guard, 'stock.count'),
+            'thresholdError' => $error,
+        ], $guard, $status);
     }
 
     /**
@@ -139,11 +173,12 @@ class IngredientController extends AdminController
         }
 
         $id = (int) ($params['id'] ?? 0);
-        if ($this->ingredientRepository()->find($id) === null) {
+        $ingredient = $this->ingredientRepository()->find($id);
+        if ($ingredient === null) {
             return $this->notFound($guard);
         }
 
-        [$data, $errors] = $this->validate($form, $id);
+        [$data, $errors] = $this->validate($form, $id, (int) $ingredient['stock_quantity']);
         if ($errors !== []) {
             return $this->renderForm($guard, $id, $form, $errors, 422);
         }
@@ -234,6 +269,79 @@ class IngredientController extends AdminController
     }
 
     /**
+     * REVIEW_ALLERGENS (F11b) : declare les allergenes d'un ingredient. Meme permission
+     * que le CRUD (`ingredient.manage`, dont le libelle couvre deja explicitement
+     * "allergen mapping" depuis le seed RBAC), SANS PIN -- ce n'est pas un geste sur
+     * l'argent ni sur le stock, donc hors de l'ensemble sensible RG-T13.
+     *
+     * La SOURCE est obligatoire : une revue dont on ne peut pas dire d'ou elle vient
+     * n'est pas verifiable, et le lot entier existe pour ne pas afficher au client une
+     * information qu'on ne sait pas justifier. Champ vide -> 422, rien n'est ecrit.
+     *
+     * Les cases arrivent en champs SCALAIRES `allergen_<id>` : Request::formBody ne
+     * conserve que les scalaires, donc `allergens[]` serait perdu en silence. Meme
+     * convention que la matrice `perm_<id>` de RoleController.
+     *
+     * @param array<string, string> $params
+     */
+    public function allergens(array $params): Response
+    {
+        $guard = $this->guard('ingredient.manage');
+        if ($guard instanceof Response) {
+            return $guard;
+        }
+
+        $form = $this->request->formBody();
+        if (!Csrf::validate($this->sessionManager(), $form['_csrf'] ?? null)) {
+            return $this->invalidCsrf();
+        }
+
+        $id = (int) ($params['id'] ?? 0);
+        $ingredient = $this->ingredientRepository()->find($id);
+        if ($ingredient === null) {
+            return $this->notFound($guard);
+        }
+
+        // Le catalogue fait autorite : une case dont l'id n'y figure pas est ignoree
+        // (RG-T18). La FK RESTRICT sur allergen_id est le filet, pas le controle.
+        $catalogue = $this->allergenRepository()->all();
+        $retained = [];
+        foreach ($catalogue as $allergen) {
+            $allergenId = (int) ($allergen['id'] ?? 0);
+            if (($form['allergen_' . $allergenId] ?? '') !== '') {
+                $retained[] = ['id' => $allergenId, 'name' => (string) ($allergen['name'] ?? '')];
+            }
+        }
+
+        // VARCHAR(120) : on tronque plutot que de refuser une source trop bavarde --
+        // perdre la fin d'un libelle est moins grave que perdre la revue entiere.
+        $source = mb_substr(trim($form['source'] ?? ''), 0, 120);
+        if ($source === '') {
+            return $this->renderForm(
+                $guard,
+                $id,
+                $ingredient,
+                ['allergens_source' => 'Indiquez d ou vient l information (fiche fournisseur, emballage). Une revue sans source n est pas verifiable.'],
+                422,
+            );
+        }
+
+        $this->ingredientRepository()->setAllergens($id, $retained, $source, $guard->userId, $guard->roleId);
+        $this->setFlash(
+            $retained === []
+                ? 'Revue enregistree : aucun des 14 allergenes pour cet ingredient.'
+                : count($retained) . ' allergene(s) declare(s) pour cet ingredient.',
+        );
+
+        return $this->redirect('/admin/ingredients/' . $id . '/edit');
+    }
+
+    protected function allergenRepository(): AllergenRepository
+    {
+        return new AllergenRepository($this->db());
+    }
+
+    /**
      * @param array<string, string> $params
      */
     public function confirmDelete(array $params): Response
@@ -287,6 +395,49 @@ class IngredientController extends AdminController
         }
 
         $this->setFlash('Ingredient supprime.');
+
+        return $this->redirect('/admin/ingredients');
+    }
+
+    /**
+     * Reglage rapide des seuils depuis le tableau de bord stock (F13). Endpoint LEGER :
+     * ne reutilise PAS update() (qui exige name/unit/pack), il ne valide et n'ecrit que
+     * capacite + seuils alerte/critique. Permission stock.manage (calibrage du stock, pas
+     * du catalogue), CSRF, SANS PIN (config, pas un comptage d'inventaire RG-T13). Succes
+     * -> redirect liste + flash ; erreur de validation -> 422 re-rendu de la liste avec un
+     * bandeau d'erreur (convention restock/inventory : 422 + message, pas de redirect muet).
+     *
+     * @param array<string, string> $params
+     */
+    public function updateThresholds(array $params): Response
+    {
+        $guard = $this->guard('stock.manage');
+        if ($guard instanceof Response) {
+            return $guard;
+        }
+
+        $form = $this->request->formBody();
+        if (!Csrf::validate($this->sessionManager(), $form['_csrf'] ?? null)) {
+            return $this->invalidCsrf();
+        }
+
+        $id = (int) ($params['id'] ?? 0);
+        $ingredient = $this->ingredientRepository()->find($id);
+        if ($ingredient === null) {
+            return $this->notFound($guard);
+        }
+
+        [$data, $errors] = $this->validateThresholds($form, (int) $ingredient['stock_quantity']);
+        if ($errors !== []) {
+            // Premier message d'erreur en bandeau : la modale est rouverte cote client si
+            // besoin ; l'equipier voit la raison du rejet sans jargon de champ.
+            $messages = array_values($errors);
+
+            return $this->renderIndex($guard, $messages[0], 422);
+        }
+
+        $this->ingredientRepository()->updateThresholds($id, $data['stock_capacity'], $data['low_stock_pct'], $data['critical_stock_pct']);
+        $this->setFlash('Seuils mis a jour.');
 
         return $this->redirect('/admin/ingredients');
     }
@@ -457,6 +608,102 @@ class IngredientController extends AdminController
     /**
      * @param array<string, string> $params
      */
+    public function adjustForm(array $params): Response
+    {
+        $guard = $this->guard('stock.count');
+        if ($guard instanceof Response) {
+            return $guard;
+        }
+
+        $id = (int) ($params['id'] ?? 0);
+        $ingredient = $this->ingredientRepository()->find($id);
+        if ($ingredient === null) {
+            return $this->notFound($guard);
+        }
+
+        return $this->renderAdjust($guard, $id, $ingredient, [], []);
+    }
+
+    /**
+     * Ajustement libre du stock (retour oral #6) : correction SIGNEE (delta +/-), sous la
+     * MEME garde que l'inventaire -- stock.count + PIN equipier (RG-T13). Une baisse de
+     * stock non attribuee masquerait de la demarque (R9) : on exige donc le PIN, comme le
+     * comptage d'inventaire, et on trace l'acteur resolu par PIN dans stock_movement.user_id
+     * (mouvement 'adjustment'), sans audit_log au succes (RG-T14). Complement de restock
+     * (hausse en packs, sans PIN) : ici une correction libre, dans les deux sens.
+     *
+     * @param array<string, string> $params
+     */
+    public function adjust(array $params): Response
+    {
+        $guard = $this->guard('stock.count');
+        if ($guard instanceof Response) {
+            return $guard;
+        }
+
+        $form = $this->request->formBody();
+        if (!Csrf::validate($this->sessionManager(), $form['_csrf'] ?? null)) {
+            return $this->invalidCsrf();
+        }
+
+        $id = (int) ($params['id'] ?? 0);
+        $ingredient = $this->ingredientRepository()->find($id);
+        if ($ingredient === null) {
+            return $this->notFound($guard);
+        }
+
+        $errors = [];
+
+        // Delta signe NON NUL : une correction de 0 n'a pas de sens (l'inventaire, lui,
+        // trace meme un delta 0 comme preuve de comptage). Borne a l'entier signe.
+        $deltaRaw = trim($form['delta'] ?? '');
+        $deltaValid = preg_match('/^-?\d+$/', $deltaRaw) === 1
+            && (int) $deltaRaw !== 0
+            && (int) $deltaRaw >= -2147483647 && (int) $deltaRaw <= 2147483647;
+        if (!$deltaValid) {
+            $errors['delta'] = 'L ajustement doit etre un entier non nul (ex. 5 pour ajouter, -3 pour retirer).';
+        }
+
+        $note = trim($form['note'] ?? '');
+        if (mb_strlen($note) > 255) {
+            $errors['note'] = 'Note trop longue (255 caracteres max).';
+        }
+
+        if ($errors !== []) {
+            return $this->renderAdjust($guard, $id, $ingredient, $form, $errors, 422);
+        }
+
+        // RG-T13/RG-4 : ajustement libre = action sensible (peut baisser le stock -> R9
+        // demarque), PIN equipier. Meme flux throttle/decoy/pin.failed que l'inventaire 9.2.
+        $actorId = $guard->userId ?? 0;
+        if ($actorId > 0 && $this->pinThrottle()->isLocked($actorId)) {
+            $this->pinVerifier()->payTimingDecoy($form['pin'] ?? '');
+
+            return $this->renderAdjust($guard, $id, $ingredient, $form, ['pin' => 'Email ou PIN invalide (requis pour l ajustement).'], 422);
+        }
+
+        $actor = $this->pinVerifier()->resolveActingUser(trim($form['pin_email'] ?? ''), $form['pin'] ?? '');
+        if ($actor === null) {
+            $email = trim($form['pin_email'] ?? '');
+            $this->db()->transaction(function (DatabaseInterface $db) use ($email, $id, $actorId): void {
+                $this->logFailedPin($db, $email, $id, 'ajustement');
+                $this->pinThrottle()->recordFailureWithin($db, $actorId);
+            });
+
+            return $this->renderAdjust($guard, $id, $ingredient, $form, ['pin' => 'Email ou PIN invalide (requis pour l ajustement).'], 422);
+        }
+
+        $this->ingredientRepository()->adjust($id, (int) $deltaRaw, $actor['id'], $note !== '' ? $note : null);
+        $this->pinThrottle()->reset($actorId);
+
+        $this->setFlash('Ajustement de stock enregistre.');
+
+        return $this->redirect('/admin/ingredients');
+    }
+
+    /**
+     * @param array<string, string> $params
+     */
     public function movements(array $params): Response
     {
         $guard = $this->guard('stock.read');
@@ -534,7 +781,7 @@ class IngredientController extends AdminController
      * @param array<string, string> $form
      * @return array{0: array{name: string, unit: string, stock_capacity: int, pack_size: int, pack_label: ?string, low_stock_pct: int, critical_stock_pct: int}, 1: array<string, string>}
      */
-    private function validate(array $form, int $exceptId): array
+    private function validate(array $form, int $exceptId, ?int $currentStock = null): array
     {
         $errors = [];
 
@@ -550,12 +797,6 @@ class IngredientController extends AdminController
             $errors['unit'] = 'L unite est requise (40 caracteres max).';
         }
 
-        $capRaw = trim($form['stock_capacity'] ?? '');
-        $capValid = ctype_digit($capRaw) && (int) $capRaw >= 1 && (int) $capRaw <= 2147483647;
-        if (!$capValid) {
-            $errors['stock_capacity'] = 'La capacite (reference 100%) doit etre un entier >= 1.';
-        }
-
         $packRaw = trim($form['pack_size'] ?? '');
         $packValid = ctype_digit($packRaw) && (int) $packRaw >= 1 && (int) $packRaw <= 65535;
         if (!$packValid) {
@@ -565,6 +806,55 @@ class IngredientController extends AdminController
         $label = trim($form['pack_label'] ?? '');
         if ($label !== '' && mb_strlen($label) > 80) {
             $errors['pack_label'] = 'Libelle de pack trop long (80 caracteres max).';
+        }
+
+        // Capacite + seuils : meme regle (capacite >= 1, % 0-100, critique < alerte strict)
+        // que le reglage rapide F13 -> source unique validateThresholds(), pas de copie
+        // divergente. Les messages restent indexes par champ pour le formulaire complet.
+        [$thresholds, $thresholdErrors] = $this->validateThresholds($form, $currentStock);
+        $errors = array_merge($errors, $thresholdErrors);
+
+        $data = [
+            'name'               => $name,
+            'unit'               => $unit,
+            'stock_capacity'     => $thresholds['stock_capacity'],
+            'pack_size'          => $packValid ? (int) $packRaw : 0,
+            'pack_label'         => $label !== '' ? $label : null,
+            'low_stock_pct'      => $thresholds['low_stock_pct'],
+            'critical_stock_pct' => $thresholds['critical_stock_pct'],
+        ];
+
+        return [$data, $errors];
+    }
+
+    /**
+     * Validation des trois reglages de calibrage du stock, partagee par le formulaire
+     * complet (validate) et l'endpoint leger F13 (updateThresholds) pour qu'une seule
+     * regle existe : capacite (reference 100 %) >= 1 ; seuils alerte/critique entiers
+     * 0-100 ; critique STRICTEMENT inferieur a alerte (RG-CREATE-ING, garanti aussi par
+     * un CHECK de table). Si $currentStock est fourni (edition d'un ingredient existant),
+     * la capacite ne peut pas tomber SOUS le stock courant -- sinon stock_pct > 100 %
+     * (plafond strict cote DENOMINATEUR, pendant du clamp a l'ecriture cote numerateur).
+     * Renvoie [valeurs normalisees, erreurs indexees par champ].
+     *
+     * @param array<string, string> $form
+     * @param int|null $currentStock stock_quantity courant pour la garde de plafond (null = creation, stock pose a 0).
+     * @return array{0: array{stock_capacity: int, low_stock_pct: int, critical_stock_pct: int}, 1: array<string, string>}
+     */
+    private function validateThresholds(array $form, ?int $currentStock = null): array
+    {
+        $errors = [];
+
+        $capRaw = trim($form['stock_capacity'] ?? '');
+        $capValid = ctype_digit($capRaw) && (int) $capRaw >= 1 && (int) $capRaw <= 2147483647;
+        if (!$capValid) {
+            $errors['stock_capacity'] = 'La capacite (reference 100%) doit etre un entier >= 1.';
+        } elseif ($currentStock !== null && (int) $capRaw < $currentStock) {
+            // Plafond strict cote DENOMINATEUR : baisser la capacite sous le stock courant
+            // ferait stock_pct > 100 %. On REFUSE plutot que de tronquer le stock en douce
+            // (qui mentirait au ledger append-only RG-T08 et melerait edition de capacite
+            // et mouvement de stock) ; l'equipier baisse d'abord le stock via un inventaire.
+            $errors['stock_capacity'] = 'La capacite ne peut pas etre inferieure au stock actuel (' . $currentStock . '). Faites d abord un inventaire pour baisser le stock.';
         }
 
         $lowRaw = trim($form['low_stock_pct'] ?? '');
@@ -579,17 +869,12 @@ class IngredientController extends AdminController
             $errors['critical_stock_pct'] = 'Le seuil critique doit etre un entier entre 0 et 100.';
         }
 
-        // RG-CREATE-ING : critical_stock_pct < low_stock_pct (strict).
         if ($lowValid && $critValid && (int) $critRaw >= (int) $lowRaw) {
             $errors['critical_stock_pct'] = 'Le seuil critique doit etre strictement inferieur au seuil d alerte.';
         }
 
         $data = [
-            'name'               => $name,
-            'unit'               => $unit,
             'stock_capacity'     => $capValid ? (int) $capRaw : 0,
-            'pack_size'          => $packValid ? (int) $packRaw : 0,
-            'pack_label'         => $label !== '' ? $label : null,
             'low_stock_pct'      => $lowValid ? (int) $lowRaw : 0,
             'critical_stock_pct' => $critValid ? (int) $critRaw : 0,
         ];
@@ -613,7 +898,7 @@ class IngredientController extends AdminController
         throw $exception;
     }
 
-    private function logFailedPin(DatabaseInterface $db, string $email, int $ingredientId): void
+    private function logFailedPin(DatabaseInterface $db, string $email, int $ingredientId, string $context = 'inventaire'): void
     {
         $db->execute(
             'INSERT INTO audit_log (actor_user_id, actor_role_id, action_code, entity_type, entity_id, summary) '
@@ -624,7 +909,7 @@ class IngredientController extends AdminController
                 'code'    => 'pin.failed',
                 'etype'   => 'ingredient',
                 'eid'     => $ingredientId,
-                'summary' => 'Echec PIN inventaire (email tente: ' . $email . ')',
+                'summary' => 'Echec PIN ' . $context . ' (email tente: ' . $email . ')',
             ],
         );
     }
@@ -652,9 +937,44 @@ class IngredientController extends AdminController
                 'energy_kcal_100g'     => (string) ($values['energy_kcal_100g'] ?? ''),
                 'nutrition_source'     => (string) ($values['nutrition_source'] ?? ''),
                 'nutrition_fetched_at' => (string) ($values['nutrition_fetched_at'] ?? ''),
+                // Revue des allergenes (F11b, lecture seule ici) : une date vide veut
+                // dire "jamais revu", et la vue doit le DIRE plutot que de laisser
+                // l'absence de case cochee passer pour "sans allergene".
+                'allergens_reviewed_at' => (string) ($values['allergens_reviewed_at'] ?? ''),
+                'allergens_source'      => (string) ($values['allergens_source'] ?? ''),
             ],
             'errors'       => $errors,
+            // Matrice des allergenes : le catalogue des 14 avec l'etat coche de chacun.
+            // Chargee sur l'edition seulement -- a la creation l'ingredient n'existe pas
+            // encore, il n'y a rien a lier.
+            'allergenMatrix' => $id !== 0 ? $this->allergenMatrix($id) : [],
         ], $guard, $status);
+    }
+
+    /**
+     * Le catalogue des 14 allergenes, chacun marque coche ou non pour cet ingredient.
+     * Deux lectures, aucune boucle de requetes.
+     *
+     * @return list<array{id: int, name: string, description: string, checked: bool}>
+     */
+    private function allergenMatrix(int $ingredientId): array
+    {
+        $repo = $this->allergenRepository();
+        $selected = array_fill_keys($repo->allergenIdsForIngredient($ingredientId), true);
+
+        return array_map(
+            static function (array $allergen) use ($selected): array {
+                $id = (int) ($allergen['id'] ?? 0);
+
+                return [
+                    'id'          => $id,
+                    'name'        => (string) ($allergen['name'] ?? ''),
+                    'description' => (string) ($allergen['description'] ?? ''),
+                    'checked'     => isset($selected[$id]),
+                ];
+            },
+            $repo->all(),
+        );
     }
 
     /**
@@ -687,6 +1007,23 @@ class IngredientController extends AdminController
             'ingredientId' => $id,
             'ingredient'   => $ingredient,
             'values'       => ['actual_quantity' => (string) ($values['actual_quantity'] ?? ''), 'note' => (string) ($values['note'] ?? '')],
+            'errors'       => $errors,
+        ], $guard, $status);
+    }
+
+    /**
+     * @param array<string, mixed> $ingredient
+     * @param array<string, mixed> $values
+     * @param array<string, string> $errors
+     */
+    private function renderAdjust(GuardResult $guard, int $id, array $ingredient, array $values, array $errors, int $status = 200): Response
+    {
+        return $this->adminView('admin/ingredients/adjust', [
+            'title'        => 'Ajuster le stock - Wakdo Admin',
+            'activeNav'    => 'stock',
+            'ingredientId' => $id,
+            'ingredient'   => $ingredient,
+            'values'       => ['delta' => (string) ($values['delta'] ?? ''), 'note' => (string) ($values['note'] ?? '')],
             'errors'       => $errors,
         ], $guard, $status);
     }

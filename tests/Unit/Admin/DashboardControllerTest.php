@@ -16,11 +16,20 @@ use App\Core\Config;
 use App\Core\Database;
 use App\Core\Request;
 use App\Core\Response;
+use App\Order\OrderQueryRepository;
 use App\Tests\Support\FakeDatabase;
 
 /**
  * Stub de StatsRepository : KPIs canned, sans base (les agregats reels sont
  * couverts par StatsRepositoryDbTest).
+ *
+ * stockHealth() porte ici un etat de stock NON SAIN (une bande low + une
+ * critical, avec la liste alerts correspondante) : le dashboard exerce ainsi le
+ * chemin "stock critique > 0" du fragment admin/dashboard.php. La forme de
+ * 'alerts' suit le contrat de StatsRepository::stockHealth (name/stock_pct/
+ * stock_band), meme si la tuile du dashboard ne consomme que bands.critical
+ * (le rendu detaille de la liste vit dans admin/stats/index.php, couvert par
+ * StatsControllerTest).
  */
 final class DashStubStatsRepository extends StatsRepository
 {
@@ -39,8 +48,73 @@ final class DashStubStatsRepository extends StatsRepository
         return [
             'active_total' => 6,
             'bands'        => ['normal' => 4, 'low' => 1, 'critical' => 1],
+            'alerts'       => [
+                ['name' => 'Cheddar', 'stock_pct' => 3, 'stock_band' => 'critical'],
+                ['name' => 'Cornichon', 'stock_pct' => 8, 'stock_band' => 'low'],
+            ],
+        ];
+    }
+}
+
+/**
+ * Stub a stock SAIN : aucune bande low/critical, liste d'alerte vide. Sert a
+ * verifier le pendant negatif de la tuile stock (0 critique -> tag "OK", pas
+ * "A recommander", classe d'alerte absente).
+ */
+final class DashHealthyStatsRepository extends StatsRepository
+{
+    public function counts(): array
+    {
+        return [
+            'products'    => ['total' => 53, 'available' => 50],
+            'categories'  => ['total' => 9, 'active' => 9],
+            'menus'       => ['total' => 13, 'available' => 12],
+            'ingredients' => ['total' => 7, 'active' => 7],
+        ];
+    }
+
+    public function stockHealth(): array
+    {
+        return [
+            'active_total' => 7,
+            'bands'        => ['normal' => 7, 'low' => 0, 'critical' => 0],
             'alerts'       => [],
         ];
+    }
+}
+
+/**
+ * Stub d'OrderQueryRepository : KPIs de vente + serie 7 jours canned, sans base
+ * (les agregats reels sont couverts par OrderQueryRepositoryDbTest). Un seul jour
+ * porte un CA non nul -> au moins une barre dessinee dans le graphe.
+ */
+final class DashStubOrderQuery extends OrderQueryRepository
+{
+    public function salesKpis(): array
+    {
+        return [
+            'revenue_cents'       => 45600,
+            'paid_count'          => 12,
+            'avg_basket_cents'    => 3800,
+            'revenue_today_cents' => 1234,
+            'paid_count_today'    => 3,
+            'total_orders'        => 15,
+            'by_status'           => ['paid' => 12, 'pending_payment' => 3],
+        ];
+    }
+
+    public function salesByDay(int $days = 7): array
+    {
+        $out = [];
+        for ($i = 6; $i >= 0; $i--) {
+            $out[] = [
+                'day'           => sprintf('2026-06-%02d', 23 + (6 - $i)),
+                'orders'        => $i === 0 ? 3 : 0,
+                'revenue_cents' => $i === 0 ? 1234 : 0,
+            ];
+        }
+
+        return $out;
     }
 }
 
@@ -56,6 +130,11 @@ final class TestDashboardController extends DashboardController
         Database $database,
         private readonly SessionManager $testSession,
         private readonly FakeDatabase $fakeDb,
+        // Stub de stats injectable : par defaut l'etat NON SAIN (low+critical),
+        // surchargeable pour exercer aussi le pendant SAIN de la tuile stock.
+        private readonly ?StatsRepository $statsStub = null,
+        // Stub d'OrderQuery : sinon orderQuery() construirait un repo sur la vraie base.
+        private readonly ?OrderQueryRepository $orderStub = null,
     ) {
         parent::__construct($request, $config, $database);
     }
@@ -82,7 +161,12 @@ final class TestDashboardController extends DashboardController
 
     protected function statsRepository(): StatsRepository
     {
-        return new DashStubStatsRepository($this->fakeDb);
+        return $this->statsStub ?? new DashStubStatsRepository($this->fakeDb);
+    }
+
+    protected function orderQuery(): OrderQueryRepository
+    {
+        return $this->orderStub ?? new OrderQueryRepository($this->fakeDb);
     }
 
     /**
@@ -125,11 +209,21 @@ final class DashboardControllerTest extends TestCase
         putenv($key . '=' . $value);
     }
 
-    private function controller(SessionManager $session, FakeDatabase $db): TestDashboardController
+    private function controller(SessionManager $session, FakeDatabase $db, ?StatsRepository $statsStub = null, ?OrderQueryRepository $orderStub = null): TestDashboardController
     {
         $request = new Request('GET', '/admin/dashboard', [], [], '', '203.0.113.5');
 
-        return new TestDashboardController($request, new Config(), new Database(new Config()), $session, $db);
+        return new TestDashboardController($request, new Config(), new Database(new Config()), $session, $db, $statsStub, $orderStub);
+    }
+
+    private function authedAdminDb(): FakeDatabase
+    {
+        $db = new FakeDatabase();
+        $db->guardUserRow = ['is_active' => 1];
+        $db->userDisplayRow = ['first_name' => 'Corentin', 'last_name' => 'J', 'role_label' => 'Administrateur'];
+        $db->permissionCodes = ['product.read', 'user.read'];
+
+        return $db;
     }
 
     private function authedSession(): SessionManager
@@ -195,6 +289,68 @@ final class DashboardControllerTest extends TestCase
         // Le menu utilisateur rend la page self-service du PIN (decouvrable, pas
         // seulement par URL directe).
         self::assertStringContainsString('/admin/profile/pin', $body);
+    }
+
+    public function testRendersCriticalStockTileWhenStockNotHealthy(): void
+    {
+        // CIBLE F6 : exerce le chemin "stock NON sain" du fragment dashboard.
+        // Le stub par defaut (DashStubStatsRepository) renvoie bands.critical = 1
+        // et une liste alerts NON VIDE. Le fragment admin/dashboard.php derive
+        // $nCritical de bands.critical et bascule la tuile en mode alerte des que
+        // > 0 (classe "alert", tag "A recommander", valeur affichee).
+        $response = $this->controller($this->authedSession(), $this->authedAdminDb())->index();
+
+        self::assertSame(200, $response->status());
+        $body = $response->body();
+        // La tuile "Stock critique" affiche le compteur de la bande critical.
+        self::assertStringContainsString('Stock critique', $body);
+        // Branche $nCritical > 0 : tag d'action + classe d'alerte sur la tuile.
+        self::assertStringContainsString('A recommander', $body);
+        self::assertStringContainsString('tile alert', $body);
+        // Pendant negatif : l'etat sain ("OK") ne doit pas etre rendu ici.
+        self::assertStringNotContainsString('>OK<', $body);
+    }
+
+    public function testRendersHealthyStockTileWhenNoCriticalIngredient(): void
+    {
+        // Pendant SAIN : 0 critique -> branche $nCritical === 0 (tag "OK", pas de
+        // classe d'alerte). Verrouille les deux cotes de la condition de la tuile.
+        $stub = new DashHealthyStatsRepository(new FakeDatabase());
+        $body = $this->controller($this->authedSession(), $this->authedAdminDb(), $stub)->index()->body();
+
+        self::assertStringContainsString('Stock critique', $body);
+        // Tag exact (>OK<) plutot que 'OK' nu, qui pourrait matcher du contenu
+        // sans rapport (cookie, lookup, etc.).
+        self::assertStringContainsString('>OK<', $body);
+        self::assertStringNotContainsString('A recommander', $body);
+        self::assertStringNotContainsString('tile alert', $body);
+    }
+
+    public function testRendersSalesKpisAndChartWhenUserHasStatsRead(): void
+    {
+        // canResult = true -> authorizer->can(roleId, 'stats.read') vrai -> le controleur
+        // enrichit le dashboard avec les KPIs de vente + le graphe (stub OrderQuery canned).
+        $db = $this->authedAdminDb();
+        $db->canResult = true;
+        $body = $this->controller($this->authedSession(), $db, null, new DashStubOrderQuery($db))->index()->body();
+
+        self::assertStringContainsString('CA du jour', $body);
+        self::assertStringContainsString('12,34 EUR', $body);            // revenue_today_cents 1234
+        self::assertStringContainsString('class="dash-chart"', $body);   // graphe SVG inline rendu
+        self::assertStringContainsString('<rect class="dash-bar"', $body); // au moins une barre (jour a CA > 0)
+    }
+
+    public function testHidesSalesKpisWhenUserLacksStatsRead(): void
+    {
+        // canResult = false -> pas de stats.read -> aucun KPI de vente ni graphe ; un
+        // equipier garde le dashboard (catalogue + sante stock), sans voir le CA.
+        $db = $this->authedAdminDb();
+        $db->canResult = false;
+        $body = $this->controller($this->authedSession(), $db, null, new DashStubOrderQuery($db))->index()->body();
+
+        self::assertStringContainsString('Tableau de bord', $body); // page rendue
+        self::assertStringNotContainsString('CA du jour', $body);
+        self::assertStringNotContainsString('class="dash-chart"', $body);
     }
 
     public function testForbiddenWhenPermissionDenied(): void

@@ -45,6 +45,7 @@ final class IngredientRepository
         $rows = $this->db->fetchAll(
             'SELECT id, name, unit, stock_quantity, stock_capacity, pack_size, pack_label, '
             . 'energy_kcal_100g, nutrition_source, nutrition_fetched_at, '
+            . 'allergens_reviewed_at, allergens_source, '
             . 'low_stock_pct, critical_stock_pct, is_active FROM ingredient ORDER BY name',
         );
 
@@ -57,8 +58,12 @@ final class IngredientRepository
     public function find(int $id): ?array
     {
         $row = $this->db->fetch(
+            // allergens_reviewed_at / allergens_source (F11b) : la liste de colonnes est
+            // EXPLICITE, donc les oublier ferait afficher "Jamais revu" a un ingredient
+            // pourtant revu. Le formulaire lit ces deux champs par renderForm().
             'SELECT id, name, unit, stock_quantity, stock_capacity, pack_size, pack_label, '
             . 'energy_kcal_100g, nutrition_source, nutrition_fetched_at, '
+            . 'allergens_reviewed_at, allergens_source, '
             . 'low_stock_pct, critical_stock_pct, is_active FROM ingredient WHERE id = :id',
             ['id' => $id],
         );
@@ -89,7 +94,7 @@ final class IngredientRepository
             [
                 'name'   => $data['name'],
                 'unit'   => $data['unit'],
-                'qty'    => $data['stock_quantity'],
+                'qty'    => self::clampToCapacity((int) $data['stock_quantity'], (int) $data['stock_capacity']),
                 'cap'    => $data['stock_capacity'],
                 'pack'   => $data['pack_size'],
                 'label'  => $data['pack_label'],
@@ -136,6 +141,23 @@ final class IngredientRepository
     }
 
     /**
+     * Reglage rapide des seuils depuis le tableau de bord stock (F13). Cible UNIQUEMENT
+     * les trois colonnes de calibrage (capacite = reference 100 %, seuils alerte/critique
+     * en %), distinctes de update() qui exige aussi name/unit/pack. stock_quantity n'est
+     * jamais touche : le niveau ne bouge que via restock/inventoryCount (ledger). Les
+     * bornes (capacite >= 1, % 0-100, critique < alerte strict) sont validees par
+     * l'appelant (controleur, RG-T18), pas ici.
+     */
+    public function updateThresholds(int $id, int $capacity, int $low, int $critical): void
+    {
+        $this->db->execute(
+            'UPDATE ingredient SET stock_capacity = :cap, low_stock_pct = :low, '
+            . 'critical_stock_pct = :crit WHERE id = :id',
+            ['cap' => $capacity, 'low' => $low, 'crit' => $critical, 'id' => $id],
+        );
+    }
+
+    /**
      * Suppression dure. Bloquee par FK RESTRICT (product_ingredient / stock_movement)
      * des qu'une recette ou un mouvement reference l'ingredient ; le controleur
      * attrape SQLSTATE 23000 -> 409 et propose la desactivation.
@@ -166,6 +188,82 @@ final class IngredientRepository
         );
     }
 
+    /**
+     * Remplace integralement les allergenes declares d'un ingredient (F11b) dans UNE
+     * transaction (RG-T08). Trois effets indissociables, plus une trace :
+     *
+     *  1. delete-and-reinsert de `ingredient_allergen` -- meme choix que
+     *     ProductRepository::setComposition() : reposer l'ensemble est plus simple et
+     *     plus sur qu'une reconciliation en place, la PK composite garantissant
+     *     l'unicite. L'appelant a deja valide les ids contre le catalogue des 14
+     *     (RG-T18) ; la FK RESTRICT sur allergen_id est le filet.
+     *  2. `allergens_reviewed_at = NOW()` : c'est CE geste qui rend la liste
+     *     affirmable. Une liste videe volontairement devient alors "verifie, aucun
+     *     des 14 allergenes" et non plus "personne n'a regarde".
+     *  3. `allergens_source` : d'ou vient la revue, lisible depuis l'application.
+     *
+     * Et une ligne `audit_log` dans la MEME transaction (ADR-0004 : la trace avec
+     * l'effet). Les autres ecritures d'ingredient (creation, modification, import
+     * nutritionnel) ne tracent pas ; celle-ci si, parce qu'elle change une information
+     * de securite alimentaire montree au client. Les deux colonnes disent QUAND et
+     * D'OU ; l'audit dit QUI.
+     *
+     * @param list<array{id: int, name: string}> $allergens allergenes retenus, deja
+     *        valides contre le catalogue. Liste vide = declaration explicite d'absence.
+     */
+    public function setAllergens(
+        int $id,
+        array $allergens,
+        string $source,
+        ?int $actorUserId,
+        ?int $actorRoleId,
+    ): void {
+        $this->db->transaction(function (DatabaseInterface $db) use ($id, $allergens, $source, $actorUserId, $actorRoleId): void {
+            $db->execute('DELETE FROM ingredient_allergen WHERE ingredient_id = :id', ['id' => $id]);
+            foreach ($allergens as $allergen) {
+                $db->execute(
+                    'INSERT INTO ingredient_allergen (ingredient_id, allergen_id) VALUES (:ing, :alg)',
+                    ['ing' => $id, 'alg' => $allergen['id']],
+                );
+            }
+
+            $db->execute(
+                'UPDATE ingredient SET allergens_reviewed_at = NOW(), allergens_source = :src WHERE id = :id',
+                ['src' => $source, 'id' => $id],
+            );
+
+            $db->execute(
+                'INSERT INTO audit_log (actor_user_id, actor_role_id, action_code, entity_type, entity_id, summary) '
+                . 'VALUES (:uid, :rid, :code, :etype, :eid, :summary)',
+                [
+                    'uid'     => $actorUserId,
+                    'rid'     => $actorRoleId,
+                    'code'    => 'ingredient.allergens',
+                    'etype'   => 'ingredient',
+                    'eid'     => $id,
+                    'summary' => self::allergenSummary($allergens, $source),
+                ],
+            );
+        });
+    }
+
+    /**
+     * Resume lisible pour le journal d'audit. Nomme les allergenes retenus plutot que
+     * leurs ids : la trace doit se lire sans requete complementaire. Bornee a 255
+     * caracteres (colonne summary) -- 14 libelles courts y tiennent, la troncature est
+     * une garde, pas un cas courant.
+     *
+     * @param list<array{id: int, name: string}> $allergens
+     */
+    private static function allergenSummary(array $allergens, string $source): string
+    {
+        $names = array_map(static fn (array $a): string => $a['name'], $allergens);
+        $declared = $names === [] ? 'aucun des 14' : implode(', ', $names);
+        $suffix = $source === '' ? '' : ' (source: ' . $source . ')';
+
+        return mb_substr('Allergenes revus : ' . $declared . $suffix, 0, 255);
+    }
+
     public function isReferenced(int $id): bool
     {
         if ($this->db->fetch('SELECT ingredient_id FROM product_ingredient WHERE ingredient_id = :id LIMIT 1', ['id' => $id]) !== null) {
@@ -176,20 +274,27 @@ final class IngredientRepository
     }
 
     /**
-     * Reapprovisionnement (mlt 9.1) : +N packs => stock += N * pack_size, et une
-     * ligne stock_movement(restock) dans la MEME transaction (RG-T08). Sans PIN :
-     * $userId est l'acteur de session (capture par la permission stock.manage,
-     * RG-4), pas un acteur resolu par PIN. Les bornes d'entree (packs >= 1, mlt 9.1
-     * PRE-3) sont validees par l'appelant (controleur, RG-T18), pas ici.
+     * Reapprovisionnement (mlt 9.1) : +N packs => stock += N * pack_size, PLAFONNE a
+     * la capacite (capacite = plafond strict), et une ligne stock_movement(restock)
+     * dans la MEME transaction (RG-T08). Le mouvement enregistre le delta REELLEMENT
+     * applique (capacite - stock si on cale au plafond), pas le delta demande : sinon
+     * le journal append-only ne reconcilie plus avec stock_quantity. Sans PIN : $userId
+     * est l'acteur de session (capture par la permission stock.manage, RG-4), pas un
+     * acteur resolu par PIN. Les bornes d'entree (packs >= 1, mlt 9.1 PRE-3) sont
+     * validees par l'appelant (controleur, RG-T18), pas ici.
      */
     public function restock(int $id, int $packs, ?int $userId, ?string $note = null): void
     {
         $this->db->transaction(function (DatabaseInterface $db) use ($id, $packs, $userId, $note): void {
-            $packSize = (int) ($db->fetch('SELECT pack_size FROM ingredient WHERE id = :id', ['id' => $id])['pack_size'] ?? 0);
-            $delta = $packs * $packSize;
+            $row = $db->fetch('SELECT stock_quantity, stock_capacity, pack_size FROM ingredient WHERE id = :id', ['id' => $id]);
+            $current = (int) ($row['stock_quantity'] ?? 0);
+            $capacity = (int) ($row['stock_capacity'] ?? 0);
+            $packSize = (int) ($row['pack_size'] ?? 0);
+            $newQuantity = self::clampToCapacity($current + $packs * $packSize, $capacity);
+            $delta = $newQuantity - $current;
             $db->execute(
-                'UPDATE ingredient SET stock_quantity = stock_quantity + :delta WHERE id = :id',
-                ['delta' => $delta, 'id' => $id],
+                'UPDATE ingredient SET stock_quantity = :q WHERE id = :id',
+                ['q' => $newQuantity, 'id' => $id],
             );
             $this->insertMovement($db, $id, 'restock', $delta, $userId, $note);
         });
@@ -197,22 +302,52 @@ final class IngredientRepository
 
     /**
      * Inventaire (mlt 9.2) : comptage physique absolu => stock_quantity = compte,
-     * et une ligne stock_movement(inventory_correction, delta = compte - actuel)
-     * dans la MEME transaction. RG-3 : la ligne est ecrite MEME si delta = 0 (un
-     * comptage conforme reste une preuve de controle a tracer). $userId est
-     * l'acteur resolu par le PIN (RG-T13). La borne d'entree (compte >= 0, mlt 9.2
-     * PRE-3) est validee par l'appelant (controleur, RG-T18), pas ici.
+     * PLAFONNE a la capacite (capacite = reference 100 %), et une ligne
+     * stock_movement(inventory_correction, delta = nouveau - actuel) dans la MEME
+     * transaction. RG-3 : la ligne est ecrite MEME si delta = 0 (un comptage conforme
+     * reste une preuve de controle a tracer). $userId est l'acteur resolu par le PIN
+     * (RG-T13). La borne d'entree (compte >= 0, mlt 9.2 PRE-3) est validee par
+     * l'appelant (controleur, RG-T18), pas ici.
      */
     public function inventoryCount(int $id, int $countedQuantity, ?int $userId, ?string $note = null): void
     {
         $this->db->transaction(function (DatabaseInterface $db) use ($id, $countedQuantity, $userId, $note): void {
-            $current = (int) ($db->fetch('SELECT stock_quantity FROM ingredient WHERE id = :id', ['id' => $id])['stock_quantity'] ?? 0);
-            $delta = $countedQuantity - $current;
+            $row = $db->fetch('SELECT stock_quantity, stock_capacity FROM ingredient WHERE id = :id', ['id' => $id]);
+            $current = (int) ($row['stock_quantity'] ?? 0);
+            $capacity = (int) ($row['stock_capacity'] ?? 0);
+            $newQuantity = self::clampToCapacity($countedQuantity, $capacity);
+            $delta = $newQuantity - $current;
             $db->execute(
                 'UPDATE ingredient SET stock_quantity = :q WHERE id = :id',
-                ['q' => $countedQuantity, 'id' => $id],
+                ['q' => $newQuantity, 'id' => $id],
             );
             $this->insertMovement($db, $id, 'inventory_correction', $delta, $userId, $note);
+        });
+    }
+
+    /**
+     * Ajustement libre (retour oral #6) : correction SIGNEE du niveau (delta +/-),
+     * PLAFONNEE a la capacite (plafond strict), avec une ligne stock_movement('adjustment')
+     * dans la MEME transaction (RG-T08). Comme restock/inventoryCount, le mouvement
+     * enregistre le delta REELLEMENT applique (apres clamp), pas le delta demande, pour
+     * que le journal append-only reconcilie avec stock_quantity. $userId est l'acteur
+     * resolu par PIN : l'ajustement libre est PIN-garde (RG-T13, comme l'inventaire), car
+     * une baisse non attribuee masquerait de la demarque (R9). La borne d'entree (delta
+     * non nul, borne) est validee par l'appelant (controleur, RG-T18), pas ici.
+     */
+    public function adjust(int $id, int $delta, ?int $userId, ?string $note = null): void
+    {
+        $this->db->transaction(function (DatabaseInterface $db) use ($id, $delta, $userId, $note): void {
+            $row = $db->fetch('SELECT stock_quantity, stock_capacity FROM ingredient WHERE id = :id', ['id' => $id]);
+            $current = (int) ($row['stock_quantity'] ?? 0);
+            $capacity = (int) ($row['stock_capacity'] ?? 0);
+            $newQuantity = self::clampToCapacity($current + $delta, $capacity);
+            $applied = $newQuantity - $current;
+            $db->execute(
+                'UPDATE ingredient SET stock_quantity = :q WHERE id = :id',
+                ['q' => $newQuantity, 'id' => $id],
+            );
+            $this->insertMovement($db, $id, 'adjustment', $applied, $userId, $note);
         });
     }
 
@@ -254,6 +389,23 @@ final class IngredientRepository
                 'note'       => $note,
             ],
         );
+    }
+
+    /**
+     * Plafonne une quantite a la capacite de reference (capacite = plafond STRICT,
+     * decision metier : un ingredient ne depasse jamais 100 % de sa reference). Borne
+     * HAUTE uniquement : une quantite negative (survente assumee) est laissee telle
+     * quelle. Source UNIQUE du clamp, appliquee a TOUTE ecriture du niveau
+     * (create/restock/inventoryCount) -> stock_pct ne depasse jamais 100 %. Garde
+     * defensive si capacity <= 0 (ne devrait pas arriver, CHECK > 0 en base) : pas de clamp.
+     */
+    public static function clampToCapacity(int $quantity, int $capacity): int
+    {
+        if ($capacity > 0 && $quantity > $capacity) {
+            return $capacity;
+        }
+
+        return $quantity;
     }
 
     /**

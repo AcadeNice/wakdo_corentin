@@ -9,6 +9,7 @@ declare(strict_types=1);
  *
  * @var int                               $productId
  * @var array<int, array<string, mixed>>  $categories
+ * @var array<int, array<string, mixed>>  $baseCandidates  produits de base eligibles (R4)
  * @var array<string, mixed>              $values
  * @var array<string, string>             $errors
  * @var string                            $csrfToken
@@ -24,12 +25,16 @@ $vals = isset($values) && is_array($values) ? $values : [];
 $errs = isset($errors) && is_array($errors) ? $errors : [];
 /** @var array<int, array<string, mixed>> $cats */
 $cats = isset($categories) && is_array($categories) ? $categories : [];
+/** @var array<int, array<string, mixed>> $bases */
+$bases = isset($baseCandidates) && is_array($baseCandidates) ? $baseCandidates : [];
 
 $val = static fn (string $k): string => htmlspecialchars((string) ($vals[$k] ?? ''), ENT_QUOTES, 'UTF-8');
 $err = static fn (string $k): string => isset($errs[$k]) && is_string($errs[$k]) ? $errs[$k] : '';
 $selectedCat = (string) ($vals['category_id'] ?? '');
 $selectedVat = (string) ($vals['vat_rate'] ?? '100');
 $available = (bool) ($vals['is_available'] ?? true);
+$selectedBase = (string) ($vals['base_product_id'] ?? '');
+$selectedMaxi = (string) ($vals['maxi_variant_product_id'] ?? '');
 ?>
 <div class="page-header">
     <div>
@@ -37,7 +42,7 @@ $available = (bool) ($vals['is_available'] ?? true);
     </div>
 </div>
 
-<form method="post" action="<?= htmlspecialchars($action, ENT_QUOTES, 'UTF-8') ?>" class="form-card">
+<form method="post" enctype="multipart/form-data" action="<?= htmlspecialchars($action, ENT_QUOTES, 'UTF-8') ?>" class="form-card">
     <input type="hidden" name="_csrf" value="<?= $csrf ?>">
 
     <div class="form-group">
@@ -81,8 +86,23 @@ $available = (bool) ($vals['is_available'] ?? true);
     </div>
 
     <div class="form-group">
-        <label class="form-label" for="image_path">Chemin de l'image (optionnel)</label>
+        <span class="form-label">Image du produit</span>
+
+        <!-- Le champ fichier reste visible et atteignable au clavier : la zone de
+             depot l'entoure sans le remplacer, donc le formulaire marche aussi
+             bien a la souris, au clavier, et sans JavaScript (Cr 1.c.4). -->
+        <div class="image-drop" data-image-drop>
+            <img class="image-drop-preview" data-image-drop-preview alt="" hidden>
+            <input class="image-drop-input" type="file" id="image_file" name="image_file" accept="image/jpeg,image/png,image/webp">
+            <p class="image-drop-note" data-image-drop-hint>
+                Glissez une image ici, ou utilisez le bouton ci-dessus. JPEG, PNG ou WebP, 5 Mo maximum.
+            </p>
+        </div>
+        <?php if ($err('image_file') !== ''): ?><p class="form-error"><?= htmlspecialchars($err('image_file'), ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
+
+        <label class="form-label" for="image_path">Ou chemin d'une image deja presente sur le serveur (optionnel)</label>
         <input class="form-input" type="text" id="image_path" name="image_path" maxlength="255" value="<?= $val('image_path') ?>">
+        <p class="image-drop-note">Une image deposee ci-dessus remplace ce chemin apres enregistrement.</p>
         <?php if ($err('image_path') !== ''): ?><p class="form-error"><?= htmlspecialchars($err('image_path'), ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
     </div>
 
@@ -95,6 +115,48 @@ $available = (bool) ($vals['is_available'] ?? true);
     <div class="form-group">
         <label class="form-label"><input type="checkbox" name="is_available" value="1"<?= $available ? ' checked' : '' ?>> Disponible</label>
     </div>
+
+    <fieldset class="form-group">
+        <legend>Variantes (optionnel)</legend>
+        <p><small>A remplir seulement pour une boisson en plusieurs tailles ou un accompagnement servi en plus grand au format Maxi. Laissez vide pour un produit ordinaire.</small></p>
+
+        <div class="form-group">
+            <label class="form-label" for="size_cl">Taille en centilitres (boissons)</label>
+            <input class="form-input" type="number" id="size_cl" name="size_cl" min="0" max="65535" value="<?= $val('size_cl') ?>">
+            <small>Exemple : 30 ou 50 pour un soda. Laissez vide si le produit n'a pas de taille.</small>
+            <?php if ($err('size_cl') !== ''): ?><p class="form-error"><?= htmlspecialchars($err('size_cl'), ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label" for="base_product_id">Variante de taille de</label>
+            <select class="form-input" id="base_product_id" name="base_product_id">
+                <option value="">-- ce produit est un produit a part entiere --</option>
+                <?php foreach ($bases as $b): ?>
+                    <?php $bid = (string) ($b['id'] ?? ''); ?>
+                    <option value="<?= htmlspecialchars($bid, ENT_QUOTES, 'UTF-8') ?>"<?= $bid === $selectedBase ? ' selected' : '' ?>>
+                        <?= htmlspecialchars((string) ($b['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+            <small>Rattache ce produit a un produit principal comme une autre taille (exemple : "Coca 50cl" rattache a "Coca"). Une variante n'apparait pas seule sur la borne.</small>
+            <?php if ($err('base_product_id') !== ''): ?><p class="form-error"><?= htmlspecialchars($err('base_product_id'), ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label" for="maxi_variant_product_id">Version servie en format Maxi</label>
+            <select class="form-input" id="maxi_variant_product_id" name="maxi_variant_product_id">
+                <option value="">-- aucune (pas de version Maxi) --</option>
+                <?php foreach ($bases as $b): ?>
+                    <?php $bid = (string) ($b['id'] ?? ''); ?>
+                    <option value="<?= htmlspecialchars($bid, ENT_QUOTES, 'UTF-8') ?>"<?= $bid === $selectedMaxi ? ' selected' : '' ?>>
+                        <?= htmlspecialchars((string) ($b['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+            <small>Le produit servi a la place de celui-ci quand le menu est commande en Maxi (exemple : "Moyenne Frite" servie en "Grande Frite").</small>
+            <?php if ($err('maxi_variant_product_id') !== ''): ?><p class="form-error"><?= htmlspecialchars($err('maxi_variant_product_id'), ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
+        </div>
+    </fieldset>
 
     <?php if ($id !== 0): ?>
         <fieldset class="form-group">
@@ -117,3 +179,5 @@ $available = (bool) ($vals['is_available'] ?? true);
         <a class="btn btn-secondary" href="/admin/products">Annuler</a>
     </div>
 </form>
+
+<script src="/assets/js/image-drop.js"></script>
