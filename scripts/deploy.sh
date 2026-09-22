@@ -22,7 +22,10 @@
 # docker-compose.yml standalone) et un .env de prod renseigne. Le service one-shot
 # wakdo-migrate applique migrations + seed (idempotents) avant que l'app ne serve.
 #
-# Exit codes : 0 = OK ; 1 = prerequis manquant / confirmation refusee.
+# Refuse de partir si l'arbre de travail n'est pas propre : sur un hote unique,
+# ce repertoire sert a la fois d'espace de travail et de cible de deploiement.
+#
+# Exit codes : 0 = OK ; 1 = prerequis manquant / arbre sale / confirmation refusee.
 
 set -euo pipefail
 
@@ -48,6 +51,18 @@ fi
 
 if ! command -v docker >/dev/null 2>&1; then
     echo "deploy: docker introuvable sur l'hote." >&2
+    exit 1
+fi
+
+# Garde-fou : un deploiement ne part jamais d'un arbre de travail sale. Sur un
+# hote unique, ce repertoire est AUSSI l'espace de travail du developpeur : sans
+# cette verification, un fichier modifie et jamais committe partirait en
+# production, et aucun commit ne temoignerait de ce qui tourne reellement.
+# src/VERSION et deploy.log sont ignores par git : ils ne declenchent pas la garde.
+if [ -n "$(git status --porcelain)" ]; then
+    echo "deploy: arbre de travail non propre, deploiement refuse." >&2
+    echo "        Committer ou remiser ces changements, puis relancer :" >&2
+    git status --short >&2
     exit 1
 fi
 

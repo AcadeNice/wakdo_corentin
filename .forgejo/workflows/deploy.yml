@@ -1,14 +1,22 @@
 name: Deploy
-# Deploiement continu (CD) vers Vision (prod) a chaque release sur main.
+# Deploiement continu (CD) vers la production, a chaque arrivee sur main.
 #
-# Topologie : le runner tourne sur Stark (dev) et n'a pas le socket Docker. Il ne
-# pilote donc PAS Docker lui-meme : il OUVRE une session SSH vers Vision (prod, hote
-# distinct) ou une forced command (cote Vision) lance scripts/deploy.sh. La cle CI ne
-# peut ainsi declencher QUE le deploiement, rien d'autre.
+# TOPOLOGIE REELLE : un seul hote. La production (wakdo-web/app/db/cron) et le
+# runner d'integration tournent sur la meme machine. Le job ne pilote donc PAS
+# Docker lui-meme : il DEMANDE a l'hote de se deployer, par un canal qui ne peut
+# lancer qu'une seule commande.
 #
-# main n'est alimentee que par des PR dev->main deja passees par la CI : le code
-# deploye a donc deja ete teste. Voir docs/architecture/deployment.md pour la mise en
-# place cote Vision (utilisateur deploy, forced command) et les secrets a creer.
+# Pourquoi ce detour plutot qu'un appel direct a Docker : mesure du 2026-09-22,
+# le conteneur du runner dispose du socket Docker (il en a besoin pour lancer les
+# conteneurs de job), mais il ne le TRANSMET PAS aux jobs. Un job d'integration
+# est donc non privilegie, et c'est voulu : lui donner le socket reviendrait a
+# donner les pleins pouvoirs sur l'hote a tout code passant en integration.
+# Le canal restreint preserve cette separation -- la cle de deploiement ne peut
+# declencher que scripts/deploy.sh, rien d'autre (commande forcee cote hote).
+#
+# main n'est alimentee que par des PR depuis dev deja passees par l'integration :
+# le code deploye a donc deja ete teste. Mise en place cote hote (utilisateur,
+# commande forcee, secrets) : voir docs/architecture/deployment.md.
 
 on:
   push:
@@ -18,28 +26,53 @@ jobs:
   deploy:
     runs-on: docker
     steps:
-      - name: Install SSH client
+      - name: Installer le client SSH et la lecture des routes
         run: |
-          apt-get update -qq
-          apt-get install -y -qq openssh-client >/dev/null
-      - name: Deploy to Vision over SSH
+          apt-get update -qq >/dev/null
+          apt-get install -y -qq openssh-client iproute2 curl >/dev/null
+
+      - name: Demander a l hote de se deployer
         env:
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_USER: ${{ vars.DEPLOY_USER }}
         run: |
           set -eu
           install -d -m 700 ~/.ssh
           printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
-          # Cle d'hote epinglee (pas de TOFU) : la connexion echoue si Vision ne
-          # presente pas la cle attendue.
+          # Cle d'hote epinglee : la connexion echoue si la machine en face n'est
+          # pas celle attendue. Pas de confiance au premier contact.
           printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
-          # Aucune commande passee : la forced command cote Vision lance deploy.sh.
-          # BatchMode : pas de prompt interactif (un echec d'auth echoue vite au lieu
-          # de pendre le job) ; ConnectTimeout borne l'attente si Vision est injoignable.
+          # L'hote est joint par la route par defaut du conteneur de job : aucune
+          # adresse en dur, le mecanisme survit a un changement de sous-reseau.
+          HOTE="$(ip route show default | awk '/default/ {print $3; exit}')"
+          test -n "$HOTE"
+          echo "hote de deploiement : $HOTE"
+          # Aucune commande passee : la commande forcee cote hote decide quoi lancer.
+          # BatchMode : un echec d'authentification echoue vite au lieu d'attendre.
           ssh -i ~/.ssh/id_deploy -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=yes \
             -o BatchMode=yes -o ConnectTimeout=15 \
-            "$DEPLOY_USER@$DEPLOY_HOST"
+            "$DEPLOY_USER@$HOTE"
+
+      - name: Verifier que l application en ligne sert bien ce commit
+        env:
+          SANTE: ${{ vars.DEPLOY_HEALTH_URL }}
+        run: |
+          set -eu
+          URL="${SANTE:-https://corentin-wakdo-admin.stark.a3n.fr/api/health}"
+          ATTENDU="$(echo "${{ github.sha }}" | cut -c1-7)"
+          echo "commit attendu en ligne : $ATTENDU"
+          # La stack se reconstruit : on laisse jusqu'a 2 minutes avant d'abandonner.
+          for i in $(seq 1 24); do
+            SERVI="$(curl -sf -m 10 "$URL" | sed -n 's/.*"version":"\([^"]*\)".*/\1/p' || true)"
+            if [ "$SERVI" = "$ATTENDU" ]; then
+              echo "l application en ligne sert $SERVI : deploiement confirme"
+              exit 0
+            fi
+            echo "tentative $i : en ligne = ${SERVI:-aucune version}, attendu = $ATTENDU"
+            sleep 5
+          done
+          echo "l application ne sert pas le commit attendu apres 2 minutes" >&2
+          exit 1
