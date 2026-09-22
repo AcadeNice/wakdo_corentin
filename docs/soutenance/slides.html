@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wakdo - Soutenance RNCP 37805</title>
+<style>
+  :root{
+    --bg:#11151c; --panel:#1a2029; --ink:#eef2f7; --muted:#9fb0c3;
+    --accent:#ff5a1f; --accent2:#ffc400; --ok:#36d399; --line:#2c3744;
+    --b1:#3b82f6; --b2:#a855f7; --b5:#36d399;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .deck{height:100vh;width:100vw;overflow:hidden;position:relative}
+  .slide{position:absolute;inset:0;display:none;flex-direction:column;
+    padding:4.2vh 5.5vw;animation:fade .25s ease}
+  .slide.active{display:flex}
+  @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  h1{font-size:5.2vh;line-height:1.05;margin:0 0 1.5vh}
+  h2{font-size:3.6vh;margin:0 0 2.2vh;display:flex;align-items:center;gap:.5em}
+  h2::before{content:"";width:.5em;height:.5em;border-radius:2px;background:var(--accent)}
+  p,li{font-size:2.45vh;line-height:1.45;color:var(--ink)}
+  .muted{color:var(--muted)}
+  ul{margin:.4em 0;padding-left:1.1em}
+  li{margin:.55vh 0}
+  .center{justify-content:center;align-items:center;text-align:center}
+  .grid{display:grid;gap:2.2vh;grid-template-columns:repeat(2,1fr)}
+  .grid3{display:grid;gap:1.8vh;grid-template-columns:repeat(3,1fr)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:2.4vh 2vw}
+  .card h3{margin:0 0 1vh;font-size:2.5vh}
+  .tag{display:inline-block;font-size:1.7vh;font-weight:700;letter-spacing:.04em;
+    padding:.35em .7em;border-radius:999px;text-transform:uppercase}
+  .b1{background:rgba(59,130,246,.16);color:#9cc2ff;border:1px solid #3b82f6}
+  .b2{background:rgba(168,85,247,.16);color:#d7b3ff;border:1px solid #a855f7}
+  .b5{background:rgba(54,211,153,.16);color:#9af0cf;border:1px solid #36d399}
+  .kpis{display:grid;gap:1.6vh;grid-template-columns:repeat(4,1fr)}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:2.2vh 1vw;text-align:center}
+  .kpi b{display:block;font-size:5vh;color:var(--accent2);line-height:1}
+  .kpi span{font-size:1.8vh;color:var(--muted)}
+  .flow{display:flex;align-items:center;gap:1vw;flex-wrap:wrap;font-size:2.2vh}
+  .pill{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    padding:1.2vh 1.1vw}
+  .arrow{color:var(--accent);font-weight:800}
+  .shots{display:grid;gap:1.4vh;grid-template-columns:repeat(3,1fr);flex:1;min-height:0}
+  .shots figure{margin:0;display:flex;flex-direction:column;min-height:0}
+  .shots img{width:100%;height:100%;object-fit:contain;border-radius:10px;
+    border:1px solid var(--line);background:#000;min-height:0}
+  .shots figcaption{font-size:1.7vh;color:var(--muted);text-align:center;margin-top:.6vh}
+  code,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .code{background:#0c1016;border:1px solid var(--line);border-radius:12px;
+    padding:2vh 1.6vw;font-size:2.1vh;white-space:pre;overflow:auto;color:#cfe3ff}
+  .lead{font-size:3vh;max-width:80%;color:var(--muted)}
+  .foot{position:absolute;bottom:2.2vh;left:5.5vw;right:5.5vw;display:flex;
+    justify-content:space-between;align-items:center;font-size:1.7vh;color:var(--muted)}
+  .bar{position:absolute;top:0;left:0;height:5px;background:var(--accent);transition:width .2s}
+  .two{display:grid;grid-template-columns:1.1fr .9fr;gap:2.5vw;flex:1;min-height:0}
+  .check li::marker{content:"\2713  ";color:var(--ok)}
+  .x li::marker{content:"\2715  ";color:#f87272}
+  table{border-collapse:collapse;width:100%;font-size:2vh}
+  td,th{border-bottom:1px solid var(--line);padding:1vh .6vw;text-align:left}
+  th{color:var(--muted);font-weight:600}
+  .big{font-size:3.2vh}
+  .hint{position:absolute;bottom:2.2vh;right:5.5vw;font-size:1.6vh;color:var(--muted)}
+  .title-accent{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="deck" id="deck">
+
+  <!-- 1 TITRE -->
+  <section class="slide center active">
+    <div class="tag b2" style="margin-bottom:2vh">RNCP 37805 - Developpeur Web</div>
+    <h1><span class="title-accent">Wakdo</span><br>Borne de commande fast-food</h1>
+    <p class="lead">Front client, back-office + API REST, et chaine DevOps -
+      construits from scratch pour demontrer les blocs 1, 2 et 5.</p>
+    <p class="muted" style="margin-top:4vh">Soutenance orale - 40 min - jury mixte RNCP</p>
+  </section>
+
+  <!-- 2 SOMMAIRE -->
+  <section class="slide">
+    <h2>Au programme</h2>
+    <div class="grid3" style="flex:1">
+      <div class="card"><span class="tag b1">Bloc 1</span>
+        <h3>Parcours utilisateur</h3>
+        <p class="muted">La borne tactile, du premier tap au ticket. Demo live.</p></div>
+      <div class="card"><span class="tag b2">Bloc 2</span>
+        <h3>Architecture technique</h3>
+        <p class="muted">Modele Merise, API REST, securite by-design.</p></div>
+      <div class="card"><span class="tag b5">Bloc 5</span>
+        <h3>Methodo & DevOps</h3>
+        <p class="muted">Docker une commande, CI/CD, Merise Agile + TDD.</p></div>
+    </div>
+    <p class="muted">Un seul produit, trois angles. A chaque instant, le bloc demontre est annonce.</p>
+  </section>
+
+  <!-- 3 CONTEXTE METIER -->
+  <section class="slide">
+    <h2>Le besoin metier</h2>
+    <div class="two">
+      <div>
+        <p class="big">Une borne de commande pour un fast-food, sur le modele des grandes enseignes.</p>
+        <p class="muted">Tous les modes de service sont en emballages papier (plateau ou sac).
+          La distinction sur place / a emporter est surtout fiscale (TVA).</p>
+      </div>
+      <div>
+        <div class="card"><h3>3 canaux de commande</h3>
+          <ul>
+            <li><b>kiosk</b> - borne client autonome</li>
+            <li><b>counter</b> - comptoir, equipier</li>
+            <li><b>drive</b> - drive-thru</li>
+          </ul></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4 PERIMETRE -->
+  <section class="slide">
+    <h2>Perimetre maitrise</h2>
+    <div class="grid" style="flex:1">
+      <div class="card"><h3 style="color:var(--ok)">Dans le projet</h3>
+        <ul class="check muted">
+          <li>Catalogue + composition de menus</li>
+          <li>Panier, paiement simule (numero de commande)</li>
+          <li>Back-office de gestion (RBAC)</li>
+          <li>File cuisine (KDS) + stock</li>
+        </ul></div>
+      <div class="card"><h3 style="color:#f87272">Hors perimetre (assume)</h3>
+        <ul class="x muted">
+          <li>Paiement bancaire reel</li>
+          <li>Compte fidelite, multi-langue, hors-ligne</li>
+          <li>Upload d'images produits</li>
+          <li>Monitoring Prometheus, Kubernetes</li>
+        </ul></div>
+    </div>
+    <p class="muted">Un perimetre choisi et justifie - signe de maturite, pas de manque.</p>
+  </section>
+
+  <!-- 5 DEMARCHE -->
+  <section class="slide">
+    <h2>Demarche & methodologie</h2>
+    <div class="grid" style="flex:1">
+      <div class="card"><h3>Merise Agile</h3>
+        <p class="muted">Modele de donnees pose tot, enrichi sprint par sprint.
+          Source de verite unique : PROJECT_CONTEXT.md + dossier merise/.</p></div>
+      <div class="card"><h3>TDD</h3>
+        <p class="muted">Tests avant code sur les chemins critiques
+          (commande, stock, securite). ~498 methodes de test PHP.</p></div>
+      <div class="card"><h3>Git discipline</h3>
+        <p class="muted">161 commits Conventional, branches feat/*, PR vers dev,
+          hooks protegeant main/dev.</p></div>
+      <div class="card"><h3>Tracabilite</h3>
+        <p class="muted">12 ADR (decisions datees) + 11 entrees de journal de bord.
+          Transparence IA portee dans la doc.</p></div>
+    </div>
+  </section>
+
+  <!-- 6 PARCOURS INTRO -->
+  <section class="slide center">
+    <span class="tag b1">Bloc 1 - Front-End</span>
+    <h1 style="margin-top:2vh">Le parcours utilisateur</h1>
+    <p class="lead">De l'ecran d'accueil au ticket de commande.<br>Demonstration sur la borne.</p>
+  </section>
+
+  <!-- 7 CAPTURES 1 -->
+  <section class="slide">
+    <h2>Accueil & composition de menu</h2>
+    <div class="shots">
+      <figure><img src="../design/screens/01-accueil.png" alt="Ecran d'accueil"><figcaption>1. Accueil</figcaption></figure>
+      <figure><img src="../design/screens/02-commande-menus.png" alt="Grille menus"><figcaption>2. Choix du menu</figcaption></figure>
+      <figure><img src="../design/screens/03-modale-taille-menu.png" alt="Modale taille"><figcaption>3. Taille (menu / Maxi)</figcaption></figure>
+    </div>
+  </section>
+
+  <!-- 8 CAPTURES 2 -->
+  <section class="slide">
+    <h2>Accompagnement, boisson, quantite</h2>
+    <div class="shots">
+      <figure><img src="../design/screens/04-modale-accompagnement.png" alt="Accompagnement"><figcaption>4. Accompagnement</figcaption></figure>
+      <figure><img src="../design/screens/05-modale-boisson.png" alt="Boisson"><figcaption>5. Boisson (30/40/50 cl)</figcaption></figure>
+      <figure><img src="../design/screens/08-modale-format-quantite.png" alt="Quantite"><figcaption>6. Format & quantite</figcaption></figure>
+    </div>
+  </section>
+
+  <!-- 9 CAPTURES 3 -->
+  <section class="slide">
+    <h2>Chevalet & confirmation</h2>
+    <div class="shots">
+      <figure><img src="../design/screens/06-commande-boissons.png" alt="Panier"><figcaption>7. Panier</figcaption></figure>
+      <figure><img src="../design/screens/09-chevalet.png" alt="Chevalet"><figcaption>8. Mode service + chevalet</figcaption></figure>
+      <figure><img src="../design/screens/10-remerciement.png" alt="Remerciement"><figcaption>9. Confirmation</figcaption></figure>
+    </div>
+  </section>
+
+  <!-- 10 ACCESSIBILITE -->
+  <section class="slide">
+    <h2>Front pense pour tous</h2>
+    <div class="grid" style="flex:1">
+      <div class="card"><h3>Accessibilite (Cr 1.c)</h3>
+        <ul class="muted">
+          <li>Police adaptee (dyslexie)</li>
+          <li>Cibles tactiles larges, contrastes</li>
+          <li>Navigation au clavier</li>
+          <li>Information non portee par la seule couleur</li>
+        </ul></div>
+      <div class="card"><h3>HTML semantique + SEO (Cr 1.e)</h3>
+        <ul class="muted">
+          <li>Balises main / nav / article</li>
+          <li>Donnees structurees, meta, favicon</li>
+          <li>5 pages HTML conformes maquette</li>
+        </ul></div>
+    </div>
+  </section>
+
+  <!-- 11 SOUS LE CAPOT FRONT -->
+  <section class="slide">
+    <h2>Sous le capot : front 100% vanilla</h2>
+    <div class="two">
+      <div>
+        <p class="muted">HTML5 + CSS3 + JavaScript ES6+ modulaire.
+          <b>Zero dependance</b> : ni jQuery, ni framework, ni bundler. ~2 370 lignes JS.</p>
+        <ul class="muted">
+          <li><code>data.js</code> - recuperation catalogue (fetch)</li>
+          <li><code>state.js</code> - panier en localStorage</li>
+          <li><code>checkout.js</code> - construction du payload + paiement</li>
+        </ul>
+      </div>
+      <div class="card center">
+        <p class="big" style="color:var(--accent2)">Le panier ne touche pas au reseau.</p>
+        <p class="muted">Aucun appel API tant que le client n'a pas paye.
+          Le prix est recalcule cote serveur - pas de confiance au client.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 12 ARCHI GLOBALE -->
+  <section class="slide">
+    <span class="tag b2">Bloc 2 - Back-End</span>
+    <h2 style="margin-top:1.5vh">Un codebase, deux expositions</h2>
+    <div class="flow" style="margin:2vh 0">
+      <div class="pill">Borne (kiosk)<br><span class="muted mono">corentin-wakdo</span></div>
+      <span class="arrow">&rarr; fetch /api/* &rarr;</span>
+      <div class="pill">Back-office + API<br><span class="muted mono">corentin-wakdo-admin</span></div>
+      <span class="arrow">&rarr; PDO &rarr;</span>
+      <div class="pill">MariaDB 11.4</div>
+    </div>
+    <p class="muted">Front Bloc 1 et back Bloc 2 dans la meme arborescence, exposes sur deux FQDN.
+      Chaque jury evalue son bloc de maniere autonome.</p>
+  </section>
+
+  <!-- 13 MERISE -->
+  <section class="slide">
+    <h2>Modele de donnees Merise - 22 entites</h2>
+    <div class="grid" style="flex:1;grid-template-columns:repeat(3,1fr)">
+      <div class="card"><h3>Catalogue</h3><p class="muted">category, product, menu, menu_slot, menu_slot_option</p></div>
+      <div class="card"><h3>Ingredients & Stock</h3><p class="muted">ingredient, product_ingredient, allergen, ingredient_allergen, stock_movement</p></div>
+      <div class="card"><h3>Order</h3><p class="muted">customer_order, order_item, order_item_selection, order_item_modifier</p></div>
+      <div class="card"><h3>RBAC</h3><p class="muted">user, role, permission, role_permission, role_visible_source</p></div>
+      <div class="card"><h3>Security-by-design</h3><p class="muted">audit_log, login_throttle, pin_throttle</p></div>
+      <div class="card center"><p class="big">6 migrations<br>6 seeds</p><p class="muted">idempotentes</p></div>
+    </div>
+  </section>
+
+  <!-- 14 API -->
+  <section class="slide">
+    <h2>API REST maison</h2>
+    <div class="code">GET  /api/categories | /api/products | /api/menus | /api/allergens
+POST /api/orders            -> creation (revalidation serveur)
+POST /api/orders/{n}/pay    -> encaissement + decrement stock
+GET  /api/orders/{n}        -> consultation statut</div>
+    <p class="muted" style="margin-top:2vh">Routeur maison (methode + chemin -> controleur).
+      Enveloppe standard <code>{ data }</code> / <code>{ data:null, error }</code>.
+      Codes coherents : 201, 200, 409 conflit, 422 validation, 403 permission/CSRF, 404.</p>
+  </section>
+
+  <!-- 15 SECURITE TRIO -->
+  <section class="slide">
+    <h2>Securite by-design : le client ne peut pas tricher</h2>
+    <div class="grid3" style="flex:1">
+      <div class="card"><h3>Prix recalcule</h3>
+        <p class="muted">Le payload ne porte que l'id produit + la quantite.
+          Le serveur relit le prix en base. <span class="mono">RG-T16</span></p></div>
+      <div class="card"><h3>Idempotence</h3>
+        <p class="muted">idempotency_key UNIQUE : re-cliquer "Payer" ne facture pas deux fois.
+          <span class="mono">RG-T19</span></p></div>
+      <div class="card"><h3>Stock atomique</h3>
+        <p class="muted">Decrement en une instruction SQL gardee, dans la transaction de paiement.
+          Pas de course critique. <span class="mono">RG-T20</span></p></div>
+    </div>
+    <p class="muted">22 regles transverses RG-T01 a RG-T22 (SQLi, XSS, CSRF, RBAC, audit...).</p>
+  </section>
+
+  <!-- 16 ETATS COMMANDE -->
+  <section class="slide">
+    <h2>Machine a etats - 4 etats</h2>
+    <div class="flow" style="margin:3vh 0">
+      <div class="pill">pending_payment</div>
+      <span class="arrow">&rarr;</span>
+      <div class="pill">paid <span class="muted">(+ decrement stock)</span></div>
+      <span class="arrow">&rarr;</span>
+      <div class="pill">delivered</div>
+      <span style="margin-left:2vw" class="muted">+ cancelled</span>
+    </div>
+    <p class="muted">Pas de cycle preparing/ready inutile pour ce perimetre.
+      Simplicite + immuabilite des snapshots (libelle, prix, TVA figes a la commande).</p>
+  </section>
+
+  <!-- 17 RBAC + PIN -->
+  <section class="slide">
+    <h2>RBAC permission-driven + PIN</h2>
+    <div class="grid" style="flex:1">
+      <div class="card"><h3>5 roles, 23 permissions</h3>
+        <p class="muted">On teste une <b>permission</b>, pas un nom de role.
+          admin, manager, kitchen, counter, drive.
+          Permissions rechargees a chaque requete.</p></div>
+      <div class="card"><h3>PIN d'action sensible</h3>
+        <p class="muted">Suppression, changement de prix, RBAC, inventaire :
+          re-autorisation par PIN, avec un backoff anti-brute-force
+          separe du login. <span class="mono">RG-T13 / RG-T22</span></p></div>
+    </div>
+  </section>
+
+  <!-- 18 DEVOPS -->
+  <section class="slide">
+    <span class="tag b5">Bloc 5 - DevOps</span>
+    <h2 style="margin-top:1.5vh">5 conteneurs, une commande</h2>
+    <div class="code">docker compose up -d</div>
+    <div class="grid3" style="margin-top:2vh">
+      <div class="card"><h3>web</h3><p class="muted">Apache 2.4</p></div>
+      <div class="card"><h3>app</h3><p class="muted">PHP-FPM 8.3</p></div>
+      <div class="card"><h3>db</h3><p class="muted">MariaDB 11.4</p></div>
+      <div class="card"><h3>cron</h3><p class="muted">backups + purges RGPD</p></div>
+      <div class="card"><h3>migrate</h3><p class="muted">one-shot, idempotent</p></div>
+      <div class="card center"><p class="muted">Reseaux segmentes :<br>la base n'est pas exposee.</p></div>
+    </div>
+  </section>
+
+  <!-- 19 CI/CD -->
+  <section class="slide">
+    <h2>CI/CD - pipeline Forgejo</h2>
+    <div class="flow" style="margin:3vh 0;font-size:2vh">
+      <div class="pill">secret-scan<br><span class="muted">gitleaks</span></div>
+      <span class="arrow">&rarr;</span>
+      <div class="pill">php-lint</div>
+      <span class="arrow">&rarr;</span>
+      <div class="pill">PHPStan<br><span class="muted">niveau 6</span></div>
+      <span class="arrow">&rarr;</span>
+      <div class="pill">PHPUnit<br><span class="muted">MariaDB ephemere</span></div>
+      <span class="arrow">&rarr;</span>
+      <div class="pill">js-tests</div>
+    </div>
+    <p class="muted">A chaque PR. Auto-merge en squash quand les checks requis passent au vert.
+      "La meme commande qui marche sur ma machine est celle qui deploie."</p>
+  </section>
+
+  <!-- 20 CHIFFRES -->
+  <section class="slide">
+    <h2>Le projet en chiffres</h2>
+    <div class="kpis" style="margin-bottom:1.6vh">
+      <div class="kpi"><b>161</b><span>commits Conventional</span></div>
+      <div class="kpi"><b>~498</b><span>methodes de test PHP</span></div>
+      <div class="kpi"><b>22</b><span>entites Merise</span></div>
+      <div class="kpi"><b>22</b><span>regles securite RG-T</span></div>
+    </div>
+    <div class="kpis">
+      <div class="kpi"><b>5</b><span>conteneurs Docker</span></div>
+      <div class="kpi"><b>12</b><span>ADR</span></div>
+      <div class="kpi"><b>11</b><span>entrees journal</span></div>
+      <div class="kpi"><b>~15k</b><span>lignes PHP</span></div>
+    </div>
+  </section>
+
+  <!-- 21 MAPPING BLOCS -->
+  <section class="slide">
+    <h2>Couverture des blocs</h2>
+    <table>
+      <tr><th>Bloc</th><th>Demontre par</th><th>Preuve</th></tr>
+      <tr><td><span class="tag b1">B1 Front</span></td><td>Demo borne, accessibilite, JS vanilla</td><td>5 pages + modules JS</td></tr>
+      <tr><td><span class="tag b2">B2 Back</span></td><td>Merise, API REST, securite by-design</td><td>22 entites + RG-T + tests</td></tr>
+      <tr><td><span class="tag b5">B5 DevOps</span></td><td>Docker une commande, CI/CD, crons</td><td>5 services + pipeline Forgejo</td></tr>
+    </table>
+    <p class="muted" style="margin-top:2vh">Seuil : 50 % minimum par bloc et 50 % de moyenne globale.</p>
+  </section>
+
+  <!-- 22 DIFFICULTES -->
+  <section class="slide">
+    <h2>Difficultes & apprentissages</h2>
+    <div class="grid" style="flex:1">
+      <div class="card"><h3>Resolues</h3>
+        <ul class="muted">
+          <li>Course critique sur le stock -> decrement atomique SQL</li>
+          <li>Double-facturation create+pay -> idempotency_key</li>
+        </ul></div>
+      <div class="card"><h3>A poursuivre</h3>
+        <ul class="muted">
+          <li>Categories dynamiques cote borne</li>
+          <li>Allergenes par produit</li>
+          <li>Gate de couverture CI, CD automatique</li>
+        </ul></div>
+    </div>
+    <p class="muted">Un modele pose tot et une securite des la conception coutent moins cher qu'ajoutes apres.</p>
+  </section>
+
+  <!-- 23 MERCI -->
+  <section class="slide center">
+    <h1>Merci</h1>
+    <p class="lead">Des questions ? Je peux approfondir n'importe quelle partie -
+      code, modele de donnees, securite ou deploiement.</p>
+    <p class="muted" style="margin-top:3vh mono">Wakdo - RNCP 37805 - Developpeur Web</p>
+  </section>
+
+  <div class="bar" id="bar"></div>
+  <div class="foot"><span id="label">Wakdo - RNCP 37805</span><span id="count"></span></div>
+  <div class="hint">&larr; &rarr; pour naviguer - F plein ecran</div>
+</div>
+
+<script>
+  const slides=[...document.querySelectorAll('.slide')];
+  let i=0;
+  function show(n){
+    i=Math.max(0,Math.min(slides.length-1,n));
+    slides.forEach((s,k)=>s.classList.toggle('active',k===i));
+    document.getElementById('count').textContent=(i+1)+' / '+slides.length;
+    document.getElementById('bar').style.width=((i+1)/slides.length*100)+'%';
+  }
+  document.addEventListener('keydown',e=>{
+    if(e.key==='ArrowRight'||e.key==='PageDown'||e.key===' ')show(i+1);
+    else if(e.key==='ArrowLeft'||e.key==='PageUp')show(i-1);
+    else if(e.key==='Home')show(0);
+    else if(e.key==='End')show(slides.length-1);
+    else if(e.key==='f'||e.key==='F'){
+      if(!document.fullscreenElement)document.documentElement.requestFullscreen();
+      else document.exitFullscreen();
+    }
+  });
+  document.getElementById('deck').addEventListener('click',e=>{
+    if(e.clientX > window.innerWidth*0.5) show(i+1); else show(i-1);
+  });
+  show(0);
+</script>
+</body>
+</html>
