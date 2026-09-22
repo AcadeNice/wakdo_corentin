@@ -338,7 +338,7 @@ Reseaux :
 | Cr 7.c.4 | **Une ligne de commande** | `docker compose up` lance toute la stack + migrate + seed |
 | Cr 7.d.1 | Architecture serveur | Traefik reverse + reseaux segmentes documentes |
 | Cr 7.d.2 | Tests avant deploy | CI PHPUnit + PHPStan + secret-scan sur PR (Forgejo Actions) |
-| Cr 7.d.3 | Integration/deploiement continus | CI complete sur PR ; deploiement scripte a declenchement humain (`scripts/deploy.sh`). Auto-CD sur merge main non arme (choix solo dev, a argumenter) |
+| Cr 7.d.3 | Integration/deploiement continus | CI complete sur PR ; deploiement CONTINU sur `main` (`.forgejo/workflows/deploy.yml`) via un canal restreint vers l'hote, avec verification de `/api/health` apres coup. Hote unique : le job d'integration n'a pas le socket Docker (mesure), il demande a l'hote |
 
 ---
 

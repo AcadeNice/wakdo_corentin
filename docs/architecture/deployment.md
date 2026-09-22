@@ -9,12 +9,25 @@ a faire une seule fois cote serveur. Il complete `scripts/deploy.sh` et
 | Hote | Role |
 |---|---|
 | **Thanos** (`git.acadenice.com`) | Forge : depot Git + Forgejo Actions |
-| **Stark** | Environnement de dev ; heberge le runner Forgejo |
-| **Vision** | Production : la stack Wakdo y tourne, cible du deploiement |
+| **Stark** | Hote UNIQUE : il porte a la fois le runner d'integration et la production Wakdo |
 
-Le runner (sur Stark) n'a pas acces au socket Docker, par choix de securite : un job
-CI ne peut pas piloter Docker sur son hote. Le deploiement vers Vision se fait donc
-par SSH — ce qui correspond au schema normal d'un deploiement vers un hote distant.
+Un seul serveur, pas deux. La production (`wakdo-web`, `wakdo-app`, `wakdo-db`,
+`wakdo-cron`) et le runner d'integration tournent sur la meme machine.
+
+Le privilege Docker est reparti en deux niveaux, et c'est la clef du dispositif.
+Le CONTENEUR DU RUNNER a le socket Docker : il en a besoin pour lancer les
+conteneurs de job. Les CONTENEURS DE JOB, eux, ne l'ont pas. Mesure du 2026-09-22,
+par quatre jobs de sonde poussees sur la forge : telecharger le client Docker
+passe, mais `test -S /var/run/docker.sock` echoue dans le job, le demon ne repond
+pas, et lancer un conteneur frere echoue. Un job d'integration est donc non
+privilegie.
+
+C'est voulu, et c'est ce qui justifie le detour : donner le socket aux jobs
+reviendrait a accorder les pleins pouvoirs sur la machine de production a tout
+code passant en integration. Le job DEMANDE donc a l'hote de se deployer, par un
+canal qui ne peut lancer qu'une seule commande (commande forcee cote hote). La
+cle de deploiement ne permet rien d'autre : ni shell, ni copie de fichier, ni
+redirection de port.
 
 ## Flux
 
@@ -23,9 +36,11 @@ merge dev -> main           (release, deja passee par la CI sur la PR)
         │
         ▼
 Forgejo Actions: workflow Deploy (.forgejo/workflows/deploy.yml)
-        │  ssh deploy@vision   (sans commande : forced command cote Vision)
+        │  ssh <user>@<hote>   (sans commande : la commande forcee decide)
+        │  l'hote est joint par la route par defaut du conteneur de job
         ▼
-Vision: scripts/deploy.sh   (git ff-only -> VERSION + deploy.log -> compose build/up)
+Hote: scripts/deploy.sh     (garde arbre propre -> git ff-only -> VERSION +
+                             deploy.log -> compose build/up)
         │
         ▼
 GET /api/health renvoie le nouveau SHA  ← preuve du deploiement
@@ -33,7 +48,8 @@ GET /api/health renvoie le nouveau SHA  ← preuve du deploiement
 
 ## Ce qui est automatise (dans le depot)
 
-- `.forgejo/workflows/deploy.yml` : sur push `main`, ouvre la session SSH vers Vision.
+- `.forgejo/workflows/deploy.yml` : sur push `main`, ouvre la session vers l'hote,
+  puis VERIFIE que `/api/health` sert bien le commit deploye avant de passer au vert.
 - `scripts/deploy.sh` : recupere `main` (fast-forward), ecrit le marqueur de version
   (`src/VERSION`) et une ligne dans `deploy.log`, reconstruit et recree la stack.
   Mode non-interactif via `DEPLOY_YES=1`.
