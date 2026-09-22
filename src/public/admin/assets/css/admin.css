@@ -2388,3 +2388,73 @@ tbody td.mono {
         grid-template-columns: 1fr;
     }
 }
+
+/* --- Zone de depot d'image (formulaires produit et categorie) --- */
+/* Le champ fichier n'est jamais masque : la zone est un habillage, pas un
+   remplacement. Retirer ce bloc n'empeche personne d'envoyer une image. */
+.image-drop {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    align-items: flex-start;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    border: 2px dashed #b9c2cf;
+    border-radius: 8px;
+    background: #fafbfc;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.image-drop.is-dragover {
+    border-color: #2f6f4f;
+    background: #eef6f1;
+}
+
+.image-drop-input {
+    font: inherit;
+}
+
+.image-drop-note {
+    margin: 0;
+    font-size: 0.85rem;
+    color: #5a6472;
+}
+
+.image-drop-preview {
+    max-width: 160px;
+    max-height: 160px;
+    border-radius: 6px;
+    background: #fff;
+}
+
+/* --- Fleches de rangement (catalogue et categories) --- */
+/* Chaque fleche est un bouton de formulaire, donc atteignable au clavier et
+   annonce par les lecteurs d ecran via son aria-label. L etat desactive marque
+   le haut et le bas de liste. */
+.order-form {
+    display: inline;
+}
+
+.btn-order {
+    padding: 0.2rem 0.5rem;
+    border: 1px solid #ccd3dc;
+    border-radius: 4px;
+    background: #fff;
+    font-size: 0.75rem;
+    line-height: 1.2;
+    color: #33404f;
+    cursor: pointer;
+}
+
+.btn-order:hover:not(:disabled) {
+    background: #eef2f6;
+}
+
+.btn-order:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+.order-cell {
+    white-space: nowrap;
+}

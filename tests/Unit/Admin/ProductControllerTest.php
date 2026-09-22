@@ -11,15 +11,22 @@ use App\Controllers\ProductController;
 use App\Core\Config;
 use App\Core\Database;
 use App\Core\DatabaseInterface;
+use App\Core\ImageUploader;
 use App\Core\Request;
 use App\Tests\Support\FakeDatabase;
+use App\Tests\Support\TestableImageUploader;
 
 /**
  * Sous-classe de test : grace au seam db(), une seule surcharge DB suffit ;
- * sessionManager() injecte la session test.
+ * sessionManager() injecte la session test. imageUploader() pointe vers un
+ * dossier temporaire (uploadBaseDir) au lieu de src/public/uploads, via le meme
+ * double TestableImageUploader que ImageUploaderTest (is_uploaded_file()/
+ * move_uploaded_file() n'ont de sens qu'apres un vrai envoi HTTP).
  */
 final class TestProductController extends ProductController
 {
+    public string $uploadBaseDir = '';
+
     public function __construct(
         Request $request,
         Config $config,
@@ -39,15 +46,24 @@ final class TestProductController extends ProductController
     {
         return $this->fakeDb;
     }
+
+    protected function imageUploader(): ImageUploader
+    {
+        return new TestableImageUploader($this->config, $this->uploadBaseDir);
+    }
 }
 
 final class ProductControllerTest extends TestCase
 {
+    /** PNG 1x1 valide et complet (signature + IHDR + IDAT + IEND), 68 octets. */
+    private const PNG_1X1 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+
     /** @var list<string> */
     private array $touchedKeys = [];
 
     private SessionManager $session;
     private string $csrf = '';
+    private string $uploadBaseDir = '';
 
     protected function setUp(): void
     {
@@ -66,6 +82,8 @@ final class ProductControllerTest extends TestCase
         $this->session->set('logged_in_at', $now - 100);
         $this->session->set('last_activity', $now - 50);
         $this->csrf = Csrf::token($this->session);
+
+        $this->uploadBaseDir = sys_get_temp_dir() . '/wakdo_uploads_test_' . bin2hex(random_bytes(6));
     }
 
     protected function tearDown(): void
@@ -74,12 +92,91 @@ final class ProductControllerTest extends TestCase
             putenv($key);
         }
         $this->touchedKeys = [];
+        $this->removeDirectory($this->uploadBaseDir);
     }
 
     private function setEnv(string $key, string $value): void
     {
         $this->touchedKeys[] = $key;
         putenv($key . '=' . $value);
+    }
+
+    private function removeDirectory(string $dir): void
+    {
+        if (!is_dir($dir)) {
+            return;
+        }
+
+        $items = scandir($dir);
+        foreach ($items === false ? [] : $items as $item) {
+            if ($item === '.' || $item === '..') {
+                continue;
+            }
+            $path = $dir . '/' . $item;
+            if (is_dir($path)) {
+                $this->removeDirectory($path);
+            } else {
+                @unlink($path);
+            }
+        }
+        @rmdir($dir);
+    }
+
+    private function writeTemp(string $bytes): string
+    {
+        $path = tempnam(sys_get_temp_dir(), 'wakdo_src_');
+        self::assertNotFalse($path);
+        file_put_contents($path, $bytes);
+
+        return $path;
+    }
+
+    /**
+     * @return array<string, mixed> une entree $_FILES pour une image valide reelle
+     */
+    private function uploadedImage(): array
+    {
+        $tmp = $this->writeTemp(base64_decode(self::PNG_1X1));
+
+        return [
+            'name'     => 'produit.png',
+            'type'     => 'image/png',
+            'tmp_name' => $tmp,
+            'error'    => UPLOAD_ERR_OK,
+            'size'     => (int) filesize($tmp),
+        ];
+    }
+
+    /**
+     * Depose une "ancienne" image deja stockee (comme le ferait un envoi
+     * precedent) directement sous uploadBaseDir, et renvoie son chemin relatif
+     * tel qu'il serait lu depuis product.image_path.
+     */
+    private function plantUploadedImage(string $subdir): string
+    {
+        $name = bin2hex(random_bytes(16)) . '.png';
+        $directory = $this->uploadBaseDir . '/' . $subdir;
+        mkdir($directory, 0755, true);
+        file_put_contents($directory . '/' . $name, base64_decode(self::PNG_1X1));
+
+        return 'uploads/' . $subdir . '/' . $name;
+    }
+
+    /**
+     * @param array<string, string> $form
+     * @param array<string, mixed> $file une entree $_FILES sous la cle image_file
+     */
+    private function postWithFile(array $form, string $path, array $file): Request
+    {
+        return new Request(
+            'POST',
+            $path,
+            [],
+            ['content-type' => 'application/x-www-form-urlencoded'],
+            http_build_query($form),
+            '203.0.113.5',
+            ['image_file' => $file],
+        );
     }
 
     private function permittedDb(): FakeDatabase
@@ -108,7 +205,10 @@ final class ProductControllerTest extends TestCase
 
     private function controller(Request $request, FakeDatabase $db): TestProductController
     {
-        return new TestProductController($request, new Config(), new Database(new Config()), $this->session, $db);
+        $controller = new TestProductController($request, new Config(), new Database(new Config()), $this->session, $db);
+        $controller->uploadBaseDir = $this->uploadBaseDir;
+
+        return $controller;
     }
 
     /**
@@ -919,5 +1019,200 @@ final class ProductControllerTest extends TestCase
         );
 
         self::assertCount(4, $catalogueReads);
+    }
+
+    /* --- Image produit (ImageUploader) -------------------------------------- */
+
+    public function testStoreWithValidImageStoresFileAndPersistsPath(): void
+    {
+        $db = $this->permittedDb();
+        $image = $this->uploadedImage();
+
+        $response = $this->controller($this->postWithFile($this->validForm(), '/admin/products', $image), $db)->store();
+
+        self::assertSame(302, $response->status());
+        $insert = $this->findWrite($db, 'INSERT INTO product');
+        self::assertNotNull($insert);
+        $relative = (string) ($insert['params']['image'] ?? '');
+        self::assertMatchesRegularExpression('#^uploads/products/[a-f0-9]{32}\.png$#', $relative);
+        self::assertFileExists($this->uploadBaseDir . '/' . substr($relative, strlen('uploads/')));
+    }
+
+    public function testStoreWithInvalidImageReturns422AndWritesNoFile(): void
+    {
+        $db = $this->permittedDb();
+        $badImage = [
+            'name' => 'photo.png', 'type' => 'image/png',
+            'tmp_name' => $this->writeTemp('ceci n est pas une image'),
+            'error' => UPLOAD_ERR_OK, 'size' => 24,
+        ];
+
+        $response = $this->controller($this->postWithFile($this->validForm(), '/admin/products', $badImage), $db)->store();
+
+        self::assertSame(422, $response->status());
+        self::assertFalse($db->wrote('INSERT INTO product'));
+        self::assertStringContainsString('Format d image non accepte', $response->body());
+        self::assertDirectoryDoesNotExist($this->uploadBaseDir . '/products');
+    }
+
+    public function testStoreWithValidImageButAnotherInvalidFieldNeverWritesTheFile(): void
+    {
+        // L'image est valide, mais un autre champ ne l'est pas : verifier tot,
+        // ecrire tard (docblock ImageUploader::validate()) doit tenir meme quand
+        // l'image elle-meme n'est pas en cause.
+        $db = $this->permittedDb();
+        $image = $this->uploadedImage();
+
+        $response = $this->controller(
+            $this->postWithFile($this->validForm(['name' => '']), '/admin/products', $image),
+            $db,
+        )->store();
+
+        self::assertSame(422, $response->status());
+        self::assertFalse($db->wrote('INSERT INTO product'));
+        self::assertDirectoryDoesNotExist($this->uploadBaseDir . '/products');
+    }
+
+    public function testUpdateReplacesImageAndRemovesTheOldOneOnlyAfterSuccess(): void
+    {
+        $db = $this->permittedDb();
+        $oldRelative = $this->plantUploadedImage('products');
+        $db->productRow = ['id' => 5, 'category_id' => 3, 'name' => 'Coca Cola', 'description' => null, 'price_cents' => 190, 'vat_rate' => 100, 'image_path' => $oldRelative, 'is_available' => 1, 'display_order' => 1];
+
+        $response = $this->controller(
+            $this->postWithFile($this->validForm(['name' => 'Coca Cola', 'price_cents' => '190']), '/admin/products/5', $this->uploadedImage()),
+            $db,
+        )->update(['id' => '5']);
+
+        self::assertSame(302, $response->status());
+        self::assertFileDoesNotExist($this->uploadBaseDir . '/' . substr($oldRelative, strlen('uploads/')));
+        $update = $this->findWrite($db, 'UPDATE product SET');
+        self::assertNotNull($update);
+        $newRelative = (string) ($update['params']['image'] ?? '');
+        self::assertMatchesRegularExpression('#^uploads/products/[a-f0-9]{32}\.png$#', $newRelative);
+        self::assertFileExists($this->uploadBaseDir . '/' . substr($newRelative, strlen('uploads/')));
+    }
+
+    public function testUpdateKeepsTheOldImageWhenTheDatabaseWriteFails(): void
+    {
+        // Exigence centrale (docblock du controleur) : l'ancienne image n'est
+        // effacee qu'UNE FOIS la base a jour. Simule une panne d'ecriture pour le
+        // prouver, plutot que de le supposer de la lecture du code.
+        $db = $this->permittedDb();
+        $oldRelative = $this->plantUploadedImage('products');
+        $db->productRow = ['id' => 5, 'category_id' => 3, 'name' => 'Coca Cola', 'description' => null, 'price_cents' => 190, 'vat_rate' => 100, 'image_path' => $oldRelative, 'is_available' => 1, 'display_order' => 1];
+        $db->failOnExecute = new \RuntimeException('panne disque simulee');
+
+        try {
+            $this->controller(
+                $this->postWithFile($this->validForm(['name' => 'Coca Cola', 'price_cents' => '190']), '/admin/products/5', $this->uploadedImage()),
+                $db,
+            )->update(['id' => '5']);
+            self::fail('une exception etait attendue (panne DB simulee)');
+        } catch (\RuntimeException $exception) {
+            self::assertSame('panne disque simulee', $exception->getMessage());
+        }
+
+        self::assertFileExists($this->uploadBaseDir . '/' . substr($oldRelative, strlen('uploads/')));
+    }
+
+    public function testDestroyRemovesTheUploadedProductImage(): void
+    {
+        $db = $this->permittedDb();
+        $relative = $this->plantUploadedImage('products');
+        $db->productRow = ['id' => 5, 'name' => 'Big Mac', 'image_path' => $relative];
+        $this->actingPin($db);
+
+        $response = $this->controller(
+            $this->post(['_csrf' => $this->csrf, 'pin_email' => 'staff@wakdo.local', 'pin' => '4729'], '/admin/products/5/delete'),
+            $db,
+        )->destroy(['id' => '5']);
+
+        self::assertSame(302, $response->status());
+        self::assertFileDoesNotExist($this->uploadBaseDir . '/' . substr($relative, strlen('uploads/')));
+    }
+
+    public function testDestroyNeverTouchesAShippedCatalogueImage(): void
+    {
+        $db = $this->permittedDb();
+        $catalogueRelative = 'assets/images/produits/burgers/big-mac.png';
+        $catalogueAbsolute = $this->uploadBaseDir . '/' . $catalogueRelative;
+        mkdir(dirname($catalogueAbsolute), 0755, true);
+        file_put_contents($catalogueAbsolute, 'image du catalogue livre avec le projet');
+
+        $db->productRow = ['id' => 5, 'name' => 'Big Mac', 'image_path' => $catalogueRelative];
+        $this->actingPin($db);
+
+        $response = $this->controller(
+            $this->post(['_csrf' => $this->csrf, 'pin_email' => 'staff@wakdo.local', 'pin' => '4729'], '/admin/products/5/delete'),
+            $db,
+        )->destroy(['id' => '5']);
+
+        self::assertSame(302, $response->status());
+        self::assertFileExists($catalogueAbsolute);
+    }
+
+    /* --- Rangement du catalogue (move) --------------------------------------- */
+
+    public function testMoveRejectsInvalidCsrf(): void
+    {
+        $db = $this->permittedDb();
+
+        $response = $this->controller($this->post(['_csrf' => 'wrong', 'direction' => 'up'], '/admin/products/20/move'), $db)->move(['id' => '20']);
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($db->wrote('UPDATE product SET display_order'));
+    }
+
+    public function testMoveRequiresProductUpdatePermission(): void
+    {
+        $db = $this->permittedDb();
+        $db->canResult = false;
+
+        $response = $this->controller($this->post(['_csrf' => $this->csrf, 'direction' => 'up'], '/admin/products/20/move'), $db)->move(['id' => '20']);
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($db->wrote('UPDATE product SET display_order'));
+    }
+
+    public function testMoveUpRedirectsAndSetsFlashOnSuccess(): void
+    {
+        $db = $this->permittedDb();
+        $db->reorderProductRow = ['category_id' => 3];
+        $db->reorderCategoryIdsRows = [['id' => 10], ['id' => 20]];
+
+        $response = $this->controller($this->post(['_csrf' => $this->csrf, 'direction' => 'up'], '/admin/products/20/move'), $db)->move(['id' => '20']);
+
+        self::assertSame(302, $response->status());
+        self::assertSame('/admin/products/by-category', $response->header('Location'));
+        self::assertSame('Ordre du catalogue mis a jour.', $this->session->get('_flash'));
+        self::assertTrue($db->wrote('UPDATE product SET display_order'));
+    }
+
+    public function testMoveAlreadyAtTopIsANoOpAndDoesNotSetFlash(): void
+    {
+        $db = $this->permittedDb();
+        $db->reorderProductRow = ['category_id' => 3];
+        $db->reorderCategoryIdsRows = [['id' => 10], ['id' => 20]];
+
+        $response = $this->controller($this->post(['_csrf' => $this->csrf, 'direction' => 'up'], '/admin/products/10/move'), $db)->move(['id' => '10']);
+
+        self::assertSame(302, $response->status());
+        self::assertNull($this->session->get('_flash'));
+        self::assertFalse($db->wrote('UPDATE product SET display_order'));
+    }
+
+    public function testMoveWithInvalidDirectionRedirectsWithoutWriting(): void
+    {
+        $db = $this->permittedDb();
+        $db->reorderProductRow = ['category_id' => 3];
+        $db->reorderCategoryIdsRows = [['id' => 10], ['id' => 20]];
+
+        $response = $this->controller($this->post(['_csrf' => $this->csrf, 'direction' => 'sideways'], '/admin/products/20/move'), $db)->move(['id' => '20']);
+
+        self::assertSame(302, $response->status());
+        self::assertSame('/admin/products/by-category', $response->header('Location'));
+        self::assertNull($this->session->get('_flash'));
+        self::assertFalse($db->wrote('UPDATE product SET display_order'));
     }
 }

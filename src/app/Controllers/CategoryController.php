@@ -8,6 +8,8 @@ use PDOException;
 use App\Auth\Csrf;
 use App\Auth\GuardResult;
 use App\Catalogue\CategoryRepository;
+use App\Core\ImageUploadException;
+use App\Core\ImageUploader;
 use App\Core\Response;
 
 /**
@@ -70,8 +72,25 @@ class CategoryController extends AdminController
 
         $repo = $this->categoryRepository();
         [$data, $errors] = $this->validate($form, $repo, 0);
+
+        // Verifier tot, ecrire tard : cf. le docbloc de ImageUploader::validate().
+        $imageFile = $this->request->file('image_file');
+        $uploader = $this->imageUploader();
+        $hasImage = $imageFile !== null && $uploader->isSubmitted($imageFile);
+        if ($hasImage && $imageFile !== null) {
+            try {
+                $uploader->validate($imageFile, 'categories');
+            } catch (ImageUploadException $exception) {
+                $errors['image_file'] = $exception->getMessage();
+            }
+        }
+
         if ($errors !== []) {
             return $this->renderForm($guard, 0, $form, $errors, 422);
+        }
+
+        if ($hasImage && $imageFile !== null) {
+            $data['image_path'] = $uploader->store($imageFile, 'categories');
         }
 
         try {
@@ -121,19 +140,42 @@ class CategoryController extends AdminController
 
         $id = (int) ($params['id'] ?? 0);
         $repo = $this->categoryRepository();
-        if ($repo->find($id) === null) {
+        $current = $repo->find($id);
+        if ($current === null) {
             return $this->notFound($guard);
         }
 
         [$data, $errors] = $this->validate($form, $repo, $id);
+
+        $imageFile = $this->request->file('image_file');
+        $uploader = $this->imageUploader();
+        $hasImage = $imageFile !== null && $uploader->isSubmitted($imageFile);
+        if ($hasImage && $imageFile !== null) {
+            try {
+                $uploader->validate($imageFile, 'categories');
+            } catch (ImageUploadException $exception) {
+                $errors['image_file'] = $exception->getMessage();
+            }
+        }
+
         if ($errors !== []) {
             return $this->renderForm($guard, $id, $form, $errors, 422);
+        }
+
+        $previousImage = is_string($current['image_path'] ?? null) ? (string) $current['image_path'] : null;
+        if ($hasImage && $imageFile !== null) {
+            $data['image_path'] = $uploader->store($imageFile, 'categories');
         }
 
         try {
             $repo->update($id, $data);
         } catch (PDOException $exception) {
             return $this->onWriteConflict($exception, $guard, $id, $form);
+        }
+
+        // Ancienne image effacee seulement apres une ecriture reussie.
+        if ($hasImage) {
+            $uploader->remove($previousImage);
         }
 
         $this->setFlash('Categorie mise a jour.');
@@ -168,6 +210,41 @@ class CategoryController extends AdminController
         $this->setFlash($newActive ? 'Categorie affichee.' : 'Categorie masquee.');
 
         return $this->redirect('/admin/categories');
+    }
+
+    /**
+     * Deplace une categorie d'un rang. Meme raison qu'ailleurs d'etre en POST :
+     * c'est une ecriture, elle passe par le jeton anti-rejeu.
+     *
+     * @param array<string, string> $params
+     */
+    public function move(array $params): Response
+    {
+        $guard = $this->guard(self::PERMISSION);
+        if ($guard instanceof Response) {
+            return $guard;
+        }
+
+        $form = $this->request->formBody();
+        if (!Csrf::validate($this->sessionManager(), $form['_csrf'] ?? null)) {
+            return $this->invalidCsrf();
+        }
+
+        $direction = (string) ($form['direction'] ?? '');
+        if ($direction !== 'up' && $direction !== 'down') {
+            return $this->redirect('/admin/categories');
+        }
+
+        if ($this->categoryRepository()->reorder((int) ($params['id'] ?? 0), $direction)) {
+            $this->setFlash('Ordre des categories mis a jour.');
+        }
+
+        return $this->redirect('/admin/categories');
+    }
+
+    protected function imageUploader(): ImageUploader
+    {
+        return new ImageUploader($this->config);
     }
 
     protected function categoryRepository(): CategoryRepository

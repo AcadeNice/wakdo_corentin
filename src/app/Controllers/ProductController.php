@@ -15,6 +15,8 @@ use App\Catalogue\IngredientRepository;
 use App\Catalogue\MenuRepository;
 use App\Catalogue\ProductRepository;
 use App\Core\DatabaseInterface;
+use App\Core\ImageUploadException;
+use App\Core\ImageUploader;
 use App\Core\Response;
 
 /**
@@ -91,6 +93,7 @@ class ProductController extends AdminController
             foreach ($rows as $row) {
                 $id = (int) $row['id'];
                 $articles[$categoryId][] = [
+                    'id'            => $id,
                     'name'          => (string) $row['name'],
                     'price_cents'   => (int) $row['price_cents'],
                     'vat_rate'      => (int) $row['vat_rate'],
@@ -107,6 +110,7 @@ class ProductController extends AdminController
             // tombe en rupture calculee. Meme regle que la borne (RG-T21, F2).
             $burgerId = (int) ($row['burger_product_id'] ?? 0);
             $articles[$categoryId][] = [
+                'id'            => (int) ($row['id'] ?? 0),
                 'name'          => (string) ($row['name'] ?? ''),
                 'price_cents'   => (int) ($row['price_normal_cents'] ?? 0),
                 'vat_rate'      => null,
@@ -136,6 +140,10 @@ class ProductController extends AdminController
             'totalArticles'  => $total,
             'nOrderable'     => $orderable,
             'nNotOrderable'  => $total - $orderable,
+            // Le rangement est une ECRITURE : il lui faut le jeton anti-rejeu et
+            // la meme permission que la modification d'un produit.
+            'canReorder'     => $canUpdateProduct,
+            'csrfToken'      => Csrf::token($this->sessionManager()),
         ], $guard);
     }
 
@@ -195,8 +203,27 @@ class ProductController extends AdminController
         // id = 0 a la creation : pas d'auto-reference possible (le produit n'existe
         // pas encore), validate() le sait par le 2e argument.
         [$data, $errors] = $this->validate($form, 0);
+
+        // L'image est controlee ICI mais ecrite plus bas : si un autre champ est
+        // refuse, le formulaire repart en 422 sans avoir depose de fichier que
+        // plus rien ne referencerait.
+        $imageFile = $this->request->file('image_file');
+        $uploader = $this->imageUploader();
+        $hasImage = $imageFile !== null && $uploader->isSubmitted($imageFile);
+        if ($hasImage && $imageFile !== null) {
+            try {
+                $uploader->validate($imageFile, 'products');
+            } catch (ImageUploadException $exception) {
+                $errors['image_file'] = $exception->getMessage();
+            }
+        }
+
         if ($errors !== []) {
             return $this->renderForm($guard, 0, $form, $errors, 422);
+        }
+
+        if ($hasImage && $imageFile !== null) {
+            $data['image_path'] = $uploader->store($imageFile, 'products');
         }
 
         $this->productRepository()->create($data);
@@ -246,16 +273,44 @@ class ProductController extends AdminController
         }
 
         [$data, $errors] = $this->validate($form, $id);
+
+        // Meme discipline qu'a la creation, et elle compte davantage ici : le
+        // chemin sensible (prix/TVA) peut encore repartir en 422 apres cette
+        // ligne, sur un code a usage unique refuse.
+        $imageFile = $this->request->file('image_file');
+        $uploader = $this->imageUploader();
+        $hasImage = $imageFile !== null && $uploader->isSubmitted($imageFile);
+        if ($hasImage && $imageFile !== null) {
+            try {
+                $uploader->validate($imageFile, 'products');
+            } catch (ImageUploadException $exception) {
+                $errors['image_file'] = $exception->getMessage();
+            }
+        }
+
         if ($errors !== []) {
             return $this->renderForm($guard, $id, $form, $errors, 422);
         }
+
+        $previousImage = is_string($current['image_path'] ?? null) ? (string) $current['image_path'] : null;
 
         // RG-T13/8.2 : seul un changement de prix ou de TVA est une action sensible.
         $priceChanged = $data['price_cents'] !== (int) ($current['price_cents'] ?? 0);
         $vatChanged = $data['vat_rate'] !== (int) ($current['vat_rate'] ?? 0);
 
         if (!$priceChanged && !$vatChanged) {
+            if ($hasImage && $imageFile !== null) {
+                $data['image_path'] = $uploader->store($imageFile, 'products');
+            }
+
             $this->productRepository()->update($id, $data);
+
+            // L'ancienne image n'est effacee qu'une fois la base a jour : en cas
+            // d'echec de l'ecriture, le produit garde une photo valide.
+            if ($hasImage) {
+                $uploader->remove($previousImage);
+            }
+
             $this->setFlash('Produit mis a jour.');
 
             return $this->redirect('/admin/products');
@@ -288,6 +343,10 @@ class ProductController extends AdminController
             return $this->renderForm($guard, $id, $form, ['pin' => 'Email ou PIN invalide (requis pour modifier prix/TVA).'], 422);
         }
 
+        if ($hasImage && $imageFile !== null) {
+            $data['image_path'] = $uploader->store($imageFile, 'products');
+        }
+
         $summary = $this->changeSummary($current, $data, $priceChanged, $vatChanged);
 
         $this->db()->transaction(function (DatabaseInterface $db) use ($id, $data, $actor, $summary): void {
@@ -300,6 +359,10 @@ class ProductController extends AdminController
         // qu'a l'increment ; surtout PAS $actor['id'] (l'equipier resolu par le PIN,
         // un autre individu) sinon le compteur de l'agissant ne serait jamais purge.
         $this->pinThrottle()->reset($actorId);
+
+        if ($hasImage) {
+            $uploader->remove($previousImage);
+        }
 
         $this->setFlash('Produit mis a jour (changement de prix/TVA trace).');
 
@@ -397,6 +460,11 @@ class ProductController extends AdminController
             throw $exception;
         }
 
+        // Le produit est parti : son image deposee n'a plus de proprietaire.
+        // remove() ignore les chemins du catalogue livre avec le projet, donc
+        // supprimer un produit d'origine ne touche pas a ses assets.
+        $this->imageUploader()->remove(is_string($product['image_path'] ?? null) ? (string) $product['image_path'] : null);
+
         // PIN valide et suppression effective : reinitialise le compteur de l'acteur
         // de session (RG-T22, cle = $actorId). Apres le try/catch : non atteint si la
         // FK a bloque (409), ce qui est benin (l'acteur n'est pas un attaquant).
@@ -466,6 +534,42 @@ class ProductController extends AdminController
         return $this->redirect('/admin/products');
     }
 
+    /**
+     * Deplace un produit d'un rang dans sa categorie.
+     *
+     * POST et non GET : l'action change l'etat du catalogue, elle doit donc etre
+     * protegee par le jeton anti-rejeu comme les autres ecritures, et ne pas
+     * pouvoir etre declenchee par un simple lien visite.
+     *
+     * @param array<string, string> $params
+     */
+    public function move(array $params): Response
+    {
+        $guard = $this->guard('product.update');
+        if ($guard instanceof Response) {
+            return $guard;
+        }
+
+        $form = $this->request->formBody();
+        if (!Csrf::validate($this->sessionManager(), $form['_csrf'] ?? null)) {
+            return $this->invalidCsrf();
+        }
+
+        $direction = (string) ($form['direction'] ?? '');
+        if ($direction !== 'up' && $direction !== 'down') {
+            return $this->redirect('/admin/products/by-category');
+        }
+
+        // false = produit introuvable OU deja en bout de liste. Le deuxieme cas
+        // n'est pas une erreur : l'utilisateur a clique sur une fleche sans
+        // effet, on le ramene simplement a sa liste sans message alarmant.
+        if ($this->productRepository()->reorderWithinCategory((int) ($params['id'] ?? 0), $direction)) {
+            $this->setFlash('Ordre du catalogue mis a jour.');
+        }
+
+        return $this->redirect('/admin/products/by-category');
+    }
+
     protected function productRepository(): ProductRepository
     {
         return new ProductRepository($this->db());
@@ -484,6 +588,11 @@ class ProductController extends AdminController
     protected function menuRepository(): MenuRepository
     {
         return new MenuRepository($this->db());
+    }
+
+    protected function imageUploader(): ImageUploader
+    {
+        return new ImageUploader($this->config);
     }
 
     protected function pinVerifier(): PinVerifier
