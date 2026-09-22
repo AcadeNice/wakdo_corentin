@@ -12,6 +12,9 @@
 </head>
 <body class="categories-page">
 
+    <!-- Lien d'evitement (RGAA Cr 1.e.11) : premier element focalisable de l'ecran. -->
+    <a class="skip-link" href="#main-content">Aller au contenu</a>
+
     <!--
         Ecran categories. La grille est peuplee par page-categories.js depuis
         GET /api/categories : seules les categories actives s'affichent, dans l'ordre
@@ -36,7 +39,7 @@
         <div class="site-header__spacer" aria-hidden="true"></div>
     </header>
 
-    <main class="categories-main" aria-label="Categories de produits">
+    <main class="categories-main" id="main-content" aria-label="Categories de produits">
         <h1 class="categories-main__heading">Que souhaitez-vous commander&nbsp;?</h1>
         <p class="categories-main__sub">Choisissez une categorie pour decouvrir nos produits</p>
 

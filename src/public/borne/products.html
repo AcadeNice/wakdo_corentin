@@ -12,6 +12,9 @@
 </head>
 <body class="products-page">
 
+    <!-- Lien d'evitement (RGAA Cr 1.e.11) : premier element focalisable de l'ecran. -->
+    <a class="skip-link" href="#main-content">Aller au contenu</a>
+
     <!--
         products.html — List of products in a category.
         Category is determined at runtime from ?category=<id>.
@@ -36,7 +39,7 @@
     </header>
 
     <div class="order-layout">
-    <main class="products-main" aria-label="Liste des produits">
+    <main class="products-main" id="main-content" aria-label="Liste des produits">
 
         <nav class="category-strip" data-category-strip aria-label="Categories"></nav>
 

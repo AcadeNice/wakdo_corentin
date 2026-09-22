@@ -64,9 +64,11 @@ $navClass = static function (string $code, string $current): string {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex, nofollow">
     <title><?= $pageTitle ?></title>
+    <link rel="icon" type="image/svg+xml" href="/assets/images/favicon.svg">
     <link rel="stylesheet" href="/assets/css/admin.css">
 </head>
 <body data-user-email="<?= htmlspecialchars($currentUserEmail ?? '', ENT_QUOTES, 'UTF-8') ?>">
+<a class="skip-link" href="#main-content">Aller au contenu</a>
 <div class="admin-layout">
     <header class="topbar">
         <div class="topbar-actions">
@@ -160,7 +162,7 @@ $navClass = static function (string $code, string $current): string {
         */ ?>
     </nav>
 
-    <main class="content">
+    <main class="content" id="main-content">
         <?php $flashMessage = isset($flash) && is_string($flash) ? $flash : null; ?>
         <?php if ($flashMessage !== null && $flashMessage !== ''): ?>
             <div class="flash" role="status"><?= htmlspecialchars($flashMessage, ENT_QUOTES, 'UTF-8') ?></div>
@@ -171,5 +173,9 @@ $navClass = static function (string $code, string $current): string {
 <script src="/assets/js/admin.js"></script>
 <script src="/assets/js/pin-modal.js"></script>
 <script src="/assets/js/stock-thresholds.js"></script>
+<?php /* Bascule de police pour personnes dyslexiques (RGAA Cr 1.c.2), parite avec
+         la borne : meme module, reutilise via assets/js/a11y.js (voir le fichier
+         pour le partage physique entre les deux racines statiques), pas reecrit. */ ?>
+<script type="module" src="/assets/js/a11y.js"></script>
 </body>
 </html>

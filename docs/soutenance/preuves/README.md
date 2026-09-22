@@ -12,7 +12,8 @@ Perimetre principal : la **borne de commande client** (`src/public/borne/`), int
 | Cr 1.a.5 | Balises semantiques | `01` + [`04`](04-accessibilite-rgaa.md) | Conforme |
 | Cr 1.b.1 | Adaptation aux resolutions (responsive) | [`02-matrice-responsive.md`](02-matrice-responsive.md) | Couvert (borne) ; partiel (ossature admin) |
 | Cr 1.b.2 / 1.b.3 | Compatibilite navigateurs + correction documentee | [`03-conformite-cross-browser.md`](03-conformite-cross-browser.md) | Couvert (perimetre assume) |
-| Cr 1.c.1 a 1.c.4 | Accessibilite RGAA (lecteurs d'ecran, OpenDyslexic, couleur, clavier) | [`04-accessibilite-rgaa.md`](04-accessibilite-rgaa.md) | Conforme, avec reserves |
+| Cr 1.c.1 a 1.c.4 | Accessibilite RGAA (lecteurs d'ecran, OpenDyslexic, couleur, clavier) | [`04-accessibilite-rgaa.md`](04-accessibilite-rgaa.md) | Conforme, avec reserves — couvre desormais le back-office |
+| Cr 1.e.11 | Ancres intra-page et lien d'evitement | [`04-accessibilite-rgaa.md`](04-accessibilite-rgaa.md) section 10 | Couvert (5 pages borne + back-office) |
 | Cr 2.d.1 a 2.d.3 | Librairies JavaScript externes | [`05-librairies-js-c2d.md`](05-librairies-js-c2d.md) | Faible (choix vanilla assume) |
 
 ## Artefacts

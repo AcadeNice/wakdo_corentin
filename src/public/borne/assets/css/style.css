@@ -145,6 +145,28 @@ button {
     visibility: hidden;
 }
 
+/* Lien d'evitement (RGAA Cr 1.e.11, renforce Cr 1.c.4) : premier element
+   focalisable de chaque ecran. Hors flot comme .sr-only tant qu'il n'a pas le
+   focus, pour ne pas occuper d'espace ni etre lu deux fois par un lecteur
+   d'ecran ; reapparait des que le focus clavier l'atteint (:focus-visible,
+   meme approche que le reste du fichier) pour permettre de sauter directement
+   au contenu principal sans retraverser l'en-tete. */
+.skip-link {
+    position: fixed;
+    top: -1000px;
+    left: 0;
+    z-index: 2000;
+    padding: var(--space-2) var(--space-4);
+    background: var(--color-brand-yellow);
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-bold);
+    border-radius: 0 0 var(--radius-sm) 0;
+}
+
+.skip-link:focus-visible {
+    top: 0;
+}
+
 /* ============================================================
    4. COMPONENT — WELCOME SCREEN (index.html)
    ============================================================ */

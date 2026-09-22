@@ -1086,4 +1086,26 @@ final class IngredientControllerTest extends TestCase
         self::assertNotNull($params);
         self::assertSame(120, mb_strlen((string) $params['src']));
     }
+
+    // -------------------------------------------------------------------------
+    // Sommaire d'ancres (RGAA Cr 1.e.11) — audit Bloc 1 : la vue la plus longue
+    // du back-office n'avait aucune navigation interne.
+    // -------------------------------------------------------------------------
+
+    public function testIndexRendersTableOfContentsLinkingBothRealSections(): void
+    {
+        // Verifie les deux liens ET que leurs cibles existent reellement dans le
+        // HTML rendu : un sommaire dont les ancres ne resolvent nulle part serait
+        // pire qu'aucun sommaire (fausse promesse de navigation).
+        $db = $this->permittedDb();
+        $db->ingredientsRows = [$this->ingredient()];
+
+        $body = $this->controller($this->get('/admin/ingredients'), $db)->index()->body();
+
+        self::assertStringContainsString('<nav class="toc" aria-label="Sommaire de la page">', $body);
+        self::assertStringContainsString('href="#ingredients-a-reapprovisionner"', $body);
+        self::assertStringContainsString('href="#ingredients-tous"', $body);
+        self::assertStringContainsString('id="ingredients-a-reapprovisionner"', $body);
+        self::assertStringContainsString('id="ingredients-tous"', $body);
+    }
 }

@@ -116,6 +116,16 @@ $renderBar = static function (array $row) use ($esc, $barClass): string {
     <?php endif; ?>
 </div>
 
+<?php /* Sommaire d'ancres (RGAA Cr 1.e.11) : cette vue est la plus longue du
+         back-office, deux sections identifiees plus bas par id. */ ?>
+<nav class="toc" aria-label="Sommaire de la page">
+    <p class="toc__label">Aller a la section :</p>
+    <ul class="toc__list">
+        <li><a href="#ingredients-a-reapprovisionner">A reapprovisionner</a></li>
+        <li><a href="#ingredients-tous">Tous les ingredients</a></li>
+    </ul>
+</nav>
+
 <?php if ($thresholdErr !== null && $thresholdErr !== ''): ?>
     <div class="flash flash-error" role="alert"><?= $esc($thresholdErr) ?></div>
 <?php endif; ?>
@@ -158,7 +168,7 @@ $unreviewed = (int) ($unreviewedAllergens ?? 0);
     </p>
 <?php endif; ?>
 
-<section class="stock-section stock-section--restock">
+<section class="stock-section stock-section--restock" id="ingredients-a-reapprovisionner">
     <h2 class="stock-section__title">A reapprovisionner</h2>
     <?php if ($toRestock === []): ?>
         <div class="stock-empty stock-empty--ok">
@@ -194,7 +204,7 @@ $unreviewed = (int) ($unreviewedAllergens ?? 0);
     <?php endif; ?>
 </section>
 
-<section class="stock-section">
+<section class="stock-section" id="ingredients-tous">
     <h2 class="stock-section__title">Tous les ingredients</h2>
     <?php if ($rows === []): ?>
         <div class="stock-empty">Aucun ingredient.</div>
