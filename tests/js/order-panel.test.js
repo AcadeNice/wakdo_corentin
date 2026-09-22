@@ -23,6 +23,15 @@ before(async () => {
     global.document = dom.window.document;
     global.localStorage = dom.window.localStorage;
     global.requestAnimationFrame = (cb) => cb();
+    // order-panel.js -> confirm-modal.js -> a11y-dialog (assets/vendor/), qui
+    // appelle `new CustomEvent(...)` sans prefixe. Sans ce global pose sur le
+    // MEME realm que `document`, document.dispatchEvent (jsdom) rejette le
+    // CustomEvent construit depuis le global Node natif ("parameter 1 is not
+    // of type 'Event'") : dialog.show() jette avant de poser shown=true, et
+    // dialog.hide() devient alors un no-op silencieux (voir confirm-modal.test.js
+    // pour le detail de ce diagnostic).
+    global.CustomEvent = dom.window.CustomEvent;
+    global.Event = dom.window.Event;
     ({ lineCents, compositionLabels, buildPanelModel, renderOrderPanel } =
         await import('../../src/public/borne/assets/js/order-panel.js'));
 });
