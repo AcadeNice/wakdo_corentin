@@ -1,0 +1,408 @@
+page;compartiment;selecteur;avant_plan;arriere_plan;ratio;seuil_attendu;taille_px;graisse;extrait
+accueil;conforme;#welcome-heading;#1a1a1a;#ffffff;17,4;3:1;30.0pt (40px);bold;<h1 class="welcome__greeting" id="welcome-heading">Bonjour,</h1>
+accueil;conforme;p;#1a1a1a;#ffffff;17,4;3:1;15.0pt (20px);bold;<p class="welcome__question"> Souhaitez-vous consommer votre menu sur place<br> ou preferez-vous l'e
+accueil;conforme;a[href="categories.html?mode=sur-place"] > .choice-btn__label;#1a1a1a;#ffffff;17,4;3:1;18.0pt (24px);bold;<span class="choice-btn__label">Sur Place</span>
+accueil;conforme;a[aria-label="Commander a emporter"] > .choice-btn__label;#1a1a1a;#ffffff;17,4;3:1;18.0pt (24px);bold;<span class="choice-btn__label">A Emporter</span>
+accueil;conforme;.a11y-toggle__icon;#1a1a1a;#ffffff;17,4;3:1;15.0pt (20px);bold;<span class="a11y-toggle__icon" aria-hidden="true">Aa</span>
+accueil;conforme;.a11y-toggle__label;#1a1a1a;#ffffff;17,4;4.5:1;10.5pt (14px);bold;<span class="a11y-toggle__label">Police adaptee</span>
+admin-commandes;conforme;.topbar-user-avatar;#ffc72c;#1a1a1a;11,15;4.5:1;9.8pt (13px);bold;<div class="topbar-user-avatar">WA</div>
+admin-commandes;conforme;.topbar-user-name;#1a1a1a;#ffffff;17,4;4.5:1;10.5pt (14px);bold;<div class="topbar-user-name">Wakdo Admin</div>
+admin-commandes;conforme;.topbar-user-role;#6b7280;#ffffff;4,83;4.5:1;8.3pt (11px);normal;<div class="topbar-user-role">Administrator</div>
+admin-commandes;conforme;.sidebar-brand-name;#1a1a1a;#ffffff;17,4;3:1;15.8pt (21px);bold;<span class="sidebar-brand-name">Wak<span>do</span></span>
+admin-commandes;conforme;.sidebar-section:nth-child(2) > .sidebar-section-label;#6b7280;#ffffff;4,83;4.5:1;8.3pt (11px);bold;<div class="sidebar-section-label">Vue d'ensemble</div>
+admin-commandes;conforme;a[href$="dashboard"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/dashboard" class="sidebar-item">Tableau de bord</a>
+admin-commandes;conforme;.sidebar-section:nth-child(3) > .sidebar-section-label;#6b7280;#ffffff;4,83;4.5:1;8.3pt (11px);bold;<div class="sidebar-section-label">Catalogue</div>
+admin-commandes;conforme;a[href$="categories"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/categories" class="sidebar-item">Categories</a>
+admin-commandes;conforme;a[href$="products"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/products" class="sidebar-item">Produits</a>
+admin-commandes;conforme;a[href$="by-category"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/products/by-category" class="sidebar-item">Produits par categorie</a>
+admin-commandes;conforme;a[href$="menus"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/menus" class="sidebar-item">Menus</a>
+admin-commandes;conforme;.sidebar-section:nth-child(4) > .sidebar-section-label;#6b7280;#ffffff;4,83;4.5:1;8.3pt (11px);bold;<div class="sidebar-section-label">Stock</div>
+admin-commandes;conforme;a[href$="ingredients"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/ingredients" class="sidebar-item">Ingredients</a>
+admin-commandes;conforme;.sidebar-section:nth-child(5) > .sidebar-section-label;#6b7280;#ffffff;4,83;4.5:1;8.3pt (11px);bold;<div class="sidebar-section-label">Pilotage</div>
+admin-commandes;conforme;.sidebar-item[href$="orders"]:nth-child(2);#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/counter/orders" class="sidebar-item">Saisie commande</a>
+admin-commandes;conforme;a[href$="stats"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/stats" class="sidebar-item">Statistiques</a>
+admin-commandes;conforme;.active;#1a1a1a;#fff3d1;15,74;4.5:1;11.3pt (15px);normal;<a href="/admin/orders" class="sidebar-item active">Commandes</a>
+admin-commandes;conforme;a[href$="display"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/kitchen/display" class="sidebar-item">Cuisine (KDS)</a>
+admin-commandes;conforme;.sidebar-section:nth-child(6) > .sidebar-section-label;#6b7280;#ffffff;4,83;4.5:1;8.3pt (11px);bold;<div class="sidebar-section-label">Administration</div>
+admin-commandes;conforme;a[href$="users"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/users" class="sidebar-item">Utilisateurs</a>
+admin-commandes;conforme;a[href$="roles"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/roles" class="sidebar-item">Roles</a>
+admin-commandes;conforme;#orders-heading;#1a1a1a;#f5f5f5;15,96;3:1;15.8pt (21px);bold;<h1 id="orders-heading" class="admin-section__title">Commandes</h1>
+admin-commandes;conforme;.admin-section__sub;#1a1a1a;#f5f5f5;15,96;4.5:1;10.5pt (14px);normal;<p class="admin-section__sub">0 commande(s) recente(s)</p>
+admin-commandes;conforme;.a11y-toggle__icon;#1a1a1a;#ffffff;17,4;4.5:1;11.3pt (15px);bold;<span class="a11y-toggle__icon" aria-hidden="true">Aa</span>
+admin-commandes;conforme;.a11y-toggle__label;#1a1a1a;#ffffff;17,4;4.5:1;9.8pt (13px);bold;<span class="a11y-toggle__label">Police adaptee</span>
+admin-commandes;violation;.sidebar-brand-name > span;#c8920a;#ffffff;2,77;3:1;15.8pt (21px);bold;<span>do</span>
+admin-commandes;violation;.admin-empty;#6b7280;#f5f5f5;4,43;4.5:1;10.5pt (14px);normal;<p class="admin-empty">Aucune commande pour le moment.</p>
+admin-connexion;conforme;.login-logo-title;#1a1a1a;#ffffff;17,4;4.5:1;13.5pt (18px);bold;<span class="login-logo-title">Wakdo Admin</span>
+admin-connexion;conforme;.login-logo-sub;#6b7280;#ffffff;4,83;4.5:1;9.0pt (12px);normal;<span class="login-logo-sub">Back-office de gestion</span>
+admin-connexion;conforme;label[for="email"];#4a4a4a;#ffffff;8,86;4.5:1;9.0pt (12px);normal;<label class="form-label" for="email">Adresse e-mail</label>
+admin-connexion;conforme;#email;#1a1a1a;#ffffff;17,4;4.5:1;9.8pt (13px);normal;<input class="form-input" type="email" id="email" name="email" autocomplete="email" required="">
+admin-connexion;conforme;label[for="password"];#4a4a4a;#ffffff;8,86;4.5:1;9.0pt (12px);normal;<label class="form-label" for="password">Mot de passe</label>
+admin-connexion;conforme;#password;#1a1a1a;#ffffff;17,4;4.5:1;9.8pt (13px);normal;<input class="form-input" type="password" id="password" name="password" autocomplete="current-passwo
+admin-connexion;conforme;button;#1a1a1a;#ffc72c;11,15;4.5:1;10.5pt (14px);normal;<button type="submit" class="btn btn-primary">Se connecter</button>
+admin-connexion;conforme;a;#4a4a4a;#ffffff;8,86;4.5:1;9.0pt (12px);normal;<a href="/forgot_password">Mot de passe oublie ?</a>
+admin-ingredients;conforme;.topbar-user-avatar;#ffc72c;#1a1a1a;11,15;4.5:1;9.8pt (13px);bold;<div class="topbar-user-avatar">WA</div>
+admin-ingredients;conforme;.topbar-user-name;#1a1a1a;#ffffff;17,4;4.5:1;10.5pt (14px);bold;<div class="topbar-user-name">Wakdo Admin</div>
+admin-ingredients;conforme;.topbar-user-role;#6b7280;#ffffff;4,83;4.5:1;8.3pt (11px);normal;<div class="topbar-user-role">Administrator</div>
+admin-ingredients;conforme;.sidebar-brand-name;#1a1a1a;#ffffff;17,4;3:1;15.8pt (21px);bold;<span class="sidebar-brand-name">Wak<span>do</span></span>
+admin-ingredients;conforme;.sidebar-section:nth-child(2) > .sidebar-section-label;#6b7280;#ffffff;4,83;4.5:1;8.3pt (11px);bold;<div class="sidebar-section-label">Vue d'ensemble</div>
+admin-ingredients;conforme;a[href$="dashboard"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/dashboard" class="sidebar-item">Tableau de bord</a>
+admin-ingredients;conforme;.sidebar-section:nth-child(3) > .sidebar-section-label;#6b7280;#ffffff;4,83;4.5:1;8.3pt (11px);bold;<div class="sidebar-section-label">Catalogue</div>
+admin-ingredients;conforme;a[href$="categories"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/categories" class="sidebar-item">Categories</a>
+admin-ingredients;conforme;a[href$="products"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/products" class="sidebar-item">Produits</a>
+admin-ingredients;conforme;a[href$="by-category"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/products/by-category" class="sidebar-item">Produits par categorie</a>
+admin-ingredients;conforme;a[href$="menus"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/menus" class="sidebar-item">Menus</a>
+admin-ingredients;conforme;.sidebar-section:nth-child(4) > .sidebar-section-label;#6b7280;#ffffff;4,83;4.5:1;8.3pt (11px);bold;<div class="sidebar-section-label">Stock</div>
+admin-ingredients;conforme;.active;#1a1a1a;#fff3d1;15,74;4.5:1;11.3pt (15px);normal;<a href="/admin/ingredients" class="sidebar-item active">Ingredients</a>
+admin-ingredients;conforme;.sidebar-section:nth-child(5) > .sidebar-section-label;#6b7280;#ffffff;4,83;4.5:1;8.3pt (11px);bold;<div class="sidebar-section-label">Pilotage</div>
+admin-ingredients;conforme;.sidebar-item[href$="orders"]:nth-child(2);#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/counter/orders" class="sidebar-item">Saisie commande</a>
+admin-ingredients;conforme;a[href$="stats"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/stats" class="sidebar-item">Statistiques</a>
+admin-ingredients;conforme;.sidebar-item[href$="orders"]:nth-child(4);#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/orders" class="sidebar-item">Commandes</a>
+admin-ingredients;conforme;a[href$="display"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/kitchen/display" class="sidebar-item">Cuisine (KDS)</a>
+admin-ingredients;conforme;.sidebar-section:nth-child(6) > .sidebar-section-label;#6b7280;#ffffff;4,83;4.5:1;8.3pt (11px);bold;<div class="sidebar-section-label">Administration</div>
+admin-ingredients;conforme;a[href$="users"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/users" class="sidebar-item">Utilisateurs</a>
+admin-ingredients;conforme;a[href$="roles"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/roles" class="sidebar-item">Roles</a>
+admin-ingredients;conforme;h1;#1a1a1a;#f5f5f5;15,96;3:1;15.0pt (20px);bold;<h1 class="page-title">Stock des ingredients</h1>
+admin-ingredients;conforme;a[href$="new"];#4a4a4a;#ffffff;8,86;4.5:1;9.8pt (13px);normal;<a class="btn btn-secondary" href="/admin/ingredients/new">Nouvel ingredient</a>
+admin-ingredients;conforme;.toc__label;#6b7280;#f9fafb;4,62;4.5:1;9.8pt (13px);normal;<p class="toc__label">Aller a la section :</p>
+admin-ingredients;conforme;li:nth-child(1) > a;#1a1a1a;#f9fafb;16,65;4.5:1;9.8pt (13px);normal;<a href="#ingredients-a-reapprovisionner">A reapprovisionner</a>
+admin-ingredients;conforme;a[href$="#ingredients-tous"];#1a1a1a;#f9fafb;16,65;4.5:1;9.8pt (13px);normal;<a href="#ingredients-tous">Tous les ingredients</a>
+admin-ingredients;conforme;.stock-explainer:nth-child(3);#4a4a4a;#fffbeb;8,54;4.5:1;9.8pt (13px);normal;<p class="stock-explainer"> Le stock pilote ce qui est commandable sur la borne. Un ingredient requi
+admin-ingredients;conforme;.stock-summary__item--danger > .stock-summary__count;#991b1b;#ffffff;8,31;3:1;21.0pt (28px);bold;<span class="stock-summary__count">0</span>
+admin-ingredients;conforme;.stock-summary__item--danger > .stock-summary__label;#6b7280;#ffffff;4,83;4.5:1;9.8pt (13px);normal;<span class="stock-summary__label">critiques</span>
+admin-ingredients;conforme;.stock-summary__item--warning > .stock-summary__count;#92400e;#ffffff;7,09;3:1;21.0pt (28px);bold;<span class="stock-summary__count">0</span>
+admin-ingredients;conforme;.stock-summary__item--warning > .stock-summary__label;#6b7280;#ffffff;4,83;4.5:1;9.8pt (13px);normal;<span class="stock-summary__label">en alerte</span>
+admin-ingredients;conforme;.stock-summary__item--success > .stock-summary__count;#065f46;#ffffff;7,68;3:1;21.0pt (28px);bold;<span class="stock-summary__count">50</span>
+admin-ingredients;conforme;.stock-summary__item--success > .stock-summary__label;#6b7280;#ffffff;4,83;4.5:1;9.8pt (13px);normal;<span class="stock-summary__label">au-dessus du seuil</span>
+admin-ingredients;conforme;.stock-explainer--warning;#92400e;#fef3c7;6,36;4.5:1;9.8pt (13px);normal;<p class="stock-explainer stock-explainer--warning" role="status">
+admin-ingredients;conforme;strong;#92400e;#fef3c7;6,36;4.5:1;9.8pt (13px);bold;<strong>5</strong>
+admin-ingredients;conforme;#ingredients-a-reapprovisionner > .stock-section__title;#1a1a1a;#f5f5f5;15,96;4.5:1;12.0pt (16px);bold;<h2 class="stock-section__title">A reapprovisionner</h2>
+admin-ingredients;conforme;.stock-empty;#065f46;#d1fae5;6,77;4.5:1;10.5pt (14px);normal;<div class="stock-empty stock-empty--ok"> Tous les ingredients sont au-dessus de leurs seuils. </div
+admin-ingredients;conforme;#ingredients-tous > .stock-section__title;#1a1a1a;#f5f5f5;15,96;4.5:1;12.0pt (16px);bold;<h2 class="stock-section__title">Tous les ingredients</h2>
+admin-ingredients;conforme;.stock-list__row:nth-child(1) > .stock-list__main > .stock-list__name;#1a1a1a;#ffffff;17,4;4.5:1;10.5pt (14px);normal;<span class="stock-list__name">Brownie</span>
+admin-ingredients;conforme;.stock-list__row:nth-child(1) > .stock-list__main > .stock-list__unit;#6b7280;#ffffff;4,83;4.5:1;9.0pt (12px);normal;<span class="stock-list__unit">piece</span>
+admin-ingredients;conforme;.stock-list__row:nth-child(1) > .stock-list__main > .pill.pill-success;#065f46;#d1fae5;6,77;4.5:1;9.0pt (12px);normal;<span class="pill pill-success">Actif</span>
+admin-ingredients;conforme;.stock-list__row:nth-child(1) > .stock-list__bar > .stock-bar__meta > .stock-bar__pct;#1a1a1a;#ffffff;17,4;4.5:1;9.0pt (12px);normal;<span class="stock-bar__pct">100%</span>
+admin-ingredients;conforme;.stock-list__row:nth-child(1) > .stock-list__bar > .stock-bar__meta > .stock-bar__qty;#6b7280;#ffffff;4,83;4.5:1;9.0pt (12px);normal;<span class="stock-bar__qty">150 / 150</span>
+admin-ingredients;conforme;.stock-list__row:nth-child(1) > .stock-list__actions > .btn-secondary:nth-child(1);#4a4a4a;#ffffff;8,86;4.5:1;9.0pt (12px);normal;<a class="btn btn-secondary btn-sm" href="/admin/ingredients/35/inventory">Inventaire</a>
+admin-ingredients;conforme;.stock-list__row:nth-child(1) > .stock-list__actions > .btn-secondary[href$="adjust"];#4a4a4a;#ffffff;8,86;4.5:1;9.0pt (12px);normal;<a class="btn btn-secondary btn-sm" href="/admin/ingredients/35/adjust">Ajuster</a>
+admin-ingredients;conforme;button[data-id="35"];#4a4a4a;#ffffff;8,86;4.5:1;9.0pt (12px);normal;<button type="button" class="btn btn-ghost btn-sm" data-threshold-open="" data-id="35" data-name="Br
+admin-ingredients;conforme;.stock-list__row:nth-child(1) > .stock-list__actions > .btn-ghost:nth-child(4);#4a4a4a;#ffffff;8,86;4.5:1;9.0pt (12px);normal;<a class="btn btn-ghost btn-sm" href="/admin/ingredients/35/movements">Mouvements</a>
+admin-ingredients;conforme;.stock-list__row:nth-child(1) > .stock-list__actions > .stock-list__crud > .btn-ghost[href$="edit"];#4a4a4a;#ffffff;8,86;4.5:1;9.0pt (12px);normal;<a class="btn btn-ghost btn-sm" href="/admin/ingredients/35/edit">Modifier</a>
+admin-ingredients;conforme;form[action="/admin/ingredients/35/toggle"] > button[type="submit"];#4a4a4a;#ffffff;8,86;4.5:1;9.0pt (12px);normal;<button class="btn btn-ghost btn-sm" type="submit">Desactiver</button>
+admin-ingredients;conforme;.stock-list__row:nth-child(1) > .stock-list__actions > .stock-list__crud > .btn-ghost[href$="delete"];#4a4a4a;#ffffff;8,86;4.5:1;9.0pt (12px);normal;<a class="btn btn-ghost btn-sm" href="/admin/ingredients/35/delete">Supprimer</a>
+admin-ingredients;conforme;.stock-list__row:nth-child(2) > .stock-list__main > .stock-list__name;#1a1a1a;#ffffff;17,4;4.5:1;10.5pt (14px);normal;<span class="stock-list__name">Cheddar</span>
+admin-ingredients;conforme;.stock-list__row:nth-child(2) > .stock-list__main > .stock-list__unit;#6b7280;#ffffff;4,83;4.5:1;9.0pt (12px);normal;<span class="stock-list__unit">tranche</span>
+admin-ingredients;conforme;.stock-list__row:nth-child(2) > .stock-list__main > .pill.pill-success;#065f46;#d1fae5;6,77;4.5:1;9.0pt (12px);normal;<span class="pill pill-success">Actif</span>
+admin-ingredients;conforme;.stock-list__row:nth-child(2) > .stock-list__bar > .stock-bar__meta > .stock-bar__pct;#1a1a1a;#ffffff;17,4;4.5:1;9.0pt (12px);normal;<span class="stock-bar__pct">100%</span>
+admin-ingredients;conforme;.stock-list__row:nth-child(2) > .stock-list__bar > .stock-bar__meta > .stock-bar__qty;#6b7280;#ffffff;4,83;4.5:1;9.0pt (12px);normal;<span class="stock-bar__qty">600 / 600</span>
+admin-ingredients;conforme;.stock-list__row:nth-child(2) > .stock-list__actions > .btn-secondary:nth-child(1);#4a4a4a;#ffffff;8,86;4.5:1;9.0pt (12px);normal;<a class="btn btn-secondary btn-sm" href="/admin/ingredients/11/inventory">Inventaire</a>
+admin-ingredients;conforme;.stock-list__row:nth-child(2) > .stock-list__actions > .btn-secondary[href$="adjust"];#4a4a4a;#ffffff;8,86;4.5:1;9.0pt (12px);normal;<a class="btn btn-secondary btn-sm" href="/admin/ingredients/11/adjust">Ajuster</a>
+admin-ingredients;conforme;button[data-id="11"];#4a4a4a;#ffffff;8,86;4.5:1;9.0pt (12px);normal;<button type="button" class="btn btn-ghost btn-sm" data-threshold-open="" data-id="11" data-name="Ch
+admin-ingredients;conforme;.stock-list__row:nth-child(2) > .stock-list__actions > .btn-ghost:nth-child(4);#4a4a4a;#ffffff;8,86;4.5:1;9.0pt (12px);normal;<a class="btn btn-ghost btn-sm" href="/admin/ingredients/11/movements">Mouvements</a>
+admin-ingredients;conforme;.stock-list__row:nth-child(2) > .stock-list__actions > .stock-list__crud > .btn-ghost[href$="edit"];#4a4a4a;#ffffff;8,86;4.5:1;9.0pt (12px);normal;<a class="btn btn-ghost btn-sm" href="/admin/ingredients/11/edit">Modifier</a>
+admin-ingredients;conforme;form[action="/admin/ingredients/11/toggle"] > button[type="submit"];#4a4a4a;#ffffff;8,86;4.5:1;9.0pt (12px);normal;<button class="btn btn-ghost btn-sm" type="submit">Desactiver</button>
+admin-ingredients;conforme;.stock-list__row:nth-child(2) > .stock-list__actions > .stock-list__crud > .btn-ghost[href$="delete"];#4a4a4a;#ffffff;8,86;4.5:1;9.0pt (12px);normal;<a class="btn btn-ghost btn-sm" href="/admin/ingredients/11/delete">Supprimer</a>
+admin-ingredients;conforme;.stock-list__row:nth-child(3) > .stock-list__main > .stock-list__name;#1a1a1a;#ffffff;17,4;4.5:1;10.5pt (14px);normal;<span class="stock-list__name">Cheesecake</span>
+admin-ingredients;conforme;.stock-list__row:nth-child(3) > .stock-list__main > .stock-list__unit;#6b7280;#ffffff;4,83;4.5:1;9.0pt (12px);normal;<span class="stock-list__unit">piece</span>
+admin-ingredients;conforme;.stock-list__row:nth-child(3) > .stock-list__main > .pill.pill-success;#065f46;#d1fae5;6,77;4.5:1;9.0pt (12px);normal;<span class="pill pill-success">Actif</span>
+admin-ingredients;conforme;.stock-list__row:nth-child(3) > .stock-list__bar > .stock-bar__meta > .stock-bar__pct;#1a1a1a;#ffffff;17,4;4.5:1;9.0pt (12px);normal;<span class="stock-bar__pct">100%</span>
+admin-ingredients;conforme;.stock-list__row:nth-child(3) > .stock-list__bar > .stock-bar__meta > .stock-bar__qty;#6b7280;#ffffff;4,83;4.5:1;9.0pt (12px);normal;<span class="stock-bar__qty">150 / 150</span>
+admin-ingredients;conforme;.stock-list__row:nth-child(3) > .stock-list__actions > .btn-secondary:nth-child(1);#4a4a4a;#ffffff;8,86;4.5:1;9.0pt (12px);normal;<a class="btn btn-secondary btn-sm" href="/admin/ingredients/36/inventory">Inventaire</a>
+admin-ingredients;conforme;.stock-list__row:nth-child(3) > .stock-list__actions > .btn-secondary[href$="adjust"];#4a4a4a;#ffffff;8,86;4.5:1;9.0pt (12px);normal;<a class="btn btn-secondary btn-sm" href="/admin/ingredients/36/adjust">Ajuster</a>
+admin-ingredients;conforme;button[data-id="36"];#4a4a4a;#ffffff;8,86;4.5:1;9.0pt (12px);normal;<button type="button" class="btn btn-ghost btn-sm" data-threshold-open="" data-id="36" data-name="Ch
+admin-ingredients;conforme;.stock-list__row:nth-child(3) > .stock-list__actions > .btn-ghost:nth-child(4);#4a4a4a;#ffffff;8,86;4.5:1;9.0pt (12px);normal;<a class="btn btn-ghost btn-sm" href="/admin/ingredients/36/movements">Mouvements</a>
+admin-ingredients;conforme;.stock-list__row:nth-child(3) > .stock-list__actions > .stock-list__crud > .btn-ghost[href$="edit"];#4a4a4a;#ffffff;8,86;4.5:1;9.0pt (12px);normal;<a class="btn btn-ghost btn-sm" href="/admin/ingredients/36/edit">Modifier</a>
+admin-ingredients;conforme;form[action="/admin/ingredients/36/toggle"] > button[type="submit"];#4a4a4a;#ffffff;8,86;4.5:1;9.0pt (12px);normal;<button class="btn btn-ghost btn-sm" type="submit">Desactiver</button>
+admin-ingredients;conforme;.stock-list__row:nth-child(3) > .stock-list__actions > .stock-list__crud > .btn-ghost[href$="delete"];#4a4a4a;#ffffff;8,86;4.5:1;9.0pt (12px);normal;<a class="btn btn-ghost btn-sm" href="/admin/ingredients/36/delete">Supprimer</a>
+admin-ingredients;conforme;.stock-list__row:nth-child(4) > .stock-list__main > .stock-list__name;#1a1a1a;#ffffff;17,4;4.5:1;10.5pt (14px);normal;<span class="stock-list__name">Cookie</span>
+admin-ingredients;conforme;.stock-list__row:nth-child(4) > .stock-list__main > .stock-list__unit;#6b7280;#ffffff;4,83;4.5:1;9.0pt (12px);normal;<span class="stock-list__unit">piece</span>
+admin-ingredients;conforme;.stock-list__row:nth-child(4) > .stock-list__main > .pill.pill-success;#065f46;#d1fae5;6,77;4.5:1;9.0pt (12px);normal;<span class="pill pill-success">Actif</span>
+admin-ingredients;conforme;.stock-list__row:nth-child(4) > .stock-list__bar > .stock-bar__meta > .stock-bar__pct;#1a1a1a;#ffffff;17,4;4.5:1;9.0pt (12px);normal;<span class="stock-bar__pct">100%</span>
+admin-ingredients;conforme;.stock-list__row:nth-child(4) > .stock-list__bar > .stock-bar__meta > .stock-bar__qty;#6b7280;#ffffff;4,83;4.5:1;9.0pt (12px);normal;<span class="stock-bar__qty">150 / 150</span>
+admin-ingredients;conforme;.stock-list__row:nth-child(4) > .stock-list__actions > .btn-secondary:nth-child(1);#4a4a4a;#ffffff;8,86;4.5:1;9.0pt (12px);normal;<a class="btn btn-secondary btn-sm" href="/admin/ingredients/37/inventory">Inventaire</a>
+admin-ingredients;conforme;.stock-list__row:nth-child(4) > .stock-list__actions > .btn-secondary[href$="adjust"];#4a4a4a;#ffffff;8,86;4.5:1;9.0pt (12px);normal;<a class="btn btn-secondary btn-sm" href="/admin/ingredients/37/adjust">Ajuster</a>
+admin-ingredients;conforme;button[data-id="37"];#4a4a4a;#ffffff;8,86;4.5:1;9.0pt (12px);normal;<button type="button" class="btn btn-ghost btn-sm" data-threshold-open="" data-id="37" data-name="Co
+admin-ingredients;conforme;.stock-list__row:nth-child(4) > .stock-list__actions > .btn-ghost:nth-child(4);#4a4a4a;#ffffff;8,86;4.5:1;9.0pt (12px);normal;<a class="btn btn-ghost btn-sm" href="/admin/ingredients/37/movements">Mouvements</a>
+admin-ingredients;conforme;.stock-list__row:nth-child(4) > .stock-list__actions > .stock-list__crud > .btn-ghost[href$="edit"];#4a4a4a;#ffffff;8,86;4.5:1;9.0pt (12px);normal;<a class="btn btn-ghost btn-sm" href="/admin/ingredients/37/edit">Modifier</a>
+admin-ingredients;conforme;form[action="/admin/ingredients/37/toggle"] > button[type="submit"];#4a4a4a;#ffffff;8,86;4.5:1;9.0pt (12px);normal;<button class="btn btn-ghost btn-sm" type="submit">Desactiver</button>
+admin-ingredients;conforme;.stock-list__row:nth-child(4) > .stock-list__actions > .stock-list__crud > .btn-ghost[href$="delete"];#4a4a4a;#ffffff;8,86;4.5:1;9.0pt (12px);normal;<a class="btn btn-ghost btn-sm" href="/admin/ingredients/37/delete">Supprimer</a>
+admin-ingredients;conforme;.a11y-toggle__icon;#1a1a1a;#ffffff;17,4;4.5:1;11.3pt (15px);bold;<span class="a11y-toggle__icon" aria-hidden="true">Aa</span>
+admin-ingredients;conforme;.a11y-toggle__label;#1a1a1a;#ffffff;17,4;4.5:1;9.8pt (13px);bold;<span class="a11y-toggle__label">Police adaptee</span>
+admin-ingredients;violation;.sidebar-brand-name > span;#c8920a;#ffffff;2,77;3:1;15.8pt (21px);bold;<span>do</span>
+admin-ingredients;violation;.page-subtitle;#6b7280;#f5f5f5;4,43;4.5:1;9.8pt (13px);normal;<p class="page-subtitle">Ce qui est bas a reapprovisionner, en un coup d oeil</p>
+admin-produits;conforme;.topbar-user-avatar;#ffc72c;#1a1a1a;11,15;4.5:1;9.8pt (13px);bold;<div class="topbar-user-avatar">WA</div>
+admin-produits;conforme;.topbar-user-name;#1a1a1a;#ffffff;17,4;4.5:1;10.5pt (14px);bold;<div class="topbar-user-name">Wakdo Admin</div>
+admin-produits;conforme;.topbar-user-role;#6b7280;#ffffff;4,83;4.5:1;8.3pt (11px);normal;<div class="topbar-user-role">Administrator</div>
+admin-produits;conforme;.sidebar-brand-name;#1a1a1a;#ffffff;17,4;3:1;15.8pt (21px);bold;<span class="sidebar-brand-name">Wak<span>do</span></span>
+admin-produits;conforme;.sidebar-section:nth-child(2) > .sidebar-section-label;#6b7280;#ffffff;4,83;4.5:1;8.3pt (11px);bold;<div class="sidebar-section-label">Vue d'ensemble</div>
+admin-produits;conforme;a[href$="dashboard"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/dashboard" class="sidebar-item">Tableau de bord</a>
+admin-produits;conforme;.sidebar-section:nth-child(3) > .sidebar-section-label;#6b7280;#ffffff;4,83;4.5:1;8.3pt (11px);bold;<div class="sidebar-section-label">Catalogue</div>
+admin-produits;conforme;a[href$="categories"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/categories" class="sidebar-item">Categories</a>
+admin-produits;conforme;.active;#1a1a1a;#fff3d1;15,74;4.5:1;11.3pt (15px);normal;<a href="/admin/products" class="sidebar-item active">Produits</a>
+admin-produits;conforme;.sidebar-item[href$="by-category"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/products/by-category" class="sidebar-item">Produits par categorie</a>
+admin-produits;conforme;a[href$="menus"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/menus" class="sidebar-item">Menus</a>
+admin-produits;conforme;.sidebar-section:nth-child(4) > .sidebar-section-label;#6b7280;#ffffff;4,83;4.5:1;8.3pt (11px);bold;<div class="sidebar-section-label">Stock</div>
+admin-produits;conforme;a[href$="ingredients"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/ingredients" class="sidebar-item">Ingredients</a>
+admin-produits;conforme;.sidebar-section:nth-child(5) > .sidebar-section-label;#6b7280;#ffffff;4,83;4.5:1;8.3pt (11px);bold;<div class="sidebar-section-label">Pilotage</div>
+admin-produits;conforme;.sidebar-item[href$="orders"]:nth-child(2);#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/counter/orders" class="sidebar-item">Saisie commande</a>
+admin-produits;conforme;a[href$="stats"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/stats" class="sidebar-item">Statistiques</a>
+admin-produits;conforme;.sidebar-item[href$="orders"]:nth-child(4);#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/orders" class="sidebar-item">Commandes</a>
+admin-produits;conforme;a[href$="display"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/kitchen/display" class="sidebar-item">Cuisine (KDS)</a>
+admin-produits;conforme;.sidebar-section:nth-child(6) > .sidebar-section-label;#6b7280;#ffffff;4,83;4.5:1;8.3pt (11px);bold;<div class="sidebar-section-label">Administration</div>
+admin-produits;conforme;a[href$="users"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/users" class="sidebar-item">Utilisateurs</a>
+admin-produits;conforme;a[href$="roles"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/roles" class="sidebar-item">Roles</a>
+admin-produits;conforme;h1;#1a1a1a;#f5f5f5;15,96;3:1;15.0pt (20px);bold;<h1 class="page-title">Produits</h1>
+admin-produits;conforme;.btn-secondary.btn[href$="by-category"];#4a4a4a;#ffffff;8,86;4.5:1;9.8pt (13px);normal;<a class="btn btn-secondary" href="/admin/products/by-category">Vue par categorie</a>
+admin-produits;conforme;.btn-primary;#1a1a1a;#ffc72c;11,15;4.5:1;9.8pt (13px);normal;<a class="btn btn-primary" href="/admin/products/new">Nouveau produit</a>
+admin-produits;conforme;th:nth-child(1);#6b7280;#f9fafb;4,62;4.5:1;9.0pt (12px);normal;<th>Nom</th>
+admin-produits;conforme;th:nth-child(2);#6b7280;#f9fafb;4,62;4.5:1;9.0pt (12px);normal;<th>Categorie</th>
+admin-produits;conforme;th:nth-child(3);#6b7280;#f9fafb;4,62;4.5:1;9.0pt (12px);normal;<th>Prix</th>
+admin-produits;conforme;th:nth-child(4);#6b7280;#f9fafb;4,62;4.5:1;9.0pt (12px);normal;<th>TVA</th>
+admin-produits;conforme;th:nth-child(5);#6b7280;#f9fafb;4,62;4.5:1;9.0pt (12px);normal;<th>Statut</th>
+admin-produits;conforme;tr:nth-child(1) > .fw-600;#1a1a1a;#ffffff;17,4;4.5:1;9.8pt (13px);normal;<td class="fw-600"> Brownie </td>
+admin-produits;conforme;tr:nth-child(1) > .muted:nth-child(2);#6b7280;#ffffff;4,83;4.5:1;9.8pt (13px);normal;<td class="muted">desserts</td>
+admin-produits;conforme;tr:nth-child(1) > td:nth-child(3);#1a1a1a;#ffffff;17,4;4.5:1;9.8pt (13px);normal;<td>2,60 EUR</td>
+admin-produits;conforme;tr:nth-child(1) > .muted:nth-child(4);#6b7280;#ffffff;4,83;4.5:1;9.8pt (13px);normal;<td class="muted">10%</td>
+admin-produits;conforme;tr:nth-child(1) > td:nth-child(5) > .pill-success.pill;#065f46;#d1fae5;6,77;4.5:1;9.0pt (12px);normal;<span class="pill pill-success">Disponible</span>
+admin-produits;conforme;tr:nth-child(1) > td:nth-child(6) > .btn-secondary.btn[href$="edit"];#4a4a4a;#ffffff;8,86;4.5:1;9.8pt (13px);normal;<a class="btn btn-secondary" href="/admin/products/38/edit">Modifier</a>
+admin-produits;conforme;tr:nth-child(1) > td:nth-child(6) > .btn-secondary.btn[href$="recipe"];#4a4a4a;#ffffff;8,86;4.5:1;9.8pt (13px);normal;<a class="btn btn-secondary" href="/admin/products/38/recipe">Recette</a>
+admin-produits;conforme;tr:nth-child(1) > td:nth-child(6) > .btn-secondary.btn[href$="delete"];#4a4a4a;#ffffff;8,86;4.5:1;9.8pt (13px);normal;<a class="btn btn-secondary" href="/admin/products/38/delete">Supprimer</a>
+admin-produits;conforme;tr:nth-child(2) > .fw-600;#1a1a1a;#ffffff;17,4;4.5:1;9.8pt (13px);normal;<td class="fw-600"> Cheeseburger </td>
+admin-produits;conforme;tr:nth-child(2) > .muted:nth-child(2);#6b7280;#ffffff;4,83;4.5:1;9.8pt (13px);normal;<td class="muted">encas</td>
+admin-produits;conforme;tr:nth-child(2) > td:nth-child(3);#1a1a1a;#ffffff;17,4;4.5:1;9.8pt (13px);normal;<td>2,60 EUR</td>
+admin-produits;conforme;tr:nth-child(2) > .muted:nth-child(4);#6b7280;#ffffff;4,83;4.5:1;9.8pt (13px);normal;<td class="muted">10%</td>
+admin-produits;conforme;tr:nth-child(2) > td:nth-child(5) > .pill-success.pill;#065f46;#d1fae5;6,77;4.5:1;9.0pt (12px);normal;<span class="pill pill-success">Disponible</span>
+admin-produits;conforme;tr:nth-child(2) > td:nth-child(6) > .btn-secondary.btn[href$="edit"];#4a4a4a;#ffffff;8,86;4.5:1;9.8pt (13px);normal;<a class="btn btn-secondary" href="/admin/products/27/edit">Modifier</a>
+admin-produits;conforme;tr:nth-child(2) > td:nth-child(6) > .btn-secondary.btn[href$="recipe"];#4a4a4a;#ffffff;8,86;4.5:1;9.8pt (13px);normal;<a class="btn btn-secondary" href="/admin/products/27/recipe">Recette</a>
+admin-produits;conforme;tr:nth-child(2) > td:nth-child(6) > .btn-secondary.btn[href$="delete"];#4a4a4a;#ffffff;8,86;4.5:1;9.8pt (13px);normal;<a class="btn btn-secondary" href="/admin/products/27/delete">Supprimer</a>
+admin-produits;conforme;tr:nth-child(3) > .fw-600;#1a1a1a;#ffffff;17,4;4.5:1;9.8pt (13px);normal;<td class="fw-600"> Classic Barbecue </td>
+admin-produits;conforme;tr:nth-child(3) > .muted:nth-child(2);#6b7280;#ffffff;4,83;4.5:1;9.8pt (13px);normal;<td class="muted">sauces</td>
+admin-produits;conforme;tr:nth-child(3) > td:nth-child(3);#1a1a1a;#ffffff;17,4;4.5:1;9.8pt (13px);normal;<td>0,70 EUR</td>
+admin-produits;conforme;tr:nth-child(3) > .muted:nth-child(4);#6b7280;#ffffff;4,83;4.5:1;9.8pt (13px);normal;<td class="muted">10%</td>
+admin-produits;conforme;tr:nth-child(3) > td:nth-child(5) > .pill-success.pill;#065f46;#d1fae5;6,77;4.5:1;9.0pt (12px);normal;<span class="pill pill-success">Disponible</span>
+admin-produits;conforme;tr:nth-child(3) > td:nth-child(6) > .btn-secondary.btn[href$="edit"];#4a4a4a;#ffffff;8,86;4.5:1;9.8pt (13px);normal;<a class="btn btn-secondary" href="/admin/products/47/edit">Modifier</a>
+admin-produits;conforme;tr:nth-child(3) > td:nth-child(6) > .btn-secondary.btn[href$="recipe"];#4a4a4a;#ffffff;8,86;4.5:1;9.8pt (13px);normal;<a class="btn btn-secondary" href="/admin/products/47/recipe">Recette</a>
+admin-produits;conforme;tr:nth-child(3) > td:nth-child(6) > .btn-secondary.btn[href$="delete"];#4a4a4a;#ffffff;8,86;4.5:1;9.8pt (13px);normal;<a class="btn btn-secondary" href="/admin/products/47/delete">Supprimer</a>
+admin-produits;conforme;tr:nth-child(4) > .fw-600;#1a1a1a;#f9fafb;16,65;4.5:1;9.8pt (13px);normal;<td class="fw-600"> Coca Cola </td>
+admin-produits;conforme;tr:nth-child(4) > .muted:nth-child(2);#6b7280;#f9fafb;4,62;4.5:1;9.8pt (13px);normal;<td class="muted">boissons</td>
+admin-produits;conforme;tr:nth-child(4) > td:nth-child(3);#1a1a1a;#f9fafb;16,65;4.5:1;9.8pt (13px);normal;<td>1,90 EUR</td>
+admin-produits;conforme;tr:nth-child(4) > .muted:nth-child(4);#6b7280;#f9fafb;4,62;4.5:1;9.8pt (13px);normal;<td class="muted">10%</td>
+admin-produits;conforme;tr:nth-child(4) > td:nth-child(5) > .pill-success.pill;#065f46;#d1fae5;6,77;4.5:1;9.0pt (12px);normal;<span class="pill pill-success">Disponible</span>
+admin-produits;conforme;tr:nth-child(4) > td:nth-child(6) > .btn-secondary.btn[href$="edit"];#4a4a4a;#ffffff;8,86;4.5:1;9.8pt (13px);normal;<a class="btn btn-secondary" href="/admin/products/14/edit">Modifier</a>
+admin-produits;conforme;tr:nth-child(4) > td:nth-child(6) > .btn-secondary.btn[href$="recipe"];#4a4a4a;#ffffff;8,86;4.5:1;9.8pt (13px);normal;<a class="btn btn-secondary" href="/admin/products/14/recipe">Recette</a>
+admin-produits;conforme;tr:nth-child(4) > td:nth-child(6) > .btn-secondary.btn[href$="delete"];#4a4a4a;#ffffff;8,86;4.5:1;9.8pt (13px);normal;<a class="btn btn-secondary" href="/admin/products/14/delete">Supprimer</a>
+admin-produits;conforme;tr:nth-child(5) > .fw-600;#1a1a1a;#ffffff;17,4;4.5:1;9.8pt (13px);normal;<td class="fw-600">
+admin-produits;conforme;tr:nth-child(5) > .fw-600 > .pill-neutral.pill;#374151;#f3f4f6;9,36;4.5:1;9.0pt (12px);normal;<span class="pill pill-neutral" title="Cette ligne est une variante de taille, pas un produit affich
+admin-produits;conforme;tr:nth-child(5) > .muted:nth-child(2);#6b7280;#ffffff;4,83;4.5:1;9.8pt (13px);normal;<td class="muted">boissons</td>
+admin-produits;conforme;tr:nth-child(5) > td:nth-child(3);#1a1a1a;#ffffff;17,4;4.5:1;9.8pt (13px);normal;<td>2,40 EUR</td>
+admin-produits;conforme;tr:nth-child(5) > .muted:nth-child(4);#6b7280;#ffffff;4,83;4.5:1;9.8pt (13px);normal;<td class="muted">10%</td>
+admin-produits;conforme;tr:nth-child(5) > td:nth-child(5) > .pill-success.pill;#065f46;#d1fae5;6,77;4.5:1;9.0pt (12px);normal;<span class="pill pill-success">Disponible</span>
+admin-produits;conforme;tr:nth-child(5) > td:nth-child(6) > .btn-secondary.btn[href$="edit"];#4a4a4a;#ffffff;8,86;4.5:1;9.8pt (13px);normal;<a class="btn btn-secondary" href="/admin/products/54/edit">Modifier</a>
+admin-produits;conforme;tr:nth-child(5) > td:nth-child(6) > .btn-secondary.btn[href$="recipe"];#4a4a4a;#ffffff;8,86;4.5:1;9.8pt (13px);normal;<a class="btn btn-secondary" href="/admin/products/54/recipe">Recette</a>
+admin-produits;conforme;tr:nth-child(5) > td:nth-child(6) > .btn-secondary.btn[href$="delete"];#4a4a4a;#ffffff;8,86;4.5:1;9.8pt (13px);normal;<a class="btn btn-secondary" href="/admin/products/54/delete">Supprimer</a>
+admin-produits;conforme;tr:nth-child(6) > .fw-600;#1a1a1a;#ffffff;17,4;4.5:1;9.8pt (13px);normal;<td class="fw-600"> Le 280 </td>
+admin-produits;conforme;tr:nth-child(6) > .muted:nth-child(2);#6b7280;#ffffff;4,83;4.5:1;9.8pt (13px);normal;<td class="muted">burgers</td>
+admin-produits;conforme;tr:nth-child(6) > td:nth-child(3);#1a1a1a;#ffffff;17,4;4.5:1;9.8pt (13px);normal;<td>6,80 EUR</td>
+admin-produits;conforme;tr:nth-child(6) > .muted:nth-child(4);#6b7280;#ffffff;4,83;4.5:1;9.8pt (13px);normal;<td class="muted">10%</td>
+admin-produits;conforme;tr:nth-child(6) > td:nth-child(5) > .pill-success.pill;#065f46;#d1fae5;6,77;4.5:1;9.0pt (12px);normal;<span class="pill pill-success">Disponible</span>
+admin-produits;conforme;tr:nth-child(6) > td:nth-child(6) > .btn-secondary.btn[href$="edit"];#4a4a4a;#ffffff;8,86;4.5:1;9.8pt (13px);normal;<a class="btn btn-secondary" href="/admin/products/1/edit">Modifier</a>
+admin-produits;conforme;tr:nth-child(6) > td:nth-child(6) > .btn-secondary.btn[href$="recipe"];#4a4a4a;#ffffff;8,86;4.5:1;9.8pt (13px);normal;<a class="btn btn-secondary" href="/admin/products/1/recipe">Recette</a>
+admin-produits;conforme;tr:nth-child(6) > td:nth-child(6) > .btn-secondary.btn[href$="delete"];#4a4a4a;#ffffff;8,86;4.5:1;9.8pt (13px);normal;<a class="btn btn-secondary" href="/admin/products/1/delete">Supprimer</a>
+admin-produits;conforme;.a11y-toggle__icon;#1a1a1a;#ffffff;17,4;4.5:1;11.3pt (15px);bold;<span class="a11y-toggle__icon" aria-hidden="true">Aa</span>
+admin-produits;conforme;.a11y-toggle__label;#1a1a1a;#ffffff;17,4;4.5:1;9.8pt (13px);bold;<span class="a11y-toggle__label">Police adaptee</span>
+admin-produits;violation;.sidebar-brand-name > span;#c8920a;#ffffff;2,77;3:1;15.8pt (21px);bold;<span>do</span>
+admin-produits;violation;p;#6b7280;#f5f5f5;4,43;4.5:1;9.8pt (13px);normal;<p class="page-subtitle">Gestion des produits du catalogue</p>
+admin-tableau-de-bord;conforme;.topbar-user-avatar;#ffc72c;#1a1a1a;11,15;4.5:1;9.8pt (13px);bold;<div class="topbar-user-avatar">WA</div>
+admin-tableau-de-bord;conforme;.topbar-user-name;#1a1a1a;#ffffff;17,4;4.5:1;10.5pt (14px);bold;<div class="topbar-user-name">Wakdo Admin</div>
+admin-tableau-de-bord;conforme;.topbar-user-role;#6b7280;#ffffff;4,83;4.5:1;8.3pt (11px);normal;<div class="topbar-user-role">Administrator</div>
+admin-tableau-de-bord;conforme;.sidebar-brand-name;#1a1a1a;#ffffff;17,4;3:1;15.8pt (21px);bold;<span class="sidebar-brand-name">Wak<span>do</span></span>
+admin-tableau-de-bord;conforme;.sidebar-section:nth-child(2) > .sidebar-section-label;#6b7280;#ffffff;4,83;4.5:1;8.3pt (11px);bold;<div class="sidebar-section-label">Vue d'ensemble</div>
+admin-tableau-de-bord;conforme;.active;#1a1a1a;#fff3d1;15,74;4.5:1;11.3pt (15px);normal;<a href="/admin/dashboard" class="sidebar-item active">Tableau de bord</a>
+admin-tableau-de-bord;conforme;.sidebar-section:nth-child(3) > .sidebar-section-label;#6b7280;#ffffff;4,83;4.5:1;8.3pt (11px);bold;<div class="sidebar-section-label">Catalogue</div>
+admin-tableau-de-bord;conforme;a[href$="categories"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/categories" class="sidebar-item">Categories</a>
+admin-tableau-de-bord;conforme;a[href$="products"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/products" class="sidebar-item">Produits</a>
+admin-tableau-de-bord;conforme;a[href$="by-category"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/products/by-category" class="sidebar-item">Produits par categorie</a>
+admin-tableau-de-bord;conforme;a[href$="menus"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/menus" class="sidebar-item">Menus</a>
+admin-tableau-de-bord;conforme;.sidebar-section:nth-child(4) > .sidebar-section-label;#6b7280;#ffffff;4,83;4.5:1;8.3pt (11px);bold;<div class="sidebar-section-label">Stock</div>
+admin-tableau-de-bord;conforme;a[href$="ingredients"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/ingredients" class="sidebar-item">Ingredients</a>
+admin-tableau-de-bord;conforme;.sidebar-section:nth-child(5) > .sidebar-section-label;#6b7280;#ffffff;4,83;4.5:1;8.3pt (11px);bold;<div class="sidebar-section-label">Pilotage</div>
+admin-tableau-de-bord;conforme;.sidebar-item[href$="orders"]:nth-child(2);#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/counter/orders" class="sidebar-item">Saisie commande</a>
+admin-tableau-de-bord;conforme;a[href$="stats"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/stats" class="sidebar-item">Statistiques</a>
+admin-tableau-de-bord;conforme;.sidebar-item[href$="orders"]:nth-child(4);#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/orders" class="sidebar-item">Commandes</a>
+admin-tableau-de-bord;conforme;a[href$="display"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/kitchen/display" class="sidebar-item">Cuisine (KDS)</a>
+admin-tableau-de-bord;conforme;.sidebar-section:nth-child(6) > .sidebar-section-label;#6b7280;#ffffff;4,83;4.5:1;8.3pt (11px);bold;<div class="sidebar-section-label">Administration</div>
+admin-tableau-de-bord;conforme;a[href$="users"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/users" class="sidebar-item">Utilisateurs</a>
+admin-tableau-de-bord;conforme;a[href$="roles"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/roles" class="sidebar-item">Roles</a>
+admin-tableau-de-bord;conforme;h1;#1a1a1a;#f5f5f5;15,96;3:1;15.0pt (20px);bold;<h1 class="page-title">Tableau de bord</h1>
+admin-tableau-de-bord;conforme;article:nth-child(1) > .tile-top > .tile-tag;#065f46;#d1fae5;6,77;4.5:1;9.0pt (12px);bold;<span class="tile-tag">En vente</span>
+admin-tableau-de-bord;conforme;article:nth-child(1) > .tile-value;#1a1a1a;#ffffff;17,4;3:1;30.0pt (40px);bold;<div class="tile-value">58</div>
+admin-tableau-de-bord;conforme;article:nth-child(1) > .tile-label;#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<div class="tile-label">Produits actifs</div>
+admin-tableau-de-bord;conforme;article:nth-child(2) > .tile-top > .tile-tag;#065f46;#d1fae5;6,77;4.5:1;9.0pt (12px);bold;<span class="tile-tag">Classees</span>
+admin-tableau-de-bord;conforme;article:nth-child(2) > .tile-value;#1a1a1a;#ffffff;17,4;3:1;30.0pt (40px);bold;<div class="tile-value">9</div>
+admin-tableau-de-bord;conforme;article:nth-child(2) > .tile-label;#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<div class="tile-label">Categories</div>
+admin-tableau-de-bord;conforme;article:nth-child(3) > .tile-top > .tile-tag;#065f46;#d1fae5;6,77;4.5:1;9.0pt (12px);bold;<span class="tile-tag">Proposes</span>
+admin-tableau-de-bord;conforme;article:nth-child(3) > .tile-value;#1a1a1a;#ffffff;17,4;3:1;30.0pt (40px);bold;<div class="tile-value">13</div>
+admin-tableau-de-bord;conforme;article:nth-child(3) > .tile-label;#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<div class="tile-label">Menus</div>
+admin-tableau-de-bord;conforme;article:nth-child(4) > .tile-top > .tile-tag;#065f46;#d1fae5;6,77;4.5:1;9.0pt (12px);bold;<span class="tile-tag">OK</span>
+admin-tableau-de-bord;conforme;article:nth-child(4) > .tile-value;#1a1a1a;#ffffff;17,4;3:1;30.0pt (40px);bold;<div class="tile-value">0</div>
+admin-tableau-de-bord;conforme;article:nth-child(4) > .tile-label;#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<div class="tile-label">Stock critique</div>
+admin-tableau-de-bord;conforme;.page-header:nth-child(3) > div > h2;#1a1a1a;#f5f5f5;15,96;3:1;15.0pt (20px);bold;<h2 class="page-title">Ventes</h2>
+admin-tableau-de-bord;conforme;.stat-card:nth-child(1) > .stat-card__value;#1a1a1a;#ffffff;17,4;3:1;21.0pt (28px);bold;<div class="stat-card__value">0,00 EUR</div>
+admin-tableau-de-bord;conforme;.stat-card:nth-child(1) > .stat-card__label;#1a1a1a;#ffffff;17,4;4.5:1;10.5pt (14px);normal;<div class="stat-card__label">CA du jour</div>
+admin-tableau-de-bord;conforme;.stat-card:nth-child(1) > .stat-card__sub.muted;#1a1a1a;#ffffff;17,4;4.5:1;9.2pt (12.25px);normal;<div class="stat-card__sub muted">0,00 EUR au total</div>
+admin-tableau-de-bord;conforme;.stat-card:nth-child(2) > .stat-card__value;#1a1a1a;#ffffff;17,4;3:1;21.0pt (28px);bold;<div class="stat-card__value">0</div>
+admin-tableau-de-bord;conforme;.stat-card:nth-child(2) > .stat-card__label;#1a1a1a;#ffffff;17,4;4.5:1;10.5pt (14px);normal;<div class="stat-card__label">Commandes payees (jour)</div>
+admin-tableau-de-bord;conforme;.stat-card:nth-child(2) > .stat-card__sub.muted;#1a1a1a;#ffffff;17,4;4.5:1;9.2pt (12.25px);normal;<div class="stat-card__sub muted">0 au total</div>
+admin-tableau-de-bord;conforme;.stat-card:nth-child(3) > .stat-card__value;#1a1a1a;#ffffff;17,4;3:1;21.0pt (28px);bold;<div class="stat-card__value">0,00 EUR</div>
+admin-tableau-de-bord;conforme;.stat-card:nth-child(3) > .stat-card__label;#1a1a1a;#ffffff;17,4;4.5:1;10.5pt (14px);normal;<div class="stat-card__label">Panier moyen</div>
+admin-tableau-de-bord;conforme;.stat-card:nth-child(3) > .stat-card__sub.muted;#1a1a1a;#ffffff;17,4;4.5:1;9.2pt (12.25px);normal;<div class="stat-card__sub muted">par commande payee</div>
+admin-tableau-de-bord;conforme;.page-header:nth-child(5) > div > h2;#1a1a1a;#f5f5f5;15,96;3:1;15.0pt (20px);bold;<h2 class="page-title">CA des 7 derniers jours</h2>
+admin-tableau-de-bord;conforme;.a11y-toggle__icon;#1a1a1a;#ffffff;17,4;4.5:1;11.3pt (15px);bold;<span class="a11y-toggle__icon" aria-hidden="true">Aa</span>
+admin-tableau-de-bord;conforme;.a11y-toggle__label;#1a1a1a;#ffffff;17,4;4.5:1;9.8pt (13px);bold;<span class="a11y-toggle__label">Police adaptee</span>
+admin-tableau-de-bord;violation;.sidebar-brand-name > span;#c8920a;#ffffff;2,77;3:1;15.8pt (21px);bold;<span>do</span>
+admin-tableau-de-bord;violation;.page-header:nth-child(1) > div > p;#6b7280;#f5f5f5;4,43;4.5:1;9.8pt (13px);normal;<p class="page-subtitle">Bienvenue, Wakdo Admin — voici l'essentiel de votre restaurant aujourd'hui.
+admin-tableau-de-bord;violation;.page-header:nth-child(3) > div > p;#6b7280;#f5f5f5;4,43;4.5:1;9.8pt (13px);normal;<p class="page-subtitle">0,00 EUR aujourd'hui — 0 commande(s) payee(s).</p>
+categories;conforme;.site-header__back;#4a4a4a;#ffffff;8,86;4.5:1;10.5pt (14px);bold;<a href="index.html" class="site-header__back" aria-label="Retour a l'accueil"> ← Retour </a>
+categories;conforme;h1;#1a1a1a;#f5f5f5;15,96;3:1;24.0pt (32px);bold;<h1 class="categories-main__heading">Que souhaitez-vous commander&nbsp ?</h1>
+categories;conforme;.categories-main__sub;#4a4a4a;#f5f5f5;8,12;4.5:1;12.0pt (16px);normal;<p class="categories-main__sub">Choisissez une categorie pour decouvrir nos produits</p>
+categories;conforme;a[href="products.html?category=1"] > .category-card__label;#1a1a1a;#ffffff;17,4;3:1;15.0pt (20px);bold;<span class="category-card__label">Menus</span>
+categories;conforme;a[href="products.html?category=2"] > .category-card__label;#1a1a1a;#ffffff;17,4;3:1;15.0pt (20px);bold;<span class="category-card__label">Boissons</span>
+categories;conforme;a[href="products.html?category=3"] > .category-card__label;#1a1a1a;#ffffff;17,4;3:1;15.0pt (20px);bold;<span class="category-card__label">Burgers</span>
+categories;conforme;a[href="products.html?category=4"] > .category-card__label;#1a1a1a;#ffffff;17,4;3:1;15.0pt (20px);bold;<span class="category-card__label">Frites</span>
+categories;conforme;a[href="products.html?category=5"] > .category-card__label;#1a1a1a;#ffffff;17,4;3:1;15.0pt (20px);bold;<span class="category-card__label">Encas</span>
+categories;conforme;a[href="products.html?category=6"] > .category-card__label;#1a1a1a;#ffffff;17,4;3:1;15.0pt (20px);bold;<span class="category-card__label">Wraps</span>
+categories;conforme;a[href="products.html?category=7"] > .category-card__label;#1a1a1a;#ffffff;17,4;3:1;15.0pt (20px);bold;<span class="category-card__label">Salades</span>
+categories;conforme;a[href="products.html?category=8"] > .category-card__label;#1a1a1a;#ffffff;17,4;3:1;15.0pt (20px);bold;<span class="category-card__label">Desserts</span>
+categories;conforme;a[href="products.html?category=9"] > .category-card__label;#1a1a1a;#ffffff;17,4;3:1;15.0pt (20px);bold;<span class="category-card__label">Sauces</span>
+categories;conforme;.a11y-toggle__icon;#1a1a1a;#ffffff;17,4;3:1;15.0pt (20px);bold;<span class="a11y-toggle__icon" aria-hidden="true">Aa</span>
+categories;conforme;.a11y-toggle__label;#1a1a1a;#ffffff;17,4;4.5:1;10.5pt (14px);bold;<span class="a11y-toggle__label">Police adaptee</span>
+confirmation;conforme;h1;#1a1a1a;#ffffff;17,4;3:1;24.0pt (32px);bold;<h1 class="confirmation-banner__title">Commande confirmee !</h1>
+confirmation;conforme;.confirmation-banner__sub;#4a4a4a;#ffffff;8,86;4.5:1;15.0pt (20px);normal;<p class="confirmation-banner__sub">Votre commande est en preparation</p>
+confirmation;conforme;#order-number;#1a1a1a;#f5f5f5;15,96;3:1;30.0pt (40px);bold;<strong class="confirmation-banner__number" id="order-number">WK-AUDIT-A11Y</strong>
+confirmation;conforme;.confirmation-banner__total;#4a4a4a;#ffffff;8,86;4.5:1;12.0pt (16px);normal;<p class="confirmation-banner__total"> Montant regle : <strong id="order-total">7,00&nbsp EUR</stron
+confirmation;conforme;#order-total;#4a4a4a;#ffffff;8,86;4.5:1;12.0pt (16px);bold;<strong id="order-total">7,00&nbsp EUR</strong>
+confirmation;conforme;.confirmation-banner__delay;#4a4a4a;#ffffff;8,86;4.5:1;12.0pt (16px);normal;<p class="confirmation-banner__delay"> Temps d'attente estime : <strong>5 - 10 minutes</strong> </p>
+confirmation;conforme;.confirmation-banner__delay > strong;#4a4a4a;#ffffff;8,86;4.5:1;12.0pt (16px);bold;<strong>5 - 10 minutes</strong>
+confirmation;conforme;#new-order-btn;#1a1a1a;#ffc72c;11,15;3:1;18.0pt (24px);bold;<button id="new-order-btn" class="btn btn--primary btn--large confirmation-new-order" type="button" 
+confirmation;conforme;.a11y-toggle__icon;#1a1a1a;#ffffff;17,4;3:1;15.0pt (20px);bold;<span class="a11y-toggle__icon" aria-hidden="true">Aa</span>
+confirmation;conforme;.a11y-toggle__label;#1a1a1a;#ffffff;17,4;4.5:1;10.5pt (14px);bold;<span class="a11y-toggle__label">Police adaptee</span>
+confirmation;violation;.confirmation-banner__number-label;#767676;#f5f5f5;4,16;4.5:1;10.5pt (14px);normal;<span class="confirmation-banner__number-label">Votre numero de commande</span>
+paiement;conforme;.site-header__back;#4a4a4a;#ffffff;8,86;4.5:1;10.5pt (14px);bold;<a class="site-header__back" href="categories.html" aria-label="Retour aux categories"> ← Retour </a
+paiement;conforme;.mode-badge;#1a1a1a;#ffc72c;11,15;4.5:1;9.0pt (12px);bold;<span class="mode-badge site-header__mode" data-mode-badge="">Sur place</span>
+paiement;conforme;h1;#1a1a1a;#f5f5f5;15,96;3:1;24.0pt (32px);bold;<h1 class="payment-main__heading">Comment souhaitez-vous payer ?</h1>
+paiement;conforme;.payment-recap__mode;#767676;#ffffff;4,54;4.5:1;10.5pt (14px);normal;<p class="payment-recap__mode">Sur place</p>
+paiement;conforme;.payment-recap__items;#4a4a4a;#ffffff;8,86;4.5:1;12.0pt (16px);normal;<p class="payment-recap__items">2 articles</p>
+paiement;conforme;.payment-recap__total;#1a1a1a;#ffffff;17,4;3:1;18.0pt (24px);normal;<p class="payment-recap__total">Total : <strong>7,00&nbsp EUR</strong></p>
+paiement;conforme;strong;#1a1a1a;#ffffff;17,4;3:1;18.0pt (24px);bold;<strong>7,00&nbsp EUR</strong>
+paiement;conforme;#pay-card > .payment-choice__label;#1a1a1a;#ffffff;17,4;3:1;18.0pt (24px);bold;<span class="payment-choice__label">Carte bancaire</span>
+paiement;conforme;#pay-cash > .payment-choice__label;#1a1a1a;#ffffff;17,4;3:1;18.0pt (24px);bold;<span class="payment-choice__label">Especes</span>
+paiement;conforme;.a11y-toggle__icon;#1a1a1a;#ffffff;17,4;3:1;15.0pt (20px);bold;<span class="a11y-toggle__icon" aria-hidden="true">Aa</span>
+paiement;conforme;.a11y-toggle__label;#1a1a1a;#ffffff;17,4;4.5:1;10.5pt (14px);bold;<span class="a11y-toggle__label">Police adaptee</span>
+produits;conforme;#back-to-categories;#4a4a4a;#ffffff;8,86;4.5:1;10.5pt (14px);bold;<a id="back-to-categories" class="site-header__back" href="categories.html" aria-label="Retour aux c
+produits;conforme;a[href="products.html?category=1"] > .category-strip__label;#1a1a1a;#ffffff;17,4;4.5:1;10.5pt (14px);bold;<span class="category-strip__label">Menus</span>
+produits;conforme;.is-active > .category-strip__label;#1a1a1a;#fff8e6;16,42;4.5:1;10.5pt (14px);bold;<span class="category-strip__label">Boissons</span>
+produits;conforme;a[href="products.html?category=3"] > .category-strip__label;#1a1a1a;#ffffff;17,4;4.5:1;10.5pt (14px);bold;<span class="category-strip__label">Burgers</span>
+produits;conforme;a[href="products.html?category=4"] > .category-strip__label;#1a1a1a;#ffffff;17,4;4.5:1;10.5pt (14px);bold;<span class="category-strip__label">Frites</span>
+produits;conforme;a[href="products.html?category=5"] > .category-strip__label;#1a1a1a;#ffffff;17,4;4.5:1;10.5pt (14px);bold;<span class="category-strip__label">Encas</span>
+produits;conforme;a[href="products.html?category=6"] > .category-strip__label;#1a1a1a;#ffffff;17,4;4.5:1;10.5pt (14px);bold;<span class="category-strip__label">Wraps</span>
+produits;conforme;a[href="products.html?category=7"] > .category-strip__label;#1a1a1a;#ffffff;17,4;4.5:1;10.5pt (14px);bold;<span class="category-strip__label">Salades</span>
+produits;conforme;a[href="products.html?category=8"] > .category-strip__label;#1a1a1a;#ffffff;17,4;4.5:1;10.5pt (14px);bold;<span class="category-strip__label">Desserts</span>
+produits;conforme;a[href="products.html?category=9"] > .category-strip__label;#1a1a1a;#ffffff;17,4;4.5:1;10.5pt (14px);bold;<span class="category-strip__label">Sauces</span>
+produits;conforme;#products-heading;#1a1a1a;#f5f5f5;15,96;3:1;24.0pt (32px);bold;<h1 id="products-heading" class="products-main__heading">Nos Boissons</h1>
+produits;conforme;.mode-badge;#1a1a1a;#ffc72c;11,15;4.5:1;9.0pt (12px);bold;<span class="mode-badge" data-mode-badge="">Sur place</span>
+produits;conforme;a[aria-label="Coca Cola - 1,90 EUR"] > .product-card__body > .product-card__name;#1a1a1a;#ffffff;17,4;4.5:1;12.0pt (16px);bold;<span class="product-card__name">Coca Cola</span>
+produits;conforme;a[aria-label="Coca Cola - 1,90 EUR"] > .product-card__body > .product-card__price;#1a1a1a;#ffffff;17,4;3:1;15.0pt (20px);bold;<span class="product-card__price">1,90&nbsp EUR</span>
+produits;conforme;.product-card-cell:nth-child(1) > .allergen-info-btn[aria-label="Informations allergenes"][title="Informations allergenes"];#1a1a1a;#ffffff;17,4;4.5:1;12.0pt (16px);bold;<button type="button" class="allergen-info-btn" aria-label="Informations allergenes" title="Informat
+produits;conforme;a[aria-label="Coca Sans Sucres - 1,90 EUR"] > .product-card__body > .product-card__name;#1a1a1a;#ffffff;17,4;4.5:1;12.0pt (16px);bold;<span class="product-card__name">Coca Sans Sucres</span>
+produits;conforme;a[aria-label="Coca Sans Sucres - 1,90 EUR"] > .product-card__body > .product-card__price;#1a1a1a;#ffffff;17,4;3:1;15.0pt (20px);bold;<span class="product-card__price">1,90&nbsp EUR</span>
+produits;conforme;.product-card-cell:nth-child(2) > .allergen-info-btn[aria-label="Informations allergenes"][title="Informations allergenes"];#1a1a1a;#ffffff;17,4;4.5:1;12.0pt (16px);bold;<button type="button" class="allergen-info-btn" aria-label="Informations allergenes" title="Informat
+produits;conforme;a[aria-label="Eau - 1,00 EUR"] > .product-card__body > .product-card__name;#1a1a1a;#ffffff;17,4;4.5:1;12.0pt (16px);bold;<span class="product-card__name">Eau</span>
+produits;conforme;a[aria-label="Eau - 1,00 EUR"] > .product-card__body > .product-card__price;#1a1a1a;#ffffff;17,4;3:1;15.0pt (20px);bold;<span class="product-card__price">1,00&nbsp EUR</span>
+produits;conforme;.product-card-cell:nth-child(3) > .allergen-info-btn[aria-label="Informations allergenes"][title="Informations allergenes"];#1a1a1a;#ffffff;17,4;4.5:1;12.0pt (16px);bold;<button type="button" class="allergen-info-btn" aria-label="Informations allergenes" title="Informat
+produits;conforme;a[aria-label="Fanta Orange - 1,90 EUR"] > .product-card__body > .product-card__name;#1a1a1a;#ffffff;17,4;4.5:1;12.0pt (16px);bold;<span class="product-card__name">Fanta Orange</span>
+produits;conforme;a[aria-label="Fanta Orange - 1,90 EUR"] > .product-card__body > .product-card__price;#1a1a1a;#ffffff;17,4;3:1;15.0pt (20px);bold;<span class="product-card__price">1,90&nbsp EUR</span>
+produits;conforme;.product-card-cell:nth-child(4) > .allergen-info-btn[aria-label="Informations allergenes"][title="Informations allergenes"];#1a1a1a;#ffffff;17,4;4.5:1;12.0pt (16px);bold;<button type="button" class="allergen-info-btn" aria-label="Informations allergenes" title="Informat
+produits;conforme;a[aria-label="Ice Tea Peche - 1,90 EUR"] > .product-card__body > .product-card__name;#1a1a1a;#ffffff;17,4;4.5:1;12.0pt (16px);bold;<span class="product-card__name">Ice Tea Peche</span>
+produits;conforme;a[aria-label="Ice Tea Peche - 1,90 EUR"] > .product-card__body > .product-card__price;#1a1a1a;#ffffff;17,4;3:1;15.0pt (20px);bold;<span class="product-card__price">1,90&nbsp EUR</span>
+produits;conforme;.product-card-cell:nth-child(5) > .allergen-info-btn[aria-label="Informations allergenes"][title="Informations allergenes"];#1a1a1a;#ffffff;17,4;4.5:1;12.0pt (16px);bold;<button type="button" class="allergen-info-btn" aria-label="Informations allergenes" title="Informat
+produits;conforme;a[aria-label="Ice Tea Citron - 1,90 EUR"] > .product-card__body > .product-card__name;#1a1a1a;#ffffff;17,4;4.5:1;12.0pt (16px);bold;<span class="product-card__name">Ice Tea Citron</span>
+produits;conforme;a[aria-label="Ice Tea Citron - 1,90 EUR"] > .product-card__body > .product-card__price;#1a1a1a;#ffffff;17,4;3:1;15.0pt (20px);bold;<span class="product-card__price">1,90&nbsp EUR</span>
+produits;conforme;.product-card-cell:nth-child(6) > .allergen-info-btn[aria-label="Informations allergenes"][title="Informations allergenes"];#1a1a1a;#ffffff;17,4;4.5:1;12.0pt (16px);bold;<button type="button" class="allergen-info-btn" aria-label="Informations allergenes" title="Informat
+produits;conforme;a[aria-label="Jus d'Orange - 2,10 EUR"] > .product-card__body > .product-card__name;#1a1a1a;#ffffff;17,4;4.5:1;12.0pt (16px);bold;<span class="product-card__name">Jus d'Orange</span>
+produits;conforme;a[aria-label="Jus d'Orange - 2,10 EUR"] > .product-card__body > .product-card__price;#1a1a1a;#ffffff;17,4;3:1;15.0pt (20px);bold;<span class="product-card__price">2,10&nbsp EUR</span>
+produits;conforme;.product-card-cell:nth-child(7) > .allergen-info-btn[aria-label="Informations allergenes"][title="Informations allergenes"];#1a1a1a;#ffffff;17,4;4.5:1;12.0pt (16px);bold;<button type="button" class="allergen-info-btn" aria-label="Informations allergenes" title="Informat
+produits;conforme;a[aria-label="Jus de Pommes Bio - 2,30 EUR"] > .product-card__body > .product-card__name;#1a1a1a;#ffffff;17,4;4.5:1;12.0pt (16px);bold;<span class="product-card__name">Jus de Pommes Bio</span>
+produits;conforme;a[aria-label="Jus de Pommes Bio - 2,30 EUR"] > .product-card__body > .product-card__price;#1a1a1a;#ffffff;17,4;3:1;15.0pt (20px);bold;<span class="product-card__price">2,30&nbsp EUR</span>
+produits;conforme;.product-card-cell:nth-child(8) > .allergen-info-btn[aria-label="Informations allergenes"][title="Informations allergenes"];#1a1a1a;#ffffff;17,4;4.5:1;12.0pt (16px);bold;<button type="button" class="allergen-info-btn" aria-label="Informations allergenes" title="Informat
+produits;conforme;.order-panel__title;#1a1a1a;#ffffff;17,4;3:1;15.0pt (20px);bold;<span class="order-panel__title">Ma commande</span>
+produits;conforme;.order-panel__mode;#4a4a4a;#f5f5f5;8,12;4.5:1;10.5pt (14px);normal;<span class="order-panel__mode">Sur place</span>
+produits;conforme;.order-panel__line:nth-child(1) > .order-panel__line-main > .order-panel__line-name;#1a1a1a;#ffffff;17,4;4.5:1;12.0pt (16px);bold;<span class="order-panel__line-name">Audit A11Y - article 1</span>
+produits;conforme;.order-panel__line:nth-child(1) > .order-panel__line-main > .order-panel__line-price;#1a1a1a;#ffffff;17,4;4.5:1;12.0pt (16px);bold;<span class="order-panel__line-price">5,00&nbsp EUR</span>
+produits;conforme;.order-panel__line:nth-child(1) > .order-panel__line-controls > .order-panel__qty[role="group"] > .order-panel__qty-value;#1a1a1a;#ffffff;17,4;4.5:1;12.0pt (16px);bold;<span class="order-panel__qty-value">2</span>
+produits;conforme;.order-panel__line:nth-child(2) > .order-panel__line-main > .order-panel__line-name;#1a1a1a;#ffffff;17,4;4.5:1;12.0pt (16px);bold;<span class="order-panel__line-name">Audit A11Y - article 2</span>
+produits;conforme;.order-panel__line:nth-child(2) > .order-panel__line-main > .order-panel__line-price;#1a1a1a;#ffffff;17,4;4.5:1;12.0pt (16px);bold;<span class="order-panel__line-price">2,00&nbsp EUR</span>
+produits;conforme;.order-panel__line:nth-child(2) > .order-panel__line-controls > .order-panel__qty[role="group"] > .order-panel__qty-value;#1a1a1a;#ffffff;17,4;4.5:1;12.0pt (16px);bold;<span class="order-panel__qty-value">1</span>
+produits;conforme;.order-panel__total > span:nth-child(1);#1a1a1a;#ffffff;17,4;4.5:1;15.0pt (20px);normal;<span>TOTAL (ttc)</span>
+produits;conforme;.order-panel__total-value;#1a1a1a;#ffffff;17,4;3:1;18.0pt (24px);bold;<span class="order-panel__total-value">7,00&nbsp EUR</span>
+produits;conforme;.order-panel__abandon;#4a4a4a;#ffffff;8,86;4.5:1;12.0pt (16px);bold;<button class="order-panel__abandon" type="button">Abandon</button>
+produits;conforme;.order-panel__pay;#1a1a1a;#ffc72c;11,15;4.5:1;12.0pt (16px);bold;<a class="order-panel__pay" href="payment.html" role="button" aria-disabled="false">Payer</a>
+produits;conforme;.a11y-toggle__icon;#1a1a1a;#ffffff;17,4;3:1;15.0pt (20px);bold;<span class="a11y-toggle__icon" aria-hidden="true">Aa</span>
+produits;conforme;.a11y-toggle__label;#1a1a1a;#ffffff;17,4;4.5:1;10.5pt (14px);bold;<span class="a11y-toggle__label">Police adaptee</span>
+produits-modale-options;conforme;#back-to-categories;#4a4a4a;#ffffff;8,86;4.5:1;10.5pt (14px);bold;<a id="back-to-categories" class="site-header__back" href="categories.html" aria-label="Retour aux c
+produits-modale-options;conforme;a[href="products.html?category=1"] > .category-strip__label;#1a1a1a;#ffffff;17,4;4.5:1;10.5pt (14px);bold;<span class="category-strip__label">Menus</span>
+produits-modale-options;conforme;.is-active > .category-strip__label;#1a1a1a;#fff8e6;16,42;4.5:1;10.5pt (14px);bold;<span class="category-strip__label">Boissons</span>
+produits-modale-options;conforme;a[href="products.html?category=3"] > .category-strip__label;#1a1a1a;#ffffff;17,4;4.5:1;10.5pt (14px);bold;<span class="category-strip__label">Burgers</span>
+produits-modale-options;conforme;a[href="products.html?category=4"] > .category-strip__label;#1a1a1a;#ffffff;17,4;4.5:1;10.5pt (14px);bold;<span class="category-strip__label">Frites</span>
+produits-modale-options;conforme;a[href="products.html?category=5"] > .category-strip__label;#1a1a1a;#ffffff;17,4;4.5:1;10.5pt (14px);bold;<span class="category-strip__label">Encas</span>
+produits-modale-options;conforme;a[href="products.html?category=6"] > .category-strip__label;#1a1a1a;#ffffff;17,4;4.5:1;10.5pt (14px);bold;<span class="category-strip__label">Wraps</span>
+produits-modale-options;conforme;a[href="products.html?category=7"] > .category-strip__label;#1a1a1a;#ffffff;17,4;4.5:1;10.5pt (14px);bold;<span class="category-strip__label">Salades</span>
+produits-modale-options;conforme;a[href="products.html?category=8"] > .category-strip__label;#1a1a1a;#ffffff;17,4;4.5:1;10.5pt (14px);bold;<span class="category-strip__label">Desserts</span>
+produits-modale-options;conforme;#products-heading;#1a1a1a;#f5f5f5;15,96;3:1;24.0pt (32px);bold;<h1 id="products-heading" class="products-main__heading">Nos Boissons</h1>
+produits-modale-options;conforme;.mode-badge;#1a1a1a;#ffc72c;11,15;4.5:1;9.0pt (12px);bold;<span class="mode-badge" data-mode-badge="">Sur place</span>
+produits-modale-options;conforme;a[aria-label="Coca Cola - 1,90 EUR"] > .product-card__body > .product-card__name;#1a1a1a;#ffffff;17,4;4.5:1;12.0pt (16px);bold;<span class="product-card__name">Coca Cola</span>
+produits-modale-options;conforme;a[aria-label="Coca Cola - 1,90 EUR"] > .product-card__body > .product-card__price;#1a1a1a;#ffffff;17,4;3:1;15.0pt (20px);bold;<span class="product-card__price">1,90&nbsp EUR</span>
+produits-modale-options;conforme;.product-card-cell:nth-child(1) > .allergen-info-btn[aria-label="Informations allergenes"][title="Informations allergenes"];#1a1a1a;#ffffff;17,4;4.5:1;12.0pt (16px);bold;<button type="button" class="allergen-info-btn" aria-label="Informations allergenes" title="Informat
+produits-modale-options;conforme;a[aria-label="Coca Sans Sucres - 1,90 EUR"] > .product-card__body > .product-card__name;#1a1a1a;#ffffff;17,4;4.5:1;12.0pt (16px);bold;<span class="product-card__name">Coca Sans Sucres</span>
+produits-modale-options;conforme;a[aria-label="Coca Sans Sucres - 1,90 EUR"] > .product-card__body > .product-card__price;#1a1a1a;#ffffff;17,4;3:1;15.0pt (20px);bold;<span class="product-card__price">1,90&nbsp EUR</span>
+produits-modale-options;conforme;.product-card-cell:nth-child(2) > .allergen-info-btn[aria-label="Informations allergenes"][title="Informations allergenes"];#1a1a1a;#ffffff;17,4;4.5:1;12.0pt (16px);bold;<button type="button" class="allergen-info-btn" aria-label="Informations allergenes" title="Informat
+produits-modale-options;conforme;a[aria-label="Eau - 1,00 EUR"] > .product-card__body > .product-card__name;#1a1a1a;#ffffff;17,4;4.5:1;12.0pt (16px);bold;<span class="product-card__name">Eau</span>
+produits-modale-options;conforme;a[aria-label="Eau - 1,00 EUR"] > .product-card__body > .product-card__price;#1a1a1a;#ffffff;17,4;3:1;15.0pt (20px);bold;<span class="product-card__price">1,00&nbsp EUR</span>
+produits-modale-options;conforme;.product-card-cell:nth-child(3) > .allergen-info-btn[aria-label="Informations allergenes"][title="Informations allergenes"];#1a1a1a;#ffffff;17,4;4.5:1;12.0pt (16px);bold;<button type="button" class="allergen-info-btn" aria-label="Informations allergenes" title="Informat
+produits-modale-options;conforme;a[aria-label="Fanta Orange - 1,90 EUR"] > .product-card__body > .product-card__name;#1a1a1a;#ffffff;17,4;4.5:1;12.0pt (16px);bold;<span class="product-card__name">Fanta Orange</span>
+produits-modale-options;conforme;a[aria-label="Fanta Orange - 1,90 EUR"] > .product-card__body > .product-card__price;#1a1a1a;#ffffff;17,4;3:1;15.0pt (20px);bold;<span class="product-card__price">1,90&nbsp EUR</span>
+produits-modale-options;conforme;.product-card-cell:nth-child(4) > .allergen-info-btn[aria-label="Informations allergenes"][title="Informations allergenes"];#1a1a1a;#ffffff;17,4;4.5:1;12.0pt (16px);bold;<button type="button" class="allergen-info-btn" aria-label="Informations allergenes" title="Informat
+produits-modale-options;conforme;a[aria-label="Ice Tea Peche - 1,90 EUR"] > .product-card__body > .product-card__name;#1a1a1a;#ffffff;17,4;4.5:1;12.0pt (16px);bold;<span class="product-card__name">Ice Tea Peche</span>
+produits-modale-options;conforme;a[aria-label="Ice Tea Peche - 1,90 EUR"] > .product-card__body > .product-card__price;#1a1a1a;#ffffff;17,4;3:1;15.0pt (20px);bold;<span class="product-card__price">1,90&nbsp EUR</span>
+produits-modale-options;conforme;.product-card-cell:nth-child(5) > .allergen-info-btn[aria-label="Informations allergenes"][title="Informations allergenes"];#1a1a1a;#ffffff;17,4;4.5:1;12.0pt (16px);bold;<button type="button" class="allergen-info-btn" aria-label="Informations allergenes" title="Informat
+produits-modale-options;conforme;a[aria-label="Ice Tea Citron - 1,90 EUR"] > .product-card__body > .product-card__name;#1a1a1a;#ffffff;17,4;4.5:1;12.0pt (16px);bold;<span class="product-card__name">Ice Tea Citron</span>
+produits-modale-options;conforme;a[aria-label="Ice Tea Citron - 1,90 EUR"] > .product-card__body > .product-card__price;#1a1a1a;#ffffff;17,4;3:1;15.0pt (20px);bold;<span class="product-card__price">1,90&nbsp EUR</span>
+produits-modale-options;conforme;.product-card-cell:nth-child(6) > .allergen-info-btn[aria-label="Informations allergenes"][title="Informations allergenes"];#1a1a1a;#ffffff;17,4;4.5:1;12.0pt (16px);bold;<button type="button" class="allergen-info-btn" aria-label="Informations allergenes" title="Informat
+produits-modale-options;conforme;a[aria-label="Jus d'Orange - 2,10 EUR"] > .product-card__body > .product-card__name;#1a1a1a;#ffffff;17,4;4.5:1;12.0pt (16px);bold;<span class="product-card__name">Jus d'Orange</span>
+produits-modale-options;conforme;a[aria-label="Jus d'Orange - 2,10 EUR"] > .product-card__body > .product-card__price;#1a1a1a;#ffffff;17,4;3:1;15.0pt (20px);bold;<span class="product-card__price">2,10&nbsp EUR</span>
+produits-modale-options;conforme;.product-card-cell:nth-child(7) > .allergen-info-btn[aria-label="Informations allergenes"][title="Informations allergenes"];#1a1a1a;#ffffff;17,4;4.5:1;12.0pt (16px);bold;<button type="button" class="allergen-info-btn" aria-label="Informations allergenes" title="Informat
+produits-modale-options;conforme;a[aria-label="Jus de Pommes Bio - 2,30 EUR"] > .product-card__body > .product-card__name;#1a1a1a;#ffffff;17,4;4.5:1;12.0pt (16px);bold;<span class="product-card__name">Jus de Pommes Bio</span>
+produits-modale-options;conforme;a[aria-label="Jus de Pommes Bio - 2,30 EUR"] > .product-card__body > .product-card__price;#1a1a1a;#ffffff;17,4;3:1;15.0pt (20px);bold;<span class="product-card__price">2,30&nbsp EUR</span>
+produits-modale-options;conforme;.product-card-cell:nth-child(8) > .allergen-info-btn[aria-label="Informations allergenes"][title="Informations allergenes"];#1a1a1a;#ffffff;17,4;4.5:1;12.0pt (16px);bold;<button type="button" class="allergen-info-btn" aria-label="Informations allergenes" title="Informat
+produits-modale-options;conforme;.order-panel__title;#1a1a1a;#ffffff;17,4;3:1;15.0pt (20px);bold;<span class="order-panel__title">Ma commande</span>
+produits-modale-options;conforme;.order-panel__mode;#4a4a4a;#f5f5f5;8,12;4.5:1;10.5pt (14px);normal;<span class="order-panel__mode">Sur place</span>
+produits-modale-options;conforme;.order-panel__line:nth-child(1) > .order-panel__line-main > .order-panel__line-name;#1a1a1a;#ffffff;17,4;4.5:1;12.0pt (16px);bold;<span class="order-panel__line-name">Audit A11Y - article 1</span>
+produits-modale-options;conforme;.order-panel__line:nth-child(1) > .order-panel__line-main > .order-panel__line-price;#1a1a1a;#ffffff;17,4;4.5:1;12.0pt (16px);bold;<span class="order-panel__line-price">5,00&nbsp EUR</span>
+produits-modale-options;conforme;.order-panel__line:nth-child(1) > .order-panel__line-controls > .order-panel__qty[role="group"] > .order-panel__qty-value;#1a1a1a;#ffffff;17,4;4.5:1;12.0pt (16px);bold;<span class="order-panel__qty-value">2</span>
+produits-modale-options;conforme;.order-panel__line:nth-child(2) > .order-panel__line-main > .order-panel__line-name;#1a1a1a;#ffffff;17,4;4.5:1;12.0pt (16px);bold;<span class="order-panel__line-name">Audit A11Y - article 2</span>
+produits-modale-options;conforme;.order-panel__line:nth-child(2) > .order-panel__line-main > .order-panel__line-price;#1a1a1a;#ffffff;17,4;4.5:1;12.0pt (16px);bold;<span class="order-panel__line-price">2,00&nbsp EUR</span>
+produits-modale-options;conforme;.order-panel__line:nth-child(2) > .order-panel__line-controls > .order-panel__qty[role="group"] > .order-panel__qty-value;#1a1a1a;#ffffff;17,4;4.5:1;12.0pt (16px);bold;<span class="order-panel__qty-value">1</span>
+produits-modale-options;conforme;.order-panel__total > span:nth-child(1);#1a1a1a;#ffffff;17,4;4.5:1;15.0pt (20px);normal;<span>TOTAL (ttc)</span>
+produits-modale-options;conforme;.order-panel__total-value;#1a1a1a;#ffffff;17,4;3:1;18.0pt (24px);bold;<span class="order-panel__total-value">7,00&nbsp EUR</span>
+produits-modale-options;conforme;.order-panel__abandon;#4a4a4a;#ffffff;8,86;4.5:1;12.0pt (16px);bold;<button class="order-panel__abandon" type="button">Abandon</button>
+produits-modale-options;conforme;.order-panel__pay;#1a1a1a;#ffc72c;11,15;4.5:1;12.0pt (16px);bold;<a class="order-panel__pay" href="payment.html" role="button" aria-disabled="false">Payer</a>
+produits-modale-options;conforme;.a11y-toggle__icon;#1a1a1a;#ffffff;17,4;3:1;15.0pt (20px);bold;<span class="a11y-toggle__icon" aria-hidden="true">Aa</span>
+produits-modale-options;conforme;.a11y-toggle__label;#1a1a1a;#ffffff;17,4;4.5:1;10.5pt (14px);bold;<span class="a11y-toggle__label">Police adaptee</span>
+produits-modale-options;conforme;#po-title;#1a1a1a;#ffffff;17,4;3:1;24.0pt (32px);bold;<h2 class="composer-title" id="po-title">Coca Cola</h2>
+produits-modale-options;conforme;.size-btn--selected;#1a1a1a;#ffffff;17,4;3:1;15.0pt (20px);bold;<button type="button" class="size-btn size-btn--selected" data-product-id="14" role="radio" aria-che
+produits-modale-options;conforme;button[data-product-id="54"];#1a1a1a;#ffffff;17,4;4.5:1;15.0pt (20px);normal;<button type="button" class="size-btn" data-product-id="54" role="radio" aria-checked="false">50 cl<
+produits-modale-options;conforme;#po-unit;#4a4a4a;#ffffff;8,86;4.5:1;12.0pt (16px);normal;<p class="product-options__unit" id="po-unit">1,90&nbsp EUR / unite</p>
+produits-modale-options;conforme;#po-qty;#1a1a1a;#ffffff;17,4;3:1;15.0pt (20px);bold;<span class="qty-value" id="po-qty" aria-live="polite">1</span>
+produits-modale-options;conforme;.product-options__total;#1a1a1a;#ffffff;17,4;4.5:1;15.0pt (20px);normal;<p class="product-options__total" aria-live="polite" aria-atomic="true">Total : <strong id="po-total
+produits-modale-options;conforme;#po-total;#1a1a1a;#ffffff;17,4;3:1;15.0pt (20px);bold;<strong id="po-total">1,90&nbsp EUR</strong>
+produits-modale-options;conforme;#po-cancel;#1a1a1a;#ffffff;17,4;3:1;15.0pt (20px);bold;<button class="btn btn--secondary" type="button" id="po-cancel">Annuler</button>
+produits-modale-options;conforme;#po-add;#1a1a1a;#ffc72c;11,15;3:1;15.0pt (20px);bold;<button class="btn btn--primary" type="button" id="po-add">Ajouter a ma commande</button>
