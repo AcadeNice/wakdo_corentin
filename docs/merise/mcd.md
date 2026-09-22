@@ -297,6 +297,8 @@ erDiagram
         int total_vat_cents
         int total_ttc_cents
         datetime paid_at
+        datetime preparing_at
+        datetime ready_at
         datetime delivered_at
         datetime cancelled_at
     }
@@ -387,9 +389,14 @@ etait incorrecte et est abandonnee (decision D6, `revue-alignement-p1.md` §7).
 avoir que `service_mode = 'drive'`. Imposee au niveau applicatif (et optionnellement comme CHECK dans
 le MLD).
 
-**Machine a 4 etats** (`pending_payment -> paid -> delivered` + `cancelled`) :
-`preparing` et `ready` sont abandonnes (decision D4, `revue-alignement-p1.md` §7). Le timing KPI est
-`delivered_at - paid_at` ; le codage couleur KDS est calcule a partir de `NOW() - paid_at`.
+**Machine a 6 etats** (`pending_payment -> preparing -> ready -> delivered` + `cancelled`,
+plus `paid` conserve pour l'historique) : la decision D4 (`revue-alignement-p1.md` §7) avait
+abandonne `preparing` et `ready` ; le retour d'oral #8 les a reintroduits, livres par la
+migration `0009_order_prep_states.sql` avec les horodatages `preparing_at` / `ready_at`.
+L'encaissement pose directement `preparing` (aucun chemin de code n'ecrit plus `paid`) et
+`ready` est une etape optionnelle avant la remise. Le KPI reste `delivered_at - paid_at`
+(SLA approx. 10 min) et le codage couleur du KDS se calcule toujours depuis `NOW() - paid_at`.
+Cycle detaille et regles de transition : `mct.md` section 13 et `mlt.md` section 14.
 
 **Colonnes security-by-design (2026-06-11)** : `idempotency_key` (UUID client, UNIQUE)
 deduplique un `POST /api/orders` rejoue. `acting_user_id` (FK -> `user`, ON DELETE SET NULL)

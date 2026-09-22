@@ -57,12 +57,12 @@ Des `aria-label` avaient ete poses sur des `span`/`div` generiques (badge de mod
 Fonctionnalite complete, prevue **et** integree, avec bascule utilisateur persistante.
 
 - **Polices auto-hebergees.** Deux fichiers `woff2` presents sur disque : `opendyslexic-latin-400-normal.woff2` (112 Ko), `opendyslexic-latin-700-normal.woff2` (117 Ko), plus la licence `LICENSE-OpenDyslexic.txt` (OFL 1.1) sous `src/public/borne/assets/fonts/`.
-- **`@font-face`** declares (poids 400 et 700) avec `font-display: swap` : `style.css:1926-1939`.
-- **Bascule par classe racine.** `html.dys-font` redefinit `--font-family-base` vers la pile OpenDyslexic, appliquee a toute l'interface : `style.css:1944-1946`.
+- **`@font-face`** declares (poids 400 et 700) avec `font-display: swap` : `style.css` (cherchez « self-hosted under assets/fonts »).
+- **Bascule par classe racine.** `html.dys-font` redefinit `--font-family-base` vers la pile OpenDyslexic, appliquee a toute l'interface : `style.css` (cherchez « html.dys-font »).
 - **Module de bascule** `a11y.js` : lit la preference (`isDyslexiaEnabled`, l.27-33), applique/retire la classe sur `<html>` (`applyDyslexiaPreference`, l.40-44), persiste dans `localStorage` (`persistDyslexiaPreference`, l.51-59), construit un bouton `aria-pressed` refletant l'etat (`buildDyslexiaToggle`, l.68-98), injecte le bouton de facon idempotente (`initDyslexiaToggle`, l.106-125) et s'auto-initialise au `DOMContentLoaded` (l.129-131).
 - **Bouton present sur chaque ecran** : le tag `<script type="module" src="assets/js/a11y.js">` est charge par les 5 pages (`index.html:104`, `categories.html:62`, `products.html:68`, `payment.html:92`, `confirmation.html:70`).
 - **Robustesse.** L'acces storage est encapsule en `try/catch` : mode prive ou quota indisponible retombe sur la police de base sans erreur (l.28-32, l.52-58).
-- **Style du bouton** : controle fixe en bas-gauche, `z-index` eleve, hors collision avec le bouton Retour et le panneau panier : `style.css:1952-1970`.
+- **Style du bouton** : controle fixe en bas-gauche, `z-index` eleve, hors collision avec le bouton Retour et le panneau panier : `style.css` (cherchez « .a11y-toggle »).
 - **Tests unitaires** (jsdom, sans navigateur) : `tests/js/a11y.test.js` couvre lecture de preference, application de classe, injection idempotente, reflet `aria-pressed`, cycle de clic + persistance, et le cas storage qui jette (l.39-106).
 
 **Verdict Cr 1.c.2 : conforme.** La bascule est le point le plus solide de la preuve : integree, persistee, testee.
@@ -73,11 +73,11 @@ Fonctionnalite complete, prevue **et** integree, avec bascule utilisateur persis
 
 L'information ne repose pas sur la seule couleur : un libelle textuel ou une icone accompagne l'indice chromatique dans chaque cas identifie.
 
-- **Produit en rupture de stock.** La tuile grisee (couleur) est doublee d'un badge textuel `Indisponible` (`page-products.js:87`, CSS `style.css:650-662`), d'un suffixe dans l'`aria-label` (` - indisponible`, `page-products.js:75`) et d'un `aria-disabled="true"` (`page-products.js:76`). Le grisage seul ne fait pas foi.
-- **Categorie active dans le bandeau.** L'etat actif combine une bordure epaissie **et** un fond distinct `#FFF8E6`, precisement pour ne pas dependre de la seule bordure coloree : `style.css:1790-1794` (commentaire « 2e cue (pas que la couleur de bordure) »).
-- **Selection de carte composeur.** L'etat selectionne cumule bordure jaune fonce, halo et fond legerement teinte, et il est expose a la technologie d'assistance via `aria-pressed` (documente `style.css:1166-1171`, `1133`).
-- **Bascule de police active.** L'etat actif change la couleur du bouton mais est aussi expose par `aria-pressed` et par un libelle texte qui reste visible : `style.css:1977-1982` (commentaire « not signalled by colour alone (RGAA 1.4.1) »).
-- **Contraste.** Le token de texte attenue est fixe a `#767676`, choisi pour le seuil de contraste AA sur blanc (`style.css:36`) ; l'accent de selection utilise le jaune fonce `--color-brand-yellow-dk` pour le contraste (`style.css:1168`).
+- **Produit en rupture de stock.** La tuile grisee (couleur) est doublee d'un badge textuel `Indisponible` (`page-products.js:87`, CSS `style.css` — cherchez « .product-card--unavailable » pour le grisage et « .product-card__badge » pour le badge), d'un suffixe dans l'`aria-label` (` - indisponible`, `page-products.js:75`) et d'un `aria-disabled="true"` (`page-products.js:76`). Le grisage seul ne fait pas foi.
+- **Categorie active dans le bandeau.** L'etat actif combine une bordure epaissie **et** un fond distinct `#FFF8E6`, precisement pour ne pas dependre de la seule bordure coloree : `style.css` (cherchez « 2e cue »).
+- **Selection de carte composeur.** L'etat selectionne cumule bordure jaune fonce, halo et fond legerement teinte, et il est expose a la technologie d'assistance via `aria-pressed` (documente dans `style.css`, cherchez « jaune fonce : contraste » et « Uses aria-pressed »).
+- **Bascule de police active.** L'etat actif change la couleur du bouton mais est aussi expose par `aria-pressed` et par un libelle texte qui reste visible : `style.css` (cherchez « not signalled by colour alone »).
+- **Contraste.** Le token de texte attenue est fixe a `#767676`, choisi pour le seuil de contraste AA sur blanc (`style.css`, cherchez « --color-text-muted ») ; l'accent de selection utilise le jaune fonce `--color-brand-yellow-dk` pour le contraste (meme fichier, cherchez « jaune fonce : contraste »).
 
 **Verdict Cr 1.c.3 : conforme** sur les etats identifies. Reserve : les ratios de contraste exacts n'ont pas ete mesures avec un outil dedie ([UNVERIFIED], section 8).
 
@@ -87,8 +87,8 @@ L'information ne repose pas sur la seule couleur : un libelle textuel ou une ico
 
 ### Focus visible
 
-- **Focus clavier stylise** sur la grande majorite des controles interactifs via `:focus-visible` (halo jaune ou `outline` epais) : 18 regles `:focus-visible` dans `style.css` (choix accueil `226`, retour `314`, carte categorie `373`, boutons primaire/secondaire `507`/`536`, carte produit `623`, quantite `724`, paiement `824`, carte composeur `1155`, taille `1372`, controles du panneau + bandeau `1819-1826`, saisie chevalet `1902-1905`, bascule a11y `1984-1987`).
-- **`outline: none` systematiquement compense.** Chaque `outline: none` s'accompagne dans la meme regle d'un indicateur de substitution (halo `box-shadow` ou changement de bordure) — verifie regle par regle (ex. `style.css:226-232`, `507-512`, `1155-1160`). Il n'existe pas de suppression globale du focus : le reset (`style.css:83-87`) ne touche que `box-sizing`/`margin`/`padding`.
+- **Focus clavier stylise** sur la grande majorite des controles interactifs via `:focus-visible` (halo jaune ou `outline` epais) : 18 regles `:focus-visible` dans `style.css`, reperables par selecteur (choix accueil `.choice-btn`, retour `.site-header__back`, carte categorie `.category-card`, boutons `.btn--primary`/`.btn--secondary`, carte produit `.product-card`/`.product-card--unavailable`, quantite `.qty-btn`, paiement `.payment-choice`, carte composeur `.composer-card`, taille `.composer-taille__btn`, controles du panneau + bandeau `.order-panel__pay`/`.order-panel__abandon`/`.order-panel__remove`/`.category-strip__item`/`.category-strip__arrow`, saisie chevalet `.chevalet__input`, bascule a11y `.a11y-toggle`).
+- **`outline: none` systematiquement compense.** Chaque `outline: none` s'accompagne dans la meme regle d'un indicateur de substitution (halo `box-shadow` ou changement de bordure) — verifie regle par regle (ex. `.choice-btn:focus-visible`, `.btn--primary:focus-visible`, `.composer-card:focus-visible` dans `style.css`). Il n'existe pas de suppression globale du focus : le reset (`style.css`, cherchez « box-sizing: border-box ») ne touche que `box-sizing`/`margin`/`padding`.
 
 ### Navigation native, pas de piege
 
@@ -127,24 +127,24 @@ Verdicts : **conforme** (preuve dans le code) · **partiel** (couvert mais reser
 
 | Critere | Preuve (fichier:ligne) | Verdict | Commentaire |
 |---|---|---|---|
-| Info pas donnee par la seule couleur | `page-products.js:75,87` ; `style.css:1790-1794`,`1977-1982` | conforme | Rupture = badge texte + aria ; actif = fond + libelle + `aria-pressed`. |
-| Contraste texte suffisant | `style.css:36` (`#767676`) ; `style.css:1168` | partiel | Tokens choisis pour AA, mais ratios non mesures a l'outil ([UNVERIFIED]). |
+| Info pas donnee par la seule couleur | `page-products.js:75,87` ; `style.css` (cherchez « 2e cue » et « not signalled by colour alone ») | conforme | Rupture = badge texte + aria ; actif = fond + libelle + `aria-pressed`. |
+| Contraste texte suffisant | `style.css` (cherchez « --color-text-muted » pour `#767676`, « jaune fonce : contraste » pour l'accent) | partiel | Tokens choisis pour AA, mais ratios non mesures a l'outil ([UNVERIFIED]). |
 
 ### Theme 10 — Presentation / focus
 
 | Critere | Preuve (fichier:ligne) | Verdict | Commentaire |
 |---|---|---|---|
-| Focus clavier visible | `style.css` 18 regles `:focus-visible` (226,314,373,507,536,623,724,824,1155,1372,1819-1826,1902,1984) | conforme | Halo jaune / `outline` epais decale. |
-| `outline:none` compense | `style.css:226-232,507-512,1155-1160` | conforme | Chaque suppression a un substitut visible ; pas de reset global du focus. |
-| Coherence du style de focus | `style.css:1855` (`.size-btn`), `1218`/`1268` (allergenes) | partiel | Quelques controles secondaires reposent sur l'anneau natif (non perdu, mais non stylise). |
+| Focus clavier visible | `style.css`, 18 regles `:focus-visible` reperables par selecteur (`.choice-btn`, `.site-header__back`, `.category-card`, `.btn--primary`, `.btn--secondary`, `.product-card`, `.product-card--unavailable`, `.qty-btn`, `.payment-choice`, `.composer-card`, `.composer-taille__btn`, `.order-panel__pay`, `.order-panel__abandon`, `.order-panel__remove`, `.category-strip__item`, `.category-strip__arrow`, `.chevalet__input`, `.a11y-toggle`) | conforme | Halo jaune / `outline` epais decale. |
+| `outline:none` compense | `style.css` (`.choice-btn:focus-visible`, `.btn--primary:focus-visible`, `.composer-card:focus-visible`) | conforme | Chaque suppression a un substitut visible ; pas de reset global du focus. |
+| Coherence du style de focus | `style.css` (`.size-btn`, `.allergen-info-btn`, `.allergen-modal-close`) | partiel | Quelques controles secondaires reposent sur l'anneau natif (non perdu, mais non stylise). |
 
 ### Theme 11 — Formulaires / controles
 
 | Critere | Preuve (fichier:ligne) | Verdict | Commentaire |
 |---|---|---|---|
 | Controle a une etiquette | `payment.html:58,74` ; `order-panel.js:115-137` ; `allergens.js:62` | conforme | `aria-label` sur boutons paiement, stepper, retrait, info allergenes. |
-| Champ de saisie etiquete | `style.css:1888-1905` (chevalet) | partiel | Le champ chevalet a un focus visible ; le libelle textuel proche vit dans une modale JS hors des 5 pages lues, a verifier. |
-| Etat desactive expose | `order-panel.js:182` ; `style.css:519-527,1724-1727` | conforme | `aria-disabled` sur « Payer » panier vide et boutons desactives. |
+| Champ de saisie etiquete | `style.css` (cherchez « .chevalet__input ») | partiel | Le champ chevalet a un focus visible ; le libelle textuel proche vit dans une modale JS hors des 5 pages lues, a verifier. |
+| Etat desactive expose | `order-panel.js:182` ; `style.css` (cherchez « .btn--primary[aria-disabled » et « .order-panel__pay[aria-disabled ») | conforme | `aria-disabled` sur « Payer » panier vide et boutons desactives. |
 
 ### Theme 12 — Navigation
 
@@ -159,8 +159,8 @@ Verdicts : **conforme** (preuve dans le code) · **partiel** (couvert mais reser
 
 | Critere | Preuve (fichier:ligne) | Verdict | Commentaire |
 |---|---|---|---|
-| Police auto-hebergee + `@font-face` | `assets/fonts/*.woff2` ; `style.css:1926-1939` | conforme | Poids 400/700, `font-display: swap`, licence OFL presente. |
-| Bascule utilisateur persistante | `a11y.js:40-125` ; `style.css:1944-1946` | conforme | Classe `.dys-font` sur `<html>`, persistance `localStorage`. |
+| Police auto-hebergee + `@font-face` | `assets/fonts/*.woff2` ; `style.css` (cherchez « self-hosted under assets/fonts ») | conforme | Poids 400/700, `font-display: swap`, licence OFL presente. |
+| Bascule utilisateur persistante | `a11y.js:40-125` ; `style.css` (cherchez « html.dys-font ») | conforme | Classe `.dys-font` sur `<html>`, persistance `localStorage`. |
 | Presence sur tous les ecrans | 5 pages chargent `a11y.js` | conforme | `index:104`,`categories:184`,`products:68`,`payment:92`,`confirmation:70`. |
 | Etat expose a l'assistance | `a11y.js:73,89-95` | conforme | `aria-pressed` reflete l'etat ; couvert par tests. |
 | Couverture de test | `tests/js/a11y.test.js:39-106` | conforme | 7 cas jsdom (dont storage en echec). |
@@ -171,7 +171,7 @@ Verdicts : **conforme** (preuve dans le code) · **partiel** (couvert mais reser
 
 - **Multimedia (theme 4), tableaux de donnees (theme 5), cadres (theme 6), scripts complexes hors modale** : non applicable au front borne, qui ne comporte ni video, ni tableau de donnees, ni iframe.
 - **Documents en telechargement (theme 13)** : non applicable (aucun PDF/document servi par la borne).
-- **Consultation / zoom (theme 10 avance)** : la borne cible un ecran tactile fixe 1080x1920 ; le zoom navigateur n'est pas le mode d'usage principal. `touch-action: manipulation` (`style.css:92`) previent le pinch-zoom accidentel — choix d'ergonomie borne a assumer a l'oral, car il peut interroger le critere de redimensionnement.
+- **Consultation / zoom (theme 10 avance)** : la borne cible un ecran tactile fixe 1080x1920 ; le zoom navigateur n'est pas le mode d'usage principal. `touch-action: manipulation` (`style.css`, cherchez « touch-action: manipulation ») previent le pinch-zoom accidentel — choix d'ergonomie borne a assumer a l'oral, car il peut interroger le critere de redimensionnement.
 
 ---
 
@@ -179,8 +179,8 @@ Verdicts : **conforme** (preuve dans le code) · **partiel** (couvert mais reser
 
 1. **Aucun audit avec lecteur d'ecran reel.** Le mapping ARIA est correct dans le code, mais le rendu effectif sous NVDA/VoiceOver/TalkBack n'a pas ete teste sur cette borne. Toute affirmation de restitution vocale reelle est [UNVERIFIED].
 2. **Ratios de contraste non mesures a l'outil.** Les tokens sont choisis pour viser AA (`#767676` sur blanc, jaune fonce pour les accents), mais aucun rapport d'outil (ex. verificateur de contraste) n'est joint. Verdict « partiel » assume sur le critere contraste.
-3. **Coherence du style de focus partielle.** Le focus n'est pas perdu (pas de reset global), mais quelques controles secondaires (`.size-btn` `style.css:1855`, bouton info allergenes `style.css:1218`, fermeture modale allergenes `style.css:1268`) reposent sur l'anneau de focus natif du navigateur plutot que sur le halo jaune maison. C'est conforme (focus visible) mais visuellement heterogene.
-4. **Champ chevalet hors des 5 pages lues.** Le picker de chevalet (sur place) a un focus visible en CSS (`style.css:1888-1905`) mais son etiquette textuelle vit dans une modale JS non incluse dans les 5 pages de ce perimetre ; verdict « partiel » par prudence.
+3. **Coherence du style de focus partielle.** Le focus n'est pas perdu (pas de reset global), mais quelques controles secondaires (`.size-btn`, bouton info allergenes `.allergen-info-btn`, fermeture modale allergenes `.allergen-modal-close`, tous reperables par selecteur dans `style.css`) reposent sur l'anneau de focus natif du navigateur plutot que sur le halo jaune maison. C'est conforme (focus visible) mais visuellement heterogene.
+4. **Champ chevalet hors des 5 pages lues.** Le picker de chevalet (sur place) a un focus visible en CSS (`style.css`, cherchez « .chevalet__input ») mais son etiquette textuelle vit dans une modale JS non incluse dans les 5 pages de ce perimetre ; verdict « partiel » par prudence.
 5. **Contenu genere = surface a re-tester.** Les cartes produit et le panneau commande sont construits en JavaScript. Les attributs ARIA sont poses dans le code (`page-products.js`, `order-panel.js`), mais leur presence a l'ecran depend de l'execution correcte du rendu ; a demontrer en live plutot qu'a affirmer.
 
 ---
@@ -190,7 +190,7 @@ Verdicts : **conforme** (preuve dans le code) · **partiel** (couvert mais reser
 1. **Montrer la bascule OpenDyslexic en direct.** C'est la preuve la plus forte : cliquer le bouton bas-gauche, montrer le changement de police sur toute l'interface, recharger la page pour prouver la persistance `localStorage`. Enchainer sur le test unitaire `tests/js/a11y.test.js` (7 cas, dont le mode prive qui jette).
 2. **Expliquer le principe « pas la couleur seule ».** Prendre l'exemple d'une tuile en rupture : montrer le badge `Indisponible`, le grisage, et l'`aria-disabled` — trois signaux, un seul resterait insuffisant (RGAA 1.4.1). Idem pour la categorie active (bordure + fond `#FFF8E6`).
 3. **Demontrer la modale accessible au clavier.** Ouvrir la confirmation d'Abandon, tabuler pour montrer la boucle de focus, appuyer sur Echap pour sortir, verifier que le focus revient au bouton declencheur. Insister : le focus initial est sur « Annuler » pour ne pas confirmer un geste destructeur par inadvertance.
-4. **Assumer la difference RGAA vs WCAG.** Le referentiel opposable en France est le RGAA ; il s'appuie sur WCAG mais ajoute une methodologie de test. Le code cite explicitement des criteres RGAA en commentaire (`style.css:16,131,1977`).
+4. **Assumer la difference RGAA vs WCAG.** Le referentiel opposable en France est le RGAA ; il s'appuie sur WCAG mais ajoute une methodologie de test. Le code cite explicitement des criteres RGAA en commentaire dans `style.css` (cherchez « Accessibility (RGAA Cr 1.c.2) », « Screen-reader only » et « not signalled by colour alone »).
 5. **Etre transparent sur les reserves (section 8).** Un jury valorise l'honnetete : dire clairement que l'audit lecteur d'ecran et la mesure de contraste a l'outil restent a faire, et que ce sont les prochaines etapes d'un vrai chantier de conformite. Ne pas revendiquer une conformite RGAA totale certifiee — revendiquer une **demarche d'accessibilite structuree et testee** sur le perimetre borne.
 6. **Relier a la correction ARIA recente.** Montrer que l'on comprend la specification : les `aria-label` parasites sur des `span`/`div` sans role ont ete retires car un `aria-label` sur un element non semantique n'est pas fiable ; on laisse desormais le lecteur annoncer le texte visible reel du badge de mode.
 
