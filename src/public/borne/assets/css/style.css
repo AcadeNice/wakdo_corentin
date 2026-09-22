@@ -2076,3 +2076,32 @@ html.dys-font {
         margin: var(--space-2);
     }
 }
+
+/* ============================================================
+   14. MOUVEMENT REDUIT (Cr 2.a.3 / 2.a.4 -- prefers-reduced-motion)
+   ============================================================ */
+
+/* Une personne qui a demande a son systeme de reduire les animations est
+   respectee PARTOUT sur cet ecran, pas seulement pour la nouvelle animation du
+   total panier (celle-ci est geree cote JavaScript, dans cart-total-animation.js,
+   car elle ne passe jamais par une @keyframes CSS -- voir prefersReducedMotion()
+   dans ce fichier). Regle universelle plutot que trois surcharges nominatives
+   (check-pop, composer-fade-in, composer-slide-up) : une regle unique ne peut pas
+   se desynchroniser d'une future animation CSS ajoutee ailleurs dans ce fichier.
+   Duree quasi nulle plutot que strictement 0 : un script qui attendrait un
+   evenement `animationend` (c'est le cas de tests/e2e/a11y.spec.js, qui attend la
+   fin des animations du composer avant de mesurer un contraste) le recoit quand
+   meme -- une duree exactement a 0 ne declenche pas cet evenement dans tous les
+   moteurs. `animation-fill-mode: both`, deja pose sur les trois animations
+   existantes, garantit que l'etat final (visible, en place) est atteint
+   immediatement : rien ne reste bloque a l'etat de depart (invisible, deplace). */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
