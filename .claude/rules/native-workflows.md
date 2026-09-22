@@ -1,0 +1,101 @@
+# Native Workflows — Rule
+
+BYAN workflows can run on Claude Code's native Workflow tool. Only the
+non-gated subset is portable (autonomous + deterministic pipeline); the gated
+majority stays LLM-interpreted markdown. Scope is coupled to target: broad
+coverage (gated workflows) would need the Agent SDK, which is parked (Phase 2).
+
+## Hybrid pattern — gate outside, engine inside
+
+- The autonomous work runs in a `.claude/workflows/<name>.js` script.
+- The human gate stays in an orchestrating skill on a real main-thread turn,
+  where the BYAN hooks fire.
+- The script returns DATA; the skill owns completion and records state via MCP.
+
+## State-coupling rule (enforced)
+
+A native workflow script mutates FD/strict state only through the `byan_fd_*` /
+`byan_strict_*` MCP tools. Importing or requiring `lib/fd-state.js` (or the
+`strict-mode` lib) from a script is forbidden. Enforcement:
+
+- `node _byan/mcp/byan-mcp-server/bin/byan-lint-workflows.js` — fails on a
+  forbidden import/require in `.claude/workflows/*.js`.
+- `.githooks/pre-commit` runs that linter, so a violation blocks the commit.
+
+## Model tiering — floor enforced, ceiling advisory
+
+Each `agent()` leaf runs on the session model unless the call sets `opts.model`.
+The tiering decision lives in one place — `_byan/mcp/byan-mcp-server/lib/native-tiers.js`
+(tier vocabulary, leaf classifier, model map). Three AUTO-routed tiers, plus an
+explicit UP-TIER an author may pin by complexity (v3):
+
+- **cheap (`model: 'haiku'`)** — a pure EXPLORATION leaf (read/load/parse/detect).
+- **balanced (`model: 'sonnet'`)** — two classes land here. (1) MECHANICAL
+  verification, opt-in ONLY through the `mech-` label prefix (`mech-validate-json`):
+  a binary, judgment-free check (JSON parses, schema matches, lint passes). (2)
+  ANALYSIS leaves (score/rank/assess/design/nfr/coverage/recommend/synthesize),
+  auto-routed by keyword: judgment-bearing but rarely frontier, so sonnet by
+  default. This deliberately OVERRIDES the session model for analysis even on an
+  Opus / high-effort session (that is the cost lever) — escape a frontier analysis
+  leaf with the `deep-` prefix. A `mech-` leaf without `model: 'sonnet'` is a hard violation; an analysis
+  leaf may carry `model: 'sonnet'` (its tier) but not `haiku` (`analysis-below-tier`).
+  Semantic/adversarial VERIFICATION is NOT analysis and stays deep.
+- **deep (OMIT `opts.model`)** — implementation + verification leaves inherit the
+  session model (the cost-safe default: no AUTO pin-up). A genuinely frontier
+  ANALYSIS leaf opts back to deep with the `deep-` label prefix
+  (`deep-assess-architecture`), the mirror of the `mech-` opt-in.
+- **up-tier (`model: 'opus'` / `model: 'fable'`)** — an EXPLICIT authoring choice
+  to raise a genuinely complex leaf ABOVE the inherited tier (v3). `opus` for a
+  hard leaf, `fable` as the last-resort top-reasoning model for extreme complexity
+  (~2x Opus price). This is the workflow-leaf mirror of the dispatch-router
+  complexity ladder (haiku -> sonnet -> opus -> fable). Auto-routing does not pick
+  it — the author writes it deliberately. The anti-downgrade floor does not apply
+  upward, so the linter allows an up-tier pin on any leaf (it costs more, it does
+  not regress quality). The old blanket "no pin-up / no Fable" ban is lifted.
+
+The linter splits the two directions:
+
+- **Floor (HARD, blocks the commit)** — a DOWNGRADE model (haiku/sonnet) on a
+  PROTECTED leaf, or a half-applied `mech-` opt-in, is a contract violation
+  (`modelRoutingViolations` + `mechanicalLabelViolations`). This is the STRICT-2
+  No Downgrade net. An UP-TIER pin (opus/fable) is not a violation — the floor
+  guards downward only.
+- **Ceiling (ADVISORY, non-blocking)** — an exploration- OR analysis-labelled leaf
+  that runs deep is *reported* (`byan-lint-workflows.js --advise`:
+  `untiered-exploration` -> `model: 'haiku'`, `untiered-analysis` -> `model: 'sonnet'`),
+  not forced. `classifyLeaf` is permissive: many such leaves legitimately stay deep
+  because they bear a HALT/prerequisite gate, a classification, an exact conversion
+  consumed verbatim downstream, or genuinely frontier reasoning (`deep-` prefix). The
+  human owns that per-leaf call. Forcing a downgrade would be the very regression the
+  floor forbids.
+
+## Ad-hoc scripts — the tier gate hook
+
+The repo linter only sees committed files. An AD-HOC script (written inline for
+one run) crosses exactly one chokepoint before it executes: the Workflow tool
+invocation. `.claude/hooks/tier-script-guard.js` (PreToolUse, matcher `Workflow`)
+runs the same analysis there via `lib/tier-script.js` and DENIES ONCE when
+exploration/`mech-` leaves carry no tier — with the exact leaf list to fix. The
+`// BYAN-TIER: reviewed` comment marker acknowledges deliberate deep choices; an
+identical resubmission passes (deny-once by design); registry (name-only)
+invocations pass untouched. Every decision lands in
+`_byan-output/tier-ledger.jsonl` with a per-model histogram — the measurement
+basis for token gains. Escape hatch: `touch .byan-tier/off`.
+
+Authoring flow: BEFORE writing a script, call `byan_dispatch` with
+`{ leaves: [{ label, nature? }] }` (batch mode) to get the `opts.model` per leaf;
+write `model:` only where non-null. Standalone report:
+`node _byan/mcp/byan-mcp-server/bin/byan-tier-script.js <file> [--json]`.
+
+A per-leaf "effort" knob is not available: the native `agent()` / Agent API exposes
+only `model`, so model tier is the sole token lever. Effort-by-complexity reduces
+to model-by-complexity.
+
+## Registry + resolution
+
+- Registry: `.claude/workflows/INDEX.md`, generated by
+  `node _byan/mcp/byan-mcp-server/bin/byan-build-workflows.js` from the manifest.
+- Dual-path: `resolveWorkflow(name)` prefers `.claude/workflows/<name>.js`, else
+  falls back to the markdown workflow from the manifest.
+
+Full detail: see `docs/native-workflows-contract.md`.
