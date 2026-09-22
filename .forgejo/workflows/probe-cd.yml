@@ -1,33 +1,47 @@
 name: Probe CD
-# Sonde TEMPORAIRE. But unique : etablir par une execution reelle si un job
-# dispose du socket Docker de l'hote, ce qui decide la conception du deploiement
-# continu mono-hote. Le runner stark-wakdo monte bien /var/run/docker.sock ;
-# reste a savoir s'il le transmet aux conteneurs de job (le defaut varie selon
-# les versions de forgejo-runner, et ce depot n'a aucun precedent).
-# A SUPPRIMER une fois la reponse obtenue.
+# Sonde TEMPORAIRE, a supprimer une fois la reponse obtenue.
+#
+# But : prouver par une execution reelle que le mecanisme de deploiement continu
+# mono-hote est praticable. Le journal des jobs n'est pas exposé par l'API de cette
+# version du serveur : la reponse est donc portee par le STATUT du job. Vert = les
+# trois conditions sont reunies. Rouge = l'une d'elles manque, et l'etape qui echoue
+# dit laquelle.
+#
+# Les trois conditions du deploiement mono-hote :
+#   1. le job atteint le demon Docker de l'hote ;
+#   2. il peut lancer un conteneur frere qui monte le repertoire de deploiement
+#      AU MEME CHEMIN (les montages de docker-compose.prod.yml sont relatifs :
+#      montes ailleurs, ils pointeraient a cote) ;
+#   3. le fichier compose de production, hors depot, est bien la.
+#
+# Tout est en lecture seule : aucune image reconstruite, aucun conteneur recree.
 
 on:
   push:
     branches: ['ci/**']
 
+env:
+  DEPLOY_PATH: /home/acadenice/corentin_wakdo
+
 jobs:
   probe:
     runs-on: docker
     steps:
-      - name: Le job voit-il le socket Docker
+      - name: Installer le client Docker
         run: |
-          set +e
-          echo "=== socket ==="
-          ls -l /var/run/docker.sock 2>&1 || echo "ABSENT: /var/run/docker.sock"
-          echo "=== DOCKER_HOST ==="
-          echo "${DOCKER_HOST:-non defini}"
-          echo "=== client docker present ? ==="
-          command -v docker || echo "pas de client docker dans l image de job"
-          echo "=== le demon repond-il ? ==="
-          apt-get update -qq >/dev/null 2>&1
-          apt-get install -y -qq curl >/dev/null 2>&1
-          curl -s --unix-socket /var/run/docker.sock http://localhost/version 2>&1 | head -c 400
-          echo
-          echo "=== chemin de deploiement visible depuis le job ? ==="
-          ls -d /home/acadenice/corentin_wakdo 2>&1 || echo "ABSENT depuis le job (normal si pas monte)"
-          exit 0
+          set -eu
+          curl -fsSL https://download.docker.com/linux/static/stable/x86_64/docker-27.3.1.tgz \
+            | tar xz --strip-components=1 -C /usr/local/bin docker/docker
+          docker --version
+
+      - name: Condition 1 - le demon Docker de l hote repond
+        run: docker version --format 'serveur {{.Server.Version}}'
+
+      - name: Condition 2+3 - conteneur frere, meme chemin, compose present
+        run: |
+          set -eu
+          docker run --rm \
+            -v "$DEPLOY_PATH:$DEPLOY_PATH" \
+            -w "$DEPLOY_PATH" \
+            alpine:3 \
+            sh -c 'test -f docker-compose.prod.yml && test -d src && test -d db && echo "chemin de deploiement conforme"'
