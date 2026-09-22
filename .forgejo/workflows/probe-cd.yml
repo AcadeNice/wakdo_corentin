@@ -1,20 +1,8 @@
 name: Probe CD
 # Sonde TEMPORAIRE, a supprimer une fois la reponse obtenue.
-#
-# But : prouver par une execution reelle que le mecanisme de deploiement continu
-# mono-hote est praticable. Le journal des jobs n'est pas exposé par l'API de cette
-# version du serveur : la reponse est donc portee par le STATUT du job. Vert = les
-# trois conditions sont reunies. Rouge = l'une d'elles manque, et l'etape qui echoue
-# dit laquelle.
-#
-# Les trois conditions du deploiement mono-hote :
-#   1. le job atteint le demon Docker de l'hote ;
-#   2. il peut lancer un conteneur frere qui monte le repertoire de deploiement
-#      AU MEME CHEMIN (les montages de docker-compose.prod.yml sont relatifs :
-#      montes ailleurs, ils pointeraient a cote) ;
-#   3. le fichier compose de production, hors depot, est bien la.
-#
-# Tout est en lecture seule : aucune image reconstruite, aucun conteneur recree.
+# Le journal des jobs n'est pas expose par l'API de cette version du serveur :
+# la reponse est donc portee par le STATUT de chaque job. Un job par condition,
+# independants, pour que le NOM du job rouge designe exactement ce qui manque.
 
 on:
   push:
@@ -24,24 +12,41 @@ env:
   DEPLOY_PATH: /home/acadenice/corentin_wakdo
 
 jobs:
-  probe:
+  c1-telechargement-client:
     runs-on: docker
     steps:
-      - name: Installer le client Docker
+      - name: Recuperer le client Docker
         run: |
           set -eu
           curl -fsSL https://download.docker.com/linux/static/stable/x86_64/docker-27.3.1.tgz \
             | tar xz --strip-components=1 -C /usr/local/bin docker/docker
           docker --version
 
-      - name: Condition 1 - le demon Docker de l hote repond
-        run: docker version --format 'serveur {{.Server.Version}}'
+  c2-socket-present:
+    runs-on: docker
+    steps:
+      - name: Le socket Docker de l hote est-il monte dans le job
+        run: test -S /var/run/docker.sock
 
-      - name: Condition 2+3 - conteneur frere, meme chemin, compose present
+  c3-demon-repond:
+    runs-on: docker
+    steps:
+      - name: Interroger le demon sans client, par le socket
         run: |
           set -eu
+          curl -sf --unix-socket /var/run/docker.sock http://localhost/version >/dev/null
+          echo "le demon repond"
+
+  c4-conteneur-frere-meme-chemin:
+    runs-on: docker
+    steps:
+      - name: Lancer un conteneur frere montant le repertoire de deploiement
+        run: |
+          set -eu
+          curl -fsSL https://download.docker.com/linux/static/stable/x86_64/docker-27.3.1.tgz \
+            | tar xz --strip-components=1 -C /usr/local/bin docker/docker
           docker run --rm \
             -v "$DEPLOY_PATH:$DEPLOY_PATH" \
             -w "$DEPLOY_PATH" \
             alpine:3 \
-            sh -c 'test -f docker-compose.prod.yml && test -d src && test -d db && echo "chemin de deploiement conforme"'
+            sh -c 'test -f docker-compose.prod.yml && test -d src && test -d db && echo conforme'
