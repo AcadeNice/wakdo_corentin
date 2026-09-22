@@ -38,23 +38,42 @@ Le MCT couvre :
 | Systeme | SYS | API interne / logique PHP |
 
 **Reference croisee MCD** : chaque operation reference des entites du MCD (section 14).
-Le MCT est coherent avec la machine a etats de `customer_order.status` :
+Le MCT est coherent avec la machine a etats de `customer_order.status`, realignee le
+2026-07-31 sur le code livre (detail transition par transition : `mlt.md` section 14) :
 
 ```
-pending_payment -> paid -> delivered
-      |              |
-      +--------------+-----------> cancelled (from any non-terminal state)
+pending_payment -> preparing -> ready -> delivered
+      |               |            |
+      +---------------+------------+-----------> cancelled (from any non-terminal state)
 ```
 
-**Etats supprimes** (par rapport a v0.1) : `preparing` et `ready` sont retires.
-Justification : dans un contexte fast-food, l'affichage cuisine (KDS) est un systeme visuel ;
-le personnel lit le ticket et agit. L'unique geste du personnel est « delivrer ». Le KPI est
-le temps total `delivered_at - paid_at` (SLA approx. 10 min). Le code couleur du KDS est calcule a partir de
-`now - paid_at` ; aucun etat stocke supplementaire n'est requis.
+`paid` reste dans l'ENUM pour les commandes anterieures au realignement (aucun chemin de
+code actuel ne l'ecrit plus : l'encaissement pose directement `preparing`) ; `ready` est une
+etape optionnelle (`DELIVER_ORDER` accepte aussi bien `paid`, `preparing` que `ready`).
 
-**Operations supprimees** (par rapport a v0.1) : `MARK_IN_PREPARATION` (`MARQUER_EN_PREPARATION`)
-et `MARK_READY` (`MARQUER_PRETE`) sont retirees car leurs etats intermediaires n'existent plus.
-`DELIVER_ORDER` devient la seule action faisant avancer le statut pour le personnel comptoir/drive.
+**Etats de preparation reintroduits** (retour oral #8, migration `0009_order_prep_states.sql`) :
+`preparing` et `ready` ne sont PAS supprimes — ils sont livres. La v0.2 de ce document
+(juin 2026) les avait retires ; le retour d'usage a montre qu'un KDS purement visuel ne
+suffisait pas, l'equipe voulant voir et faire avancer l'etat de preparation plutot que de
+deduire un delai depuis `paid_at`. La migration ajoute `preparing`/`ready` a l'ENUM
+`customer_order.status` et les horodatages `preparing_at`/`ready_at` (memes conventions que
+`paid_at`/`delivered_at`). Le KPI `delivered_at - paid_at` (SLA approx. 10 min) reste mesure
+de bout en bout. Detail complet : `mlt.md` section 14 (realignee le 2026-07-31) et
+`docs/uml/state-commande.md`.
+
+**Operations** : `MARK_IN_PREPARATION` reste absente comme operation distincte —
+l'encaissement pose directement `preparing` (`paid_at` et `preparing_at` dans la meme
+transaction), sans etape manuelle intermediaire. `MARK_READY`, en revanche, est reintroduite :
+le personnel (ecran cuisine ou comptoir/drive) peut marquer une commande `paid`/`preparing`
+comme `ready` avant la remise, geste routinier sans PIN et sans mouvement de stock.
+`DELIVER_ORDER` n'est donc plus la seule action faisant avancer le statut pour le personnel ;
+elle reste la seule action vers l'etat terminal `delivered` (condition mise a jour en 6.1).
+
+*Hors perimetre de cette correction* : les operations 3.3 (CREATE_ORDER) et 4.1
+(CREATE_COUNTER_ORDER) plus bas decrivent encore l'encaissement comme un temps unique
+`pending_payment -> paid` ; le comportement reel (deux appels HTTP pour le kiosk, transition
+directe vers `preparing`) est documente dans `mlt.md` 3.3 POST-1 / 3.3bis / section 14 et
+n'est pas realigne ici.
 
 **Couche security-by-design (2026-06-11)** : deux operations sont ajoutees — `RESET_PASSWORD` (12.3)
 et `ERASE_USER_PII` (10.5, anonymisation RGPD). Un sous-ensemble d'operations est **protege par PIN** :
@@ -192,8 +211,8 @@ Pour chaque operation, le document fournit :
 | **Synchronisation** | Aucune |
 | **Condition** | L'acteur est authentifie et detient la permission `order.read`. |
 | **Operation** | LIST_ORDERS_DISPLAY |
-| **Description** | Lecture des lignes `customer_order` avec statut `paid`, filtrees par les sources visibles selon le role de l'acteur (depuis `role_visible_source`) : la cuisine voit toutes les sources ; le comptoir voit kiosk+counter ; le drive voit drive. Les commandes sont triees par `paid_at` ascendant (les plus anciennes en premier). Pour chaque commande, afficher : numero de commande, source, contenu (`order_item` avec `label_snapshot`, `quantity`, format, selections de slots, modificateurs d'ingredient). La couleur KDS est calculee a partir de `now - paid_at` par rapport au seuil de SLA (approx. 10 min), non stockee. Le personnel cuisine n'effectue aucune transition de statut — c'est une operation en lecture seule. |
-| **Entites MCD** | R: `customer_order` (status=`paid`), `order_item`, `order_item_selection`, `order_item_modifier`, `role_visible_source` |
+| **Description** | Lecture des lignes `customer_order` avec statut `paid`, `preparing` ou `ready` (file active de preparation — `OrderQueryRepository::paidQueue`), filtrees par les sources visibles selon le role de l'acteur (depuis `role_visible_source`) : la cuisine voit toutes les sources ; le comptoir voit kiosk+counter ; le drive voit drive. Les commandes sont triees par `paid_at` ascendant (les plus anciennes en premier). Pour chaque commande, afficher : numero de commande, source, contenu (`order_item` avec `label_snapshot`, `quantity`, format, selections de slots, modificateurs d'ingredient). La couleur KDS est calculee a partir de `now - paid_at` par rapport au seuil de SLA (approx. 10 min), non stockee. LIST_ORDERS_DISPLAY elle-meme est en lecture seule ; le meme ecran cuisine expose separement l'operation `MARK_READY` (section 13), qui, elle, ecrit une transition de statut. |
+| **Entites MCD** | R: `customer_order` (status IN (`paid`,`preparing`,`ready`)), `order_item`, `order_item_selection`, `order_item_modifier`, `role_visible_source` |
 | **Resultat** | Liste d'affichage de preparation montree, triee par heure de paiement ascendante |
 
 ---
@@ -204,13 +223,13 @@ Pour chaque operation, le document fournit :
 
 | Champ | Valeur |
 |-------|-------|
-| **Evenements declencheurs** | 1. La commande est au statut `paid` AND 2. Le personnel comptoir ou drive clique sur « Livre » |
+| **Evenements declencheurs** | 1. La commande est au statut `paid`, `preparing` ou `ready` AND 2. Le personnel comptoir ou drive clique sur « Livre » |
 | **Acteur** | COUNTER ou DRIVE |
 | **Synchronisation** | AND |
-| **Condition** | La commande a le statut `paid`. L'acteur detient la permission `order.deliver`. Le role de l'acteur est coherent avec la source de la commande (le personnel comptoir traite les commandes kiosk+counter ; le personnel drive traite les commandes drive — filtre par role_visible_source). |
+| **Condition** | La commande a le statut `paid`, `preparing` ou `ready`. L'acteur detient la permission `order.deliver`. Le role de l'acteur est coherent avec la source de la commande (le personnel comptoir traite les commandes kiosk+counter ; le personnel drive traite les commandes drive — filtre par role_visible_source). |
 | **Operation** | DELIVER_ORDER |
-| **Description** | Transition en geste unique `paid -> delivered`. Positionne `delivered_at = NOW()`. La commande passe en historique. Cette operation remplace la sequence en deux etapes de v0.1 (marquer-prete puis livrer) ; la confirmation visuelle de la cuisine (KDS) suffit avant cette action. |
-| **Entites MCD** | W: `customer_order` (UPDATE status `paid` -> `delivered`, `delivered_at = NOW()`) |
+| **Description** | Transition en geste unique vers `delivered`, depuis `paid`, `preparing` ou `ready`. Positionne `delivered_at = NOW()`. La commande passe en historique. Passer par `ready` est optionnel (MARK_READY, section 13) : la confirmation visuelle de la cuisine suffit avant cette action, avec ou sans ce jalon intermediaire. |
+| **Entites MCD** | W: `customer_order` (UPDATE status `paid`/`preparing`/`ready` -> `delivered`, `delivered_at = NOW()`) |
 | **Resultat** | Commande au statut `delivered`, cycle de vie complet |
 
 ---
@@ -544,7 +563,10 @@ Pour chaque operation, le document fournit :
 
 ## 13. Machine a etats — customer_order.status
 
-Recapitulatif des transitions couvertes par les operations MCT.
+Recapitulatif des transitions couvertes par les operations MCT. **Realigne le 2026-07-31**
+sur le code livre (migration `0009_order_prep_states.sql`) ; detail transition par
+transition (conditions SQL, protection de concurrence, horodatages) dans `mlt.md` section 14
+et `docs/uml/state-commande.md`.
 
 ```
                [CUSTOMER / COUNTER / DRIVE]
@@ -552,35 +574,54 @@ Recapitulatif des transitions couvertes par les operations MCT.
                CREATE_COUNTER_ORDER
                       |
                       v
-           [ pending_payment ]  (order composed, payment pending)
+           [ pending_payment ]  (commande composee, encaissement en attente)
                       |
-    [CUSTOMER / COUNTER / DRIVE] payment confirmed
-    (atomic within CREATE_ORDER / CREATE_COUNTER_ORDER)
+    [CUSTOMER / COUNTER / DRIVE] encaissement confirme
+    (paid_at ET preparing_at poses ensemble)
                       |
                       v
-                 [ paid ]
+                [ preparing ]
+                      |
+      [personnel] MARK_READY (optionnelle, sans PIN)
+                      |
+                      v
+                 [ ready ]
                       |
       [COUNTER / DRIVE] DELIVER_ORDER
                       |
                       v
                [ delivered ]  (terminal, cannot be cancelled)
 
+  Raccourci : DELIVER_ORDER accepte aussi directement `preparing` (MARK_READY est
+  optionnelle) et, pour une commande anterieure au 2026-07-31, `paid`.
 
-  From pending_payment / paid:
+
+  Depuis pending_payment / preparing / ready (+ paid, statut historique) :
   [COUNTER, DRIVE, or ADMIN] CANCEL_ORDER
                       |
                       v
                [ cancelled ]  (terminal)
 ```
 
-**Note sur la transition `pending_payment -> paid`** : dans le contexte RNCP, le paiement est
-remplace par la saisie du numero de commande par le client (kiosk) ou par la validation du personnel
-(comptoir/drive). La transition est atomique au sein de CREATE_ORDER et CREATE_COUNTER_ORDER.
-Le statut `pending_payment` n'est pas observable en dehors de la transaction.
+**Note sur la transition `pending_payment -> preparing`** : dans le contexte RNCP, le
+paiement est remplace par la saisie du numero de commande (kiosk) ou par la validation du
+personnel (comptoir/drive). Pour le kiosk, creation et encaissement sont deux appels HTTP
+distincts (`mlt.md` 3.3 POST-1, 3.3bis) : `pending_payment` EST observable entre les deux
+appels (la commande reste modifiable — F18 — et peut expirer, purge documentee en `mlt.md`
+13.6). L'encaissement pose `paid_at` et `preparing_at` dans la meme transaction et fait
+passer directement a `preparing` : `paid` n'est pas observe sur ce chemin.
 
-**Supprime de v0.1** : etats `preparing` et `ready` ; operations `MARK_IN_PREPARATION` et `MARK_READY`.
-Le personnel cuisine a une vue en lecture seule des commandes `paid` (LIST_ORDERS_DISPLAY). L'unique
-action de livraison (DELIVER_ORDER) condense la sequence en trois etapes de v0.1 en un seul geste.
+**`paid` : statut historique.** Il reste dans l'ENUM et dans les gardes `status IN (...)`
+pour les commandes creees avant le realignement du 2026-07-31 ; aucun chemin de code actuel
+ne l'ecrit plus. Les operations 3.3/4.1 plus haut dans ce document, qui decrivent encore une
+transition `-> paid`, refletent ce comportement pre-realignement (voir la note de portee en
+section 1).
+
+**Reintroduit par rapport a la v0.2 (juin 2026)** : etats `preparing` et `ready` ; operation
+`MARK_READY`. `MARK_IN_PREPARATION` reste absente (l'encaissement pose `preparing`
+directement, sans etape manuelle). Le personnel cuisine garde une vue de lecture pour
+LIST_ORDERS_DISPLAY (domaine 5) mais peut, depuis le meme ecran, declencher `MARK_READY` ;
+`DELIVER_ORDER` reste reserve au personnel comptoir/drive (voir 6.1).
 
 ---
 

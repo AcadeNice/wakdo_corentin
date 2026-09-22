@@ -853,7 +853,7 @@ Pas d'horodatages. Table de jointure pure.
 customer_order (id, order_number, [idempotency_key], source, [#acting_user_id],
                 service_mode, [service_tag], status,
                 total_ht_cents, total_vat_cents, total_ttc_cents,
-                [paid_at], [delivered_at], [cancelled_at],
+                [paid_at], [preparing_at], [ready_at], [delivered_at], [cancelled_at],
                 created_at, updated_at)
 
   PK  : id
@@ -879,11 +879,13 @@ customer_order (id, order_number, [idempotency_key], source, [#acting_user_id],
 | `acting_user_id` | INT UNSIGNED | YES | FK -> user ; personnel counter/drive sous PIN ; NULL pour kiosk |
 | `service_mode` | ENUM('dine_in','takeaway','drive') | NO | Mode de consommation (stats uniquement, pas de role fiscal) |
 | `service_tag` | VARCHAR(20) | YES | Numero de chevalet du service en salle (`dine_in`), saisi a la borne ; NULL pour takeaway/drive (migration 0003) |
-| `status` | ENUM('pending_payment','paid','delivered','cancelled') NOT NULL DEFAULT 'pending_payment' | NO | Machine a 4 etats |
+| `status` | ENUM('pending_payment','paid','preparing','ready','delivered','cancelled') NOT NULL DEFAULT 'pending_payment' | NO | Machine a 6 etats (migration 0009) |
 | `total_ht_cents` | INT UNSIGNED | NO | Snapshot du total HT |
 | `total_vat_cents` | INT UNSIGNED | NO | Snapshot du montant de TVA |
 | `total_ttc_cents` | INT UNSIGNED | NO | Total TTC ; doit egaler HT + TVA |
-| `paid_at` | DATETIME | YES | Horodatage de la transition vers `paid` |
+| `paid_at` | DATETIME | YES | Horodatage de l'encaissement (transition vers `paid`/`preparing`) |
+| `preparing_at` | DATETIME | YES | Horodatage de la transition vers `preparing` (migration 0009), pose avec `paid_at` dans la meme transaction |
+| `ready_at` | DATETIME | YES | Horodatage de la transition vers `ready` (migration 0009), optionnelle |
 | `delivered_at` | DATETIME | YES | Horodatage de la transition vers `delivered` |
 | `cancelled_at` | DATETIME | YES | Horodatage de l'annulation |
 | `created_at` | DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP | NO | Utilise comme base de `service_day` |
@@ -906,8 +908,14 @@ Les commandes kiosk restent anonymes par conception. `stock_movement.user_id` co
 de stock. `idempotency_key` (UNIQUE, nullable) deduplique un `POST /api/orders` reessaye
 (plusieurs NULL autorises par l'index UNIQUE, donc les chemins legacy non idempotents sont toleres).
 
-**Machine a 4 etats** : `pending_payment -> paid -> delivered` (+ `cancelled`). Les etats `preparing`
-et `ready` sont abandonnes (decision D4). KPI : `delivered_at - paid_at` (SLA cible ~10 min).
+**Machine a 6 etats** (realignee le 2026-07-31, retour oral #8, migration
+`0009_order_prep_states.sql`) : `pending_payment -> preparing -> ready -> delivered` (+
+`cancelled`). La decision D4 (juin 2026) avait abandonne `preparing`/`ready` ; le retour
+d'usage les a fait reintroduire. `paid` reste dans l'ENUM comme statut historique (aucun
+chemin de code actuel ne l'ecrit plus, l'encaissement posant directement `preparing`) ;
+`ready` est optionnel (`DELIVER_ORDER` accepte `paid`, `preparing` ou `ready`). KPI :
+`delivered_at - paid_at` (SLA cible ~10 min). Detail transition par transition : `mlt.md`
+section 14, `docs/uml/state-commande.md`.
 
 **Calcul de `service_day`** (utilise dans les requetes de stats — PAS une colonne stockee) :
 ```sql
@@ -1054,7 +1062,7 @@ stock_movement (id, #ingredient_id, movement_type, delta,
 |---|---|---|---|
 | `id` | INT UNSIGNED AUTO_INCREMENT | NO | PK |
 | `ingredient_id` | INT UNSIGNED | NO | FK -> ingredient |
-| `movement_type` | ENUM('sale','cancellation','restock','inventory_correction') | NO | Nature du mouvement |
+| `movement_type` | ENUM('sale','cancellation','restock','inventory_correction','adjustment') | NO | Nature du mouvement |
 | `delta` | INT | NO | Changement signe : negatif pour consommation, positif pour reapprovisionnement/annulation/correction |
 | `order_id` | INT UNSIGNED | YES | FK -> customer_order ; non-null pour `sale` et `cancellation` |
 | `user_id` | INT UNSIGNED | YES | FK -> user ; null pour les decrements de vente automatises |
@@ -1070,6 +1078,11 @@ mouvement restent avec `order_id = NULL`. Le journal d'audit est preserve ; seul
 
 **Regle d'immuabilite** : aucun UPDATE ni DELETE au niveau applicatif. Les corrections sont de nouvelles lignes
 avec `movement_type = 'inventory_correction'` et un `delta` signe.
+
+**`adjustment`** (migration `0010_stock_movement_adjustment.sql`) : correction libre et
+signee du stock (delta +/-), distincte de `inventory_correction` (comptage physique absolu)
+et de `restock` (hausse en packs, sans PIN). PIN equipier obligatoire (RG-T13) ; plafonnee a
+`stock_capacity` comme les autres ecritures de stock.
 
 Pas de `updated_at`. Table immuable append-only.
 
@@ -1300,7 +1313,7 @@ et que toutes les tables se rattachent au MCD.
 | `role_visible_source` (C12) | `role_visible_source` (4.12) | Table de jointure (PK composite) | Nouvelle entite (v0.2) |
 | `permission` (C13) | `permission` (4.13) | entite 1:1 | |
 | `role_permission` (C14) | `role_permission` (4.14) | Table de jointure (PK composite) | |
-| `customer_order` (C15) | `customer_order` (4.15) | entite 1:1 | Renommee depuis `commande` ; machine a 4 etats ; horodatages de phase ; additif post-v0.3 : `service_tag` (0003) |
+| `customer_order` (C15) | `customer_order` (4.15) | entite 1:1 | Renommee depuis `commande` ; machine a 6 etats (migration 0009 : `preparing`/`ready`) ; horodatages de phase ; additif post-v0.3 : `service_tag` (0003) |
 | `order_item` (C16) | `order_item` (4.16) | entite 1:1 | Nouveau : `format`, `vat_rate_snapshot` ; CHECK de polymorphisme |
 | `order_item_selection` (C17) | `order_item_selection` (4.17) | entite 1:1 | Nouvelle entite (v0.2) |
 | `order_item_modifier` (C18) | `order_item_modifier` (4.18) | entite 1:1 | Nouvelle entite (v0.2) |

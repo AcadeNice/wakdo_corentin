@@ -302,18 +302,21 @@ Transaction client : 1 commande = 1 panier valide a un instant donne.
 | `acting_user_id` | INT UNSIGNED | YES | NULL | FK -> `user(id)`, ON DELETE SET NULL | personnel back-office (counter/drive) ayant cree la commande, capture sous PIN. NULL pour `kiosk` (anonyme). Imputabilite ciblee sans imposer un login par personne sur la borne. Voir note 13 |
 | `service_mode` | ENUM('dine_in','takeaway','drive') | NO | — | — | mode de consommation, conserve pour les stats/KPI uniquement. Aucun role fiscal (voir note 9). La source `drive` implique le service_mode `drive` (contrainte croisee appliquee au niveau applicatif). |
 | `service_tag` | VARCHAR(20) | YES | NULL | — | numero de chevalet pour le service EN SALLE (migration 0003), saisi a la borne quand le client choisit `dine_in` ; permet d'apporter la commande a la bonne table (B4). NULL pour `takeaway` / `drive`. Voir note 14 |
-| `status` | ENUM('pending_payment','paid','delivered','cancelled') | NO | 'pending_payment' | INDEX | machine a 4 etats : `pending_payment -> paid -> delivered` (+ `cancelled`). Voir note 6. |
+| `status` | ENUM('pending_payment','paid','preparing','ready','delivered','cancelled') | NO | 'pending_payment' | INDEX | machine a 6 etats (migration `0009_order_prep_states.sql`, retour oral #8) : `pending_payment -> preparing -> ready -> delivered` (+ `cancelled`). `paid` reste dans l'ENUM comme statut historique (aucun chemin de code actuel ne l'ecrit plus ; `ready` est optionnel). Voir note 6. |
 | `total_ht_cents` | INT UNSIGNED | NO | — | CHECK >= 0 | total hors TVA, snapshot a la validation de la commande |
 | `total_vat_cents` | INT UNSIGNED | NO | — | CHECK >= 0 | montant de TVA, snapshot |
 | `total_ttc_cents` | INT UNSIGNED | NO | — | CHECK > 0 | total TTC ; doit egaler total_ht_cents + total_vat_cents (verifie a la couche MLT) |
-| `paid_at` | DATETIME | YES | NULL | — | timestamp de la transition vers `paid` (NULL avant paiement) |
+| `paid_at` | DATETIME | YES | NULL | — | timestamp de la transition vers `paid`/`preparing` (encaissement ; NULL avant paiement) |
+| `preparing_at` | DATETIME | YES | NULL | — | timestamp de la transition vers `preparing` (migration 0009), posee dans la meme transaction que `paid_at`. Voir note 6. |
+| `ready_at` | DATETIME | YES | NULL | — | timestamp de la transition vers `ready` (migration 0009), optionnelle. Voir note 6. |
 | `delivered_at` | DATETIME | YES | NULL | — | timestamp de la transition vers `delivered` (NULL avant la remise) |
 | `cancelled_at` | DATETIME | YES | NULL | — | timestamp d'annulation (NULL si non annulee) |
 | `created_at` | DATETIME | NO | CURRENT_TIMESTAMP | INDEX | utilise pour les agregations de stats en direct ; sert aussi de base a `service_day` |
 | `updated_at` | DATETIME | NO | CURRENT_TIMESTAMP ON UPDATE | — | audit |
 
 **Retire de v0.1** : `tva_taux_pourmille` (deplace au niveau ligne — `order_item.vat_rate_snapshot`),
-`paye_a` (renomme `paid_at`). Etats machine `preparing` et `ready` retires (voir note 6).
+`paye_a` (renomme `paid_at`). Etats machine `preparing`/`ready` retires en v0.2 puis
+**reintroduits par la migration 0009** (voir note 6) : ne plus les traiter comme retires.
 
 **Calcul de `service_day`** (regroupement KPI) :
 ```
@@ -555,7 +558,7 @@ Journal d'audit append-only de tous les changements de stock par ingredient.
 |---|---|---|---|---|---|
 | `id` | INT UNSIGNED | NO | AUTO_INCREMENT | PK | |
 | `ingredient_id` | INT UNSIGNED | NO | — | FK -> `ingredient(id)`, ON DELETE RESTRICT | ingredient affecte |
-| `movement_type` | ENUM('sale','cancellation','restock','inventory_correction') | NO | — | INDEX | nature du mouvement |
+| `movement_type` | ENUM('sale','cancellation','restock','inventory_correction','adjustment') | NO | — | INDEX | nature du mouvement |
 | `delta` | INT | NO | — | — | changement signe : negatif pour la consommation (vente), positif pour reapprovisionnement/annulation/correction |
 | `order_id` | INT UNSIGNED | YES | NULL | FK -> `customer_order(id)`, ON DELETE SET NULL | commande liee pour les mouvements `sale` et `cancellation` ; NULL pour restock/correction |
 | `user_id` | INT UNSIGNED | YES | NULL | FK -> `user(id)`, ON DELETE SET NULL | utilisateur ayant declenche le mouvement (NULL pour les decrements de vente automatises) |
@@ -573,6 +576,10 @@ Journal d'audit append-only de tous les changements de stock par ingredient.
 - `restock` : le manager ou l'admin enregistre une livraison (`+= N * pack_size`).
 - `inventory_correction` : comptage physique matin/soir ; le systeme enregistre l'ecart
   (delta = reel - theorique).
+- `adjustment` (migration `0010_stock_movement_adjustment.sql`) : correction libre et signee
+  (delta +/-) hors comptage physique, plafonnee a `stock_capacity`. PIN equipier obligatoire
+  (RG-T13, comme l'inventaire) : une baisse non attribuee masquerait de la demarque. Distinct
+  de `restock` (hausse en packs, sans PIN) et de `inventory_correction` (comptage absolu).
 
 **Volume** : ~5-15 mouvements par commande sur tous les ingredients ; un index sur
 `(ingredient_id, created_at)` est recommande pour les requetes d'historique par ingredient.
@@ -741,19 +748,27 @@ Les deux dimensions sont independantes pour `kiosk` et `counter` (un client born
 `dine_in` ou `takeaway`). `drive` est le seul cas ou les deux dimensions s'alignent :
 `source=drive` implique `service_mode=drive`. Cette contrainte croisee est verifiee au niveau applicatif.
 
-### Note 6 — Machine a 4 etats reduite
+### Note 6 — Machine a 6 etats (preparing/ready reintroduits par la migration 0009)
 
 v0.1 avait 6 etats (`pending_payment`, `paid`, `preparing`, `ready`, `delivered`, `cancelled`).
-v0.2 reduit a 4 etats : `pending_payment -> paid -> delivered` (+ `cancelled`).
+v0.2 (juin 2026) avait reduit a 4 etats : `pending_payment -> paid -> delivered` (+ `cancelled`),
+rationale alors : dans un contexte fast-food, l'affichage cuisine (KDS) est un systeme visuel —
+le personnel voit le ticket et agit ; `preparing`/`ready` ajoutaient de la complexite sans valeur
+metier proportionnelle.
 
-Rationale (Decision 4 de `revue-alignement-p1.md` §7) : dans un contexte fast-food, l'affichage
-cuisine (KDS) est un systeme visuel — le personnel voit le ticket et agit. `preparing` et `ready` etaient
-des etats intermediaires qui ajoutaient de la complexite sans valeur metier proportionnelle. L'unique
-action cuisine est `deliver` (le personnel counter/drive remet la commande), fusionnant
-`preparing + ready + delivered` en un seul geste. Le KPI est le temps total : `delivered_at - paid_at`
-(SLA ~10 min). Le codage couleur du KDS est calcule depuis `now - paid_at`, sans etat stocke supplementaire.
+**Reintroduits (retour oral #8, migration `0009_order_prep_states.sql`, 2026-07-31)** : le
+retour d'usage a montre que la reduction a 4 etats etait trop agressive — l'equipe voulait
+voir et faire avancer l'etat de preparation, pas seulement deduire un delai depuis `paid_at`.
+Machine actuelle : `pending_payment -> preparing -> ready -> delivered` (+ `cancelled`).
+`paid` reste dans l'ENUM comme statut historique (guards `status IN (...)` pour les commandes
+anterieures au realignement) ; aucun chemin de code actuel ne l'ecrit plus, l'encaissement
+posant directement `preparing`. `ready` est optionnel : `DELIVER_ORDER` accepte aussi bien
+`paid`, `preparing` que `ready`. Le KPI de bout en bout `delivered_at - paid_at` (SLA ~10 min)
+reste mesure. Detail transition par transition : `mlt.md` section 14, `docs/uml/state-commande.md`.
 
-**Etats et timestamps retires** : `preparing_at`, `ready_at` ne sont pas stockes.
+**Etats et timestamps stockes** : `preparing_at`, `ready_at` sont bien stockes (colonnes
+ajoutees par la migration 0009, memes conventions que `paid_at`/`delivered_at`) — voir la
+table d'attributs ci-dessus.
 
 ### Note 7 — Cascade de format Normal / Maxi
 

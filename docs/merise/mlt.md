@@ -769,8 +769,8 @@ l'encaissement met directement en preparation. Il subsiste dans l'enumeration et
 gardes `IN (...)` pour les commandes creees avant ce changement (11 lignes en base de
 demonstration au 2026-07-31). Le retirer casserait ces lignes sans gain.
 
-**Ecart connu, hors perimetre de cette section** : `dictionary.md` 3.10, `mld.md` et
-`mcd.md` decrivent encore une machine a 4 etats. Dette a traiter dans une passe dediee.
+**Ecart resorbe le 2026-09-22** : `dictionary.md` 3.10, `mld.md`, `mcd.md` et `mct.md`
+decrivent desormais la meme machine que cette section. La dette est soldee.
 
 ---
 
