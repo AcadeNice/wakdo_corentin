@@ -1,73 +1,51 @@
 name: Probe canal
-# Sonde TEMPORAIRE, a supprimer une fois la reponse obtenue.
-# Le deploiement lance a la main depuis l'hote FONCTIONNE (commit 01adc9a servi
-# en ligne). Le meme canal echoue depuis un job. La cle est bonne (le job
-# cle-de-deploiement est vert) et DEPLOY_USER vaut bien corentin. Restent deux
-# hypotheses, testees ici separement, le nom du job rouge donnant la reponse.
+# Sonde TEMPORAIRE. Trois questions booleennes : le nom du job rouge repond.
+# Contexte : la cle d'hote de stark est identique depuis localhost, 127.0.0.1 et
+# 172.17.0.1, et un seul serveur SSH ecoute. L'epinglage est donc juste cote hote,
+# mais un job le refuse. On cherche ou est le desaccord.
 
 on:
   push:
     branches: ['ci/**']
 
-jobs:
-  p1-la-cle-d-hote-est-elle-acceptee:
-    runs-on: docker
-    steps:
-      - name: Verifier UNIQUEMENT la cle d hote, sans authentification
-        env:
-          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
-        run: |
-          set -eu
-          apt-get update -qq >/dev/null
-          apt-get install -y -qq openssh-client iproute2 >/dev/null
-          install -d -m 700 ~/.ssh
-          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
-          HOTE="$(ip route show default | awk '/default/ {print $3; exit}')"
-          echo "hote vu depuis le job : $HOTE"
-          set +e
-          SORTIE=$(ssh -o StrictHostKeyChecking=yes -o BatchMode=yes \
-                       -o PreferredAuthentications=none -o ConnectTimeout=10 \
-                       "corentin@$HOTE" 2>&1)
-          set -e
-          echo "$SORTIE"
-          # "Permission denied" = la cle d'hote a ete acceptee, seule l'authentification
-          # a ete refusee (c'est attendu : on a desactive toute methode).
-          if echo "$SORTIE" | grep -q "Permission denied"; then
-            echo "la cle d hote est acceptee"; exit 0
-          fi
-          echo "la cle d hote est REFUSEE ou l hote est injoignable" >&2
-          exit 1
+env:
+  CLE_HOTE_ATTENDUE: "AAAAC3NzaC1lZDI1NTE5AAAAIExEMKL3ZKHil4u3+9r9LXTElp8hjHisHDXb/zQD8kCb"
 
-  p2-l-authentification-passe-t-elle:
+jobs:
+  g1-la-passerelle-est-bien-l-hote:
     runs-on: docker
     steps:
-      - name: Tenter l authentification sans laisser la commande s executer
-        env:
-          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
-          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+      - name: La route par defaut mene-t-elle a 172.17.0.1
+        run: |
+          set -eu
+          apt-get update -qq >/dev/null
+          apt-get install -y -qq iproute2 >/dev/null
+          GW="$(ip route show default | awk '/default/ {print $3; exit}')"
+          echo "passerelle = $GW"
+          test "$GW" = "172.17.0.1"
+
+  g2-la-machine-jointe-presente-la-bonne-cle:
+    runs-on: docker
+    steps:
+      - name: Relever la cle d hote depuis le job et la comparer
         run: |
           set -eu
           apt-get update -qq >/dev/null
           apt-get install -y -qq openssh-client iproute2 >/dev/null
-          install -d -m 700 ~/.ssh
-          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_deploy
-          chmod 600 ~/.ssh/id_deploy
-          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
-          HOTE="$(ip route show default | awk '/default/ {print $3; exit}')"
-          echo "utilisateur cible : ${DEPLOY_USER:-VIDE} sur $HOTE"
-          test -n "${DEPLOY_USER:-}"
-          set +e
-          # -O check interroge la connexion sans ouvrir de session : l'authentification
-          # a lieu, mais la commande forcee ne s'execute pas. On evite ainsi de
-          # declencher un deploiement depuis une sonde.
-          SORTIE=$(ssh -i ~/.ssh/id_deploy -o IdentitiesOnly=yes \
-                       -o StrictHostKeyChecking=yes -o BatchMode=yes \
-                       -o ConnectTimeout=15 -o SessionType=none \
-                       "$DEPLOY_USER@$HOTE" 2>&1)
-          CODE=$?
-          set -e
-          echo "sortie ssh (code $CODE) : $SORTIE"
-          if [ "$CODE" -eq 0 ]; then echo "authentification acceptee"; exit 0; fi
-          echo "authentification REFUSEE" >&2
-          exit 1
+          GW="$(ip route show default | awk '/default/ {print $3; exit}')"
+          VUE="$(ssh-keyscan -t ed25519 -T 8 "$GW" 2>/dev/null | awk '{print $3}' | head -1)"
+          echo "vue depuis le job : ${VUE:-AUCUNE}"
+          test "$VUE" = "$CLE_HOTE_ATTENDUE"
+
+  g3-le-secret-contient-la-bonne-cle-d-hote:
+    runs-on: docker
+    steps:
+      - name: Comparer le secret a la cle attendue
+        env:
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -eu
+          DANS_SECRET="$(printf '%s' "$DEPLOY_KNOWN_HOSTS" | awk '{print $3}' | head -1)"
+          echo "longueur du secret : $(printf '%s' "$DEPLOY_KNOWN_HOSTS" | wc -c) caracteres"
+          echo "motif d hote declare : $(printf '%s' "$DEPLOY_KNOWN_HOSTS" | awk '{print $1}' | head -1)"
+          test "$DANS_SECRET" = "$CLE_HOTE_ATTENDUE"
