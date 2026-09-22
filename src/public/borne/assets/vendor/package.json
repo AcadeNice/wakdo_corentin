@@ -1,4 +1,0 @@
-{
-    "//": "Scope ESM pour Node (tests) sur les librairies vendues telles que publiees par leur registre (dist ESM native, export/import) ; le navigateur les charge par import statique independamment de ce fichier. Meme convention que assets/js/package.json et tests/js/package.json (pas de type:module a la racine).",
-    "type": "module"
-}
