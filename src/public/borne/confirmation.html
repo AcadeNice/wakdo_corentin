@@ -12,6 +12,9 @@
 </head>
 <body class="confirmation-page">
 
+    <!-- Lien d'evitement (RGAA Cr 1.e.11) : premier element focalisable de l'ecran. -->
+    <a class="skip-link" href="#main-content">Aller au contenu</a>
+
     <!--
         confirmation.html — Order confirmed screen.
         Order number: "WK-" + Date.now().toString(36).toUpperCase()
@@ -26,7 +29,7 @@
         >
     </header>
 
-    <main class="confirmation-main" aria-label="Confirmation de commande">
+    <main class="confirmation-main" id="main-content" aria-label="Confirmation de commande">
 
         <div class="confirmation-banner" role="status" aria-live="polite">
 

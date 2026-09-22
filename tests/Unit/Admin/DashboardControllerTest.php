@@ -399,4 +399,26 @@ final class DashboardControllerTest extends TestCase
         self::assertStringContainsString('&amp; co', $body);
         self::assertStringNotContainsString('Admin <b>', $body);
     }
+
+    public function testShellHasSkipLinkFaviconAndDyslexiaToggleBeforeMainLandmark(): void
+    {
+        // Audit Bloc 1 : parite d'accessibilite back-office. Le gabarit (layout.php)
+        // porte desormais un lien d'evitement (Cr 1.e.11) en tout premier element
+        // focalisable, un favicon (absent avant ce lot) et la bascule OpenDyslexic
+        // reutilisee de la borne (assets/js/a11y.js, meme fichier, pas une copie).
+        $body = $this->controller($this->authedSession(), $this->authedAdminDb())->index()->body();
+
+        self::assertStringContainsString('<a class="skip-link" href="#main-content">Aller au contenu</a>', $body);
+        self::assertStringContainsString('<main class="content" id="main-content">', $body);
+        self::assertStringContainsString('<link rel="icon" type="image/svg+xml" href="/assets/images/favicon.svg">', $body);
+        self::assertStringContainsString('<script type="module" src="/assets/js/a11y.js"></script>', $body);
+
+        // Position, pas seulement presence : le critere exige le PREMIER element
+        // focalisable, donc le lien doit preceder la topbar dans le HTML rendu.
+        $skipPos = strpos($body, 'skip-link');
+        $topbarPos = strpos($body, 'class="topbar"');
+        self::assertNotFalse($skipPos);
+        self::assertNotFalse($topbarPos);
+        self::assertLessThan($topbarPos, $skipPos, 'le lien d\'evitement precede la topbar');
+    }
 }
