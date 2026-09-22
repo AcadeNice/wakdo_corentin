@@ -7,12 +7,24 @@ Cr 1.c.3 par une reserve explicite : « les ratios de contraste exacts n'ont pas
 mesures avec un outil dedie ([UNVERIFIED], section 8) ». Le meme aveu revient en
 section 8, reserve n° 2, et dans les reserves consolidees du `README.md` du dossier.
 Ce document remplace cette reserve par **407 ratios de contraste mesures** sur 11 ecrans
-reels, et par le detail des 10 elements qui passent sous le seuil.
+reels, et par le detail des 10 elements qui passaient sous le seuil.
 
-**Avertissement de lecture.** Ce rapport n'est pas vert. Il liste 10 noeuds de texte
-sous le seuil WCAG AA, dont 9 dans le back-office. C'est volontaire : un audit qui ne
-trouve rien est un audit qu'on n'a pas fait. Chaque defaut est nomme, chiffre, et
-accompagne d'une correction calculee.
+**Avertissement de lecture.** Ce rapport documente **deux campagnes**, pas une seule :
+
+1. **Campagne AVANT correction** (sections 4 a 6, telles qu'ecrites au premier passage) :
+   10 noeuds de texte sous le seuil WCAG AA, dont 9 dans le back-office. C'est volontaire :
+   un audit qui ne trouve rien est un audit qu'on n'a pas fait. Chaque defaut y est nomme,
+   chiffre, et accompagne d'une correction calculee.
+2. **Campagne APRES correction** (section 5 bis) : les trois couleurs corrigees, puis le
+   meme outillage rejoue a l'identique sur les memes 11 ecrans. Resultat :
+   **0 violation, toutes gravites confondues**. La section 5 bis documente aussi un
+   ecart trouve en verifiant les autres usages des tokens corriges, traite avant meme
+   d'etre mesure par une campagne dediee.
+
+Les deux campagnes sont conservees telles quelles, l'une a la suite de l'autre : un
+dossier qui montre « 10 violations trouvees, voici les corrections, voici la remesure a
+0 » a plus de valeur devant un jury qu'un dossier qui n'aurait rien trouve des le premier
+passage, ou qu'un dossier qui aurait efface la trace du probleme initial.
 
 ---
 
@@ -83,16 +95,18 @@ tests/e2e/run-a11y.sh
 ### Etat de l'arbre au moment de la mesure
 
 Les ratios dependent du CSS servi. Pour que le chiffre reste verifiable, voici
-l'empreinte SHA-256 des fichiers determinants au moment de la campagne :
+l'empreinte SHA-256 des fichiers determinants, **avant** puis **apres** la correction de
+la section 5 bis (memes 16 premiers caracteres, memes fichiers) :
 
-| Fichier | SHA-256 (16 premiers caracteres) |
-|---|---|
-| `src/public/borne/assets/css/style.css` | `04c27ae6d22ab2e8` |
-| `src/public/admin/assets/css/admin.css` | `04cd4a9e8bf2d690` |
-| `src/app/Views/admin/layout.php` | `cfe3a277b0389ef8` |
+| Fichier | SHA-256 AVANT (16 premiers) | SHA-256 APRES (16 premiers) |
+|---|---|---|
+| `src/public/borne/assets/css/style.css` | `04c27ae6d22ab2e8` | `6450730a9fa4953a` |
+| `src/public/admin/assets/css/admin.css` | `04cd4a9e8bf2d690` | `c3421eef51250ca6` |
+| `src/app/Views/admin/layout.php` | `cfe3a277b0389ef8` | `cfe3a277b0389ef8` (inchange) |
 
-Toute modification de ces feuilles de style invalide les chiffres : relancer
-`tests/e2e/run-a11y.sh`.
+`layout.php` n'a pas bouge : seules les trois couleurs de token ont ete touchees, dans les
+deux feuilles de style. Toute modification future de ces feuilles invalide les chiffres :
+relancer `tests/e2e/run-a11y.sh`.
 
 ---
 
@@ -126,10 +140,12 @@ integralement construits en JavaScript ; leur balisage n'existe dans aucun fichi
 
 ---
 
-## 4. Resultats par ecran
+## 4. Resultats par ecran (campagne AVANT correction)
 
 Gravites `axe` : `critical` > `serious` > `moderate` > `minor`. Le comptage porte sur le
-**nombre de noeuds** en faute, pas sur le nombre de regles.
+**nombre de noeuds** en faute, pas sur le nombre de regles. Ce tableau est celui du
+**premier passage**, avant toute correction ; le resultat apres correction est en
+section 5 bis.
 
 | Ecran | critical | serious | moderate | minor | Regles en violation |
 |---|---|---|---|---|---|
@@ -160,7 +176,12 @@ Lecture honnete de ce tableau :
 
 ---
 
-## 5. Les 10 violations reelles, une par une
+## 5. Les 10 violations reelles, une par une (campagne AVANT correction)
+
+Cette section est le compte-rendu du **premier passage**, ecrit avant toute correction ;
+elle est conservee intacte comme trace du diagnostic. Chaque sous-section porte
+desormais un encart « Corrige » qui renvoie a la section 5 bis, ou la couleur reellement
+appliquee et sa remesure sont donnees.
 
 Toutes relevent de la meme regle `color-contrast` (`axe` : « Elements must meet minimum
 color contrast ratio thresholds »), rattachee a **WCAG 1.4.3 Contraste (minimum)**,
@@ -201,6 +222,11 @@ mesure attrape : le token etait calibre pour un fond, il est utilise sur un autr
    `--color-text-secondary` (`#4A4A4A`), mesure a **8,13:1 sur `#F5F5F5`**. Correction
    locale et sure, mais elle laisse le piege du token muted intact ailleurs.
 
+**Corrige.** L'option 1 a ete retenue telle quelle : `--color-text-muted` vaut
+desormais `#6E6E6E` dans `style.css`. Remesure par la campagne apres correction
+(section 5 bis) : **4,67:1** sur `#F5F5F5` (l'ecart de 0,01 avec le 4,68 calcule a la
+main vient de l'arrondi, comme deja observe section 2 entre `axe` et le calcul manuel).
+
 ### 5.2 Back-office — le « do » du nom de marque dans la barre laterale (4 ecrans)
 
 | | |
@@ -234,6 +260,22 @@ solution, verifiee avant d'etre proposee.
 d'`admin.css` (cherchez `var(--color-yellow-ink)`). Assombrir le token les modifie
 aussi ; c'est souhaitable pour le contraste, mais la relecture visuelle reste a faire.
 
+**Corrige, avec un ecart par rapport a la valeur proposee ici.** La relecture visuelle
+annoncee ci-dessus a ete faite, et elle a change la couleur finale. Les trois autres
+emplois sont deux icones decoratives (`.feed-ico`, du CSS mort — aucune trace dans le
+balisage ; `.pin-modal-ico`, une icone SVG `aria-hidden="true"`, sans texte, donc hors du
+perimetre de la regle `color-contrast`) et surtout **`.pos-tile__pastille`** : la lettre
+de repli (24 px, graisse 800) affichee sur les tuiles produit du POS comptoir/drive
+(`counter-order.js`, ecran hors des 11 audites ici) quand aucune image n'est disponible.
+Elle utilise le meme token, sur le fond `--color-yellow-soft` (`#FFF3D1`), plus sombre
+que le blanc. Calcul : `#B8860B` sur `#FFF3D1` -> **2,94:1**, sous le seuil 3:1 de
+texte large. La valeur proposee ici aurait donc corrige le « do » tout en laissant une
+combinaison differente, du meme token, sous le seuil — juste en dehors du perimetre
+mesure par cette campagne. Valeur retenue a la place : **`#AE7F09`**, qui tient sur les
+deux fonds reels : **3,60:1 sur blanc** (`do`) et **3,25:1 sur `#FFF3D1`** (pastille).
+Remesure par `axe` (section 5 bis) sur le « do » : **3,59:1** (la pastille n'est pas
+mesurable ici, son ecran n'etant pas dans le perimetre des 11).
+
 ### 5.3 Back-office — les sous-titres de page sur le fond gris (5 noeuds, 4 ecrans)
 
 | | |
@@ -260,27 +302,146 @@ sur le fond de page.
 **4,57:1 sur `#F5F5F5`**. C'est un assombrissement de 2 %, invisible a l'oeil,
 qui rend le token correct sur les trois fonds du back-office.
 
+**Corrige.** Valeur appliquee telle quelle. Remesure par la campagne apres correction
+(section 5 bis) : **4,57:1** sur `#F5F5F5`, **4,98:1** sur blanc, **4,76:1** sur
+`#F9FAFB` (les 0,01 d'ecart eventuels avec le calcul manuel sont le meme arrondi que
+partout ailleurs dans ce document).
+
 ### Recapitulatif des corrections
 
-| Perimetre | Token | Actuel | Propose | Gain mesure |
-|---|---|---|---|---|
-| borne | `--color-text-muted` | `#767676` (4,16 sur gris) | `#6E6E6E` | 4,68 sur gris |
-| admin | `--color-text-muted` | `#6B7280` (4,43 sur gris) | `#69707D` | 4,57 sur gris |
-| admin | `--color-yellow-ink` | `#C8920A` (2,77 sur blanc) | `#B8860B` | 3,25 sur blanc |
+| Perimetre | Token | Avant | Propose ici | **Applique** | Remesure `axe` |
+|---|---|---|---|---|---|
+| borne | `--color-text-muted` | `#767676` (4,16 sur gris) | `#6E6E6E` | `#6E6E6E` | 4,67 sur gris |
+| admin | `--color-text-muted` | `#6B7280` (4,43 sur gris) | `#69707D` | `#69707D` | 4,57 sur gris |
+| admin | `--color-yellow-ink` | `#C8920A` (2,77 sur blanc) | `#B8860B` | **`#AE7F09`** | 3,59 sur blanc |
 
-Ces trois valeurs sont calculees, pas estimees : la formule de contraste WCAG a ete
-appliquee a chaque candidat, du plus clair au plus fonce, et la valeur retenue est la
-moins assombrie qui franchisse le seuil avec de la marge. **Ces corrections ne sont pas
-appliquees dans ce lot** : ce document est un rapport de mesure, la modification des
-feuilles de style releve d'un lot distinct.
+Deux valeurs sur trois sont appliquees exactement comme calculees ici. La troisieme
+(`--color-yellow-ink`) diverge, pour la raison exposee en section 5.2 : la valeur
+proposee dans cette section ne tenait pas sur un usage du meme token situe hors du
+perimetre des 11 ecrans mesures (`.pos-tile__pastille`). Le detail chiffre des trois
+corrections, et le pourquoi de cet ecart, est en section 5 bis.
+
+Ces trois valeurs (colonne « Propose ici ») etaient calculees, pas estimees : la formule
+de contraste WCAG a ete appliquee a chaque candidat, du plus clair au plus fonce, et la
+valeur retenue est la moins assombrie qui franchisse le seuil avec de la marge.
+
+**Mise a jour.** Au moment d'ecrire cette section, les corrections n'etaient pas encore
+appliquees : ce document etait un rapport de mesure pur, la modification des feuilles de
+style etait renvoyee a un lot distinct. Ce lot distinct a depuis eu lieu : les trois
+couleurs sont appliquees dans le code (colonne « Applique » ci-dessus), et la campagne de
+remesure est en section 5 bis. Le paragraphe precedent est laisse tel quel pour la trace :
+il montre le calcul fait AVANT toute modification du code, donc sans biais de
+confirmation.
 
 ---
 
-## 6. Les ratios mesures, en clair
+## 5 bis. Campagne APRES correction — remesure a 0 violation
+
+Les trois couleurs de la section 5 (colonne « Applique » du recapitulatif) ont ete
+changees dans le code, puis `tests/e2e/run-a11y.sh` a ete rejoue a l'identique : meme
+outillage (`axe-core` 4.13.0, meme image Playwright v1.49.1-jammy), memes 11 ecrans,
+meme protocole (stack jetable, etat client seme, animations de la modale attendues avant
+mesure). Seul le CSS servi a change — voir les empreintes SHA-256 de la section 2.
+
+### Ce qui a ete trouve en verifiant les AUTRES usages des tokens corriges
+
+Avant de rejouer la mesure, chaque token corrige a ete relu dans son integralite (toutes
+ses regles CSS, tous les fonds sur lesquels il atterrit), pas seulement au point qui avait
+echoue — parce qu'un token sert a plusieurs endroits, et que le corriger a un seul endroit
+en laissant un autre casser serait une regression deguisee en correction :
+
+- **`--color-text-muted` (borne, `style.css`), 9 regles.** Sept ne sont pas mesurees par
+  cette campagne (etats non atteints par les 5 ecrans audites : bouton primaire desactive,
+  etapes du composeur non ouvertes ce jour-la, etc.). Chacune a ete relue : elles
+  atterrissent toutes sur `#FFFFFF` ou `#F5F5F5` (`--color-bg-page`), les deux fonds deja
+  verifies conformes pour `#6E6E6E`. Un cas merite d'etre signale par honnetete : la regle
+  `.btn--primary[aria-disabled="true"]` pose ce token sur `--color-border-default`
+  (`#D1D1D1`, un TROISIEME fond). Calcul : `#767676` (ancien) y valait 2,97:1, deja sous le
+  seuil large-text (3:1, le bouton faisant 20px gras) — un defaut PREEXISTANT, independant
+  de ce lot. `#6E6E6E` (nouveau) y vaut 3,34:1, donc corrige au passage. Cette regle n'est
+  cependant appliquee nulle part dans le code actuel : les 5 endroits qui instancient un
+  `.btn--primary` (4 fichiers JS — `confirm-modal.js`, `product-options.js`,
+  `page-product-menu.js` a deux reprises, `page-payment.js` — plus le bouton statique de
+  `confirmation.html`) ont ete relus un par un ; aucun ne pose `disabled` ni
+  `aria-disabled="true"` sur ce bouton — c'est du CSS mort, sans impact utilisateur
+  aujourd'hui, mais desormais correct s'il devenait un jour atteignable.
+- **`--color-text-muted` (admin, `admin.css`), 44 regles CSS** referencent le token, dont
+  une seule hors du perimetre texte (`::-webkit-scrollbar-thumb:hover`, qui l'emploie en
+  fond de barre de defilement, pas en couleur de texte). Les 43 regles de texte restantes
+  ont ete relues individuellement (voir methode ci-dessous). Aucune ne pose ce token sur
+  un fond colore : les badges d'etat (succes, alerte, danger, info) observes dans ce
+  fichier utilisent chacun leur propre paire couleur/fond dediee, distincte du token
+  muted. Tous les fonds neutres du back-office ont ete classes par luminance pour
+  verifier qu'aucun n'est plus sombre que `#F5F5F5` parmi ceux effectivement utilises avec
+  ce token ; c'est le cas.
+- **`--color-yellow-ink` (admin, `admin.css`), 4 regles.** Voir le detail en section 5.2 :
+  c'est ici qu'a ete trouve le seul reel ecart, sur `.pos-tile__pastille`, en dehors du
+  perimetre des 11 ecrans mesures. Traite avant la remesure, pas apres — la valeur
+  appliquee (`#AE7F09`) tient sur les deux fonds des le premier passage de cette campagne.
+
+Methode de relecture : extraction programmatique de chaque regle CSS consommant le token
+(analyseur respectant la profondeur des accolades, pas une simple recherche ligne a ligne)
+puis lecture du fond effectif de chaque regle (declare localement, ou herite du conteneur
+le plus proche qui en declare un). Complementaire du CSV, qui ne peut voir que les etats
+reellement rendus lors des 11 ecrans audites.
+
+### Resultat, ecran par ecran
+
+| Ecran | critical | serious | moderate | minor | Contrastes mesures | Minimum mesure |
+|---|---|---|---|---|---|---|
+| accueil | 0 | 0 | 0 | 0 | 6 | 17,40:1 |
+| categories | 0 | 0 | 0 | 0 | 14 | 8,12:1 |
+| produits | 0 | 0 | 0 | 0 | 50 | 8,12:1 |
+| produits-modale-options | 0 | 0 | 0 | 0 | 58 | 8,12:1 |
+| paiement | 0 | 0 | 0 | 0 | 11 | 5,09:1 |
+| confirmation | 0 | 0 | 0 | 0 | 11 | 4,67:1 |
+| admin-connexion | 0 | 0 | 0 | 0 | 8 | 4,98:1 |
+| admin-tableau-de-bord | 0 | 0 | 0 | 0 | 50 | 3,59:1 |
+| admin-ingredients | 0 | 0 | 0 | 0 | 90 | 3,59:1 |
+| admin-produits | 0 | 0 | 0 | 0 | 82 | 3,59:1 |
+| admin-commandes | 0 | 0 | 0 | 0 | 27 | 3,59:1 |
+| **Total** | **0** | **0** | **0** | **0** | **407** | — |
+
+**0 violation, sur les 11 ecrans, toutes gravites confondues.** Les 407 mesures de
+contraste (memes 65 combinaisons distinctes qu'a la campagne initiale) sont toutes
+`conforme` dans `rapports/contrastes-mesures.csv` — plus une seule ligne `violation`. Le
+minimum mesure de 3,59:1 sur les quatre ecrans admin est le « do » de la barre laterale
+(`.sidebar-brand-name > span`, 21px gras, seuil large-text 3:1) : c'est la marge la plus
+etroite de toute la campagne, et elle reste au-dessus du seuil de 0,59.
+
+Les noeuds indetermines (fond SVG du graphique, `aria-hidden-focus` de la modale,
+boutons de quantite a caractere non textuel) sont **inchanges** : 7 + 4 + 2 = 11 comme a
+la campagne initiale (section 7). Cette campagne ne portait pas sur eux ; ils restent
+consignes tels quels dans les artefacts `axe-<ecran>.json`.
+
+### Les trois combinaisons corrigees, remesurees
+
+| Ratio mesure (`axe`) | Texte | Fond | Contexte | Ancien ratio |
+|---|---|---|---|---|
+| 4,67:1 | `#6e6e6e` | `#f5f5f5` | libelle du numero de commande (borne) | 4,16:1 |
+| 3,59:1 | `#ae7f09` | `#ffffff` | « do » du nom de marque (admin) | 2,77:1 |
+| 4,57:1 | `#69707d` | `#f5f5f5` | sous-titres de page (admin) | 4,43:1 |
+
+### Non-regression sur le reste de la mesure
+
+Les 62 autres combinaisons (sur les 65 mesurees) gardent le meme statut conforme : les
+tokens non touches par ce lot (`#1A1A1A`, `#4A4A4A`, le jaune de marque, les couleurs
+d'etat succes/alerte/danger/info) restent aux memes valeurs et aux memes ratios qu'a la
+campagne initiale. `npm run test:js` (217 tests), la suite PHPUnit
+(`docker run --rm -v "$PWD":/app -w /app wakdo-wakdo-app php phpunit.phar -c
+phpunit.xml`, 755 tests) et PHPStan niveau 6 restent sans regression.
+
+---
+
+## 6. Les ratios mesures, en clair (campagne AVANT correction)
 
 C'est le trou que ce document comble. **407 ratios mesures**, sur 11 ecrans, soit
 **65 combinaisons distinctes** (couleur de texte, couleur de fond composee, taille,
-graisse). Le detail complet est dans `rapports/contrastes-mesures.csv`.
+graisse). Le detail complet etait, a ce moment-la, dans `rapports/contrastes-mesures.csv`
+— ce fichier porte aujourd'hui la campagne APRES correction (section 5 bis), le CSV du
+premier passage n'etant pas conserve tel quel par le script (il ecrit la derniere
+mesure, pas un historique). Les deux tableaux ci-dessous restent la trace texte du
+premier passage.
 
 ### Borne — les combinaisons reellement rendues
 
@@ -293,7 +454,7 @@ graisse). Le detail complet est dans `rapports/contrastes-mesures.csv`.
 | 8,86:1 | `#4A4A4A` | `#FFFFFF` | texte secondaire sur carte | conforme |
 | 8,12:1 | `#4A4A4A` | `#F5F5F5` | texte secondaire sur fond de page | conforme |
 | 4,54:1 | `#767676` | `#FFFFFF` | texte attenue sur carte | conforme, marge 0,04 |
-| **4,16:1** | `#767676` | `#F5F5F5` | libelle du numero de commande | **sous le seuil (4,5:1)** |
+| **4,16:1** | `#767676` | `#F5F5F5` | libelle du numero de commande | **sous le seuil (4,5:1)**, corrige en 5 bis (4,67:1) |
 
 Le point notable est la **derniere marche** : le token attenu de la borne passe AA sur
 blanc avec 0,04 de marge, et echoue des que le fond n'est plus blanc. La preuve 04
@@ -318,8 +479,8 @@ fonds du design system**.
 | 6,36:1 | `#92400E` | `#FEF3C7` | badge d'alerte | conforme |
 | 4,83:1 | `#6B7280` | `#FFFFFF` | texte attenue sur carte | conforme |
 | 4,62:1 | `#6B7280` | `#F9FAFB` | texte attenue sur surface | conforme |
-| **4,43:1** | `#6B7280` | `#F5F5F5` | sous-titres de page | **sous le seuil (4,5:1)** |
-| **2,77:1** | `#C8920A` | `#FFFFFF` | « do » du nom de marque | **sous le seuil (3:1)** |
+| **4,43:1** | `#6B7280` | `#F5F5F5` | sous-titres de page | **sous le seuil (4,5:1)**, corrige en 5 bis (4,57:1) |
+| **2,77:1** | `#C8920A` | `#FFFFFF` | « do » du nom de marque | **sous le seuil (3:1)**, corrige en 5 bis (3,59:1) |
 
 Observation qui merite d'etre dite a l'oral : **les couleurs d'etat du back-office
 (succes, alerte, danger, neutre) sont toutes largement conformes**, entre 6,36 et 9,36.
@@ -430,7 +591,14 @@ en bout.
   la cause en commentaire. Si une regle WCAG AA **nouvelle** apparait sur un ecran, le test
   echoue et nomme la regle.
 - La liste consigne l'etat mesure, pas un etat souhaite. Une entree se retire quand la
-  correction est faite, jamais pour faire passer un test.
+  correction est faite, pas pour faire passer un test artificiellement.
+- **Mise a jour post-correction.** Les cinq entrees qui portaient `['color-contrast']`
+  (`confirmation`, `admin-tableau-de-bord`, `admin-ingredients`, `admin-produits`,
+  `admin-commandes`) sont retournees a `[]` une fois la remesure de la section 5 bis
+  confirmee a 0 violation. Le commentaire au-dessus de chaque entree explique desormais
+  la cause de l'ancienne tolerance et le token corrige, pour garder la trace sans garder
+  la tolerance. Une regression future de `color-contrast` sur ces ecrans fera donc a
+  nouveau echouer le test, au meme titre qu'un ecran qui n'a pas eu de tolerance.
 - La barriere est appliquee **apres** l'audit de tous les ecrans, pas pendant : une
   assertion qui tombe au premier ecran priverait le rapport des suivants.
 - `run.sh` joue la barriere mais **n'ecrit aucun fichier** dans `docs/` ; seul
@@ -449,6 +617,12 @@ Tout est sous `rapports/` :
 | `contrastes-mesures.csv` | **407 lignes** de mesure : ecran, compartiment, selecteur, couleur de texte, couleur de fond, ratio, seuil attendu, taille, graisse, extrait. Separateur point-virgule (ouverture directe en tableur francais) |
 | `axe-<ecran>.json` (x11) | sortie par ecran : violations et indetermines **integraux**, toutes les mesures de contraste, decompte des regles conformes, liste des regles non applicables |
 
+**Ces artefacts portent la campagne la plus recente.** `run-a11y.sh` purge et regenere ces
+fichiers a chaque execution (il n'existe pas d'historique automatique) : depuis la
+correction, ils refletent la campagne APRES (section 5 bis), 0 violation. Les chiffres de
+la campagne AVANT (sections 4 a 6) restent lisibles dans ce document en texte, mais leurs
+fichiers sources d'origine ne sont plus sur disque.
+
 **Une reduction, annoncee.** Les fichiers `axe-<ecran>.json` ne portent pas le compartiment
 `passes` d'`axe` dans son integralite : il contient un noeud par element teste par chaque
 regle, soit plusieurs megaoctets par ecran, et un dossier de preuves illisible n'est pas
@@ -463,15 +637,16 @@ est reduit a un decompte par regle. La reduction est faite dans
 
 ### Ce qui change dans la preuve 04
 
-| Point de la preuve 04 | Etat apres mesure |
-|---|---|
-| Cr 1.c.3, verdict « conforme sur les etats identifies. Reserve : ratios non mesures » | **Reserve levee.** 407 ratios mesures. Le principe « pas la couleur seule » reste conforme ; un libelle de la confirmation est sous le seuil (section 5.1) |
-| Section 6, ligne « Contraste texte suffisant », verdict `partiel`, `[UNVERIFIED]` | **Verifie.** Les tokens `#1A1A1A`, `#4A4A4A` et le jaune de marque sont largement conformes ; `#767676` est conforme sur blanc (4,54) et non conforme sur `#F5F5F5` (4,16) |
-| Section 8, reserve n° 2 « Ratios de contraste non mesures a l'outil » | **Obsolete**, a remplacer par le renvoi a ce document |
-| Section 8, reserve n° 1 « Aucun audit avec lecteur d'ecran reel » | **Inchangee.** Cette campagne ne la traite pas |
+| Point de la preuve 04 | Etat apres mesure | Etat apres correction (5 bis) |
+|---|---|---|
+| Cr 1.c.3, verdict « conforme sur les etats identifies. Reserve : ratios non mesures » | **Reserve levee.** 407 ratios mesures. Le principe « pas la couleur seule » reste conforme ; un libelle de la confirmation est sous le seuil (section 5.1) | **Reserve levee ET defaut corrige.** Le libelle de confirmation, comme les 9 autres noeuds, est remesure conforme |
+| Section 6, ligne « Contraste texte suffisant », verdict `partiel`, `[UNVERIFIED]` | **Verifie.** Les tokens `#1A1A1A`, `#4A4A4A` et le jaune de marque sont largement conformes ; `#767676` est conforme sur blanc (4,54) et non conforme sur `#F5F5F5` (4,16) | **Conforme.** `#767676` est remplace par `#6E6E6E` (borne), `#6B7280` par `#69707D` et `#C8920A` par `#AE7F09` (admin) ; les trois tiennent AA/large-text sur tous leurs fonds reels |
+| Section 8, reserve n° 2 « Ratios de contraste non mesures a l'outil » | **Obsolete**, a remplacer par le renvoi a ce document | **Obsolete**, idem |
+| Section 8, reserve n° 1 « Aucun audit avec lecteur d'ecran reel » | **Inchangee.** Cette campagne ne la traite pas | **Inchangee.** Cette correction ne la traite pas non plus |
 
 Les sections correspondantes de `04-accessibilite-rgaa.md` et les reserves consolidees du
-`README.md` du dossier restent a mettre a jour ; ce lot ne les modifie pas.
+`README.md` du dossier ont ete mises a jour dans la foulee de cette correction (la
+reserve sur les ratios non mesures y est levee et pointe vers ce document).
 
 ### Points de defense a l'oral
 
@@ -479,24 +654,36 @@ Les sections correspondantes de `04-accessibilite-rgaa.md` et les reserves conso
    `#767676` visait AA sur blanc. La mesure le confirme (4,54) **et** montre que le meme
    token tombe a 4,16 des qu'on le pose sur le gris de fond. C'est un defaut qu'aucune
    relecture n'aurait attrape : c'est l'argument le plus fort du document.
-2. **Assumer le rapport rouge.** Dix noeuds sous le seuil, nommes, chiffres, avec trois
-   corrections calculees. Un dossier qui affirme la perfection se fait demonter en deux
-   questions ; celui-ci annonce ses defauts et leur remede.
-3. **Expliquer le partage borne / back-office.** Neuf des dix defauts sont cote
-   back-office, qui n'est pas le perimetre principal du Bloc 1. Cinq des six ecrans de la
-   borne sont a zero violation.
+2. **Assumer le rapport rouge, puis montrer qu'il a ete traite.** Dix noeuds sous le
+   seuil au premier passage, nommes, chiffres, avec trois corrections calculees — puis
+   appliquees et remesurees a 0 (section 5 bis). Un dossier qui affirme la perfection des
+   le debut se fait demonter en deux questions ; celui-ci montre le defaut, la correction,
+   et la preuve que la correction a marche.
+3. **Expliquer le partage borne / back-office.** Neuf des dix defauts initiaux etaient
+   cote back-office, qui n'est pas le perimetre principal du Bloc 1. Cinq des six ecrans
+   de la borne etaient deja a zero violation avant meme la correction.
 4. **Raconter l'incident de mesure (section 8).** Quatre fausses violations produites par
    une mesure prise pendant une animation, detectees parce que deux passages ne donnaient
    pas le meme chiffre. C'est une demonstration de rigueur : on ne publie pas un chiffre
    qu'on ne sait pas reproduire.
 5. **Nommer les limites avant qu'on ne les nomme pour vous.** Un moteur automatique ne
-   couvre pas tout le RGAA, et zero violation `axe` ne vaut pas conformite (section 9).
+   couvre pas tout le RGAA, et zero violation `axe` ne vaut pas conformite (section 9) —
+   meme apres la correction de cette section.
 6. **Montrer la barriere.** L'audit n'est pas une capture d'ecran datee : il tourne a
-   chaque campagne de tests de bout en bout et echoue si une regle nouvelle apparait.
+   chaque campagne de tests de bout en bout et echoue si une regle nouvelle apparait. La
+   liste `ACCEPTE` est aujourd'hui vide sur les cinq ecrans qui portaient une tolerance :
+   la moindre regression de contraste y ferait a nouveau echouer le test.
+7. **Montrer que verifier un token, c'est verifier tous ses usages.** La correction de
+   `--color-yellow-ink` proposait d'abord `#B8860B` (section 5.2) ; relire les AUTRES
+   endroits ou ce token est utilise a revele qu'il echouait encore sur la pastille de
+   repli du POS comptoir/drive, un ecran hors des 11 mesures ici. La valeur finalement
+   appliquee (`#AE7F09`) tient sur les deux usages. C'est la preuve qu'une correction
+   locale, verifiee uniquement sur le point qui a echoue, peut laisser un angle mort.
 
 ---
 
-Perimetre couvert : Cr 1.c.3 (contraste, mesure a l'outil — reserve de la preuve 04
-levee), et en renfort Cr 1.c.1 / Cr 1.c.4 (aucune violation mesuree sur les alternatives
-textuelles, les roles, les etiquettes et la structure des 11 ecrans). Les references au
-code se font par citation de texte cherchable, conformement a la convention du dossier.
+Perimetre couvert : Cr 1.c.3 (contraste, mesure a l'outil puis corrige — reserve de la
+preuve 04 levee, 0 violation `color-contrast` sur les 11 ecrans apres correction), et en
+renfort Cr 1.c.1 / Cr 1.c.4 (aucune violation mesuree sur les alternatives textuelles,
+les roles, les etiquettes et la structure des 11 ecrans). Les references au code se font
+par citation de texte cherchable, conformement a la convention du dossier.

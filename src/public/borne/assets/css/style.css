@@ -33,7 +33,12 @@
     /* Neutral palette */
     --color-text-primary:    #1A1A1A;
     --color-text-secondary:  #4A4A4A;
-    --color-text-muted:      #767676; /* min WCAG AA contrast on white */
+    /* #6E6E6E choisi pour tenir AA (4.5:1) sur les DEUX fonds neutres du design
+       system, pas seulement le blanc : 5.10:1 sur #FFFFFF, 4.68:1 sur #F5F5F5
+       (--color-bg-page). L'ancien #767676 ne passait que sur blanc (4.54:1) et
+       tombait a 4.16:1 des qu'il etait pose sur le fond de page — voir
+       docs/soutenance/preuves/06-audit-accessibilite-mesure.md, section 5.1. */
+    --color-text-muted:      #6E6E6E;
     --color-bg-page:         #F5F5F5;
     --color-bg-card:         #FFFFFF;
     --color-border-default:  #D1D1D1;

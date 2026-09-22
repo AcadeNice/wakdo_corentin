@@ -1,7 +1,7 @@
 {
   "page": "admin-tableau-de-bord",
   "url": "http://admin.wakdo.test/admin/dashboard",
-  "date": "2026-09-22T14:07:33.101Z",
+  "date": "2026-09-22T14:53:11.912Z",
   "moteur": {
     "axe": {
       "name": "axe-core",
@@ -21,131 +21,7 @@
     "orientationAngle": 0,
     "orientationType": "landscape-primary"
   },
-  "violations": [
-    {
-      "id": "color-contrast",
-      "impact": "serious",
-      "tags": [
-        "cat.color",
-        "wcag2aa",
-        "wcag143",
-        "TTv5",
-        "TT13.c",
-        "EN-301-549",
-        "EN-9.1.4.3",
-        "ACT",
-        "RGAAv4",
-        "RGAA-3.2.1"
-      ],
-      "description": "Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds",
-      "help": "Elements must meet minimum color contrast ratio thresholds",
-      "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/color-contrast?application=playwright",
-      "nodes": [
-        {
-          "any": [
-            {
-              "id": "color-contrast",
-              "data": {
-                "fgColor": "#c8920a",
-                "bgColor": "#ffffff",
-                "contrastRatio": 2.77,
-                "fontSize": "15.8pt (21px)",
-                "fontWeight": "bold",
-                "messageKey": null,
-                "expectedContrastRatio": "3:1"
-              },
-              "relatedNodes": [
-                {
-                  "html": "<nav class=\"sidebar\">",
-                  "target": [
-                    "nav"
-                  ]
-                }
-              ],
-              "impact": "serious",
-              "message": "Element has insufficient color contrast of 2.77 (foreground color: #c8920a, background color: #ffffff, font size: 15.8pt (21px), font weight: bold). Expected contrast ratio of 3:1"
-            }
-          ],
-          "all": [],
-          "none": [],
-          "impact": "serious",
-          "html": "<span>do</span>",
-          "target": [
-            ".sidebar-brand-name > span"
-          ],
-          "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.77 (foreground color: #c8920a, background color: #ffffff, font size: 15.8pt (21px), font weight: bold). Expected contrast ratio of 3:1"
-        },
-        {
-          "any": [
-            {
-              "id": "color-contrast",
-              "data": {
-                "fgColor": "#6b7280",
-                "bgColor": "#f5f5f5",
-                "contrastRatio": 4.43,
-                "fontSize": "9.8pt (13px)",
-                "fontWeight": "normal",
-                "messageKey": null,
-                "expectedContrastRatio": "4.5:1"
-              },
-              "relatedNodes": [
-                {
-                  "html": "<body data-user-email=\"admin@wakdo.local\">",
-                  "target": [
-                    "body"
-                  ]
-                }
-              ],
-              "impact": "serious",
-              "message": "Element has insufficient color contrast of 4.43 (foreground color: #6b7280, background color: #f5f5f5, font size: 9.8pt (13px), font weight: normal). Expected contrast ratio of 4.5:1"
-            }
-          ],
-          "all": [],
-          "none": [],
-          "impact": "serious",
-          "html": "<p class=\"page-subtitle\">Bienvenue, Wakdo Admin — voici l'essentiel de votre restaurant aujourd'hui.</p>",
-          "target": [
-            ".page-header:nth-child(1) > div > p"
-          ],
-          "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.43 (foreground color: #6b7280, background color: #f5f5f5, font size: 9.8pt (13px), font weight: normal). Expected contrast ratio of 4.5:1"
-        },
-        {
-          "any": [
-            {
-              "id": "color-contrast",
-              "data": {
-                "fgColor": "#6b7280",
-                "bgColor": "#f5f5f5",
-                "contrastRatio": 4.43,
-                "fontSize": "9.8pt (13px)",
-                "fontWeight": "normal",
-                "messageKey": null,
-                "expectedContrastRatio": "4.5:1"
-              },
-              "relatedNodes": [
-                {
-                  "html": "<body data-user-email=\"admin@wakdo.local\">",
-                  "target": [
-                    "body"
-                  ]
-                }
-              ],
-              "impact": "serious",
-              "message": "Element has insufficient color contrast of 4.43 (foreground color: #6b7280, background color: #f5f5f5, font size: 9.8pt (13px), font weight: normal). Expected contrast ratio of 4.5:1"
-            }
-          ],
-          "all": [],
-          "none": [],
-          "impact": "serious",
-          "html": "<p class=\"page-subtitle\">0,00 EUR aujourd'hui — 0 commande(s) payee(s).</p>",
-          "target": [
-            ".page-header:nth-child(3) > div > p"
-          ],
-          "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.43 (foreground color: #6b7280, background color: #f5f5f5, font size: 9.8pt (13px), font weight: normal). Expected contrast ratio of 4.5:1"
-        }
-      ]
-    }
-  ],
+  "violations": [],
   "indetermines": [
     {
       "id": "color-contrast",
@@ -420,9 +296,9 @@
       "compartiment": "conforme",
       "selecteur": ".topbar-user-role",
       "extrait": "<div class=\"topbar-user-role\">Administrator</div>",
-      "avant_plan": "#6b7280",
+      "avant_plan": "#69707d",
       "arriere_plan": "#ffffff",
-      "ratio": 4.83,
+      "ratio": 4.98,
       "seuil_attendu": "4.5:1",
       "taille_px": "8.3pt (11px)",
       "graisse": "normal"
@@ -440,11 +316,22 @@
     },
     {
       "compartiment": "conforme",
+      "selecteur": ".sidebar-brand-name > span",
+      "extrait": "<span>do</span>",
+      "avant_plan": "#ae7f09",
+      "arriere_plan": "#ffffff",
+      "ratio": 3.59,
+      "seuil_attendu": "3:1",
+      "taille_px": "15.8pt (21px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
       "selecteur": ".sidebar-section:nth-child(2) > .sidebar-section-label",
       "extrait": "<div class=\"sidebar-section-label\">Vue d'ensemble</div>",
-      "avant_plan": "#6b7280",
+      "avant_plan": "#69707d",
       "arriere_plan": "#ffffff",
-      "ratio": 4.83,
+      "ratio": 4.98,
       "seuil_attendu": "4.5:1",
       "taille_px": "8.3pt (11px)",
       "graisse": "bold"
@@ -464,9 +351,9 @@
       "compartiment": "conforme",
       "selecteur": ".sidebar-section:nth-child(3) > .sidebar-section-label",
       "extrait": "<div class=\"sidebar-section-label\">Catalogue</div>",
-      "avant_plan": "#6b7280",
+      "avant_plan": "#69707d",
       "arriere_plan": "#ffffff",
-      "ratio": 4.83,
+      "ratio": 4.98,
       "seuil_attendu": "4.5:1",
       "taille_px": "8.3pt (11px)",
       "graisse": "bold"
@@ -519,9 +406,9 @@
       "compartiment": "conforme",
       "selecteur": ".sidebar-section:nth-child(4) > .sidebar-section-label",
       "extrait": "<div class=\"sidebar-section-label\">Stock</div>",
-      "avant_plan": "#6b7280",
+      "avant_plan": "#69707d",
       "arriere_plan": "#ffffff",
-      "ratio": 4.83,
+      "ratio": 4.98,
       "seuil_attendu": "4.5:1",
       "taille_px": "8.3pt (11px)",
       "graisse": "bold"
@@ -541,9 +428,9 @@
       "compartiment": "conforme",
       "selecteur": ".sidebar-section:nth-child(5) > .sidebar-section-label",
       "extrait": "<div class=\"sidebar-section-label\">Pilotage</div>",
-      "avant_plan": "#6b7280",
+      "avant_plan": "#69707d",
       "arriere_plan": "#ffffff",
-      "ratio": 4.83,
+      "ratio": 4.98,
       "seuil_attendu": "4.5:1",
       "taille_px": "8.3pt (11px)",
       "graisse": "bold"
@@ -596,9 +483,9 @@
       "compartiment": "conforme",
       "selecteur": ".sidebar-section:nth-child(6) > .sidebar-section-label",
       "extrait": "<div class=\"sidebar-section-label\">Administration</div>",
-      "avant_plan": "#6b7280",
+      "avant_plan": "#69707d",
       "arriere_plan": "#ffffff",
-      "ratio": 4.83,
+      "ratio": 4.98,
       "seuil_attendu": "4.5:1",
       "taille_px": "8.3pt (11px)",
       "graisse": "bold"
@@ -635,6 +522,17 @@
       "seuil_attendu": "3:1",
       "taille_px": "15.0pt (20px)",
       "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".page-header:nth-child(1) > div > p",
+      "extrait": "<p class=\"page-subtitle\">Bienvenue, Wakdo Admin — voici l'essentiel de votre restaurant aujourd'hui.",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#f5f5f5",
+      "ratio": 4.57,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
     },
     {
       "compartiment": "conforme",
@@ -781,6 +679,17 @@
     },
     {
       "compartiment": "conforme",
+      "selecteur": ".page-header:nth-child(3) > div > p",
+      "extrait": "<p class=\"page-subtitle\">0,00 EUR aujourd'hui — 0 commande(s) payee(s).</p>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#f5f5f5",
+      "ratio": 4.57,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
       "selecteur": ".stat-card:nth-child(1) > .stat-card__value",
       "extrait": "<div class=\"stat-card__value\">0,00 EUR</div>",
       "avant_plan": "#1a1a1a",
@@ -910,39 +819,6 @@
       "seuil_attendu": "4.5:1",
       "taille_px": "9.8pt (13px)",
       "graisse": "bold"
-    },
-    {
-      "compartiment": "violation",
-      "selecteur": ".sidebar-brand-name > span",
-      "extrait": "<span>do</span>",
-      "avant_plan": "#c8920a",
-      "arriere_plan": "#ffffff",
-      "ratio": 2.77,
-      "seuil_attendu": "3:1",
-      "taille_px": "15.8pt (21px)",
-      "graisse": "bold"
-    },
-    {
-      "compartiment": "violation",
-      "selecteur": ".page-header:nth-child(1) > div > p",
-      "extrait": "<p class=\"page-subtitle\">Bienvenue, Wakdo Admin — voici l'essentiel de votre restaurant aujourd'hui.",
-      "avant_plan": "#6b7280",
-      "arriere_plan": "#f5f5f5",
-      "ratio": 4.43,
-      "seuil_attendu": "4.5:1",
-      "taille_px": "9.8pt (13px)",
-      "graisse": "normal"
-    },
-    {
-      "compartiment": "violation",
-      "selecteur": ".page-header:nth-child(3) > div > p",
-      "extrait": "<p class=\"page-subtitle\">0,00 EUR aujourd'hui — 0 commande(s) payee(s).</p>",
-      "avant_plan": "#6b7280",
-      "arriere_plan": "#f5f5f5",
-      "ratio": 4.43,
-      "seuil_attendu": "4.5:1",
-      "taille_px": "9.8pt (13px)",
-      "graisse": "normal"
     }
   ],
   "conformes_resume": [
@@ -996,7 +872,7 @@
     },
     {
       "id": "color-contrast",
-      "noeuds": 47
+      "noeuds": 50
     },
     {
       "id": "document-title",

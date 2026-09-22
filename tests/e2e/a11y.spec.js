@@ -87,17 +87,20 @@ const ACCEPTE = {
     // composite transitoire), pas un defaut de la page.
     'produits-modale-options': [],
     paiement: [],
-    // Libelle "Votre numero de commande", #767676 sur #f5f5f5 -> 4,16:1 (seuil 4,5:1).
-    // Le token vise le blanc pur, ou il passe ; c'est le fond gris de la banniere qui
-    // le fait tomber sous le seuil.
-    confirmation: ['color-contrast'],
+    // Etaient a ['color-contrast'] : libelle "Votre numero de commande", #767676 sur
+    // #f5f5f5 -> 4,16:1 (seuil 4,5:1). Corrige par --color-text-muted #767676 -> #6E6E6E
+    // (style.css) : remesure a 4,67:1. Voir 06-audit-accessibilite-mesure.md section 5.1.
+    confirmation: [],
     'admin-connexion': [],
-    // Sidebar "do" (#c8920a sur blanc, 2,77:1) et sous-titres de page
-    // (#6b7280 sur #f5f5f5, 4,43:1). Memes deux causes sur les quatre ecrans admin.
-    'admin-tableau-de-bord': ['color-contrast'],
-    'admin-ingredients': ['color-contrast'],
-    'admin-produits': ['color-contrast'],
-    'admin-commandes': ['color-contrast'],
+    // Etaient a ['color-contrast'] sur les quatre ecrans admin : sidebar "do" (#c8920a
+    // sur blanc, 2,77:1) et sous-titres de page (#6b7280 sur #f5f5f5, 4,43:1). Corriges
+    // par --color-yellow-ink #C8920A -> #AE7F09 et --color-text-muted #6B7280 -> #69707D
+    // (admin.css) : remesures a 3,59:1 et 4,57:1. Voir 06-audit-accessibilite-mesure.md
+    // section 5.2 et 5.3.
+    'admin-tableau-de-bord': [],
+    'admin-ingredients': [],
+    'admin-produits': [],
+    'admin-commandes': [],
 };
 
 const GRAVITES = ['critical', 'serious', 'moderate', 'minor'];
