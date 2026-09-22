@@ -176,6 +176,7 @@ try {
     $router->add('GET', '/admin/categories/{id}/edit', [CategoryController::class, 'edit']);
     $router->add('POST', '/admin/categories/{id}', [CategoryController::class, 'update']);
     $router->add('POST', '/admin/categories/{id}/toggle', [CategoryController::class, 'toggle']);
+    $router->add('POST', '/admin/categories/{id}/move', [CategoryController::class, 'move']);
 
     // Profil self-service : definition du PIN d'action sensible (RG-T13).
     $router->add('GET', '/admin/profile/pin', [ProfileController::class, 'showPin']);
@@ -199,6 +200,7 @@ try {
     $router->add('POST', '/admin/products/{id}', [ProductController::class, 'update']);
     $router->add('GET', '/admin/products/{id}/delete', [ProductController::class, 'confirmDelete']);
     $router->add('POST', '/admin/products/{id}/delete', [ProductController::class, 'destroy']);
+    $router->add('POST', '/admin/products/{id}/move', [ProductController::class, 'move']);
     // Editeur de recette (composition product_ingredient). Permission ingredient.manage
     // (composition), distincte du CRUD produit ; sans PIN. Debloque la dispo calculee
     // RG-T21 et ferme la dette #27 (trace cascade a la suppression).

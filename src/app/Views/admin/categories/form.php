@@ -30,7 +30,7 @@ $err = static fn (string $k): string => isset($errs[$k]) && is_string($errs[$k])
     </div>
 </div>
 
-<form method="post" action="<?= htmlspecialchars($action, ENT_QUOTES, 'UTF-8') ?>" class="form-card">
+<form method="post" enctype="multipart/form-data" action="<?= htmlspecialchars($action, ENT_QUOTES, 'UTF-8') ?>" class="form-card">
     <input type="hidden" name="_csrf" value="<?= $csrf ?>">
 
     <div class="form-group">
@@ -52,8 +52,23 @@ $err = static fn (string $k): string => isset($errs[$k]) && is_string($errs[$k])
     </div>
 
     <div class="form-group">
-        <label class="form-label" for="image_path">Chemin de l'image (optionnel)</label>
+        <span class="form-label">Image de la categorie</span>
+
+        <!-- Le champ fichier reste visible et atteignable au clavier : la zone de
+             depot l'entoure sans le remplacer, donc le formulaire marche aussi
+             bien a la souris, au clavier, et sans JavaScript (Cr 1.c.4). -->
+        <div class="image-drop" data-image-drop>
+            <img class="image-drop-preview" data-image-drop-preview alt="" hidden>
+            <input class="image-drop-input" type="file" id="image_file" name="image_file" accept="image/jpeg,image/png,image/webp">
+            <p class="image-drop-note" data-image-drop-hint>
+                Glissez une image ici, ou utilisez le bouton ci-dessus. JPEG, PNG ou WebP, 5 Mo maximum.
+            </p>
+        </div>
+        <?php if ($err('image_file') !== ''): ?><p class="form-error"><?= htmlspecialchars($err('image_file'), ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
+
+        <label class="form-label" for="image_path">Ou chemin d'une image deja presente sur le serveur (optionnel)</label>
         <input class="form-input" type="text" id="image_path" name="image_path" maxlength="255" value="<?= $val('image_path') ?>">
+        <p class="image-drop-note">Une image deposee ci-dessus remplace ce chemin apres enregistrement.</p>
         <?php if ($err('image_path') !== ''): ?><p class="form-error"><?= htmlspecialchars($err('image_path'), ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
     </div>
 
@@ -62,3 +77,5 @@ $err = static fn (string $k): string => isset($errs[$k]) && is_string($errs[$k])
         <a class="btn btn-secondary" href="/admin/categories">Annuler</a>
     </div>
 </form>
+
+<script src="/assets/js/image-drop.js"></script>

@@ -341,6 +341,69 @@ final class ProductRepository
         );
     }
 
+    /**
+     * Deplace une produit d'un rang vers le haut ou vers le bas, et renumerote
+     * toute sa categorie de 1 a N dans la foulee.
+     *
+     * Renumeroter integralement plutot qu'echanger deux valeurs est volontaire :
+     * l'ordre saisi a la main a laisse des doublons et des zeros (un formulaire
+     * laisse vide valait 0, donc le le produit remontait en tete). Un simple
+     * echange conserverait ces trous ; une renumerotation les efface des le
+     * premier clic, et l'ordre affiche devient exactement l'ordre stocke.
+     *
+     * L'ordre de reference est celui de la liste affichee (display_order puis
+     * name) : ce que l'utilisateur voit est ce sur quoi il agit.
+     *
+     * @return bool false si le produit est introuvable ou deja en bout de liste
+     */
+    public function reorderWithinCategory(int $id, string $direction): bool
+    {
+        $ligne = $this->db->fetch(
+            'SELECT category_id FROM product WHERE id = :id AND base_product_id IS NULL',
+            ['id' => $id],
+        );
+        if ($ligne === null) {
+            return false;
+        }
+
+        // Meme predicat et meme tri que basesByCategory() : les variantes de
+        // taille ne sont pas rangeables, elles suivent leur produit de base.
+        $ids = array_map(
+            static fn (array $r): int => (int) ($r['id'] ?? 0),
+            $this->db->fetchAll(
+                'SELECT id FROM product WHERE category_id = :cat AND base_product_id IS NULL '
+                . 'ORDER BY display_order, name',
+                ['cat' => (int) ($ligne['category_id'] ?? 0)],
+            ),
+        );
+
+        $position = array_search($id, $ids, true);
+        if ($position === false) {
+            return false;
+        }
+
+        $cible = $direction === 'up' ? $position - 1 : $position + 1;
+        if ($cible < 0 || $cible >= count($ids)) {
+            // Deja en haut ou en bas : rien a faire, et surtout pas d'erreur.
+            return false;
+        }
+
+        [$ids[$position], $ids[$cible]] = [$ids[$cible], $ids[$position]];
+
+        // Une seule transaction : un ordre partiellement reecrit serait pire que
+        // l'ordre de depart.
+        $this->db->transaction(static function (DatabaseInterface $db) use ($ids): void {
+            foreach ($ids as $rang => $identifiant) {
+                $db->execute(
+                    'UPDATE product SET display_order = :ord WHERE id = :id',
+                    ['ord' => $rang + 1, 'id' => $identifiant],
+                );
+            }
+        });
+
+        return true;
+    }
+
     public function delete(int $id): int
     {
         return $this->db->execute('DELETE FROM product WHERE id = :id', ['id' => $id]);

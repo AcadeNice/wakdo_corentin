@@ -3,8 +3,16 @@
 declare(strict_types=1);
 
 /**
- * Catalogue range par categorie (F20), injecte dans admin/layout.php. Vue de LECTURE :
- * aucun formulaire, aucun JavaScript, aucun attribut style en ligne.
+ * Catalogue range par categorie (F20), injecte dans admin/layout.php.
+ *
+ * Vue de lecture, A UNE EXCEPTION PRES : les fleches de rangement. Elles sont ici
+ * parce que c'est le seul ecran qui montre les produits groupes par categorie,
+ * donc le seul ou monter/descendre veut dire quelque chose. Ce sont des
+ * formulaires POST avec jeton anti-rejeu, pas des liens : ranger modifie le
+ * catalogue. Toujours aucun JavaScript, aucun attribut style en ligne.
+ *
+ * Les fleches ne s'affichent que sur les produits : un menu vit dans une autre
+ * table, avec son propre ordre, et n'est pas concerne par ce rangement.
  *
  * Les articles arrivent DEJA normalises et leur etat de disponibilite deja resolu par
  * ProductController::byCategory : la vue ne fait que du rendu. Volontairement sans
@@ -24,6 +32,8 @@ $cats = isset($categories) && is_array($categories) ? $categories : [];
 $byCat = isset($articles) && is_array($articles) ? $articles : [];
 $esc = static fn (mixed $v): string => htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
 $euros = static fn (int $cents): string => number_format($cents / 100, 2, ',', ' ') . ' EUR';
+$csrf = htmlspecialchars($csrfToken ?? '', ENT_QUOTES, 'UTF-8');
+$peutRanger = ($canReorder ?? false) === true;
 // Les noms de categorie sont stockes en minuscules : on capitalise a l'affichage,
 // comme la borne le fait sur ses cartes.
 $cap = static fn (string $s): string => mb_convert_case(mb_substr($s, 0, 1), MB_CASE_UPPER, 'UTF-8') . mb_substr($s, 1);
@@ -92,8 +102,24 @@ $cap = static fn (string $s): string => mb_convert_case(mb_substr($s, 0, 1), MB_
             <div class="catalogue-empty">Aucun article dans cette categorie.</div>
         <?php else: ?>
             <div class="catalogue-grid">
+                <?php
+                // Les produits sont emis avant les menus dans chaque groupe : leur
+                // rang sert a griser la premiere et la derniere fleche.
+                $nbProduits = 0;
+                foreach ($rows as $article) {
+                    if (($article['kind'] ?? '') === 'produit') {
+                        $nbProduits++;
+                    }
+                }
+                $rangProduit = -1;
+                ?>
                 <?php foreach ($rows as $row): ?>
                     <?php
+                    $estProduit = ($row['kind'] ?? '') === 'produit';
+                    if ($estProduit) {
+                        $rangProduit++;
+                    }
+                    $articleId = (int) ($row['id'] ?? 0);
                     $state = (string) ($row['state'] ?? 'available');
                     $variants = (int) ($row['variant_count'] ?? 0);
                     $vat = $row['vat_rate'] ?? null;
@@ -124,6 +150,18 @@ $cap = static fn (string $s): string => mb_convert_case(mb_substr($s, 0, 1), MB_
                         </div>
                         <?php if ($editUrl !== null): ?>
                             <div class="catalogue-card__actions">
+                                <?php if ($estProduit && $peutRanger && $articleId > 0): ?>
+                                    <form method="post" action="/admin/products/<?= $articleId ?>/move" class="order-form">
+                                        <input type="hidden" name="_csrf" value="<?= $csrf ?>">
+                                        <input type="hidden" name="direction" value="up">
+                                        <button class="btn-order" type="submit" title="Monter" aria-label="Monter <?= $esc($row['name'] ?? '') ?>"<?= $rangProduit === 0 ? ' disabled' : '' ?>>&#9650;</button>
+                                    </form>
+                                    <form method="post" action="/admin/products/<?= $articleId ?>/move" class="order-form">
+                                        <input type="hidden" name="_csrf" value="<?= $csrf ?>">
+                                        <input type="hidden" name="direction" value="down">
+                                        <button class="btn-order" type="submit" title="Descendre" aria-label="Descendre <?= $esc($row['name'] ?? '') ?>"<?= $rangProduit === $nbProduits - 1 ? ' disabled' : '' ?>>&#9660;</button>
+                                    </form>
+                                <?php endif; ?>
                                 <a class="btn btn-secondary btn-sm" href="<?= $esc($editUrl) ?>">Modifier</a>
                             </div>
                         <?php endif; ?>

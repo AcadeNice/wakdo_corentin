@@ -14,15 +14,21 @@ use App\Catalogue\CategoryRepository;
 use App\Controllers\CategoryController;
 use App\Core\Config;
 use App\Core\Database;
+use App\Core\ImageUploader;
 use App\Core\Request;
 use App\Tests\Support\FakeDatabase;
+use App\Tests\Support\TestableImageUploader;
 
 /**
  * Sous-classe de test : injecte session test + FakeDatabase dans la garde,
- * l'autorisation, l'annuaire et le repository, sans base reelle.
+ * l'autorisation, l'annuaire et le repository, sans base reelle. imageUploader()
+ * pointe vers un dossier temporaire (uploadBaseDir) au lieu de src/public/uploads
+ * (meme double TestableImageUploader que ProductControllerTest/ImageUploaderTest).
  */
 final class TestCategoryController extends CategoryController
 {
+    public string $uploadBaseDir = '';
+
     public function __construct(
         Request $request,
         Config $config,
@@ -57,15 +63,24 @@ final class TestCategoryController extends CategoryController
     {
         return new CategoryRepository($this->fakeDb);
     }
+
+    protected function imageUploader(): ImageUploader
+    {
+        return new TestableImageUploader($this->config, $this->uploadBaseDir);
+    }
 }
 
 final class CategoryControllerTest extends TestCase
 {
+    /** PNG 1x1 valide et complet (signature + IHDR + IDAT + IEND), 68 octets. */
+    private const PNG_1X1 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+
     /** @var list<string> */
     private array $touchedKeys = [];
 
     private SessionManager $session;
     private string $csrf = '';
+    private string $uploadBaseDir = '';
 
     protected function setUp(): void
     {
@@ -79,6 +94,8 @@ final class CategoryControllerTest extends TestCase
         $this->session->set('logged_in_at', $now - 100);
         $this->session->set('last_activity', $now - 50);
         $this->csrf = Csrf::token($this->session);
+
+        $this->uploadBaseDir = sys_get_temp_dir() . '/wakdo_uploads_test_' . bin2hex(random_bytes(6));
     }
 
     protected function tearDown(): void
@@ -87,12 +104,86 @@ final class CategoryControllerTest extends TestCase
             putenv($key);
         }
         $this->touchedKeys = [];
+        $this->removeDirectory($this->uploadBaseDir);
     }
 
     private function setEnv(string $key, string $value): void
     {
         $this->touchedKeys[] = $key;
         putenv($key . '=' . $value);
+    }
+
+    private function removeDirectory(string $dir): void
+    {
+        if (!is_dir($dir)) {
+            return;
+        }
+
+        $items = scandir($dir);
+        foreach ($items === false ? [] : $items as $item) {
+            if ($item === '.' || $item === '..') {
+                continue;
+            }
+            $path = $dir . '/' . $item;
+            if (is_dir($path)) {
+                $this->removeDirectory($path);
+            } else {
+                @unlink($path);
+            }
+        }
+        @rmdir($dir);
+    }
+
+    private function writeTemp(string $bytes): string
+    {
+        $path = tempnam(sys_get_temp_dir(), 'wakdo_src_');
+        self::assertNotFalse($path);
+        file_put_contents($path, $bytes);
+
+        return $path;
+    }
+
+    /**
+     * @return array<string, mixed> une entree $_FILES pour une image valide reelle
+     */
+    private function uploadedImage(): array
+    {
+        $tmp = $this->writeTemp(base64_decode(self::PNG_1X1));
+
+        return [
+            'name'     => 'categorie.png',
+            'type'     => 'image/png',
+            'tmp_name' => $tmp,
+            'error'    => UPLOAD_ERR_OK,
+            'size'     => (int) filesize($tmp),
+        ];
+    }
+
+    private function plantUploadedImage(string $subdir): string
+    {
+        $name = bin2hex(random_bytes(16)) . '.png';
+        $directory = $this->uploadBaseDir . '/' . $subdir;
+        mkdir($directory, 0755, true);
+        file_put_contents($directory . '/' . $name, base64_decode(self::PNG_1X1));
+
+        return 'uploads/' . $subdir . '/' . $name;
+    }
+
+    /**
+     * @param array<string, string> $form
+     * @param array<string, mixed> $file une entree $_FILES sous la cle image_file
+     */
+    private function postWithFile(array $form, string $path, array $file): Request
+    {
+        return new Request(
+            'POST',
+            $path,
+            [],
+            ['content-type' => 'application/x-www-form-urlencoded'],
+            http_build_query($form),
+            '203.0.113.5',
+            ['image_file' => $file],
+        );
     }
 
     private function permittedDb(): FakeDatabase
@@ -128,7 +219,10 @@ final class CategoryControllerTest extends TestCase
 
     private function controller(Request $request, FakeDatabase $db): TestCategoryController
     {
-        return new TestCategoryController($request, new Config(), new Database(new Config()), $this->session, $db);
+        $controller = new TestCategoryController($request, new Config(), new Database(new Config()), $this->session, $db);
+        $controller->uploadBaseDir = $this->uploadBaseDir;
+
+        return $controller;
     }
 
     private function wroteContaining(FakeDatabase $db, string $needle): bool
@@ -379,5 +473,160 @@ final class CategoryControllerTest extends TestCase
         self::assertSame(404, $response->status());
         self::assertStringContainsString('Introuvable', $response->body());
         self::assertFalse($this->wroteContaining($db, 'UPDATE category SET is_active'));
+    }
+
+    /* --- Image de categorie (ImageUploader) ---------------------------------- */
+
+    public function testStoreWithValidImageStoresFileAndPersistsPath(): void
+    {
+        $db = $this->permittedDb();
+        $form = ['_csrf' => $this->csrf, 'name' => 'Desserts', 'slug' => 'desserts', 'display_order' => '7'];
+
+        $response = $this->controller($this->postWithFile($form, '/admin/categories', $this->uploadedImage()), $db)->store();
+
+        self::assertSame(302, $response->status());
+        $insert = null;
+        foreach ($db->writes as $write) {
+            if (str_contains($write['sql'], 'INSERT INTO category')) {
+                $insert = $write;
+            }
+        }
+        self::assertNotNull($insert);
+        $relative = (string) ($insert['params']['image'] ?? '');
+        self::assertMatchesRegularExpression('#^uploads/categories/[a-f0-9]{32}\.png$#', $relative);
+        self::assertFileExists($this->uploadBaseDir . '/' . substr($relative, strlen('uploads/')));
+    }
+
+    public function testStoreWithInvalidImageReturns422AndWritesNoFile(): void
+    {
+        $db = $this->permittedDb();
+        $form = ['_csrf' => $this->csrf, 'name' => 'Desserts', 'slug' => 'desserts', 'display_order' => '7'];
+        $badImage = [
+            'name' => 'photo.png', 'type' => 'image/png',
+            'tmp_name' => $this->writeTemp('ceci n est pas une image'),
+            'error' => UPLOAD_ERR_OK, 'size' => 24,
+        ];
+
+        $response = $this->controller($this->postWithFile($form, '/admin/categories', $badImage), $db)->store();
+
+        self::assertSame(422, $response->status());
+        self::assertFalse($this->wroteContaining($db, 'INSERT INTO category'));
+        self::assertStringContainsString('Format d image non accepte', $response->body());
+        self::assertDirectoryDoesNotExist($this->uploadBaseDir . '/categories');
+    }
+
+    public function testStoreWithValidImageButAnotherInvalidFieldNeverWritesTheFile(): void
+    {
+        $db = $this->permittedDb();
+        // slug invalide (majuscule+espace) : l'image, elle, est valide.
+        $form = ['_csrf' => $this->csrf, 'name' => 'Desserts', 'slug' => 'INVALID SLUG', 'display_order' => '7'];
+
+        $response = $this->controller($this->postWithFile($form, '/admin/categories', $this->uploadedImage()), $db)->store();
+
+        self::assertSame(422, $response->status());
+        self::assertFalse($this->wroteContaining($db, 'INSERT INTO category'));
+        self::assertDirectoryDoesNotExist($this->uploadBaseDir . '/categories');
+    }
+
+    public function testUpdateReplacesImageAndRemovesTheOldOneOnlyAfterSuccess(): void
+    {
+        $db = $this->permittedDb();
+        $oldRelative = $this->plantUploadedImage('categories');
+        $db->categoryRow = ['id' => 5, 'name' => 'Wraps', 'slug' => 'wraps', 'image_path' => $oldRelative, 'display_order' => 3, 'is_active' => 1];
+        $form = ['_csrf' => $this->csrf, 'name' => 'Wraps & Co', 'slug' => 'wraps', 'display_order' => '3'];
+
+        $response = $this->controller($this->postWithFile($form, '/admin/categories/5', $this->uploadedImage()), $db)->update(['id' => '5']);
+
+        self::assertSame(302, $response->status());
+        self::assertFileDoesNotExist($this->uploadBaseDir . '/' . substr($oldRelative, strlen('uploads/')));
+        $update = null;
+        foreach ($db->writes as $write) {
+            if (str_contains($write['sql'], 'UPDATE category SET name')) {
+                $update = $write;
+            }
+        }
+        self::assertNotNull($update);
+        $newRelative = (string) ($update['params']['image'] ?? '');
+        self::assertMatchesRegularExpression('#^uploads/categories/[a-f0-9]{32}\.png$#', $newRelative);
+        self::assertFileExists($this->uploadBaseDir . '/' . substr($newRelative, strlen('uploads/')));
+    }
+
+    public function testUpdateKeepsTheOldImageWhenTheDatabaseWriteFails(): void
+    {
+        $db = $this->permittedDb();
+        $oldRelative = $this->plantUploadedImage('categories');
+        $db->categoryRow = ['id' => 5, 'name' => 'Wraps', 'slug' => 'wraps', 'image_path' => $oldRelative, 'display_order' => 3, 'is_active' => 1];
+        $db->failOnExecute = new \PDOException('panne disque simulee');
+        $form = ['_csrf' => $this->csrf, 'name' => 'Wraps & Co', 'slug' => 'wraps', 'display_order' => '3'];
+
+        // PDOException hors 23000 : onWriteConflict() la repropage (cf. son
+        // docblock), elle traverse donc le controleur sans etre avalee.
+        $this->expectException(\PDOException::class);
+        try {
+            $this->controller($this->postWithFile($form, '/admin/categories/5', $this->uploadedImage()), $db)->update(['id' => '5']);
+        } finally {
+            self::assertFileExists($this->uploadBaseDir . '/' . substr($oldRelative, strlen('uploads/')));
+        }
+    }
+
+    /* --- Rangement des categories (move) -------------------------------------- */
+
+    public function testMoveRejectsInvalidCsrf(): void
+    {
+        $db = $this->permittedDb();
+
+        $response = $this->controller($this->post(['_csrf' => 'wrong', 'direction' => 'up'], '/admin/categories/20/move'), $db)->move(['id' => '20']);
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($this->wroteContaining($db, 'UPDATE category SET display_order'));
+    }
+
+    public function testMoveRequiresCategoryManagePermission(): void
+    {
+        $db = $this->permittedDb();
+        $db->canResult = false;
+
+        $response = $this->controller($this->post(['_csrf' => $this->csrf, 'direction' => 'up'], '/admin/categories/20/move'), $db)->move(['id' => '20']);
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($this->wroteContaining($db, 'UPDATE category SET display_order'));
+    }
+
+    public function testMoveUpRedirectsAndSetsFlashOnSuccess(): void
+    {
+        $db = $this->permittedDb();
+        $db->categoriesRows = [['id' => 10], ['id' => 20]];
+
+        $response = $this->controller($this->post(['_csrf' => $this->csrf, 'direction' => 'up'], '/admin/categories/20/move'), $db)->move(['id' => '20']);
+
+        self::assertSame(302, $response->status());
+        self::assertSame('/admin/categories', $response->header('Location'));
+        self::assertSame('Ordre des categories mis a jour.', $this->session->get('_flash'));
+        self::assertTrue($this->wroteContaining($db, 'UPDATE category SET display_order'));
+    }
+
+    public function testMoveAlreadyAtTopIsANoOpAndDoesNotSetFlash(): void
+    {
+        $db = $this->permittedDb();
+        $db->categoriesRows = [['id' => 10], ['id' => 20]];
+
+        $response = $this->controller($this->post(['_csrf' => $this->csrf, 'direction' => 'up'], '/admin/categories/10/move'), $db)->move(['id' => '10']);
+
+        self::assertSame(302, $response->status());
+        self::assertNull($this->session->get('_flash'));
+        self::assertFalse($this->wroteContaining($db, 'UPDATE category SET display_order'));
+    }
+
+    public function testMoveWithInvalidDirectionRedirectsWithoutWriting(): void
+    {
+        $db = $this->permittedDb();
+        $db->categoriesRows = [['id' => 10], ['id' => 20]];
+
+        $response = $this->controller($this->post(['_csrf' => $this->csrf, 'direction' => 'sideways'], '/admin/categories/20/move'), $db)->move(['id' => '20']);
+
+        self::assertSame(302, $response->status());
+        self::assertSame('/admin/categories', $response->header('Location'));
+        self::assertNull($this->session->get('_flash'));
+        self::assertFalse($this->wroteContaining($db, 'UPDATE category SET display_order'));
     }
 }

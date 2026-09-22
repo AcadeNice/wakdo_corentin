@@ -167,6 +167,24 @@ final class FakeDatabase implements DatabaseInterface
     public bool $productIsBase = true;
 
     /**
+     * Ligne {category_id} renvoyee par ProductRepository::reorderWithinCategory()
+     * pour son SELECT initial (categorie du produit a deplacer) ; null = produit
+     * introuvable ou variante (base_product_id non NULL, exclue par la requete).
+     *
+     * @var array<string, mixed>|null
+     */
+    public ?array $reorderProductRow = null;
+
+    /**
+     * Lignes {id} renvoyees par ProductRepository::reorderWithinCategory() pour la
+     * liste ORDONNEE des produits de BASE de la categorie deplacee (deuxieme
+     * lecture, apres le lookup initial ci-dessus).
+     *
+     * @var list<array<string, mixed>>
+     */
+    public array $reorderCategoryIdsRows = [];
+
+    /**
      * Slug de categorie renvoye par MenuRepository::productCategorySlug() (garde F12) ;
      * null => productCategorySlug() retourne null (id inconnu / produit sans categorie),
      * ce qui fait rejeter l'option par le controleur. Defaut 'boissons' : aligne sur le
@@ -505,6 +523,15 @@ final class FakeDatabase implements DatabaseInterface
             return $this->productCategorySlug !== null ? ['category_slug' => $this->productCategorySlug] : null;
         }
 
+        // ProductRepository::reorderWithinCategory() : lookup initial (categorie du
+        // produit a deplacer). Doit passer AVANT la route productIsBase juste en
+        // dessous : les deux requetes partagent le meme predicat de fin
+        // ('WHERE id = :id AND base_product_id IS NULL'), seule la colonne SELECT
+        // differe (category_id ici, id la-bas).
+        if (str_contains($sql, 'SELECT category_id FROM product WHERE id')) {
+            return $this->reorderProductRow;
+        }
+
         // R4/F9-2 : predicat base-only (productIsBase). Doit passer AVANT la route
         // generique 'FROM product WHERE id = :id' (productRow) qu'elle matche aussi.
         if (str_contains($sql, 'FROM product WHERE id = :id') && str_contains($sql, 'base_product_id IS NULL')) {
@@ -594,6 +621,15 @@ final class FakeDatabase implements DatabaseInterface
         // ci-dessous ni la branche all() plus bas ne l'attrapent.
         if (str_contains($sql, 'AS variant_count')) {
             return $this->basesByCategoryRows;
+        }
+
+        // ProductRepository::reorderWithinCategory() : liste ORDONNEE des ids de la
+        // categorie deplacee (deuxieme lecture). Doit passer AVANT basesOnly()
+        // juste en dessous : cette derniere ne filtre pas par category_id, donc ne
+        // matcherait pas de toute facon, mais l'ordre explicite evite toute
+        // ambiguite si son SQL evolue un jour.
+        if (str_contains($sql, 'WHERE category_id = :cat AND base_product_id IS NULL')) {
+            return $this->reorderCategoryIdsRows;
         }
 
         // R4/F9-1 : liste base-only (basesOnly) pour les selects. Distincte de la

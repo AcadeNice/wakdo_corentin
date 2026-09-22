@@ -15,6 +15,7 @@ final class Request
     /**
      * @param array<string, string>               $query
      * @param array<string, string>               $headers
+     * @param array<string, array<string, mixed>>  $files
      */
     public function __construct(
         private readonly string $method,
@@ -26,6 +27,10 @@ final class Request
         // Defaut vide pour conserver la compatibilite des appels a 5 arguments
         // (tests existants). clientIp() s'en sert comme repli derriere X-Forwarded-For.
         private readonly string $remoteAddr = '',
+        // Fichiers envoyes en multipart ($_FILES). Defaut vide pour la meme
+        // raison que remoteAddr : les appels existants a 5 ou 6 arguments
+        // restent valides sans retouche.
+        private readonly array $files = [],
     ) {
     }
 
@@ -42,6 +47,9 @@ final class Request
         /** @var array<string, string> $query */
         $query = $_GET;
 
+        /** @var array<string, array<string, mixed>> $files */
+        $files = $_FILES;
+
         return new self(
             $method,
             $path,
@@ -49,6 +57,7 @@ final class Request
             self::extractHeaders(),
             (string) file_get_contents('php://input'),
             (string) ($_SERVER['REMOTE_ADDR'] ?? ''),
+            $files,
         );
     }
 
@@ -192,6 +201,22 @@ final class Request
      * toujours en frontal. Sans lui, X-Forwarded-For serait falsifiable ; le
      * verrou par compte (failed_login_attempts) reste alors le garde-fou.
      */
+    /**
+     * Un fichier envoye, par le nom du champ du formulaire.
+     *
+     * Renvoie null quand le champ est absent, ce qui laisse a l'appelant la
+     * distinction entre "champ jamais soumis" et "champ soumis mais vide"
+     * (ce deuxieme cas arrive avec le code UPLOAD_ERR_NO_FILE).
+     *
+     * @return array<string, mixed>|null
+     */
+    public function file(string $key): ?array
+    {
+        $file = $this->files[$key] ?? null;
+
+        return is_array($file) ? $file : null;
+    }
+
     public function clientIp(): string
     {
         $forwarded = $this->header('x-forwarded-for');
