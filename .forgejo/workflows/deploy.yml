@@ -1,5 +1,6 @@
 name: Deploy
-# Deploiement continu (CD) vers la production, a chaque arrivee sur main.
+# Deploiement continu (CD) vers la production, a chaque arrivee sur main, et
+# relancable a la demande.
 #
 # TOPOLOGIE REELLE : un seul hote. La production (wakdo-web/app/db/cron) et le
 # runner d'integration tournent sur la meme machine. Le job ne pilote donc PAS
@@ -11,19 +12,52 @@ name: Deploy
 # conteneurs de job), mais il ne le TRANSMET PAS aux jobs. Un job d'integration
 # est donc non privilegie, et c'est voulu : lui donner le socket reviendrait a
 # donner les pleins pouvoirs sur l'hote a tout code passant en integration.
-# Le canal restreint preserve cette separation -- la cle de deploiement ne peut
-# declencher que scripts/deploy.sh, rien d'autre (commande forcee cote hote).
 #
-# main n'est alimentee que par des PR depuis dev deja passees par l'integration :
-# le code deploye a donc deja ete teste. Mise en place cote hote (utilisateur,
-# commande forcee, secrets) : voir docs/architecture/deployment.md.
+# DEUX JOBS, ET C'EST DELIBERE. Le serveur Forgejo de ce projet n'expose pas les
+# journaux de job par son interface de programmation : en cas d'echec, seul le
+# STATUT est lisible. Separer la verification de la cle du deploiement lui-meme
+# fait donc porter le diagnostic par le NOM du job rouge, au lieu de laisser une
+# erreur muette. C'est aussi un echec rapide : inutile d'ouvrir une connexion si
+# le secret ne contient pas la bonne cle.
 
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
-  deploy:
+  cle-de-deploiement:
+    runs-on: docker
+    steps:
+      - name: Installer le client SSH
+        run: |
+          apt-get update -qq >/dev/null
+          apt-get install -y -qq openssh-client >/dev/null
+
+      - name: Le secret contient-il la cle autorisee sur l hote
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -eu
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          # Partie publique DERIVEE du secret. Si le secret est tronque, mal colle
+          # ou protege par une phrase de passe, cette commande echoue d'elle-meme.
+          DERIVEE="$(ssh-keygen -y -f ~/.ssh/id_deploy | awk '{print $2}')"
+          # Partie publique de la cle REELLEMENT autorisee sur l'hote
+          # (~/.ssh/authorized_keys de l'utilisateur de deploiement).
+          # A METTRE A JOUR en meme temps que le secret lors d'une rotation de cle.
+          ATTENDUE="AAAAC3NzaC1lZDI1NTE5AAAAIECBBRUsZpgMYKZrfUNJcyPEeJ2nTNQijIjbC6HLB2ZZ"
+          if [ "$DERIVEE" != "$ATTENDUE" ]; then
+            echo "Le secret DEPLOY_SSH_KEY ne contient pas la cle autorisee sur l hote." >&2
+            echo "Recoller la sortie de : cat ~/.ssh/wakdo_cd" >&2
+            exit 1
+          fi
+          echo "la cle du secret correspond a celle autorisee"
+
+  deploiement:
+    needs: cle-de-deploiement
     runs-on: docker
     steps:
       - name: Installer le client SSH et la lecture des routes
@@ -50,7 +84,6 @@ jobs:
           test -n "$HOTE"
           echo "hote de deploiement : $HOTE"
           # Aucune commande passee : la commande forcee cote hote decide quoi lancer.
-          # BatchMode : un echec d'authentification echoue vite au lieu d'attendre.
           ssh -i ~/.ssh/id_deploy -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=yes \
             -o BatchMode=yes -o ConnectTimeout=15 \
