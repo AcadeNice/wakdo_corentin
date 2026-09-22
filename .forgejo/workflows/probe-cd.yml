@@ -1,0 +1,40 @@
+name: Probe CD
+# Sonde TEMPORAIRE, a supprimer une fois la reponse obtenue.
+# Le journal des jobs n'est pas expose par l'API : la reponse est portee par le
+# STATUT de chaque job.
+#
+# Question unique : un conteneur de job peut-il joindre l'hote sur le port SSH ?
+# C'est la seule inconnue du deploiement continu retenu (le job demande a l'hote
+# de se deployer par un canal restreint). Aucune connexion n'est etablie, aucune
+# cle n'est utilisee : on ouvre un socket TCP et on le referme.
+
+on:
+  push:
+    branches: ['ci/**']
+
+jobs:
+  d1-trouver-la-passerelle:
+    runs-on: docker
+    steps:
+      - name: Determiner l adresse de l hote vue depuis le job
+        run: |
+          set -eu
+          # /proc/net/route : la route par defaut porte un masque nul. Le champ 3
+          # est la passerelle, en hexadecimal petit-boutiste.
+          GW=$(awk '$2=="00000000" {print $3; exit}' /proc/net/route \
+               | sed 's/../0x& /g' \
+               | awk '{printf "%d.%d.%d.%d", strtonum($4), strtonum($3), strtonum($2), strtonum($1)}')
+          test -n "$GW"
+          echo "passerelle=$GW"
+
+  d2-joindre-le-port-ssh-de-l-hote:
+    runs-on: docker
+    steps:
+      - name: Ouvrir un socket TCP vers le port 22 de la passerelle
+        run: |
+          set -eu
+          GW=$(awk '$2=="00000000" {print $3; exit}' /proc/net/route \
+               | sed 's/../0x& /g' \
+               | awk '{printf "%d.%d.%d.%d", strtonum($4), strtonum($3), strtonum($2), strtonum($1)}')
+          echo "tentative vers $GW:22"
+          timeout 8 bash -c "exec 3<>/dev/tcp/$GW/22 && head -c 40 <&3"
