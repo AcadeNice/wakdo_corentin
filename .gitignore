@@ -33,6 +33,15 @@ vendor/
 composer.lock
 composer.phar
 
+# Exception : assets/vendor de la borne n'est PAS un dossier Composer. Il porte
+# les librairies JavaScript tierces EMBARQUEES, servies au navigateur en meme
+# origine parce que la borne applique une politique de securite stricte (aucun
+# service distant joignable). Sans cette exception, la regle Composer ci-dessus
+# les exclurait du depot : l'import echouerait sur toute machine fraiche, alors
+# qu'il fonctionne en local ou le fichier existe deja sur le disque.
+!src/public/borne/assets/vendor/
+!src/public/borne/assets/vendor/**
+
 # === Tests / Analyse statique (tooling via .phar autonome, sans Composer) ===
 .phpunit.result.cache
 .phpunit.cache/
