@@ -70,6 +70,7 @@ jobs:
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
           DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
         run: |
           set -eu
           install -d -m 700 ~/.ssh
@@ -78,9 +79,14 @@ jobs:
           # Cle d'hote epinglee : la connexion echoue si la machine en face n'est
           # pas celle attendue. Pas de confiance au premier contact.
           printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
-          # L'hote est joint par la route par defaut du conteneur de job : aucune
-          # adresse en dur, le mecanisme survit a un changement de sous-reseau.
-          HOTE="$(ip route show default | awk '/default/ {print $3; exit}')"
+          # Adresse EXPLICITE, et non la route par defaut du conteneur de job.
+          # Mesure du 2026-09-22 par trois jobs de sonde : la passerelle du job ne
+          # mene pas a stark (elle n'est ni 172.17.0.1 ni sur 10.44.0.0/24, et la
+          # machine qu'elle designe ne presente pas la cle d'hote de stark). En
+          # revanche l'adresse principale de stark repond en SSH avec exactement la
+          # cle attendue. La deviner etait une erreur de conception ; on la nomme.
+          # Surchargeable par la variable DEPLOY_HOST si la machine change d'adresse.
+          HOTE="${DEPLOY_HOST:-62.210.93.152}"
           test -n "$HOTE"
           echo "hote de deploiement : $HOTE"
           # Aucune commande passee : la commande forcee cote hote decide quoi lancer.
