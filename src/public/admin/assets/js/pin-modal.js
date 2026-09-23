@@ -26,9 +26,26 @@
         }
 
         var fieldset = pinInput.closest('fieldset');
+        // Message du serveur apres un PIN refuse : il est rendu DANS le bloc qu'on masque.
+        // On le sort du bloc pour qu'il reste lisible, et le modal le reprend a l'ouverture.
+        var serverError = null;
         if (fieldset) {
+            // :not(.form-error--live) : form-validation.js, charge avant ce fichier, cree
+            // dans le bloc des zones de message vides ; seul le message du serveur compte.
+            serverError = fieldset.querySelector('.form-error:not(.form-error--live)');
+            if (serverError) {
+                fieldset.parentNode.insertBefore(serverError, fieldset.nextSibling);
+            }
             fieldset.hidden = true;
         }
+        // Champs masques = champs non focalisables : s'ils restaient required, le
+        // navigateur refuserait l'envoi AVANT l'evenement submit et le modal ne
+        // s'ouvrirait pas (observe le 2026-09-23 dans Chromium sur l'ajustement de
+        // stock ; meme balisage sur l'inventaire, l'annulation de commande et les
+        // suppressions de produit et de menu). Le modal controle leur presence
+        // lui-meme ; sans JavaScript, le bloc reste visible et required s'applique.
+        emailInput.required = false;
+        pinInput.required = false;
 
         // Email de l'utilisateur connecte (expose sur <body data-user-email>) : pre-remplit
         // le modal pour le cas courant ou l'on valide sa PROPRE action ; reste modifiable
@@ -81,6 +98,10 @@
 
         function openModal() {
             modalError.hidden = true;
+            if (serverError && serverError.textContent.trim() !== '') {
+                modalError.textContent = serverError.textContent.trim();
+                modalError.hidden = false;
+            }
             modalEmail.value = emailInput.value || prefillEmail || '';
             modalPin.value = '';
             overlay.classList.add('open');

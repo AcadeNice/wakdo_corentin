@@ -100,6 +100,27 @@ test('renderGridInto: aria-label sur le nom brut, alt et libelle capitalises', (
     assert.equal(first.querySelector('.category-card__label').textContent.trim(), 'Menus');
 });
 
+test('renderGridInto: chaque carte porte un title qui reprend son intitule (Cr 1.e.7)', () => {
+    const s = shell();
+    renderGridInto(s.grid, buildGridModel(cats()), s.emptyEl);
+    for (const card of s.grid.querySelectorAll('.category-card')) {
+        // Le title reprend au moins l'intitule (ici l'aria-label), sinon il contredit
+        // ce qu'annonce un lecteur d'ecran.
+        assert.equal(card.getAttribute('title'), card.getAttribute('aria-label'));
+    }
+});
+
+test('renderGridInto: images du premier ecran chargees sans attendre, decodees hors du fil principal (Cr 1.e.8)', () => {
+    // La grille des categories tient dans le premier ecran de la borne : differer ces
+    // images retarderait l'ecran au lieu de l'alleger (meme regle que la banniere).
+    const s = shell();
+    renderGridInto(s.grid, buildGridModel(cats()), s.emptyEl);
+    for (const img of s.grid.querySelectorAll('.category-card__image')) {
+        assert.equal(img.hasAttribute('loading'), false);
+        assert.equal(img.getAttribute('decoding'), 'async');
+    }
+});
+
 test('renderGridInto: repli d image par data-fallback, aucun handler en ligne (CSP)', () => {
     const s = shell();
     renderGridInto(s.grid, buildGridModel(cats()), s.emptyEl);

@@ -41,13 +41,13 @@ $err = static fn (string $k): string => isset($errs[$k]) && is_string($errs[$k])
 
     <div class="form-group">
         <label class="form-label" for="slug">Reference</label>
-        <input class="form-input" type="text" id="slug" name="slug" maxlength="60" value="<?= $val('slug') ?>" required>
+        <input class="form-input" type="text" id="slug" name="slug" maxlength="60" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" data-pattern-message="Minuscules sans accent, chiffres et tirets (exemple : petites-faims)." value="<?= $val('slug') ?>" required>
         <?php if ($err('slug') !== ''): ?><p class="form-error"><?= htmlspecialchars($err('slug'), ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
     </div>
 
     <div class="form-group">
         <label class="form-label" for="display_order">Ordre d'affichage</label>
-        <input class="form-input" type="number" id="display_order" name="display_order" min="0" value="<?= $val('display_order') ?>">
+        <input class="form-input" type="number" id="display_order" name="display_order" min="0" max="65535" value="<?= $val('display_order') ?>" required>
         <?php if ($err('display_order') !== ''): ?><p class="form-error"><?= htmlspecialchars($err('display_order'), ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
     </div>
 

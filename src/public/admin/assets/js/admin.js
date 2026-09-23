@@ -213,8 +213,23 @@
         });
     }
 
+    /* ---- Menu en bande (petit ecran) : la page courante reste visible ---- */
+    // Sous 640px, le menu lateral devient une bande qui defile a l'horizontale
+    // (admin.css, ossature sur petit ecran) : sans ce recentrage, l'entree de la page
+    // courante peut rester hors champ, a droite de la bande. Sur grand ecran la bande
+    // ne deborde pas en largeur et rien ne bouge.
+    function centerActiveNav() {
+        var sidebar = qs('.sidebar');
+        var active = sidebar ? sidebar.querySelector('.sidebar-item.active') : null;
+        if (!active || sidebar.scrollWidth <= sidebar.clientWidth) return;
+        var bar = sidebar.getBoundingClientRect();
+        var item = active.getBoundingClientRect();
+        sidebar.scrollLeft += (item.left + item.width / 2) - (bar.left + bar.width / 2);
+    }
+
     /* ---- Bootstrap ---- */
     function init() {
+        centerActiveNav();
         initUserMenu();
         initActionMenus();
         initSortableTables();

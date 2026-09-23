@@ -14,9 +14,32 @@
  * Kiosk target: 1080x1920 portrait (touch screen).
  * Base font stack: system-ui fallback (the school font is not available as a web asset).
  * Accessibility (RGAA Cr 1.c.2): the OpenDyslexic font (OFL 1.1) is self-hosted under
- *   assets/fonts (see @font-face in section 12). a11y.js adds the .dys-font class on
+ *   assets/fonts (see @font-face in section 19). a11y.js adds the .dys-font class on
  *   <html> on demand, which redefines --font-family-base for the whole interface, and
  *   persists the choice in localStorage. Base stack is the default.
+ *
+ * Sommaire (sections numerotees dans l'ordre du fichier) :
+ *   1. CSS CUSTOM PROPERTIES (design tokens)
+ *   2. RESET & BASE
+ *   3. UTILITY CLASSES
+ *   4. COMPONENT — WELCOME SCREEN (index.html)
+ *   5. COMPONENT — CATEGORIES SCREEN (categories.html)
+ *   6. RESPONSIVE — kiosk portrait 1080px is primary target.
+ *   7. SHARED COMPONENTS — header extensions + badges + buttons
+ *   8. COMPONENT — PRODUCTS LIST (products.html)
+ *   9. COMPONENT — QUANTITY CONTROLS (modale options produit)
+ *   10. COMPONENT — PAYMENT (payment.html)
+ *   11. COMPONENT — CONFIRMATION (confirmation.html)
+ *   12. RESPONSIVE EXTENSIONS — new pages
+ *   13. COMPONENT — MENU COMPOSER MODAL (modale ouverte depuis la grille produits)
+ *   14. COMPONENT — ALLERGENES (bouton "i" + modale generale, 14 INCO)
+ *   15. COMPONENT — PANNEAU DE COMMANDE PERSISTANT (maquette L1 : recap a droite)
+ *   16. COMPONENT — BANDEAU CATEGORIES (maquette L1 : strip horizontal en haut)
+ *   17. COMPONENT — MODALE D'OPTIONS PRODUIT (maquette L3 : quantite + ajout)
+ *   18. COMPONENT — MODALE CHEVALET (sur place, maquette L4) + ERREUR PAIEMENT
+ *   19. ACCESSIBILITY — dyslexia-friendly font + toggle (RGAA Cr 1.c.2)
+ *   20. COMPATIBILITE NAVIGATEURS (Cr 1.b.3)
+ *   21. MOUVEMENT REDUIT (Cr 2.a.3 / 2.a.4 -- prefers-reduced-motion)
  */
 
 /* ============================================================
@@ -200,6 +223,12 @@ button {
     object-fit: cover;
     object-position: center;
     z-index: 0;
+}
+
+/* Le <picture> qui propose la version WebP ne doit pas devenir un element du flex
+   de .welcome : display: contents garde l'image positionnee comme un enfant direct. */
+.welcome__picture {
+    display: contents;
 }
 
 .welcome__card {
@@ -746,7 +775,7 @@ button {
 }
 
 /* ============================================================
-   10. COMPONENT — QUANTITY CONTROLS (modale options produit)
+   9. COMPONENT — QUANTITY CONTROLS (modale options produit)
    ============================================================ */
 
 .qty-btn {
@@ -781,7 +810,7 @@ button {
 }
 
 /* ============================================================
-   11. COMPONENT — PAYMENT (payment.html)
+   10. COMPONENT — PAYMENT (payment.html)
    ============================================================ */
 
 .payment-page {
@@ -892,7 +921,7 @@ button {
 }
 
 /* ============================================================
-   12. COMPONENT — CONFIRMATION (confirmation.html)
+   11. COMPONENT — CONFIRMATION (confirmation.html)
    ============================================================ */
 
 .confirmation-page {
@@ -989,7 +1018,7 @@ button {
 }
 
 /* ============================================================
-   13. RESPONSIVE EXTENSIONS — new pages
+   12. RESPONSIVE EXTENSIONS — new pages
    ============================================================ */
 
 @media (max-width: 700px) {
@@ -1015,7 +1044,7 @@ button {
 }
 
 /* ============================================================
-   14. COMPONENT — MENU COMPOSER MODAL (modale ouverte depuis la grille produits)
+   13. COMPONENT — MENU COMPOSER MODAL (modale ouverte depuis la grille produits)
    ============================================================ */
 
 /*
@@ -1232,10 +1261,10 @@ button {
 }
 
 /* ============================================================
- * Allergenes — bouton "i" + modale generale (14 INCO)
- * Info reglementaire generale (pas un calcul par produit). La modale reutilise
- * le pattern overlay du composer ; z-index 220 pour passer au-dessus de lui.
- * ============================================================ */
+   14. COMPONENT — ALLERGENES (bouton "i" + modale generale, 14 INCO)
+   Info reglementaire generale (pas un calcul par produit). La modale reutilise
+   le pattern overlay du composer ; z-index 220 pour passer au-dessus de lui.
+   ============================================================ */
 
 /* Le bouton "i" se superpose au coin de l'image de la carte. */
 .product-card__image-wrap {
@@ -1596,11 +1625,13 @@ button {
     }
 }
 
-/* === Panneau de commande persistant (L1 - maquette : recap a droite) =======
+/* ============================================================
+   15. COMPONENT — PANNEAU DE COMMANDE PERSISTANT (maquette L1 : recap a droite)
    Layout deux colonnes sur les ecrans de commande : contenu a gauche, panneau
    a droite, sticky pleine hauteur. Le panneau = entete (titre + mode), corps
    scrollable (lignes du panier), pied (total + Abandon/Payer). Reutilise les
-   tokens de :root pour rester aligne sur la charte. */
+   tokens de :root pour rester aligne sur la charte.
+   ============================================================ */
 .order-layout {
     display: flex;
     align-items: flex-start;
@@ -1810,6 +1841,15 @@ button {
         flex-direction: column;
     }
 
+    /* En colonne, align-items: flex-start donne au contenu la largeur de son element
+       le plus large : le bandeau de categories (plus de 1 000 px), d'ou un defilement
+       horizontal de toute la page sur telephone (mesure le 2026-09-23 : 902 px de trop
+       a 360 px). Etire a la largeur disponible, le contenu laisse le bandeau defiler
+       en lui-meme, comme prevu. */
+    .order-layout > main {
+        align-self: stretch;
+    }
+
     .order-panel {
         width: auto;
         flex-basis: auto;
@@ -1819,9 +1859,11 @@ button {
     }
 }
 
-/* === Bandeau categories (L1 - maquette : strip horizontal en haut) =========
+/* ============================================================
+   16. COMPONENT — BANDEAU CATEGORIES (maquette L1 : strip horizontal en haut)
    Cartes categorie defilantes avec fleches rouges ; la categorie courante porte
-   une bordure jaune (charte maquette). Sticky en haut du contenu de commande. */
+   une bordure jaune (charte maquette). Sticky en haut du contenu de commande.
+   ============================================================ */
 .category-strip {
     display: flex;
     align-items: center;
@@ -1902,7 +1944,9 @@ button {
     outline-offset: 2px;
 }
 
-/* === Modale d'options produit (L3 - quantite + ajout, au-dessus de la grille) === */
+/* ============================================================
+   17. COMPONENT — MODALE D'OPTIONS PRODUIT (maquette L3 : quantite + ajout)
+   ============================================================ */
 .product-options {
     display: flex;
     flex-direction: column;
@@ -1955,7 +1999,9 @@ button {
     gap: var(--space-4);
 }
 
-/* === Modale chevalet (sur-place, L4) + erreur paiement === */
+/* ============================================================
+   18. COMPONENT — MODALE CHEVALET (sur place, maquette L4) + ERREUR PAIEMENT
+   ============================================================ */
 .chevalet__hint {
     color: var(--color-text-secondary);
     text-align: center;
@@ -1995,7 +2041,7 @@ button {
 }
 
 /* ============================================================
-   12. ACCESSIBILITY — dyslexia-friendly font + toggle (RGAA Cr 1.c.2)
+   19. ACCESSIBILITY — dyslexia-friendly font + toggle (RGAA Cr 1.c.2)
    ============================================================ */
 
 /* OpenDyslexic (OFL 1.1), self-hosted under assets/fonts (see LICENSE-OpenDyslexic.txt).
@@ -2064,7 +2110,7 @@ html.dys-font {
 }
 
 /* ============================================================
-   13. COMPATIBILITE NAVIGATEURS (Cr 1.b.3)
+   20. COMPATIBILITE NAVIGATEURS (Cr 1.b.3)
    ============================================================ */
 
 /* 'gap' sur conteneurs flex : non reconnu par d'anciens navigateurs (ex. Safari
@@ -2078,7 +2124,7 @@ html.dys-font {
 }
 
 /* ============================================================
-   14. MOUVEMENT REDUIT (Cr 2.a.3 / 2.a.4 -- prefers-reduced-motion)
+   21. MOUVEMENT REDUIT (Cr 2.a.3 / 2.a.4 -- prefers-reduced-motion)
    ============================================================ */
 
 /* Une personne qui a demande a son systeme de reduire les animations est

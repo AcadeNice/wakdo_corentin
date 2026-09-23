@@ -171,6 +171,8 @@ $navClass = static function (string $code, string $current): string {
     </main>
 </div>
 <script src="/assets/js/admin.js"></script>
+<?php /* Controle de saisie en temps reel (Cr 2.b.1) : tous les formulaires du shell. */ ?>
+<script src="/assets/js/form-validation.js"></script>
 <script src="/assets/js/pin-modal.js"></script>
 <script src="/assets/js/stock-thresholds.js"></script>
 <?php /* Bascule de police pour personnes dyslexiques (RGAA Cr 1.c.2), parite avec

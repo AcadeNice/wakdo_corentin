@@ -18,10 +18,10 @@ use App\Core\DatabaseInterface;
  * hacheur que le mot de passe). Le flux complet (PIN + audit dans la meme
  * transaction que l'effet) est decrit dans docs/uml/security-sequence.md.
  *
- * NB P2 : aucune operation sensible n'existe encore (elles arrivent en P3), donc
- * ce primitif n'est pas encore cable a une route ; il est ecrit et teste ici pour
- * que P3 s'y branche. La definition d'un PIN (set/change) releve de la gestion
- * utilisateur (P3, 10.1/10.2).
+ * Utilise par les operations sensibles du back-office (annulation de commande,
+ * ajustement et inventaire de stock, suppressions, modifications de prix, gestion
+ * des utilisateurs et des roles) et, pour ses bornes de longueur, par la definition
+ * du PIN (ProfileController).
  */
 final class PinVerifier
 {
@@ -118,9 +118,24 @@ final class PinVerifier
      */
     public function meetsLengthPolicy(string $pin): bool
     {
-        $min = $this->config->int('STAFF_PIN_MIN_LENGTH', 4);
-        $max = $this->config->int('STAFF_PIN_MAX_LENGTH', 12);
+        return $pin !== ''
+            && ctype_digit($pin)
+            && strlen($pin) >= $this->minLength()
+            && strlen($pin) <= $this->maxLength();
+    }
 
-        return $pin !== '' && ctype_digit($pin) && strlen($pin) >= $min && strlen($pin) <= $max;
+    /**
+     * Bornes de longueur du PIN, exposees au formulaire de definition pour qu'il les
+     * controle pendant la saisie (Cr 2.b.1) : une seule source, la meme que la regle
+     * serveur ci-dessus, pour que le client applique la regle du serveur.
+     */
+    public function minLength(): int
+    {
+        return $this->config->int('STAFF_PIN_MIN_LENGTH', 4);
+    }
+
+    public function maxLength(): int
+    {
+        return $this->config->int('STAFF_PIN_MAX_LENGTH', 12);
     }
 }

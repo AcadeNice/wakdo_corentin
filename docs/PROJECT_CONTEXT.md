@@ -302,7 +302,7 @@ Reseaux :
 | Cr 1.d.1-4 | Classes CSS reutilisables | Convention BEM ou similaire, regroupe par theme, sans repetition |
 | Cr 1.e.1-11 | SEO + meta + semantique | hierarchie titres, schema.org, canonical, alt images, favicon, temps chargement |
 | Cr 2.a.1-5 | JS ES6+ + DOM + animations | Modules ES6, classes, async/await, pas de jQuery |
-| Cr 2.b.1-3 | Validation formulaires | Validation client temps reel (regex) + validation serveur |
+| Cr 2.b.1-3 | Validation formulaires | Controle pendant la saisie (`form-validation.js` : regles HTML alignees sur le serveur + `data-match` / `data-not-zero`) + validation serveur, voir `docs/soutenance/preuves/09-controle-saisie-temps-reel.md` |
 | Cr 2.c.1-4 | Ajax async | `fetch()` avec gestion erreurs, pas d'exposition donnees sensibles |
 | Cr 2.d.1-3 | Librairies externes | Choix de stack assume : **zero lib JS** (vanilla). Cr 2.d.1-3 restent du tronc commun evaluable -> a argumenter a l'oral ; ce n'est pas une dispense du referentiel |
 

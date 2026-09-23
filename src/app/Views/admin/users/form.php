@@ -73,7 +73,7 @@ $active = (bool) ($vals['is_active'] ?? true);
 
     <div class="form-group">
         <label class="form-label" for="password"><?= $id !== 0 ? 'Nouveau mot de passe (laisser vide = inchange)' : 'Mot de passe' ?></label>
-        <input class="form-input" type="password" id="password" name="password" autocomplete="new-password"<?= $id === 0 ? ' required' : '' ?>>
+        <input class="form-input" type="password" id="password" name="password" autocomplete="new-password" minlength="8"<?= $id === 0 ? ' required' : '' ?>>
         <?php if ($err('password') !== ''): ?><p class="form-error"><?= $err('password') ?></p><?php endif; ?>
     </div>
 

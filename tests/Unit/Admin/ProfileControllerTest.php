@@ -178,6 +178,18 @@ final class ProfileControllerTest extends TestCase
         self::assertStringContainsString('un PIN est defini', $this->controller($request, $db2)->showPin()->body());
     }
 
+    public function testShowPinExposesLengthPolicyForLiveValidation(): void
+    {
+        // Controle pendant la saisie (Cr 2.b.1) : le motif des deux champs reprend la
+        // politique serveur (STAFF_PIN_MIN/MAX_LENGTH, 4 a 12 par defaut) et la
+        // confirmation est liee au PIN, pour signaler l'ecart avant l'envoi.
+        $request = new Request('GET', '/admin/profile/pin', [], [], '', '203.0.113.5');
+        $body = $this->controller($request, $this->permittedDb())->showPin()->body();
+
+        self::assertSame(2, substr_count($body, 'pattern="[0-9]{4,12}"'));
+        self::assertStringContainsString('data-match="pin"', $body);
+    }
+
     public function testUpdatePinValidStoresHashAndRedirects(): void
     {
         $db = $this->permittedDb();

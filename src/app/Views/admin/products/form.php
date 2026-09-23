@@ -72,7 +72,7 @@ $selectedMaxi = (string) ($vals['maxi_variant_product_id'] ?? '');
 
     <div class="form-group">
         <label class="form-label" for="price_cents">Prix (en centimes)</label>
-        <input class="form-input" type="number" id="price_cents" name="price_cents" min="1" value="<?= $val('price_cents') ?>" required>
+        <input class="form-input" type="number" id="price_cents" name="price_cents" min="1" max="4294967295" value="<?= $val('price_cents') ?>" required>
         <?php if ($err('price_cents') !== ''): ?><p class="form-error"><?= htmlspecialchars($err('price_cents'), ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
     </div>
 
@@ -108,7 +108,7 @@ $selectedMaxi = (string) ($vals['maxi_variant_product_id'] ?? '');
 
     <div class="form-group">
         <label class="form-label" for="display_order">Ordre d'affichage</label>
-        <input class="form-input" type="number" id="display_order" name="display_order" min="0" value="<?= $val('display_order') ?>">
+        <input class="form-input" type="number" id="display_order" name="display_order" min="0" max="65535" value="<?= $val('display_order') ?>" required>
         <?php if ($err('display_order') !== ''): ?><p class="form-error"><?= htmlspecialchars($err('display_order'), ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
     </div>
 

@@ -4,16 +4,30 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex, nofollow">
-    <meta name="description" content="Wakdo - Choisissez une categorie de produits">
-    <title>Wakdo - Categories</title>
+    <!-- Titre et description uniques et mesures (Cr 1.e.5) : voir index.html. -->
+    <meta name="description" content="Parcourez la carte Wakdo par catégorie : menus, burgers, boissons, desserts et sauces. Touchez une catégorie pour afficher ses produits et leurs prix.">
+    <title>Carte Wakdo : choisissez une catégorie de produits</title>
     <link rel="canonical" href="https://corentin-wakdo.stark.a3n.fr/categories.html">
     <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg">
     <link rel="stylesheet" href="assets/css/style.css">
+    <!-- schema.org (Cr 1.e.3) : la carte de l'etablissement, reliee depuis index.html
+         par FastFoodRestaurant.hasMenu (meme @id). -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "Menu",
+        "@id": "https://corentin-wakdo.stark.a3n.fr/categories.html#carte",
+        "name": "Carte Wakdo",
+        "url": "https://corentin-wakdo.stark.a3n.fr/categories.html",
+        "inLanguage": "fr-FR",
+        "description": "Menus, burgers, boissons, desserts et sauces, classés par catégorie."
+    }
+    </script>
 </head>
 <body class="categories-page">
 
     <!-- Lien d'evitement (RGAA Cr 1.e.11) : premier element focalisable de l'ecran. -->
-    <a class="skip-link" href="#main-content">Aller au contenu</a>
+    <a class="skip-link" href="#main-content" title="Aller au contenu principal">Aller au contenu</a>
 
     <!--
         Ecran categories. La grille est peuplee par page-categories.js depuis
@@ -24,7 +38,7 @@
     -->
 
     <header class="site-header">
-        <a href="index.html" class="site-header__back" aria-label="Retour a l'accueil">
+        <a href="index.html" class="site-header__back" aria-label="Retour à l'accueil" title="Retour à l'accueil">
             &#8592; Retour
         </a>
         <img
@@ -39,9 +53,10 @@
         <div class="site-header__spacer" aria-hidden="true"></div>
     </header>
 
-    <main class="categories-main" id="main-content" aria-label="Categories de produits">
+    <main class="categories-main" id="main-content" aria-label="Catégories de produits">
         <h1 class="categories-main__heading">Que souhaitez-vous commander&nbsp;?</h1>
-        <p class="categories-main__sub">Choisissez une categorie pour decouvrir nos produits</p>
+        <!-- La consigne de l'ecran, mise en exergue (Cr 1.e.2). -->
+        <p class="categories-main__sub">Choisissez <strong>une catégorie</strong> pour découvrir nos produits</p>
 
         <!--
             Deux etats distincts a l'ecran : erreur de chargement (l'API ne repond pas)
@@ -50,10 +65,10 @@
             une cellule desalignee.
         -->
         <p id="categories-error" class="products-error" hidden role="alert"></p>
-        <p id="categories-empty" class="products-empty" hidden>Aucune categorie disponible pour le moment.</p>
+        <p id="categories-empty" class="products-empty" hidden>Aucune catégorie disponible pour le moment.</p>
 
         <!-- Cartes injectees par page-categories.js depuis GET /api/categories -->
-        <nav id="category-grid" class="category-grid" aria-label="Navigation par categorie"></nav>
+        <nav id="category-grid" class="category-grid" aria-label="Navigation par catégorie"></nav>
     </main>
 
     <!-- nav.js : persiste le mode de consommation recu en ?mode= depuis l'accueil

@@ -271,7 +271,7 @@ $unreviewed = (int) ($unreviewedAllergens ?? 0);
                 <input type="hidden" name="_csrf" value="<?= $csrf ?>">
                 <div class="form-group">
                     <label class="form-label" for="th-capacity">Capacite (quantite consideree comme 100%)</label>
-                    <input class="form-input" type="number" id="th-capacity" name="stock_capacity" min="1" step="1" required>
+                    <input class="form-input" type="number" id="th-capacity" name="stock_capacity" min="1" max="2147483647" step="1" required>
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="th-low">Seuil d alerte (% du plein)</label>
