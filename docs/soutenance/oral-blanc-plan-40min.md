@@ -275,7 +275,8 @@ Phrase de transition recurrente : *"Ca, c'est ce que voit le client / l'equipier
 ## 6. Checklist pre-vol (la veille + le jour J)
 
 **La veille**
-- [ ] `docker compose down -v && docker compose up -d` puis verifier borne + admin + `curl /api/products`.
+- [ ] Verifier sans rien modifier : `docker compose -f docker-compose.prod.yml ps` (services `running`), puis `curl -s https://corentin-wakdo-admin.stark.a3n.fr/api/health` (`status` et `db` a `ok`, `version` egale au commit attendu), puis borne + admin + `curl -s https://corentin-wakdo.stark.a3n.fr/api/products`.
+  Ne pas lancer `docker compose down -v` sur le serveur : il heberge la production, et les deux fichiers compose partagent le projet `wakdo` et ses volumes. `-v` supprimerait la base (`wakdo_db_data`) et les images envoyees (`wakdo_uploads`).
 - [ ] Verifier les identifiants de demo admin.
 - [ ] Exporter / imprimer les 10 captures de secours (`docs/design/screens/`).
 - [ ] Rendre les diagrammes Merise (`.mmd` -> PNG) pour les slides.
