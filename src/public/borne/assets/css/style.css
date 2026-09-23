@@ -33,7 +33,12 @@
     /* Neutral palette */
     --color-text-primary:    #1A1A1A;
     --color-text-secondary:  #4A4A4A;
-    --color-text-muted:      #767676; /* min WCAG AA contrast on white */
+    /* #6E6E6E choisi pour tenir AA (4.5:1) sur les DEUX fonds neutres du design
+       system, pas seulement le blanc : 5.10:1 sur #FFFFFF, 4.68:1 sur #F5F5F5
+       (--color-bg-page). L'ancien #767676 ne passait que sur blanc (4.54:1) et
+       tombait a 4.16:1 des qu'il etait pose sur le fond de page — voir
+       docs/soutenance/preuves/06-audit-accessibilite-mesure.md, section 5.1. */
+    --color-text-muted:      #6E6E6E;
     --color-bg-page:         #F5F5F5;
     --color-bg-card:         #FFFFFF;
     --color-border-default:  #D1D1D1;
@@ -2069,5 +2074,34 @@ html.dys-font {
     .welcome__choices > *,
     .composer-footer__row > * {
         margin: var(--space-2);
+    }
+}
+
+/* ============================================================
+   14. MOUVEMENT REDUIT (Cr 2.a.3 / 2.a.4 -- prefers-reduced-motion)
+   ============================================================ */
+
+/* Une personne qui a demande a son systeme de reduire les animations est
+   respectee PARTOUT sur cet ecran, pas seulement pour la nouvelle animation du
+   total panier (celle-ci est geree cote JavaScript, dans cart-total-animation.js,
+   car elle ne passe jamais par une @keyframes CSS -- voir prefersReducedMotion()
+   dans ce fichier). Regle universelle plutot que trois surcharges nominatives
+   (check-pop, composer-fade-in, composer-slide-up) : une regle unique ne peut pas
+   se desynchroniser d'une future animation CSS ajoutee ailleurs dans ce fichier.
+   Duree quasi nulle plutot que strictement 0 : un script qui attendrait un
+   evenement `animationend` (c'est le cas de tests/e2e/a11y.spec.js, qui attend la
+   fin des animations du composer avant de mesurer un contraste) le recoit quand
+   meme -- une duree exactement a 0 ne declenche pas cet evenement dans tous les
+   moteurs. `animation-fill-mode: both`, deja pose sur les trois animations
+   existantes, garantit que l'etat final (visible, en place) est atteint
+   immediatement : rien ne reste bloque a l'etat de depart (invisible, deplace). */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
     }
 }

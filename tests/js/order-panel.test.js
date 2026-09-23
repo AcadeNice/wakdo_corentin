@@ -23,15 +23,6 @@ before(async () => {
     global.document = dom.window.document;
     global.localStorage = dom.window.localStorage;
     global.requestAnimationFrame = (cb) => cb();
-    // order-panel.js -> confirm-modal.js -> a11y-dialog (assets/vendor/), qui
-    // appelle `new CustomEvent(...)` sans prefixe. Sans ce global pose sur le
-    // MEME realm que `document`, document.dispatchEvent (jsdom) rejette le
-    // CustomEvent construit depuis le global Node natif ("parameter 1 is not
-    // of type 'Event'") : dialog.show() jette avant de poser shown=true, et
-    // dialog.hide() devient alors un no-op silencieux (voir confirm-modal.test.js
-    // pour le detail de ce diagnostic).
-    global.CustomEvent = dom.window.CustomEvent;
-    global.Event = dom.window.Event;
     ({ lineCents, compositionLabels, buildPanelModel, renderOrderPanel } =
         await import('../../src/public/borne/assets/js/order-panel.js'));
 });
@@ -210,4 +201,34 @@ test('renderOrderPanel: libelle de ligne echappe (anti-XSS RG-T15)', () => {
     renderOrderPanel(el);
     assert.match(el.innerHTML, /&lt;img/);
     assert.equal(el.querySelectorAll('img[onerror]').length, 0);
+});
+
+/* --- Animation JS du total (Cr 2.a.3) ------------------------------------- */
+
+test('renderOrderPanel: le total affiche la valeur EXACTE apres un changement de quantite', () => {
+    // Cet environnement pose `global.requestAnimationFrame = (cb) => cb()` (voir
+    // before() en tete de fichier) : synchrone, immediat, sans avancer l'horloge.
+    // C'est exactement le repli degrade que cart-total-animation.js doit supporter
+    // sans se bloquer (plafond d'images independant du temps ecoule). Ce test
+    // verifie l'integration reelle dans renderOrderPanel, pas seulement le module
+    // d'animation isole.
+    localStorage.setItem('wakdo_cart', JSON.stringify([simple({ prix_cents: 890, quantite: 1 })]));
+    const el = document.createElement('aside');
+    renderOrderPanel(el); // 1er rendu : pose 8,90 EUR, aucune animation (pas d'historique)
+    assert.match(el.querySelector('.order-panel__total-value').textContent, /8,90/);
+
+    el.querySelector('.order-panel__qty-btn[data-action="inc"]').click(); // -> quantite 2, total 17,80
+    assert.match(el.querySelector('.order-panel__total-value').textContent, /17,80/);
+});
+
+test('renderOrderPanel: total-value est exclu des annonces individuelles du panneau (aria-live=off)', () => {
+    // .order-panel (le conteneur) reste aria-live="polite" pour le reste du
+    // panneau : seul le total, qui va etre reecrit plusieurs fois en une fraction
+    // de seconde pendant l'animation, est sorti du flux d'annonces ligne-par-ligne.
+    // Le total n'est PAS retire de l'arbre d'accessibilite pour autant -- juste
+    // de la liste des mutations annoncees individuellement.
+    localStorage.setItem('wakdo_cart', JSON.stringify([simple()]));
+    const el = document.createElement('aside');
+    renderOrderPanel(el);
+    assert.equal(el.querySelector('.order-panel__total-value').getAttribute('aria-live'), 'off');
 });

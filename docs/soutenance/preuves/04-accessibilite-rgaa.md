@@ -79,9 +79,14 @@ L'information ne repose pas sur la seule couleur : un libelle textuel ou une ico
 - **Categorie active dans le bandeau.** L'etat actif combine une bordure epaissie **et** un fond distinct `#FFF8E6`, precisement pour ne pas dependre de la seule bordure coloree : `style.css` (cherchez « 2e cue »).
 - **Selection de carte composeur.** L'etat selectionne cumule bordure jaune fonce, halo et fond legerement teinte, et il est expose a la technologie d'assistance via `aria-pressed` (documente dans `style.css`, cherchez « jaune fonce : contraste » et « Uses aria-pressed »).
 - **Bascule de police active.** L'etat actif change la couleur du bouton mais est aussi expose par `aria-pressed` et par un libelle texte qui reste visible : `style.css` (cherchez « not signalled by colour alone »).
-- **Contraste.** Le token de texte attenue est fixe a `#767676`, choisi pour le seuil de contraste AA sur blanc (`style.css`, cherchez « --color-text-muted ») ; l'accent de selection utilise le jaune fonce `--color-brand-yellow-dk` pour le contraste (meme fichier, cherchez « jaune fonce : contraste »).
+- **Contraste.** Le token de texte attenue est `--color-text-muted` (`style.css`, cherchez ce nom) ; l'accent de selection utilise le jaune fonce `--color-brand-yellow-dk` pour le contraste (meme fichier, cherchez « jaune fonce : contraste »). Valeur et ratios exacts : voir `06-audit-accessibilite-mesure.md`, qui mesure ce token a l'outil et documente sa correction (`#767676` -> `#6E6E6E`, ainsi que deux tokens equivalents cote back-office).
 
-**Verdict Cr 1.c.3 : conforme** sur les etats identifies. Reserve : les ratios de contraste exacts n'ont pas ete mesures avec un outil dedie ([UNVERIFIED], section 8).
+**Verdict Cr 1.c.3 : conforme** sur les etats identifies. **Reserve levee** (etait :
+« les ratios de contraste exacts n'ont pas ete mesures avec un outil dedie »). Les
+ratios ont depuis ete mesures a l'outil `axe-core` sur 11 ecrans reels (407 mesures), et
+les 10 noeuds trouves sous le seuil AA — dont un dans ce perimetre borne — ont ete
+corriges puis remesures conformes. Detail complet, chiffres avant/apres, et methode :
+`06-audit-accessibilite-mesure.md`.
 
 ---
 
@@ -140,7 +145,7 @@ Verdicts : **conforme** (preuve dans le code) · **partiel** (couvert mais reser
 | Critere | Preuve (fichier:ligne) | Verdict | Commentaire |
 |---|---|---|---|
 | Info pas donnee par la seule couleur | `page-products.js:75,87` ; `style.css` (cherchez « 2e cue » et « not signalled by colour alone ») | conforme | Rupture = badge texte + aria ; actif = fond + libelle + `aria-pressed`. |
-| Contraste texte suffisant | `style.css` (cherchez « --color-text-muted » pour `#767676`, « jaune fonce : contraste » pour l'accent) | partiel | Tokens choisis pour AA, mais ratios non mesures a l'outil ([UNVERIFIED]). |
+| Contraste texte suffisant | `style.css` (cherchez « --color-text-muted »), `06-audit-accessibilite-mesure.md` | conforme | Mesure a l'outil (`axe-core`, 407 ratios) : un noeud sous le seuil trouve sur ce perimetre, corrige et remesure conforme. |
 
 ### Theme 10 — Presentation / focus
 
@@ -191,7 +196,7 @@ Verdicts : **conforme** (preuve dans le code) · **partiel** (couvert mais reser
 ## 8. Reserves honnetes (a ne pas survendre au jury)
 
 1. **Aucun audit avec lecteur d'ecran reel.** Le mapping ARIA est correct dans le code, mais le rendu effectif sous NVDA/VoiceOver/TalkBack n'a pas ete teste sur cette borne. Toute affirmation de restitution vocale reelle est [UNVERIFIED].
-2. **Ratios de contraste non mesures a l'outil.** Les tokens sont choisis pour viser AA (`#767676` sur blanc, jaune fonce pour les accents), mais aucun rapport d'outil (ex. verificateur de contraste) n'est joint. Verdict « partiel » assume sur le critere contraste.
+2. **Ratios de contraste non mesures a l'outil — RESOLU, voir `06-audit-accessibilite-mesure.md`.** Cette reserve disait que les tokens etaient choisis pour viser AA sans rapport d'outil joint. Depuis, `axe-core` a mesure 407 ratios sur 11 ecrans reels ; 10 noeuds sous le seuil AA ont ete trouves (dont un sur ce perimetre borne, `#767676` sur un fond gris a 4,16:1), corriges (`#767676` -> `#6E6E6E`), puis remesures conformes sur les 11 ecrans. Le detail, les chiffres avant/apres et la methode sont dans le document cite.
 3. **Coherence du style de focus partielle.** Le focus n'est pas perdu (pas de reset global), mais quelques controles secondaires (`.size-btn`, bouton info allergenes `.allergen-info-btn`, fermeture modale allergenes `.allergen-modal-close`, tous reperables par selecteur dans `style.css`) reposent sur l'anneau de focus natif du navigateur plutot que sur le halo jaune maison. C'est conforme (focus visible) mais visuellement heterogene.
 4. **Champ chevalet hors des 5 pages lues.** Le picker de chevalet (sur place) a un focus visible en CSS (`style.css`, cherchez « .chevalet__input ») mais son etiquette textuelle vit dans une modale JS non incluse dans les 5 pages de ce perimetre ; verdict « partiel » par prudence.
 5. **Contenu genere = surface a re-tester.** Les cartes produit et le panneau commande sont construits en JavaScript. Les attributs ARIA sont poses dans le code (`page-products.js`, `order-panel.js`), mais leur presence a l'ecran depend de l'execution correcte du rendu ; a demontrer en live plutot qu'a affirmer.
@@ -204,7 +209,7 @@ Verdicts : **conforme** (preuve dans le code) · **partiel** (couvert mais reser
 2. **Expliquer le principe « pas la couleur seule ».** Prendre l'exemple d'une tuile en rupture : montrer le badge `Indisponible`, le grisage, et l'`aria-disabled` — trois signaux, un seul resterait insuffisant (RGAA 1.4.1). Idem pour la categorie active (bordure + fond `#FFF8E6`).
 3. **Demontrer la modale accessible au clavier.** Ouvrir la confirmation d'Abandon, tabuler pour montrer la boucle de focus, appuyer sur Echap pour sortir, verifier que le focus revient au bouton declencheur. Insister : le focus initial est sur « Annuler » pour ne pas confirmer un geste destructeur par inadvertance.
 4. **Assumer la difference RGAA vs WCAG.** Le referentiel opposable en France est le RGAA ; il s'appuie sur WCAG mais ajoute une methodologie de test. Le code cite explicitement des criteres RGAA en commentaire dans `style.css` (cherchez « Accessibility (RGAA Cr 1.c.2) », « Screen-reader only » et « not signalled by colour alone »).
-5. **Etre transparent sur les reserves (section 8).** Un jury valorise l'honnetete : dire clairement que l'audit lecteur d'ecran et la mesure de contraste a l'outil restent a faire, et que ce sont les prochaines etapes d'un vrai chantier de conformite. Ne pas revendiquer une conformite RGAA totale certifiee — revendiquer une **demarche d'accessibilite structuree et testee** sur le perimetre borne.
+5. **Etre transparent sur les reserves (section 8).** Un jury valorise l'honnetete : dire clairement que l'audit lecteur d'ecran reel reste a faire (reserve n° 1, encore ouverte). La mesure de contraste a l'outil, elle, a ete faite depuis (reserve n° 2, resolue — voir `06-audit-accessibilite-mesure.md`) : le dire aussi, et raconter ce qu'elle a trouve, vaut mieux que de la passer sous silence. Ne pas revendiquer une conformite RGAA totale certifiee — revendiquer une **demarche d'accessibilite structuree et testee** sur le perimetre borne.
 6. **Relier a la correction ARIA recente.** Montrer que l'on comprend la specification : les `aria-label` parasites sur des `span`/`div` sans role ont ete retires car un `aria-label` sur un element non semantique n'est pas fiable ; on laisse desormais le lecteur annoncer le texte visible reel du badge de mode.
 7. **Back-office : montrer la parite, pas seulement l'affirmer (section 10).** Basculer la police OpenDyslexic en admin, tabuler pour montrer le lien d'evitement en tout premier arret, montrer le sommaire d'ancres de la page Ingredients. Expliquer pourquoi le `noindex, nofollow` de l'admin n'est pas une lacune : c'est une decision assumee, argumentee en section 10.
 

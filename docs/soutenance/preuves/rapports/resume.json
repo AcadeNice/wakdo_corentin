@@ -1,5 +1,5 @@
 {
-  "date": "2026-09-22T14:07:36.406Z",
+  "date": "2026-09-22T14:53:15.138Z",
   "outil": {
     "axe": {
       "name": "axe-core",
@@ -35,22 +35,20 @@
     {
       "page": "admin-commandes",
       "url": "http://admin.wakdo.test/admin/orders",
-      "total_violations": 1,
-      "noeuds_en_faute": 2,
+      "total_violations": 0,
+      "noeuds_en_faute": 0,
       "par_gravite": {
         "critical": 0,
-        "serious": 2,
+        "serious": 0,
         "moderate": 0,
         "minor": 0
       },
-      "regles": [
-        "color-contrast"
-      ],
+      "regles": [],
       "regles_indeterminees": [],
       "contrastes_mesures": 27,
       "contrastes_non_calculables": 0,
-      "contraste_minimum_mesure": 2.77,
-      "contrastes_sous_le_seuil": 2
+      "contraste_minimum_mesure": 3.59,
+      "contrastes_sous_le_seuil": 0
     },
     {
       "page": "admin-connexion",
@@ -67,70 +65,64 @@
       "regles_indeterminees": [],
       "contrastes_mesures": 8,
       "contrastes_non_calculables": 0,
-      "contraste_minimum_mesure": 4.83,
+      "contraste_minimum_mesure": 4.98,
       "contrastes_sous_le_seuil": 0
     },
     {
       "page": "admin-ingredients",
       "url": "http://admin.wakdo.test/admin/ingredients",
-      "total_violations": 1,
-      "noeuds_en_faute": 2,
+      "total_violations": 0,
+      "noeuds_en_faute": 0,
       "par_gravite": {
         "critical": 0,
-        "serious": 2,
+        "serious": 0,
         "moderate": 0,
         "minor": 0
       },
-      "regles": [
-        "color-contrast"
-      ],
+      "regles": [],
       "regles_indeterminees": [],
       "contrastes_mesures": 90,
       "contrastes_non_calculables": 0,
-      "contraste_minimum_mesure": 2.77,
-      "contrastes_sous_le_seuil": 2
+      "contraste_minimum_mesure": 3.59,
+      "contrastes_sous_le_seuil": 0
     },
     {
       "page": "admin-produits",
       "url": "http://admin.wakdo.test/admin/products",
-      "total_violations": 1,
-      "noeuds_en_faute": 2,
+      "total_violations": 0,
+      "noeuds_en_faute": 0,
       "par_gravite": {
         "critical": 0,
-        "serious": 2,
+        "serious": 0,
         "moderate": 0,
         "minor": 0
       },
-      "regles": [
-        "color-contrast"
-      ],
+      "regles": [],
       "regles_indeterminees": [],
       "contrastes_mesures": 82,
       "contrastes_non_calculables": 0,
-      "contraste_minimum_mesure": 2.77,
-      "contrastes_sous_le_seuil": 2
+      "contraste_minimum_mesure": 3.59,
+      "contrastes_sous_le_seuil": 0
     },
     {
       "page": "admin-tableau-de-bord",
       "url": "http://admin.wakdo.test/admin/dashboard",
-      "total_violations": 1,
-      "noeuds_en_faute": 3,
+      "total_violations": 0,
+      "noeuds_en_faute": 0,
       "par_gravite": {
         "critical": 0,
-        "serious": 3,
+        "serious": 0,
         "moderate": 0,
         "minor": 0
       },
-      "regles": [
-        "color-contrast"
-      ],
+      "regles": [],
       "regles_indeterminees": [
         "color-contrast"
       ],
       "contrastes_mesures": 50,
       "contrastes_non_calculables": 7,
-      "contraste_minimum_mesure": 2.77,
-      "contrastes_sous_le_seuil": 3
+      "contraste_minimum_mesure": 3.59,
+      "contrastes_sous_le_seuil": 0
     },
     {
       "page": "categories",
@@ -153,22 +145,20 @@
     {
       "page": "confirmation",
       "url": "http://kiosk.wakdo.test/confirmation.html",
-      "total_violations": 1,
-      "noeuds_en_faute": 1,
+      "total_violations": 0,
+      "noeuds_en_faute": 0,
       "par_gravite": {
         "critical": 0,
-        "serious": 1,
+        "serious": 0,
         "moderate": 0,
         "minor": 0
       },
-      "regles": [
-        "color-contrast"
-      ],
+      "regles": [],
       "regles_indeterminees": [],
       "contrastes_mesures": 11,
       "contrastes_non_calculables": 0,
-      "contraste_minimum_mesure": 4.16,
-      "contrastes_sous_le_seuil": 1
+      "contraste_minimum_mesure": 4.67,
+      "contrastes_sous_le_seuil": 0
     },
     {
       "page": "paiement",
@@ -185,7 +175,7 @@
       "regles_indeterminees": [],
       "contrastes_mesures": 11,
       "contrastes_non_calculables": 0,
-      "contraste_minimum_mesure": 4.54,
+      "contraste_minimum_mesure": 5.09,
       "contrastes_sous_le_seuil": 0
     },
     {
@@ -232,7 +222,7 @@
   ],
   "total_noeuds_en_faute_par_gravite": {
     "critical": 0,
-    "serious": 10,
+    "serious": 0,
     "moderate": 0,
     "minor": 0
   }

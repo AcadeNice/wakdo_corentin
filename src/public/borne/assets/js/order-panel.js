@@ -22,6 +22,18 @@ import {
 import { refreshCartBadge } from './nav.js';
 import { confirmAction } from './confirm-modal.js';
 import { clearCheckoutKey } from './checkout.js';
+import { animateTotalValue, prefersReducedMotion } from './cart-total-animation.js';
+
+/*
+ * Dernier total AFFICHE par conteneur (Cr 2.a.3 : le total "compte" jusqu'a sa
+ * nouvelle valeur au lieu de sauter). Un WeakMap plutot qu'une variable simple :
+ * products.html n'expose qu'un seul panneau, mais rien n'empeche une page future
+ * d'en avoir plusieurs, et un WeakMap laisse le conteneur etre collecte normalement
+ * s'il quitte le DOM. Sans entree pour ce conteneur (premier rendu de la page), la
+ * valeur est posee directement -- animer un 0 -> total au chargement animerait un
+ * geste que le client n'a pas fait a l'instant.
+ */
+const lastTotalByContainer = new WeakMap();
 
 /**
  * Calcule le total d'une ligne en centimes (menu : avec supplement de taille ;
@@ -157,11 +169,22 @@ export function renderOrderPanel(container) {
     if (!container) return;
     const model = buildPanelModel(getCart());
     refreshCartBadge();
+    // Lu AVANT le re-rendu : innerHTML va remplacer l'ancien noeud total-value, donc
+    // c'est le seul moment ou la valeur precedemment affichee est encore disponible.
+    const previousCents = lastTotalByContainer.get(container);
 
     const body = model.empty
         ? '<p class="order-panel__empty">Votre commande est vide.<br>Ajoutez un produit pour commencer.</p>'
         : `<ul class="order-panel__lines">${model.lines.map(lineHtml).join('')}</ul>`;
 
+    // total-value porte aria-live="off" : ce conteneur (.order-panel) est lui-meme
+    // aria-live="polite", et l'animation qui suit va reecrire ce texte plusieurs
+    // fois en une fraction de seconde. Sans cette derogation, chaque image
+    // intermediaire serait un candidat a l'annonce vocale. Le total reste dans
+    // l'arbre d'accessibilite (juste pas comme flux d'annonces individuelles) et,
+    // que l'animation tourne ou non, ce noeud est toujours ecrit avec la valeur
+    // FINALE exacte des sa creation -- une personne qui consulte l'ecran juste
+    // apres un ajout lit toujours le bon total, anime ou pas.
     container.innerHTML = `
         <div class="order-panel__head">
             <img class="order-panel__logo" src="assets/images/ui/logo.png" alt="Wakdo">
@@ -172,7 +195,7 @@ export function renderOrderPanel(container) {
         <div class="order-panel__foot">
             <div class="order-panel__total">
                 <span>TOTAL (ttc)</span>
-                <span class="order-panel__total-value">${formatPrice(model.totalCents)}</span>
+                <span class="order-panel__total-value" aria-live="off">${formatPrice(model.totalCents)}</span>
             </div>
             <div class="order-panel__actions">
                 <button class="order-panel__abandon" type="button">Abandon</button>
@@ -185,6 +208,21 @@ export function renderOrderPanel(container) {
             </div>
         </div>
     `;
+
+    // Anime le total de l'ancienne valeur vers la nouvelle (Cr 2.a.3) -- jamais au
+    // tout premier rendu d'un conteneur (previousCents alors undefined : rien a
+    // comparer, la valeur posee par le template ci-dessus suffit) ni quand le total
+    // n'a pas change. Respecte le mouvement reduit du systeme (Cr respect
+    // prefers-reduced-motion) : la valeur finale est alors posee sans transition.
+    lastTotalByContainer.set(container, model.totalCents);
+    if (previousCents !== undefined && previousCents !== model.totalCents) {
+        animateTotalValue(
+            container.querySelector('.order-panel__total-value'),
+            previousCents,
+            model.totalCents,
+            { reducedMotion: prefersReducedMotion() },
+        );
+    }
 
     // Stepper +/- : ajuste la quantite de la ligne. Decrementer a 0 retire la ligne
     // (updateQuantity supprime quand qty <= 0). Couvre produits ET menus (un menu a

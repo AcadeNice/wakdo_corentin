@@ -12,8 +12,9 @@ Perimetre principal : la **borne de commande client** (`src/public/borne/`), int
 | Cr 1.a.5 | Balises semantiques | `01` + [`04`](04-accessibilite-rgaa.md) | Conforme |
 | Cr 1.b.1 | Adaptation aux resolutions (responsive) | [`02-matrice-responsive.md`](02-matrice-responsive.md) | Couvert (borne) ; partiel (ossature admin) |
 | Cr 1.b.2 / 1.b.3 | Compatibilite navigateurs + correction documentee | [`03-conformite-cross-browser.md`](03-conformite-cross-browser.md) | Couvert (perimetre assume) |
-| Cr 1.c.1 a 1.c.4 | Accessibilite RGAA (lecteurs d'ecran, OpenDyslexic, couleur, clavier) | [`04-accessibilite-rgaa.md`](04-accessibilite-rgaa.md) | Conforme, avec reserves — couvre desormais le back-office |
+| Cr 1.c.1 a 1.c.4 | Accessibilite RGAA (lecteurs d'ecran, OpenDyslexic, couleur, clavier) | [`04-accessibilite-rgaa.md`](04-accessibilite-rgaa.md) + [`06-audit-accessibilite-mesure.md`](06-audit-accessibilite-mesure.md) | Conforme, avec reserves — couvre desormais le back-office ; contraste mesure a l'outil et corrige (06) |
 | Cr 1.e.11 | Ancres intra-page et lien d'evitement | [`04-accessibilite-rgaa.md`](04-accessibilite-rgaa.md) section 10 | Couvert (5 pages borne + back-office) |
+| Cr 2.a.3 / 2.a.4 | Animations JavaScript, mouvement reduit, comportement cross-navigateurs | [`07-animations-js.md`](07-animations-js.md) | Couvert (animation du total panier, testee ; support navigateur documente sans campagne live) |
 | Cr 2.d.1 a 2.d.3 | Librairies JavaScript externes | [`05-librairies-js-c2d.md`](05-librairies-js-c2d.md) | Faible (choix vanilla assume) |
 
 ## Artefacts
@@ -30,10 +31,11 @@ Perimetre principal : la **borne de commande client** (`src/public/borne/`), int
 
 ## Reserves honnetes consolidees (a ne pas survendre)
 
-- **Accessibilite** : aucun audit avec un lecteur d'ecran reel (NVDA/VoiceOver) ; ratios de contraste non mesures a l'outil. La demarche est structuree et testee, pas certifiee RGAA.
+- **Accessibilite** : aucun audit avec un lecteur d'ecran reel (NVDA/VoiceOver) — reserve ouverte. Les ratios de contraste, eux, ont ete mesures a l'outil (`axe-core`, 407 mesures sur 11 ecrans, [`06-audit-accessibilite-mesure.md`](06-audit-accessibilite-mesure.md)) : 10 noeuds trouves sous le seuil AA ont ete corriges et remesures conformes — reserve resolue, plus une reserve ouverte sur ce theme. La demarche est structuree et testee, pas certifiee RGAA.
 - **Cross-navigateurs** : pas de campagne de test sur parc reel ; les tableaux de support sont tagues `[UNVERIFIED]`, a reconfirmer sur caniuse avant l'oral. La strategie (fallback `@supports`, prefixes) est verifiable dans le code.
 - **Responsive** : l'ossature de la sidebar admin n'est pas adaptee au mobile portrait etroit (coherent avec sa cible desktop/tablette).
 - **C2.d** : aucune librairie JS externe n'est integree (choix vanilla). La competence de reutilisation est demontree par des modules internes ; le critere « externe » n'est pas rempli a la lettre. Confiance faible, assumee.
+- **C2.a (animations)** : l'animation du total panier ([`07-animations-js.md`](07-animations-js.md)) est testee automatiquement (24 tests dedies) independamment du navigateur, mais le support des API utilisees (`requestAnimationFrame`, `performance.now`, `matchMedia`) n'a pas ete reconfirme sur caniuse et le validateur W3C n'a pas ete rejoue pour ce lot precis — meme reserve cross-navigateurs que le reste du dossier. Le choix `aria-live="off"` sur le total anime est un raisonnement documente, pas une mesure sur lecteur d'ecran reel.
 
 ## Findings releves pendant l'exercice (hors perimetre preuve, a traiter separement)
 
