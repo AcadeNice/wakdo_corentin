@@ -25,15 +25,15 @@ reussites — elles font partie du travail reel.
 | #138 | Adresse explicite de l'hote de deploiement | fusionnee |
 | #139 | Release v0.3.2 — **premier deploiement automatique du projet** | fusionnee |
 | #140 | Lien d'evitement sur 6 pages + accessibilite du back-office | fusionnee |
-| #141 | Audit d'accessibilite mesure (axe-core) | fusionnee |
-| #142 | Complement de #141, fusionnee trop tot : contrastes, retrait de la librairie, total anime | fusionnee |
+| #141 | Audit d'accessibilite mesure (axe-core), avec `a11y-dialog` integree dans l'etat fusionne | fusionnee, incomplete (section 9) |
+| #142 | Complement de #141, fusionnee trop tot : contrastes, retrait de la librairie, total anime | fusionnee le 2026-09-23 |
 
 ---
 
 ## 2. Chantier A — La documentation remise en accord avec le code
 
 Point de depart : l'audit montrait que la documentation affirmait des choses que
-le code contredisait, **toujours en sous-estimant ce qui etait livre**.
+le code contredisait, **le plus souvent en sous-estimant ce qui etait livre**.
 
 Corrige :
 
@@ -115,7 +115,8 @@ repond avec la cle attendue. L'adresse est desormais **explicite**, pas devinee.
 5. Le job **verifie son propre resultat** : il interroge `/api/health` pendant
    deux minutes et echoue si l'application en ligne ne sert pas le commit attendu.
 
-Premiere execution reussie le **2026-09-22 a 12h19**, verifiee sur la machine :
+Premiere execution reussie le **2026-09-22 a 12h19 UTC** (14h19 a Paris : l'hote est
+regle en UTC, les commits sont horodates en +0200), verifiee sur la machine :
 
 ```
 main        1e28a8f
@@ -202,10 +203,16 @@ Trois causes, corrigees et remesurees :
 **Remesure : 0 violation, 407 mesures sur 407 conformes.** Le dossier conserve
 les DEUX campagnes, avant et apres.
 
+Le « do » reste a 3,59, sous le seuil courant de 4,5 : c'est un texte gras de
+21 px (15,8 pt), donc un grand texte au sens des WCAG, dont le seuil est 3:1.
+L'outil applique ce seuil et le fichier `rapports/contrastes-mesures.csv` le
+consigne ligne par ligne.
+
 Le defaut le plus interessant du lot : le token de texte attenue portait un
 commentaire affirmant « contraste AA minimum sur blanc ». C'etait **vrai sur
 blanc** (4,54 pour un seuil de 4,50) et **faux des que le fond changeait**.
-Aucune relecture humaine n'attrape ca.
+Une relecture humaine a peu de chances de l'attraper : il faut mesurer le ratio
+sur chaque fond reel, pas lire le commentaire.
 
 Le jaune de marque `#FFC72C` n'est pas touche : seuls des accents secondaires
 ont bouge, d'un a deux pour cent.
@@ -242,7 +249,7 @@ sorti du flux d'annonces individuelles sans sortir de l'arbre d'accessibilite.
 | PHPStan niveau 6 | 0 erreur | 0 erreur |
 | Violations d'accessibilite mesurees | non mesure | **0 sur 11 ecrans** |
 | Ratios de contraste mesures | 0 | **407** |
-| Retard de `main` sur `dev` | 37 commits | 3 commits |
+| Retard de `main` sur `dev` | 37 commits | 2 commits (#140, #141) ; 4 le 2026-09-23 avec #142 et #143 |
 | Deploiements automatiques executes | 0 | 1, verifie |
 
 ---
@@ -252,10 +259,10 @@ sorti du flux d'annonces individuelles sans sortir de l'arbre d'accessibilite.
 | Critere | Avant | Apres |
 |---|---|---|
 | `Cr 7.d.3` integration et deploiement continus | jamais execute | operationnel et verifie |
-| `Cr 4.g.3` application en ligne exempte de bugs | aucune preuve | ferme par le meme mecanisme |
-| `Cr 4.g.4` testee en production | aucune preuve | ferme par le meme mecanisme |
+| `Cr 4.g.3` application en ligne exempte de bugs et fonctionnelle | aucune preuve | renforce : les tests passent avant chaque deploiement, la sonde confirme apres. Ce n'est pas une preuve d'absence de bug |
+| `Cr 4.g.4` testee en production, sans erreur genante | aucune preuve | renforce : la sonde interroge la production (commit servi, base). Reserve : `app_env` vaut `dev` en production (section 11) |
 | `Cr 1.e.11` ancres intra-page | **absent** | couvert sur 6 pages |
-| `Cr 1.c.1` a `Cr 1.c.4` accessibilite | borne seule | borne + back-office |
+| `Cr 1.c.1` a `Cr 1.c.4` accessibilite | borne seule | borne + 5 vues du back-office sur 34 |
 | `Cr 1.c.3` contraste | affirme, non mesure | **mesure, 0 violation** |
 | `Cr 2.a.3` animations JavaScript | aucune | livree et testee |
 | `Cr 2.a.4` comportement navigateurs | partiel | couvert et documente |
@@ -277,15 +284,25 @@ sorti du flux d'annonces individuelles sans sortir de l'arbre d'accessibilite.
    critere C2.d sera traite par un expose oral, pas par une integration. Les
    outils de MESURE (axe-core, PHPUnit, PHPStan) ne sont pas concernes : ils ne
    sont jamais livres au navigateur.
+   Consequence assumee : `Cr 2.d.2` (« la librairie est correctement
+   implementee d'apres les recommandations d'utilisation de sa documentation »)
+   reste non couvert au sens strict, comme le dit la fiche
+   `05-librairies-js-c2d.md`. La decision a ete prise apres lecture du libelle
+   exact du referentiel, que l'auteur avait exige.
 5. **Correction de suivi** : l'alerte « stage en entreprise absent, bloquant pour
    le titre », portee depuis juin, etait **fausse**. L'alternance satisfait
    l'exigence d'experience professionnelle.
 
 ---
 
-## 9. Erreurs commises pendant la session, et corrigees
+## 9. Erreurs commises, corrections et arbitrages
 
-Consignees parce qu'elles font partie du travail reel.
+Consignees parce qu'elles font partie du travail reel. Elles sont de deux
+natures, a ne pas confondre a l'oral : les erreurs de l'assistant, detectees pour
+la plupart par ses propres verifications, et les corrections ou arbitrages venus
+de l'auteur. Heures de Paris.
+
+### Erreurs de l'assistant
 
 - **Deduction fausse sur le reseau.** La premiere version du deploiement
   supposait que la route par defaut d'un conteneur de job menait a l'hote. Elle
@@ -302,15 +319,50 @@ Consignees parce qu'elles font partie du travail reel.
 - **`git add` masque.** Une commande dont les erreurs etaient redirigees a echoue
   en silence, puis un `git checkout` a ecrase cinq fichiers de corrections. Refaits
   a l'identique.
+- **Livraison annoncee complete sans verification.** La PR #141 a ete fusionnee
+  automatiquement a 16h35, au premier passage vert de l'integration, six minutes
+  apres ses deux premiers commits. Les trois suivants (contrastes a 16h56, retrait
+  de la librairie a 17h03, animation a 17h25) sont arrives apres la fusion et ne
+  sont pas entres dans `dev`, qui contenait donc `a11y-dialog`, l'inverse de la
+  decision de l'auteur. La session a pourtant annonce « #141 complete ». Detecte
+  le lendemain matin en comparant le commit fusionne a la branche, rattrape par
+  #142. La production n'a pas ete touchee : elle sert l'arbre de travail
+  (section 10), qui etait au bon etat. Regle retenue : ne programmer la fusion
+  automatique qu'une fois la branche complete.
+
+### Corrections et arbitrages venus de l'auteur
+
+- **La topologie reelle (9h32).** Un seul serveur porte l'integration et la
+  production ; la documentation et le code de deploiement en decrivaient trois.
+  Toute la conception de la section 3 part de cette information.
+- **La gestion des secrets (10h04).** L'assistant laissait entendre une gestion
+  faible ; l'auteur a decrit sa methode : fichier `.env` hors depot, coffre
+  Vaultwarden auto-heberge, rotation. L'assistant a retire sa remarque.
+- **Une explication noyee dans le jargon (10h04).** Sur `preparing_at` et
+  `ready_at`, l'auteur a exige une explication claire : la correction du
+  dictionnaire etait reelle, mais illisible telle qu'annoncee.
+- **La confusion poste / serveur (12h11 a 12h18).** L'echange melangeait ce qui se
+  tape sur l'ordinateur personnel de l'auteur et ce qui se tape sur le serveur.
+  L'auteur l'a arrete pour repartir sur une procedure claire, etape par etape.
+- **« Tu racontes quoi la ? » (12h24).** L'assistant a relu la source au lieu
+  d'une capture d'ecran, et retire une fausse alerte : la branche `dev` n'etait
+  pas menacee de suppression.
+- **Le texte exact du referentiel (15h29).** Avant de trancher sur une
+  librairie, l'auteur a exige le libelle officiel ; l'assistant a produit la
+  transcription du depot et le document source.
+- **La librairie (17h00).** L'auteur a tranche contre la lecture de l'assistant,
+  qui s'appuyait sur `Cr 2.d.2` : la borne reste sans dependance (section 8).
 
 ---
 
 ## 10. Pieges decouverts, a retenir
 
-- **`vendor/` etait ignore par git.** La regle de la section Composer attrapait
-  aussi le dossier de librairies front. Une dependance embarquee n'aurait jamais
-  ete versionnee : l'import aurait echoue sur toute machine fraiche, alors qu'il
-  fonctionnait en local ou le fichier existe sur le disque.
+- **`vendor/` est ignore par git, dans tout le depot.** La regle de la section
+  Composer (`.gitignore`, ligne 32) attrape aussi le dossier de librairies front.
+  Une dependance embarquee ne serait pas versionnee : l'import echouerait sur
+  toute machine fraiche, alors qu'il fonctionne en local ou le fichier existe sur
+  le disque. L'exception ajoutee pour `a11y-dialog` est partie avec la librairie :
+  sans effet tant que la borne n'embarque rien, mais le piege reste arme.
 - **L'arbre de travail EST la production.** `docker-compose.prod.yml` monte
   `./src` directement : toute modification de PHP, CSS ou JavaScript part en ligne
   immediatement, committee ou non.
@@ -339,6 +391,11 @@ Consignees parce qu'elles font partie du travail reel.
   exige pour un element non textuel.
 - **Le piege de tabulation n'est verifie qu'en environnement simule**, pas dans un
   navigateur reel.
+- **`Cr 2.d.2` reste non couvert au sens strict.** La borne n'embarque plus aucune
+  librairie tierce, par decision de l'auteur (section 8).
+- **La production tourne avec `app_env` a `dev`**, constate le 2026-09-23 par
+  `/api/health`. A corriger avant la soutenance : c'est la premiere ligne de la
+  section 12.
 
 ---
 
@@ -368,7 +425,8 @@ Consignees parce qu'elles font partie du travail reel.
 |---|---|---|
 | P1 | **Dossier unique complet** sur Google Docs : plan valide, 125 a 165 pages, table de tracabilite des 96 criteres | plan fige, connexion verifiee, **manque 2 paragraphes de ta main sur ton parcours** |
 | P1 | **Exercices de maitrise du code** : trouve-ou, explique, modifie chronometre, casse-et-repare. Commencer par le parcours de commande | a lancer |
-| P1 | **Expose d'une librairie JavaScript** pour `C2.d` | **en attente** : librairie imposee ou libre ? quel format ? |
+| P1 | **Date limite de depot du dossier** | a confirmer : elle fixe l'ordre entre dossier et exercices |
+| P1 | **Expose d'une librairie JavaScript** pour `C2.d` | **en attente** : librairie imposee ou libre ? quel format ? d'ou vient la consigne « C2.d a l'oral », a citer dans le dossier ? |
 | P2 | Repetition de la demonstration en direct | a planifier |
 
 ### Strategie retenue pour l'oral
@@ -379,9 +437,12 @@ l'IA » mais « j'ai dirige un outil, j'ai verifie sa sortie, voici ou je l'ai
 corrige ».
 
 Les preuves existent et sont verifiables : le journal, les decisions
-d'architecture, le dossier de preuves, et les moments ou l'assistant s'est trompe
-et ou la correction est venue de l'auteur du projet. La section 9 de cette entree
-en liste cinq.
+d'architecture, le dossier de preuves, et les moments ou l'auteur a repris
+l'outil, listes en section 9 sous « Corrections et arbitrages venus de
+l'auteur ». Ne pas les confondre avec les erreurs de l'assistant de la meme
+section : celles-la ont ete detectees pour la plupart par l'outil lui-meme. Les
+presenter comme des corrections de l'auteur serait faux, et un jury qui creuse
+le verrait.
 
 Risque nomme : annoncer la maitrise puis bloquer sur une modification en direct
 est le pire des deux mondes. Les exercices ne sont pas un bonus, ils sont la
@@ -389,7 +450,47 @@ preuve de la phrase.
 
 ---
 
-## 13. Liens vers les artefacts
+## 13. Questions anticipees du jury
+
+- **Q** : « Integration et production sur la meme machine : ce n'est pas dangereux ? »
+  **R** : C'est la contrainte reelle, un seul serveur. Le job d'integration n'a pas
+  acces a Docker (mesure par les sondes de la section 3). Il demande le deploiement
+  par une cle bridee cote serveur dans `~/.ssh/authorized_keys` : commande forcee
+  (`scripts/deploy.sh main`), `no-pty`, `no-port-forwarding`, `no-agent-forwarding`,
+  `no-X11-forwarding`. Pas de terminal, pas de tunnel, et une demande de copie de
+  fichier est remplacee par la commande forcee.
+
+- **Q** : « Comment savez-vous que la production sert le bon code ? »
+  **R** : Apres chaque deploiement, le job interroge `/api/health` pendant deux
+  minutes et echoue si la version servie n'est pas le commit attendu. Premiere
+  verification reussie le 2026-09-22 (section 3).
+
+- **Q** : « Le « do » de Wakdo est mesure a 3,59 : c'est sous 4,5, non ? »
+  **R** : C'est un texte gras de 21 px, donc un grand texte au sens des WCAG, dont
+  le seuil est 3:1. L'outil applique ce seuil et le fichier de mesures le consigne
+  (section 5). Les WCAG 2.1 exemptent de plus le texte d'un nom de marque
+  (critere 1.4.3, exception « Logotypes »).
+
+- **Q** : « Pourquoi aucune librairie JavaScript ? »
+  **R** : Choix assume : la borne ne livre aucune dependance au navigateur.
+  `Cr 2.d.2` n'est donc pas couvert au sens strict, et la fiche de preuve le dit.
+  La maitrise d'une librairie est traitee par un expose (section 8).
+
+- **Q** : « Qu'avez-vous corrige vous-meme dans le travail de l'outil ? »
+  **R** : Les interventions de la section 9, « Corrections et arbitrages venus de
+  l'auteur ». Par exemple la confusion poste / serveur, arretee pour repartir sur
+  une procedure claire.
+
+- **Q** : « L'arbre de travail est la production : un fichier non committe part
+  donc en ligne ? »
+  **R** : Oui pour le PHP, le CSS et le JavaScript, parce que `./src` est monte
+  directement dans le conteneur. Le deploiement refuse de partir sur un arbre non
+  propre, mais une modification locale est servie tout de suite. C'est une limite
+  connue du montage sur hote unique (section 10).
+
+---
+
+## 14. Liens vers les artefacts
 
 - `docs/soutenance/preuves/` — dossier de preuves Bloc 1, fiches 01 a 07
 - `docs/soutenance/preuves/rapports/` — 13 artefacts de mesure, dont 407 ratios en CSV
