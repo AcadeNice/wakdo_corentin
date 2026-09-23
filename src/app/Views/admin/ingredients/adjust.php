@@ -43,7 +43,7 @@ $err = static fn (string $k): string => isset($errs[$k]) && is_string($errs[$k])
 
     <div class="form-group">
         <label class="form-label" for="delta">Ajustement (+ ou -)</label>
-        <input class="form-input" type="number" id="delta" name="delta" step="1" value="<?= $val('delta') ?>" required>
+        <input class="form-input" type="number" id="delta" name="delta" step="1" min="-2147483647" max="2147483647" data-not-zero="Un ajustement de 0 ne change rien : saisissez 5 pour ajouter, -3 pour retirer." value="<?= $val('delta') ?>" required>
         <?php if ($err('delta') !== ''): ?><p class="form-error"><?= htmlspecialchars($err('delta'), ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
     </div>
 

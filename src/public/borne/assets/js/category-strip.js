@@ -56,10 +56,11 @@ export function renderStripInto(container, model, modeParam) {
             class="category-strip__item${c.active ? ' is-active' : ''}"
             href="products.html?category=${c.id}${modeQS}"
             aria-label="${escHtml(cap(c.title))}"
+            title="${escHtml(cap(c.title))}"
             ${c.active ? 'aria-current="true"' : ''}
         >
             <img class="category-strip__img" src="${escHtml(c.image)}" alt="" aria-hidden="true"
-                 data-fallback="hide">
+                 loading="lazy" decoding="async" data-fallback="hide">
             <span class="category-strip__label">${escHtml(cap(c.title))}</span>
         </a>
     `).join('');

@@ -53,6 +53,7 @@ $rows = isset($orders) && is_array($orders) ? $orders : [];
     <?php if ($rows === []): ?>
         <p class="admin-empty">Aucune commande pour le moment.</p>
     <?php else: ?>
+        <div class="table-wrapper">
         <table class="admin-table">
             <thead>
                 <tr>
@@ -92,5 +93,6 @@ $rows = isset($orders) && is_array($orders) ? $orders : [];
                 <?php endforeach; ?>
             </tbody>
         </table>
+        </div>
     <?php endif; ?>
 </section>

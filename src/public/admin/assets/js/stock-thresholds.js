@@ -62,6 +62,10 @@
         });
 
         function openModal(button) {
+            // Une seule fenetre sert tous les ingredients : reset() efface aussi les
+            // messages du controle de saisie laisses par l'ingredient precedent
+            // (form-validation.js ecoute l'evenement reset).
+            form.reset();
             var id = button.getAttribute('data-id') || '';
             form.setAttribute('action', '/admin/ingredients/' + id + '/thresholds');
             if (nameLabel) {

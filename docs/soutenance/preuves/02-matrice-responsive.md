@@ -25,7 +25,7 @@ Toutes les pages declarent le viewport meta responsive `width=device-width, init
 | Point de rupture | Direction | Regle (fichier:ligne) | Effet principal |
 |---|---|---|---|
 | `min-width: 1080px` | montante (grand ecran) | `style.css:405` | carte d'accueil elargie a `820px` ; `.category-grid` passe a **4 colonnes** (`style.css:418`) ; icones de choix `150px` |
-| `max-width: 900px` | descendante | `style.css:1731` | `.order-layout` passe en `flex-direction: column` (`style.css:1732`) ; le `.order-panel` perd son `sticky`/largeur fixe et s'etire (`static`, `width:auto`) (`style.css:1736-1742`) |
+| `max-width: 900px` | descendante | `style.css:1731` | `.order-layout` passe en `flex-direction: column` (`style.css:1732`) ; le `.order-panel` perd son `sticky`/largeur fixe et s'etire (`static`, `width:auto`) (`style.css:1736-1742`) ; depuis le 2026-09-23, le contenu (`.order-layout > main`) est lui aussi etire a la largeur disponible (section 15 de `style.css`, voir section 3.3) |
 | `max-width: 700px` | descendante | `style.css:949` | `.products-grid` passe a **2 colonnes** (`style.css:951`) ; `.payment-methods` s'empile (`flex-direction: column`) (`style.css:954`) |
 | `max-width: 600px` | descendante | `style.css:423` | carte d'accueil resserree ; `.welcome__greeting` reduit a `xl` ; `.category-grid` a **2 colonnes** (`style.css:437`) ; `.composer-grid` en tuiles `120px` (`style.css:1496`) |
 | `max-width: 480px` | descendante | `style.css:446` et `style.css:960` | `.welcome__choices` en colonne unique (`style.css:447`) ; `.products-grid` en `1fr 1fr` avec gap resserre (`style.css:961`) |
@@ -39,8 +39,9 @@ Les cinq points de rupture attendus (`1080` / `900` / `700` / `600` / `480`) son
 | `max-width: 900px` | descendante | `admin.css:2094` | `.stock-summary` passe a 1 colonne (`admin.css:2095`) ; `.stock-list__row` degrille en 1 colonne (`admin.css:2098`) ; actions realignees a gauche (`admin.css:2102`) |
 | `max-width: 860px` | descendante | `admin.css:1819` | POS comptoir/drive : `.pos__main` en colonne (`admin.css:1820`) ; le `.pos__panel` perd son `sticky` et passe pleine largeur (`admin.css:1821-1826`) ; hauteur du panier plafonnee (`admin.css:1827`) |
 | `max-width: 700px` | descendante | `admin.css:1489` | `.perm-grid` (matrice de droits) passe a 1 colonne (`admin.css:1490`) |
+| `max-width: 640px` | descendante | bloc « Ossature sur petit ecran » apres `.content`, et bloc apres les regles `.tile` | **ossature** : grille a 1 colonne (barre du haut, bande de navigation, contenu) ; le menu lateral devient une bande horizontale defilante, recentree sur la page courante (`admin.js`) ; contenu pleine largeur. **Tableau de bord** : tuiles sur 2 colonnes au lieu de 4 ; boutons d'en-tete sous le titre (ajoutes le 2026-09-23) |
 
-Les trois points de rupture attendus (`900` / `860` / `700`) sont presents dans le fichier.
+Les points de rupture des composants (`900` / `860` / `700`) sont presents dans le fichier, et l'ossature a le sien (`640`) depuis le 2026-09-23.
 
 ## 3. Matrice Page x Point de rupture -> comportement de layout
 
@@ -68,7 +69,23 @@ Note sur le composant de composition de menu (modale ouverte depuis la grille pr
 | **POS comptoir/drive** (`.pos__main`, `.pos__panel`) | catalogue `flex:1` a gauche + panneau `340px` sticky a droite (`admin.css:1524-1532,1695-1707`) | base (pas de MQ a 900 pour le POS) | **`.pos__main` empile** en colonne ; `.pos__panel` `static`, pleine largeur, panier plafonne `320px` (`admin.css:1819-1828`) | idem `<=860` (herite) |
 | **Formulaire Roles** (`.perm-grid`) | matrice de droits **2 colonnes** (`admin.css:1462-1468`) | base (seuil a 700) | base | `.perm-grid` **1 colonne** (`admin.css:1489-1491`) |
 
-Point d'honnetete sur le shell admin : le `.admin-layout` en `grid` conserve sa **sidebar fixe de 264px a toutes les resolutions** — il n'existe aucune media query qui la reduise, la masque ou la transforme en menu hamburger (recherche confirmee : les seules `@media` d'`admin.css` sont `900`, `860`, `700`, et aucune ne cible `.admin-layout`, `.sidebar` ou `.topbar`). En dessous d'environ `600px` de large, la zone de contenu devient donc etroite. C'est coherent avec la cible declaree (back-office desktop/tablette, `admin.css:4`) mais **le shell admin n'est pas optimise pour le mobile portrait etroit** ; les composants internes (stock, POS, roles) s'adaptent, pas l'ossature. Cr 1.b.1 est donc **couvert pour la borne (cible tactile) et pour les composants admin, partiellement couvert pour l'ossature admin sur tres petits ecrans.**
+**Ossature admin (mise a jour du 2026-09-23).** Jusqu'a cette date, le `.admin-layout` gardait sa colonne de menu de `264px` a toutes les largeurs : aucune media query ne ciblait `.admin-layout`, `.sidebar` ou `.topbar`, et sous `600px` environ le contenu devenait etroit. Depuis le lot F33, sous `640px` :
+
+| Zone | `<= 640px` |
+|---|---|
+| `.admin-layout` | 1 colonne : barre du haut (`72px`), bande de navigation, contenu |
+| `.sidebar` | bande horizontale defilante, pleine largeur ; logo reduit, intitules de rubrique retires (redondants avec les liens) ; page courante reperee par un trait jaune sous le lien |
+| `.content` | pleine largeur, marges de `16px` |
+
+Tous les liens restent dans la page, dans le meme ordre de tabulation ; seul le recentrage de la bande sur la page courante passe par JavaScript (`admin.js`), la mise en page n'en depend pas.
+
+**Mesure** dans Chromium (`tests/e2e/responsive.spec.js`) sur 15 pages du back-office (tableau de bord, ingredients, produits, nouveau produit, produits par categorie, categories, menus, nouveau menu, commandes, saisie commande, cuisine, statistiques, utilisateurs, roles, mon PIN) a 360 et 390 px. Le back-office ne defile pas au niveau du document (`.admin-layout` : hauteur fixe, `overflow: hidden`) : c'est la zone de contenu `main.content` qui defile, c'est donc elle qui est mesuree. Resultat : aucun defilement horizontal de la zone de contenu, menu et contenu a pleine largeur, menu au-dessus du contenu, page courante visible dans la bande ; a 1366 px, le menu reste une colonne a gauche. Les tableaux larges defilent dans leur propre cadre (`.table-wrapper`), ce qui est voulu.
+
+Cette mesure a d'abord echoue, ce qui a fait corriger trois defauts du back-office sur telephone : les 4 tuiles du tableau de bord (382 px de trop a 360 px), les boutons d'en-tete de la liste des produits (19 px), et trois tableaux poses sans cadre defilant (liste des commandes, deux listes de la saisie comptoir : 275 px de trop avec une seule commande). Une premiere version du test mesurait le document, qui ne peut pas deborder ici : elle passait a tort, la relecture l'a releve.
+
+### 3.3 Defaut corrige : page produits de la borne sur telephone
+
+Le meme test a revele un defaut plus ancien, present dans le code de `dev` au commit `74d4398` : sur la page produits, a 360 et 390 px, toute la page defilait horizontalement (902 et 872 px de trop). Sous `900px`, `.order-layout` passe en colonne avec `align-items: flex-start` : le contenu prenait alors la largeur de son element le plus large, le bandeau de categories (1 206 px), au lieu de celle de l'ecran. La regle `min-width: 0` existante ne joue qu'en ligne. Correctif : `.order-layout > main { align-self: stretch; }` sous `900px` ; le bandeau defile desormais dans son propre cadre, et le debordement mesure est de 0 px aux deux largeurs. Le defaut touchait toute largeur sous `900px` : les anciennes captures `captures-responsive/produits-mobile.png` (1 506 x 6 394 pixels pour une fenetre de 390 px) et `produits-tablette.png` (1 538 x 3 588 pixels pour 768 px) le montraient deja, sans qu'il ait ete releve. Elles ont ete remplacees, et le test verifie desormais 360, 390 et 768 px.
 
 ## 4. Mecanismes d'adaptation employes (synthese technique)
 
@@ -106,6 +123,16 @@ Correspondance viewport -> tranche CSS attendue de la borne :
 - Tablette 768px : ![Produits borne 768px](captures-responsive/produits-tablette.png)
 - Desktop 1366px : ![Produits borne 1366px](captures-responsive/produits-desktop.png)
 
+### Back-office a 390px (ajoutees le 2026-09-23)
+
+Captures Playwright du meme harnais que le test `tests/e2e/responsive.spec.js`, sur une pile de test jetable (donnees de demonstration), fenetre de 390 x 800 :
+
+- Tableau de bord : ![Tableau de bord admin 390px](captures-responsive/admin-tableau-de-bord-390.png)
+- Ingredients : ![Ingredients admin 390px](captures-responsive/admin-ingredients-390.png)
+- Nouveau produit : ![Formulaire produit admin 390px](captures-responsive/admin-nouveau-produit-390.png)
+
+Les captures « Produits / commande » mobile et tablette ci-dessus ont ete refaites le meme jour, apres le correctif de la section 3.3, avec le meme harnais (fenetres de 390 x 800 et 768 x 800).
+
 ### Captures de reference deja presentes dans le depot
 
 Le dossier `docs/design/screens/` contient dix captures de la maquette/interface de reference de la borne, deja versionnees (non generees pour cette preuve, elles illustrent les ecrans nominaux, pas la variation de resolution) :
@@ -132,7 +159,10 @@ Ces captures montrent les etats fonctionnels d'un seul viewport (borne portrait)
 | Adaptation des composants admin | Couvert | 3 points de rupture reels, matrice section 3.2 |
 | Empilement des panneaux lateraux en etroit | Couvert | `style.css:1731-1743`, `admin.css:1819-1828` |
 | Reflow des grilles multi-colonnes | Couvert | citations section 4 |
-| Ossature admin (sidebar) sur mobile portrait etroit | Partiel | aucune media query sur `.admin-layout`/`.sidebar` (section 3.2) |
-| Preuve visuelle multi-viewport | Couvert | 9 captures Playwright versionnees (section 5) |
+| Ossature admin (sidebar) sur mobile portrait etroit | Couvert | bande de navigation sous `640px` (section 3.2), mesuree dans Chromium |
+| Aucun defilement horizontal (borne : 5 pages a 360, 390 et 768 px ; back-office : 15 pages a 360 et 390 px, mesure dans la zone de contenu) | Couvert | `tests/e2e/responsive.spec.js` ; defauts corriges : page produits de la borne (section 3.3), tableau de bord, en-tetes et trois tableaux du back-office (section 3.2) |
+| Preuve visuelle multi-viewport | Couvert | 12 captures Playwright (9 de la borne, 3 du back-office) ; versionnees (section 5) |
 
-**Conclusion.** Le critere Cr 1.b.1 est demontre pour la borne client (interface principale evaluee au titre du front-end) via cinq points de rupture verifies dans le code et pour les composants du back-office via trois points de rupture. La reserve honnete porte sur l'ossature de la sidebar admin, non adaptee au mobile portrait etroit, ce qui reste coherent avec sa cible desktop/tablette declaree. Les neuf captures multi-viewport versionnees completent la preuve visuelle.
+**Conclusion.** Le critere Cr 1.b.1 est demontre pour la borne client (interface principale evaluee au titre du front-end) via cinq points de rupture verifies dans le code, et pour le back-office via les points de rupture de ses composants et, depuis le 2026-09-23, de son ossature. Un test dans un vrai navigateur verifie l'absence de defilement horizontal sur 20 pages (borne : 5 pages a 360, 390 et 768 px ; back-office : 15 pages a 360 et 390 px) ; il a revele et fait corriger un defaut de la page produits de la borne sous 900 px (section 3.3) et trois defauts du back-office sur telephone (section 3.2). Les captures versionnees completent la preuve visuelle.
+
+**Reserve sur les renvois `fichier:ligne`.** Les numeros de ligne cites dans ce document datent de sa redaction ; les feuilles de style ont evolue depuis (sommaire et renumerotation de `style.css`, ossature d'`admin.css`). Les regles citees existent, mais leurs lignes ont bouge : le recalage des renvois est a faire dans la passe de mise a jour de la documentation.

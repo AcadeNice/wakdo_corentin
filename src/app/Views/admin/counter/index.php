@@ -60,6 +60,7 @@ $createPath = isset($newPath) && is_string($newPath) ? $newPath : '/counter/orde
     <?php if ($queue === []): ?>
         <p class="admin-empty">Aucune commande en cours.</p>
     <?php else: ?>
+        <div class="table-wrapper">
         <table class="admin-table">
             <thead>
                 <tr>
@@ -89,6 +90,7 @@ $createPath = isset($newPath) && is_string($newPath) ? $newPath : '/counter/orde
                 <?php endforeach; ?>
             </tbody>
         </table>
+        </div>
     <?php endif; ?>
 
     <h2 class="admin-section__subtitle">Historique recent</h2>
@@ -96,6 +98,7 @@ $createPath = isset($newPath) && is_string($newPath) ? $newPath : '/counter/orde
     <?php if ($rows === []): ?>
         <p class="admin-empty">Aucune commande pour ce canal.</p>
     <?php else: ?>
+        <div class="table-wrapper">
         <table class="admin-table">
             <thead>
                 <tr>
@@ -119,5 +122,6 @@ $createPath = isset($newPath) && is_string($newPath) ? $newPath : '/counter/orde
                 <?php endforeach; ?>
             </tbody>
         </table>
+        </div>
     <?php endif; ?>
 </section>

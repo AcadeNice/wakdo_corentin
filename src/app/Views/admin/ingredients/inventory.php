@@ -42,7 +42,7 @@ $err = static fn (string $k): string => isset($errs[$k]) && is_string($errs[$k])
 
     <div class="form-group">
         <label class="form-label" for="actual_quantity">Comptage physique</label>
-        <input class="form-input" type="number" id="actual_quantity" name="actual_quantity" min="0" value="<?= $val('actual_quantity') ?>" required>
+        <input class="form-input" type="number" id="actual_quantity" name="actual_quantity" min="0" max="2147483647" value="<?= $val('actual_quantity') ?>" required>
         <?php if ($err('actual_quantity') !== ''): ?><p class="form-error"><?= htmlspecialchars($err('actual_quantity'), ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
     </div>
 

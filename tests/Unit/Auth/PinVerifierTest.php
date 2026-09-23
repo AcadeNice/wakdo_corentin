@@ -150,4 +150,22 @@ final class PinVerifierTest extends TestCase
         self::assertFalse($verifier->meetsLengthPolicy('12ab'));
         self::assertFalse($verifier->meetsLengthPolicy(''));
     }
+
+    public function testLengthBoundsFollowConfiguration(): void
+    {
+        // Le formulaire de definition du PIN controle ces bornes pendant la saisie
+        // (Cr 2.b.1) : elles doivent venir de la meme source que la regle serveur.
+        self::assertSame(4, $this->verifier()->minLength());
+        self::assertSame(12, $this->verifier()->maxLength());
+
+        $this->setEnv('STAFF_PIN_MIN_LENGTH', '6');
+        $this->setEnv('STAFF_PIN_MAX_LENGTH', '8');
+        $verifier = $this->verifier();
+
+        self::assertSame(6, $verifier->minLength());
+        self::assertSame(8, $verifier->maxLength());
+        self::assertFalse($verifier->meetsLengthPolicy('12345'));
+        self::assertTrue($verifier->meetsLengthPolicy('123456'));
+        self::assertFalse($verifier->meetsLengthPolicy('123456789'));
+    }
 }

@@ -49,7 +49,7 @@ class ProfileController extends AdminController
             'activeNav' => '',
             'pinIsSet'  => $this->userRepository()->pinIsSet($userId),
             'error'     => null,
-        ], $guard);
+        ] + $this->pinLengthPolicy(), $guard);
     }
 
     /**
@@ -123,7 +123,21 @@ class ProfileController extends AdminController
             'activeNav' => '',
             'pinIsSet'  => $this->userRepository()->pinIsSet($userId),
             'error'     => $error,
-        ], $guard, $status);
+        ] + $this->pinLengthPolicy(), $guard, $status);
+    }
+
+    /**
+     * Bornes du PIN pour le controle pendant la saisie (Cr 2.b.1), lues au meme endroit
+     * que la regle serveur (PinVerifier::meetsLengthPolicy).
+     *
+     * @return array{pinMinLength: int, pinMaxLength: int}
+     */
+    private function pinLengthPolicy(): array
+    {
+        return [
+            'pinMinLength' => $this->pinVerifier()->minLength(),
+            'pinMaxLength' => $this->pinVerifier()->maxLength(),
+        ];
     }
 
     protected function userRepository(): UserRepository

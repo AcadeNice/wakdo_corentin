@@ -4,16 +4,29 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex, nofollow">
-    <meta name="description" content="Wakdo - Choisissez votre mode de paiement">
-    <title>Wakdo - Paiement</title>
+    <!-- Titre et description uniques et mesures (Cr 1.e.5) : voir index.html. -->
+    <meta name="description" content="Vérifiez le récapitulatif de votre commande Wakdo, puis réglez par carte bancaire ou en espèces. Sur place, indiquez le numéro de votre chevalet.">
+    <title>Paiement de votre commande Wakdo : carte ou espèces</title>
     <link rel="canonical" href="https://corentin-wakdo.stark.a3n.fr/payment.html">
     <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg">
     <link rel="stylesheet" href="assets/css/style.css">
+    <!-- schema.org (Cr 1.e.3) : page de paiement du site decrit sur index.html. -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "CheckoutPage",
+        "@id": "https://corentin-wakdo.stark.a3n.fr/payment.html#page",
+        "url": "https://corentin-wakdo.stark.a3n.fr/payment.html",
+        "name": "Paiement de la commande",
+        "inLanguage": "fr-FR",
+        "isPartOf": { "@id": "https://corentin-wakdo.stark.a3n.fr/#site" }
+    }
+    </script>
 </head>
 <body class="payment-page">
 
     <!-- Lien d'evitement (RGAA Cr 1.e.11) : premier element focalisable de l'ecran. -->
-    <a class="skip-link" href="#main-content">Aller au contenu</a>
+    <a class="skip-link" href="#main-content" title="Aller au contenu principal">Aller au contenu</a>
 
     <!--
         payment.html — Payment method selection.
@@ -25,7 +38,8 @@
         <a
             class="site-header__back"
             href="categories.html"
-            aria-label="Retour aux categories"
+            aria-label="Retour aux catégories"
+            title="Retour aux catégories"
         >
             &#8592; Retour
         </a>
@@ -42,7 +56,7 @@
         <h1 class="payment-main__heading">Comment souhaitez-vous payer ?</h1>
 
         <!-- Mini order recap injected by inline script using localStorage -->
-        <div class="payment-recap" id="payment-recap" role="region" aria-label="Recapitulatif de commande">
+        <div class="payment-recap" id="payment-recap" role="region" aria-label="Récapitulatif de commande">
             <!-- Filled by page-payment.js -->
         </div>
 
@@ -74,7 +88,7 @@
                 class="payment-choice"
                 id="pay-cash"
                 type="button"
-                aria-label="Payer en especes"
+                aria-label="Payer en espèces"
             >
                 <!-- Cash SVG icon (inline) -->
                 <svg class="payment-choice__icon" viewBox="0 0 64 64" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
@@ -83,7 +97,7 @@
                     <circle cx="32" cy="36" r="4" fill="#FFC72C"/>
                     <rect x="8" y="12" width="48" height="6" rx="2" fill="#E6A800"/>
                 </svg>
-                <span class="payment-choice__label">Especes</span>
+                <span class="payment-choice__label">Espèces</span>
             </button>
 
         </div>

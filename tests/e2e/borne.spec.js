@@ -59,7 +59,7 @@ test('parcours borne : de l\'accueil a la confirmation de commande', async ({ pa
     await page.locator('#chevalet-input').fill('12');
     await page.locator('#chevalet-ok').click();
     await expect(page).toHaveURL(/confirmation\.html/);
-    await expect(page.locator('.confirmation-banner__title')).toHaveText(/Commande confirmee/);
+    await expect(page.locator('.confirmation-banner__title')).toHaveText(/Commande confirmée/);
     // Numero de commande genere (plus le placeholder).
     await expect(page.locator('#order-number')).not.toHaveText('—');
   });

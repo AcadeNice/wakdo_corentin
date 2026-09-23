@@ -133,7 +133,7 @@ foreach ($perms as $p) {
     <div class="form-group">
         <label class="form-label" for="code">Code interne</label>
         <?php if ($id === 0): ?>
-            <input class="form-input" type="text" id="code" name="code" maxlength="40" value="<?= $val('code') ?>" required>
+            <input class="form-input" type="text" id="code" name="code" maxlength="40" pattern="[a-z][a-z0-9_]{1,39}" data-pattern-message="Une minuscule pour commencer, puis minuscules, chiffres ou tiret bas, 2 à 40 caractères (exemple : chef_equipe)." value="<?= $val('code') ?>" required>
             <p class="form-helper">Identifiant technique (sans espace), non modifiable apres creation.</p>
             <?php if ($err('code') !== ''): ?><p class="form-error"><?= $err('code') ?></p><?php endif; ?>
         <?php else: ?>

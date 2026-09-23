@@ -50,7 +50,7 @@ $err = static fn (string $k): string => isset($errs[$k]) && is_string($errs[$k])
 
     <div class="form-group">
         <label class="form-label" for="stock_capacity">Capacite (reference 100%, en unites)</label>
-        <input class="form-input" type="number" id="stock_capacity" name="stock_capacity" min="1" value="<?= $val('stock_capacity') ?>" required>
+        <input class="form-input" type="number" id="stock_capacity" name="stock_capacity" min="1" max="2147483647" value="<?= $val('stock_capacity') ?>" required>
         <?php if ($err('stock_capacity') !== ''): ?><p class="form-error"><?= htmlspecialchars($err('stock_capacity'), ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
     </div>
 

@@ -60,6 +60,8 @@ docker run --rm -v "$PWD/docs/soutenance/preuves/w3c/dom-rendu":/data:ro --entry
 # -> 1 message : info/warning aria-disabled (pre-existant, panneau de commande)
 ```
 
+**Niveau 1 rejoue le 2026-09-23 apres le lot F33** (titres et descriptions, donnees schema.org sur les 5 pages, banniere en `<picture>` avec `fetchpriority`, attributs `title` des liens) : meme commande, meme moteur (26.6.24), resultat `{"messages":[]}`, 0 erreur et 0 avertissement.
+
 **Niveau 1 rejoue apres le passage de l'ecran categories en dynamique** : la commande ci-dessous a ete relancee sur le nouveau balisage, resultat identique (`{"messages":[]}`), artefact inchange au bit pres.
 
 **Reserve datee sur le niveau 2** : `w3c/dom-rendu/categories.html` est la capture d'AVANT ce changement (elle contient encore la grille servie en dur). La recapture est faite en une seule campagne a la fin des lots qui touchent au balisage de la borne, et apres nettoyage des donnees de demonstration — capturer maintenant figerait dans une piece destinee au jury deux categories de test creees pendant les essais du back-office. Le niveau 1 ci-dessus, lui, est a jour.
