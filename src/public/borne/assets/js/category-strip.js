@@ -66,9 +66,9 @@ export function renderStripInto(container, model, modeParam) {
     `).join('');
 
     container.innerHTML = `
-        <button class="category-strip__arrow category-strip__arrow--prev" type="button" aria-label="Categories precedentes">&#9664;</button>
+        <button class="category-strip__arrow category-strip__arrow--prev" type="button" aria-label="Catégories précédentes">&#9664;</button>
         <div class="category-strip__scroller">${cards}</div>
-        <button class="category-strip__arrow category-strip__arrow--next" type="button" aria-label="Categories suivantes">&#9654;</button>
+        <button class="category-strip__arrow category-strip__arrow--next" type="button" aria-label="Catégories suivantes">&#9654;</button>
     `;
 
     const scroller = container.querySelector('.category-strip__scroller');

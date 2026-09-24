@@ -47,6 +47,6 @@ $noticeMessage = isset($notice) && is_string($notice) ? $notice : null;
             <button type="submit" class="btn btn-primary">Se connecter</button>
         </form>
 
-        <p class="login-footer"><a href="/forgot_password">Mot de passe oublie ?</a></p>
+        <p class="login-footer"><a href="/forgot_password">Mot de passe oublié ?</a></p>
     </div>
 </main>

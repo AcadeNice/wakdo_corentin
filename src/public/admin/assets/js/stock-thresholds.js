@@ -70,7 +70,7 @@
             form.setAttribute('action', '/admin/ingredients/' + id + '/thresholds');
             if (nameLabel) {
                 var name = button.getAttribute('data-name') || '';
-                nameLabel.textContent = name === '' ? '' : 'Ingredient : ' + name;
+                nameLabel.textContent = name === '' ? '' : 'Ingrédient : ' + name;
             }
             inCapacity.value = button.getAttribute('data-capacity') || '';
             inLow.value = button.getAttribute('data-low') || '';
@@ -98,16 +98,16 @@
         var critical = toInt(criticalRaw);
 
         if (capacity === null || capacity < 1) {
-            return 'La capacite (reference 100%) doit etre un entier superieur ou egal a 1.';
+            return 'La capacité (référence 100%) doit être un entier supérieur ou égal à 1.';
         }
         if (low === null || low < 0 || low > 100) {
-            return 'Le seuil d alerte doit etre un entier entre 0 et 100.';
+            return 'Le seuil d\'alerte doit être un entier entre 0 et 100.';
         }
         if (critical === null || critical < 0 || critical > 100) {
-            return 'Le seuil critique doit etre un entier entre 0 et 100.';
+            return 'Le seuil critique doit être un entier entre 0 et 100.';
         }
         if (critical >= low) {
-            return 'Le seuil critique doit etre strictement inferieur au seuil d alerte.';
+            return 'Le seuil critique doit être strictement inférieur au seuil d\'alerte.';
         }
 
         return null;

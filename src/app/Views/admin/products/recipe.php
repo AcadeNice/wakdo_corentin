@@ -61,7 +61,7 @@ $attr = static fn (mixed $data): string => htmlspecialchars(
 <div class="page-header">
     <div>
         <h1 class="page-title">Recette - <?= $name ?></h1>
-        <p class="page-subtitle">Composition en ingredients : la disponibilite du produit en decoule</p>
+        <p class="page-subtitle">Composition en ingrédients : la disponibilité du produit en découle</p>
     </div>
 </div>
 
@@ -69,13 +69,13 @@ $attr = static fn (mixed $data): string => htmlspecialchars(
     <input type="hidden" name="_csrf" value="<?= $csrf ?>">
 
     <fieldset class="form-group">
-        <legend>Ingredients</legend>
-        <p><small>Un ingredient NON RETIRABLE en rupture critique met le produit en rupture automatique. Un ingredient retirable/optionnel ne bloque pas le produit.</small></p>
+        <legend>Ingrédients</legend>
+        <p><small>Un ingrédient NON RETIRABLE en rupture critique met le produit en rupture automatique. Un ingrédient retirable/optionnel ne bloque pas le produit.</small></p>
         <?php if ($compError !== ''): ?><p class="form-error"><?= htmlspecialchars($compError, ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
         <div id="recipe-builder"
              data-ingredients="<?= $attr($slimIngredients) ?>"
              data-composition="<?= $attr($slimComposition) ?>"></div>
-        <button class="btn btn-secondary" type="button" id="add-ingredient">Ajouter un ingredient</button>
+        <button class="btn btn-secondary" type="button" id="add-ingredient">Ajouter un ingrédient</button>
     </fieldset>
 
     <input type="hidden" name="composition_json" id="composition_json" value="">

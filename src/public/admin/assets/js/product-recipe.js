@@ -60,7 +60,7 @@
 
         // Ingredient (picker)
         var ingLabel = el('label');
-        ingLabel.appendChild(document.createTextNode('Ingredient '));
+        ingLabel.appendChild(document.createTextNode('Ingrédient '));
         var ingSelect = el('select', 'form-input recipe-ingredient');
         ingredients.forEach(function (i) {
             var opt = el('option');
@@ -87,7 +87,7 @@
 
         // Supplement (centimes)
         var extraLabel = el('label');
-        extraLabel.appendChild(document.createTextNode(' Supplement (cts) '));
+        extraLabel.appendChild(document.createTextNode(' Supplément (cts) '));
         extraLabel.appendChild(numberInput('recipe-extra', line.extra_price_cents != null ? line.extra_price_cents : 0, 0));
         block.appendChild(extraLabel);
 

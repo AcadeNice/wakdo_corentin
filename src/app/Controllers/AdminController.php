@@ -42,7 +42,7 @@ abstract class AdminController extends AuthenticatedController
         }
 
         if ($permission !== null && !$this->authorizer()->can($result->roleId, $permission)) {
-            return $this->adminView('admin/forbidden', ['title' => 'Acces refuse', 'activeNav' => ''], $result, 403);
+            return $this->adminView('admin/forbidden', ['title' => 'Accès refusé', 'activeNav' => ''], $result, 403);
         }
 
         return $result;

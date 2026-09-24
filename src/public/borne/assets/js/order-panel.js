@@ -102,7 +102,7 @@ export function buildPanelModel(cart) {
  * @returns {string}
  */
 function modeLabel() {
-    return getMode() === 'a-emporter' ? 'A emporter' : 'Sur place';
+    return getMode() === 'a-emporter' ? 'À emporter' : 'Sur place';
 }
 
 /**
@@ -125,13 +125,13 @@ function lineHtml(line) {
             </div>
             ${options}
             <div class="order-panel__line-controls">
-                <div class="order-panel__qty" role="group" aria-label="Quantite de ${escHtml(line.libelle)}">
+                <div class="order-panel__qty" role="group" aria-label="Quantité de ${escHtml(line.libelle)}">
                     <button
                         class="order-panel__qty-btn"
                         data-action="dec"
                         data-index="${line.index}"
                         type="button"
-                        aria-label="Diminuer la quantite de ${escHtml(line.libelle)}"
+                        aria-label="Diminuer la quantité de ${escHtml(line.libelle)}"
                     >&minus;</button>
                     <span class="order-panel__qty-value">${line.quantite}</span>
                     <button
@@ -139,7 +139,7 @@ function lineHtml(line) {
                         data-action="inc"
                         data-index="${line.index}"
                         type="button"
-                        aria-label="Augmenter la quantite de ${escHtml(line.libelle)}"
+                        aria-label="Augmenter la quantité de ${escHtml(line.libelle)}"
                     >+</button>
                 </div>
                 <button
@@ -250,7 +250,7 @@ export function renderOrderPanel(container) {
         // avant d'agir, plutot qu'un effacement immediat au moindre tap.
         abandon.addEventListener('click', () => {
             confirmAction({
-                message: 'Abandonner toute la commande ? Votre selection sera perdue.',
+                message: 'Abandonner toute la commande ? Votre sélection sera perdue.',
                 confirmLabel: 'Oui, abandonner',
                 cancelLabel: 'Continuer ma commande',
                 onConfirm: () => {

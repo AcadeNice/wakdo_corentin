@@ -42,9 +42,17 @@ final class SmtpMailerTest extends TestCase
         $sent = $t->written();
         self::assertStringContainsString('From: Wakdo <noreply@a3n.fr>', $sent);
         self::assertStringContainsString('To: <client@example.fr>', $sent);
-        self::assertStringContainsString('Subject: Reinitialisation de votre mot de passe Wakdo', $sent);
+        // Sujet accentue : encode-word RFC 2047 (base64 UTF-8), pas de texte brut.
+        $expectedSubject = '=?UTF-8?B?' . base64_encode('Réinitialisation de votre mot de passe Wakdo') . '?=';
+        self::assertStringContainsString('Subject: ' . $expectedSubject, $sent);
         self::assertStringContainsString('Content-Type: text/plain; charset=UTF-8', $sent);
-        self::assertStringContainsString('https://corentin-wakdo-admin.stark.a3n.fr/reset_password?token=abc', $sent);
+        // Corps en quoted-printable : sans extension 8BITMIME annoncee, les octets non ASCII
+        // ne partent pas bruts. Une fois decode, le lien et les accents sont intacts.
+        self::assertStringContainsString('Content-Transfer-Encoding: quoted-printable', $sent);
+        $body = quoted_printable_decode(substr($sent, (int) strpos($sent, "\r\n\r\n")));
+        self::assertStringContainsString('https://corentin-wakdo-admin.stark.a3n.fr/reset_password?token=abc', $body);
+        self::assertStringContainsString('Une réinitialisation de mot de passe a été demandée', $body);
+        self::assertSame(1, preg_match('/^[\x00-\x7F]*$/', $sent), 'message transmis en ASCII 7 bits');
         // L'enveloppe SMTP doit porter l'expediteur et le destinataire reels.
         self::assertStringContainsString('MAIL FROM:<noreply@a3n.fr>', $sent);
         self::assertStringContainsString('RCPT TO:<client@example.fr>', $sent);
@@ -63,6 +71,6 @@ final class SmtpMailerTest extends TestCase
         $this->mailer($t)->sendPasswordReset('c@e.fr', 'https://x/reset?token=t');
 
         // En-tetes et corps separes par une ligne vide (CRLF CRLF).
-        self::assertStringContainsString("Content-Transfer-Encoding: 8bit\r\n\r\nBonjour,", $t->written());
+        self::assertStringContainsString("Content-Transfer-Encoding: quoted-printable\r\n\r\nBonjour,", $t->written());
     }
 }

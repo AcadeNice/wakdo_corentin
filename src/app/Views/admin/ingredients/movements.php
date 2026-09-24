@@ -24,7 +24,7 @@ $withActor = (bool) ($showActor ?? false);
 
 $esc = static fn (mixed $v): string => htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
 $typeText = static fn (string $t): string => match ($t) {
-    'restock'              => 'Reappro',
+    'restock'              => 'Réappro',
     'inventory_correction' => 'Inventaire',
     'sale'                 => 'Vente',
     'cancellation'         => 'Annulation',

@@ -22,7 +22,7 @@ $euros = static fn (int $cents): string => number_format($cents / 100, 2, ',', '
         <p class="page-subtitle">Gestion des produits du catalogue</p>
     </div>
     <div class="page-actions">
-        <a class="btn btn-secondary" href="/admin/products/by-category">Vue par categorie</a>
+        <a class="btn btn-secondary" href="/admin/products/by-category">Vue par catégorie</a>
         <a class="btn btn-primary" href="/admin/products/new">Nouveau produit</a>
     </div>
 </div>
@@ -33,7 +33,7 @@ $euros = static fn (int $cents): string => number_format($cents / 100, 2, ',', '
             <thead>
                 <tr>
                     <th>Nom</th>
-                    <th>Categorie</th>
+                    <th>Catégorie</th>
                     <th>Prix</th>
                     <th>TVA</th>
                     <th>Statut</th>
@@ -63,7 +63,7 @@ $euros = static fn (int $cents): string => number_format($cents / 100, 2, ',', '
                         <td class="fw-600">
                             <?= $esc($row['name'] ?? '') ?>
                             <?php if ($isVariant): ?>
-                                <span class="pill pill-neutral" title="Cette ligne est une variante de taille, pas un produit affiche seul sur la borne">Variante de <?= $esc($baseName !== '' ? $baseName : '?') ?></span>
+                                <span class="pill pill-neutral" title="Cette ligne est une variante de taille, pas un produit affiché seul sur la borne">Variante de <?= $esc($baseName !== '' ? $baseName : '?') ?></span>
                             <?php endif; ?>
                         </td>
                         <td class="muted"><?= $esc($row['category_name'] ?? '') ?></td>
@@ -73,7 +73,7 @@ $euros = static fn (int $cents): string => number_format($cents / 100, 2, ',', '
                             <?php if (!$available): ?>
                                 <span class="pill pill-neutral">Indisponible</span>
                             <?php elseif ($autoRupture): ?>
-                                <span class="pill pill-warning" title="Un ingredient requis est en rupture critique">Rupture auto</span>
+                                <span class="pill pill-warning" title="Un ingrédient requis est en rupture critique">Rupture auto</span>
                             <?php else: ?>
                                 <span class="pill pill-success">Disponible</span>
                             <?php endif; ?>

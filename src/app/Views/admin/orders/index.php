@@ -23,18 +23,18 @@ $euros = static fn (mixed $cents): string => number_format(((int) $cents) / 100,
 
 $modeLabel = static fn (string $m): string => match ($m) {
     'dine_in'  => 'Sur place',
-    'takeaway' => 'A emporter',
+    'takeaway' => 'À emporter',
     'drive'    => 'Drive',
     default    => $m,
 };
 
 $statusLabel = static fn (string $s): string => match ($s) {
     'pending_payment' => 'En attente',
-    'paid'            => 'Payee',
-    'preparing'       => 'En preparation',
-    'ready'           => 'Prete',
-    'delivered'       => 'Livree',
-    'cancelled'       => 'Annulee',
+    'paid'            => 'Payée',
+    'preparing'       => 'En préparation',
+    'ready'           => 'Prête',
+    'delivered'       => 'Livrée',
+    'cancelled'       => 'Annulée',
     default           => $s,
 };
 
@@ -60,7 +60,7 @@ $rows = isset($orders) && is_array($orders) ? $orders : [];
 
 <section class="admin-section" aria-labelledby="orders-heading">
     <h1 id="orders-heading" class="admin-section__title">Commandes</h1>
-    <p class="admin-section__sub"><?= count($rows) ?> commande(s) recente(s)</p>
+    <p class="admin-section__sub"><?= count($rows) ?> commande(s) récente(s)</p>
 
     <?php if ($rows === []): ?>
         <p class="admin-empty">Aucune commande pour le moment.</p>
@@ -69,7 +69,7 @@ $rows = isset($orders) && is_array($orders) ? $orders : [];
         <table class="admin-table">
             <thead>
                 <tr>
-                    <th>Numero</th>
+                    <th>Numéro</th>
                     <th>Mode</th>
                     <th>Chevalet</th>
                     <th>Statut</th>

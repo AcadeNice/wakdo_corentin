@@ -169,8 +169,8 @@ final class OrderAdminControllerTest extends TestCase
         self::assertStringContainsString('Sur place', $body);   // dine_in -> libelle
         self::assertStringContainsString('261', $body);         // chevalet
         self::assertStringContainsString('19,90 EUR', $body);   // total 1990c formate
-        self::assertStringContainsString('Payee', $body);       // statut paid
-        self::assertStringContainsString('A emporter', $body);  // takeaway -> libelle
+        self::assertStringContainsString('Payée', $body);       // statut paid
+        self::assertStringContainsString('À emporter', $body);  // takeaway -> libelle
         // Regression F40 : date au format brut MySQL affichee telle quelle.
         self::assertStringContainsString('19/06/2026 12:00', $body);
         self::assertStringNotContainsString('2026-06-19 12:00:00', $body);

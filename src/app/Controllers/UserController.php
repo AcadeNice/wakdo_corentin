@@ -89,7 +89,7 @@ class UserController extends AdminController
             return $this->renderForm($guard, 0, $form, $errors, 422);
         }
         if ($this->userRepository()->emailExists($data['email'])) {
-            return $this->renderForm($guard, 0, $form, ['email' => 'Cet email est deja utilise.'], 409);
+            return $this->renderForm($guard, 0, $form, ['email' => 'Cet email est déjà utilisé.'], 409);
         }
 
         [$actor, $errorMsg] = $this->resolvePin($guard, $form, 0);
@@ -107,18 +107,18 @@ class UserController extends AdminController
                     'last_name'     => $data['last_name'],
                     'role_id'       => $data['role_id'],
                 ]);
-                $this->writeAudit($db, 'user.create', $actor['id'], $actor['role_id'], $newId, 'Creation utilisateur', ['role_id' => $data['role_id']]);
+                $this->writeAudit($db, 'user.create', $actor['id'], $actor['role_id'], $newId, 'Création utilisateur', ['role_id' => $data['role_id']]);
             });
         } catch (PDOException $exception) {
             if ((string) $exception->getCode() === '23000') {
-                return $this->renderForm($guard, 0, $form, ['email' => 'Cet email est deja utilise.'], 409);
+                return $this->renderForm($guard, 0, $form, ['email' => 'Cet email est déjà utilisé.'], 409);
             }
 
             throw $exception;
         }
 
         $this->pinThrottle()->reset($guard->userId ?? 0);
-        $this->setFlash('Utilisateur cree.');
+        $this->setFlash('Utilisateur créé.');
 
         return $this->redirect('/admin/users');
     }
@@ -168,7 +168,7 @@ class UserController extends AdminController
             return $this->renderForm($guard, $id, $form, $errors, 422);
         }
         if ($this->userRepository()->emailExists($data['email'], $id)) {
-            return $this->renderForm($guard, $id, $form, ['email' => 'Cet email est deja utilise.'], 409);
+            return $this->renderForm($guard, $id, $form, ['email' => 'Cet email est déjà utilisé.'], 409);
         }
 
         $isActive = isset($form['is_active']) ? 1 : 0;
@@ -200,18 +200,18 @@ class UserController extends AdminController
                 if ($newHash !== null) {
                     $repo->setPasswordHash($id, $newHash);
                 }
-                $this->writeAudit($db, 'user.update', $actor['id'], $actor['role_id'], $id, 'Mise a jour utilisateur', ['fields' => $changed]);
+                $this->writeAudit($db, 'user.update', $actor['id'], $actor['role_id'], $id, 'Mise à jour utilisateur', ['fields' => $changed]);
             });
         } catch (PDOException $exception) {
             if ((string) $exception->getCode() === '23000') {
-                return $this->renderForm($guard, $id, $form, ['email' => 'Cet email est deja utilise.'], 409);
+                return $this->renderForm($guard, $id, $form, ['email' => 'Cet email est déjà utilisé.'], 409);
             }
 
             throw $exception;
         }
 
         $this->pinThrottle()->reset($guard->userId ?? 0);
-        $this->setFlash('Utilisateur mis a jour.');
+        $this->setFlash('Utilisateur mis à jour.');
 
         return $this->redirect('/admin/users');
     }
@@ -258,10 +258,10 @@ class UserController extends AdminController
 
         // mlt 10.3 PRE-2 : pas d'auto-desactivation (on ne se coupe pas l'acces).
         if ($id === ($guard->userId ?? 0)) {
-            return $this->renderConfirm($guard, 'deactivate', $id, $user, 'Vous ne pouvez pas desactiver votre propre compte.', 403);
+            return $this->renderConfirm($guard, 'deactivate', $id, $user, 'Vous ne pouvez pas désactiver votre propre compte.', 403);
         }
         if ($this->isLastActiveAdmin($user)) {
-            return $this->renderConfirm($guard, 'deactivate', $id, $user, 'Impossible de desactiver le dernier administrateur actif.', 422);
+            return $this->renderConfirm($guard, 'deactivate', $id, $user, 'Impossible de désactiver le dernier administrateur actif.', 422);
         }
 
         [$actor, $errorMsg] = $this->resolvePin($guard, $form, $id);
@@ -271,11 +271,11 @@ class UserController extends AdminController
 
         $this->db()->transaction(function (DatabaseInterface $db) use ($id, $actor): void {
             (new UserRepository($db))->deactivate($id);
-            $this->writeAudit($db, 'user.deactivate', $actor['id'], $actor['role_id'], $id, 'Desactivation utilisateur', null);
+            $this->writeAudit($db, 'user.deactivate', $actor['id'], $actor['role_id'], $id, 'Désactivation utilisateur', null);
         });
 
         $this->pinThrottle()->reset($guard->userId ?? 0);
-        $this->setFlash('Utilisateur desactive.');
+        $this->setFlash('Utilisateur désactivé.');
 
         return $this->redirect('/admin/users');
     }
@@ -329,11 +329,11 @@ class UserController extends AdminController
         // n'a jamais connaissance du PIN d'autrui.
         $this->db()->transaction(function (DatabaseInterface $db) use ($id, $actor): void {
             (new UserRepository($db))->clearPin($id);
-            $this->writeAudit($db, 'user.update', $actor['id'], $actor['role_id'], $id, 'Reinitialisation du PIN', ['fields' => ['pin_hash']]);
+            $this->writeAudit($db, 'user.update', $actor['id'], $actor['role_id'], $id, 'Réinitialisation du PIN', ['fields' => ['pin_hash']]);
         });
 
         $this->pinThrottle()->reset($guard->userId ?? 0);
-        $this->setFlash('PIN reinitialise : l\'equipier doit le redefinir.');
+        $this->setFlash('PIN réinitialisé : l\'équipier doit le redéfinir.');
 
         return $this->redirect('/admin/users');
     }
@@ -382,7 +382,7 @@ class UserController extends AdminController
 
         // PRE-3 : deja anonymise -> 409.
         if (($user['anonymized_at'] ?? null) !== null) {
-            return $this->renderConfirm($guard, 'erase', $id, $user, 'Ce compte est deja anonymise.', 409);
+            return $this->renderConfirm($guard, 'erase', $id, $user, 'Ce compte est déjà anonymisé.', 409);
         }
         if ($id === ($guard->userId ?? 0)) {
             return $this->renderConfirm($guard, 'erase', $id, $user, 'Vous ne pouvez pas anonymiser votre propre compte.', 403);
@@ -400,17 +400,17 @@ class UserController extends AdminController
         $this->db()->transaction(function (DatabaseInterface $db) use ($id, $actor, &$erased): void {
             $erased = (new UserRepository($db))->anonymise($id);
             if ($erased === 1) {
-                $this->writeAudit($db, 'user.erase_pii', $actor['id'], $actor['role_id'], $id, 'Anonymisation RGPD (droit a l effacement)', null);
+                $this->writeAudit($db, 'user.erase_pii', $actor['id'], $actor['role_id'], $id, 'Anonymisation RGPD (droit à l\'effacement)', null);
             }
         });
 
         // Course : anonymise entre la lecture et l'effacement -> 0 ligne (409).
         if ($erased !== 1) {
-            return $this->renderConfirm($guard, 'erase', $id, $user, 'Ce compte est deja anonymise.', 409);
+            return $this->renderConfirm($guard, 'erase', $id, $user, 'Ce compte est déjà anonymisé.', 409);
         }
 
         $this->pinThrottle()->reset($guard->userId ?? 0);
-        $this->setFlash('Compte anonymise (RGPD).');
+        $this->setFlash('Compte anonymisé (RGPD).');
 
         return $this->redirect('/admin/users');
     }
@@ -504,30 +504,30 @@ class UserController extends AdminController
 
         $email = trim($form['email'] ?? '');
         if ($email === '' || mb_strlen($email) > 254 || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
-            $errors['email'] = 'Email valide requis (254 caracteres max).';
+            $errors['email'] = 'Email valide requis (254 caractères max).';
         }
 
         $first = trim($form['first_name'] ?? '');
         if ($first === '' || mb_strlen($first) > 60) {
-            $errors['first_name'] = 'Le prenom est requis (60 caracteres max).';
+            $errors['first_name'] = 'Le prénom est requis (60 caractères max).';
         }
 
         $last = trim($form['last_name'] ?? '');
         if ($last === '' || mb_strlen($last) > 60) {
-            $errors['last_name'] = 'Le nom est requis (60 caracteres max).';
+            $errors['last_name'] = 'Le nom est requis (60 caractères max).';
         }
 
         $roleRaw = trim($form['role_id'] ?? '');
         $roleId = ctype_digit($roleRaw) ? (int) $roleRaw : 0;
         if ($roleId === 0 || !$this->userRepository()->activeRoleExists($roleId)) {
-            $errors['role_id'] = 'Role requis et actif.';
+            $errors['role_id'] = 'Rôle requis et actif.';
         }
 
         $password = (string) ($form['password'] ?? '');
         if (!$isUpdate && mb_strlen($password) < 8) {
-            $errors['password'] = 'Mot de passe requis (8 caracteres min).';
+            $errors['password'] = 'Mot de passe requis (8 caractères min).';
         } elseif ($isUpdate && $password !== '' && mb_strlen($password) < 8) {
-            $errors['password'] = 'Le nouveau mot de passe doit faire 8 caracteres min.';
+            $errors['password'] = 'Le nouveau mot de passe doit faire 8 caractères min.';
         }
 
         $data = [
@@ -585,7 +585,7 @@ class UserController extends AdminController
                 'code'    => 'pin.failed',
                 'etype'   => self::ENTITY,
                 'eid'     => $entityId > 0 ? $entityId : null,
-                'summary' => 'Echec PIN gestion utilisateur (email tente: ' . $email . ')',
+                'summary' => 'Échec PIN gestion utilisateur (email tenté: ' . $email . ')',
             ],
         );
     }
@@ -678,6 +678,6 @@ class UserController extends AdminController
 
     private function invalidCsrf(): Response
     {
-        return Response::make('Requete invalide.', 403, ['Content-Type' => 'text/plain; charset=utf-8']);
+        return Response::make('Requête invalide.', 403, ['Content-Type' => 'text/plain; charset=utf-8']);
     }
 }

@@ -261,7 +261,7 @@ final class IngredientRepository
         $declared = $names === [] ? 'aucun des 14' : implode(', ', $names);
         $suffix = $source === '' ? '' : ' (source: ' . $source . ')';
 
-        return mb_substr('Allergenes revus : ' . $declared . $suffix, 0, 255);
+        return mb_substr('Allergènes revus : ' . $declared . $suffix, 0, 255);
     }
 
     public function isReferenced(int $id): bool

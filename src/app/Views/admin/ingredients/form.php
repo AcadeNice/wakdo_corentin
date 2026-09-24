@@ -29,7 +29,7 @@ $err = static fn (string $k): string => isset($errs[$k]) && is_string($errs[$k])
 ?>
 <div class="page-header">
     <div>
-        <h1 class="page-title"><?= $id !== 0 ? 'Modifier l ingredient' : 'Nouvel ingredient' ?></h1>
+        <h1 class="page-title"><?= $id !== 0 ? 'Modifier l\'ingrédient' : 'Nouvel ingrédient' ?></h1>
     </div>
 </div>
 
@@ -43,43 +43,43 @@ $err = static fn (string $k): string => isset($errs[$k]) && is_string($errs[$k])
     </div>
 
     <div class="form-group">
-        <label class="form-label" for="unit">Unite (ex. portion, sachet, piece)</label>
+        <label class="form-label" for="unit">Unité (ex. portion, sachet, pièce)</label>
         <input class="form-input" type="text" id="unit" name="unit" maxlength="40" value="<?= $val('unit') ?>" required>
         <?php if ($err('unit') !== ''): ?><p class="form-error"><?= htmlspecialchars($err('unit'), ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
     </div>
 
     <div class="form-group">
-        <label class="form-label" for="stock_capacity">Capacite (reference 100%, en unites)</label>
+        <label class="form-label" for="stock_capacity">Capacité (référence 100%, en unités)</label>
         <input class="form-input" type="number" id="stock_capacity" name="stock_capacity" min="1" max="2147483647" value="<?= $val('stock_capacity') ?>" required>
         <?php if ($err('stock_capacity') !== ''): ?><p class="form-error"><?= htmlspecialchars($err('stock_capacity'), ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
     </div>
 
     <div class="form-group">
-        <label class="form-label" for="pack_size">Taille d un pack de reappro (unites)</label>
+        <label class="form-label" for="pack_size">Taille d'un pack de réappro (unités)</label>
         <input class="form-input" type="number" id="pack_size" name="pack_size" min="1" max="65535" value="<?= $val('pack_size') ?>" required>
         <?php if ($err('pack_size') !== ''): ?><p class="form-error"><?= htmlspecialchars($err('pack_size'), ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
     </div>
 
     <div class="form-group">
-        <label class="form-label" for="pack_label">Libelle du pack (optionnel)</label>
+        <label class="form-label" for="pack_label">Libellé du pack (optionnel)</label>
         <input class="form-input" type="text" id="pack_label" name="pack_label" maxlength="80" value="<?= $val('pack_label') ?>">
         <?php if ($err('pack_label') !== ''): ?><p class="form-error"><?= htmlspecialchars($err('pack_label'), ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
     </div>
 
     <div class="form-group">
-        <label class="form-label" for="low_stock_pct">Seuil d alerte (% de la capacite)</label>
+        <label class="form-label" for="low_stock_pct">Seuil d'alerte (% de la capacité)</label>
         <input class="form-input" type="number" id="low_stock_pct" name="low_stock_pct" min="0" max="100" value="<?= $val('low_stock_pct') ?>" required>
         <?php if ($err('low_stock_pct') !== ''): ?><p class="form-error"><?= htmlspecialchars($err('low_stock_pct'), ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
     </div>
 
     <div class="form-group">
-        <label class="form-label" for="critical_stock_pct">Seuil critique (% de la capacite, &lt; alerte)</label>
+        <label class="form-label" for="critical_stock_pct">Seuil critique (% de la capacité, &lt; alerte)</label>
         <input class="form-input" type="number" id="critical_stock_pct" name="critical_stock_pct" min="0" max="100" value="<?= $val('critical_stock_pct') ?>" required>
         <?php if ($err('critical_stock_pct') !== ''): ?><p class="form-error"><?= htmlspecialchars($err('critical_stock_pct'), ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
     </div>
 
     <?php if ($id === 0): ?>
-        <p><small>Le stock initial est a 0 : etablissez-le ensuite via un reapprovisionnement ou un inventaire (chaque mouvement est trace).</small></p>
+        <p><small>Le stock initial est à 0 : établissez-le ensuite via un réapprovisionnement ou un inventaire (chaque mouvement est tracé).</small></p>
     <?php endif; ?>
 
     <div class="form-actions">
@@ -94,10 +94,10 @@ $err = static fn (string $k): string => isset($errs[$k]) && is_string($errs[$k])
         <div class="card-body">
         <h2 id="nutrition-title">Valeur nutritionnelle</h2>
         <?php if ($kcal !== ''): ?>
-            <p>Apport energetique : <strong><?= $kcal ?> kcal / 100 g</strong>
-               (source : <?= $val('nutrition_source') ?>, importe le <?= $val('nutrition_fetched_at') ?>)</p>
+            <p>Apport énergétique : <strong><?= $kcal ?> kcal / 100 g</strong>
+               (source : <?= $val('nutrition_source') ?>, importé le <?= $val('nutrition_fetched_at') ?>)</p>
         <?php else: ?>
-            <p>Aucune donnee nutritionnelle importee pour le moment.</p>
+            <p>Aucune donnée nutritionnelle importée pour le moment.</p>
         <?php endif; ?>
         <!-- Import depuis une API externe (OpenFoodFacts), action explicite, POST + CSRF. -->
         <form method="post" action="/admin/ingredients/<?= $id ?>/enrich">
@@ -115,13 +115,13 @@ $err = static fn (string $k): string => isset($errs[$k]) && is_string($errs[$k])
     ?>
     <section class="card" aria-labelledby="allergens-title">
         <div class="card-body">
-        <h2 id="allergens-title">Allergenes de cet ingredient</h2>
+        <h2 id="allergens-title">Allergènes de cet ingrédient</h2>
 
         <?php if ($reviewedAt === ''): ?>
             <p class="allergen-review allergen-review--none" role="status">
-                <strong>Jamais revu.</strong> Tant que cet ingredient n a pas ete revu, la borne
-                n affirme rien sur les produits qui l utilisent : elle invite le client a demander
-                a l equipe. C est volontaire — ne rien cocher ne veut pas dire "sans allergene".
+                <strong>Jamais revu.</strong> Tant que cet ingrédient n'a pas été revu, la borne
+                n'affirme rien sur les produits qui l'utilisent : elle invite le client à demander
+                à l'équipe. C'est volontaire — ne rien cocher ne veut pas dire "sans allergène".
             </p>
         <?php else: ?>
             <p class="allergen-review">
@@ -142,7 +142,7 @@ $err = static fn (string $k): string => isset($errs[$k]) && is_string($errs[$k])
             <input type="hidden" name="_csrf" value="<?= $csrf ?>">
 
             <fieldset class="form-group">
-                <legend>Cochez les allergenes reellement presents (reglement UE INCO 1169/2011)</legend>
+                <legend>Cochez les allergènes réellement présents (règlement UE INCO 1169/2011)</legend>
                 <ul class="allergen-matrix">
                     <?php foreach ($matrix as $allergen): ?>
                         <li>
@@ -159,15 +159,15 @@ $err = static fn (string $k): string => isset($errs[$k]) && is_string($errs[$k])
             </fieldset>
 
             <div class="form-group">
-                <label class="form-label" for="source">D ou vient l information ? (obligatoire)</label>
+                <label class="form-label" for="source">D'où vient l'information ? (obligatoire)</label>
                 <input class="form-input" type="text" id="source" name="source" maxlength="120"
-                       placeholder="ex. fiche technique du fournisseur, etiquette de l emballage"
+                       placeholder="ex. fiche technique du fournisseur, étiquette de l'emballage"
                        value="<?= $allergenSource ?>" required>
-                <small>Une revue sans provenance n est pas verifiable. Cette source est affichee dans le back-office et tracee.</small>
+                <small>Une revue sans provenance n'est pas vérifiable. Cette source est affichée dans le back-office et tracée.</small>
             </div>
 
             <div class="form-actions">
-                <button class="btn btn-primary" type="submit">Enregistrer la revue des allergenes</button>
+                <button class="btn btn-primary" type="submit">Enregistrer la revue des allergènes</button>
             </div>
         </form>
         </div>

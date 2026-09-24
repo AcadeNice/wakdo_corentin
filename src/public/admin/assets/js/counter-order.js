@@ -456,12 +456,12 @@
 
             var stepper = el('div', 'order-cart__qty');
             stepper.setAttribute('role', 'group');
-            stepper.setAttribute('aria-label', 'Quantite de ' + lineLabel(line));
+            stepper.setAttribute('aria-label', 'Quantité de ' + lineLabel(line));
 
             var dec = el('button', 'order-cart__qty-btn');
             dec.type = 'button';
             dec.textContent = '−'; // signe moins
-            dec.setAttribute('aria-label', 'Diminuer la quantite de ' + lineLabel(line));
+            dec.setAttribute('aria-label', 'Diminuer la quantité de ' + lineLabel(line));
             dec.addEventListener('click', function () { adjustQuantity(line, -1); });
             stepper.appendChild(dec);
 
@@ -472,7 +472,7 @@
             var inc = el('button', 'order-cart__qty-btn');
             inc.type = 'button';
             inc.textContent = '+';
-            inc.setAttribute('aria-label', 'Augmenter la quantite de ' + lineLabel(line));
+            inc.setAttribute('aria-label', 'Augmenter la quantité de ' + lineLabel(line));
             inc.addEventListener('click', function () { adjustQuantity(line, 1); });
             stepper.appendChild(inc);
 
@@ -650,7 +650,7 @@
             // Quantite
             var qtyBlock = el('div', 'menu-composer__slot');
             var qtyLab = el('label', 'menu-composer__legend');
-            qtyLab.textContent = 'Quantite';
+            qtyLab.textContent = 'Quantité';
             qtyLab.setAttribute('for', 'composer-product-qty');
             qtyBlock.appendChild(qtyLab);
             var qtyInput = el('input', 'form-input menu-composer__qty');
@@ -908,7 +908,7 @@
             // pas un ajout sec. Le badge visuel "Menu"/"A composer" reste decoratif. Une
             // tuile en rupture n'ouvre aucune modale -> pas d'aria-haspopup.
             var opensModal = orderable && (kind === 'menu' || (entry.modifiers && entry.modifiers.length));
-            var intent = opensModal ? (kind === 'menu' ? ', menu a composer' : ', a composer') : '';
+            var intent = opensModal ? (kind === 'menu' ? ', menu à composer' : ', à composer') : '';
             tile.setAttribute('aria-label', entry.name + ', ' + priceLabel + intent + (orderable ? '' : ', indisponible'));
             if (opensModal) {
                 tile.setAttribute('aria-haspopup', 'dialog');
@@ -950,7 +950,7 @@
             if (opensModal) {
                 var badge = el('span', 'pos-tile__badge');
                 badge.setAttribute('aria-hidden', 'true');
-                badge.textContent = kind === 'menu' ? 'Menu' : 'A composer';
+                badge.textContent = kind === 'menu' ? 'Menu' : 'À composer';
                 tile.appendChild(badge);
             }
             if (!orderable) {
@@ -991,7 +991,7 @@
 
             if (!catProducts.length && !catMenus.length) {
                 var empty = el('p', 'pos__nojs');
-                empty.textContent = 'Aucun produit dans cette categorie.';
+                empty.textContent = 'Aucun produit dans cette catégorie.';
                 grid.appendChild(empty);
                 return;
             }

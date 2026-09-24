@@ -168,7 +168,7 @@ final class StatsControllerTest extends TestCase
         self::assertStringContainsString('Cheddar', $body);   // alerte stock critique
         self::assertStringContainsString('critical', $body);  // bande
         self::assertStringContainsString('Ventes', $body);    // section KPIs vente
-        self::assertStringContainsString('CA encaisse', $body);
+        self::assertStringContainsString('CA encaissé', $body);
         self::assertStringContainsString('208,00 EUR', $body); // revenue_cents 20800 formate
     }
 }

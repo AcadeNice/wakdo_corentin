@@ -114,7 +114,7 @@ class MenuController extends AdminController
         }
 
         $this->menuRepository()->create($data, $slots);
-        $this->setFlash('Menu cree.');
+        $this->setFlash('Menu créé.');
 
         return $this->redirect('/admin/menus');
     }
@@ -172,7 +172,7 @@ class MenuController extends AdminController
         }
 
         $this->menuRepository()->update($id, $data, $slots);
-        $this->setFlash('Menu mis a jour.');
+        $this->setFlash('Menu mis à jour.');
 
         return $this->redirect('/admin/menus');
     }
@@ -199,7 +199,7 @@ class MenuController extends AdminController
         }
 
         $this->menuRepository()->setActive($id, (int) ($menu['is_available'] ?? 0) !== 1);
-        $this->setFlash('Disponibilite du menu mise a jour.');
+        $this->setFlash('Disponibilité du menu mise à jour.');
 
         return $this->redirect('/admin/menus');
     }
@@ -280,7 +280,7 @@ class MenuController extends AdminController
             });
         } catch (PDOException $exception) {
             if ((string) $exception->getCode() === '23000') {
-                return $this->renderDelete($guard, $id, $menu, 'Menu reference par des commandes : suppression impossible. Desactivez-le plutot.', 409);
+                return $this->renderDelete($guard, $id, $menu, 'Menu référencé par des commandes : suppression impossible. Désactivez-le plutôt.', 409);
             }
 
             throw $exception;
@@ -290,7 +290,7 @@ class MenuController extends AdminController
         // SESSION (RG-T22, cle = $actorId, pas l'acteur resolu par le PIN).
         $this->pinThrottle()->reset($actorId);
 
-        $this->setFlash('Menu supprime.');
+        $this->setFlash('Menu supprimé.');
 
         return $this->redirect('/admin/menus');
     }
@@ -339,7 +339,7 @@ class MenuController extends AdminController
         $categoryRaw = trim($form['category_id'] ?? '');
         $categoryId = ctype_digit($categoryRaw) ? (int) $categoryRaw : 0;
         if ($categoryId === 0 || !$this->menuRepository()->categoryExists($categoryId)) {
-            $errors['category_id'] = 'Categorie requise et valide.';
+            $errors['category_id'] = 'Catégorie requise et valide.';
         }
 
         // F9-2 : le burger principal doit etre un produit de BASE (R4). productIsBase
@@ -348,12 +348,12 @@ class MenuController extends AdminController
         $burgerRaw = trim($form['burger_product_id'] ?? '');
         $burgerId = ctype_digit($burgerRaw) ? (int) $burgerRaw : 0;
         if ($burgerId === 0 || !$this->menuRepository()->productIsBase($burgerId)) {
-            $errors['burger_product_id'] = 'Le produit burger de base est requis et doit etre un produit de base (pas une variante de taille).';
+            $errors['burger_product_id'] = 'Le produit burger de base est requis et doit être un produit de base (pas une variante de taille).';
         }
 
         $name = trim($form['name'] ?? '');
         if ($name === '' || mb_strlen($name) > 120) {
-            $errors['name'] = 'Le nom est requis (120 caracteres max).';
+            $errors['name'] = 'Le nom est requis (120 caractères max).';
         }
 
         // Saisie en EUROS (F40, section "Textes techniques ou en anglais" de
@@ -372,7 +372,7 @@ class MenuController extends AdminController
         $orderRaw = trim($form['display_order'] ?? '0');
         $displayOrder = ctype_digit($orderRaw) && (int) $orderRaw <= 65535 ? (int) $orderRaw : -1;
         if ($displayOrder < 0) {
-            $errors['display_order'] = 'L\'ordre d\'affichage doit etre un entier entre 0 et 65535.';
+            $errors['display_order'] = 'L\'ordre d\'affichage doit être un entier entre 0 et 65535.';
         }
 
         $slots = $this->parseSlots($form['slots_json'] ?? '', $errors);
@@ -459,7 +459,7 @@ class MenuController extends AdminController
             $optionIds = array_values(array_unique($optionIds));
 
             if ($slotName === '' || mb_strlen($slotName) > 80) {
-                $errors['slots'] = 'Chaque slot doit avoir un nom (80 caracteres max).';
+                $errors['slots'] = 'Chaque slot doit avoir un nom (80 caractères max).';
                 continue;
             }
             if (!in_array($slotType, self::SLOT_TYPES, true)) {
@@ -467,11 +467,11 @@ class MenuController extends AdminController
                 continue;
             }
             if ($hasVariantOption) {
-                $errors['slots'] = 'Une variante de taille ne peut pas etre proposee comme option de menu (choisissez le produit de base).';
+                $errors['slots'] = 'Une variante de taille ne peut pas être proposée comme option de menu (choisissez le produit de base).';
                 continue;
             }
             if ($hasWrongCategoryOption) {
-                $errors['slots'] = 'Une option proposee n\'appartient pas a une categorie compatible avec le type de ce slot.';
+                $errors['slots'] = 'Une option proposée n\'appartient pas à une catégorie compatible avec le type de ce slot.';
                 continue;
             }
             if ($optionIds === []) {
@@ -581,7 +581,7 @@ class MenuController extends AdminController
 
     private function invalidCsrf(): Response
     {
-        return Response::make('Requete invalide.', 403, ['Content-Type' => 'text/plain; charset=utf-8']);
+        return Response::make('Requête invalide.', 403, ['Content-Type' => 'text/plain; charset=utf-8']);
     }
 
     /**
@@ -599,7 +599,7 @@ class MenuController extends AdminController
                 'code' => 'pin.failed',
                 'etype' => 'menu',
                 'eid' => $menuId,
-                'summary' => 'Echec PIN action sensible (email tente: ' . $email . ')',
+                'summary' => 'Échec PIN action sensible (email tenté: ' . $email . ')',
             ],
         );
     }

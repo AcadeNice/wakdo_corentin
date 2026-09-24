@@ -41,8 +41,8 @@ $cap = static fn (string $s): string => mb_convert_case(mb_substr($s, 0, 1), MB_
 ?>
 <div class="page-header">
     <div>
-        <h1 class="page-title">Produits par categorie</h1>
-        <p class="page-subtitle">Le catalogue tel que la borne le presente, onglet par onglet</p>
+        <h1 class="page-title">Produits par catégorie</h1>
+        <p class="page-subtitle">Le catalogue tel que la borne le présente, onglet par onglet</p>
     </div>
     <div class="page-actions">
         <a class="btn btn-secondary" href="/admin/products">Vue liste</a>
@@ -50,9 +50,9 @@ $cap = static fn (string $s): string => mb_convert_case(mb_substr($s, 0, 1), MB_
 </div>
 
 <p class="catalogue-explainer">
-    Les categories sont rangees dans l ordre des onglets de la borne. Les tailles d une
-    meme boisson sont regroupees sur le produit de base, comme sur la borne : le client
-    choisit la taille apres avoir choisi le produit. Pour modifier une taille ligne par
+    Les catégories sont rangées dans l'ordre des onglets de la borne. Les tailles d'une
+    même boisson sont regroupées sur le produit de base, comme sur la borne : le client
+    choisit la taille après avoir choisi le produit. Pour modifier une taille ligne par
     ligne, passez par la vue liste.
 </p>
 
@@ -72,7 +72,7 @@ $cap = static fn (string $s): string => mb_convert_case(mb_substr($s, 0, 1), MB_
 </div>
 
 <?php if ($cats === []): ?>
-    <div class="admin-empty">Aucune categorie. Creez-en une pour ranger le catalogue.</div>
+    <div class="admin-empty">Aucune catégorie. Créez-en une pour ranger le catalogue.</div>
 <?php endif; ?>
 
 <?php foreach ($cats as $category): ?>
@@ -87,20 +87,20 @@ $cap = static fn (string $s): string => mb_convert_case(mb_substr($s, 0, 1), MB_
             <h2 class="catalogue-group__title" id="<?= $headingId ?>"><?= $esc($cap((string) ($category['name'] ?? ''))) ?></h2>
             <span class="catalogue-group__count"><?= count($rows) ?> article<?= count($rows) === 1 ? '' : 's' ?></span>
             <?php if (!$catActive): ?>
-                <span class="pill pill-neutral">Masquee sur la borne</span>
+                <span class="pill pill-neutral">Masquée sur la borne</span>
             <?php endif; ?>
         </div>
 
         <?php if (!$catActive): ?>
             <p class="catalogue-group__note">
-                Cette categorie est desactivee : ses articles n apparaissent pas sur la
-                borne, meme ceux marques disponibles. Reactivez-la depuis la page
-                Categories pour les rendre commandables.
+                Cette catégorie est désactivée : ses articles n'apparaissent pas sur la
+                borne, même ceux marqués disponibles. Réactivez-la depuis la page
+                Catégories pour les rendre commandables.
             </p>
         <?php endif; ?>
 
         <?php if ($rows === []): ?>
-            <div class="catalogue-empty">Aucun article dans cette categorie.</div>
+            <div class="catalogue-empty">Aucun article dans cette catégorie.</div>
         <?php else: ?>
             <div class="catalogue-grid">
                 <?php
@@ -138,7 +138,7 @@ $cap = static fn (string $s): string => mb_convert_case(mb_substr($s, 0, 1), MB_
                             <?php if ($state === 'unavailable'): ?>
                                 <span class="pill pill-neutral">Indisponible</span>
                             <?php elseif ($state === 'auto_rupture'): ?>
-                                <span class="pill pill-warning" title="Un ingredient requis est en rupture critique">Rupture auto</span>
+                                <span class="pill pill-warning" title="Un ingrédient requis est en rupture critique">Rupture auto</span>
                             <?php else: ?>
                                 <span class="pill pill-success">Disponible</span>
                             <?php endif; ?>

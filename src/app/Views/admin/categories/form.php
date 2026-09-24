@@ -26,7 +26,7 @@ $err = static fn (string $k): string => isset($errs[$k]) && is_string($errs[$k])
 ?>
 <div class="page-header">
     <div>
-        <h1 class="page-title"><?= $id !== 0 ? 'Modifier la categorie' : 'Nouvelle categorie' ?></h1>
+        <h1 class="page-title"><?= $id !== 0 ? 'Modifier la catégorie' : 'Nouvelle catégorie' ?></h1>
     </div>
 </div>
 
@@ -34,13 +34,13 @@ $err = static fn (string $k): string => isset($errs[$k]) && is_string($errs[$k])
     <input type="hidden" name="_csrf" value="<?= $csrf ?>">
 
     <div class="form-group">
-        <label class="form-label" for="name">Libelle</label>
+        <label class="form-label" for="name">Libellé</label>
         <input class="form-input" type="text" id="name" name="name" maxlength="60" value="<?= $val('name') ?>" required>
         <?php if ($err('name') !== ''): ?><p class="form-error"><?= htmlspecialchars($err('name'), ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
     </div>
 
     <div class="form-group">
-        <label class="form-label" for="slug">Reference</label>
+        <label class="form-label" for="slug">Référence</label>
         <input class="form-input" type="text" id="slug" name="slug" maxlength="60" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" data-pattern-message="Minuscules sans accent, chiffres et tirets (exemple : petites-faims)." value="<?= $val('slug') ?>" required>
         <?php if ($err('slug') !== ''): ?><p class="form-error"><?= htmlspecialchars($err('slug'), ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
     </div>
@@ -52,7 +52,7 @@ $err = static fn (string $k): string => isset($errs[$k]) && is_string($errs[$k])
     </div>
 
     <div class="form-group">
-        <span class="form-label">Image de la categorie</span>
+        <span class="form-label">Image de la catégorie</span>
 
         <!-- Le champ fichier reste visible et atteignable au clavier : la zone de
              depot l'entoure sans le remplacer, donc le formulaire marche aussi
@@ -66,9 +66,9 @@ $err = static fn (string $k): string => isset($errs[$k]) && is_string($errs[$k])
         </div>
         <?php if ($err('image_file') !== ''): ?><p class="form-error"><?= htmlspecialchars($err('image_file'), ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
 
-        <label class="form-label" for="image_path">Ou chemin d'une image deja presente sur le serveur (optionnel)</label>
+        <label class="form-label" for="image_path">Ou chemin d'une image déjà présente sur le serveur (optionnel)</label>
         <input class="form-input" type="text" id="image_path" name="image_path" maxlength="255" value="<?= $val('image_path') ?>">
-        <p class="image-drop-note">Une image deposee ci-dessus remplace ce chemin apres enregistrement.</p>
+        <p class="image-drop-note">Une image déposée ci-dessus remplace ce chemin après enregistrement.</p>
         <?php if ($err('image_path') !== ''): ?><p class="form-error"><?= htmlspecialchars($err('image_path'), ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
     </div>
 

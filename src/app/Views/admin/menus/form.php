@@ -75,7 +75,7 @@ $slotsData = isset($slotsJson) && is_string($slotsJson) && $slotsJson !== '' ? $
     <input type="hidden" name="_csrf" value="<?= $csrf ?>">
 
     <div class="form-group">
-        <label class="form-label" for="category_id">Categorie</label>
+        <label class="form-label" for="category_id">Catégorie</label>
         <select class="form-input" id="category_id" name="category_id" required>
             <option value="">-- choisir --</option>
             <?php foreach ($cats as $cat): ?>
@@ -136,7 +136,7 @@ $slotsData = isset($slotsJson) && is_string($slotsJson) && $slotsJson !== '' ? $
 
     <fieldset class="form-group">
         <legend>Slots de composition</legend>
-        <p><small>Au moins un slot, chacun avec au moins une option. Les choix proposes au client par slot.</small></p>
+        <p><small>Au moins un slot, chacun avec au moins une option. Les choix proposés au client par slot.</small></p>
         <?php if ($err('slots') !== ''): ?><p class="form-error"><?= htmlspecialchars($err('slots'), ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
         <div id="slot-builder"
              data-products="<?= $attr($slimProducts) ?>"

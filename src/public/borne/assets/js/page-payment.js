@@ -25,7 +25,7 @@ function messageFor(code) {
     if (code === 'EMPTY_CART' || code === 'EMPTY_ORDER') {
         return 'Votre panier est vide.';
     }
-    return 'Le paiement n\'a pas pu aboutir. Veuillez reessayer.';
+    return 'Le paiement n\'a pas pu aboutir. Veuillez réessayer.';
 }
 
 function showError(msg) {
@@ -85,18 +85,18 @@ function openChevalet(onValidate, onDismiss) {
     overlay.innerHTML = `
         <div class="composer-container chevalet" role="dialog" aria-modal="true" aria-labelledby="chevalet-title">
             <div class="composer-header">
-                <h2 class="composer-title" id="chevalet-title">Pour etre servi a table</h2>
+                <h2 class="composer-title" id="chevalet-title">Pour être servi à table</h2>
             </div>
             <div class="composer-body">
-                <p class="chevalet__hint">Recuperez un chevalet et indiquez ici le numero inscrit dessus.</p>
+                <p class="chevalet__hint">Récupérez un chevalet et indiquez ici le numéro inscrit dessus.</p>
                 <input class="chevalet__input" id="chevalet-input" inputmode="numeric" pattern="[0-9]*"
-                       maxlength="4" aria-label="Numero du chevalet" autocomplete="off">
-                <p class="chevalet__error" id="chevalet-error" role="alert" hidden>Indiquez le numero du chevalet.</p>
+                       maxlength="4" aria-label="Numéro du chevalet" autocomplete="off">
+                <p class="chevalet__error" id="chevalet-error" role="alert" hidden>Indiquez le numéro du chevalet.</p>
             </div>
             <div class="composer-footer">
                 <div class="composer-footer__row">
                     <button class="btn btn--secondary" type="button" id="chevalet-cancel">Annuler</button>
-                    <button class="btn btn--primary" type="button" id="chevalet-ok">Enregistrer le numero</button>
+                    <button class="btn btn--primary" type="button" id="chevalet-ok">Enregistrer le numéro</button>
                 </div>
             </div>
         </div>
@@ -189,7 +189,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (recap) {
         const m = getMode();
-        const modeLabel = m === 'a-emporter' ? 'A emporter' : (m === 'sur-place' ? 'Sur place' : '');
+        const modeLabel = m === 'a-emporter' ? 'À emporter' : (m === 'sur-place' ? 'Sur place' : '');
         recap.innerHTML = `
             <p class="payment-recap__mode">${escHtml(modeLabel)}</p>
             <p class="payment-recap__items">${items.length} article${items.length > 1 ? 's' : ''}</p>

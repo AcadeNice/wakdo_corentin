@@ -133,7 +133,7 @@ class IngredientController extends AdminController
             return $this->onWriteConflict($exception, $guard, 0, $form);
         }
 
-        $this->setFlash('Ingredient cree.');
+        $this->setFlash('Ingrédient créé.');
 
         return $this->redirect('/admin/ingredients');
     }
@@ -189,7 +189,7 @@ class IngredientController extends AdminController
             return $this->onWriteConflict($exception, $guard, $id, $form);
         }
 
-        $this->setFlash('Ingredient mis a jour.');
+        $this->setFlash('Ingrédient mis à jour.');
 
         return $this->redirect('/admin/ingredients');
     }
@@ -217,7 +217,7 @@ class IngredientController extends AdminController
 
         $newActive = (int) ($ingredient['is_active'] ?? 0) !== 1;
         $this->ingredientRepository()->setActive($id, $newActive);
-        $this->setFlash($newActive ? 'Ingredient reactive.' : 'Ingredient desactive.');
+        $this->setFlash($newActive ? 'Ingrédient réactivé.' : 'Ingrédient désactivé.');
 
         return $this->redirect('/admin/ingredients');
     }
@@ -250,10 +250,10 @@ class IngredientController extends AdminController
 
         $data = $this->nutritionGateway()->lookupByName((string) ($ingredient['name'] ?? ''));
         if ($data === null) {
-            $this->setFlash('Aucune donnee nutritionnelle trouvee pour cet ingredient (source externe).');
+            $this->setFlash('Aucune donnée nutritionnelle trouvée pour cet ingrédient (source externe).');
         } else {
             $this->ingredientRepository()->setNutrition($id, $data);
-            $this->setFlash('Donnees nutritionnelles importees depuis ' . $data['source'] . '.');
+            $this->setFlash('Données nutritionnelles importées depuis ' . $data['source'] . '.');
         }
 
         return $this->redirect('/admin/ingredients/' . $id . '/edit');
@@ -321,7 +321,7 @@ class IngredientController extends AdminController
                 $guard,
                 $id,
                 $ingredient,
-                ['allergens_source' => 'Indiquez d ou vient l information (fiche fournisseur, emballage). Une revue sans source n est pas verifiable.'],
+                ['allergens_source' => 'Indiquez d\'où vient l\'information (fiche fournisseur, emballage). Une revue sans source n\'est pas vérifiable.'],
                 422,
             );
         }
@@ -329,8 +329,8 @@ class IngredientController extends AdminController
         $this->ingredientRepository()->setAllergens($id, $retained, $source, $guard->userId, $guard->roleId);
         $this->setFlash(
             $retained === []
-                ? 'Revue enregistree : aucun des 14 allergenes pour cet ingredient.'
-                : count($retained) . ' allergene(s) declare(s) pour cet ingredient.',
+                ? 'Revue enregistrée : aucun des 14 allergènes pour cet ingrédient.'
+                : count($retained) . ' allergène(s) déclaré(s) pour cet ingrédient.',
         );
 
         return $this->redirect('/admin/ingredients/' . $id . '/edit');
@@ -388,13 +388,13 @@ class IngredientController extends AdminController
             $this->ingredientRepository()->delete($id);
         } catch (PDOException $exception) {
             if ((string) $exception->getCode() === '23000') {
-                return $this->renderDelete($guard, $id, $ingredient, 'Ingredient reference par une recette ou des mouvements de stock : suppression impossible. Desactivez-le plutot.', 409);
+                return $this->renderDelete($guard, $id, $ingredient, 'Ingrédient référencé par une recette ou des mouvements de stock : suppression impossible. Désactivez-le plutôt.', 409);
             }
 
             throw $exception;
         }
 
-        $this->setFlash('Ingredient supprime.');
+        $this->setFlash('Ingrédient supprimé.');
 
         return $this->redirect('/admin/ingredients');
     }
@@ -437,7 +437,7 @@ class IngredientController extends AdminController
         }
 
         $this->ingredientRepository()->updateThresholds($id, $data['stock_capacity'], $data['low_stock_pct'], $data['critical_stock_pct']);
-        $this->setFlash('Seuils mis a jour.');
+        $this->setFlash('Seuils mis à jour.');
 
         return $this->redirect('/admin/ingredients');
     }
@@ -486,19 +486,19 @@ class IngredientController extends AdminController
 
         // PRE-2 (9.1) : on ne reapprovisionne qu'un ingredient actif.
         if ((int) ($ingredient['is_active'] ?? 0) !== 1) {
-            $errors['packs'] = 'Ingredient inactif : reactivez-le avant de reapprovisionner.';
+            $errors['packs'] = 'Ingrédient inactif : réactivez-le avant de réapprovisionner.';
         }
 
         // PRE-3 (9.1) : N >= 1 (borne haute pour eviter un debordement de stock_quantity).
         $packsRaw = trim($form['packs'] ?? '');
         $packsValid = ctype_digit($packsRaw) && (int) $packsRaw >= 1 && (int) $packsRaw <= 65535;
         if (!$packsValid && !isset($errors['packs'])) {
-            $errors['packs'] = 'Le nombre de packs doit etre un entier entre 1 et 65535.';
+            $errors['packs'] = 'Le nombre de packs doit être un entier entre 1 et 65535.';
         }
 
         $note = trim($form['note'] ?? '');
         if (mb_strlen($note) > 255) {
-            $errors['note'] = 'Note trop longue (255 caracteres max).';
+            $errors['note'] = 'Note trop longue (255 caractères max).';
         }
 
         if ($errors !== []) {
@@ -506,7 +506,7 @@ class IngredientController extends AdminController
         }
 
         $this->ingredientRepository()->restock($id, (int) $packsRaw, $guard->userId, $note !== '' ? $note : null);
-        $this->setFlash('Reapprovisionnement enregistre.');
+        $this->setFlash('Réapprovisionnement enregistré.');
 
         return $this->redirect('/admin/ingredients');
     }
@@ -557,12 +557,12 @@ class IngredientController extends AdminController
         $actualRaw = trim($form['actual_quantity'] ?? '');
         $actualValid = ctype_digit($actualRaw) && (int) $actualRaw <= 2147483647;
         if (!$actualValid) {
-            $errors['actual_quantity'] = 'Le comptage doit etre un entier >= 0.';
+            $errors['actual_quantity'] = 'Le comptage doit être un entier >= 0.';
         }
 
         $note = trim($form['note'] ?? '');
         if (mb_strlen($note) > 255) {
-            $errors['note'] = 'Note trop longue (255 caracteres max).';
+            $errors['note'] = 'Note trop longue (255 caractères max).';
         }
 
         if ($errors !== []) {
@@ -577,7 +577,7 @@ class IngredientController extends AdminController
         if ($actorId > 0 && $this->pinThrottle()->isLocked($actorId)) {
             $this->pinVerifier()->payTimingDecoy($form['pin'] ?? '');
 
-            return $this->renderInventory($guard, $id, $ingredient, $form, ['pin' => 'Email ou PIN invalide (requis pour l inventaire).'], 422);
+            return $this->renderInventory($guard, $id, $ingredient, $form, ['pin' => 'Email ou PIN invalide (requis pour l\'inventaire).'], 422);
         }
 
         $actor = $this->pinVerifier()->resolveActingUser(trim($form['pin_email'] ?? ''), $form['pin'] ?? '');
@@ -591,7 +591,7 @@ class IngredientController extends AdminController
                 $this->pinThrottle()->recordFailureWithin($db, $actorId);
             });
 
-            return $this->renderInventory($guard, $id, $ingredient, $form, ['pin' => 'Email ou PIN invalide (requis pour l inventaire).'], 422);
+            return $this->renderInventory($guard, $id, $ingredient, $form, ['pin' => 'Email ou PIN invalide (requis pour l\'inventaire).'], 422);
         }
 
         // Succes : la correction ecrit stock_movement.user_id (acteur resolu par PIN).
@@ -600,7 +600,7 @@ class IngredientController extends AdminController
         $this->ingredientRepository()->inventoryCount($id, (int) $actualRaw, $actor['id'], $note !== '' ? $note : null);
         $this->pinThrottle()->reset($actorId);
 
-        $this->setFlash('Inventaire enregistre.');
+        $this->setFlash('Inventaire enregistré.');
 
         return $this->redirect('/admin/ingredients');
     }
@@ -661,12 +661,12 @@ class IngredientController extends AdminController
             && (int) $deltaRaw !== 0
             && (int) $deltaRaw >= -2147483647 && (int) $deltaRaw <= 2147483647;
         if (!$deltaValid) {
-            $errors['delta'] = 'L ajustement doit etre un entier non nul (ex. 5 pour ajouter, -3 pour retirer).';
+            $errors['delta'] = 'L\'ajustement doit être un entier non nul (ex. 5 pour ajouter, -3 pour retirer).';
         }
 
         $note = trim($form['note'] ?? '');
         if (mb_strlen($note) > 255) {
-            $errors['note'] = 'Note trop longue (255 caracteres max).';
+            $errors['note'] = 'Note trop longue (255 caractères max).';
         }
 
         if ($errors !== []) {
@@ -679,7 +679,7 @@ class IngredientController extends AdminController
         if ($actorId > 0 && $this->pinThrottle()->isLocked($actorId)) {
             $this->pinVerifier()->payTimingDecoy($form['pin'] ?? '');
 
-            return $this->renderAdjust($guard, $id, $ingredient, $form, ['pin' => 'Email ou PIN invalide (requis pour l ajustement).'], 422);
+            return $this->renderAdjust($guard, $id, $ingredient, $form, ['pin' => 'Email ou PIN invalide (requis pour l\'ajustement).'], 422);
         }
 
         $actor = $this->pinVerifier()->resolveActingUser(trim($form['pin_email'] ?? ''), $form['pin'] ?? '');
@@ -690,13 +690,13 @@ class IngredientController extends AdminController
                 $this->pinThrottle()->recordFailureWithin($db, $actorId);
             });
 
-            return $this->renderAdjust($guard, $id, $ingredient, $form, ['pin' => 'Email ou PIN invalide (requis pour l ajustement).'], 422);
+            return $this->renderAdjust($guard, $id, $ingredient, $form, ['pin' => 'Email ou PIN invalide (requis pour l\'ajustement).'], 422);
         }
 
         $this->ingredientRepository()->adjust($id, (int) $deltaRaw, $actor['id'], $note !== '' ? $note : null);
         $this->pinThrottle()->reset($actorId);
 
-        $this->setFlash('Ajustement de stock enregistre.');
+        $this->setFlash('Ajustement de stock enregistré.');
 
         return $this->redirect('/admin/ingredients');
     }
@@ -787,25 +787,25 @@ class IngredientController extends AdminController
 
         $name = trim($form['name'] ?? '');
         if ($name === '' || mb_strlen($name) > 120) {
-            $errors['name'] = 'Le nom est requis (120 caracteres max).';
+            $errors['name'] = 'Le nom est requis (120 caractères max).';
         } elseif ($this->ingredientRepository()->nameExists($name, $exceptId)) {
-            $errors['name'] = 'Cet ingredient existe deja.';
+            $errors['name'] = 'Cet ingrédient existe déjà.';
         }
 
         $unit = trim($form['unit'] ?? '');
         if ($unit === '' || mb_strlen($unit) > 40) {
-            $errors['unit'] = 'L unite est requise (40 caracteres max).';
+            $errors['unit'] = 'L\'unité est requise (40 caractères max).';
         }
 
         $packRaw = trim($form['pack_size'] ?? '');
         $packValid = ctype_digit($packRaw) && (int) $packRaw >= 1 && (int) $packRaw <= 65535;
         if (!$packValid) {
-            $errors['pack_size'] = 'La taille de pack doit etre un entier entre 1 et 65535.';
+            $errors['pack_size'] = 'La taille de pack doit être un entier entre 1 et 65535.';
         }
 
         $label = trim($form['pack_label'] ?? '');
         if ($label !== '' && mb_strlen($label) > 80) {
-            $errors['pack_label'] = 'Libelle de pack trop long (80 caracteres max).';
+            $errors['pack_label'] = 'Libellé de pack trop long (80 caractères max).';
         }
 
         // Capacite + seuils : meme regle (capacite >= 1, % 0-100, critique < alerte strict)
@@ -848,29 +848,29 @@ class IngredientController extends AdminController
         $capRaw = trim($form['stock_capacity'] ?? '');
         $capValid = ctype_digit($capRaw) && (int) $capRaw >= 1 && (int) $capRaw <= 2147483647;
         if (!$capValid) {
-            $errors['stock_capacity'] = 'La capacite (reference 100%) doit etre un entier >= 1.';
+            $errors['stock_capacity'] = 'La capacité (référence 100%) doit être un entier >= 1.';
         } elseif ($currentStock !== null && (int) $capRaw < $currentStock) {
             // Plafond strict cote DENOMINATEUR : baisser la capacite sous le stock courant
             // ferait stock_pct > 100 %. On REFUSE plutot que de tronquer le stock en douce
             // (qui mentirait au ledger append-only RG-T08 et melerait edition de capacite
             // et mouvement de stock) ; l'equipier baisse d'abord le stock via un inventaire.
-            $errors['stock_capacity'] = 'La capacite ne peut pas etre inferieure au stock actuel (' . $currentStock . '). Faites d abord un inventaire pour baisser le stock.';
+            $errors['stock_capacity'] = 'La capacité ne peut pas être inférieure au stock actuel (' . $currentStock . '). Faites d\'abord un inventaire pour baisser le stock.';
         }
 
         $lowRaw = trim($form['low_stock_pct'] ?? '');
         $lowValid = ctype_digit($lowRaw) && (int) $lowRaw <= 100;
         if (!$lowValid) {
-            $errors['low_stock_pct'] = 'Le seuil d alerte doit etre un entier entre 0 et 100.';
+            $errors['low_stock_pct'] = 'Le seuil d\'alerte doit être un entier entre 0 et 100.';
         }
 
         $critRaw = trim($form['critical_stock_pct'] ?? '');
         $critValid = ctype_digit($critRaw) && (int) $critRaw <= 100;
         if (!$critValid) {
-            $errors['critical_stock_pct'] = 'Le seuil critique doit etre un entier entre 0 et 100.';
+            $errors['critical_stock_pct'] = 'Le seuil critique doit être un entier entre 0 et 100.';
         }
 
         if ($lowValid && $critValid && (int) $critRaw >= (int) $lowRaw) {
-            $errors['critical_stock_pct'] = 'Le seuil critique doit etre strictement inferieur au seuil d alerte.';
+            $errors['critical_stock_pct'] = 'Le seuil critique doit être strictement inférieur au seuil d\'alerte.';
         }
 
         $data = [
@@ -892,7 +892,7 @@ class IngredientController extends AdminController
     private function onWriteConflict(PDOException $exception, GuardResult $guard, int $id, array $form): Response
     {
         if ((string) $exception->getCode() === '23000') {
-            return $this->renderForm($guard, $id, $form, ['name' => 'Cet ingredient existe deja.'], 409);
+            return $this->renderForm($guard, $id, $form, ['name' => 'Cet ingrédient existe déjà.'], 409);
         }
 
         throw $exception;
@@ -909,7 +909,7 @@ class IngredientController extends AdminController
                 'code'    => 'pin.failed',
                 'etype'   => 'ingredient',
                 'eid'     => $ingredientId,
-                'summary' => 'Echec PIN ' . $context . ' (email tente: ' . $email . ')',
+                'summary' => 'Échec PIN ' . $context . ' (email tenté: ' . $email . ')',
             ],
         );
     }
@@ -921,7 +921,7 @@ class IngredientController extends AdminController
     private function renderForm(GuardResult $guard, int $id, array $values, array $errors, int $status = 200): Response
     {
         return $this->adminView('admin/ingredients/form', [
-            'title'        => ($id !== 0 ? 'Modifier' : 'Nouvel') . ' ingredient - Wakdo Admin',
+            'title'        => ($id !== 0 ? 'Modifier' : 'Nouvel') . ' ingrédient - Wakdo Admin',
             'activeNav'    => 'stock',
             'ingredientId' => $id,
             'values'       => [
@@ -985,7 +985,7 @@ class IngredientController extends AdminController
     private function renderRestock(GuardResult $guard, int $id, array $ingredient, array $values, array $errors, int $status = 200): Response
     {
         return $this->adminView('admin/ingredients/restock', [
-            'title'        => 'Reapprovisionner - Wakdo Admin',
+            'title'        => 'Réapprovisionner - Wakdo Admin',
             'activeNav'    => 'stock',
             'ingredientId' => $id,
             'ingredient'   => $ingredient,
@@ -1034,7 +1034,7 @@ class IngredientController extends AdminController
     private function renderDelete(GuardResult $guard, int $id, array $ingredient, ?string $error, ?int $status = null): Response
     {
         return $this->adminView('admin/ingredients/delete', [
-            'title'        => 'Supprimer un ingredient - Wakdo Admin',
+            'title'        => 'Supprimer un ingrédient - Wakdo Admin',
             'activeNav'    => 'stock',
             'ingredientId' => $id,
             'name'         => (string) ($ingredient['name'] ?? ''),
@@ -1054,6 +1054,6 @@ class IngredientController extends AdminController
 
     private function invalidCsrf(): Response
     {
-        return Response::make('Requete invalide.', 403, ['Content-Type' => 'text/plain; charset=utf-8']);
+        return Response::make('Requête invalide.', 403, ['Content-Type' => 'text/plain; charset=utf-8']);
     }
 }

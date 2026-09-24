@@ -238,7 +238,7 @@ final class CategoryControllerTest extends TestCase
         $response = $this->controller($this->get('/admin/categories'), $db)->index();
 
         self::assertSame(403, $response->status());
-        self::assertStringContainsString('Acces refuse', $response->body());
+        self::assertStringContainsString('Accès refusé', $response->body());
     }
 
     public function testIndexListsCategories(): void
@@ -253,10 +253,10 @@ final class CategoryControllerTest extends TestCase
         $body = $response->body();
 
         self::assertSame(200, $response->status());
-        self::assertStringContainsString('Nouvelle categorie', $body);
+        self::assertStringContainsString('Nouvelle catégorie', $body);
         self::assertStringContainsString('Burgers', $body);
         self::assertStringContainsString('Visible', $body);   // is_active = 1
-        self::assertStringContainsString('Masquee', $body);   // is_active = 0
+        self::assertStringContainsString('Masquée', $body);   // is_active = 0
     }
 
     public function testCreateShowsForm(): void
@@ -281,7 +281,7 @@ final class CategoryControllerTest extends TestCase
         self::assertSame(302, $response->status());
         self::assertSame('/admin/categories', $response->header('Location'));
         self::assertTrue($this->wroteContaining($db, 'INSERT INTO category'));
-        self::assertSame('Categorie creee.', $this->session->get('_flash'));
+        self::assertSame('Catégorie créée.', $this->session->get('_flash'));
     }
 
     public function testStoreInvalidRerendersWithErrorsAndNoWrite(): void
@@ -295,8 +295,8 @@ final class CategoryControllerTest extends TestCase
         $response = $this->controller($request, $db)->store();
 
         self::assertSame(422, $response->status());
-        self::assertStringContainsString('Le libelle est requis', $response->body());
-        self::assertStringContainsString('Reference requise', $response->body());
+        self::assertStringContainsString('Le libellé est requis', $response->body());
+        self::assertStringContainsString('Référence requise', $response->body());
         self::assertFalse($this->wroteContaining($db, 'INSERT INTO category'));
     }
 
@@ -312,7 +312,7 @@ final class CategoryControllerTest extends TestCase
         $response = $this->controller($request, $db)->store();
 
         self::assertSame(422, $response->status());
-        self::assertStringContainsString('Ce libelle existe deja', $response->body());
+        self::assertStringContainsString('Ce libellé existe déjà', $response->body());
         self::assertFalse($this->wroteContaining($db, 'INSERT INTO category'));
     }
 
@@ -345,7 +345,7 @@ final class CategoryControllerTest extends TestCase
         $response = $this->controller($request, $db)->store();
 
         self::assertSame(409, $response->status());
-        self::assertStringContainsString('existe deja', $response->body());
+        self::assertStringContainsString('existe déjà', $response->body());
     }
 
     public function testStoreRejectsDuplicateSlug(): void
@@ -360,7 +360,7 @@ final class CategoryControllerTest extends TestCase
         $response = $this->controller($request, $db)->store();
 
         self::assertSame(422, $response->status());
-        self::assertStringContainsString('Cette reference existe deja', $response->body());
+        self::assertStringContainsString('Cette référence existe déjà', $response->body());
         self::assertFalse($this->wroteContaining($db, 'INSERT INTO category'));
     }
 
@@ -423,7 +423,7 @@ final class CategoryControllerTest extends TestCase
         }
         self::assertNotNull($write);
         self::assertSame(0, $write['params']['active'] ?? null);
-        self::assertSame('Categorie masquee.', $this->session->get('_flash'));
+        self::assertSame('Catégorie masquée.', $this->session->get('_flash'));
     }
 
     public function testToggleFromMaskedMakesVisible(): void
@@ -443,7 +443,7 @@ final class CategoryControllerTest extends TestCase
         }
         self::assertNotNull($write);
         self::assertSame(1, $write['params']['active'] ?? null);
-        self::assertSame('Categorie affichee.', $this->session->get('_flash'));
+        self::assertSame('Catégorie affichée.', $this->session->get('_flash'));
     }
 
     public function testUpdateNotFoundReturns404(): void
@@ -511,7 +511,7 @@ final class CategoryControllerTest extends TestCase
 
         self::assertSame(422, $response->status());
         self::assertFalse($this->wroteContaining($db, 'INSERT INTO category'));
-        self::assertStringContainsString('Format d image non accepte', $response->body());
+        self::assertStringContainsString('Format d&#039;image non accepté', $response->body());
         self::assertDirectoryDoesNotExist($this->uploadBaseDir . '/categories');
     }
 
@@ -601,7 +601,7 @@ final class CategoryControllerTest extends TestCase
 
         self::assertSame(302, $response->status());
         self::assertSame('/admin/categories', $response->header('Location'));
-        self::assertSame('Ordre des categories mis a jour.', $this->session->get('_flash'));
+        self::assertSame('Ordre des catégories mis à jour.', $this->session->get('_flash'));
         self::assertTrue($this->wroteContaining($db, 'UPDATE category SET display_order'));
     }
 

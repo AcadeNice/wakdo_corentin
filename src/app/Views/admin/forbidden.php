@@ -9,8 +9,8 @@ declare(strict_types=1);
 ?>
 <div class="page-header">
     <div>
-        <h1 class="page-title">Acces refuse</h1>
-        <p class="page-subtitle">Vous n'avez pas la permission d'acceder a cette page.</p>
+        <h1 class="page-title">Accès refusé</h1>
+        <p class="page-subtitle">Vous n'avez pas la permission d'accéder à cette page.</p>
     </div>
 </div>
 

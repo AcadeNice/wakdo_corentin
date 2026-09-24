@@ -46,7 +46,7 @@ $active = (bool) ($vals['is_active'] ?? true);
     </div>
 
     <div class="form-group">
-        <label class="form-label" for="first_name">Prenom</label>
+        <label class="form-label" for="first_name">Prénom</label>
         <input class="form-input" type="text" id="first_name" name="first_name" maxlength="60" value="<?= $val('first_name') ?>" required>
         <?php if ($err('first_name') !== ''): ?><p class="form-error"><?= $err('first_name') ?></p><?php endif; ?>
     </div>
@@ -58,7 +58,7 @@ $active = (bool) ($vals['is_active'] ?? true);
     </div>
 
     <div class="form-group">
-        <label class="form-label" for="role_id">Role</label>
+        <label class="form-label" for="role_id">Rôle</label>
         <select class="form-input" id="role_id" name="role_id" required>
             <option value="">-- choisir --</option>
             <?php foreach ($roleList as $role): ?>
@@ -72,7 +72,7 @@ $active = (bool) ($vals['is_active'] ?? true);
     </div>
 
     <div class="form-group">
-        <label class="form-label" for="password"><?= $id !== 0 ? 'Nouveau mot de passe (laisser vide = inchange)' : 'Mot de passe' ?></label>
+        <label class="form-label" for="password"><?= $id !== 0 ? 'Nouveau mot de passe (laisser vide = inchangé)' : 'Mot de passe' ?></label>
         <input class="form-input" type="password" id="password" name="password" autocomplete="new-password" minlength="8"<?= $id === 0 ? ' required' : '' ?>>
         <?php if ($err('password') !== ''): ?><p class="form-error"><?= $err('password') ?></p><?php endif; ?>
     </div>
@@ -84,10 +84,10 @@ $active = (bool) ($vals['is_active'] ?? true);
     <?php endif; ?>
 
     <fieldset class="form-group">
-        <legend>Re-autorisation (PIN equipier)</legend>
+        <legend>Re-autorisation (PIN équipier)</legend>
         <p><small>La gestion des comptes est une action sensible : confirmez avec votre email et votre PIN.</small></p>
         <div class="form-group">
-            <label class="form-label" for="pin_email">Email equipier</label>
+            <label class="form-label" for="pin_email">Email équipier</label>
             <input class="form-input" type="email" id="pin_email" name="pin_email" autocomplete="off">
         </div>
         <div class="form-group">

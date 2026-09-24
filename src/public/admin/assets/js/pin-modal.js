@@ -126,13 +126,13 @@
             '      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>' +
             '    </span>' +
             '    <div>' +
-            '      <h2 class="pin-modal-title">Action a confirmer</h2>' +
-            '      <p class="pin-modal-sub">Saisissez vos identifiants equipier (ou ceux d\'un responsable).</p>' +
+            '      <h2 class="pin-modal-title">Action à confirmer</h2>' +
+            '      <p class="pin-modal-sub">Saisissez vos identifiants équipier (ou ceux d\'un responsable).</p>' +
             '    </div>' +
             '  </div>' +
             '  <form data-pm-form novalidate>' +
             '    <div class="form-group">' +
-            '      <label class="form-label" for="pm-email">Email equipier</label>' +
+            '      <label class="form-label" for="pm-email">Email équipier</label>' +
             '      <input class="form-input" type="email" id="pm-email" autocomplete="off">' +
             '    </div>' +
             '    <div class="form-group">' +

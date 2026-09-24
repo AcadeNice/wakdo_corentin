@@ -17,7 +17,7 @@ function setup() {
     const dom = new JSDOM(
         '<!DOCTYPE html><html><body>' +
         '<button data-threshold-open data-id="7" data-name="Buns" ' +
-        '  data-capacity="200" data-low="15" data-critical="5">Regler les seuils</button>' +
+        '  data-capacity="200" data-low="15" data-critical="5">Régler les seuils</button>' +
         '<div class="pin-modal-overlay" data-threshold-modal>' +
         '  <form method="post" action="" data-threshold-form>' +
         '    <input type="hidden" name="_csrf" value="tok">' +
@@ -42,12 +42,12 @@ test('validate accepte une configuration coherente et rejette les cas evidents',
     // Coherent.
     assert.equal(stockThresholds.validate('200', '15', '5'), null);
     // Capacite < 1.
-    assert.match(stockThresholds.validate('0', '15', '5'), /capacite/i);
+    assert.match(stockThresholds.validate('0', '15', '5'), /capacité/i);
     // Pourcentage hors 0-100.
     assert.match(stockThresholds.validate('100', '120', '5'), /alerte/i);
     assert.match(stockThresholds.validate('100', '15', '200'), /critique/i);
     // Critique non strictement inferieur a l'alerte.
-    assert.match(stockThresholds.validate('100', '10', '10'), /strictement inferieur/i);
+    assert.match(stockThresholds.validate('100', '10', '10'), /strictement inférieur/i);
     // Saisies non entieres refusees (miroir de ctype_digit cote serveur).
     assert.notEqual(stockThresholds.validate('', '15', '5'), null);
     assert.notEqual(stockThresholds.validate('10.5', '15', '5'), null);

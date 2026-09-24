@@ -28,18 +28,18 @@
 
 const OVERLAY_CLASS = 'allergen-modal-overlay';
 
-const TRACES_NOTICE = 'Nos plats sont prepares dans une cuisine ou les 14 allergenes '
-    + 'sont manipules : une presence accidentelle par traces n est pas exclue.';
+const TRACES_NOTICE = 'Nos plats sont préparés dans une cuisine où les 14 allergènes '
+    + 'sont manipulés : une présence accidentelle par traces n\'est pas exclue.';
 
-const INCOMPLETE_NOTICE = 'Nous n avons pas encore verifie tous les ingredients de ce '
-    + 'produit. La liste ci-dessus peut etre incomplete : demandez a l equipe avant de '
+const INCOMPLETE_NOTICE = 'Nous n\'avons pas encore vérifié tous les ingrédients de ce '
+    + 'produit. La liste ci-dessus peut être incomplète : demandez à l\'équipe avant de '
     + 'commander.';
 
-const UNKNOWN_NOTICE = 'Information non disponible pour ce produit : demandez a l equipe '
+const UNKNOWN_NOTICE = 'Information non disponible pour ce produit : demandez à l\'équipe '
     + 'avant de commander.';
 
-const NONE_NOTICE = 'Verifie : ce produit ne contient aucun des 14 allergenes a '
-    + 'declaration obligatoire.';
+const NONE_NOTICE = 'Vérifié : ce produit ne contient aucun des 14 allergènes à '
+    + 'déclaration obligatoire.';
 
 /* Reference stable du handler clavier pour pouvoir le retirer a la fermeture. */
 function onKeydown(event) {
@@ -59,8 +59,8 @@ export function buildAllergenInfoButton(onOpen) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'allergen-info-btn';
-    btn.setAttribute('aria-label', 'Informations allergenes');
-    btn.title = 'Informations allergenes';
+    btn.setAttribute('aria-label', 'Informations allergènes');
+    btn.title = 'Informations allergènes';
     btn.textContent = 'i';
     btn.addEventListener('click', (event) => {
         event.preventDefault();
@@ -112,7 +112,7 @@ export function openProductAllergenModal(product, reference) {
     overlay.className = OVERLAY_CLASS;
     overlay.setAttribute('role', 'dialog');
     overlay.setAttribute('aria-modal', 'true');
-    overlay.setAttribute('aria-label', 'Informations allergenes');
+    overlay.setAttribute('aria-label', 'Informations allergènes');
 
     const modal = document.createElement('div');
     modal.className = 'allergen-modal';
@@ -128,7 +128,7 @@ export function openProductAllergenModal(product, reference) {
     const title = document.createElement('h2');
     title.className = 'allergen-modal-title';
     const name = String(item.nom ?? '').trim();
-    title.textContent = name === '' ? 'Allergenes' : 'Allergenes - ' + name;
+    title.textContent = name === '' ? 'Allergènes' : 'Allergènes - ' + name;
     modal.appendChild(title);
 
     if (allergens.length > 0) {

@@ -134,7 +134,7 @@ class ProductController extends AdminController
         }
 
         return $this->adminView('admin/products/by_category', [
-            'title'          => 'Produits par categorie - Wakdo Admin',
+            'title'          => 'Produits par catégorie - Wakdo Admin',
             'activeNav'      => 'products-by-category',
             'categories'     => $categories,
             'articles'       => $articles,
@@ -228,7 +228,7 @@ class ProductController extends AdminController
         }
 
         $this->productRepository()->create($data);
-        $this->setFlash('Produit cree.');
+        $this->setFlash('Produit créé.');
 
         return $this->redirect('/admin/products');
     }
@@ -318,7 +318,7 @@ class ProductController extends AdminController
                 $uploader->remove($previousImage);
             }
 
-            $this->setFlash('Produit mis a jour.');
+            $this->setFlash('Produit mis à jour.');
 
             return $this->redirect('/admin/products');
         }
@@ -371,7 +371,7 @@ class ProductController extends AdminController
             $uploader->remove($previousImage);
         }
 
-        $this->setFlash('Produit mis a jour (changement de prix/TVA trace).');
+        $this->setFlash('Produit mis à jour (changement de prix/TVA tracé).');
 
         return $this->redirect('/admin/products');
     }
@@ -446,7 +446,7 @@ class ProductController extends AdminController
         // aucune perte hors-trace dans le journal append-only.
         $cascaded = $this->productRepository()->compositionCount($id);
         $summary = 'Suppression produit: ' . $name
-            . ' (' . $cascaded . ' ligne(s) de recette cascade-supprimee(s))';
+            . ' (' . $cascaded . ' ligne(s) de recette cascade-supprimée(s))';
 
         // FK RESTRICT (order_item / menu / menu_slot_option / order_item_selection)
         // -> PDOException 23000 -> 409 Conflit (catch ci-dessous). product_ingredient
@@ -461,7 +461,7 @@ class ProductController extends AdminController
             });
         } catch (PDOException $exception) {
             if ((string) $exception->getCode() === '23000') {
-                return $this->renderDelete($guard, $id, $product, 'Produit reference par des commandes ou menus : suppression impossible. Masquez-le plutot.', 409);
+                return $this->renderDelete($guard, $id, $product, 'Produit référencé par des commandes ou menus : suppression impossible. Masquez-le plutôt.', 409);
             }
 
             throw $exception;
@@ -477,7 +477,7 @@ class ProductController extends AdminController
         // FK a bloque (409), ce qui est benin (l'acteur n'est pas un attaquant).
         $this->pinThrottle()->reset($actorId);
 
-        $this->setFlash('Produit supprime.');
+        $this->setFlash('Produit supprimé.');
 
         return $this->redirect('/admin/products');
     }
@@ -536,7 +536,7 @@ class ProductController extends AdminController
         // Composition vide autorisee : un produit peut n'avoir aucune recette
         // definie (setComposition purge alors la table sans rien reinserer).
         $this->productRepository()->setComposition($id, $lines);
-        $this->setFlash('Recette mise a jour.');
+        $this->setFlash('Recette mise à jour.');
 
         return $this->redirect('/admin/products');
     }
@@ -571,7 +571,7 @@ class ProductController extends AdminController
         // n'est pas une erreur : l'utilisateur a clique sur une fleche sans
         // effet, on le ramene simplement a sa liste sans message alarmant.
         if ($this->productRepository()->reorderWithinCategory((int) ($params['id'] ?? 0), $direction)) {
-            $this->setFlash('Ordre du catalogue mis a jour.');
+            $this->setFlash('Ordre du catalogue mis à jour.');
         }
 
         return $this->redirect('/admin/products/by-category');
@@ -632,12 +632,12 @@ class ProductController extends AdminController
         $categoryRaw = trim($form['category_id'] ?? '');
         $categoryId = ctype_digit($categoryRaw) ? (int) $categoryRaw : 0;
         if ($categoryId === 0 || !$this->productRepository()->categoryExists($categoryId)) {
-            $errors['category_id'] = 'Categorie requise et valide.';
+            $errors['category_id'] = 'Catégorie requise et valide.';
         }
 
         $name = trim($form['name'] ?? '');
         if ($name === '' || mb_strlen($name) > 120) {
-            $errors['name'] = 'Le nom est requis (120 caracteres max).';
+            $errors['name'] = 'Le nom est requis (120 caractères max).';
         }
 
         // Saisie en EUROS (F40, section "Textes techniques ou en anglais" de
@@ -663,7 +663,7 @@ class ProductController extends AdminController
 
         $orderRaw = trim($form['display_order'] ?? '0');
         if (!ctype_digit($orderRaw) || (int) $orderRaw > 65535) {
-            $errors['display_order'] = 'L ordre d affichage doit etre un entier entre 0 et 65535.';
+            $errors['display_order'] = 'L\'ordre d\'affichage doit être un entier entre 0 et 65535.';
         }
 
         $description = trim($form['description'] ?? '');
@@ -678,7 +678,7 @@ class ProductController extends AdminController
         $sizeCl = null;
         if ($sizeRaw !== '') {
             if (!ctype_digit($sizeRaw) || (int) $sizeRaw > 65535) {
-                $errors['size_cl'] = 'La taille (en cl) doit etre un entier entre 0 et 65535.';
+                $errors['size_cl'] = 'La taille (en cl) doit être un entier entre 0 et 65535.';
             } else {
                 $sizeCl = (int) $sizeRaw;
             }
@@ -692,13 +692,13 @@ class ProductController extends AdminController
         $baseId = null;
         if ($baseRaw !== '') {
             if (!ctype_digit($baseRaw)) {
-                $errors['base_product_id'] = 'Le produit de base doit etre un produit existant.';
+                $errors['base_product_id'] = 'Le produit de base doit être un produit existant.';
             } elseif ((int) $baseRaw === $currentId) {
-                $errors['base_product_id'] = 'Un produit ne peut pas etre sa propre base.';
+                $errors['base_product_id'] = 'Un produit ne peut pas être sa propre base.';
             } elseif (!$this->productRepository()->productExists((int) $baseRaw)) {
-                $errors['base_product_id'] = 'Le produit de base doit etre un produit existant.';
+                $errors['base_product_id'] = 'Le produit de base doit être un produit existant.';
             } elseif (!$this->productRepository()->productIsBase((int) $baseRaw)) {
-                $errors['base_product_id'] = 'Le produit de base doit lui-meme etre un produit de base (pas une variante).';
+                $errors['base_product_id'] = 'Le produit de base doit lui-même être un produit de base (pas une variante).';
             } else {
                 $baseId = (int) $baseRaw;
             }
@@ -712,11 +712,11 @@ class ProductController extends AdminController
         $maxiId = null;
         if ($maxiRaw !== '') {
             if (!ctype_digit($maxiRaw)) {
-                $errors['maxi_variant_product_id'] = 'La variante Maxi doit etre un produit existant.';
+                $errors['maxi_variant_product_id'] = 'La variante Maxi doit être un produit existant.';
             } elseif ((int) $maxiRaw === $currentId) {
-                $errors['maxi_variant_product_id'] = 'Un produit ne peut pas etre sa propre variante Maxi.';
+                $errors['maxi_variant_product_id'] = 'Un produit ne peut pas être sa propre variante Maxi.';
             } elseif (!$this->productRepository()->productExists((int) $maxiRaw)) {
-                $errors['maxi_variant_product_id'] = 'La variante Maxi doit etre un produit existant.';
+                $errors['maxi_variant_product_id'] = 'La variante Maxi doit être un produit existant.';
             } else {
                 $maxiId = (int) $maxiRaw;
             }
@@ -778,7 +778,7 @@ class ProductController extends AdminController
                 'code' => 'pin.failed',
                 'etype' => 'product',
                 'eid' => $productId,
-                'summary' => 'Echec PIN action sensible (email tente: ' . $email . ')',
+                'summary' => 'Échec PIN action sensible (email tenté: ' . $email . ')',
             ],
         );
     }
@@ -838,15 +838,15 @@ class ProductController extends AdminController
             $extra = is_numeric($raw['extra_price_cents'] ?? null) ? (int) $raw['extra_price_cents'] : -1;
 
             if ($qn < 1 || $qn > 65535) {
-                $errors['composition'] = 'La quantite normale doit etre un entier >= 1.';
+                $errors['composition'] = 'La quantité normale doit être un entier >= 1.';
                 continue;
             }
             if ($qm < $qn || $qm > 65535) {
-                $errors['composition'] = 'La quantite maxi doit etre >= la quantite normale.';
+                $errors['composition'] = 'La quantité maxi doit être >= la quantité normale.';
                 continue;
             }
             if ($extra < 0 || $extra > 4294967295) {
-                $errors['composition'] = 'Le supplement (en centimes) doit etre un entier >= 0.';
+                $errors['composition'] = 'Le supplément (en centimes) doit être un entier >= 0.';
                 continue;
             }
 
@@ -951,6 +951,6 @@ class ProductController extends AdminController
 
     private function invalidCsrf(): Response
     {
-        return Response::make('Requete invalide.', 403, ['Content-Type' => 'text/plain; charset=utf-8']);
+        return Response::make('Requête invalide.', 403, ['Content-Type' => 'text/plain; charset=utf-8']);
     }
 }

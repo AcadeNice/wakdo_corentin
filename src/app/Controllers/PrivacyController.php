@@ -34,7 +34,7 @@ class PrivacyController extends AdminController
         }
 
         return $this->adminView('admin/privacy', [
-            'title'     => 'Traitement des donnees personnelles - Wakdo Admin',
+            'title'     => 'Traitement des données personnelles - Wakdo Admin',
             'activeNav' => '',
         ], $guard);
     }

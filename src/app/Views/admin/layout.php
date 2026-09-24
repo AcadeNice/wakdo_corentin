@@ -82,11 +82,11 @@ $navClass = static function (string $code, string $current): string {
                 </button>
                 <div class="dropdown-menu" id="userMenu">
                     <a href="/admin/profile/pin">Mon PIN d'action sensible</a>
-                    <a href="/admin/privacy">Traitement de mes donnees</a>
+                    <a href="/admin/privacy">Traitement de mes données</a>
                     <div class="divider"></div>
                     <form method="post" action="/logout">
                         <input type="hidden" name="_csrf" value="<?= $csrf ?>">
-                        <button class="danger" type="submit">Se deconnecter</button>
+                        <button class="danger" type="submit">Se déconnecter</button>
                     </form>
                 </div>
             </div>
@@ -107,11 +107,11 @@ $navClass = static function (string $code, string $current): string {
         <div class="sidebar-section">
             <div class="sidebar-section-label">Catalogue</div>
             <?php if ($can('category.manage')): ?>
-                <a href="/admin/categories" class="<?= $navClass('categories', $active) ?>">Categories</a>
+                <a href="/admin/categories" class="<?= $navClass('categories', $active) ?>">Catégories</a>
             <?php endif; ?>
             <?php if ($can('product.read')): ?>
                 <a href="/admin/products" class="<?= $navClass('products', $active) ?>">Produits</a>
-                <a href="/admin/products/by-category" class="<?= $navClass('products-by-category', $active) ?>">Produits par categorie</a>
+                <a href="/admin/products/by-category" class="<?= $navClass('products-by-category', $active) ?>">Produits par catégorie</a>
             <?php endif; ?>
             <?php if ($can('menu.read')): ?>
                 <a href="/admin/menus" class="<?= $navClass('menus', $active) ?>">Menus</a>
@@ -122,7 +122,7 @@ $navClass = static function (string $code, string $current): string {
         <?php if ($can('stock.read')): ?>
         <div class="sidebar-section">
             <div class="sidebar-section-label">Stock</div>
-            <a href="/admin/ingredients" class="<?= $navClass('stock', $active) ?>">Ingredients</a>
+            <a href="/admin/ingredients" class="<?= $navClass('stock', $active) ?>">Ingrédients</a>
         </div>
         <?php endif; ?>
 
@@ -151,7 +151,7 @@ $navClass = static function (string $code, string $current): string {
                 <a href="/admin/users" class="<?= $navClass('users', $active) ?>">Utilisateurs</a>
             <?php endif; ?>
             <?php if ($can('role.manage')): ?>
-                <a href="/admin/roles" class="<?= $navClass('roles', $active) ?>">Roles</a>
+                <a href="/admin/roles" class="<?= $navClass('roles', $active) ?>">Rôles</a>
             <?php endif; ?>
         </div>
         <?php endif; ?>

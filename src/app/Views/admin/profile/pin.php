@@ -32,7 +32,7 @@ $pinRuleAttributes = ' pattern="' . htmlspecialchars($pinPattern, ENT_QUOTES, 'U
 </div>
 
 <section>
-    <p><small>Statut : <?= $alreadySet ? 'un PIN est defini.' : 'aucun PIN defini pour l instant.' ?></small></p>
+    <p><small>Statut : <?= $alreadySet ? 'un PIN est défini.' : 'aucun PIN défini pour l\'instant.' ?></small></p>
 
     <?php if ($errorMessage !== null): ?>
         <p role="alert"><?= htmlspecialchars($errorMessage, ENT_QUOTES, 'UTF-8') ?></p>
@@ -44,7 +44,7 @@ $pinRuleAttributes = ' pattern="' . htmlspecialchars($pinPattern, ENT_QUOTES, 'U
         <div class="form-group">
             <label class="form-label" for="current_password">Mot de passe actuel</label>
             <input class="form-input" type="password" id="current_password" name="current_password" autocomplete="current-password" required>
-            <small>Confirme votre identite avant de definir un PIN d action sensible.</small>
+            <small>Confirme votre identité avant de définir un PIN d'action sensible.</small>
         </div>
 
         <div class="form-group">

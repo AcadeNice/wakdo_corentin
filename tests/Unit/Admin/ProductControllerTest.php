@@ -263,7 +263,7 @@ final class ProductControllerTest extends TestCase
         self::assertSame(302, $response->status());
         self::assertTrue($db->wrote('INSERT INTO product'));
         self::assertFalse($db->wrote('INSERT INTO audit_log')); // create = pas d'action sensible
-        self::assertSame('Produit cree.', $this->session->get('_flash'));
+        self::assertSame('Produit créé.', $this->session->get('_flash'));
     }
 
     // --- Champs de variante (F9-3) : size_cl, base_product_id, maxi_variant_product_id ---
@@ -610,7 +610,7 @@ final class ProductControllerTest extends TestCase
         $response = $this->controller($this->post(['_csrf' => $this->csrf, 'pin_email' => 'staff@wakdo.local', 'pin' => '4729'], '/admin/products/5/delete'), $db)->destroy(['id' => '5']);
 
         self::assertSame(409, $response->status());
-        self::assertStringContainsString('reference', $response->body());
+        self::assertStringContainsString('référencé', $response->body());
     }
 
     public function testStoreRejectsInvalidCsrf(): void
@@ -997,7 +997,7 @@ final class ProductControllerTest extends TestCase
         // vain pourquoi un produit "disponible" reste introuvable a la commande.
         $body = $this->controller($this->get('/admin/products/by-category'), $this->byCategoryDb())->byCategory()->body();
 
-        self::assertStringContainsString('Masquee sur la borne', $body);
+        self::assertStringContainsString('Masquée sur la borne', $body);
     }
 
     public function testByCategoryComputesCountersServerSide(): void
@@ -1044,7 +1044,7 @@ final class ProductControllerTest extends TestCase
 
         $body = $this->controller($this->get('/admin/products/by-category'), $db)->byCategory()->body();
 
-        self::assertStringContainsString('Aucun article dans cette categorie.', $body);
+        self::assertStringContainsString('Aucun article dans cette catégorie.', $body);
     }
 
     public function testByCategoryReadsAFixedNumberOfQueries(): void
@@ -1095,7 +1095,7 @@ final class ProductControllerTest extends TestCase
 
         self::assertSame(422, $response->status());
         self::assertFalse($db->wrote('INSERT INTO product'));
-        self::assertStringContainsString('Format d image non accepte', $response->body());
+        self::assertStringContainsString('Format d&#039;image non accepté', $response->body());
         self::assertDirectoryDoesNotExist($this->uploadBaseDir . '/products');
     }
 
@@ -1229,7 +1229,7 @@ final class ProductControllerTest extends TestCase
 
         self::assertSame(302, $response->status());
         self::assertSame('/admin/products/by-category', $response->header('Location'));
-        self::assertSame('Ordre du catalogue mis a jour.', $this->session->get('_flash'));
+        self::assertSame('Ordre du catalogue mis à jour.', $this->session->get('_flash'));
         self::assertTrue($db->wrote('UPDATE product SET display_order'));
     }
 

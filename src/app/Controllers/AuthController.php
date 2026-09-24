@@ -34,7 +34,7 @@ class AuthController extends Controller
     public function showLogin(array $params = []): Response
     {
         $notice = $this->request->query('reset') === 'ok'
-            ? 'Mot de passe reinitialise. Vous pouvez vous connecter.'
+            ? 'Mot de passe réinitialisé. Vous pouvez vous connecter.'
             : null;
 
         return $this->renderLogin(null, $notice);
@@ -49,7 +49,7 @@ class AuthController extends Controller
 
         // PRE-2 / ERR-2 : jeton CSRF valide sinon 403, avant tout traitement.
         if (!Csrf::validate($this->sessionManager(), $form['_csrf'] ?? null)) {
-            return $this->renderLogin('Session expiree, merci de reessayer.', null, 403);
+            return $this->renderLogin('Session expirée, merci de réessayer.', null, 403);
         }
 
         // RG-T18 : validation et bornes de longueur cote serveur.
@@ -87,7 +87,7 @@ class AuthController extends Controller
         // D11 : deconnexion en POST garde par CSRF (un GET forgeable pourrait
         // deconnecter un poste en plein service). CSRF invalide -> 403, pas de destroy.
         if (!Csrf::validate($this->sessionManager(), $form['_csrf'] ?? null)) {
-            return Response::make('Requete invalide.', 403, ['Content-Type' => 'text/plain; charset=utf-8']);
+            return Response::make('Requête invalide.', 403, ['Content-Type' => 'text/plain; charset=utf-8']);
         }
 
         $this->authService()->logout();

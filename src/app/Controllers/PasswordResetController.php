@@ -27,8 +27,8 @@ use App\Core\Response;
  */
 class PasswordResetController extends Controller
 {
-    private const NEUTRAL_NOTICE = 'Si un compte correspond a cet email, un lien de reinitialisation a ete envoye.';
-    private const INVALID_LINK = 'Lien invalide ou expire.';
+    private const NEUTRAL_NOTICE = 'Si un compte correspond à cet email, un lien de réinitialisation a été envoyé.';
+    private const INVALID_LINK = 'Lien invalide ou expiré.';
 
     /**
      * @param array<string, string> $params
@@ -36,7 +36,7 @@ class PasswordResetController extends Controller
     public function showRequest(array $params = []): Response
     {
         return $this->view('auth/forgot', [
-            'title'     => 'Mot de passe oublie - Wakdo Admin',
+            'title'     => 'Mot de passe oublié - Wakdo Admin',
             'csrfToken' => Csrf::token($this->sessionManager()),
             'notice'    => null,
         ]);
@@ -51,7 +51,7 @@ class PasswordResetController extends Controller
 
         if (!Csrf::validate($this->sessionManager(), $form['_csrf'] ?? null)) {
             return $this->view('auth/forgot', [
-                'title'     => 'Mot de passe oublie - Wakdo Admin',
+                'title'     => 'Mot de passe oublié - Wakdo Admin',
                 'csrfToken' => Csrf::token($this->sessionManager()),
                 'notice'    => null,
             ], 403);
@@ -69,7 +69,7 @@ class PasswordResetController extends Controller
         }
 
         return $this->view('auth/forgot', [
-            'title'     => 'Mot de passe oublie - Wakdo Admin',
+            'title'     => 'Mot de passe oublié - Wakdo Admin',
             'csrfToken' => Csrf::token($this->sessionManager()),
             'notice'    => self::NEUTRAL_NOTICE,
         ]);
@@ -92,7 +92,7 @@ class PasswordResetController extends Controller
         $token = $form['token'] ?? '';
 
         if (!Csrf::validate($this->sessionManager(), $form['_csrf'] ?? null)) {
-            return $this->renderConfirm($token, 'Session expiree, merci de reessayer.', 403);
+            return $this->renderConfirm($token, 'Session expirée, merci de réessayer.', 403);
         }
 
         $password = $form['password'] ?? '';

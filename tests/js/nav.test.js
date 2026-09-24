@@ -16,7 +16,7 @@ import { needsModeRedirect, modeLabel } from '../../src/public/borne/assets/js/n
 
 test('modeLabel: libelle humain ; vide si mode absent ou inconnu (ne ment pas)', () => {
     assert.equal(modeLabel('sur-place'), 'Sur place');
-    assert.equal(modeLabel('a-emporter'), 'A emporter');
+    assert.equal(modeLabel('a-emporter'), 'À emporter');
     assert.equal(modeLabel(null), '');
     assert.equal(modeLabel(undefined), '');
     assert.equal(modeLabel('bidon'), '');

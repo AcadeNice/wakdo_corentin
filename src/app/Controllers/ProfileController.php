@@ -69,7 +69,7 @@ class ProfileController extends AdminController
 
         $form = $this->request->formBody();
         if (!Csrf::validate($this->sessionManager(), $form['_csrf'] ?? null)) {
-            return Response::make('Requete invalide.', 403, ['Content-Type' => 'text/plain; charset=utf-8']);
+            return Response::make('Requête invalide.', 403, ['Content-Type' => 'text/plain; charset=utf-8']);
         }
 
         $pin = $form['pin'] ?? '';
@@ -78,7 +78,7 @@ class ProfileController extends AdminController
         $error = null;
 
         if (!$this->pinVerifier()->meetsLengthPolicy($pin)) {
-            $error = 'Le PIN doit etre uniquement numerique et respecter la longueur requise.';
+            $error = 'Le PIN doit être uniquement numérique et respecter la longueur requise.';
         } elseif ($pin !== $confirm) {
             $error = 'Les PIN ne correspondent pas.';
         }
@@ -103,7 +103,7 @@ class ProfileController extends AdminController
         // Gate sur 1 ligne affectee : une cible inexistante (0 ligne) ne doit pas
         // produire un faux "PIN enregistre" (defense en profondeur).
         if ($this->userRepository()->setPinHash($userId, $this->passwordHasher()->hash($pin)) !== 1) {
-            return $this->renderPinForm($guard, $userId, 'Echec de l enregistrement du PIN.', 500);
+            return $this->renderPinForm($guard, $userId, 'Échec de l\'enregistrement du PIN.', 500);
         }
 
         // Trace d'audit (ADR-0004, RG-T14) : l'acteur est l'utilisateur de session
@@ -111,7 +111,7 @@ class ProfileController extends AdminController
         // l'evenement set/change, jamais le PIN ni un hash.
         $this->writePinAudit($userId, $guard->roleId ?? 0, $wasSet);
 
-        $this->setFlash('PIN enregistre.');
+        $this->setFlash('PIN enregistré.');
 
         return Response::make('', 302, ['Location' => '/admin/profile/pin']);
     }
@@ -191,7 +191,7 @@ class ProfileController extends AdminController
                 'code'    => 'pin.set',
                 'etype'   => 'user',
                 'eid'     => $userId,
-                'summary' => $wasSet ? 'PIN modifie (self-service)' : 'PIN defini (self-service)',
+                'summary' => $wasSet ? 'PIN modifié (self-service)' : 'PIN défini (self-service)',
             ],
         );
     }

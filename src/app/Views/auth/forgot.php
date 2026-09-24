@@ -18,7 +18,7 @@ $noticeMessage = isset($notice) && is_string($notice) ? $notice : null;
         <div class="login-logo">
             <img src="/assets/images/logo.png" alt="Wakdo">
             <span class="login-logo-title">Wakdo Admin</span>
-            <span class="login-logo-sub">Reinitialisation du mot de passe</span>
+            <span class="login-logo-sub">Réinitialisation du mot de passe</span>
         </div>
 
         <?php if ($noticeMessage !== null): ?>
@@ -36,6 +36,6 @@ $noticeMessage = isset($notice) && is_string($notice) ? $notice : null;
             <button type="submit" class="btn btn-primary">Envoyer le lien</button>
         </form>
 
-        <p class="login-footer"><a href="/login">Retour a la connexion</a></p>
+        <p class="login-footer"><a href="/login">Retour à la connexion</a></p>
     </div>
 </main>

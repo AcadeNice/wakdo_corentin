@@ -132,7 +132,7 @@ final class IngredientRepositoryAllergensTest extends TestCase
         self::assertSame(3, $params['uid']);
         self::assertSame(2, $params['rid']);
         // La trace se lit sans requete complementaire : des libelles, pas des ids.
-        self::assertSame('Allergenes revus : Gluten, Lait (source: Fiche fournisseur)', $params['summary']);
+        self::assertSame('Allergènes revus : Gluten, Lait (source: Fiche fournisseur)', $params['summary']);
     }
 
     public function testAuditSummarySaysAucunWhenNothingIsDeclared(): void
@@ -144,7 +144,7 @@ final class IngredientRepositoryAllergensTest extends TestCase
         $params = $this->writeParams($db, 'INSERT INTO audit_log');
         self::assertNotNull($params);
         // "aucun des 14" est une AFFIRMATION tracee, distincte d'un silence.
-        self::assertSame('Allergenes revus : aucun des 14 (source: Fiche fournisseur)', $params['summary']);
+        self::assertSame('Allergènes revus : aucun des 14 (source: Fiche fournisseur)', $params['summary']);
     }
 
     public function testAuditSummaryStaysWithinTheColumnLength(): void

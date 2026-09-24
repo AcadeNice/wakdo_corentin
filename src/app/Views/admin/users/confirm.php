@@ -24,21 +24,21 @@ $err = isset($error) && is_string($error) ? htmlspecialchars($error, ENT_QUOTES,
 $kinds = [
     'deactivate' => [
         'path'    => '/admin/users/' . $id . '/deactivate',
-        'title'   => 'Desactiver le compte',
-        'message' => 'L\'utilisateur ne pourra plus se connecter. L\'historique reste intact. Reversible (reactivation via Modifier).',
-        'button'  => 'Desactiver',
+        'title'   => 'Désactiver le compte',
+        'message' => 'L\'utilisateur ne pourra plus se connecter. L\'historique reste intact. Réversible (réactivation via Modifier).',
+        'button'  => 'Désactiver',
     ],
     'reset-pin' => [
         'path'    => '/admin/users/' . $id . '/reset-pin',
-        'title'   => 'Reinitialiser le PIN',
-        'message' => 'Le PIN d\'action sensible de cet equipier sera efface. Il devra en redefinir un en self-service.',
-        'button'  => 'Reinitialiser le PIN',
+        'title'   => 'Réinitialiser le PIN',
+        'message' => 'Le PIN d\'action sensible de cet équipier sera effacé. Il devra en redéfinir un en self-service.',
+        'button'  => 'Réinitialiser le PIN',
     ],
     'erase' => [
         'path'    => '/admin/users/' . $id . '/erase',
         'title'   => 'Anonymiser le compte (RGPD)',
-        'message' => 'Les donnees personnelles seront effacees definitivement (droit a l\'effacement). La ligne est conservee anonymisee pour preserver l\'historique. Action IRREVERSIBLE.',
-        'button'  => 'Anonymiser definitivement',
+        'message' => 'Les données personnelles seront effacées définitivement (droit à l\'effacement). La ligne est conservée anonymisée pour préserver l\'historique. Action IRRÉVERSIBLE.',
+        'button'  => 'Anonymiser définitivement',
     ],
 ];
 $c = $kinds[$kind] ?? $kinds['deactivate'];
@@ -58,9 +58,9 @@ $c = $kinds[$kind] ?? $kinds['deactivate'];
     <?php if ($err !== ''): ?><p class="form-error"><?= $err ?></p><?php endif; ?>
 
     <fieldset class="form-group">
-        <legend>Re-autorisation (PIN equipier)</legend>
+        <legend>Re-autorisation (PIN équipier)</legend>
         <div class="form-group">
-            <label class="form-label" for="pin_email">Email equipier</label>
+            <label class="form-label" for="pin_email">Email équipier</label>
             <input class="form-input" type="email" id="pin_email" name="pin_email" autocomplete="off">
         </div>
         <div class="form-group">
