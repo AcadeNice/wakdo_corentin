@@ -172,7 +172,7 @@ final class MenuControllerTest extends TestCase
         self::assertTrue($db->wrote('INSERT INTO menu_slot'));
         self::assertTrue($db->wrote('INSERT INTO menu_slot_option'));
         self::assertFalse($db->wrote('INSERT INTO audit_log')); // create = pas d'action sensible (mlt 8.4)
-        self::assertSame('Menu cree.', $this->session->get('_flash'));
+        self::assertSame('Menu créé.', $this->session->get('_flash'));
     }
 
     public function testStoreRejectsVariantAsBurger(): void
@@ -216,7 +216,7 @@ final class MenuControllerTest extends TestCase
 
         self::assertSame(422, $response->status());
         self::assertFalse($db->wrote('INSERT INTO menu'));
-        self::assertStringContainsString('categorie compatible', $response->body());
+        self::assertStringContainsString('catégorie compatible', $response->body());
     }
 
     public function testStoreAcceptsOptionInAllowedCategory(): void

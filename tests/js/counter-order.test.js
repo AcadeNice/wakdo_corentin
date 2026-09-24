@@ -881,12 +881,12 @@ test('D : tuile qui ouvre la modale porte aria-haspopup=dialog et l intention da
     activateCategory(dom, 'Burgers');
     const burger = tileByName(dom, 'Cheeseburger'); // a modificateurs -> modale
     assert.equal(burger.getAttribute('aria-haspopup'), 'dialog');
-    assert.match(burger.getAttribute('aria-label'), /a composer/);
+    assert.match(burger.getAttribute('aria-label'), /à composer/);
 
     activateCategory(dom, 'Menus');
     const menu = tileByName(dom, 'Menu Cheeseburger');
     assert.equal(menu.getAttribute('aria-haspopup'), 'dialog');
-    assert.match(menu.getAttribute('aria-label'), /menu a composer/);
+    assert.match(menu.getAttribute('aria-label'), /menu à composer/);
 });
 
 test('D : tuile produit simple n a PAS aria-haspopup (ajout direct au tap)', () => {

@@ -27,8 +27,8 @@ $canPrep = !empty($canPrepare);
 
 $sourceLabel = static fn (string $s): string => ['kiosk' => 'Borne', 'counter' => 'Comptoir', 'drive' => 'Drive'][$s] ?? $s;
 // Etat de preparation visible (retour oral #8) -> libelle FR sur la carte.
-$statusLabel = static fn (string $s): string => ['paid' => 'En attente', 'preparing' => 'En preparation', 'ready' => 'Prete'][$s] ?? $s;
-$modeLabel = static fn (string $m): string => $m === 'dine_in' ? 'Sur place' : ($m === 'drive' ? 'Drive' : 'A emporter');
+$statusLabel = static fn (string $s): string => ['paid' => 'En attente', 'preparing' => 'En préparation', 'ready' => 'Prête'][$s] ?? $s;
+$modeLabel = static fn (string $m): string => $m === 'dine_in' ? 'Sur place' : ($m === 'drive' ? 'Drive' : 'À emporter');
 
 // Bande SLA (serveur) -> classe CSS de la carte. Defaut prudent sur valeur inconnue.
 $slaClass = static fn (string $band): string => [
@@ -85,15 +85,15 @@ $itemLabel = static function (array $item) use ($esc): string {
 <div class="page-header">
     <div>
         <h1 class="page-title">Cuisine</h1>
-        <p class="page-subtitle">File des commandes payees, de la plus ancienne a la plus recente.</p>
+        <p class="page-subtitle">File des commandes payées, de la plus ancienne à la plus récente.</p>
     </div>
     <span class="kitchen-clock" id="kitchenTime" aria-hidden="true"></span>
 </div>
 
 <?php if ($rows === []): ?>
-    <p>Aucune commande en attente de preparation.</p>
+    <p>Aucune commande en attente de préparation.</p>
 <?php else: ?>
-    <section class="kitchen-grid" aria-label="File des commandes payees">
+    <section class="kitchen-grid" aria-label="File des commandes payées">
         <?php foreach ($rows as $o): ?>
             <?php
             $items = isset($o['items']) && is_array($o['items']) ? $o['items'] : [];
@@ -112,7 +112,7 @@ $itemLabel = static function (array $item) use ($esc): string {
                     <?php if (($o['service_tag'] ?? '') !== ''): ?>
                         <p class="kitchen-line">Table : <?= $esc($o['service_tag']) ?></p>
                     <?php endif; ?>
-                    <p class="kitchen-line">Payee a : <?= $esc($o['paid_at'] ?? '') ?></p>
+                    <p class="kitchen-line">Payée à : <?= $esc($o['paid_at'] ?? '') ?></p>
                     <?php if ($items === []): ?>
                         <p class="kitchen-line">Aucun article.</p>
                     <?php else: ?>
@@ -128,13 +128,13 @@ $itemLabel = static function (array $item) use ($esc): string {
                         <?php if ($canPrep && $status === 'preparing'): ?>
                             <form method="post" action="/admin/orders/<?= rawurlencode($num) ?>/ready">
                                 <input type="hidden" name="_csrf" value="<?= $csrf ?>">
-                                <button class="btn btn-secondary" type="submit">Prete</button>
+                                <button class="btn btn-secondary" type="submit">Prête</button>
                             </form>
                         <?php endif; ?>
                         <?php if ($can): ?>
                             <form method="post" action="/admin/orders/<?= rawurlencode($num) ?>/deliver">
                                 <input type="hidden" name="_csrf" value="<?= $csrf ?>">
-                                <button class="btn btn-primary" type="submit">Remettre (livree)</button>
+                                <button class="btn btn-primary" type="submit">Remettre (livrée)</button>
                             </form>
                         <?php endif; ?>
                     </div>

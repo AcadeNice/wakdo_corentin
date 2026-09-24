@@ -22,11 +22,11 @@ $esc = static fn (mixed $v): string => htmlspecialchars((string) $v, ENT_QUOTES,
 ?>
 <div class="page-header">
     <div>
-        <h1 class="page-title">Categories</h1>
-        <p class="page-subtitle">Gestion des categories du catalogue</p>
+        <h1 class="page-title">Catégories</h1>
+        <p class="page-subtitle">Gestion des catégories du catalogue</p>
     </div>
     <div class="page-actions">
-        <a class="btn btn-primary" href="/admin/categories/new">Nouvelle categorie</a>
+        <a class="btn btn-primary" href="/admin/categories/new">Nouvelle catégorie</a>
     </div>
 </div>
 
@@ -35,8 +35,8 @@ $esc = static fn (mixed $v): string => htmlspecialchars((string) $v, ENT_QUOTES,
         <table>
             <thead>
                 <tr>
-                    <th>Libelle</th>
-                    <th>Reference</th>
+                    <th>Libellé</th>
+                    <th>Référence</th>
                     <th>Ordre</th>
                     <th>Statut</th>
                     <th style="width:160px;"></th>
@@ -44,7 +44,7 @@ $esc = static fn (mixed $v): string => htmlspecialchars((string) $v, ENT_QUOTES,
             </thead>
             <tbody>
                 <?php if ($rows === []): ?>
-                    <tr><td colspan="5" class="muted">Aucune categorie.</td></tr>
+                    <tr><td colspan="5" class="muted">Aucune catégorie.</td></tr>
                 <?php endif; ?>
                 <?php foreach ($rows as $rang => $row): ?>
                     <?php
@@ -72,7 +72,7 @@ $esc = static fn (mixed $v): string => htmlspecialchars((string) $v, ENT_QUOTES,
                             <?php if ($active): ?>
                                 <span class="pill pill-success">Visible</span>
                             <?php else: ?>
-                                <span class="pill pill-neutral">Masquee</span>
+                                <span class="pill pill-neutral">Masquée</span>
                             <?php endif; ?>
                         </td>
                         <td>

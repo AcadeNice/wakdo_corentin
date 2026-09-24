@@ -156,7 +156,7 @@ class CounterOrderController extends AdminController
             return $this->renderForm($guard, $source, $form, $this->messageFor($exception->getMessage()), 422);
         }
 
-        $this->setFlash('Commande ' . $order['order_number'] . ' enregistree et encaissee.');
+        $this->setFlash('Commande ' . $order['order_number'] . ' enregistrée et encaissée.');
 
         return $this->redirect($this->landing($source));
     }
@@ -483,13 +483,13 @@ class CounterOrderController extends AdminController
         return match ($code) {
             'EMPTY_ORDER'             => 'La commande est vide : ajoutez au moins un produit ou un menu.',
             'INVALID_SERVICE_MODE'    => 'Mode de service invalide (le drive impose le mode drive).',
-            'PRODUCT_UNAVAILABLE'     => 'Un produit selectionne est indisponible.',
-            'MENU_UNAVAILABLE'        => 'Un menu selectionne est indisponible.',
+            'PRODUCT_UNAVAILABLE'     => 'Un produit sélectionné est indisponible.',
+            'MENU_UNAVAILABLE'        => 'Un menu sélectionné est indisponible.',
             'INVALID_SELECTION'       => 'Un choix de menu (accompagnement / boisson / sauce) est invalide.',
             'INVALID_MODIFIER',
             'INGREDIENT_NOT_REMOVABLE',
-            'INGREDIENT_NOT_ADDABLE'  => 'Une modification d\'ingredient est invalide.',
-            default                   => 'Commande invalide, verifiez votre saisie.',
+            'INGREDIENT_NOT_ADDABLE'  => 'Une modification d\'ingrédient est invalide.',
+            default                   => 'Commande invalide, vérifiez votre saisie.',
         };
     }
 
@@ -500,6 +500,6 @@ class CounterOrderController extends AdminController
 
     private function invalidCsrf(): Response
     {
-        return Response::make('Requete invalide.', 403, ['Content-Type' => 'text/plain; charset=utf-8']);
+        return Response::make('Requête invalide.', 403, ['Content-Type' => 'text/plain; charset=utf-8']);
     }
 }

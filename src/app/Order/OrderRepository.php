@@ -819,7 +819,7 @@ class OrderRepository
 
             // RG-6/RG-T14 : trace d'audit immuable dans la meme transaction que l'effet.
             $recredit = $restocked ? $totalTtc : 0;
-            $summary = 'Annulation depuis ' . $preStatus . ', re-credit ' . $recredit . 'c';
+            $summary = 'Annulation depuis ' . $preStatus . ', re-crédit ' . $recredit . 'c';
             $db->execute(
                 'INSERT INTO audit_log (actor_user_id, actor_role_id, action_code, entity_type, entity_id, summary) '
                 . 'VALUES (:uid, :rid, :code, :etype, :eid, :summary)',
@@ -947,10 +947,10 @@ class OrderRepository
      */
     private function expirySummary(string $source, string $createdAt): string
     {
-        $summary = 'Expiration automatique: commande non encaissee';
+        $summary = 'Expiration automatique: commande non encaissée';
         $created = strtotime($createdAt);
         if ($created !== false) {
-            $summary .= ', creee il y a ' . max(0, (int) floor((time() - $created) / 60)) . ' min';
+            $summary .= ', créée il y a ' . max(0, (int) floor((time() - $created) / 60)) . ' min';
         }
         if ($source !== '') {
             $summary .= ', canal ' . $source;

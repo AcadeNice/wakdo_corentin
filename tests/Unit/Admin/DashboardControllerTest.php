@@ -364,7 +364,7 @@ final class DashboardControllerTest extends TestCase
         $response = $this->controller($this->authedSession(), $db)->gated();
 
         self::assertSame(403, $response->status());
-        self::assertStringContainsString('Acces refuse', $response->body());
+        self::assertStringContainsString('Accès refusé', $response->body());
     }
 
     public function testGatedPageRendersWhenPermitted(): void

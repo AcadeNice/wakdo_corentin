@@ -141,18 +141,18 @@ class OrderController extends Controller
         return match ($code) {
             'ORDER_NOT_FOUND'          => 'Commande introuvable.',
             'INVALID_TRANSITION'       => 'Transition de statut invalide.',
-            'ORDER_CANCELLED'          => 'Cette commande a ete annulee : recommencez une nouvelle commande.',
+            'ORDER_CANCELLED'          => 'Cette commande a été annulée : recommencez une nouvelle commande.',
             'EMPTY_ORDER'              => 'La commande est vide.',
             'INVALID_SERVICE_MODE'     => 'Mode de service invalide.',
-            'INVALID_SERVICE_TAG'      => 'Numero de chevalet invalide.',
+            'INVALID_SERVICE_TAG'      => 'Numéro de chevalet invalide.',
             'INVALID_ITEM_TYPE'        => 'Type d\'article invalide.',
             'PRODUCT_UNAVAILABLE'      => 'Produit indisponible.',
             'MENU_UNAVAILABLE'         => 'Menu indisponible.',
             'INVALID_SELECTION'        => 'Choix invalide pour ce menu.',
-            'INVALID_MODIFIER'         => 'Modification d\'ingredient invalide.',
-            'INGREDIENT_NOT_REMOVABLE' => 'Cet ingredient ne peut pas etre retire.',
-            'INGREDIENT_NOT_ADDABLE'   => 'Cet ingredient ne peut pas etre ajoute.',
-            default                    => 'Requete invalide.',
+            'INVALID_MODIFIER'         => 'Modification d\'ingrédient invalide.',
+            'INGREDIENT_NOT_REMOVABLE' => 'Cet ingrédient ne peut pas être retiré.',
+            'INGREDIENT_NOT_ADDABLE'   => 'Cet ingrédient ne peut pas être ajouté.',
+            default                    => 'Requête invalide.',
         };
     }
 }

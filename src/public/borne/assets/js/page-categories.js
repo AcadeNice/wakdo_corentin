@@ -99,7 +99,7 @@ export async function renderCategoryGrid(els, loader = loadCategories) {
     } catch (e) {
         if (errorEl) {
             errorEl.hidden = false;
-            errorEl.textContent = 'Impossible de charger les categories. Veuillez reessayer.';
+            errorEl.textContent = 'Impossible de charger les catégories. Veuillez réessayer.';
         }
         console.error('renderCategoryGrid error:', e);
     }

@@ -217,7 +217,7 @@ final class ImageUploaderTest extends TestCase
         $file = $this->fileFor($tmp, clientName: 'photo.png');
 
         $this->expectException(ImageUploadException::class);
-        $this->expectExceptionMessageMatches('/Format d image non accepte/');
+        $this->expectExceptionMessageMatches('/Format d\'image non accepté/');
         $this->uploader()->validate($file, 'products');
     }
 

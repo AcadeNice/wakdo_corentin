@@ -131,8 +131,8 @@ final class PrivacyControllerTest extends TestCase
         $body = $response->body();
         // Shell rendu + contenu RGPD attendu (Cr 3.d.2 : stockage / utilisation / partage / droits).
         self::assertStringContainsString('admin-layout', $body);
-        self::assertStringContainsString('Traitement des donnees personnelles', $body);
-        self::assertStringContainsString('Donnees traitees', $body);
+        self::assertStringContainsString('Traitement des données personnelles', $body);
+        self::assertStringContainsString('Données traitées', $body);
         self::assertStringContainsString('partage', $body);
         self::assertStringContainsString('droit', $body);
         self::assertStringContainsString('effacement', $body);
@@ -140,7 +140,7 @@ final class PrivacyControllerTest extends TestCase
         self::assertStringContainsString('anonymis', $body);
         // Completude d'une notice RGPD (Cr 3.d.2) : base legale, responsable de
         // traitement + contact, et duree de conservation concrete (coherente MLD ~12 mois).
-        self::assertStringContainsString('Base legale', $body);
+        self::assertStringContainsString('Base légale', $body);
         self::assertStringContainsString('Responsable du traitement', $body);
         self::assertStringContainsString('contact@wakdo.local', $body);
         self::assertStringContainsString('12 mois', $body);

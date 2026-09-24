@@ -159,7 +159,7 @@ final class OrderControllerTest extends TestCase
         self::assertIsArray($data);
         self::assertSame('ORDER_CANCELLED', $data['error']['code'] ?? null);
         // Le message reste cote serveur mais doit orienter le diagnostic.
-        self::assertStringContainsString('annulee', (string) ($data['error']['message'] ?? ''));
+        self::assertStringContainsString('annulée', (string) ($data['error']['message'] ?? ''));
     }
 
     public function testCreateWithAKnownPendingKeyReturnsTheSameOrderUpdated(): void

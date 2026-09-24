@@ -9,7 +9,7 @@ declare(strict_types=1);
 <div class="page-header">
     <div>
         <h1 class="page-title">Introuvable</h1>
-        <p class="page-subtitle">La ressource demandee n'existe pas ou plus.</p>
+        <p class="page-subtitle">La ressource demandée n'existe pas ou plus.</p>
     </div>
 </div>
 

@@ -540,7 +540,7 @@ final class CounterOrderControllerTest extends TestCase
         self::assertSame(200, $response->status());
         $body = $response->body();
         self::assertStringContainsString('En cours', $body);
-        self::assertStringContainsString('Historique recent', $body);
+        self::assertStringContainsString('Historique récent', $body);
         self::assertStringContainsString('C100', $body);
         self::assertStringNotContainsString('D200', $body);
         // 4 : la file porte une colonne "Table" et affiche le numero de la commande
@@ -573,7 +573,7 @@ final class CounterOrderControllerTest extends TestCase
         $body = $response->body();
         self::assertStringContainsString('<select class="form-input" id="service_mode"', $body);
         self::assertStringContainsString('Sur place', $body);
-        self::assertStringContainsString('A emporter', $body);
+        self::assertStringContainsString('À emporter', $body);
     }
 
     public function testCreateExposesConfigurableProductModifiersInJson(): void

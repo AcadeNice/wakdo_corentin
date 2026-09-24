@@ -53,7 +53,7 @@ $renderThresholdButton = static function (array $row) use ($esc, $restock): stri
         . ' data-name="' . $esc($row['name'] ?? '') . '"'
         . ' data-capacity="' . (int) ($row['stock_capacity'] ?? 0) . '"'
         . ' data-low="' . (int) ($row['low_stock_pct'] ?? 0) . '"'
-        . ' data-critical="' . (int) ($row['critical_stock_pct'] ?? 0) . '">Regler les seuils</button>';
+        . ' data-critical="' . (int) ($row['critical_stock_pct'] ?? 0) . '">Régler les seuils</button>';
 };
 
 // Les ingredients a reapprovisionner : critiques d'abord, puis en alerte. Le reste
@@ -95,7 +95,7 @@ $renderBar = static function (array $row) use ($esc, $barClass): string {
         'low'      => 'en alerte',
         default    => 'au-dessus du seuil',
     };
-    $html = '<div class="stock-bar" role="img" aria-label="Niveau de stock ' . $pct . ' pourcent, etat ' . $state . '">';
+    $html = '<div class="stock-bar" role="img" aria-label="Niveau de stock ' . $pct . ' pourcent, état ' . $state . '">';
     $html .= '<span class="' . $esc($barClass($band)) . '" style="width:' . $width . '%"></span>';
     $html .= '</div>';
     $html .= '<div class="stock-bar__meta"><span class="stock-bar__pct">' . $pct . '%</span>';
@@ -106,12 +106,12 @@ $renderBar = static function (array $row) use ($esc, $barClass): string {
 ?>
 <div class="page-header">
     <div>
-        <h1 class="page-title">Stock des ingredients</h1>
-        <p class="page-subtitle">Ce qui est bas a reapprovisionner, en un coup d oeil</p>
+        <h1 class="page-title">Stock des ingrédients</h1>
+        <p class="page-subtitle">Ce qui est bas à réapprovisionner, en un coup d'œil</p>
     </div>
     <?php if ($manage): ?>
         <div class="page-actions">
-            <a class="btn btn-secondary" href="/admin/ingredients/new">Nouvel ingredient</a>
+            <a class="btn btn-secondary" href="/admin/ingredients/new">Nouvel ingrédient</a>
         </div>
     <?php endif; ?>
 </div>
@@ -119,10 +119,10 @@ $renderBar = static function (array $row) use ($esc, $barClass): string {
 <?php /* Sommaire d'ancres (RGAA Cr 1.e.11) : cette vue est la plus longue du
          back-office, deux sections identifiees plus bas par id. */ ?>
 <nav class="toc" aria-label="Sommaire de la page">
-    <p class="toc__label">Aller a la section :</p>
+    <p class="toc__label">Aller à la section :</p>
     <ul class="toc__list">
-        <li><a href="#ingredients-a-reapprovisionner">A reapprovisionner</a></li>
-        <li><a href="#ingredients-tous">Tous les ingredients</a></li>
+        <li><a href="#ingredients-a-reapprovisionner">À réapprovisionner</a></li>
+        <li><a href="#ingredients-tous">Tous les ingrédients</a></li>
     </ul>
 </nav>
 
@@ -131,9 +131,9 @@ $renderBar = static function (array $row) use ($esc, $barClass): string {
 <?php endif; ?>
 
 <p class="stock-explainer">
-    Le stock pilote ce qui est commandable sur la borne. Un ingredient requis par une
-    recette qui passe sous son seuil critique rend les produits qui l utilisent
-    indisponibles a la commande. Tenez les niveaux a jour pour garder le menu ouvert.
+    Le stock pilote ce qui est commandable sur la borne. Un ingrédient requis par une
+    recette qui passe sous son seuil critique rend les produits qui l'utilisent
+    indisponibles à la commande. Tenez les niveaux à jour pour garder le menu ouvert.
 </p>
 
 <div class="stock-summary">
@@ -162,17 +162,17 @@ $unreviewed = (int) ($unreviewedAllergens ?? 0);
 <?php if ($unreviewed > 0): ?>
     <p class="stock-explainer stock-explainer--warning" role="status">
         <strong><?= $unreviewed ?></strong>
-        <?= $unreviewed === 1 ? 'ingredient n a pas de revue allergenes' : 'ingredients n ont pas de revue allergenes' ?>.
+        <?= $unreviewed === 1 ? 'ingrédient n\'a pas de revue allergènes' : 'ingrédients n\'ont pas de revue allergènes' ?>.
         Sur la borne, les produits qui les utilisent affichent "information non disponible"
-        au lieu d une liste d allergenes. Ouvrez la fiche de l ingredient pour la renseigner.
+        au lieu d'une liste d'allergènes. Ouvrez la fiche de l'ingrédient pour la renseigner.
     </p>
 <?php endif; ?>
 
 <section class="stock-section stock-section--restock" id="ingredients-a-reapprovisionner">
-    <h2 class="stock-section__title">A reapprovisionner</h2>
+    <h2 class="stock-section__title">À réapprovisionner</h2>
     <?php if ($toRestock === []): ?>
         <div class="stock-empty stock-empty--ok">
-            Tous les ingredients sont au-dessus de leurs seuils.
+            Tous les ingrédients sont au-dessus de leurs seuils.
         </div>
     <?php else: ?>
         <div class="stock-cards">
@@ -194,7 +194,7 @@ $unreviewed = (int) ($unreviewedAllergens ?? 0);
                     <?= $renderBar($row) ?>
                     <div class="stock-card__actions">
                         <?php if ($restock): ?>
-                            <a class="btn btn-primary stock-card__action" href="/admin/ingredients/<?= $id ?>/restock">Reapprovisionner</a>
+                            <a class="btn btn-primary stock-card__action" href="/admin/ingredients/<?= $id ?>/restock">Réapprovisionner</a>
                         <?php endif; ?>
                         <?= $renderThresholdButton($row) ?>
                     </div>
@@ -205,9 +205,9 @@ $unreviewed = (int) ($unreviewedAllergens ?? 0);
 </section>
 
 <section class="stock-section" id="ingredients-tous">
-    <h2 class="stock-section__title">Tous les ingredients</h2>
+    <h2 class="stock-section__title">Tous les ingrédients</h2>
     <?php if ($rows === []): ?>
-        <div class="stock-empty">Aucun ingredient.</div>
+        <div class="stock-empty">Aucun ingrédient.</div>
     <?php else: ?>
         <ul class="stock-list">
             <?php foreach ($rows as $row): ?>
@@ -238,7 +238,7 @@ $unreviewed = (int) ($unreviewedAllergens ?? 0);
                                 <a class="btn btn-ghost btn-sm" href="/admin/ingredients/<?= $id ?>/edit">Modifier</a>
                                 <form method="post" action="/admin/ingredients/<?= $id ?>/toggle" class="stock-list__inline-form">
                                     <input type="hidden" name="_csrf" value="<?= $csrf ?>">
-                                    <button class="btn btn-ghost btn-sm" type="submit"><?= $active ? 'Desactiver' : 'Reactiver' ?></button>
+                                    <button class="btn btn-ghost btn-sm" type="submit"><?= $active ? 'Désactiver' : 'Réactiver' ?></button>
                                 </form>
                                 <a class="btn btn-ghost btn-sm" href="/admin/ingredients/<?= $id ?>/delete">Supprimer</a>
                             </span>
@@ -259,28 +259,28 @@ $unreviewed = (int) ($unreviewedAllergens ?? 0);
         Reutilise les classes .pin-modal-* (overlay generique). Cachee par defaut (pas de
         classe .open) : sans JS, elle reste invisible et les actions classiques fonctionnent.
     */ ?>
-    <div class="pin-modal-overlay" data-threshold-modal role="dialog" aria-modal="true" aria-label="Reglage des seuils de stock">
+    <div class="pin-modal-overlay" data-threshold-modal role="dialog" aria-modal="true" aria-label="Réglage des seuils de stock">
         <div class="pin-modal">
             <div class="pin-modal-head">
                 <div>
-                    <h2 class="pin-modal-title">Regler les seuils</h2>
-                    <p class="pin-modal-sub" data-threshold-name>Capacite de reference et seuils d alerte de l ingredient.</p>
+                    <h2 class="pin-modal-title">Régler les seuils</h2>
+                    <p class="pin-modal-sub" data-threshold-name>Capacité de référence et seuils d'alerte de l'ingrédient.</p>
                 </div>
             </div>
             <form method="post" action="" data-threshold-form>
                 <input type="hidden" name="_csrf" value="<?= $csrf ?>">
                 <div class="form-group">
-                    <label class="form-label" for="th-capacity">Capacite (quantite consideree comme 100%)</label>
+                    <label class="form-label" for="th-capacity">Capacité (quantité considérée comme 100%)</label>
                     <input class="form-input" type="number" id="th-capacity" name="stock_capacity" min="1" max="2147483647" step="1" required>
                 </div>
                 <div class="form-group">
-                    <label class="form-label" for="th-low">Seuil d alerte (% du plein)</label>
+                    <label class="form-label" for="th-low">Seuil d'alerte (% du plein)</label>
                     <input class="form-input" type="number" id="th-low" name="low_stock_pct" min="0" max="100" step="1" required>
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="th-critical">Seuil critique (% du plein)</label>
                     <input class="form-input" type="number" id="th-critical" name="critical_stock_pct" min="0" max="100" step="1" required>
-                    <p class="form-hint">Le seuil critique doit etre inferieur au seuil d alerte. Sous le critique, les produits qui utilisent cet ingredient passent indisponibles sur la borne.</p>
+                    <p class="form-hint">Le seuil critique doit être inférieur au seuil d'alerte. Sous le critique, les produits qui utilisent cet ingrédient passent indisponibles sur la borne.</p>
                 </div>
                 <p class="form-error" data-threshold-error hidden></p>
                 <div class="pin-modal-actions">

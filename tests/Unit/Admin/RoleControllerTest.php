@@ -200,7 +200,7 @@ final class RoleControllerTest extends TestCase
         // reussir que si le layout a lu une VRAIE liste de codes de permission, pas le
         // catalogue complet renvoye jusqu'ici sous la meme cle 'permissions'.
         self::assertStringContainsString('<div class="sidebar-section-label">Administration</div>', $body);
-        self::assertStringContainsString('<a href="/admin/roles" class="sidebar-item active">Roles</a>', $body);
+        self::assertStringContainsString('<a href="/admin/roles" class="sidebar-item active">Rôles</a>', $body);
     }
 
     public function testEditFormShowsHumanPageLabelNotRawTechnicalPath(): void

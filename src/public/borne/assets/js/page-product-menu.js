@@ -255,7 +255,7 @@ function renderStep(modal, state) {
     const fillEl = modal.querySelector('#composer-progress-fill');
 
     const total = totalSteps(state);
-    stepEl.textContent = `Etape ${state.currentStep + 1} / ${total}`;
+    stepEl.textContent = `Étape ${state.currentStep + 1} / ${total}`;
     fillEl.style.width = `${((state.currentStep + 1) / total) * 100}%`;
 
     if (state.currentStep === 0) {
@@ -368,7 +368,7 @@ function renderRecapStep(body, footer, modal, state) {
     if (c.sauce) lines.push(escHtml(c.sauce.libelle));
 
     body.innerHTML = `
-        <p class="composer-step__subtitle">Recapitulatif (${state.size === 'M' ? 'Maxi' : 'Normal'})</p>
+        <p class="composer-step__subtitle">Récapitulatif (${state.size === 'M' ? 'Maxi' : 'Normal'})</p>
         <ul class="composer-recap" aria-label="Composition du menu">
             ${lines.map(l => `<li class="composer-recap__line"><span class="composer-recap__icon" aria-hidden="true">&#9632;</span><span class="composer-recap__label">${l}</span></li>`).join('')}
         </ul>
@@ -379,8 +379,8 @@ function renderRecapStep(body, footer, modal, state) {
     footer.innerHTML = `
         <div class="composer-footer__row">
             <button class="btn btn--secondary composer-footer__cancel" type="button" id="composer-cancel">Annuler</button>
-            <button class="btn btn--secondary composer-footer__prev" type="button" id="composer-prev">Precedent</button>
-            <button class="btn btn--primary composer-footer__add" type="button" id="composer-add">Ajouter a ma commande</button>
+            <button class="btn btn--secondary composer-footer__prev" type="button" id="composer-prev">Précédent</button>
+            <button class="btn btn--primary composer-footer__add" type="button" id="composer-add">Ajouter à ma commande</button>
         </div>
     `;
     footer.querySelector('#composer-cancel').addEventListener('click', () => cancelComposer(modal, state.returnCategory, modal._escHandler));
@@ -402,7 +402,7 @@ function renderFooter(footer, modal, state, opts) {
     footer.innerHTML = `
         <div class="composer-footer__row">
             <button class="btn btn--secondary composer-footer__cancel" type="button" id="composer-cancel">Annuler</button>
-            ${!isFirst ? `<button class="btn btn--secondary composer-footer__prev" type="button" id="composer-prev">Precedent</button>` : ''}
+            ${!isFirst ? `<button class="btn btn--secondary composer-footer__prev" type="button" id="composer-prev">Précédent</button>` : ''}
             <button class="btn btn--primary composer-footer__next" type="button" id="composer-next">Suivant</button>
         </div>
     `;

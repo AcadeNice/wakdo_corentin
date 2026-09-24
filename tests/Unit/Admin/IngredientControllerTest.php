@@ -220,7 +220,7 @@ final class IngredientControllerTest extends TestCase
 
         $body = $this->controller($this->get('/admin/ingredients'), $db)->index()->body();
 
-        self::assertStringContainsString('A reapprovisionner', $body);
+        self::assertStringContainsString('À réapprovisionner', $body);
         self::assertStringContainsString('stock-section--restock', $body);
         self::assertStringContainsString('Buns', $body);
         self::assertStringContainsString('Critique', $body);
@@ -266,7 +266,7 @@ final class IngredientControllerTest extends TestCase
 
         $body = $this->controller($this->get('/admin/ingredients'), $db)->index()->body();
 
-        self::assertStringContainsString('Regler les seuils', $body);
+        self::assertStringContainsString('Régler les seuils', $body);
         self::assertStringContainsString('data-threshold-open', $body);
         self::assertStringContainsString('data-capacity="100"', $body);
         self::assertStringContainsString('data-low="12"', $body);
@@ -328,7 +328,7 @@ final class IngredientControllerTest extends TestCase
         $response = $this->controller($this->post($this->validForm(['low_stock_pct' => '5', 'critical_stock_pct' => '5']), '/admin/ingredients'), $db)->store();
 
         self::assertSame(422, $response->status());
-        self::assertStringContainsString('strictement inferieur', $response->body());
+        self::assertStringContainsString('strictement inférieur', $response->body());
     }
 
     public function testStoreRejectsDuplicateName(): void
@@ -470,7 +470,7 @@ final class IngredientControllerTest extends TestCase
         $response = $this->controller($this->post(['_csrf' => $this->csrf], '/admin/ingredients/5/delete'), $db)->destroy(['id' => '5']);
 
         self::assertSame(409, $response->status());
-        self::assertStringContainsString('reference', $response->body());
+        self::assertStringContainsString('référencé', $response->body());
     }
 
     // --- THRESHOLDS (F13, stock.manage, SANS PIN) : reglage rapide capacite + seuils ---
@@ -506,7 +506,7 @@ final class IngredientControllerTest extends TestCase
 
         self::assertSame(422, $response->status());
         self::assertFalse($db->wrote('UPDATE ingredient SET stock_capacity'));
-        self::assertStringContainsString('capacite', $response->body());
+        self::assertStringContainsString('capacité', $response->body());
     }
 
     public function testUpdateThresholdsRejectsPercentageAboveHundred(): void
@@ -529,7 +529,7 @@ final class IngredientControllerTest extends TestCase
 
         self::assertSame(422, $response->status());
         self::assertFalse($db->wrote('UPDATE ingredient SET stock_capacity'));
-        self::assertStringContainsString('strictement inferieur', $response->body());
+        self::assertStringContainsString('strictement inférieur', $response->body());
     }
 
     public function testUpdateThresholdsForbiddenWithoutStockManage(): void
@@ -899,7 +899,7 @@ final class IngredientControllerTest extends TestCase
         // Le rappel dit COMBIEN et POURQUOI : sinon un ingredient ajoute plus tard fait
         // basculer des produits en "information non disponible" sans que ca se voie.
         self::assertStringContainsString('2', $body);
-        self::assertStringContainsString('revue allergenes', $body);
+        self::assertStringContainsString('revue allergènes', $body);
     }
 
     public function testIndexStaysSilentWhenEveryIngredientIsReviewed(): void
@@ -1070,7 +1070,7 @@ final class IngredientControllerTest extends TestCase
         // avec la vue interdite -- sans cette assertion le test passerait pour la
         // mauvaise raison.
         self::assertSame(403, $response->status());
-        self::assertSame('Requete invalide.', $response->body());
+        self::assertSame('Requête invalide.', $response->body());
         self::assertSame([], $db->writes);
     }
 

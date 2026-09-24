@@ -51,7 +51,7 @@ async function renderProducts() {
         }
 
         if (!products.length) {
-            grid.innerHTML = '<li class="products-empty">Aucun produit disponible dans cette categorie.</li>';
+            grid.innerHTML = '<li class="products-empty">Aucun produit disponible dans cette catégorie.</li>';
             return;
         }
 
@@ -142,7 +142,7 @@ async function renderProducts() {
     } catch (err) {
         if (errorBlock) {
             errorBlock.hidden = false;
-            errorBlock.textContent = 'Impossible de charger les produits. Veuillez reessayer.';
+            errorBlock.textContent = 'Impossible de charger les produits. Veuillez réessayer.';
         }
         console.error('renderProducts error:', err);
     }

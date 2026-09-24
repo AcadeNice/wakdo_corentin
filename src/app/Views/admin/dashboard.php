@@ -30,7 +30,7 @@ $nCritical   = (int) ($stk['bands']['critical'] ?? 0);
     </div>
 </div>
 
-<section class="dash-tiles" aria-label="Indicateurs cles">
+<section class="dash-tiles" aria-label="Indicateurs clés">
     <article class="tile">
         <div class="tile-top">
             <span class="tile-ico"><svg width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1 11a2 2 0 01-2 2H8a2 2 0 01-2-2L5 8z"/><path d="M9 8a3 3 0 016 0"/></svg></span>
@@ -43,10 +43,10 @@ $nCritical   = (int) ($stk['bands']['critical'] ?? 0);
     <article class="tile">
         <div class="tile-top">
             <span class="tile-ico"><svg width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span>
-            <span class="tile-tag">Classees</span>
+            <span class="tile-tag">Classées</span>
         </div>
         <div class="tile-value"><?= $nCategories ?></div>
-        <div class="tile-label">Categories</div>
+        <div class="tile-label">Catégories</div>
     </article>
 
     <article class="tile">
@@ -92,7 +92,7 @@ if ($sales !== null):
 <div class="page-header">
     <div>
         <h2 class="page-title">Ventes</h2>
-        <p class="page-subtitle"><?= htmlspecialchars($euros($sales['revenue_today_cents'] ?? 0), ENT_QUOTES, 'UTF-8') ?> aujourd'hui &mdash; <?= (int) ($sales['paid_count_today'] ?? 0) ?> commande(s) payee(s).</p>
+        <p class="page-subtitle"><?= htmlspecialchars($euros($sales['revenue_today_cents'] ?? 0), ENT_QUOTES, 'UTF-8') ?> aujourd'hui &mdash; <?= (int) ($sales['paid_count_today'] ?? 0) ?> commande(s) payée(s).</p>
     </div>
 </div>
 
@@ -104,13 +104,13 @@ if ($sales !== null):
     </div>
     <div class="stat-card">
         <div class="stat-card__value"><?= (int) ($sales['paid_count_today'] ?? 0) ?></div>
-        <div class="stat-card__label">Commandes payees (jour)</div>
+        <div class="stat-card__label">Commandes payées (jour)</div>
         <div class="stat-card__sub muted"><?= (int) ($sales['paid_count'] ?? 0) ?> au total</div>
     </div>
     <div class="stat-card">
         <div class="stat-card__value"><?= htmlspecialchars($euros($sales['avg_basket_cents'] ?? 0), ENT_QUOTES, 'UTF-8') ?></div>
         <div class="stat-card__label">Panier moyen</div>
-        <div class="stat-card__sub muted">par commande payee</div>
+        <div class="stat-card__sub muted">par commande payée</div>
     </div>
 </section>
 
@@ -126,7 +126,7 @@ if ($n > 0):
     $maxBarH = 130;
     $slot = ($vbW - 2 * $padX) / $n;
     $barW = $slot * 0.62;
-    $summary = 'Chiffre d affaires des ' . $n . ' derniers jours, total ' . $euros($windowTotal);
+    $summary = 'Chiffre d\'affaires des ' . $n . ' derniers jours, total ' . $euros($windowTotal);
 ?>
 <div class="page-header"><div><h2 class="page-title">CA des <?= $n ?> derniers jours</h2></div></div>
 <svg class="dash-chart" viewBox="0 0 <?= $vbW ?> <?= $vbH ?>" role="img" aria-label="<?= htmlspecialchars($summary, ENT_QUOTES, 'UTF-8') ?>" preserveAspectRatio="xMidYMid meet">

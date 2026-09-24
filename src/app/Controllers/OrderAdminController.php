@@ -92,12 +92,12 @@ class OrderAdminController extends AdminController
 
         try {
             $this->orders()->deliver($number);
-            $this->setFlash('Commande remise (livree).');
+            $this->setFlash('Commande remise (livrée).');
         } catch (OrderValidationException $exception) {
             $this->setFlash(
                 $exception->getMessage() === 'ORDER_NOT_FOUND'
                     ? 'Commande introuvable.'
-                    : 'Transition invalide : la commande n\'est pas au statut paye.',
+                    : 'Transition invalide : la commande n\'est pas au statut payé.',
             );
         }
 
@@ -135,7 +135,7 @@ class OrderAdminController extends AdminController
 
         try {
             $this->orders()->markReady($number);
-            $this->setFlash('Commande marquee prete.');
+            $this->setFlash('Commande marquée prête.');
         } catch (OrderValidationException $exception) {
             $this->setFlash(
                 $exception->getMessage() === 'ORDER_NOT_FOUND'
@@ -227,12 +227,12 @@ class OrderAdminController extends AdminController
             // PIN valide : reinitialise le compteur de l'acteur de SESSION (RG-T22, cle
             // = $actorId), surtout pas $actor['id'] (l'equipier resolu par le PIN).
             $this->pinThrottle()->reset($actorId);
-            $this->setFlash('Commande annulee.');
+            $this->setFlash('Commande annulée.');
         } catch (OrderValidationException $exception) {
             $this->setFlash(match ($exception->getMessage()) {
                 'ORDER_NOT_FOUND'         => 'Commande introuvable.',
-                'CANNOT_CANCEL_IN_STATE'  => 'Annulation impossible : la commande est livree ou deja annulee.',
-                default                   => 'Transition invalide : la commande a change d\'etat.',
+                'CANNOT_CANCEL_IN_STATE'  => 'Annulation impossible : la commande est livrée ou déjà annulée.',
+                default                   => 'Transition invalide : la commande a changé d\'état.',
             });
         }
 
@@ -312,7 +312,7 @@ class OrderAdminController extends AdminController
                 'code'    => 'pin.failed',
                 'etype'   => 'customer_order',
                 'eid'     => $orderId,
-                'summary' => 'Echec PIN annulation (email tente: ' . $email . ')',
+                'summary' => 'Échec PIN annulation (email tenté: ' . $email . ')',
             ],
         );
     }
@@ -342,7 +342,7 @@ class OrderAdminController extends AdminController
      */
     private function forbidden(GuardResult $guard): Response
     {
-        return $this->adminView('admin/forbidden', ['title' => 'Acces refuse', 'activeNav' => 'orders'], $guard, 403);
+        return $this->adminView('admin/forbidden', ['title' => 'Accès refusé', 'activeNav' => 'orders'], $guard, 403);
     }
 
     private function redirect(string $location): Response
@@ -352,6 +352,6 @@ class OrderAdminController extends AdminController
 
     private function invalidCsrf(): Response
     {
-        return Response::make('Requete invalide.', 403, ['Content-Type' => 'text/plain; charset=utf-8']);
+        return Response::make('Requête invalide.', 403, ['Content-Type' => 'text/plain; charset=utf-8']);
     }
 }

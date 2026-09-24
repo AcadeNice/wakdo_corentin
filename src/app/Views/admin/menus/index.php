@@ -19,7 +19,7 @@ $euros = static fn (int $cents): string => number_format($cents / 100, 2, ',', '
 <div class="page-header">
     <div>
         <h1 class="page-title">Menus</h1>
-        <p class="page-subtitle">Gestion des menus composes (burger + slots)</p>
+        <p class="page-subtitle">Gestion des menus composés (burger + slots)</p>
     </div>
     <div class="page-actions">
         <a class="btn btn-primary" href="/admin/menus/new">Nouveau menu</a>
@@ -32,7 +32,7 @@ $euros = static fn (int $cents): string => number_format($cents / 100, 2, ',', '
             <thead>
                 <tr>
                     <th>Nom</th>
-                    <th>Categorie</th>
+                    <th>Catégorie</th>
                     <th>Burger de base</th>
                     <th>Prix (Normal &ndash; Maxi)</th>
                     <th>Statut</th>
@@ -64,7 +64,7 @@ $euros = static fn (int $cents): string => number_format($cents / 100, 2, ',', '
                             <a class="btn btn-secondary" href="/admin/menus/<?= $id ?>/edit">Modifier</a>
                             <form method="post" action="/admin/menus/<?= $id ?>/toggle" style="display:inline">
                                 <input type="hidden" name="_csrf" value="<?= $csrf ?>">
-                                <button class="btn btn-secondary" type="submit"><?= $available ? 'Desactiver' : 'Activer' ?></button>
+                                <button class="btn btn-secondary" type="submit"><?= $available ? 'Désactiver' : 'Activer' ?></button>
                             </form>
                             <a class="btn btn-secondary" href="/admin/menus/<?= $id ?>/delete">Supprimer</a>
                         </td>

@@ -90,11 +90,11 @@ export function openProductOptions(product, categorySlug) {
                     <img class="product-options__image" src="${escHtml(product.image)}"
                          alt="${escHtml(product.nom)}" data-fallback="logo">
                     <div class="product-options__sizes" role="group" aria-label="Taille"></div>
-                    <p class="product-options__unit" id="po-unit">${formatPrice(unitPrice())} / unite</p>
-                    <div class="qty-control" role="group" aria-label="Quantite">
-                        <button class="qty-btn qty-btn--minus" type="button" aria-label="Diminuer la quantite">-</button>
+                    <p class="product-options__unit" id="po-unit">${formatPrice(unitPrice())} / unité</p>
+                    <div class="qty-control" role="group" aria-label="Quantité">
+                        <button class="qty-btn qty-btn--minus" type="button" aria-label="Diminuer la quantité">-</button>
                         <span class="qty-value" id="po-qty" aria-live="polite">1</span>
-                        <button class="qty-btn qty-btn--plus" type="button" aria-label="Augmenter la quantite">+</button>
+                        <button class="qty-btn qty-btn--plus" type="button" aria-label="Augmenter la quantité">+</button>
                     </div>
                     <p class="product-options__total" aria-live="polite" aria-atomic="true">Total : <strong id="po-total">${formatPrice(unitPrice())}</strong></p>
                 </div>
@@ -102,7 +102,7 @@ export function openProductOptions(product, categorySlug) {
             <div class="composer-footer">
                 <div class="composer-footer__row">
                     <button class="btn btn--secondary" type="button" id="po-cancel">Annuler</button>
-                    <button class="btn btn--primary" type="button" id="po-add">Ajouter a ma commande</button>
+                    <button class="btn btn--primary" type="button" id="po-add">Ajouter à ma commande</button>
                 </div>
             </div>
         </div>
@@ -120,7 +120,7 @@ export function openProductOptions(product, categorySlug) {
     const unitEl = overlay.querySelector('#po-unit');
     const sync = () => {
         qtyEl.textContent = String(qty);
-        unitEl.textContent = `${formatPrice(unitPrice())} / unite`;
+        unitEl.textContent = `${formatPrice(unitPrice())} / unité`;
         totalEl.textContent = formatPrice(unitPrice() * qty);
     };
 

@@ -217,7 +217,7 @@ final class AuthService
                 ['lock' => $ipLockUntil, 'ip' => $ip],
             );
 
-            $this->writeAudit($db, 'auth.login_failed', $userId, $roleId, 'Echec de connexion');
+            $this->writeAudit($db, 'auth.login_failed', $userId, $roleId, 'Échec de connexion');
         });
     }
 
@@ -244,7 +244,7 @@ final class AuthService
                 ['now_w' => $nowDt, 'now_l' => $nowDt, 'ip' => $ip],
             );
 
-            $this->writeAudit($db, 'auth.login_success', $userId, $roleId, 'Connexion reussie');
+            $this->writeAudit($db, 'auth.login_success', $userId, $roleId, 'Connexion réussie');
         });
     }
 

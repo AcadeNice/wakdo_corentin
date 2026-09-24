@@ -181,7 +181,7 @@ test('renderCategoryGrid: chargeur rejete -> message clair, ne jette pas, grille
     const s = shell();
     await assert.doesNotReject(() => renderCategoryGrid(s, async () => { throw new Error('HTTP 500'); }));
     assert.equal(s.errorEl.hidden, false);
-    assert.match(s.errorEl.textContent, /categories/i);
+    assert.match(s.errorEl.textContent, /catégories/i);
     assert.equal(s.grid.querySelectorAll('.category-card').length, 0);
     assert.equal(s.emptyEl.hidden, true, 'un echec de chargement n est pas un catalogue vide');
 });

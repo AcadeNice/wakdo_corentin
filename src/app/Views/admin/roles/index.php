@@ -20,9 +20,9 @@ $routeLabels = [
     '/admin/products'    => 'Produits',
     '/admin/menus'       => 'Menus',
     '/admin/ingredients' => 'Stock',
-    '/admin/categories'  => 'Categories',
+    '/admin/categories'  => 'Cat茅gories',
     '/admin/users'       => 'Comptes',
-    '/admin/roles'       => 'Roles',
+    '/admin/roles'       => 'R么les',
     // Roles operationnels (kitchen/counter/drive, seed 0001) : sans ces entrees, le
     // chemin technique brut s'affichait dans la colonne (F40, textes techniques).
     '/kitchen/display'   => '脡cran cuisine (KDS)',
@@ -35,11 +35,11 @@ $canalHuman = static fn (?string $s): string => ($s === null || $s === '') ? '鈥
 ?>
 <div class="page-header">
     <div>
-        <h1 class="page-title">Roles et droits d'acces</h1>
-        <p class="page-subtitle">Modifier un role est une action sensible (confirmation par PIN).</p>
+        <h1 class="page-title">R么les et droits d'acc猫s</h1>
+        <p class="page-subtitle">Modifier un r么le est une action sensible (confirmation par PIN).</p>
     </div>
     <div class="page-actions">
-        <a class="btn btn-primary" href="/admin/roles/new">Nouveau role</a>
+        <a class="btn btn-primary" href="/admin/roles/new">Nouveau r么le</a>
     </div>
 </div>
 
@@ -58,7 +58,7 @@ $canalHuman = static fn (?string $s): string => ($s === null || $s === '') ? '鈥
             </thead>
             <tbody>
                 <?php if ($rows === []): ?>
-                    <tr><td colspan="6" class="muted">Aucun role.</td></tr>
+                    <tr><td colspan="6" class="muted">Aucun r么le.</td></tr>
                 <?php endif; ?>
                 <?php foreach ($rows as $row): ?>
                     <?php

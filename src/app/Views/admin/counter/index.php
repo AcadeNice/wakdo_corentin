@@ -22,18 +22,18 @@ $euros = static fn (mixed $cents): string => number_format(((int) $cents) / 100,
 
 $modeLabel = static fn (string $m): string => match ($m) {
     'dine_in'  => 'Sur place',
-    'takeaway' => 'A emporter',
+    'takeaway' => 'À emporter',
     'drive'    => 'Drive',
     default    => $m,
 };
 
 $statusLabel = static fn (string $s): string => match ($s) {
     'pending_payment' => 'En attente',
-    'paid'            => 'Payee',
+    'paid'            => 'Payée',
     'preparing'       => 'En préparation',
     'ready'           => 'Prête',
-    'delivered'       => 'Livree',
-    'cancelled'       => 'Annulee',
+    'delivered'       => 'Livrée',
+    'cancelled'       => 'Annulée',
     default           => $s,
 };
 
@@ -76,11 +76,11 @@ $createPath = isset($newPath) && is_string($newPath) ? $newPath : '/counter/orde
         <table class="admin-table">
             <thead>
                 <tr>
-                    <th>Numero</th>
+                    <th>Numéro</th>
                     <th>Mode</th>
                     <th>Table</th>
                     <th>Total</th>
-                    <th>Payee a</th>
+                    <th>Payée à</th>
                 </tr>
             </thead>
             <tbody>
@@ -105,8 +105,8 @@ $createPath = isset($newPath) && is_string($newPath) ? $newPath : '/counter/orde
         </div>
     <?php endif; ?>
 
-    <h2 class="admin-section__subtitle">Historique recent</h2>
-    <p class="admin-section__sub"><?= count($rows) ?> commande(s) recente(s)</p>
+    <h2 class="admin-section__subtitle">Historique récent</h2>
+    <p class="admin-section__sub"><?= count($rows) ?> commande(s) récente(s)</p>
     <?php if ($rows === []): ?>
         <p class="admin-empty">Aucune commande pour ce canal.</p>
     <?php else: ?>
@@ -114,7 +114,7 @@ $createPath = isset($newPath) && is_string($newPath) ? $newPath : '/counter/orde
         <table class="admin-table">
             <thead>
                 <tr>
-                    <th>Numero</th>
+                    <th>Numéro</th>
                     <th>Mode</th>
                     <th>Statut</th>
                     <th>Total</th>

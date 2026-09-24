@@ -165,7 +165,7 @@ $jsonFlags = JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APO
     <div class="pos__main">
         <div class="pos__catalogue">
             <?php /* Barre d'onglets categories (construite par le JS depuis le catalogue). */ ?>
-            <div class="pos__tabs" id="pos-tabs" role="tablist" aria-label="Categories"></div>
+            <div class="pos__tabs" id="pos-tabs" role="tablist" aria-label="Catégories"></div>
 
             <?php if ($productRows === [] && $menuRows === []): ?>
                 <p class="admin-empty">Aucun produit ni menu commandable pour le moment.</p>
@@ -175,7 +175,7 @@ $jsonFlags = JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APO
                          actif). Pas d'aria-live ici : la grille est rebatie a chaque
                          changement de categorie, une re-annonce complete serait verbeuse. */ ?>
                 <div class="pos__grid" id="pos-grid" role="tabpanel" tabindex="0">
-                    <p class="pos__nojs">Activez JavaScript pour saisir une commande sur cet ecran de caisse.</p>
+                    <p class="pos__nojs">Activez JavaScript pour saisir une commande sur cet écran de caisse.</p>
                 </div>
             <?php endif; ?>
         </div>
@@ -195,7 +195,7 @@ $jsonFlags = JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APO
                         <label class="pos__service-label" for="service_mode">Mode</label>
                         <select class="form-input" id="service_mode" name="service_mode">
                             <option value="dine_in"<?= $mode === 'dine_in' ? ' selected' : '' ?>>Sur place</option>
-                            <option value="takeaway"<?= $mode === 'takeaway' ? ' selected' : '' ?>>A emporter</option>
+                            <option value="takeaway"<?= $mode === 'takeaway' ? ' selected' : '' ?>>À emporter</option>
                         </select>
                     <?php endif; ?>
                 </div>

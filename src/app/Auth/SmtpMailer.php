@@ -32,12 +32,12 @@ final class SmtpMailer implements Mailer
             throw new RuntimeException('SmtpMailer : adresse destinataire invalide');
         }
 
-        $subject = 'Reinitialisation de votre mot de passe Wakdo';
+        $subject = 'Réinitialisation de votre mot de passe Wakdo';
         $body = "Bonjour,\r\n\r\n"
-            . "Une reinitialisation de mot de passe a ete demandee pour ce compte.\r\n"
-            . "Pour definir un nouveau mot de passe, ouvrez ce lien :\r\n\r\n"
+            . "Une réinitialisation de mot de passe a été demandée pour ce compte.\r\n"
+            . "Pour définir un nouveau mot de passe, ouvrez ce lien :\r\n\r\n"
             . $resetUrl . "\r\n\r\n"
-            . "Ce lien expire rapidement. Si vous n'etes pas a l'origine de la demande, "
+            . "Ce lien expire rapidement. Si vous n'êtes pas à l'origine de la demande, "
             . "ignorez cet email.\r\n";
 
         $message = $this->buildMessage($email, $subject, $body);
@@ -62,10 +62,10 @@ final class SmtpMailer implements Mailer
             'Subject: ' . $this->encodeHeader($subject),
             'MIME-Version: 1.0',
             'Content-Type: text/plain; charset=UTF-8',
-            'Content-Transfer-Encoding: 8bit',
+            'Content-Transfer-Encoding: quoted-printable',
         ];
 
-        $raw = implode("\r\n", $headers) . "\r\n\r\n" . $this->normalizeEol($body);
+        $raw = implode("\r\n", $headers) . "\r\n\r\n" . quoted_printable_encode($this->normalizeEol($body));
 
         return $this->dotStuff($raw);
     }

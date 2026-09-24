@@ -35,14 +35,14 @@ $bandPill = static fn (string $b): string => match ($b) {
 $cards = [
     ['key' => 'products',    'label' => 'Produits',    'sub' => 'available'],
     ['key' => 'menus',       'label' => 'Menus',       'sub' => 'available'],
-    ['key' => 'categories',  'label' => 'Categories',  'sub' => 'active'],
-    ['key' => 'ingredients', 'label' => 'Ingredients', 'sub' => 'active'],
+    ['key' => 'categories',  'label' => 'Catégories',  'sub' => 'active'],
+    ['key' => 'ingredients', 'label' => 'Ingrédients', 'sub' => 'active'],
 ];
 ?>
 <div class="page-header">
     <div>
         <h1 class="page-title">Statistiques</h1>
-        <p class="page-subtitle">Ventes, sante du catalogue et du stock.</p>
+        <p class="page-subtitle">Ventes, santé du catalogue et du stock.</p>
     </div>
 </div>
 
@@ -55,25 +55,25 @@ $euros = static fn (mixed $cents): string => number_format(((int) $cents) / 100,
 <div class="page-header">
     <div>
         <h2 class="page-title">Ventes</h2>
-        <p class="page-subtitle"><?= $esc((int) ($salesData['total_orders'] ?? 0)) ?> commande(s) au total — <?= $esc((int) ($salesData['paid_count_today'] ?? 0)) ?> payee(s) aujourd'hui.</p>
+        <p class="page-subtitle"><?= $esc((int) ($salesData['total_orders'] ?? 0)) ?> commande(s) au total — <?= $esc((int) ($salesData['paid_count_today'] ?? 0)) ?> payée(s) aujourd'hui.</p>
     </div>
 </div>
 
 <div class="stats-cards">
     <div class="stat-card">
         <div class="stat-card__value"><?= $esc($euros($salesData['revenue_cents'] ?? 0)) ?></div>
-        <div class="stat-card__label">CA encaisse</div>
+        <div class="stat-card__label">CA encaissé</div>
         <div class="stat-card__sub muted"><?= $esc($euros($salesData['revenue_today_cents'] ?? 0)) ?> aujourd'hui</div>
     </div>
     <div class="stat-card">
         <div class="stat-card__value"><?= $esc((int) ($salesData['paid_count'] ?? 0)) ?></div>
-        <div class="stat-card__label">Commandes payees</div>
+        <div class="stat-card__label">Commandes payées</div>
         <div class="stat-card__sub muted"><?= $esc((int) ($salesData['paid_count_today'] ?? 0)) ?> aujourd'hui</div>
     </div>
     <div class="stat-card">
         <div class="stat-card__value"><?= $esc($euros($salesData['avg_basket_cents'] ?? 0)) ?></div>
         <div class="stat-card__label">Panier moyen</div>
-        <div class="stat-card__sub muted">par commande payee</div>
+        <div class="stat-card__sub muted">par commande payée</div>
     </div>
     <div class="stat-card">
         <div class="stat-card__value"><?= $esc((int) ($salesData['total_orders'] ?? 0)) ?></div>
@@ -106,8 +106,8 @@ $euros = static fn (mixed $cents): string => number_format(((int) $cents) / 100,
 
 <div class="page-header">
     <div>
-        <h2 class="page-title">Sante du stock</h2>
-        <p class="page-subtitle"><?= $esc((int) ($s['active_total'] ?? 0)) ?> ingredients actifs — normal <?= $esc((int) $bands['normal']) ?>, alerte <?= $esc((int) $bands['low']) ?>, critique <?= $esc((int) $bands['critical']) ?>.</p>
+        <h2 class="page-title">Santé du stock</h2>
+        <p class="page-subtitle"><?= $esc((int) ($s['active_total'] ?? 0)) ?> ingrédients actifs — normal <?= $esc((int) $bands['normal']) ?>, alerte <?= $esc((int) $bands['low']) ?>, critique <?= $esc((int) $bands['critical']) ?>.</p>
     </div>
 </div>
 
@@ -116,14 +116,14 @@ $euros = static fn (mixed $cents): string => number_format(((int) $cents) / 100,
         <table>
             <thead>
                 <tr>
-                    <th>Ingredient</th>
+                    <th>Ingrédient</th>
                     <th>Stock</th>
-                    <th>Etat</th>
+                    <th>État</th>
                 </tr>
             </thead>
             <tbody>
                 <?php if ($alerts === []): ?>
-                    <tr><td colspan="3" class="muted">Aucun ingredient en alerte ou rupture. Stock sain.</td></tr>
+                    <tr><td colspan="3" class="muted">Aucun ingrédient en alerte ou rupture. Stock sain.</td></tr>
                 <?php endif; ?>
                 <?php foreach ($alerts as $a): ?>
                     <?php $band = (string) ($a['stock_band'] ?? 'normal'); ?>

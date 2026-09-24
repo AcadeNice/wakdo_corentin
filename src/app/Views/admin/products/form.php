@@ -46,7 +46,7 @@ $selectedMaxi = (string) ($vals['maxi_variant_product_id'] ?? '');
     <input type="hidden" name="_csrf" value="<?= $csrf ?>">
 
     <div class="form-group">
-        <label class="form-label" for="category_id">Categorie</label>
+        <label class="form-label" for="category_id">Catégorie</label>
         <select class="form-input" id="category_id" name="category_id" required>
             <option value="">-- choisir --</option>
             <?php foreach ($cats as $cat): ?>
@@ -81,8 +81,8 @@ $selectedMaxi = (string) ($vals['maxi_variant_product_id'] ?? '');
     <div class="form-group">
         <label class="form-label" for="vat_rate">TVA</label>
         <select class="form-input" id="vat_rate" name="vat_rate">
-            <option value="100"<?= $selectedVat === '100' ? ' selected' : '' ?>>10% (sur place / general)</option>
-            <option value="55"<?= $selectedVat === '55' ? ' selected' : '' ?>>5,5% (a emporter)</option>
+            <option value="100"<?= $selectedVat === '100' ? ' selected' : '' ?>>10% (sur place / général)</option>
+            <option value="55"<?= $selectedVat === '55' ? ' selected' : '' ?>>5,5% (à emporter)</option>
         </select>
         <?php if ($err('vat_rate') !== ''): ?><p class="form-error"><?= htmlspecialchars($err('vat_rate'), ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
     </div>
@@ -102,9 +102,9 @@ $selectedMaxi = (string) ($vals['maxi_variant_product_id'] ?? '');
         </div>
         <?php if ($err('image_file') !== ''): ?><p class="form-error"><?= htmlspecialchars($err('image_file'), ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
 
-        <label class="form-label" for="image_path">Ou chemin d'une image deja presente sur le serveur (optionnel)</label>
+        <label class="form-label" for="image_path">Ou chemin d'une image déjà présente sur le serveur (optionnel)</label>
         <input class="form-input" type="text" id="image_path" name="image_path" maxlength="255" value="<?= $val('image_path') ?>">
-        <p class="image-drop-note">Une image deposee ci-dessus remplace ce chemin apres enregistrement.</p>
+        <p class="image-drop-note">Une image déposée ci-dessus remplace ce chemin après enregistrement.</p>
         <?php if ($err('image_path') !== ''): ?><p class="form-error"><?= htmlspecialchars($err('image_path'), ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
     </div>
 
@@ -120,7 +120,7 @@ $selectedMaxi = (string) ($vals['maxi_variant_product_id'] ?? '');
 
     <fieldset class="form-group">
         <legend>Variantes (optionnel)</legend>
-        <p><small>A remplir seulement pour une boisson en plusieurs tailles ou un accompagnement servi en plus grand au format Maxi. Laissez vide pour un produit ordinaire.</small></p>
+        <p><small>À remplir seulement pour une boisson en plusieurs tailles ou un accompagnement servi en plus grand au format Maxi. Laissez vide pour un produit ordinaire.</small></p>
 
         <div class="form-group">
             <label class="form-label" for="size_cl">Taille en centilitres (boissons)</label>
@@ -140,7 +140,7 @@ $selectedMaxi = (string) ($vals['maxi_variant_product_id'] ?? '');
                     </option>
                 <?php endforeach; ?>
             </select>
-            <small>Rattache ce produit a un produit principal comme une autre taille (exemple : "Coca 50cl" rattache a "Coca"). Une variante n'apparait pas seule sur la borne.</small>
+            <small>Rattache ce produit à un produit principal comme une autre taille (exemple : "Coca 50cl" rattaché à "Coca"). Une variante n'apparaît pas seule sur la borne.</small>
             <?php if ($err('base_product_id') !== ''): ?><p class="form-error"><?= htmlspecialchars($err('base_product_id'), ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
         </div>
 
@@ -155,7 +155,7 @@ $selectedMaxi = (string) ($vals['maxi_variant_product_id'] ?? '');
                     </option>
                 <?php endforeach; ?>
             </select>
-            <small>Le produit servi a la place de celui-ci quand le menu est commande en Maxi (exemple : "Moyenne Frite" servie en "Grande Frite").</small>
+            <small>Le produit servi à la place de celui-ci quand le menu est commandé en Maxi (exemple : "Moyenne Frite" servie en "Grande Frite").</small>
             <?php if ($err('maxi_variant_product_id') !== ''): ?><p class="form-error"><?= htmlspecialchars($err('maxi_variant_product_id'), ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
         </div>
     </fieldset>
@@ -163,7 +163,7 @@ $selectedMaxi = (string) ($vals['maxi_variant_product_id'] ?? '');
     <?php if ($id !== 0): ?>
         <fieldset class="form-group">
             <legend>Changement de prix ou de TVA : confirmation par PIN</legend>
-            <p><small>Renseignez votre email et votre PIN uniquement si vous modifiez le prix ou la TVA (action tracee).</small></p>
+            <p><small>Renseignez votre email et votre PIN uniquement si vous modifiez le prix ou la TVA (action tracée).</small></p>
             <div class="form-group">
                 <label class="form-label" for="pin_email">Votre email</label>
                 <input class="form-input" type="email" id="pin_email" name="pin_email" autocomplete="off">
