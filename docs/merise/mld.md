@@ -1,7 +1,8 @@
 # Modele Logique de Donnees (MLD) — Wakdo
 
 **Phase Merise** : P1 - Conception, etape 5 (apres MCD, MCT, MLT)
-**Version** : v0.3 — prod-like, 22 tables (19 prod-like + couche security-by-design)
+**Version** : v0.4 — prod-like, 22 tables (19 prod-like + couche security-by-design)
+**Historique** : v0.4 (2026-09-24) — mise en coherence avec le code livre (2a09597) : les quatre diagrammes relationnels re-extraits des migrations 0001 a 0011 (colonnes `preparing_at` / `ready_at` de 0009 et `allergens_*` de 0011, descriptions et chemins d'image), cle etrangere nullable notee en 0..1, relation `user` -> `pin_throttle` corrigee en 1 vers 0..1 (unicite de `actor_user_id`), rendus SVG regeneres avec `_diagrams/mermaid-config.json`.
 **Date** : 2026-06-04 (ajouts security-by-design 2026-06-11)
 **Branche** : `feat/p1-conception`
 **Statut** : prod-like — toutes les decisions D1-D8 + stock appliquees (voir `docs/notes/revue-alignement-p1.md` §7) ; couche security-by-design (audit_log + colonnes imputabilite/auth) en cours
@@ -107,7 +108,9 @@ cle etrangere est explicite. Les horodatages d'audit (`created_at` / `updated_at
 tables (voir les sections par table ci-dessous) mais omis des diagrammes pour les garder lisibles.
 Les libelles de relation portent la colonne FK et son comportement `ON DELETE`. Les cibles de FK
 inter-sous-domaines sont representees comme des tables stub (id + name). Les rendus SVG portables sont dans `_diagrams/`
-(`mld-catalogue.svg`, `mld-ingredients-stock.svg`, `mld-order.svg`, `mld-rbac.svg`).
+(`mld-catalogue.svg`, `mld-ingredients-stock.svg`, `mld-order.svg`, `mld-rbac.svg`), produits depuis les `.mmd` du meme
+dossier avec la configuration `mermaid-config.json` (commande dans `mcd.md` section 11). Une cle etrangere nullable est
+notee `|o` (0..1) du cote de la table referencee.
 
 #### Catalogue
 
@@ -117,6 +120,7 @@ erDiagram
         int id PK
         varchar name UK
         varchar slug UK
+        varchar image_path
         smallint display_order
         tinyint is_active
     }
@@ -124,11 +128,13 @@ erDiagram
         int id PK
         int category_id FK
         varchar name
+        text description
         int price_cents
-        int maxi_variant_product_id FK
         smallint size_cl
         int base_product_id FK
+        int maxi_variant_product_id FK
         smallint vat_rate
+        varchar image_path
         tinyint is_available
         smallint display_order
     }
@@ -137,8 +143,10 @@ erDiagram
         int category_id FK
         int burger_product_id FK
         varchar name
+        text description
         int price_normal_cents
         int price_maxi_cents
+        varchar image_path
         tinyint is_available
         smallint display_order
     }
@@ -158,8 +166,8 @@ erDiagram
     category ||--o{ product : "category_id (RESTRICT)"
     category ||--o{ menu : "category_id (RESTRICT)"
     product ||--o{ menu : "burger_product_id (RESTRICT)"
-    product ||--o{ product : "maxi_variant_product_id (SET NULL)"
-    product ||--o{ product : "base_product_id (CASCADE)"
+    product |o--o{ product : "maxi_variant_product_id (SET NULL, nullable)"
+    product |o--o{ product : "base_product_id (CASCADE)"
     menu ||--o{ menu_slot : "menu_id (CASCADE)"
     menu_slot ||--o{ menu_slot_option : "menu_slot_id (CASCADE)"
     product ||--o{ menu_slot_option : "product_id (RESTRICT)"
@@ -176,9 +184,12 @@ erDiagram
         int stock_quantity
         int stock_capacity
         smallint pack_size
+        varchar pack_label
         smallint energy_kcal_100g
         varchar nutrition_source
         datetime nutrition_fetched_at
+        datetime allergens_reviewed_at
+        varchar allergens_source
         smallint low_stock_pct
         smallint critical_stock_pct
         tinyint is_active
@@ -196,6 +207,7 @@ erDiagram
         int id PK
         varchar code UK
         varchar name
+        text description
     }
     ingredient_allergen {
         int ingredient_id PK,FK
@@ -228,8 +240,8 @@ erDiagram
     ingredient ||--o{ ingredient_allergen : "ingredient_id (CASCADE)"
     allergen ||--o{ ingredient_allergen : "allergen_id (RESTRICT)"
     ingredient ||--o{ stock_movement : "ingredient_id (RESTRICT)"
-    customer_order ||--o{ stock_movement : "order_id (SET NULL, nullable)"
-    user ||--o{ stock_movement : "user_id (SET NULL, nullable)"
+    customer_order |o--o{ stock_movement : "order_id (SET NULL, nullable)"
+    user |o--o{ stock_movement : "user_id (SET NULL, nullable)"
 ```
 
 #### Commande
@@ -249,6 +261,8 @@ erDiagram
         int total_vat_cents
         int total_ttc_cents
         datetime paid_at
+        datetime preparing_at
+        datetime ready_at
         datetime delivered_at
         datetime cancelled_at
     }
@@ -299,10 +313,10 @@ erDiagram
         varchar name
     }
 
-    user ||--o{ customer_order : "acting_user_id (SET NULL, nullable)"
+    user |o--o{ customer_order : "acting_user_id (SET NULL, nullable)"
     customer_order ||--o{ order_item : "order_id (CASCADE)"
-    product ||--o{ order_item : "product_id (RESTRICT, polymorphic)"
-    menu ||--o{ order_item : "menu_id (RESTRICT, polymorphic)"
+    product |o--o{ order_item : "product_id (RESTRICT, polymorphic)"
+    menu |o--o{ order_item : "menu_id (RESTRICT, polymorphic)"
     order_item ||--o{ order_item_selection : "order_item_id (CASCADE)"
     menu_slot ||--o{ order_item_selection : "menu_slot_id (RESTRICT)"
     product ||--o{ order_item_selection : "product_id (RESTRICT)"
@@ -318,6 +332,7 @@ erDiagram
         int id PK
         varchar code UK
         varchar label
+        text description
         varchar default_route
         enum order_source
         tinyint is_active
@@ -331,8 +346,12 @@ erDiagram
         varchar last_name
         int role_id FK
         tinyint is_active
+        datetime last_login_at
         smallint failed_login_attempts
+        datetime last_failed_login_at
         datetime lockout_until
+        varchar password_reset_token_hash
+        datetime password_reset_expires_at
         datetime anonymized_at
     }
     role_visible_source {
@@ -343,6 +362,7 @@ erDiagram
         int id PK
         varchar code UK
         varchar label
+        text description
     }
     role_permission {
         int role_id PK,FK
@@ -376,13 +396,13 @@ erDiagram
         datetime last_attempt_at
     }
 
-    role ||--o{ user : "role_id (RESTRICT)"
+    user }o--|| role : "role_id (RESTRICT)"
     role ||--o{ role_visible_source : "role_id (CASCADE)"
     role ||--o{ role_permission : "role_id (CASCADE)"
     permission ||--o{ role_permission : "permission_id (CASCADE)"
-    user ||--o{ audit_log : "actor_user_id (SET NULL, nullable)"
-    role ||--o{ audit_log : "actor_role_id (SET NULL, nullable)"
-    user ||--o{ pin_throttle : "actor_user_id (CASCADE)"
+    user |o--o{ audit_log : "actor_user_id (SET NULL, nullable)"
+    role |o--o{ audit_log : "actor_role_id (SET NULL, nullable)"
+    user ||--o| pin_throttle : "actor_user_id (CASCADE)"
 ```
 
 > `login_throttle` n'a pas de FK (une IP n'est pas une entite modelisee) ; elle est autonome, cle par
@@ -1379,7 +1399,7 @@ ingredient ; il portera une amplification d'ecriture significative a l'echelle.
    l'expression CASE applicative est retenue (plus simple, evite les cas limites des colonnes generees).
 2. **Partitionnement** : `stock_movement` pourrait etre partitionnee par mois si le volume depasse les
    estimations. Hors perimetre pour le DDL initial.
-3. **Triggers** : decrement de stock a la transition `paid` et re-credit a `cancelled` (depuis `paid`)
+3. **Triggers** : decrement de stock a l'encaissement (PAY_ORDER, transition vers `preparing`) et re-credit a `cancelled` quand des mouvements `sale` existent
    pourraient etre implementes en triggers MariaDB ou en logique applicative. A decider en P2.
 4. **Collation** : `utf8mb4_unicode_ci` retenue (conforme Unicode, insensible a la casse).
    Si un tri alphabetique francais strict est necessaire, `utf8mb4_fr_0900_ai_ci` est disponible dans

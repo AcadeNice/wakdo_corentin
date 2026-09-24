@@ -6,9 +6,12 @@ erDiagram
         int stock_quantity
         int stock_capacity
         smallint pack_size
+        varchar pack_label
         smallint energy_kcal_100g
         varchar nutrition_source
         datetime nutrition_fetched_at
+        datetime allergens_reviewed_at
+        varchar allergens_source
         smallint low_stock_pct
         smallint critical_stock_pct
         tinyint is_active
@@ -26,6 +29,7 @@ erDiagram
         int id PK
         varchar code UK
         varchar name
+        text description
     }
     ingredient_allergen {
         int ingredient_id PK,FK
@@ -58,5 +62,5 @@ erDiagram
     ingredient ||--o{ ingredient_allergen : "ingredient_id (CASCADE)"
     allergen ||--o{ ingredient_allergen : "allergen_id (RESTRICT)"
     ingredient ||--o{ stock_movement : "ingredient_id (RESTRICT)"
-    customer_order ||--o{ stock_movement : "order_id (SET NULL, nullable)"
-    user ||--o{ stock_movement : "user_id (SET NULL, nullable)"
+    customer_order |o--o{ stock_movement : "order_id (SET NULL, nullable)"
+    user |o--o{ stock_movement : "user_id (SET NULL, nullable)"

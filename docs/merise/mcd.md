@@ -1,7 +1,8 @@
 # Modele Conceptuel de Donnees (MCD) — Wakdo
 
 **Phase Merise** : P1 - Conception, etape 2 (data dictionary first, mantra #33)
-**Version** : v0.3 — prod-like, 22 entites (19 prod-like + couche security-by-design)
+**Version** : v0.4 — prod-like, 22 entites (19 prod-like + couche security-by-design)
+**Historique** : v0.4 (2026-09-24) — mise en coherence avec le code livre (2a09597) : diagrammes des sections 4.1 a 7.1 re-extraits des migrations 0001 a 0011 (colonnes `allergens_*` de 0011, `preparing_at` / `ready_at` de 0009, entite `pin_throttle` et association `taken_by`), association `anchors` corrigee (un produit ancre 0 a N menus), cardinalites I2, I6, I7, R5, R6 et R9 alignees sur leur justification et sur les contraintes du DDL, association `taken_by` ajoutee au tableau 6.2 (O9), commande de rendu des diagrammes mise a jour (section 11).
 **Date** : 2026-06-04 (ajouts security-by-design 2026-06-11)
 **Branche** : `feat/p1-conception`
 **Statut** : prod-like — toutes les decisions D1-D8 + stock appliquees (voir `docs/notes/revue-alignement-p1.md` §7) ; couche security-by-design (audit_log + colonnes imputabilite/auth) en cours
@@ -99,8 +100,8 @@ sources et la commande de regeneration.
 erDiagram
     category {
         int id PK
-        varchar name
-        varchar slug
+        varchar name UK
+        varchar slug UK
         varchar image_path
         smallint display_order
         tinyint is_active
@@ -111,9 +112,9 @@ erDiagram
         varchar name
         text description
         int price_cents
-        int maxi_variant_product_id FK
         smallint size_cl
         int base_product_id FK
+        int maxi_variant_product_id FK
         smallint vat_rate
         varchar image_path
         tinyint is_available
@@ -140,15 +141,15 @@ erDiagram
         smallint display_order
     }
     menu_slot_option {
-        int menu_slot_id FK
-        int product_id FK
+        int menu_slot_id PK,FK
+        int product_id PK,FK
     }
 
     category ||--o{ product : "groups"
     category ||--o{ menu : "groups"
-    menu ||--|| product : "anchors (burger_product_id)"
-    product ||--o{ product : "maxi_variant (maxi_variant_product_id)"
-    product ||--o{ product : "size_variant_of (base_product_id)"
+    menu }o--|| product : "anchors (burger_product_id)"
+    product |o--o{ product : "maxi_variant (maxi_variant_product_id)"
+    product |o--o{ product : "size_variant_of (base_product_id)"
     menu ||--o{ menu_slot : "defines_slot"
     menu_slot ||--o{ menu_slot_option : "lists"
     product ||--o{ menu_slot_option : "is_eligible_for"
@@ -191,7 +192,7 @@ erDiagram
     }
     ingredient {
         int id PK
-        varchar name
+        varchar name UK
         varchar unit
         int stock_quantity
         int stock_capacity
@@ -200,13 +201,15 @@ erDiagram
         smallint energy_kcal_100g
         varchar nutrition_source
         datetime nutrition_fetched_at
+        datetime allergens_reviewed_at
+        varchar allergens_source
         smallint low_stock_pct
         smallint critical_stock_pct
         tinyint is_active
     }
     product_ingredient {
-        int product_id FK
-        int ingredient_id FK
+        int product_id PK,FK
+        int ingredient_id PK,FK
         smallint quantity_normal
         smallint quantity_maxi
         tinyint is_removable
@@ -215,13 +218,13 @@ erDiagram
     }
     allergen {
         int id PK
-        varchar code
+        varchar code UK
         varchar name
         text description
     }
     ingredient_allergen {
-        int ingredient_id FK
-        int allergen_id FK
+        int ingredient_id PK,FK
+        int allergen_id PK,FK
     }
     customer_order {
         int id PK
@@ -255,12 +258,12 @@ erDiagram
 | # | Association | Cote A | Cardinalite A | Cote B | Cardinalite B | Justification |
 |---|---|---|---|---|---|---|
 | I1 | is_composed_of | product | (0,N) | product_ingredient | (1,1) | Un produit peut n'avoir aucun ingredient encore saisi dans le systeme (la ligne de catalogue existe avant que la recette ne soit saisie). Une ligne de recette appartient a exactement un produit. |
-| I2 | appears_in | ingredient | (1,N) | product_ingredient | (1,1) | Un ingredient en usage actif apparait dans au moins une recette de produit. Chaque ligne de recette reference exactement un ingredient. Les ingredients nouvellement crees sans ligne de recette sont modelises en (0,N) d'un point de vue purement structurel ; la regle metier de (1,N) s'applique aux ingredients en usage de production. |
+| I2 | appears_in | ingredient | (0,N) | product_ingredient | (1,1) | Un ingredient peut exister sans ligne de recette : le back-office cree l'ingredient seul (`IngredientController::store`) et aucune contrainte n'impose une recette. Un ingredient en usage de production apparait en pratique dans au moins une recette, mais c'est une regle d'usage, pas une contrainte du modele. Chaque ligne de recette reference exactement un ingredient. |
 | I3 | contains (allergens) | ingredient | (0,N) | ingredient_allergen | (1,1) | Un ingredient peut ne contenir aucun allergene reglemente (par exemple, du sel pur). Chaque ligne de lien d'allergene appartient a un ingredient. |
 | I4 | is_present_in | allergen | (0,N) | ingredient_allergen | (1,1) | Un allergene peut initialement n'avoir aucun ingredient lie (seed : le catalogue d'allergenes est complet avant que les donnees de recette ne soient saisies). Chaque ligne de lien reference un allergene. |
 | I5 | decrements | ingredient | (0,N) | stock_movement | (1,1) | Tous les mouvements affectent exactement un ingredient. Un ingredient peut n'avoir encore aucune ligne de mouvement de stock s'il a ete cree recemment et qu'aucune commande n'a ete passee. Chaque ligne de mouvement reference exactement un ingredient. |
-| I6 | triggers | customer_order | (0,1) | stock_movement | (0,N) | Un mouvement `sale` ou `cancellation` reference la commande d'origine. Un `restock` ou `inventory_correction` n'a pas de commande (NULL). Une commande donnee declenche des mouvements sur tous ses ingredients ; une commande encore `pending_payment` n'a declenche aucun mouvement. |
-| I7 | logs | user | (0,1) | stock_movement | (0,N) | Les decrements de vente automatises n'ont pas d'utilisateur (NULL). Les reapprovisionnements et corrections manuels sont attribues a un utilisateur. Un utilisateur peut journaliser un nombre quelconque de mouvements. |
+| I6 | triggers | customer_order | (0,N) | stock_movement | (0,1) | Un mouvement `sale` ou `cancellation` reference la commande d'origine. Un `restock` ou `inventory_correction` n'a pas de commande (NULL). Une commande donnee declenche des mouvements sur tous ses ingredients ; une commande encore `pending_payment` n'a declenche aucun mouvement. `stock_movement.order_id` est nullable et non unique (`0001_init_schema.sql`). |
+| I7 | logs | user | (0,N) | stock_movement | (0,1) | Les decrements de vente automatises n'ont pas d'utilisateur (NULL). Les reapprovisionnements et corrections manuels sont attribues a un utilisateur. Un utilisateur peut journaliser un nombre quelconque de mouvements. `stock_movement.user_id` est nullable et non unique. |
 
 ### 5.3 Notes sur le sous-domaine Ingredients & Stock
 
@@ -274,6 +277,8 @@ erDiagram
 
 **Disponibilite produit calculee (regle RG-T21, voir `mlt.md`)** : la commandabilite effective est derivee, pas stockee. Un produit est commandable quand `product.is_available = 1` ET que chaque ingredient non retirable (`is_removable = 0`) de son `product_ingredient` a `stock_quantity > stock_capacity * critical_stock_pct / 100`. Un ingredient requis atteignant la bande critique met le produit en rupture automatique sans ecriture et sans cascade ; un retrait manuel (`product.is_available = 0`) est une surcharge forte ; un reapprovisionnement au-dessus de la bande critique rend le produit commandable a nouveau de lui-meme. Un ingredient retirable/optionnel a la bande critique ne bloque pas le produit (seul son supplement devient indisponible). Le tableau de bord distingue un retrait manuel d'une rupture pilotee par le stock.
 
+**Revue des allergenes (migration 0011)** : `allergens_reviewed_at` et `allergens_source` (nullables) datent et sourcent la derniere revue des allergenes d'un ingredient. NULL = non revu : la borne affiche alors "information non disponible" au lieu d'affirmer une absence (`mlt.md` RG-ALLERGEN-REVIEW).
+
 **Enrichissement nutritionnel (migration 0005, voir note 14 du dictionnaire)** : `energy_kcal_100g`, `nutrition_source` et `nutrition_fetched_at` (toutes nullables) stockent une donnee importee depuis l'API externe OpenFoodFacts (Cr 3.a.3 : exploitation d'informations externes dans le modele de donnees). Opt-in : l'import est declenche par `IngredientController::enrich` (action manager/admin), pas au runtime borne ; un ingredient non enrichi reste valide.
 
 ---
@@ -286,8 +291,8 @@ erDiagram
 erDiagram
     customer_order {
         int id PK
-        varchar order_number
-        varchar idempotency_key
+        varchar order_number UK
+        varchar idempotency_key UK
         enum source
         int acting_user_id FK
         enum service_mode
@@ -344,15 +349,20 @@ erDiagram
         int id PK
         varchar name
     }
+    user {
+        int id PK
+        varchar email
+    }
 
     customer_order ||--o{ order_item : "contains"
     order_item }o--o| product : "references_product"
     order_item }o--o| menu : "references_menu"
     order_item ||--o{ order_item_selection : "fills_slot"
-    order_item ||--o{ order_item_modifier : "modifies_ingredient"
     menu_slot ||--o{ order_item_selection : "slot_filled_by"
     product ||--o{ order_item_selection : "chosen_for_slot"
+    order_item ||--o{ order_item_modifier : "modifies_ingredient"
     ingredient ||--o{ order_item_modifier : "modified_by"
+    customer_order }o--o| user : "taken_by"
 ```
 
 ### 6.2 Cardinalites des associations
@@ -367,6 +377,7 @@ erDiagram
 | O6 | chosen_for_slot | product | (0,N) | order_item_selection | (1,1) | Un produit peut avoir ete selectionne pour de nombreux choix de slot a travers l'historique. Chaque selection reference un produit. |
 | O7 | modifies_ingredient | order_item | (0,N) | order_item_modifier | (1,1) | Une ligne de commande peut avoir un nombre quelconque de modifications d'ingredients (retirer l'oignon, ajouter du fromage). Chaque ligne de modificateur appartient a une ligne de commande. |
 | O8 | modified_by | ingredient | (0,N) | order_item_modifier | (1,1) | Un ingredient peut avoir ete modifie dans de nombreuses lignes de commande a travers l'historique. Chaque modificateur reference un ingredient. |
+| O9 | taken_by | customer_order | (0,1) | user | (0,N) | Une commande comptoir ou drive est prise par l'equipier authentifie ; une commande de la borne n'a pas d'equipier (NULL). Un equipier peut prendre un nombre quelconque de commandes. `customer_order.acting_user_id` est nullable, non unique, FK vers `user` ON DELETE SET NULL. |
 
 ### 6.3 Notes sur le sous-domaine Order
 
@@ -401,8 +412,8 @@ Cycle detaille et regles de transition : `mct.md` section 13 et `mlt.md` section
 **Colonnes security-by-design (2026-06-11)** : `idempotency_key` (UUID client, UNIQUE)
 deduplique un `POST /api/orders` rejoue. `acting_user_id` (FK -> `user`, ON DELETE SET NULL)
 enregistre l'employe de comptoir/drive qui a pris la commande sous PIN ; NULL pour les commandes anonymes de la borne.
-Cela ajoute une association `customer_order |o--o| user : "taken_by"` (cardinalite : une commande est
-prise par (0,1) user ; un user prend (0,N) commandes). Voir note 13 du dictionnaire.
+Cela ajoute l'association `taken_by` (O9 en 6.2), notee `customer_order }o--o| user` : une commande est
+prise par (0,1) user ; un user prend (0,N) commandes (`acting_user_id` non unique). Voir note 13 du dictionnaire.
 
 **Numero de commande (existant) et service en salle (migration 0003)** : `order_number` est un attribut
 non cle (UNIQUE) de forme `prefixe canal + id` (`K<id>` / `C<id>` / `D<id>`) ; pas une association. Voir
@@ -419,7 +430,7 @@ salle (mode `dine_in`), saisi a la borne ; NULL pour `takeaway` / `drive`. Voir 
 erDiagram
     user {
         int id PK
-        varchar email
+        varchar email UK
         varchar password_hash
         varchar pin_hash
         varchar first_name
@@ -428,12 +439,15 @@ erDiagram
         tinyint is_active
         datetime last_login_at
         smallint failed_login_attempts
+        datetime last_failed_login_at
         datetime lockout_until
+        varchar password_reset_token_hash
+        datetime password_reset_expires_at
         datetime anonymized_at
     }
     role {
         int id PK
-        varchar code
+        varchar code UK
         varchar label
         text description
         varchar default_route
@@ -441,18 +455,18 @@ erDiagram
         tinyint is_active
     }
     role_visible_source {
-        int role_id FK
-        enum source
+        int role_id PK,FK
+        enum source PK
     }
     permission {
         int id PK
-        varchar code
+        varchar code UK
         varchar label
         text description
     }
     role_permission {
-        int role_id FK
-        int permission_id FK
+        int role_id PK,FK
+        int permission_id PK,FK
     }
     audit_log {
         int id PK
@@ -488,7 +502,7 @@ erDiagram
     permission ||--o{ role_permission : "granted_to"
     user |o--o{ audit_log : "performs"
     role |o--o{ audit_log : "context_of"
-    user ||--o{ pin_throttle : "pin_throttled_as"
+    user ||--o| pin_throttle : "pin_throttled_as"
 ```
 
 > `login_throttle` est une entite autonome sans association : elle est indexee par IP source
@@ -505,9 +519,9 @@ erDiagram
 | R2 | sees_source | role | (0,N) | role_visible_source | (1,1) | Un role peut voir 0 ou plusieurs sources de commande sur le tableau de bord de preparation (admin/manager utilisent une vue globale sans filtre de source). Chaque ligne de visibilite appartient a exactement un role. |
 | R3 | grants | role | (0,N) | role_permission | (1,1) | Un role peut n'avoir aucune permission (un role nouvellement cree avant assignation) ou plusieurs. Chaque ligne de mapping appartient a un role. |
 | R4 | granted_to | permission | (0,N) | role_permission | (1,1) | Une permission peut n'etre encore accordee a aucun role (declaree au seed, pas encore distribuee) ou a plusieurs. Chaque ligne de mapping reference une permission. |
-| R5 | performs | user | (0,1) | audit_log | (0,N) | Une action sensible capturee sous PIN enregistre son utilisateur agissant ; les entrees automatisees/non attribuables portent NULL. Un utilisateur peut avoir journalise un nombre quelconque d'actions. ON DELETE SET NULL preserve la trace lors de l'anonymisation/suppression de l'utilisateur. |
-| R6 | context_of | role | (0,1) | audit_log | (0,N) | Chaque ligne d'audit peut denormaliser le role de l'acteur au moment de l'action (NULL autorise). Un role peut etre le contexte de nombreuses lignes d'audit. ON DELETE SET NULL preserve la trace. |
-| R9 | pin_throttled_as | user | (1,1) | pin_throttle | (0,1) | Throttle du PIN d'action sensible (RG-T22) : au plus une ligne `pin_throttle` par utilisateur agissant (cle UNIQUE `actor_user_id`), creee au premier echec et upsertee ensuite. ON DELETE CASCADE : l'etat de throttle (ephemere) part avec le compte supprime/anonymise. |
+| R5 | performs | user | (0,N) | audit_log | (0,1) | Une action sensible capturee sous PIN enregistre son utilisateur agissant ; les entrees automatisees/non attribuables portent NULL. Un utilisateur peut avoir journalise un nombre quelconque d'actions. ON DELETE SET NULL preserve la trace lors de l'anonymisation/suppression de l'utilisateur. |
+| R6 | context_of | role | (0,N) | audit_log | (0,1) | Chaque ligne d'audit peut denormaliser le role de l'acteur au moment de l'action (NULL autorise). Un role peut etre le contexte de nombreuses lignes d'audit. ON DELETE SET NULL preserve la trace. |
+| R9 | pin_throttled_as | user | (0,1) | pin_throttle | (1,1) | Throttle du PIN d'action sensible (RG-T22) : au plus une ligne `pin_throttle` par utilisateur agissant (cle UNIQUE `actor_user_id`), creee au premier echec et upsertee ensuite (`actor_user_id` NOT NULL et UNIQUE) : un utilisateur a 0 ou 1 ligne, une ligne appartient a exactement un utilisateur. ON DELETE CASCADE : l'etat de throttle (ephemere) part avec le compte supprime/anonymise. |
 
 ### 7.3 Notes sur le sous-domaine RBAC
 
@@ -547,7 +561,7 @@ l'email cible (contournable par rotation) ni l'IP (qui penaliserait tous les equ
 Une ligne par acteur (`actor_user_id UNIQUE`, FK -> `user` ON DELETE CASCADE), upsertee a chaque echec hors
 verrou ; memes colonnes que `login_throttle` mais des bornes propres (PIN_THROTTLE_*, plus permissives).
 Compteurs physiquement separes du login : un echec de PIN n'incremente aucun compteur de connexion. Meme
-purge cron quotidienne. Association R9 (`user` 1 -- 0,N `pin_throttle`). Voir dictionnaire 3.22 et note 13.
+purge cron quotidienne. Association R9 : `user` (0,1) -- (1,1) `pin_throttle` (unicite de `actor_user_id`). Voir dictionnaire 3.22 et note 13.
 
 ---
 
@@ -641,9 +655,10 @@ Pre-validation : chaque entite participe a au moins un traitement.
 | `role_visible_source` | Configuration de role admin |
 | `permission` | Gestion de la matrice de permissions admin |
 | `role_permission` | Gestion de la matrice de permissions admin |
-| `stock_movement` | Automatique a la transition `paid` ; reapprovisionnement manuel et correction d'inventaire |
+| `stock_movement` | Automatique a l'encaissement (PAY_ORDER, transition vers `preparing`) et a l'annulation d'une commande encaissee ; reapprovisionnement manuel et correction d'inventaire |
 | `audit_log` | Ecrit par les operations sensibles : UPDATE/DELETE product/menu (8.2/8.3/8.6), CANCEL_ORDER (7.1), RESTOCK/INVENTORY_COUNT (9.1/9.2), operations utilisateur (10.1-10.3), MANAGE_RBAC (10.4), et logins echoues/reussis (12.1) |
 | `login_throttle` | Lu et ecrit par AUTHENTICATE_USER (12.1) : throttle par IP source upserte a chaque echec de login, lu pour imposer la fenetre de backoff, purge par un cron quotidien |
+| `pin_throttle` | Lu et ecrit par les operations sensibles sous PIN (RG-T13, RG-T22) : verrou evalue avant la verification du PIN, compteur incremente a chaque echec, remis a zero apres un PIN valide, purge par un cron quotidien |
 
 La validation croisee MCD <-> MCT (mantra #34) sera completee de maniere exhaustive dans `mct.md`
 une fois que le MCT integrera les operations security-by-design (actions sensibles protegees par PIN,
@@ -669,9 +684,14 @@ Des rendus SVG portables se trouvent dans `docs/merise/_diagrams/` (pour l'expor
 | Order | `mcd-order.mmd` | `mcd-order.svg` |
 | RBAC | `mcd-rbac.mmd` | `mcd-rbac.svg` |
 
-Les fichiers `.mmd` sont extraits des blocs `erDiagram` ci-dessus ; les `.svg` sont produits par
-`make docs-render` (mmdc). Si un bloc ici change, re-extraire le `.mmd` correspondant et relancer
-`make docs-render`. Les anciennes sources `.drawio` v0.1 ont ete supprimees : drawio offrait un controle de mise en page
+Les fichiers `.mmd` sont extraits des blocs `erDiagram` ci-dessus ; les `.svg` sont produits par mermaid-cli avec la configuration `docs/merise/_diagrams/mermaid-config.json` (theme `neutral`, placement ELK). Si un bloc ici change, re-extraire le `.mmd` correspondant puis, depuis `docs/merise/_diagrams/` :
+
+```bash
+docker run --rm -u "$(id -u):$(id -g)" -v "$PWD:/data" minlag/mermaid-cli:latest \
+  -i /data/<nom>.mmd -o /data/<nom>.svg -c /data/mermaid-config.json -b white
+```
+
+Les anciennes sources `.drawio` v0.1 ont ete supprimees : drawio offrait un controle de mise en page
 manuel mais necessitait une edition a la main et ne s'affichait pas dans les apercus Markdown, alors que
 les blocs Mermaid decomposes sont versionnes, s'affichent partout, et restent synchronises avec
 ce document.

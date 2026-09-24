@@ -3,6 +3,7 @@ erDiagram
         int id PK
         varchar code UK
         varchar label
+        text description
         varchar default_route
         enum order_source
         tinyint is_active
@@ -16,8 +17,12 @@ erDiagram
         varchar last_name
         int role_id FK
         tinyint is_active
+        datetime last_login_at
         smallint failed_login_attempts
+        datetime last_failed_login_at
         datetime lockout_until
+        varchar password_reset_token_hash
+        datetime password_reset_expires_at
         datetime anonymized_at
     }
     role_visible_source {
@@ -28,6 +33,7 @@ erDiagram
         int id PK
         varchar code UK
         varchar label
+        text description
     }
     role_permission {
         int role_id PK,FK
@@ -52,10 +58,19 @@ erDiagram
         datetime lockout_until
         datetime last_attempt_at
     }
+    pin_throttle {
+        int id PK
+        int actor_user_id FK,UK
+        smallint failed_attempts
+        datetime window_started_at
+        datetime lockout_until
+        datetime last_attempt_at
+    }
 
-    role ||--o{ user : "role_id (RESTRICT)"
+    user }o--|| role : "role_id (RESTRICT)"
     role ||--o{ role_visible_source : "role_id (CASCADE)"
     role ||--o{ role_permission : "role_id (CASCADE)"
     permission ||--o{ role_permission : "permission_id (CASCADE)"
-    user ||--o{ audit_log : "actor_user_id (SET NULL, nullable)"
-    role ||--o{ audit_log : "actor_role_id (SET NULL, nullable)"
+    user |o--o{ audit_log : "actor_user_id (SET NULL, nullable)"
+    role |o--o{ audit_log : "actor_role_id (SET NULL, nullable)"
+    user ||--o| pin_throttle : "actor_user_id (CASCADE)"
