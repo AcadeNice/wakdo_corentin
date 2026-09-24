@@ -73,7 +73,7 @@ $euros = static fn (int $cents): string => number_format($cents / 100, 2, ',', '
                             <?php if (!$available): ?>
                                 <span class="pill pill-neutral">Indisponible</span>
                             <?php elseif ($autoRupture): ?>
-                                <span class="pill pill-warning" title="Un ingredient requis est en rupture critique (RG-T21)">Rupture auto</span>
+                                <span class="pill pill-warning" title="Un ingredient requis est en rupture critique">Rupture auto</span>
                             <?php else: ?>
                                 <span class="pill pill-success">Disponible</span>
                             <?php endif; ?>

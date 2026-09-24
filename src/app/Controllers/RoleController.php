@@ -425,7 +425,14 @@ class RoleController extends AdminController
             'activeNav'       => 'roles',
             'roleId'          => $id,
             'isAdminRole'     => (string) ($values['code'] ?? '') === self::ADMIN_CODE,
-            'permissions'     => $this->roleRepository()->allPermissions(),
+            // 'permissionCatalog', PAS 'permissions' : AdminController::adminView() fait
+            // $data + $context, et $context porte deja 'permissions' (liste des codes
+            // de l'utilisateur courant, consommee par admin/layout.php pour la sidebar).
+            // L'union PHP `+` garde la cle de GAUCHE ($data) en cas de collision : sous
+            // l'ancien nom, ce catalogue (list<array{id,code,label}>) ecrasait la liste
+            // de codes attendue par le layout, qui masquait alors tout le menu sauf
+            // Tableau de bord (regression F40, capture 40).
+            'permissionCatalog' => $this->roleRepository()->allPermissions(),
             'sources'         => self::SOURCES,
             'selectedPerms'   => $selectedPermIds,
             'selectedSources' => $selectedSources,

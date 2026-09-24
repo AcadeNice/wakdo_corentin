@@ -23,6 +23,11 @@ $routeLabels = [
     '/admin/categories'  => 'Categories',
     '/admin/users'       => 'Comptes',
     '/admin/roles'       => 'Roles',
+    // Roles operationnels (kitchen/counter/drive, seed 0001) : sans ces entrees, le
+    // chemin technique brut s'affichait dans la colonne (F40, textes techniques).
+    '/kitchen/display'   => 'Écran cuisine (KDS)',
+    '/counter/orders'    => 'Comptoir',
+    '/drive/orders'      => 'Drive',
 ];
 $canalLabels = ['kiosk' => 'Borne', 'counter' => 'Comptoir', 'drive' => 'Drive'];
 $routeHuman = static fn (string $r): string => $r === '' ? '—' : ($routeLabels[$r] ?? $r);

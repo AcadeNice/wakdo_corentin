@@ -107,7 +107,7 @@ $euros = static fn (mixed $cents): string => number_format(((int) $cents) / 100,
 <div class="page-header">
     <div>
         <h2 class="page-title">Sante du stock</h2>
-        <p class="page-subtitle"><?= $esc((int) ($s['active_total'] ?? 0)) ?> ingredients actifs — normal <?= $esc((int) $bands['normal']) ?>, alerte <?= $esc((int) $bands['low']) ?>, critique <?= $esc((int) $bands['critical']) ?> (RG-T21).</p>
+        <p class="page-subtitle"><?= $esc((int) ($s['active_total'] ?? 0)) ?> ingredients actifs — normal <?= $esc((int) $bands['normal']) ?>, alerte <?= $esc((int) $bands['low']) ?>, critique <?= $esc((int) $bands['critical']) ?>.</p>
     </div>
 </div>
 

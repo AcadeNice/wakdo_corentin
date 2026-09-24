@@ -15,7 +15,7 @@ declare(strict_types=1);
  *
  * @var int                              $roleId
  * @var bool                             $isAdminRole
- * @var array<int, array<string, mixed>> $permissions    catalogue {id, code, label}
+ * @var array<int, array<string, mixed>> $permissionCatalog catalogue {id, code, label}
  * @var list<string>                     $sources        enum visibles
  * @var list<int>                        $selectedPerms
  * @var list<string>                     $selectedSources
@@ -33,7 +33,7 @@ $vals = isset($values) && is_array($values) ? $values : [];
 /** @var array<string, string> $errs */
 $errs = isset($errors) && is_array($errors) ? $errors : [];
 /** @var array<int, array<string, mixed>> $perms */
-$perms = isset($permissions) && is_array($permissions) ? $permissions : [];
+$perms = isset($permissionCatalog) && is_array($permissionCatalog) ? $permissionCatalog : [];
 /** @var list<int> $selPerms */
 $selPerms = isset($selectedPerms) && is_array($selectedPerms) ? array_map('intval', $selectedPerms) : [];
 /** @var list<string> $selSources */
@@ -61,6 +61,12 @@ $routeOptions = [
     '/admin/categories'  => 'Categories',
     '/admin/users'       => 'Comptes',
     '/admin/roles'       => 'Roles',
+    // Roles operationnels (kitchen/counter/drive, seed 0001) : sans ces entrees, le
+    // chemin technique brut s'affichait dans la liste deroulante (F40, textes
+    // techniques).
+    '/kitchen/display'   => 'Écran cuisine (KDS)',
+    '/counter/orders'    => 'Comptoir',
+    '/drive/orders'      => 'Drive',
 ];
 $currentRoute = (string) ($vals['default_route'] ?? '');
 // Toujours pouvoir reselectionner la valeur courante meme si hors liste (ex. seed).

@@ -128,8 +128,8 @@ final class MenuControllerTest extends TestCase
             'category_id' => '1',
             'burger_product_id' => '1',
             'name' => 'Best Of',
-            'price_normal_cents' => '790',
-            'price_maxi_cents' => '990',
+            'price_normal_cents' => '7,90',
+            'price_maxi_cents' => '9,90',
             'display_order' => '1',
             'is_available' => '1',
             'slots_json' => $slots,
@@ -252,6 +252,47 @@ final class MenuControllerTest extends TestCase
 
         self::assertSame(422, $response->status());
         self::assertFalse($db->wrote('INSERT INTO menu'));
+    }
+
+    public function testEditPrefillsThePriceFieldsInEuros(): void
+    {
+        // F40 (section "Textes techniques ou en anglais" de defauts-visibles.md,
+        // prix saisis en centimes) : la base garde les prix en centimes (790/990)
+        // mais les champs se relisent en euros ("7,90"/"9,90").
+        $db = $this->permittedDb();
+        $db->menuRow = ['id' => 5, 'category_id' => 1, 'burger_product_id' => 2, 'name' => 'Best Of', 'price_normal_cents' => 790, 'price_maxi_cents' => 990, 'is_available' => 1, 'display_order' => 0];
+
+        $body = $this->controller($this->get('/admin/menus/5/edit'), $db)->edit(['id' => '5'])->body();
+
+        self::assertStringContainsString('value="7,90"', $body);
+        self::assertStringContainsString('value="9,90"', $body);
+        self::assertStringNotContainsString('value="790"', $body);
+        self::assertStringNotContainsString('value="990"', $body);
+    }
+
+    public function testStoreAcceptsDotDecimalSeparatorAndStoresCents(): void
+    {
+        // « 1,90 » ou « 1.90 » : les deux doivent etre acceptes en saisie (F40).
+        $db = $this->permittedDb();
+
+        $response = $this->controller($this->post($this->validForm(['price_normal_cents' => '8.00', 'price_maxi_cents' => '9.50']), '/admin/menus'), $db)->store();
+
+        self::assertSame(302, $response->status());
+        $insert = $this->findWrite($db, 'INSERT INTO menu (');
+        self::assertNotNull($insert);
+        self::assertSame(800, $insert['params']['pnormal'] ?? null);
+        self::assertSame(950, $insert['params']['pmaxi'] ?? null);
+    }
+
+    public function testStoreRejectsAnAmountWithMoreThanTwoDecimals(): void
+    {
+        $db = $this->permittedDb();
+
+        $response = $this->controller($this->post($this->validForm(['price_normal_cents' => '7,900']), '/admin/menus'), $db)->store();
+
+        self::assertSame(422, $response->status());
+        self::assertStringContainsString('Le prix Normal doit être un montant en euros', $response->body());
+        self::assertFalse($db->wrote('INSERT INTO menu ('));
     }
 
     public function testStoreRejectsInvalidCsrf(): void

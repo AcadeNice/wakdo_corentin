@@ -35,8 +35,10 @@ use App\Order\OrderValidationException;
  * le champ cache `items_json` ; le serveur (store) le decode, revalide la forme
  * (RG-T18) puis delegue a createStaffOrder qui resout/calcule cote serveur (RG-T16).
  * Le chemin legacy `qty_<id>` (3a) reste accepte en repli quand `items_json` est
- * absent (degradation sans JS). La commande est creee directement `paid`
- * (encaissement immediat, RG-5/POST-1) sans PIN : la permission order.create suffit.
+ * absent (degradation sans JS). La commande est creee et encaissee directement
+ * `preparing` (paid_at + preparing_at poses dans la meme transaction, part en
+ * cuisine sans geste manuel supplementaire ; voir OrderRepository::pay) --
+ * encaissement immediat, RG-5/POST-1 -- sans PIN : la permission order.create suffit.
  *
  * Non `final` : les tests sous-classent pour injecter des doubles (db/orderQuery/orders).
  */

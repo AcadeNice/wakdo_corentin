@@ -34,8 +34,9 @@ $esc = static fn (mixed $v): string => htmlspecialchars((string) $v, ENT_QUOTES,
 $euros = static fn (int $cents): string => number_format($cents / 100, 2, ',', ' ') . ' EUR';
 $csrf = htmlspecialchars($csrfToken ?? '', ENT_QUOTES, 'UTF-8');
 $peutRanger = ($canReorder ?? false) === true;
-// Les noms de categorie sont stockes en minuscules : on capitalise a l'affichage,
-// comme la borne le fait sur ses cartes.
+// Garde-fou d'affichage : le libelle de categorie est capitalise en base (migration
+// 0013) mais une donnee anterieure ou saisie a la main pourrait ne pas l'etre ;
+// on force la premiere lettre, comme la borne le fait sur ses cartes.
 $cap = static fn (string $s): string => mb_convert_case(mb_substr($s, 0, 1), MB_CASE_UPPER, 'UTF-8') . mb_substr($s, 1);
 ?>
 <div class="page-header">
@@ -137,7 +138,7 @@ $cap = static fn (string $s): string => mb_convert_case(mb_substr($s, 0, 1), MB_
                             <?php if ($state === 'unavailable'): ?>
                                 <span class="pill pill-neutral">Indisponible</span>
                             <?php elseif ($state === 'auto_rupture'): ?>
-                                <span class="pill pill-warning" title="Un ingredient requis est en rupture critique (RG-T21)">Rupture auto</span>
+                                <span class="pill pill-warning" title="Un ingredient requis est en rupture critique">Rupture auto</span>
                             <?php else: ?>
                                 <span class="pill pill-success">Disponible</span>
                             <?php endif; ?>

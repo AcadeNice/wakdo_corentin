@@ -91,6 +91,7 @@ $err = static fn (string $k): string => isset($errs[$k]) && is_string($errs[$k])
 <?php if ($id !== 0): ?>
     <?php $kcal = $val('energy_kcal_100g'); ?>
     <section class="card" aria-labelledby="nutrition-title">
+        <div class="card-body">
         <h2 id="nutrition-title">Valeur nutritionnelle</h2>
         <?php if ($kcal !== ''): ?>
             <p>Apport energetique : <strong><?= $kcal ?> kcal / 100 g</strong>
@@ -103,6 +104,7 @@ $err = static fn (string $k): string => isset($errs[$k]) && is_string($errs[$k])
             <input type="hidden" name="_csrf" value="<?= $csrf ?>">
             <button class="btn btn-secondary" type="submit">Importer la valeur nutritionnelle (OpenFoodFacts)</button>
         </form>
+        </div>
     </section>
 
     <?php
@@ -112,6 +114,7 @@ $err = static fn (string $k): string => isset($errs[$k]) && is_string($errs[$k])
     $allergenSource = $val('allergens_source');
     ?>
     <section class="card" aria-labelledby="allergens-title">
+        <div class="card-body">
         <h2 id="allergens-title">Allergenes de cet ingredient</h2>
 
         <?php if ($reviewedAt === ''): ?>
@@ -167,5 +170,6 @@ $err = static fn (string $k): string => isset($errs[$k]) && is_string($errs[$k])
                 <button class="btn btn-primary" type="submit">Enregistrer la revue des allergenes</button>
             </div>
         </form>
+        </div>
     </section>
 <?php endif; ?>

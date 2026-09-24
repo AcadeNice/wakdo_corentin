@@ -30,15 +30,27 @@ $modeLabel = static fn (string $m): string => match ($m) {
 $statusLabel = static fn (string $s): string => match ($s) {
     'pending_payment' => 'En attente',
     'paid'            => 'Payee',
+    'preparing'       => 'En préparation',
+    'ready'           => 'Prête',
     'delivered'       => 'Livree',
     'cancelled'       => 'Annulee',
     default           => $s,
 };
 
 $statusPill = static fn (string $s): string => match ($s) {
-    'paid', 'delivered' => 'pill-success',
-    'cancelled'         => 'pill-danger',
-    default             => 'pill-warning',
+    'paid', 'ready', 'delivered' => 'pill-success',
+    'preparing'                  => 'pill-warning',
+    'cancelled'                  => 'pill-danger',
+    default                      => 'pill-warning',
+};
+
+// Date lisible (fr) a partir du format MySQL brut ('Y-m-d H:i:s') ; repli sur la
+// valeur d'origine si le format est inattendu (donnee non vide mais non parsable).
+$dateHuman = static function (mixed $v): string {
+    $s = (string) $v;
+    $d = \DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $s);
+
+    return $d !== false ? $d->format('d/m/Y H:i') : $s;
 };
 
 /** @var list<array<string, mixed>> $rows */
@@ -85,7 +97,7 @@ $createPath = isset($newPath) && is_string($newPath) ? $newPath : '/counter/orde
                         <td><?= $esc($modeLabel($queueMode)) ?></td>
                         <td><?= $queueTag !== '' ? $esc($queueTag) : '-' ?></td>
                         <td><?= $esc($euros($o['total_ttc_cents'] ?? 0)) ?></td>
-                        <td><?= $esc($o['paid_at'] ?? '') ?></td>
+                        <td><?= $esc($dateHuman($o['paid_at'] ?? '')) ?></td>
                     </tr>
                 <?php endforeach; ?>
             </tbody>
@@ -117,7 +129,7 @@ $createPath = isset($newPath) && is_string($newPath) ? $newPath : '/counter/orde
                         <td><?= $esc($modeLabel((string) ($o['service_mode'] ?? ''))) ?></td>
                         <td><span class="pill <?= $esc($statusPill($status)) ?>"><?= $esc($statusLabel($status)) ?></span></td>
                         <td><?= $esc($euros($o['total_ttc_cents'] ?? 0)) ?></td>
-                        <td><?= $esc($o['created_at'] ?? '') ?></td>
+                        <td><?= $esc($dateHuman($o['created_at'] ?? '')) ?></td>
                     </tr>
                 <?php endforeach; ?>
             </tbody>

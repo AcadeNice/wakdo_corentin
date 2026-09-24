@@ -221,7 +221,7 @@ final class ProductControllerTest extends TestCase
             '_csrf' => $this->csrf,
             'category_id' => '3',
             'name' => 'Big Mac',
-            'price_cents' => '590',
+            'price_cents' => '5,90',
             'vat_rate' => '100',
             'display_order' => '1',
             'is_available' => '1',
@@ -313,7 +313,7 @@ final class ProductControllerTest extends TestCase
         $db->productRow = ['id' => 5, 'category_id' => 3, 'name' => 'Coca Cola', 'description' => null, 'price_cents' => 190, 'size_cl' => 30, 'base_product_id' => null, 'maxi_variant_product_id' => null, 'vat_rate' => 100, 'image_path' => null, 'is_available' => 1, 'display_order' => 1];
         $db->productIsBase = true;
 
-        $form = $this->validForm(['name' => 'Coca Cola', 'price_cents' => '190', 'base_product_id' => '7']);
+        $form = $this->validForm(['name' => 'Coca Cola', 'price_cents' => '1,90', 'base_product_id' => '7']);
         $response = $this->controller($this->post($form, '/admin/products/5'), $db)->update(['id' => '5']);
 
         self::assertSame(302, $response->status());
@@ -344,7 +344,7 @@ final class ProductControllerTest extends TestCase
         $db = $this->permittedDb();
         $db->productRow = ['id' => 5, 'category_id' => 3, 'name' => 'X', 'description' => null, 'price_cents' => 190, 'vat_rate' => 100, 'image_path' => null, 'is_available' => 1, 'display_order' => 1];
 
-        $form = $this->validForm(['name' => 'X', 'price_cents' => '190', 'base_product_id' => '5']);
+        $form = $this->validForm(['name' => 'X', 'price_cents' => '1,90', 'base_product_id' => '5']);
         $response = $this->controller($this->post($form, '/admin/products/5'), $db)->update(['id' => '5']);
 
         self::assertSame(422, $response->status());
@@ -358,7 +358,7 @@ final class ProductControllerTest extends TestCase
         $db = $this->permittedDb();
         $db->productRow = ['id' => 5, 'category_id' => 3, 'name' => 'X', 'description' => null, 'price_cents' => 190, 'vat_rate' => 100, 'image_path' => null, 'is_available' => 1, 'display_order' => 1];
 
-        $form = $this->validForm(['name' => 'X', 'price_cents' => '190', 'maxi_variant_product_id' => '5']);
+        $form = $this->validForm(['name' => 'X', 'price_cents' => '1,90', 'maxi_variant_product_id' => '5']);
         $response = $this->controller($this->post($form, '/admin/products/5'), $db)->update(['id' => '5']);
 
         self::assertSame(422, $response->status());
@@ -453,7 +453,7 @@ final class ProductControllerTest extends TestCase
         $db->productRow = ['id' => 5, 'category_id' => 3, 'name' => 'Big Mac', 'description' => null, 'price_cents' => 590, 'vat_rate' => 100, 'image_path' => null, 'is_available' => 1, 'display_order' => 1];
 
         // Prix change sans email/PIN -> 422, pas de mise a jour.
-        $response = $this->controller($this->post($this->validForm(['price_cents' => '620']), '/admin/products/5'), $db)->update(['id' => '5']);
+        $response = $this->controller($this->post($this->validForm(['price_cents' => '6,20']), '/admin/products/5'), $db)->update(['id' => '5']);
 
         self::assertSame(422, $response->status());
         self::assertStringContainsString('PIN', $response->body());
@@ -497,7 +497,7 @@ final class ProductControllerTest extends TestCase
         $db->productRow = ['id' => 5, 'category_id' => 3, 'name' => 'Big Mac', 'description' => null, 'price_cents' => 590, 'vat_rate' => 100, 'image_path' => null, 'is_available' => 1, 'display_order' => 1];
         $this->actingPin($db);
 
-        $form = $this->validForm(['price_cents' => '620', 'pin_email' => 'staff@wakdo.local', 'pin' => '4729']);
+        $form = $this->validForm(['price_cents' => '6,20', 'pin_email' => 'staff@wakdo.local', 'pin' => '4729']);
         $response = $this->controller($this->post($form, '/admin/products/5'), $db)->update(['id' => '5']);
 
         self::assertSame(302, $response->status());
@@ -519,6 +519,44 @@ final class ProductControllerTest extends TestCase
         $db->productRow = null;
 
         self::assertSame(404, $this->controller($this->get('/admin/products/999/edit'), $db)->edit(['id' => '999'])->status());
+    }
+
+    public function testEditPrefillsThePriceFieldInEuros(): void
+    {
+        // F40 (section "Textes techniques ou en anglais" de defauts-visibles.md,
+        // prix saisis en centimes) : la base garde price_cents en centimes (590)
+        // mais le champ se relit en euros ("5,90"), pas l'entier brut.
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 5, 'category_id' => 3, 'name' => 'Big Mac', 'description' => null, 'price_cents' => 590, 'vat_rate' => 100, 'image_path' => null, 'is_available' => 1, 'display_order' => 1];
+
+        $body = $this->controller($this->get('/admin/products/5/edit'), $db)->edit(['id' => '5'])->body();
+
+        self::assertStringContainsString('value="5,90"', $body);
+        self::assertStringNotContainsString('value="590"', $body);
+    }
+
+    public function testStoreAcceptsDotDecimalSeparatorAndStoresCents(): void
+    {
+        // « 1,90 » ou « 1.90 » : les deux doivent etre acceptes en saisie (F40).
+        $db = $this->permittedDb();
+
+        $response = $this->controller($this->post($this->validForm(['price_cents' => '1.90']), '/admin/products'), $db)->store();
+
+        self::assertSame(302, $response->status());
+        $insert = $this->findWrite($db, 'INSERT INTO product');
+        self::assertNotNull($insert);
+        self::assertSame(190, $insert['params']['price'] ?? null);
+    }
+
+    public function testStoreRejectsAnAmountWithMoreThanTwoDecimals(): void
+    {
+        $db = $this->permittedDb();
+
+        $response = $this->controller($this->post($this->validForm(['price_cents' => '1,900']), '/admin/products'), $db)->store();
+
+        self::assertSame(422, $response->status());
+        self::assertStringContainsString('Le prix doit être un montant en euros', $response->body());
+        self::assertFalse($db->wrote('INSERT INTO product'));
     }
 
     public function testConfirmDeleteShowsPinForm(): void
@@ -594,7 +632,7 @@ final class ProductControllerTest extends TestCase
         $this->actingPin($db);                                  // PIN '4729' valide en base
         $db->pinThrottleLockoutUntil = '2099-01-01 00:00:00';   // acteur verrouille
 
-        $form = $this->validForm(['price_cents' => '620', 'pin_email' => 'staff@wakdo.local', 'pin' => '4729']);
+        $form = $this->validForm(['price_cents' => '6,20', 'pin_email' => 'staff@wakdo.local', 'pin' => '4729']);
         $response = $this->controller($this->post($form, '/admin/products/5'), $db)->update(['id' => '5']);
 
         self::assertSame(422, $response->status());
@@ -609,7 +647,7 @@ final class ProductControllerTest extends TestCase
         $db->productRow = ['id' => 5, 'category_id' => 3, 'name' => 'Big Mac', 'description' => null, 'price_cents' => 590, 'vat_rate' => 100, 'image_path' => null, 'is_available' => 1, 'display_order' => 1];
         $db->actingUserRow = null;                              // email/PIN invalide
 
-        $form = $this->validForm(['price_cents' => '620', 'pin_email' => 'ghost@wakdo.local', 'pin' => '0000']);
+        $form = $this->validForm(['price_cents' => '6,20', 'pin_email' => 'ghost@wakdo.local', 'pin' => '0000']);
         $response = $this->controller($this->post($form, '/admin/products/5'), $db)->update(['id' => '5']);
 
         self::assertSame(422, $response->status());
@@ -627,7 +665,7 @@ final class ProductControllerTest extends TestCase
         $db->productRow = ['id' => 5, 'category_id' => 3, 'name' => 'Big Mac', 'description' => null, 'price_cents' => 590, 'vat_rate' => 100, 'image_path' => null, 'is_available' => 1, 'display_order' => 1];
         $this->actingPin($db);
 
-        $form = $this->validForm(['price_cents' => '620', 'pin_email' => 'staff@wakdo.local', 'pin' => '4729']);
+        $form = $this->validForm(['price_cents' => '6,20', 'pin_email' => 'staff@wakdo.local', 'pin' => '4729']);
         $response = $this->controller($this->post($form, '/admin/products/5'), $db)->update(['id' => '5']);
 
         self::assertSame(302, $response->status());
@@ -693,6 +731,8 @@ final class ProductControllerTest extends TestCase
         self::assertStringContainsString('Big Mac', $response->body());
         self::assertStringContainsString('Cheddar', $response->body());   // picker + composition existante
         self::assertStringContainsString('composition_json', $response->body());
+        // F40 (textes techniques) : le code de regle interne ne doit pas fuiter a l'ecran.
+        self::assertStringNotContainsString('RG-T21', $response->body());
     }
 
     public function testSaveRecipeReplacesCompositionInTransaction(): void
@@ -789,6 +829,8 @@ final class ProductControllerTest extends TestCase
 
         self::assertSame(200, $response->status());
         self::assertStringContainsString('Rupture auto', $response->body()); // distinct du retrait manuel
+        // F40 (textes techniques) : le code de regle interne ne doit pas fuiter a l'ecran.
+        self::assertStringNotContainsString('RG-T21', $response->body());
     }
 
     public function testDestroyTracesCascadedCompositionCount(): void
@@ -944,6 +986,8 @@ final class ProductControllerTest extends TestCase
         self::assertStringContainsString('Disponible', $body);
         self::assertStringContainsString('Rupture auto', $body);
         self::assertStringContainsString('Indisponible', $body);
+        // F40 (textes techniques) : le code de regle interne ne doit pas fuiter a l'ecran.
+        self::assertStringNotContainsString('RG-T21', $body);
     }
 
     public function testByCategoryMarksACategoryHiddenFromTheBorne(): void
@@ -1080,7 +1124,7 @@ final class ProductControllerTest extends TestCase
         $db->productRow = ['id' => 5, 'category_id' => 3, 'name' => 'Coca Cola', 'description' => null, 'price_cents' => 190, 'vat_rate' => 100, 'image_path' => $oldRelative, 'is_available' => 1, 'display_order' => 1];
 
         $response = $this->controller(
-            $this->postWithFile($this->validForm(['name' => 'Coca Cola', 'price_cents' => '190']), '/admin/products/5', $this->uploadedImage()),
+            $this->postWithFile($this->validForm(['name' => 'Coca Cola', 'price_cents' => '1,90']), '/admin/products/5', $this->uploadedImage()),
             $db,
         )->update(['id' => '5']);
 
@@ -1105,7 +1149,7 @@ final class ProductControllerTest extends TestCase
 
         try {
             $this->controller(
-                $this->postWithFile($this->validForm(['name' => 'Coca Cola', 'price_cents' => '190']), '/admin/products/5', $this->uploadedImage()),
+                $this->postWithFile($this->validForm(['name' => 'Coca Cola', 'price_cents' => '1,90']), '/admin/products/5', $this->uploadedImage()),
                 $db,
             )->update(['id' => '5']);
             self::fail('une exception etait attendue (panne DB simulee)');

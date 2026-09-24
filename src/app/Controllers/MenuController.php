@@ -14,6 +14,7 @@ use App\Catalogue\CategoryRepository;
 use App\Catalogue\MenuRepository;
 use App\Catalogue\ProductRepository;
 use App\Core\DatabaseInterface;
+use App\Core\Money;
 use App\Core\Response;
 
 /**
@@ -135,6 +136,12 @@ class MenuController extends AdminController
         }
 
         $slots = $this->menuRepository()->slotsWithOptions($id);
+
+        // La base garde les prix en centimes ; le formulaire se relit et se ressaisit
+        // en euros (F40, section "Textes techniques ou en anglais" de
+        // defauts-visibles.md : prix saisis en centimes).
+        $menu['price_normal_cents'] = Money::centsToEuros((int) ($menu['price_normal_cents'] ?? 0));
+        $menu['price_maxi_cents'] = Money::centsToEuros((int) ($menu['price_maxi_cents'] ?? 0));
 
         return $this->renderForm($guard, $id, $menu, $this->slotsToForm($slots), []);
     }
@@ -349,14 +356,17 @@ class MenuController extends AdminController
             $errors['name'] = 'Le nom est requis (120 caracteres max).';
         }
 
+        // Saisie en EUROS (F40, section "Textes techniques ou en anglais" de
+        // defauts-visibles.md) : accepte la virgule ou le point comme separateur
+        // decimal ("1,90" ou "1.90"). La base reste en centimes.
         $priceNormal = $this->parsePrice($form['price_normal_cents'] ?? '');
         if ($priceNormal === null) {
-            $errors['price_normal_cents'] = 'Le prix Normal (centimes) doit etre un entier strictement positif.';
+            $errors['price_normal_cents'] = 'Le prix Normal doit être un montant en euros strictement positif (ex. 8,00).';
         }
 
         $priceMaxi = $this->parsePrice($form['price_maxi_cents'] ?? '');
         if ($priceMaxi === null) {
-            $errors['price_maxi_cents'] = 'Le prix Maxi (centimes) doit etre un entier strictement positif.';
+            $errors['price_maxi_cents'] = 'Le prix Maxi doit être un montant en euros strictement positif (ex. 9,50).';
         }
 
         $orderRaw = trim($form['display_order'] ?? '0');
@@ -487,9 +497,7 @@ class MenuController extends AdminController
 
     private function parsePrice(string $raw): ?int
     {
-        $raw = trim($raw);
-
-        return ctype_digit($raw) && (int) $raw > 0 && (int) $raw <= 4294967295 ? (int) $raw : null;
+        return Money::parseEurosToCents($raw);
     }
 
     /**

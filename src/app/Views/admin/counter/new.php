@@ -37,6 +37,15 @@ declare(strict_types=1);
 $esc = static fn (mixed $v): string => htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
 $euros = static fn (mixed $cents): string => number_format(((int) $cents) / 100, 2, ',', ' ') . ' EUR';
 
+// image_path est stocke en base SANS slash de tete ("assets/images/produits/...") :
+// un chemin relatif, pense pour la borne (servie a la racine de son propre vhost).
+// Cette page vit sous /counter/orders (ou /drive/orders) : un chemin relatif y
+// resoudrait vers /counter/orders/assets/... (404, regression F40 captures 21/22).
+// On le rend ABSOLU (racine du docroot admin, comme /assets/css/... dans
+// admin/layout.php) ; les dossiers categories/produits sont symlinkes depuis les
+// assets de la borne (meme fichiers, deux vhosts) via src/public/admin/assets/images.
+$absImage = static fn (mixed $path): string => (string) $path === '' ? '' : '/' . ltrim((string) $path, '/');
+
 $csrf = $esc($csrfToken ?? '');
 $chan = isset($source) && $source === 'drive' ? 'drive' : 'counter';
 $action = $chan === 'drive' ? '/drive/orders' : '/counter/orders';
@@ -78,9 +87,16 @@ $jsProducts = array_map(
         'id'            => (int) ($p['id'] ?? 0),
         'name'          => (string) ($p['name'] ?? ''),
         'price'         => (int) ($p['price_cents'] ?? 0),
-        'image'         => (string) ($p['image_path'] ?? ''),
+        'image'         => $absImage($p['image_path'] ?? ''),
         'category_id'   => (int) ($p['category_id'] ?? 0),
         'category_name' => $catNameOf($p),
+        // Variante Maxi (taille agrandie, ex. "Grande Frite" pour "Moyenne Frite", ou
+        // "Coca Cola 50cl" pour "Coca Cola" -- seed 0006, boissons fontaine) :
+        // affichee dans la ligne du panier et dans le composeur quand le menu est
+        // choisi en Maxi (ProductRepository::availableForCatalogue, mv.name). Vide si
+        // le produit n'a pas de variante Maxi (ex. les boissons en BOUTEILLE : Eau,
+        // Jus d'Orange, Jus de Pommes Bio).
+        'maxi_variant_name' => (string) ($p['maxi_variant_name'] ?? ''),
         'modifiers'     => $jsModifiers($p['modifiers'] ?? null),
         // RG-T21 : false = rupture de stock calculee. La tuile reste visible (parite
         // borne) mais grisee et non tappable cote JS. Absent => commandable par defaut.
@@ -89,7 +105,7 @@ $jsProducts = array_map(
     $productRows,
 );
 $jsMenus = array_map(
-    static function (array $m) use ($jsModifiers, $catNameOf): array {
+    static function (array $m) use ($jsModifiers, $catNameOf, $absImage): array {
         /** @var list<array<string, mixed>> $slots */
         $slots = isset($m['slots']) && is_array($m['slots']) ? $m['slots'] : [];
 
@@ -98,7 +114,7 @@ $jsMenus = array_map(
             'name'             => (string) ($m['name'] ?? ''),
             'price_normal'     => (int) ($m['price_normal_cents'] ?? 0),
             'price_maxi'       => (int) ($m['price_maxi_cents'] ?? 0),
-            'image'            => (string) ($m['image_path'] ?? ''),
+            'image'            => $absImage($m['image_path'] ?? ''),
             'category_id'      => (int) ($m['category_id'] ?? 0),
             'category_name'    => $catNameOf($m),
             // RG-T21 (granularite burger impose seul) : false = burger en rupture

@@ -144,5 +144,9 @@ final class PrivacyControllerTest extends TestCase
         self::assertStringContainsString('Responsable du traitement', $body);
         self::assertStringContainsString('contact@wakdo.local', $body);
         self::assertStringContainsString('12 mois', $body);
+        // Regression F40 (mise en page : textes colles au bord des cadres) : chaque
+        // section .card enveloppe son contenu dans .card-body (le seul porteur de
+        // padding), une fois pour chacune des 5 sections de la page.
+        self::assertSame(5, substr_count($body, 'class="card-body"'));
     }
 }

@@ -75,7 +75,7 @@ $esc = static fn (mixed $v): string => htmlspecialchars((string) $v, ENT_QUOTES,
                             <?php if (!$anon): ?>
                                 <?php if ($canUpdate): ?>
                                     <a class="btn btn-secondary" href="/admin/users/<?= $id ?>/edit">Modifier</a>
-                                    <a class="btn btn-secondary" href="/admin/users/<?= $id ?>/reset-pin">Reset PIN</a>
+                                    <a class="btn btn-secondary" href="/admin/users/<?= $id ?>/reset-pin">Réinitialiser le PIN</a>
                                 <?php endif; ?>
                                 <?php if ($canDeactiv && $active && !$isSelf): ?>
                                     <a class="btn btn-secondary" href="/admin/users/<?= $id ?>/deactivate">Desactiver</a>

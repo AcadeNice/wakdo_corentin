@@ -17,7 +17,9 @@ use App\Order\OrderValidationException;
  * sans session ; l'idempotence (RG-T19, idempotency_key) tient lieu de garde-fou
  * anti double-clic / retry reseau. Deux operations :
  *  - POST /api/orders               : creation en pending_payment (RG-5 etapes 1-4) ;
- *  - POST /api/orders/{number}/pay  : encaissement -> paid + decrement stock (RG-T20).
+ *  - POST /api/orders/{number}/pay  : encaissement -> preparing (part en cuisine sans
+ *    geste manuel supplementaire ; paid_at + preparing_at poses ensemble, voir
+ *    OrderRepository::pay) + decrement stock (RG-T20).
  *
  * Les erreurs metier (OrderValidationException) sont mappees par code :
  * ORDER_NOT_FOUND -> 404, INVALID_TRANSITION -> 409, le reste (reference /

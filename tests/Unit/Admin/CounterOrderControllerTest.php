@@ -28,6 +28,10 @@ final class StubChannelOrders extends OrderQueryRepository
             ['order_number' => 'C100', 'source' => 'counter', 'service_mode' => 'dine_in', 'service_tag' => null, 'status' => 'paid', 'total_ttc_cents' => 890, 'created_at' => '2026-06-22 10:00:00', 'paid_at' => '2026-06-22 10:00:01'],
             ['order_number' => 'D200', 'source' => 'drive', 'service_mode' => 'drive', 'service_tag' => null, 'status' => 'paid', 'total_ttc_cents' => 990, 'created_at' => '2026-06-22 10:05:00', 'paid_at' => '2026-06-22 10:05:01'],
             ['order_number' => 'K9', 'source' => 'kiosk', 'service_mode' => 'takeaway', 'service_tag' => null, 'status' => 'paid', 'total_ttc_cents' => 500, 'created_at' => '2026-06-22 10:06:00', 'paid_at' => '2026-06-22 10:06:01'],
+            // Statuts de cuisine (RG-T09/T20) : regression capture 23, le statut brut
+            // 'preparing'/'ready' s'affichait faute de libelle dans admin/counter/index.php.
+            ['order_number' => 'C101', 'source' => 'counter', 'service_mode' => 'dine_in', 'service_tag' => null, 'status' => 'preparing', 'total_ttc_cents' => 700, 'created_at' => '2026-06-22 10:07:00', 'paid_at' => '2026-06-22 10:07:01'],
+            ['order_number' => 'C102', 'source' => 'counter', 'service_mode' => 'dine_in', 'service_tag' => null, 'status' => 'ready', 'total_ttc_cents' => 600, 'created_at' => '2026-06-22 10:08:00', 'paid_at' => '2026-06-22 10:08:01'],
         ];
     }
 
@@ -159,6 +163,14 @@ final class CounterOrderControllerTest extends TestCase
         self::assertStringNotContainsString('D200', $body); // canal drive exclu
         self::assertStringNotContainsString('K9', $body);   // kiosk exclu
         self::assertStringContainsString('Nouvelle commande', $body);
+        // Regression capture 23 : statut de cuisine libelle, jamais le code brut.
+        self::assertStringContainsString('En préparation', $body);
+        self::assertStringContainsString('Prête', $body);
+        self::assertStringNotContainsString('>preparing<', $body);
+        self::assertStringNotContainsString('>ready<', $body);
+        // Regression : dates au format brut MySQL (defaut visible) -> format FR lisible.
+        self::assertStringContainsString('22/06/2026', $body);
+        self::assertStringNotContainsString('2026-06-22 10:00:00', $body);
     }
 
     public function testDriveIndexListsOnlyDriveOrders(): void
@@ -176,7 +188,7 @@ final class CounterOrderControllerTest extends TestCase
     {
         $db = $this->permittedDb();
         $db->productsRows = [
-            ['id' => 12, 'category_id' => 1, 'name' => 'Cheeseburger', 'description' => null, 'price_cents' => 890, 'image_path' => null, 'display_order' => 1],
+            ['id' => 12, 'category_id' => 1, 'name' => 'Cheeseburger', 'description' => null, 'price_cents' => 890, 'image_path' => 'assets/images/produits/cheeseburger.png', 'display_order' => 1],
         ];
 
         $response = $this->controller($this->get('/counter/orders/new'), $db)->create();
@@ -190,6 +202,11 @@ final class CounterOrderControllerTest extends TestCase
         self::assertStringContainsString('"id":12', $body);
         self::assertStringContainsString('id="pos-grid"', $body);
         self::assertStringContainsString('service_mode', $body);
+        // Regression F40 (captures 21/22) : le chemin relatif d'origine ('assets/...',
+        // pense pour la borne servie a la racine) resolvait sous /counter/orders/ (404)
+        // une fois interprete par le navigateur sur cette page. Doit sortir absolu.
+        self::assertStringContainsString('\/assets\/images\/produits\/cheeseburger.png', $body);
+        self::assertStringNotContainsString('"image":"assets\/images', $body);
     }
 
     public function testStoreRejectsInvalidCsrf(): void
