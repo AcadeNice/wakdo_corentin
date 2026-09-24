@@ -99,6 +99,13 @@ Validation `docker compose config --quiet` : syntaxe OK, seuls warnings sur les 
 - **Raison du choix du TCP** : partager un socket Unix entre deux conteneurs exige un volume partage qui couple wakdo-web et wakdo-app plus fortement. Le gain de performance d'un Unix socket vs TCP sur localhost est mesure a quelques pourcents dans plusieurs benchmarks publics [CLAIM L4 consensus communaute, a re-checker avant soutenance si la question tombe]. Pour un projet RNCP a trafic modere, la simplicite d'orchestration l'emporte.
 - **Raison du choix du pm dynamic 3-10** : un worker PHP-FPM consomme ~30-60 Mo avec les extensions activees. Avec 10 max, le pire cas est ~600 Mo reserve a PHP, ce qui laisse de la marge sur un VPS 2 vCPU / 4 Go RAM pour MariaDB et les autres services.
 
+> Correction du 2026-09-24 (entrees d'origine non modifiees, decisions 3 et 4
+> ci-dessus) : l'hote de production n'est pas un VPS mais une machine physique
+> (`systemd-detect-virt` y repond `none`). Les deux mentions « VPS » plus haut
+> decrivaient une enveloppe de ressources visee (2 vCPU / 4 Go RAM), pas la
+> nature reelle de l'hote ; le raisonnement sur le dimensionnement reste valide,
+> seul le mot « VPS » est faux.
+
 ### Decision 5 : Crontab au format Vixie (dcron) avec retention de 14 jours
 
 - **Decision retenue** : `mariadb:11.4` LTS + conteneur cron Alpine avec `dcron`, backup nocturne 03h00, gzip, rotation 14 dumps.
@@ -174,7 +181,7 @@ Chaque mapping ci-dessous reference le libelle exact transcrit depuis `docs/_ref
 - **Cr 7.b.1** : *"Maitrise de la syntaxe d'un langage de script"* → `Makefile` (100+ lignes), `backup-db.sh` (bash strict avec `set -euo pipefail`).
 - **Cr 7.b.2** : *"L'automatisation est fonctionnelle et fiabilisee"* → validations dans `backup-db.sh` (variables d'env verifiees, taille min du dump, rotation), exit codes distincts (1, 2, 3).
 - **Cr 7.b.3** : *"Planification de taches repetitives (planificateur de tache, cron tab)"* → conteneur `wakdo-cron` avec `dcron` et crontab dedie.
-- **Cr 7.c.1** : *"La machine virtuelle creee par le candidat est configuree et operationnelle"* → hebergement Acadenice en VPS (analogue fonctionnel d'une VM) + conteneurs Docker configures.
+- **Cr 7.c.1** : *"La machine virtuelle creee par le candidat est configuree et operationnelle"* → hebergement Acadenice en VPS (analogue fonctionnel d'une VM) + conteneurs Docker configures. **Correction du 2026-09-24** (entree d'origine non modifiee) : l'hote de production n'est pas un VPS mais une machine physique (`systemd-detect-virt` y repond `none`). L'argument pour `Cr 7.c.1` reste la virtualisation par conteneurs Docker, pas une couche VM/hyperviseur sous-jacente ; a reformuler avant l'oral sans reference a un VPS.
 - **Cr 7.c.2** : *"Le systeme d'exploitation pour conteneur est installe dans la machine d'hebergement virtuelle"* → Docker Engine installe, `docker compose version` disponible.
 - **Cr 7.c.3** : *"L'application complete est correctement conteneurisee avec les services et les dependances necessaires"* → 4 services distincts (web, app, db, cron), extensions PHP requises declarees dans le Dockerfile, mariadb-client dans le cron pour le backup.
 - **Cr 7.c.4** : *"Le fichier de configuration est renseigne et permet de lancer la stack applicative complete avec une seule ligne commande"* → `make init` exactement, qui fait build + up + wait-db + migrate (futur). C'est litteralement la phrase.

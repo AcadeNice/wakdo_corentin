@@ -410,8 +410,9 @@ minimum mesure de 3,59:1 sur les quatre ecrans admin est le « do » de la barre
 etroite de toute la campagne, et elle reste au-dessus du seuil de 0,59.
 
 Les noeuds indetermines (fond SVG du graphique, `aria-hidden-focus` de la modale,
-boutons de quantite a caractere non textuel) sont **inchanges** : 7 + 4 + 2 = 11 comme a
-la campagne initiale (section 7). Cette campagne ne portait pas sur eux ; ils restent
+boutons de quantite a caractere non textuel) sont **inchanges** : 7 + 4 + 2 = 13 comme a
+la campagne initiale (section 7 ; correction du 2026-09-24, l'addition etait ecrite a
+tort a 11). Cette campagne ne portait pas sur eux ; ils restent
 consignes tels quels dans les artefacts `axe-<ecran>.json`.
 
 ### Les trois combinaisons corrigees, remesurees
@@ -489,7 +490,7 @@ l'information d'etat n'est pas rendue par une couleur faible.
 
 ---
 
-## 7. Ce que l'outil n'a pas pu trancher (11 noeuds)
+## 7. Ce que l'outil n'a pas pu trancher (13 noeuds)
 
 `axe` distingue trois verdicts : conforme, en violation, et **indetermine** — quand la
 regle s'applique mais que le moteur ne peut pas conclure seul. Ces cas ne sont ni des

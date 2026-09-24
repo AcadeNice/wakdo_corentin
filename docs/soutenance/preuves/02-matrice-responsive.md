@@ -8,10 +8,10 @@
 
 Cette preuve documente le comportement responsive des deux interfaces front-end du projet Wakdo :
 
-- **la borne de commande client** (feuille `src/public/borne/assets/css/style.css`), cible primaire annoncee en tete de fichier : `1080x1920` portrait tactile (`style.css:14`) ;
-- **le back-office administrateur** (feuille `src/public/admin/assets/css/admin.css`), conçu en desktop-first, optimise pour `1280px+` (`admin.css:4`).
+- **la borne de commande client** (feuille `src/public/borne/assets/css/style.css`), cible primaire annoncee en tete de fichier : `1080x1920` portrait tactile (en-tete du fichier `style.css`) ;
+- **le back-office administrateur** (feuille `src/public/admin/assets/css/admin.css`), conçu en desktop-first, optimise pour `1280px+` (en-tete du fichier `admin.css`).
 
-L'adaptation repose sur des `@media` queries qui reorganisent les grilles, empilent les panneaux lateraux et ajustent la typographie. Chaque comportement est ancre dans une regle CSS reelle, citee en `fichier:ligne`.
+L'adaptation repose sur des `@media` queries qui reorganisent les grilles, empilent les panneaux lateraux et ajustent la typographie. Chaque comportement est ancre dans une regle CSS reelle, citee par selecteur et par section du sommaire de `style.css` (sections 1 a 21) ou par section nommee d'`admin.css` — repere stable, une ligne de fichier ne l'est pas (voir la note de fin de document).
 
 Toutes les pages declarent le viewport meta responsive `width=device-width, initial-scale=1.0`, condition prealable a l'application des media queries :
 
@@ -22,26 +22,28 @@ Toutes les pages declarent le viewport meta responsive `width=device-width, init
 
 ### 2.1 Borne (`style.css`)
 
-| Point de rupture | Direction | Regle (fichier:ligne) | Effet principal |
+| Point de rupture | Direction | Regle (selecteur, section) | Effet principal |
 |---|---|---|---|
-| `min-width: 1080px` | montante (grand ecran) | `style.css:405` | carte d'accueil elargie a `820px` ; `.category-grid` passe a **4 colonnes** (`style.css:418`) ; icones de choix `150px` |
-| `max-width: 900px` | descendante | `style.css:1731` | `.order-layout` passe en `flex-direction: column` (`style.css:1732`) ; le `.order-panel` perd son `sticky`/largeur fixe et s'etire (`static`, `width:auto`) (`style.css:1736-1742`) ; depuis le 2026-09-23, le contenu (`.order-layout > main`) est lui aussi etire a la largeur disponible (section 15 de `style.css`, voir section 3.3) |
-| `max-width: 700px` | descendante | `style.css:949` | `.products-grid` passe a **2 colonnes** (`style.css:951`) ; `.payment-methods` s'empile (`flex-direction: column`) (`style.css:954`) |
-| `max-width: 600px` | descendante | `style.css:423` | carte d'accueil resserree ; `.welcome__greeting` reduit a `xl` ; `.category-grid` a **2 colonnes** (`style.css:437`) ; `.composer-grid` en tuiles `120px` (`style.css:1496`) |
-| `max-width: 480px` | descendante | `style.css:446` et `style.css:960` | `.welcome__choices` en colonne unique (`style.css:447`) ; `.products-grid` en `1fr 1fr` avec gap resserre (`style.css:961`) |
+| `min-width: 1080px` | montante (grand ecran) | `.welcome__card` (section 6) | carte d'accueil elargie a `820px` ; `.category-grid` passe a **4 colonnes** (meme regle, section 6) ; icones de choix `150px` |
+| `max-width: 900px` | descendante | `.order-layout` (section 15) | `.order-layout` passe en `flex-direction: column` (meme regle, section 15) ; le `.order-panel` perd son `sticky`/largeur fixe et s'etire (`static`, `width:auto`) (`.order-panel`, section 15) ; depuis le 2026-09-23, le contenu (`.order-layout > main`) est lui aussi etire a la largeur disponible (section 15, voir section 3.3) |
+| `max-width: 700px` | descendante | `.products-grid` (section 12) | `.products-grid` passe a **2 colonnes** (meme regle, section 12) ; `.payment-methods` s'empile (`flex-direction: column`) (`.payment-methods`, section 12) |
+| `max-width: 600px` | descendante | `.welcome__card` (section 6) | carte d'accueil resserree ; `.welcome__greeting` reduit a `xl` ; `.category-grid` a **2 colonnes** (meme regle, section 6) ; `.composer-grid` en tuiles `120px` (`.composer-grid`, sous-bloc Responsive en fin de section 14 — le composeur est range en section 13 au sommaire, mais sa regle responsive est placee physiquement apres l'en-tete de la section 14) |
+| `max-width: 480px` | descendante | `.welcome__choices` (section 6) et `.products-grid` (section 12) | `.welcome__choices` en colonne unique (meme regle, section 6) ; `.products-grid` en `1fr 1fr` avec gap resserre (meme regle, section 12) |
 
 Les cinq points de rupture attendus (`1080` / `900` / `700` / `600` / `480`) sont presents dans le fichier.
 
 ### 2.2 Admin (`admin.css`)
 
-| Point de rupture | Direction | Regle (fichier:ligne) | Effet principal |
+| Point de rupture | Direction | Regle (selecteur, section) | Effet principal |
 |---|---|---|---|
-| `max-width: 900px` | descendante | `admin.css:2094` | `.stock-summary` passe a 1 colonne (`admin.css:2095`) ; `.stock-list__row` degrille en 1 colonne (`admin.css:2098`) ; actions realignees a gauche (`admin.css:2102`) |
-| `max-width: 860px` | descendante | `admin.css:1819` | POS comptoir/drive : `.pos__main` en colonne (`admin.css:1820`) ; le `.pos__panel` perd son `sticky` et passe pleine largeur (`admin.css:1821-1826`) ; hauteur du panier plafonnee (`admin.css:1827`) |
-| `max-width: 700px` | descendante | `admin.css:1489` | `.perm-grid` (matrice de droits) passe a 1 colonne (`admin.css:1490`) |
-| `max-width: 640px` | descendante | bloc « Ossature sur petit ecran » apres `.content`, et bloc apres les regles `.tile` | **ossature** : grille a 1 colonne (barre du haut, bande de navigation, contenu) ; le menu lateral devient une bande horizontale defilante, recentree sur la page courante (`admin.js`) ; contenu pleine largeur. **Tableau de bord** : tuiles sur 2 colonnes au lieu de 4 ; boutons d'en-tete sous le titre (ajoutes le 2026-09-23) |
+| `max-width: 900px` | descendante | `.stock-summary` (section « Stock dashboard (page d'accueil ingredients) ») | `.stock-summary` passe a 1 colonne (meme regle) ; `.stock-list__row` degrille en 1 colonne (`.stock-list__row`, meme section) ; actions realignees a gauche (meme section) |
+| `max-width: 860px` | descendante | `.pos__main` (section « POS tactile a tuiles comptoir/drive ») | POS comptoir/drive : `.pos__main` en colonne (meme regle) ; le `.pos__panel` perd son `sticky` et passe pleine largeur (`.pos__panel`, meme section) ; hauteur du panier plafonnee (`.order-cart`, meme section) |
+| `max-width: 720px` | descendante | `.catalogue-grid` (section « Produits par categorie (vue groupee back-office, F20) ») | `.catalogue-summary` passe a 1 colonne ; `.catalogue-grid` (base : `repeat(auto-fill, minmax(min(240px,100%),1fr))`) passe a 1 colonne (memes regles) |
+| `max-width: 700px` | descendante | `.perm-grid` (section « Matrice de droits d'acces groupee (formulaire Roles humanise) ») | `.perm-grid` (matrice de droits) passe a 1 colonne (meme regle) |
+| `max-width: 640px` | descendante | bloc « Ossature sur petit ecran (Cr 1.b.1) » (section du meme nom, apres `.content`), et bloc de la section « Dashboard (direction A+C) » (apres les regles `.tile`) | **ossature** : grille a 1 colonne (barre du haut, bande de navigation, contenu) ; le menu lateral devient une bande horizontale defilante, recentree sur la page courante (`admin.js`) ; contenu pleine largeur. **Tableau de bord** : tuiles sur 2 colonnes au lieu de 4 ; boutons d'en-tete sous le titre (ajoutes le 2026-09-23) |
+| `max-width: 640px` | descendante | `.allergen-matrix` (section « Revue des allergenes d'un ingredient (F11b) ») | `.allergen-matrix` (base : `repeat(auto-fill, minmax(260px,1fr))`) passe a 1 colonne (meme regle) |
 
-Les points de rupture des composants (`900` / `860` / `700`) sont presents dans le fichier, et l'ossature a le sien (`640`) depuis le 2026-09-23.
+Les points de rupture des composants (`900` / `860` / `720` / `700`) sont presents dans le fichier, ainsi que deux points a `640` : l'ossature (ajoutee le 2026-09-23) et la matrice d'allergenes (presente depuis le 2026-07-31, PR #128).
 
 ## 3. Matrice Page x Point de rupture -> comportement de layout
 
@@ -51,23 +53,23 @@ Notation des tranches : **XL** = `>= 1080px` ; **L** = `901-1079px` (etat de bas
 
 | Page | XL (`>=1080`) | L (base) | M (`<=900`) | S (`<=700`) | XS (`<=480`) |
 |---|---|---|---|---|---|
-| **Accueil** (`index.html`) | carte `820px`, choix en ligne, icones `150px` (`style.css:405-414`) | carte `700px` max, `.welcome__choices` en ligne flex-wrap, icones `120px` (`style.css:180,200-204,239`) | base (pas de MQ dediee entre 600 et 900) | carte resserree `space-5/4`, titre reduit a `xl` (`style.css:423-434`) | `.welcome__choices` en **colonne unique** (`style.css:446-449`) |
-| **Categories** (`categories.html`) | `.category-grid` **4 colonnes** (`style.css:416-419`) | `.category-grid` **3 colonnes** (base) (`style.css:342-346`) | base 3 colonnes (pas de MQ entre 600 et 900) | 3 colonnes (le seuil categorie est `600`, pas `700`) | `.category-grid` **2 colonnes** + main resserre (`style.css:436-442`) |
-| **Produits / commande** (`products.html`, `order-layout`) | grille `.products-grid` **3 colonnes** ; panneau lateral `.order-panel` fixe `360px` sticky a droite (`style.css:592-599,1539-1551`) | idem base : 3 colonnes + panneau lateral sticky `360px` (`style.css:1527-1551`) | **`.order-layout` empile** en colonne ; `.order-panel` passe `static`, `width:auto`, pleine largeur, sous la grille (`style.css:1731-1743`) | `.products-grid` **2 colonnes** (`style.css:949-952`) ; l'empilement du panneau (herite de la MQ 900) reste actif | `.products-grid` en `1fr 1fr` gap resserre, main padding reduit (`style.css:960-968`) |
-| **Paiement** (`payment.html`) | `.payment-methods` 2 boutons cote a cote (flex-wrap, `max-width:640`) (`style.css:791-799`) | idem base : boutons cote a cote (`style.css:792-799`) | base (pas de MQ entre 700 et 900) | `.payment-methods` en **colonne** (`flex-direction: column`, `align-items: stretch`) (`style.css:949,954-957`) | herite de l'empilement `<=700`, recap `max-width:480` inchange (`style.css:764-772`) |
+| **Accueil** (`index.html`) | carte `820px`, choix en ligne, icones `150px` (`.welcome__card`, section 6) | carte `700px` max, `.welcome__choices` en ligne flex-wrap, icones `120px` (`.welcome__card`/`.welcome__choices`/`.choice-btn__image`, section 4) | base (pas de MQ dediee entre 600 et 900) | carte resserree `space-5/4`, titre reduit a `xl` (`.welcome__card`, section 6) | `.welcome__choices` en **colonne unique** (`.welcome__choices`, section 6) |
+| **Categories** (`categories.html`) | `.category-grid` **4 colonnes** (section 6) | `.category-grid` **3 colonnes** (base) (`.category-grid`, section 5) | base 3 colonnes (pas de MQ entre 600 et 900) | 3 colonnes (le seuil categorie est `600`, pas `700`) | `.category-grid` **2 colonnes** + main resserre (meme regle, section 6) |
+| **Produits / commande** (`products.html`, `order-layout`) | grille `.products-grid` **3 colonnes** ; panneau lateral `.order-panel` fixe `360px` sticky a droite (`.products-grid`, section 8 ; `.order-panel`, section 15) | idem base : 3 colonnes + panneau lateral sticky `360px` (memes regles) | **`.order-layout` empile** en colonne ; `.order-panel` passe `static`, `width:auto`, pleine largeur, sous la grille (`.order-layout`/`.order-panel`, section 15) | `.products-grid` **2 colonnes** (`.products-grid`, section 12) ; l'empilement du panneau (herite de la MQ 900) reste actif | `.products-grid` en `1fr 1fr` gap resserre, main padding reduit (`.products-grid`/`.products-main`, section 12) |
+| **Paiement** (`payment.html`) | `.payment-methods` 2 boutons cote a cote (flex-wrap, `max-width:640`) (`.payment-methods`, section 10) | idem base : boutons cote a cote (meme regle) | base (pas de MQ entre 700 et 900) | `.payment-methods` en **colonne** (`flex-direction: column`, `align-items: stretch`) (`.payment-methods`, section 12) | herite de l'empilement `<=700` ; aucune regle CSS supplementaire propre a ce seuil pour l'ecran de paiement |
 
 Note sur l'accueil et les categories : la borne n'a pas de media query descendante dans l'intervalle `601-900px`, donc en tranche M ces deux pages conservent leur layout de base (respectivement choix en ligne et grille 3 colonnes). C'est un choix assume : la borne physique est large ; les seuils bas couvrent la degradation vers tablette/telephone.
 
-Note sur le composant de composition de menu (modale ouverte depuis la grille produits) : `.composer-grid` s'adapte independamment via `@media (max-width: 600px)` (tuiles `minmax(120px,1fr)`, footer en colonne, `style.css:1495-1520`).
+Note sur le composant de composition de menu (modale ouverte depuis la grille produits) : `.composer-grid` s'adapte independamment via `@media (max-width: 600px)` (tuiles `minmax(120px,1fr)`, footer en colonne ; `.composer-grid`, sous-bloc Responsive en fin de section 14).
 
 ### 3.2 Admin
 
 | Page / zone | Base (`>= ~1280`) | `<=900` | `<=860` | `<=700` |
 |---|---|---|---|---|
-| **Shell** (topbar + sidebar, `admin-layout`) | grille 2 colonnes `264px 1fr` x 2 lignes `72px 1fr`, zones `sidebar/topbar/content` (`admin.css:119-128`) ; markup : `src/app/Views/admin/layout.php:70-71,94,162` | **inchange** : aucune media query ne restructure `.admin-layout` ; la sidebar reste en colonne fixe `264px` | inchange | inchange |
-| **Dashboard stock** (`.stock-summary`, `.stock-list`) | `.stock-summary` **3 colonnes** (`admin.css:1893-1898`) ; `.stock-list__row` en grille `1fr 200px auto` (`admin.css:2043-2050`) | `.stock-summary` **1 colonne** ; `.stock-list__row` **1 colonne**, actions a gauche (`admin.css:2094-2104`) | idem `<=900` (herite) | idem |
-| **POS comptoir/drive** (`.pos__main`, `.pos__panel`) | catalogue `flex:1` a gauche + panneau `340px` sticky a droite (`admin.css:1524-1532,1695-1707`) | base (pas de MQ a 900 pour le POS) | **`.pos__main` empile** en colonne ; `.pos__panel` `static`, pleine largeur, panier plafonne `320px` (`admin.css:1819-1828`) | idem `<=860` (herite) |
-| **Formulaire Roles** (`.perm-grid`) | matrice de droits **2 colonnes** (`admin.css:1462-1468`) | base (seuil a 700) | base | `.perm-grid` **1 colonne** (`admin.css:1489-1491`) |
+| **Shell** (topbar + sidebar, `admin-layout`) | grille 2 colonnes `264px 1fr` x 2 lignes `72px 1fr`, zones `sidebar/topbar/content` (`.admin-layout`, section « Layout Shell ») ; markup : `src/app/Views/admin/layout.php`, elements `.admin-layout` / `header.topbar` / `nav.sidebar` / `main.content` | **inchange au-dessus de 640px** : aucune media query dans cette plage (900/860/700) ne restructure `.admin-layout` ; la sidebar reste en colonne fixe `264px`. Sous `640px`, une media query dediee restructure bien `.admin-layout` (voir la note « Ossature admin » sous ce tableau). | inchange | inchange |
+| **Dashboard stock** (`.stock-summary`, `.stock-list`) | `.stock-summary` **3 colonnes** (section « Stock dashboard (page d'accueil ingredients) ») ; `.stock-list__row` en grille `1fr 200px auto` (meme section) | `.stock-summary` **1 colonne** ; `.stock-list__row` **1 colonne**, actions a gauche (meme section, regle `max-width: 900px`) | idem `<=900` (herite) | idem |
+| **POS comptoir/drive** (`.pos__main`, `.pos__panel`) | catalogue `flex:1` a gauche + panneau `340px` sticky a droite (section « POS tactile a tuiles comptoir/drive ») | base (pas de MQ a 900 pour le POS) | **`.pos__main` empile** en colonne ; `.pos__panel` `static`, pleine largeur, panier plafonne `320px` (meme section, regle `max-width: 860px`) | idem `<=860` (herite) |
+| **Formulaire Roles** (`.perm-grid`) | matrice de droits **2 colonnes** (section « Matrice de droits d'acces groupee (formulaire Roles humanise) ») | base (seuil a 700) | base | `.perm-grid` **1 colonne** (meme section, regle `max-width: 700px`) |
 
 **Ossature admin (mise a jour du 2026-09-23).** Jusqu'a cette date, le `.admin-layout` gardait sa colonne de menu de `264px` a toutes les largeurs : aucune media query ne ciblait `.admin-layout`, `.sidebar` ou `.topbar`, et sous `600px` environ le contenu devenait etroit. Depuis le lot F33, sous `640px` :
 
@@ -89,12 +91,12 @@ Le meme test a revele un defaut plus ancien, present dans le code de `dev` au co
 
 ## 4. Mecanismes d'adaptation employes (synthese technique)
 
-- **Reflow de grille** par changement de `grid-template-columns` selon le point de rupture : 4 -> 3 -> 2 -> 1 colonnes selon les zones (`style.css:342,418,437,594,951,961` ; `admin.css:508,1893,2098,1465,1490`).
-- **Empilement de panneau lateral** par bascule `flex-direction: row -> column` et neutralisation du `position: sticky` (passage en `static`) : borne `order-layout`/`order-panel` (`style.css:1731-1743`), admin POS `pos__main`/`pos__panel` (`admin.css:1819-1828`).
-- **Grilles fluides intrinsequement responsives** via `repeat(auto-fill/auto-fit, minmax(...))`, qui s'adaptent sans media query : `.composer-grid` (`style.css:1122`), `.kpi-grid` fixe mais `.stats-cards` et `.kitchen-grid` en auto-fit/auto-fill (`admin.css:1308,1034`), `.pos__grid` (`admin.css:1573`), `.stock-cards` (`admin.css:1988`).
-- **Ajustement typographique** aux petits ecrans (ex. `.welcome__greeting` de `2xl` a `xl`, `style.css:428-430`).
-- **Unites relatives** (`rem`, `%`, `1fr`, `vh`) et images fluides (`img { max-width: 100%; height: auto }`, `style.css:104-108`) pour eviter les debordements horizontaux.
-- **Repli de compatibilite** documente pour `gap` sur flex via `@supports not (gap: 1rem)` (`style.css:1996-2001`) — releve du critere de compatibilite navigateur (Cr 1.b.3) plutot que de la resolution, mentionne ici pour contexte.
+- **Reflow de grille** par changement de `grid-template-columns` selon le point de rupture : 4 -> 3 -> 2 colonnes pour `.category-grid` (base section 5, overrides section 6), 3 -> 2 -> `1fr 1fr` pour `.products-grid` (base section 8, overrides section 12) ; admin `.stock-summary` 3 -> 1 colonne et `.perm-grid` 2 -> 1 colonne (sections « Stock dashboard (page d'accueil ingredients) » et « Matrice de droits d'acces groupee (formulaire Roles humanise) »).
+- **Empilement de panneau lateral** par bascule `flex-direction: row -> column` et neutralisation du `position: sticky` (passage en `static`) : borne `order-layout`/`order-panel` (style.css, section 15), admin POS `pos__main`/`pos__panel` (admin.css, section « POS tactile a tuiles comptoir/drive »).
+- **Grilles fluides intrinsequement responsives** via `repeat(auto-fill/auto-fit, minmax(...))`, qui s'adaptent sans media query : `.composer-grid` (style.css, section 13), `.kpi-grid` fixe mais `.stats-cards` et `.kitchen-grid` en auto-fit/auto-fill (admin.css, sections « Statistiques — cartes KPI (tableau de bord stats.read) » et « Kitchen Cards »), `.pos__grid` (admin.css, section « POS tactile a tuiles comptoir/drive »), `.stock-cards` (admin.css, section « Stock dashboard (page d'accueil ingredients) »).
+- **Ajustement typographique** aux petits ecrans (ex. `.welcome__greeting` de `2xl` a `xl`, style.css section 6).
+- **Unites relatives** (`rem`, `%`, `1fr`, `vh`) et images fluides (`img { max-width: 100%; height: auto }`, style.css section 2) pour eviter les debordements horizontaux.
+- **Repli de compatibilite** documente pour `gap` sur flex via `@supports not (gap: 1rem)` (style.css section 20) — releve du critere de compatibilite navigateur (Cr 1.b.3) plutot que de la resolution, mentionne ici pour contexte.
 
 ## 5. Captures multi-viewport
 
@@ -157,7 +159,7 @@ Ces captures montrent les etats fonctionnels d'un seul viewport (borne portrait)
 | Viewport meta responsive present | Couvert | 5 pages borne + `layout.php` admin (voir section 1) |
 | Adaptation par media queries (borne) | Couvert | 5 points de rupture reels, matrice section 3.1 |
 | Adaptation des composants admin | Couvert | 3 points de rupture reels, matrice section 3.2 |
-| Empilement des panneaux lateraux en etroit | Couvert | `style.css:1731-1743`, `admin.css:1819-1828` |
+| Empilement des panneaux lateraux en etroit | Couvert | `.order-layout`/`.order-panel` (style.css, section 15), `.pos__main`/`.pos__panel` (admin.css, section « POS tactile a tuiles comptoir/drive ») |
 | Reflow des grilles multi-colonnes | Couvert | citations section 4 |
 | Ossature admin (sidebar) sur mobile portrait etroit | Couvert | bande de navigation sous `640px` (section 3.2), mesuree dans Chromium |
 | Aucun defilement horizontal (borne : 5 pages a 360, 390 et 768 px ; back-office : 15 pages a 360 et 390 px, mesure dans la zone de contenu) | Couvert | `tests/e2e/responsive.spec.js` ; defauts corriges : page produits de la borne (section 3.3), tableau de bord, en-tetes et trois tableaux du back-office (section 3.2) |
@@ -165,4 +167,4 @@ Ces captures montrent les etats fonctionnels d'un seul viewport (borne portrait)
 
 **Conclusion.** Le critere Cr 1.b.1 est demontre pour la borne client (interface principale evaluee au titre du front-end) via cinq points de rupture verifies dans le code, et pour le back-office via les points de rupture de ses composants et, depuis le 2026-09-23, de son ossature. Un test dans un vrai navigateur verifie l'absence de defilement horizontal sur 20 pages (borne : 5 pages a 360, 390 et 768 px ; back-office : 15 pages a 360 et 390 px) ; il a revele et fait corriger un defaut de la page produits de la borne sous 900 px (section 3.3) et trois defauts du back-office sur telephone (section 3.2). Les captures versionnees completent la preuve visuelle.
 
-**Reserve sur les renvois `fichier:ligne`.** Les numeros de ligne cites dans ce document datent de sa redaction ; les feuilles de style ont evolue depuis (sommaire et renumerotation de `style.css`, ossature d'`admin.css`). Les regles citees existent, mais leurs lignes ont bouge : le recalage des renvois est a faire dans la passe de mise a jour de la documentation.
+**Correction du 2026-09-24.** Les renvois `fichier:ligne` d'origine dataient de la redaction du document ; les feuilles de style ont evolue depuis (sommaire et renumerotation de `style.css`, ossature d'`admin.css`), et plusieurs lignes citees ne pointaient plus vers la bonne regle. Ce document cite desormais chaque regle par son selecteur et par sa section (numero du sommaire pour `style.css`, nom du bloc de commentaire pour `admin.css`), un repere qui reste juste meme si des corrections d'interface deplacent des lignes ailleurs dans le fichier.

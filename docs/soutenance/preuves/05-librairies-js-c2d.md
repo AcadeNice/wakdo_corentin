@@ -62,13 +62,12 @@ Raisons reelles du choix :
   composants apporterait un cout d'outillage (build, transpilation, montee de
   version) disproportionne pour ce volume.
 - **Posture securite : pas de CDN.** Le projet applique une politique
-  Content-Security-Policy stricte cote back-office :
-  `docker/apache/vhost.conf:177` fixe `script-src 'self'` (aucune source de
-  script tierce autorisee), avec un commentaire d'intention explicite
-  « pas de CDN, pas d'analytics » (`docker/apache/vhost.conf:175`). Charger une
-  librairie depuis un CDN entrerait en conflit avec cette ligne directrice.
-  (Reserve importante detaillee en section 4 : ce header CSP est actuellement
-  pose sur le vhost admin, pas sur le vhost borne.)
+  Content-Security-Policy stricte, posee sur les deux vhosts (`docker/apache/vhost.conf`) :
+  le vhost borne fixe `script-src 'self'` (aucune source de script tierce
+  autorisee, sans `unsafe-inline`), et le vhost admin porte sa propre CSP.
+  Charger une librairie depuis un CDN entrerait en conflit avec cette ligne
+  directrice. (Voir section 4 : depuis la demande de fusion #123, ce header CSP
+  est actif sur le vhost borne, pas seulement sur le vhost admin.)
 - **Controle total du code.** Chaque comportement est ecrit et lisible dans le
   depot ; il n'y a pas de couche tierce a auditer ou a maintenir a jour.
 - **Pas de bundler.** Les modules ES6 natifs (`import`/`export`) charges par le
@@ -144,16 +143,15 @@ Un jury peut legitimement objecter que :
   a lire une documentation tierce et a l'integrer proprement — un exercice qui,
   ici, n'est pas realise sur une vraie dependance externe.
 
-Reserve d'honnetete supplementaire sur l'argument securite (section 2) : le
-header CSP `script-src 'self'` de `docker/apache/vhost.conf:177` est pose a
-l'interieur du bloc `<VirtualHost>` **admin** (docroot
-`/var/www/html/public/admin`, lignes 116-183). Le vhost **borne**
-(docroot `/var/www/html/public/borne`, lignes 41-113) n'emet **pas** de header
-CSP a ce jour. La posture « pas de CDN » est donc une intention documentee et
-appliquee cote back-office, et elle est coherente avec l'absence totale de
-reference externe dans la borne — mais elle n'est pas, en l'etat, une
-contrainte techniquement active sur le vhost de la borne. Presenter la CSP comme
-un garde-fou deja en vigueur sur la borne serait inexact.
+Mise a jour du 2026-09-24 sur l'argument securite (section 2) : le vhost
+**borne** (docroot `/var/www/html/public/borne`) emet desormais son propre
+header CSP `script-src 'self'` (sans `unsafe-inline`), pose par la demande de
+fusion #123 (`feat(borne): CSP stricte same-origin + replis d'image CSP-safe`),
+distinct de celui du vhost **admin** (docroot `/var/www/html/public/admin`),
+qui porte la sienne (`style-src 'self' 'unsafe-inline'`). La posture « pas de
+CDN » est donc une contrainte technique active sur le vhost de la borne, et pas
+seulement une intention documentee cote back-office. Cette reserve, ecrite lors
+d'une version anterieure de ce document, ne s'applique plus.
 
 **Niveau de confiance sur la couverture stricte de C2.d : faible.** La position
 defendable est que la competence sous-jacente (structurer et reutiliser du code)

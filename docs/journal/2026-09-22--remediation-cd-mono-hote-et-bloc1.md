@@ -53,7 +53,10 @@ Corrige :
   citations de texte cherchables, qui ne derivent pas.
 - **Index du referentiel** : annoncait 44 criteres au Bloc 1 et 35 au Bloc 2. Le
   recompte ligne a ligne donne **42 et 41**, soit **96 au total** avec le Bloc 5,
-  et non 92.
+  et non 92. Correction du 2026-09-24 (entree d'origine non modifiee) : ce
+  recompte du Bloc 2 restait faux — il incluait un `Cr 3.a.1` invente, absent du
+  PDF officiel. Le compte exact est **40 pour le Bloc 2, 95 au total**, corrige
+  dans `docs/_ref/rncp-37805-index.md`.
 - **Quatre documents n'avaient jamais ete versionnes** : le plan d'oral 40 min et
   les diapositives (produits le 2026-06-29 pour l'oral blanc), le trace du flux
   borne, et une entree de journal du 2026-06-04. 1570 lignes qui n'existaient
@@ -428,6 +431,13 @@ de l'auteur. Heures de Paris.
 | P1 | **Date limite de depot du dossier** | a confirmer : elle fixe l'ordre entre dossier et exercices |
 | P1 | **Expose d'une librairie JavaScript** pour `C2.d` | **en attente** : librairie imposee ou libre ? quel format ? d'ou vient la consigne « C2.d a l'oral », a citer dans le dossier ? |
 | P2 | Repetition de la demonstration en direct | a planifier |
+
+> Correction du 2026-09-24 : le chiffre de « 96 criteres » cite ci-dessus (entree
+> d'origine, non modifiee) etait faux — le referentiel RNCP 37805 en compte 95
+> pour le perimetre retenu par Wakdo. L'ecart venait d'un `Cr 3.a.1` invente dans
+> `docs/_ref/rncp-37805-index.md`, qui n'existe pas dans le PDF officiel ; voir cet
+> index pour le detail. La table de tracabilite du dossier de soutenance doit
+> compter 95 lignes de criteres, pas 96.
 
 ### Strategie retenue pour l'oral
 
