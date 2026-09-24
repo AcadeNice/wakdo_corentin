@@ -428,6 +428,14 @@ button {
     grid-area: content;
     overflow-y: auto;
     padding: 24px;
+    /* Marge basse elargie : le bouton "Police adaptee" (.a11y-toggle) est en
+       position fixe bas-droite et flotte donc AU-DESSUS du contenu quel que soit
+       le defilement, pas seulement au-dessus du coin libre suppose (F40, capture
+       26 : il recouvrait le bouton Masquer de la derniere categorie une fois le
+       contenu descendu jusqu'en bas). Cette marge reserve la place du bouton
+       (hauteur ~40px + son decalage bottom:16px + un espace confortable) pour
+       qu'aucun contenu ne finisse jamais dessous. */
+    padding-bottom: 80px;
 }
 
 /* --- Ossature sur petit ecran (Cr 1.b.1) ---

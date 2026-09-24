@@ -20,6 +20,30 @@
 (function () {
     'use strict';
 
+    // Libelles humains des types de slot (enum technique cote base/serveur, F40 :
+    // un equipier ne doit jamais lire 'drink'/'side'/'sauce' bruts dans le <select>).
+    // La valeur SOUMISE reste le code technique (opt.value) : seul l'AFFICHAGE change.
+    var SLOT_TYPE_LABELS = {
+        drink: 'Boisson',
+        side: 'Accompagnement',
+        sauce: 'Sauce',
+        dessert: 'Dessert',
+        extra: 'Supplément',
+    };
+
+    function slotTypeLabel(type) {
+        return SLOT_TYPE_LABELS[type] || String(type);
+    }
+
+    // Hauteur de ligne fixee (ligne + marge) pour les cases a cocher d'options d'un
+    // slot : le cadre defile (overflow-y: auto) au-dela de OPTION_VISIBLE_ROWS lignes.
+    // F40 : une hauteur maximale en pixels ronds (ex. 160px) ne tombe pas forcement
+    // sur une frontiere de ligne et coupe la derniere a mi-hauteur (capture 32). En
+    // fixant la hauteur de CHAQUE ligne et en calquant le maxHeight du cadre sur un
+    // multiple exact de cette hauteur, la coupure tombe toujours entre deux lignes.
+    var OPTION_ROW_HEIGHT_PX = 28;
+    var OPTION_VISIBLE_ROWS = 6;
+
     function el(doc, tag, className) {
         var e = doc.createElement(tag);
         if (className) {
@@ -92,6 +116,7 @@
                 shown += 1;
                 var lab = el(doc, 'label');
                 lab.style.display = 'block';
+                lab.style.lineHeight = OPTION_ROW_HEIGHT_PX + 'px';
                 var cb = el(doc, 'input', 'slot-option');
                 cb.type = 'checkbox';
                 cb.value = String(p.id);
@@ -144,7 +169,7 @@
             slotTypes.forEach(function (t) {
                 var opt = el(doc, 'option');
                 opt.value = String(t);
-                opt.textContent = String(t);
+                opt.textContent = slotTypeLabel(t);
                 if (String(slot.slot_type) === String(t)) {
                     opt.selected = true;
                 }
@@ -177,7 +202,7 @@
 
             // Options : cases a cocher des produits eligibles AU TYPE COURANT (F12).
             var optWrap = el(doc, 'div', 'slot-options');
-            optWrap.style.maxHeight = '160px';
+            optWrap.style.maxHeight = (OPTION_ROW_HEIGHT_PX * OPTION_VISIBLE_ROWS) + 'px';
             optWrap.style.overflowY = 'auto';
             optWrap.style.marginTop = '0.5rem';
             // Type initial : la valeur du slot (edition) ou le 1er type (creation), pour
@@ -240,7 +265,7 @@
     }
 
     if (typeof module !== 'undefined' && module.exports) {
-        module.exports = { init: init, productAllowed: productAllowed, allowedCategories: allowedCategories };
+        module.exports = { init: init, productAllowed: productAllowed, slotTypeLabel: slotTypeLabel, allowedCategories: allowedCategories };
     }
     if (typeof document !== 'undefined' && document.addEventListener) {
         document.addEventListener('DOMContentLoaded', function () {

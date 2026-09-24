@@ -125,17 +125,21 @@ test('back-office large : le menu lateral reste une colonne a gauche du contenu'
 });
 
 test('controle de saisie : un ecart est signale pendant la frappe, puis efface', async ({ page }) => {
+  // Prix saisi en EUROS (F40, section "Textes techniques ou en anglais" de
+  // defauts-visibles.md) : le champ est passe en type="text" + pattern
+  // (products/form.php), le controle en direct suit donc le motif, pas les bornes
+  // min/max d'un type="number".
   await login(page);
   await page.goto(`${ADMIN}/admin/products/new`);
   const price = page.locator('#price_cents');
-  await price.fill('0');
+  await price.fill('1,900');
   const error = page.locator('#price_cents-live-error');
   await expect(error).toBeVisible();
-  await expect(error).toHaveText('La valeur doit être supérieure ou égale à 1.');
+  await expect(error).toHaveText('Montant invalide (exemple : 1,90).');
   await expect(price).toHaveAttribute('aria-invalid', 'true');
   await capture(page, 'admin-controle-saisie');
 
-  await price.fill('650');
+  await price.fill('6,50');
   await expect(error).toBeHidden();
   await expect(price).toHaveAttribute('aria-invalid', 'false');
 });

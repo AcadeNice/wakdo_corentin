@@ -843,6 +843,21 @@ final class IngredientControllerTest extends TestCase
         self::assertStringNotContainsString('Auteur', $response->body()); // colonne masquee (RG-4)
     }
 
+    public function testMovementsShowsHumanReadableDate(): void
+    {
+        // Regression F40 : la date de mouvement s'affichait au format brut MySQL
+        // ('Y-m-d H:i:s') au lieu d'un format lisible par un equipier.
+        $db = $this->permittedDb();
+        $db->grantedCodes = ['stock.read'];
+        $db->movementsRows = [['id' => 1, 'ingredient_id' => 5, 'movement_type' => 'restock', 'delta' => 20, 'order_id' => null, 'user_id' => 9, 'note' => null, 'created_at' => '2026-06-17 09:00:00']];
+
+        $response = $this->controller($this->get('/admin/ingredients/5/movements'), $db)->movements(['id' => '5']);
+
+        self::assertSame(200, $response->status());
+        self::assertStringContainsString('17/06/2026 09:00', $response->body());
+        self::assertStringNotContainsString('2026-06-17 09:00:00', $response->body());
+    }
+
     // -------------------------------------------------------------------------
     // F11b — revue des allergenes d'un ingredient
     // -------------------------------------------------------------------------
@@ -914,6 +929,18 @@ final class IngredientControllerTest extends TestCase
         self::assertStringContainsString('name="allergen_1"', $response->body());
         self::assertStringContainsString('name="allergen_7"', $response->body());
         self::assertStringContainsString('Graines de sesame', $response->body());
+    }
+
+    public function testEditWrapsNutritionAndAllergenCardsInCardBody(): void
+    {
+        // Regression F40 (mise en page : meme defaut que la page RGPD) : .card seul ne
+        // porte aucun padding (concu pour .card-header + .card-body internes) ; sans
+        // .card-body, le texte des cartes Nutrition/Allergenes touche le bord du cadre.
+        $db = $this->dbWithAllergenCatalogue();
+
+        $body = $this->controller($this->get('/admin/ingredients/5/edit'), $db)->edit(['id' => '5'])->body();
+
+        self::assertSame(2, substr_count($body, 'class="card-body"'));
     }
 
     public function testEditPreChecksTheAllergensAlreadyDeclared(): void

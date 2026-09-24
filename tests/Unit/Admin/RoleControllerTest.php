@@ -163,11 +163,61 @@ final class RoleControllerTest extends TestCase
     public function testIndexListsRoles(): void
     {
         $db = $this->permittedDb();
-        $db->rolesAllRows = [['id' => 2, 'code' => 'manager', 'label' => 'Manager', 'default_route' => '/admin/stats', 'order_source' => null, 'is_active' => 1]];
+        $db->rolesAllRows = [
+            ['id' => 2, 'code' => 'manager', 'label' => 'Manager', 'default_route' => '/admin/stats', 'order_source' => null, 'is_active' => 1],
+            ['id' => 3, 'code' => 'kitchen', 'label' => 'Équipier cuisine', 'default_route' => '/kitchen/display', 'order_source' => null, 'is_active' => 1],
+        ];
 
         $response = $this->controller($this->get('/admin/roles'), $db)->index();
         self::assertSame(200, $response->status());
-        self::assertStringContainsString('manager', $response->body());
+        $body = $response->body();
+        self::assertStringContainsString('manager', $body);
+        // Regression F40 (page d'accueil affichee comme un chemin brut) : la page
+        // d'accueil du role kitchen doit avoir un libelle humain, pas /kitchen/display.
+        self::assertStringContainsString('Écran cuisine (KDS)', $body);
+        self::assertStringNotContainsString('>/kitchen/display<', $body);
+    }
+
+    public function testCreateFormKeepsLayoutSidebarPermissions(): void
+    {
+        // Regression : AdminController::adminView() fusionne $data + $context ; le
+        // catalogue complet des permissions passe par renderForm() sous la meme cle
+        // 'permissions' que la liste des codes de l'utilisateur courant ecrasait
+        // celle du layout (l'union `+` garde la cle de gauche). La sidebar recevait
+        // alors le catalogue (list<array>) au lieu de list<string>, si bien que
+        // in_array(<code>, $perms, true) etait toujours faux et masquait tout le
+        // menu sauf le Tableau de bord (defaut visible capture 40).
+        $db = $this->permittedDb();
+
+        $response = $this->controller($this->get('/admin/roles/create'), $db)->create();
+
+        self::assertSame(200, $response->status());
+        $body = $response->body();
+        // Seul admin/layout.php affiche ce marqueur, sous la condition $can('user.read')
+        // || $can('role.manage'). Le lien "Annuler" du formulaire pointe LUI AUSSI vers
+        // /admin/roles (roles/form.php) : verifier seulement l'URL ne prouve rien (une
+        // sonde de relecture independante l'a confirme). Ces deux assertions ne peuvent
+        // reussir que si le layout a lu une VRAIE liste de codes de permission, pas le
+        // catalogue complet renvoye jusqu'ici sous la meme cle 'permissions'.
+        self::assertStringContainsString('<div class="sidebar-section-label">Administration</div>', $body);
+        self::assertStringContainsString('<a href="/admin/roles" class="sidebar-item active">Roles</a>', $body);
+    }
+
+    public function testEditFormShowsHumanPageLabelNotRawTechnicalPath(): void
+    {
+        // Regression F40 (page d'accueil affichee comme un chemin brut) : les roles
+        // operationnels (kitchen/counter/drive) n'etaient pas dans $routeOptions, donc
+        // le repli affichait le chemin technique brut comme libelle de l'option
+        // deja selectionnee dans la liste deroulante.
+        $db = $this->permittedDb();
+        $db->roleManageRow = ['id' => 3, 'code' => 'kitchen', 'label' => 'Équipier cuisine', 'description' => '', 'default_route' => '/kitchen/display', 'order_source' => null, 'is_active' => 1];
+
+        $response = $this->controller($this->get('/admin/roles/3/edit'), $db)->edit(['id' => '3']);
+
+        self::assertSame(200, $response->status());
+        $body = $response->body();
+        self::assertStringContainsString('Écran cuisine (KDS)', $body);
+        self::assertStringNotContainsString('>/kitchen/display<', $body);
     }
 
     public function testStoreCreatesCustomRoleWithPinAndAudit(): void

@@ -17,6 +17,7 @@ use App\Catalogue\ProductRepository;
 use App\Core\DatabaseInterface;
 use App\Core\ImageUploadException;
 use App\Core\ImageUploader;
+use App\Core\Money;
 use App\Core\Response;
 
 /**
@@ -247,6 +248,12 @@ class ProductController extends AdminController
         if ($product === null) {
             return $this->notFound($guard);
         }
+
+        // La base garde price_cents en centimes ; le champ se relit et se ressaisit
+        // en euros (F40, section "Textes techniques ou en anglais" de
+        // defauts-visibles.md). Sans cette conversion, un formulaire d'edition
+        // reaffiche l'entier brut de centimes.
+        $product['price_cents'] = Money::centsToEuros((int) ($product['price_cents'] ?? 0));
 
         return $this->renderForm($guard, $id, $product, []);
     }
@@ -633,10 +640,15 @@ class ProductController extends AdminController
             $errors['name'] = 'Le nom est requis (120 caracteres max).';
         }
 
+        // Saisie en EUROS (F40, section "Textes techniques ou en anglais" de
+        // defauts-visibles.md) : accepte la virgule ou le point comme separateur
+        // decimal ("1,90" ou "1.90"). La base reste en centimes ; Money est la
+        // source unique de conversion (repli d'edition : voir edit()/renderForm()).
         $priceRaw = trim($form['price_cents'] ?? '');
-        $priceValid = ctype_digit($priceRaw) && (int) $priceRaw > 0 && (int) $priceRaw <= 4294967295;
+        $priceCents = Money::parseEurosToCents($priceRaw);
+        $priceValid = $priceCents !== null;
         if (!$priceValid) {
-            $errors['price_cents'] = 'Le prix (en centimes) doit etre un entier strictement positif.';
+            $errors['price_cents'] = 'Le prix doit être un montant en euros strictement positif (ex. 1,90).';
         }
 
         $vat = ctype_digit(trim($form['vat_rate'] ?? '')) ? (int) trim($form['vat_rate'] ?? '') : 0;
@@ -714,7 +726,7 @@ class ProductController extends AdminController
             'category_id'             => $categoryId,
             'name'                    => $name,
             'description'             => $description !== '' ? $description : null,
-            'price_cents'             => $priceValid ? (int) $priceRaw : 0,
+            'price_cents'             => $priceValid ? $priceCents : 0,
             'size_cl'                 => $sizeCl,
             'base_product_id'         => $baseId,
             'maxi_variant_product_id' => $maxiId,

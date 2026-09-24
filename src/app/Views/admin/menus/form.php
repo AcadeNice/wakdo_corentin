@@ -109,14 +109,18 @@ $slotsData = isset($slotsJson) && is_string($slotsJson) && $slotsJson !== '' ? $
     </div>
 
     <div class="form-group">
-        <label class="form-label" for="price_normal_cents">Prix Normal (en centimes)</label>
-        <input class="form-input" type="number" id="price_normal_cents" name="price_normal_cents" min="1" max="4294967295" value="<?= $val('price_normal_cents') ?>" required>
+        <label class="form-label" for="price_normal_cents">Prix Normal (en euros)</label>
+        <input class="form-input" type="text" inputmode="decimal" id="price_normal_cents" name="price_normal_cents"
+               pattern="(?=.*[1-9])[0-9]{1,7}([.,][0-9]{1,2})?" data-pattern-message="Montant invalide (exemple : 8,00)."
+               placeholder="ex. 8,00" value="<?= $val('price_normal_cents') ?>" required>
         <?php if ($err('price_normal_cents') !== ''): ?><p class="form-error"><?= htmlspecialchars($err('price_normal_cents'), ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
     </div>
 
     <div class="form-group">
-        <label class="form-label" for="price_maxi_cents">Prix Maxi (en centimes)</label>
-        <input class="form-input" type="number" id="price_maxi_cents" name="price_maxi_cents" min="1" max="4294967295" value="<?= $val('price_maxi_cents') ?>" required>
+        <label class="form-label" for="price_maxi_cents">Prix Maxi (en euros)</label>
+        <input class="form-input" type="text" inputmode="decimal" id="price_maxi_cents" name="price_maxi_cents"
+               pattern="(?=.*[1-9])[0-9]{1,7}([.,][0-9]{1,2})?" data-pattern-message="Montant invalide (exemple : 9,50)."
+               placeholder="ex. 9,50" value="<?= $val('price_maxi_cents') ?>" required>
         <?php if ($err('price_maxi_cents') !== ''): ?><p class="form-error"><?= htmlspecialchars($err('price_maxi_cents'), ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
     </div>
 

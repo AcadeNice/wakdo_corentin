@@ -91,8 +91,16 @@
         extraLabel.appendChild(numberInput('recipe-extra', line.extra_price_cents != null ? line.extra_price_cents : 0, 0));
         block.appendChild(extraLabel);
 
-        // Retirable / Ajoutable
+        // Retirable / Ajoutable. Contrairement aux labels precedents (qnLabel, qmLabel,
+        // extraLabel), dont le texte porte un espace des DEUX cotes du champ qu'il
+        // encadre, ces deux <label> sont des elements DOM distincts colles l'un a
+        // l'autre sans le moindre espace entre eux (aucun noeud texte entre </label> et
+        // <label> comme il y en aurait dans un template HTML statique) : la case a
+        // cocher "Ajoutable" se retrouvait donc immediatement apres le mot "Retirable",
+        // sans espace visuel (F40, mise en page). Une marge sur le premier separe les
+        // deux labels quel que soit leur contenu futur.
         var remLabel = el('label');
+        remLabel.style.marginRight = '1rem';
         var remInput = el('input', 'recipe-removable');
         remInput.type = 'checkbox';
         if (Number(line.is_removable) === 1) {

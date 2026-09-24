@@ -27,6 +27,13 @@ final class StubRecentOrders extends OrderQueryRepository
         return [
             ['order_number' => 'K42', 'service_mode' => 'dine_in', 'service_tag' => '261', 'status' => 'paid', 'total_ttc_cents' => 1990, 'created_at' => '2026-06-19 12:00:00', 'paid_at' => '2026-06-19 12:01:00'],
             ['order_number' => 'K43', 'service_mode' => 'takeaway', 'service_tag' => null, 'status' => 'pending_payment', 'total_ttc_cents' => 800, 'created_at' => '2026-06-19 12:05:00', 'paid_at' => null],
+            // E15 (audit schemas 6.3) : le domaine (OrderRepository::cancel) accepte
+            // aussi les etats de cuisine ; le lien Annuler doit suivre, pas seulement
+            // pending_payment/paid.
+            ['order_number' => 'K44', 'service_mode' => 'dine_in', 'service_tag' => '10', 'status' => 'preparing', 'total_ttc_cents' => 700, 'created_at' => '2026-06-19 12:06:00', 'paid_at' => '2026-06-19 12:06:01'],
+            ['order_number' => 'K45', 'service_mode' => 'dine_in', 'service_tag' => '11', 'status' => 'ready', 'total_ttc_cents' => 600, 'created_at' => '2026-06-19 12:07:00', 'paid_at' => '2026-06-19 12:07:01'],
+            ['order_number' => 'K46', 'service_mode' => 'dine_in', 'service_tag' => '12', 'status' => 'delivered', 'total_ttc_cents' => 500, 'created_at' => '2026-06-19 12:08:00', 'paid_at' => '2026-06-19 12:08:01'],
+            ['order_number' => 'K47', 'service_mode' => 'dine_in', 'service_tag' => '13', 'status' => 'cancelled', 'total_ttc_cents' => 400, 'created_at' => '2026-06-19 12:09:00', 'paid_at' => null],
         ];
     }
 }
@@ -164,6 +171,28 @@ final class OrderAdminControllerTest extends TestCase
         self::assertStringContainsString('19,90 EUR', $body);   // total 1990c formate
         self::assertStringContainsString('Payee', $body);       // statut paid
         self::assertStringContainsString('A emporter', $body);  // takeaway -> libelle
+        // Regression F40 : date au format brut MySQL affichee telle quelle.
+        self::assertStringContainsString('19/06/2026 12:00', $body);
+        self::assertStringNotContainsString('2026-06-19 12:00:00', $body);
+    }
+
+    public function testCancelLinkFollowsTheServerAcceptedStatusSet(): void
+    {
+        // E15 (audit schemas 6.3) : le lien Annuler doit suivre EXACTEMENT l'ensemble
+        // accepte par le serveur (OrderRepository::cancel : pending_payment, paid,
+        // preparing, ready), pas seulement pending_payment/paid comme le disait
+        // l'ancien commentaire de ce fichier.
+        $db = $this->permittedDb();
+        $db->permissionCodes = ['order.read', 'order.cancel'];
+
+        $body = $this->controller($db)->index()->body();
+
+        self::assertStringContainsString('/admin/orders/K42/cancel', $body); // paid
+        self::assertStringContainsString('/admin/orders/K43/cancel', $body); // pending_payment
+        self::assertStringContainsString('/admin/orders/K44/cancel', $body); // preparing
+        self::assertStringContainsString('/admin/orders/K45/cancel', $body); // ready
+        self::assertStringNotContainsString('/admin/orders/K46/cancel', $body); // delivered
+        self::assertStringNotContainsString('/admin/orders/K47/cancel', $body); // cancelled
     }
 
     public function testDeliverRequiresOrderDeliverPermission(): void

@@ -3,7 +3,8 @@
  *
  * Avant : payment.html simulait (redirection directe vers confirmation). Desormais
  * le panier est traduit vers le contrat /api/orders et POSTe (creation pending_payment
- * puis encaissement -> paid + decrement stock RG-T20).
+ * puis encaissement -> preparing, part en cuisine sans geste manuel supplementaire,
+ * + decrement stock RG-T20 ; voir OrderRepository::pay).
  *
  * Traduction panier borne -> contrat API :
  *   - produit simple -> { type:'product', product_id, quantity }

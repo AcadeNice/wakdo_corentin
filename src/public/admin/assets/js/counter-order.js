@@ -96,6 +96,24 @@
         }, 0);
     }
 
+    // Libelle a afficher pour un produit d'option de slot selon le format du menu. En
+    // Maxi, un accompagnement OU une boisson fontaine a une variante agrandie
+    // (maxi_variant_name, ex. "Grande Frite" pour "Moyenne Frite", ou "Coca Cola
+    // 50cl" pour "Coca Cola" -- seed 0006) : c'est ce nom que l'equipier doit voir,
+    // au choix comme dans la ligne du panier, pas le nom de base (regression F40,
+    // capture 21/22 : "Coca Cola - Moyenne Frite" affiche alors que le serveur
+    // enregistre la variante Maxi). Sans variante -- les boissons en BOUTEILLE (Eau,
+    // Jus d'Orange, Jus de Pommes Bio), que le menu Maxi n'agrandit pas -- ou en
+    // format normal, on garde le nom de base. Calque optionLabel() de
+    // page-product-menu.js (borne), meme parite que le reste du fichier. Pur.
+    function displayProductName(product, format) {
+        if (!product) {
+            return '';
+        }
+
+        return (format === 'maxi' && product.maxi_variant_name) ? product.maxi_variant_name : product.name;
+    }
+
     // Etapes composables d'un menu : burger impose ignore (non choisi ici), un pas par
     // slot gere, trie par display_order, options resolues via l'index produit. Pur.
     function composerSteps(menu, productById) {
@@ -392,7 +410,7 @@
                 line.selections.forEach(function (s) {
                     var p = productById[Number(s.productId)];
                     if (p) {
-                        parts.push(p.name);
+                        parts.push(displayProductName(p, line.format));
                     }
                 });
                 var text = parts.join(' - ');
@@ -696,6 +714,24 @@
 
             var panel = el('div', 'menu-composer');
 
+            // Re-libelle les <option> deja rendues des selects de slot quand le format
+            // change (Normal <-> Maxi) : la valeur soumise (opt.value = product id) ne
+            // bouge pas, seul le TEXTE affiche suit le format courant (displayProductName).
+            function relabelSlotOptions() {
+                steps.forEach(function (step) {
+                    var select = panel.querySelector('.menu-composer__slot-select[data-slot-id="' + step.id + '"]');
+                    if (!select) {
+                        return;
+                    }
+                    Array.prototype.forEach.call(select.options, function (o) {
+                        if (o.value === '') {
+                            return; // "Sans" : pas un produit
+                        }
+                        o.textContent = displayProductName(productById[Number(o.value)], state.format);
+                    });
+                });
+            }
+
             var title = el('h2', 'menu-composer__title');
             title.textContent = menu.name;
             panel.appendChild(title);
@@ -720,6 +756,7 @@
                 }
                 radio.addEventListener('change', function () {
                     state.format = fmt.value;
+                    relabelSlotOptions();
                 });
                 lab.appendChild(radio);
                 lab.appendChild(doc.createTextNode(' ' + fmt.label));
@@ -745,7 +782,7 @@
                 step.options.forEach(function (opt) {
                     var o = el('option');
                     o.value = String(opt.id);
-                    o.textContent = String(opt.name);
+                    o.textContent = displayProductName(opt, state.format);
                     if (state.selections[step.id] === opt.id) {
                         o.selected = true;
                     }
@@ -1110,7 +1147,7 @@
     }
 
     if (typeof module !== 'undefined' && module.exports) {
-        module.exports = { init: init, composerSteps: composerSteps, buildCategoryTabs: buildCategoryTabs };
+        module.exports = { init: init, composerSteps: composerSteps, buildCategoryTabs: buildCategoryTabs, displayProductName: displayProductName };
     }
     if (typeof document !== 'undefined' && document.addEventListener) {
         document.addEventListener('DOMContentLoaded', function () {

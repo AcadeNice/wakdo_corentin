@@ -61,7 +61,7 @@ $attr = static fn (mixed $data): string => htmlspecialchars(
 <div class="page-header">
     <div>
         <h1 class="page-title">Recette - <?= $name ?></h1>
-        <p class="page-subtitle">Composition en ingredients (RG-T21 : la disponibilite du produit en decoule)</p>
+        <p class="page-subtitle">Composition en ingredients : la disponibilite du produit en decoule</p>
     </div>
 </div>
 

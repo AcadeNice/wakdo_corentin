@@ -29,7 +29,10 @@ const PRODUCTS = [
             { ingredient_id: 8, name: 'Bacon', is_removable: 0, is_addable: 1, extra_price_cents: 50 },
         ],
     },
-    { id: 22, name: 'Frites', price: 250, image: '', category_id: 2, category_name: 'Accompagnements', modifiers: [] },
+    // maxi_variant_name : variante Maxi (F40, capture 21/22 - regression "Coca Cola -
+    // Moyenne Frite" affiche alors que le serveur enregistre la variante Grande). Le
+    // nom de base reste "Frites" (reutilise par de nombreux autres tests de ce fichier).
+    { id: 22, name: 'Frites', maxi_variant_name: 'Grande Frite', price: 250, image: '', category_id: 2, category_name: 'Accompagnements', modifiers: [] },
     { id: 14, name: 'Coca', price: 200, image: '', category_id: 3, category_name: 'Boissons', modifiers: [] },
     { id: 47, name: 'Ketchup', price: 0, image: '', category_id: 2, category_name: 'Accompagnements', modifiers: [] },
 ];
@@ -96,6 +99,24 @@ function itemsJson(dom) {
 function click(dom, node) {
     node.dispatchEvent(new dom.window.Event('click', { bubbles: true }));
 }
+
+/* --- displayProductName (pur) : libelle Normal/Maxi (F40) ------------------ */
+
+test('displayProductName : Maxi + variante presente -> nom de la variante', () => {
+    assert.equal(counterOrder.displayProductName({ name: 'Moyenne Frite', maxi_variant_name: 'Grande Frite' }, 'maxi'), 'Grande Frite');
+});
+
+test('displayProductName : Maxi sans variante (ex. boisson) -> nom de base', () => {
+    assert.equal(counterOrder.displayProductName({ name: 'Coca Cola', maxi_variant_name: '' }, 'maxi'), 'Coca Cola');
+});
+
+test('displayProductName : format normal -> toujours le nom de base', () => {
+    assert.equal(counterOrder.displayProductName({ name: 'Moyenne Frite', maxi_variant_name: 'Grande Frite' }, 'normal'), 'Moyenne Frite');
+});
+
+test('displayProductName : produit absent -> chaine vide', () => {
+    assert.equal(counterOrder.displayProductName(undefined, 'maxi'), '');
+});
 
 // Active l'onglet d'une categorie par son libelle (les tuiles d'une seule categorie sont
 // rendues a la fois). Renvoie la liste des tuiles affichees apres activation.
@@ -285,6 +306,57 @@ test('configuration menu (format Maxi + slots) -> items_json contient {type:menu
         { menu_slot_id: 16, product_id: 22 },
         { menu_slot_id: 31, product_id: 47 },
     ]);
+});
+
+test('menu Maxi : le select de slot ET la ligne du panier affichent la variante Maxi, pas le nom de base', () => {
+    // Regression F40 (capture 21/22) : "Coca Cola - Moyenne Frite" s'affichait alors
+    // que le serveur enregistre "Grande Frite" (RG-T16, resolveModifiers cote serveur).
+    const dom = setup();
+    const doc = dom.window.document;
+    counterOrder.init(doc);
+
+    activateCategory(dom, 'Menus');
+    click(dom, tileByName(dom, 'Menu Cheeseburger'));
+    const modal = doc.getElementById('menu-composer-modal');
+
+    const sideSelect = Array.prototype.find.call(
+        modal.querySelectorAll('.menu-composer__slot-select'),
+        s => s.dataset.slotId === '16',
+    );
+    const sideOption = Array.prototype.find.call(sideSelect.options, o => o.value === '22');
+    assert.equal(sideOption.textContent, 'Frites'); // format normal par defaut
+
+    const maxiRadio = Array.prototype.find.call(
+        modal.querySelectorAll('.menu-composer__format-input'),
+        r => r.value === 'maxi',
+    );
+    maxiRadio.checked = true;
+    maxiRadio.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+
+    // Bascule Normal -> Maxi : le <option> deja rendu se relibelle sans changer sa valeur.
+    assert.equal(sideOption.textContent, 'Grande Frite');
+    assert.equal(sideOption.value, '22');
+
+    click(dom, modal.querySelector('.menu-composer__add'));
+
+    const label = doc.querySelector('.order-cart__label').textContent;
+    assert.ok(label.includes('Grande Frite'), 'la ligne du panier montre la variante Maxi : ' + label);
+    assert.ok(!label.includes('Frites'), 'la ligne du panier ne doit plus montrer le nom de base : ' + label);
+});
+
+test('menu Normal : la ligne du panier garde le nom de base (pas de variante Maxi)', () => {
+    const dom = setup();
+    const doc = dom.window.document;
+    counterOrder.init(doc);
+
+    activateCategory(dom, 'Menus');
+    click(dom, tileByName(dom, 'Menu Cheeseburger'));
+    const modal = doc.getElementById('menu-composer-modal');
+    click(dom, modal.querySelector('.menu-composer__add')); // format normal par defaut
+
+    const label = doc.querySelector('.order-cart__label').textContent;
+    assert.ok(label.includes('Frites'), label);
+    assert.ok(!label.includes('Grande Frite'), label);
 });
 
 test('quantite MENU : stepper + sur une ligne menu -> items_json porte quantity:2, un seul jeu de selections', () => {

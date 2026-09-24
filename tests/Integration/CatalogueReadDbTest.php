@@ -153,6 +153,10 @@ final class CatalogueReadDbTest extends TestCase
         self::assertArrayHasKey('description', $availRow);
         self::assertArrayHasKey('image_path', $availRow);
         self::assertArrayNotHasKey('is_available', $availRow);
+        // Regression F40 (capture 21/22) : sans category_name, la caisse comptoir/drive
+        // range tous les menus sous un onglet "Autres" par repli (CounterOrderController
+        // catNameOf), faute de nom de categorie remonte par la requete.
+        self::assertSame('IT Cat MA ' . $this->suffix, $availRow['category_name'] ?? null);
 
         // findForCatalogue : disponible OK, indisponible -> null.
         self::assertNotNull($menus->findForCatalogue($availMenuId));

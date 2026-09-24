@@ -351,6 +351,14 @@ button {
     height: 56px;
     width: auto;
     justify-self: center;
+    /* Colonne centrale EXPLICITE de la grille 3 colonnes (1fr auto 1fr) de
+       .site-header. Sans elle, l'auto-placement CSS Grid pose le SEUL enfant de
+       l'en-tete minimal (confirmation.html : pas de bouton retour, pas de badge)
+       dans la 1re cellule DISPONIBLE (colonne 1, a gauche) plutot que la colonne du
+       milieu -- l'auto-placement ne "sait" pas que cette colonne est reservee au
+       logo (regression F40, captures 15/M10 : logo decale a gauche). Explicite ici,
+       le placement ne depend plus du nombre d'enfants du header. */
+    grid-column: 2;
 }
 
 /* Cale la 3e colonne de l'en-tete (equilibre de la grille). Remplace un style
@@ -537,10 +545,11 @@ button {
     margin-left: auto;
 }
 
-/* Minimal header variant (confirmation page — no back button) */
-.site-header--minimal {
-    justify-content: center;
-}
+/* Minimal header variant (confirmation page — no back button, classe posee par
+   confirmation.html). Le centrage du logo est porte par .site-header__logo
+   { grid-column: 2 } ci-dessus : plus de regle .site-header--minimal ici --
+   justify-content ne centre pas un enfant de grille, c'etait un reste de l'ancien
+   en-tete en flexbox et la cause du logo decale a gauche (F40, captures 15/M10). */
 
 /* Primary / secondary button primitives reused across pages */
 .btn {

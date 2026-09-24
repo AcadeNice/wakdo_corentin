@@ -80,6 +80,37 @@ test('productAllowed: extra accepte tout sauf menus et burgers', () => {
     assert.equal(menuForm.productAllowed({ category: 'boissons' }, SLOT_CATEGORIES, 'extra'), true);
 });
 
+/* --- libelle humain du type de slot (F40, capture 32) ---------------------- */
+
+test('slotTypeLabel : traduit les codes techniques en libelle humain', () => {
+    assert.equal(menuForm.slotTypeLabel('drink'), 'Boisson');
+    assert.equal(menuForm.slotTypeLabel('side'), 'Accompagnement');
+    assert.equal(menuForm.slotTypeLabel('sauce'), 'Sauce');
+    assert.equal(menuForm.slotTypeLabel('dessert'), 'Dessert');
+    assert.equal(menuForm.slotTypeLabel('extra'), 'Supplément');
+});
+
+test('le select Type affiche le libelle humain, la valeur soumise reste le code technique', () => {
+    const doc = setup([{ name: 'Boisson', slot_type: 'drink', is_required: 1, options: [] }]);
+    menuForm.init(doc);
+    const options = doc.querySelectorAll('.slot-type option');
+    const bySelected = Array.prototype.find.call(options, (o) => o.value === 'drink');
+    assert.equal(bySelected.textContent, 'Boisson');
+    assert.ok(!Array.prototype.some.call(options, (o) => o.textContent === 'side' || o.textContent === 'sauce'));
+});
+
+/* --- cadre d options : pas de ligne coupee a mi-hauteur (F40, capture 32) -- */
+
+test('le cadre d options a une hauteur maximale multiple exacte de la hauteur d une ligne', () => {
+    const doc = setup([{ name: 'Boisson', slot_type: 'drink', is_required: 1, options: [] }]);
+    menuForm.init(doc);
+    const optWrap = doc.querySelector('.slot-options');
+    const rowHeight = parseInt(doc.querySelector('.slot-options label').style.lineHeight, 10);
+    const maxHeight = parseInt(optWrap.style.maxHeight, 10);
+    assert.ok(rowHeight > 0, 'hauteur de ligne fixee sur chaque option');
+    assert.equal(maxHeight % rowHeight, 0, 'la coupure tombe entre deux lignes, jamais au milieu');
+});
+
 /* --- filtrage des options selon le type de slot --------------------------- */
 
 test('slot drink (edition) : n affiche que les boissons', () => {

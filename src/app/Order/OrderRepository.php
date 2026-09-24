@@ -492,11 +492,14 @@ class OrderRepository
     }
 
     /**
-     * Encaisse une commande pending_payment : transition -> paid ET decrement de
-     * stock atomique (RG-5 etapes 5-6, RG-T11 / RG-T20) dans UNE transaction.
+     * Encaisse une commande pending_payment : transition -> preparing (part en
+     * cuisine sans geste manuel supplementaire, paid_at ET preparing_at poses
+     * ensemble) ET decrement de stock atomique (RG-5 etapes 5-6, RG-T11 / RG-T20)
+     * dans UNE transaction.
      *
-     * Idempotent : une commande deja `paid` est renvoyee telle quelle sans
-     * re-decrementer ; `delivered` / `cancelled` -> INVALID_TRANSITION ; numero
+     * Idempotent : une commande deja encaissee (`paid` -- etat historique anterieur
+     * a ce comportement, ou `preparing`/`ready`/`delivered`) est renvoyee telle
+     * quelle sans re-decrementer ; `cancelled` -> INVALID_TRANSITION ; numero
      * inconnu -> ORDER_NOT_FOUND. La transition est gardee par `status =
      * 'pending_payment'` dans l'UPDATE : sous une course concurrente, seul le
      * premier appel decremente (l'autre voit 0 ligne affectee et sort idempotent).
@@ -512,8 +515,8 @@ class OrderRepository
      * RG-T20) : le decrement ne se conditionne a aucun plancher.
      *
      * NB : inerte tant que les recettes (product_ingredient) ne sont pas seedees —
-     * la transition `paid` s'applique, mais aucun mouvement de stock n'est produit
-     * faute de composition. La logique s'active des que les recettes existent.
+     * la transition `preparing` s'applique, mais aucun mouvement de stock n'est
+     * produit faute de composition. La logique s'active des que les recettes existent.
      *
      * @param int|null $actingUserId acteur comptoir/drive (stock_movement.user_id +
      *                               customer_order.acting_user_id) ; NULL pour le kiosk.

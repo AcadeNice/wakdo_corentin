@@ -394,6 +394,48 @@ test('le message serveur d un champ disparait des que la saisie change', () => {
     assert.equal(doc.getElementById('server-error').hidden, true);
 });
 
+// F40 (section "Textes techniques ou en anglais" de defauts-visibles.md) : le prix
+// se saisit en euros ("1,90" ou "1.90"), plus en centimes. Le champ est passe en
+// type="text" + pattern (products/form.php, menus/form.php) ; ce test verrouille
+// que le controle en direct GENERIQUE (matchesPattern) reste coherent avec le motif
+// reellement pose sur ces champs, cote serveur (Money::parseEurosToCents) et cote
+// client (ce fichier). Le motif exclut explicitement 0 et 0,00 (relecture
+// independante : le premier motif les acceptait alors que le serveur les refuse).
+const PRICE_FORM = '<form id="pf" method="post" action="/admin/products">' +
+    '<div class="form-group"><label for="price_cents">Prix (en euros)</label>' +
+    '  <input id="price_cents" name="price_cents" type="text" inputmode="decimal"' +
+    '         pattern="(?=.*[1-9])[0-9]{1,7}([.,][0-9]{1,2})?" data-pattern-message="Montant invalide (exemple : 1,90)." required></div>' +
+    '<button type="submit">Enregistrer</button></form>';
+
+test('prix en euros : virgule et point acceptes, montant a plus de 2 decimales refuse', () => {
+    const { doc } = setup(PRICE_FORM);
+    const price = doc.getElementById('price_cents');
+
+    price.value = '1,90';
+    assert.equal(formValidation.messageFor(price), '');
+    price.value = '1.90';
+    assert.equal(formValidation.messageFor(price), '');
+    price.value = '5';
+    assert.equal(formValidation.messageFor(price), '', 'euros entiers sans decimale acceptes');
+    price.value = '0,1';
+    assert.equal(formValidation.messageFor(price), '', '0,1 EUR (10 centimes) accepte');
+
+    price.value = '1,900';
+    assert.equal(formValidation.messageFor(price), 'Montant invalide (exemple : 1,90).');
+    price.value = 'abc';
+    assert.equal(formValidation.messageFor(price), 'Montant invalide (exemple : 1,90).');
+    price.value = '0';
+    assert.equal(formValidation.messageFor(price), 'Montant invalide (exemple : 1,90).', '0 EUR refuse cote client comme cote serveur');
+    price.value = '0,00';
+    assert.equal(formValidation.messageFor(price), 'Montant invalide (exemple : 1,90).', '0,00 EUR refuse cote client comme cote serveur');
+    price.value = ',5';
+    assert.equal(formValidation.messageFor(price), 'Montant invalide (exemple : 1,90).', 'partie entiere exigee comme cote serveur');
+    price.value = '00000001,50';
+    assert.equal(formValidation.messageFor(price), 'Montant invalide (exemple : 1,90).', '7 chiffres au plus avant la virgule');
+    price.value = '0,05';
+    assert.equal(formValidation.messageFor(price), '', '5 centimes acceptes');
+});
+
 test('init ne gere que les formulaires sans validation propre et remplace les bulles du navigateur', () => {
     const { doc } = setup(
         FORM +

@@ -30,6 +30,14 @@ $typeText = static fn (string $t): string => match ($t) {
     'cancellation'         => 'Annulation',
     default                => $t,
 };
+// Date lisible (fr) a partir du format MySQL brut ('Y-m-d H:i:s') ; repli sur la
+// valeur d'origine si le format est inattendu (donnee non vide mais non parsable).
+$dateHuman = static function (mixed $v): string {
+    $s = (string) $v;
+    $d = \DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $s);
+
+    return $d !== false ? $d->format('d/m/Y H:i') : $s;
+};
 $colspan = $withActor ? 5 : 4;
 ?>
 <div class="page-header">
@@ -64,7 +72,7 @@ $colspan = $withActor ? 5 : 4;
                     $uid = $row['user_id'] !== null ? (int) $row['user_id'] : 0;
                     ?>
                     <tr>
-                        <td class="muted"><?= $esc($row['created_at'] ?? '') ?></td>
+                        <td class="muted"><?= $esc($dateHuman($row['created_at'] ?? '')) ?></td>
                         <td><?= $esc($typeText((string) ($row['movement_type'] ?? ''))) ?></td>
                         <td><?= $delta > 0 ? '+' . $delta : (string) $delta ?></td>
                         <td class="muted"><?= $esc($row['note'] ?? '') ?></td>

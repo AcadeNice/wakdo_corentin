@@ -176,7 +176,11 @@ final class UserControllerTest extends TestCase
 
         $response = $this->controller($this->get('/admin/users'), $db)->index();
         self::assertSame(200, $response->status());
-        self::assertStringContainsString('sam@wakdo.local', $response->body());
+        $body = $response->body();
+        self::assertStringContainsString('sam@wakdo.local', $body);
+        // F40 (textes techniques) : le bouton d'action est en francais, pas "Reset PIN".
+        self::assertStringContainsString('Réinitialiser le PIN', $body);
+        self::assertStringNotContainsString('Reset PIN', $body);
     }
 
     // --- Creation (user.create) : PIN + audit ---

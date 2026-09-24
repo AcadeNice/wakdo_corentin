@@ -30,16 +30,19 @@ SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;
 -- -----------------------------------------------------------------------------
 -- 1. category (9) — root table, source order = display_order
 -- -----------------------------------------------------------------------------
+-- name (libelle affiche) capitalise (F40, defaut 6) ; slug (identifiant technique,
+-- utilise pour le routage et le mapping slot_type -> categories cote borne/menu)
+-- reste en minuscules, inchange.
 INSERT INTO category (name, slug, image_path, display_order, is_active) VALUES
-  ('menus',    'menus',    'assets/images/categories/menus.png',    1, 1),
-  ('boissons', 'boissons', 'assets/images/categories/boissons.png', 2, 1),
-  ('burgers',  'burgers',  'assets/images/categories/burgers.png',  3, 1),
-  ('frites',   'frites',   'assets/images/categories/frites.png',   4, 1),
-  ('encas',    'encas',    'assets/images/categories/encas.png',    5, 1),
-  ('wraps',    'wraps',    'assets/images/categories/wraps.png',    6, 1),
-  ('salades',  'salades',  'assets/images/categories/salades.png',  7, 1),
-  ('desserts', 'desserts', 'assets/images/categories/desserts.png', 8, 1),
-  ('sauces',   'sauces',   'assets/images/categories/sauces.png',   9, 1);
+  ('Menus',    'menus',    'assets/images/categories/menus.png',    1, 1),
+  ('Boissons', 'boissons', 'assets/images/categories/boissons.png', 2, 1),
+  ('Burgers',  'burgers',  'assets/images/categories/burgers.png',  3, 1),
+  ('Frites',   'frites',   'assets/images/categories/frites.png',   4, 1),
+  ('Encas',    'encas',    'assets/images/categories/encas.png',    5, 1),
+  ('Wraps',    'wraps',    'assets/images/categories/wraps.png',    6, 1),
+  ('Salades',  'salades',  'assets/images/categories/salades.png',  7, 1),
+  ('Desserts', 'desserts', 'assets/images/categories/desserts.png', 8, 1),
+  ('Sauces',   'sauces',   'assets/images/categories/sauces.png',   9, 1);
 
 -- -----------------------------------------------------------------------------
 -- 2. product — every non-menu item (53 rows)

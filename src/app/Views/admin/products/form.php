@@ -71,8 +71,10 @@ $selectedMaxi = (string) ($vals['maxi_variant_product_id'] ?? '');
     </div>
 
     <div class="form-group">
-        <label class="form-label" for="price_cents">Prix (en centimes)</label>
-        <input class="form-input" type="number" id="price_cents" name="price_cents" min="1" max="4294967295" value="<?= $val('price_cents') ?>" required>
+        <label class="form-label" for="price_cents">Prix (en euros)</label>
+        <input class="form-input" type="text" inputmode="decimal" id="price_cents" name="price_cents"
+               pattern="(?=.*[1-9])[0-9]{1,7}([.,][0-9]{1,2})?" data-pattern-message="Montant invalide (exemple : 1,90)."
+               placeholder="ex. 1,90" value="<?= $val('price_cents') ?>" required>
         <?php if ($err('price_cents') !== ''): ?><p class="form-error"><?= htmlspecialchars($err('price_cents'), ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
     </div>
 
