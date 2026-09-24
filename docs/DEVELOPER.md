@@ -115,8 +115,11 @@ Detail par entite : `docs/merise/` et `docs/domaines/` (a venir).
 
 ## 6. Git & CI
 
-- **Conventional Commits** (anglais) : `type(scope): description` — types `feat`, `fix`,
-  `docs`, `refactor`, `test`, `chore`, `ci`, `db`, `perf`, `style`.
+- **Format des commits** (francais, aligne sur l'historique reel du depot) :
+  `type(scope): description` — types `feat`, `fix`, `docs`, `refactor`, `test`,
+  `chore`, `ci`, `db`, `perf`, `style`. Correction du 2026-09-24 : ce document
+  exigeait a tort des messages en anglais ; premiers commits en anglais, en
+  francais depuis mi-juin 2026 ; le francais fait regle.
 - **Branches** depuis `dev` : `feat/*`, `fix/*`, `docs/*`, `chore/*`, `ci/*`, `db/*`,
   `refactor/*`, `test/*`. Merge vers `dev` par **PR squashee**. Periodiquement
   `dev -> main` avec tag semver.

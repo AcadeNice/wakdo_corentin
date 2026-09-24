@@ -171,7 +171,7 @@ Avec un `.env` adapte : `APP_ENV=prod`, `APP_DEBUG=false`, mots de passe forts,
 
 ### Conventions
 
-- **Commits** : Conventional Commits en anglais (`feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `ci`, `db`, `perf`, `style`). Format : `type(scope): description`. Voir `docs/PROJECT_CONTEXT.md` section 9.
+- **Commits** : Conventional Commits en francais (`feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `ci`, `db`, `perf`, `style`). Format : `type(scope): description`. Correction du 2026-09-24 : premiers commits en anglais, en francais depuis mi-juin 2026 ; le francais fait regle. Voir `docs/PROJECT_CONTEXT.md` section 9.
 - **Branches** : `feat/*`, `fix/*`, `refactor/*`, `docs/*`, `ci/*`, `db/*`, `chore/*`, `test/*` depuis `dev`. Merge vers `dev` par PR squashee. Periodiquement `dev` -> `main` par PR avec tag semver.
 - `main` et `dev` sont proteges cote Forgejo (PR requise, force push bloque, checks requis : secret-scan / php-lint / static-tests).
 - Pas d'emoji dans le code, les commits ou les specs techniques (Mantra IA-23).

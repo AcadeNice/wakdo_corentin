@@ -46,10 +46,10 @@ Perimetre principal : la **borne de commande client** (`src/public/borne/`), int
 
 ## Findings releves pendant l'exercice (hors perimetre preuve, a traiter separement)
 
-1. **CSP borne** : le header `Content-Security-Policy` est pose sur le VirtualHost admin (`docker/apache/vhost.conf:177`) mais **pas** sur le vhost borne (`:41-113`). La posture « pas de CDN » est coherente avec le code de la borne mais n'est pas techniquement active cote borne. Piste de durcissement.
+1. ~~**CSP borne** : le header `Content-Security-Policy` est pose sur le VirtualHost admin mais pas sur le vhost borne. Piste de durcissement.~~ **Corrige depuis la demande de fusion #123** (`feat(borne): CSP stricte same-origin + replis d'image CSP-safe`) : le vhost borne pose desormais son propre header `Content-Security-Policy` (`docker/apache/vhost.conf`, `script-src 'self'`, sans `unsafe-inline`), distinct de celui du vhost admin. Verifie le 2026-09-24 sur le fichier courant.
 2. **Donnees de dev polluees** : `/api/categories` expose des categories de test (« La onzieue », « Test ») visibles dans le bandeau produits. Menage de seed a prevoir avant une demo.
 
 ## Reste a la charge du candidat (hors code)
 
 - Demonstration live a l'oral (validateur W3C sur l'URL, bascule OpenDyslexic, navigation clavier, redimensionnement).
-- Stage en entreprise (element bloquant du titre, independant de ces preuves).
+- ~~Stage en entreprise (element bloquant du titre, independant de ces preuves).~~ **Correction du 2026-09-24** : Corentin est en alternance (admin systeme), pas en stage ; l'alternance satisfait l'exigence d'experience professionnelle du titre. Cette ligne etait une fausse alerte.

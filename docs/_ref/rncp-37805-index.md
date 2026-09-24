@@ -137,12 +137,11 @@ Domaines : Modelisation donnees / Construction BDD / Exploitation BDD / Cadre le
 
 | Id | Critere |
 |---|---|
-| Cr 3.a.1 | Les donnees necessaires a l'application sont correctement identifiees |
 | Cr 3.a.2 | Les donnees sont retranscrites sur un schema decrivant les differentes tables et les relations entre elles |
 | Cr 3.a.3 | Le candidat exploite dans son modele de donnees des informations externes provenant d'une API |
-| Cr 3.a.4 | (Cr 3.a.4 cite dans le PDF — libelle proche de Cr 3.a.1) |
+| Cr 3.a.4 | Les donnees necessaires a l'application sont correctement identifiees |
 
-> Note : le PDF affiche Cr 3.a.4 et Cr 3.a.2 en tete de tableau puis Cr 3.a.3. L'ordre a l'ecran n'est pas strictement numerique. A verifier visuellement si un doute.
+> Correction du 2026-09-24 : il n'existe pas de `Cr 3.a.1` dans le PDF officiel — `C3.a` ne porte que trois criteres, numerotes `3.a.2`, `3.a.3` et `3.a.4`. Le PDF les affiche a l'ecran dans l'ordre 3.a.4, 3.a.2, 3.a.3 (verifie visuellement sur la page du referentiel), d'ou la confusion initiale d'une precedente version de cet index qui inventait un `Cr 3.a.1` en dupliquant le libelle de `Cr 3.a.4`. Voir aussi la note en fin de document sur le compte total de criteres (95, pas 96).
 
 #### C3.b — Construire la BDD via un outil d'administration
 
@@ -336,11 +335,18 @@ Domaines : Identification des processus a automatiser / Programmation de scripts
 | Bloc | Competences | Criteres total | Statut |
 |---|---|---|---|
 | Bloc 1 (tronc) | 9 (C1.a-e + C2.a-d) | 42 | Obligatoire |
-| Bloc 2 (tronc) | 11 (C3.a-d + C4.a-g) | 41 | Obligatoire |
+| Bloc 2 (tronc) | 11 (C3.a-d + C4.a-g) | 40 | Obligatoire |
 | Bloc 5 (option DevOps) | 4 (C7.a-d) | 13 | **Option choisie** |
-| **Total Wakdo** | **24 competences** | **96 criteres** | — |
+| **Total Wakdo** | **24 competences** | **95 criteres** | — |
 
 ---
 
 *Index genere le 2026-04-24. Source primaire : `rncp-37805-referentiel.pdf` (PDF officiel Webecom V09-11-22, 20 pages).*
+
+**Correction du 2026-09-24.** Le total ci-dessus etait annonce a 96 criteres
+dans une precedente version de cet index (41 pour le Bloc 2 au lieu de 40),
+a cause d'un `Cr 3.a.1` invente qui n'existe pas dans le PDF officiel (voir la
+note sous le tableau `C3.a` plus haut). Le referentiel compte 95 criteres pour
+le perimetre retenu par Wakdo, pas 96.
+
 *Cet index est un outil de navigation. En cas d'ambiguite sur un libelle, se referer a la source primaire.*
