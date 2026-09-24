@@ -1,8 +1,14 @@
 # Diagramme de sequence securite - Annulation de commande avec PIN (CANCEL_ORDER)
 
 **Phase UML** : P1 - Conception, complement UML (passe security-by-design)
-**Statut** : v0.2 - flux sensible PIN-gate + audit_log (controle anti-fraude interne)
-**Date** : 2026-06-12
+**Statut** : v0.3 - realigne sur le code livre (`OrderAdminController`, `OrderRepository::cancel`)
+**Date** : 2026-06-12 (v0.2), 2026-09-24 (v0.3)
+**Historique** : v0.3 (2026-09-24) - mise en coherence avec le code livre (2a09597) : route
+`/admin/orders/{number}/cancel` (page de confirmation en GET, envoi en POST) au lieu de
+`POST /api/orders/{id}/cancel` ; PIN saisi avec la demande et verifie en premier ; echec de PIN
+trace (`pin.failed`) et compte (`pin_throttle`) ; quatre statuts annulables (`pending_payment`, `paid`,
+`preparing`, `ready`) ; re-credit du stock conditionne a l'existence de mouvements `sale` ; reponses par
+message puis redirection au lieu de codes 422 / 409.
 **Branche** : `feat/p1-conception`
 **Auteur methodologie** : BYAN
 
@@ -12,24 +18,24 @@
 
 Ce document decrit le **flux temporel securise** de l'annulation d'une commande
 en back-office (`CANCEL_ORDER`). L'annulation est une action de **manipulation
-d'argent** : annuler une commande deja `paid` peut servir a masquer un
-detournement d'especes (l'equipier encaisse, annule, garde le cash). Le flux
-ci-dessous materialise le controle qui adresse ce risque : une **re-authentification
-par PIN par equipier** (`RG-T13`) avant l'execution, et l'ecriture d'une ligne
-**`audit_log` immuable** dans la meme transaction que l'effet (`RG-T14`), de sorte
-que chaque annulation est rattachee a une personne meme sur un poste partage.
+d'argent** : annuler une commande encaissee peut servir a masquer un detournement
+d'especes (l'equipier encaisse, annule, garde le cash). Le flux ci-dessous
+materialise le controle qui adresse ce risque : une **re-authentification par PIN
+de l'equipier** (`RG-T13`) avant l'effet, et l'ecriture d'une ligne **`audit_log`**
+dans la meme transaction que l'effet (`RG-T14`), de sorte que chaque annulation est
+rattachee a une personne meme sur un poste partage.
 
-Le diagramme reste au niveau conceptuel / logique. Il nomme les echanges entre
-participants sans detailler l'implementation PHP ni le SQL exact. Il complete
-l'operation `CANCEL_ORDER` du `docs/merise/mlt.md` (7.1), la transition T5 de
-`docs/uml/state-commande.md` (`paid -> cancelled`, re-credit du stock) et le cas
-d'utilisation "Annuler une commande" de `docs/uml/use-cases.md` (UC13).
+Il complete l'operation `CANCEL_ORDER` du `docs/merise/mlt.md` (7.1), la transition
+T5 de `docs/uml/state-commande.md` et le cas d'utilisation "Annuler une commande"
+de `docs/uml/use-cases.md` (UC13).
 
 **Sources** :
-- `docs/merise/mlt.md` 7.1 `CANCEL_ORDER` (PRE-1..PRE-3, RG-1..RG-6, POST, ERR)
-- `docs/merise/mlt.md` section 2 : `RG-T13` (PIN sensible), `RG-T14` (audit_log), `RG-T11` (re-credit dans la meme transaction), `RG-T07` (garde de concurrence), `RG-T08` (transaction atomique)
-- `docs/merise/dictionary.md` 3.14 (`user.pin_hash`, argon2id) et 3.20 (`audit_log`)
-- `docs/uml/state-commande.md` T5 (`paid -> cancelled`, `stock_movement` type `cancellation`)
+- `src/public/admin/index.php` (routes `GET` et `POST /admin/orders/{number}/cancel`)
+- `src/app/Controllers/OrderAdminController.php` (`confirmCancel`, `cancel`, `logFailedPin`)
+- `src/app/Auth/PinVerifier.php` (`resolveActingUser`), `src/app/Auth/PinThrottle.php`
+- `src/app/Order/OrderRepository.php` (`cancel`, `hasSaleMovements`)
+- `src/app/Views/admin/orders/cancel.php` (formulaire email + PIN)
+- `docs/merise/mlt.md` 7.1 et section 2 (`RG-T01`, `RG-T07`, `RG-T08`, `RG-T11`, `RG-T13`, `RG-T14`, `RG-T22`)
 
 ---
 
@@ -37,16 +43,16 @@ d'utilisation "Annuler une commande" de `docs/uml/use-cases.md` (UC13).
 
 | Participant | Role | Couche |
 |---|---|---|
-| **Equipier** | Counter / Drive / Admin titulaire de `order.cancel`, sur poste partage | Acteur |
-| **Admin UI** | Interface back-office (Bloc 3, formulaire d'annulation + saisie PIN) | Presentation |
-| **Controleur** | Back-end REST sous `/api/*` (Bloc 2), orchestre la transaction | Application |
-| **Verif PIN** | Service de verification du PIN (`password_verify` argon2id) | Application |
+| **Equipier** | Counter, drive ou admin titulaire de `order.cancel`, depuis son navigateur sur un poste partage | Acteur |
+| **OrderAdminController** | Pages rendues serveur du back-office : garde, CSRF, orchestration | Application |
+| **PinVerifier / PinThrottle** | Verification du PIN (argon2id) et compteur d'echecs par utilisateur agissant | Application |
+| **OrderRepository** | Transaction d'annulation, re-credit, trace d'audit | Application |
 | **BDD** | Base de donnees MariaDB | Persistance |
 
-La session est **partagee par poste de travail** pour le routine 95% ; le PIN
-re-introduit une attribution individuelle sur le sous-ensemble sensible
-(`mlt.md` `RG-T13`). Le PIN n'est pas une session : il est verifie a chaque action
-sensible et sert a capturer le `user_id` qui sera ecrit dans `audit_log`.
+La session est **partagee par poste de travail** pour le flux routinier ; le PIN
+re-introduit une attribution individuelle sur le sous-ensemble sensible (`RG-T13`).
+L'equipier saisit son email et son PIN **avec la demande** : c'est l'equipier ainsi
+identifie, et non le titulaire de la session, qui est ecrit dans `audit_log`.
 
 ---
 
@@ -55,153 +61,149 @@ sensible et sert a capturer le `user_id` qui sera ecrit dans `audit_log`.
 ```mermaid
 sequenceDiagram
     actor Equipier
-    participant AdminUI as Admin UI
-    participant Ctrl as Controleur
-    participant PIN as Verif PIN
+    participant Ctrl as OrderAdminController
+    participant PIN as PinVerifier<br/>PinThrottle
+    participant Repo as OrderRepository
     participant BDD
 
-    Note over Equipier,BDD: Phase 1 - Demande et controle de permission
 
-    Equipier->>AdminUI: demander l'annulation d'une commande
-    AdminUI->>Ctrl: POST /api/orders/{id}/cancel
-    Ctrl->>Ctrl: verifier session active + is_active = 1 (RG-T02)
-    Ctrl->>BDD: lire role_permission (permission order.cancel ?) (RG-T03, PRE-1)
-    BDD-->>Ctrl: permission presente
-    Ctrl->>BDD: lire customer_order (existe ? statut ?) (PRE-2, PRE-3)
-    BDD-->>Ctrl: status courant
+    Note over Equipier,BDD: Phase 1 - Page de confirmation (GET)
 
-    alt status hors ['pending_payment','paid'] (delivered ou cancelled)
-        Ctrl-->>AdminUI: 422 CANNOT_CANCEL_IN_STATE {current_status}
-        AdminUI-->>Equipier: refus, aucun changement d'etat (ERR-1)
-    else status annulable
-        Note over Equipier,BDD: Phase 2 - Re-authentification PIN (RG-T13)
+    Equipier->>Ctrl: GET /admin/orders/<br/>{number}/cancel (lien<br/>Annuler de /admin/orders)
+    Ctrl->>BDD: guard(order.cancel) :<br/>session valide, permission<br/>du role
+    alt Session absente ou expiree
+        Ctrl-->>Equipier: 302 vers /login
+    else Permission absente
+        Ctrl-->>Equipier: 403 page Acces refuse
+    else Autorise
+        Ctrl->>Repo: findByNumber(number)
+        Repo->>BDD: lire la commande
+        BDD-->>Repo: numero, statut, montant
+        alt Commande inconnue
+            Ctrl-->>Equipier: 404 page Introuvable
+        else Statut pending_payment, paid,<br/>preparing ou ready
+            Ctrl-->>Equipier: 200 formulaire :<br/>email, PIN, jeton CSRF
+        else Statut delivered ou cancelled
+            Ctrl-->>Equipier: 200 message bloquant,<br/>sans formulaire
+        end
+    end
 
-        Ctrl-->>AdminUI: demander la saisie du PIN
-        Equipier->>AdminUI: saisir le PIN
-        AdminUI->>Ctrl: soumettre le PIN (re-auth action sensible)
-        Ctrl->>PIN: verifier le PIN soumis
-        PIN->>BDD: lire user.pin_hash de l'equipier
-        BDD-->>PIN: pin_hash (argon2id)
-        PIN->>PIN: password_verify(pin, pin_hash)
+    Note over Equipier,BDD: Phase 2 - Envoi et verification du PIN (POST)
 
-        alt PIN incorrect
-            PIN-->>Ctrl: echec
-            Ctrl-->>AdminUI: refus du PIN, action rejetee
-            AdminUI-->>Equipier: PIN incorrect, aucun changement d'etat
-        else PIN correct
-            PIN-->>Ctrl: succes, acting user_id capture (RG-T13)
-
-            Note over Equipier,BDD: Phase 3 - Transaction atomique (RG-T08, RG-T11)
-
-            Ctrl->>BDD: BEGIN transaction
-            Ctrl->>BDD: UPDATE customer_order SET status = 'cancelled', cancelled_at = NOW() WHERE id = :id AND status IN ('pending_payment','paid') (RG-1, RG-T07)
-            BDD-->>Ctrl: lignes affectees
-
-            alt 0 ligne affectee (annulation concurrente)
-                Ctrl->>BDD: ROLLBACK
-                Ctrl-->>AdminUI: 409 INVALID_TRANSITION (ERR-2)
-                AdminUI-->>Equipier: deja annulee par un autre poste
-            else 1 ligne affectee
-                opt statut anterieur = paid (re-credit du stock)
-                    Ctrl->>BDD: UPDATE ingredient SET stock_quantity = stock_quantity + :units (par ingredient consomme) (RG-3)
-                    Ctrl->>BDD: INSERT stock_movement (type cancellation, delta +units, order_id, user_id de l'equipier) (RG-3)
-                end
-                Ctrl->>BDD: INSERT audit_log (action_code order.cancel, actor_user_id, actor_role_id, entity_type customer_order, entity_id, summary [statut anterieur + montant re-credite]) (RG-6, RG-T14)
-                Ctrl->>BDD: COMMIT
-                BDD-->>Ctrl: transaction validee
-                Ctrl-->>AdminUI: 200 annulation confirmee (OUT-1)
-                AdminUI-->>Equipier: commande annulee, trace enregistree
+    Equipier->>Ctrl: POST /admin/orders/<br/>{number}/cancel (_csrf,<br/>pin_email, pin saisis)
+    Ctrl->>BDD: guard(order.cancel)
+    alt Jeton CSRF invalide
+        Ctrl-->>Equipier: 403 Requete invalide
+    else Jeton valide
+        Ctrl->>Repo: findByNumber(number)<br/>(lecture de la commande)
+        Ctrl->>PIN: isLocked(utilisateur<br/>de la session)
+        PIN->>BDD: lire pin_throttle
+        alt Verrou actif (RG-T22)
+            PIN->>PIN: leurre de temps
+            Ctrl-->>Equipier: 422 formulaire<br/>Email ou PIN invalide
+        else Pas de verrou
+            Ctrl->>PIN: resolveActingUser<br/>(email, PIN)
+            PIN->>BDD: lire id, role_id, pin_hash<br/>(email, compte actif)
+            PIN->>PIN: verifier le PIN (argon2id)
+            alt PIN incorrect ou compte inconnu
+                PIN-->>Ctrl: aucun equipier
+                Ctrl->>BDD: transaction : INSERT<br/>audit_log (pin.failed,<br/>acteur NULL) + echec<br/>compte dans pin_throttle
+                Ctrl-->>Equipier: 422 formulaire<br/>Email ou PIN invalide
+            else PIN correct
+                PIN-->>Ctrl: equipier identifie<br/>(id, role_id)
             end
         end
     end
+
+    Note over Equipier,BDD: Phase 3 - Transaction d'annulation (PIN correct)
+
+    Ctrl->>Repo: cancel(number, id<br/>et role de l'equipier)
+    Repo->>BDD: lire la commande<br/>(statut, montant)
+    alt Statut delivered ou cancelled
+        Repo-->>Ctrl: CANNOT_CANCEL_IN_STATE
+    else Statut annulable
+        Repo->>BDD: BEGIN
+        Repo->>BDD: UPDATE customer_order<br/>SET status = 'cancelled',<br/>cancelled_at = NOW()<br/>WHERE id = :id AND status IN<br/>('pending_payment', 'paid',<br/>'preparing', 'ready')
+        alt 0 ligne affectee (course perdue)
+            Repo->>BDD: ROLLBACK
+            Repo-->>Ctrl: INVALID_TRANSITION
+        else 1 ligne affectee
+            Repo->>BDD: mouvements sale<br/>de la commande ?
+            opt Au moins un mouvement sale
+                Repo->>BDD: par ingredient : stock<br/>+ unites, plafonne<br/>a la capacite
+                Repo->>BDD: INSERT stock_movement<br/>(cancellation, delta<br/>recredite, equipier)
+            end
+            Repo->>BDD: INSERT audit_log<br/>(order.cancel, equipier<br/>et son role, statut<br/>anterieur, re-credit)
+            Repo->>BDD: COMMIT
+            Repo-->>Ctrl: commande annulee
+            Ctrl->>PIN: remise a zero<br/>du compteur (utilisateur<br/>de la session)
+        end
+    end
+    Ctrl-->>Equipier: 302 /admin/orders<br/>+ message (succes<br/>ou motif du refus)
 ```
 
 ---
 
-## 4. Notes de modelisation : chaque pas et sa regle
+## 4. Notes de modelisation : chaque pas et sa source
 
-Le tableau ci-dessous mappe chaque interaction du diagramme a la regle
-`mlt.md` 7.1 ou a la regle transverse correspondante, et a l'entite ecrite.
-
-| # | Interaction | Regle (mlt.md) | Entite ecrite / lue |
+| # | Interaction | Regle | Code |
 |---|---|---|---|
-| 1 | Verifier session active + `is_active = 1` | `RG-T02` | `user` (lecture) |
-| 2 | Verifier `order.cancel` via `role_permission` | `RG-T03`, 7.1 PRE-1 | `role_permission` (lecture) |
-| 3 | Charger la commande et lire son `status` | 7.1 PRE-2, PRE-3 | `customer_order` (lecture) |
-| 4 | Bloquer si `status` est `delivered` ou `cancelled` | 7.1 ERR-1 | aucune ecriture (HTTP 422) |
-| 5 | Demander + verifier le PIN (`password_verify` argon2id) | `RG-T13`, 7.1 RG-6 | `user.pin_hash` (lecture) |
-| 6 | Rejeter si PIN incorrect, sans changement d'etat | `RG-T13` | aucune ecriture |
-| 7 | Capturer l'`acting user_id` pour l'audit | `RG-T13` | (en memoire, sert aux pas 11-12) |
-| 8 | `BEGIN` transaction | `RG-T08` | transaction |
-| 9 | `UPDATE customer_order SET status='cancelled'` avec garde `AND status IN (...)` | 7.1 RG-1, `RG-T07` | `customer_order` (ecriture) |
-| 10 | `ROLLBACK` + 409 si 0 ligne affectee (concurrence) | 7.1 ERR-2, `RG-T07` | aucune ecriture nette |
-| 11 | Re-credit conditionnel du stock si statut anterieur `paid` | 7.1 RG-3, `RG-T11` | `ingredient`, `stock_movement` (type `cancellation`) |
-| 12 | `INSERT audit_log` dans la meme transaction | 7.1 RG-6, `RG-T14` | `audit_log` (ecriture) |
-| 13 | `COMMIT` (tout ou rien) | `RG-T08`, `RG-T11` | transaction |
-| 14 | Reponse 200 de confirmation | 7.1 OUT-1 | aucune ecriture |
+| 1 | Page de confirmation, garde `order.cancel` (302 vers `/login`, 403) | `RG-T02`, `RG-T03`, 7.1 PRE-1 | `OrderAdminController::confirmCancel`, `AdminController::guard` |
+| 2 | Formulaire email + PIN seulement pour un statut annulable | 7.1 PRE-3 | `Views/admin/orders/cancel.php` |
+| 3 | POST : jeton CSRF (403 sinon) | `RG-T01` | `OrderAdminController::cancel`, `Csrf::validate` |
+| 4 | Verrou du throttle evalue avant la verification, leurre de temps | `RG-T22` | `PinThrottle::isLocked`, `PinVerifier::payTimingDecoy` |
+| 5 | Equipier resolu par email + PIN (compte actif, argon2id) | `RG-T13` | `PinVerifier::resolveActingUser` |
+| 6 | PIN refuse : `pin.failed` dans `audit_log` + echec compte, une transaction, 422 | `RG-T14`, `RG-T22`, `RG-T08` | `OrderAdminController::logFailedPin`, `PinThrottle::recordFailureWithin` |
+| 7 | `UPDATE ... WHERE status IN ('pending_payment','paid','preparing','ready')` | 7.1 RG-1, `RG-T07` | `OrderRepository::cancel` |
+| 8 | Re-credit si des mouvements `sale` existent, plafonne a la capacite | 7.1 RG-3, `RG-T11` | `OrderRepository::hasSaleMovements`, `IngredientRepository::clampToCapacity` |
+| 9 | `audit_log` `order.cancel` dans la meme transaction | 7.1 RG-6, `RG-T14` | `OrderRepository::cancel` |
+| 10 | Remise a zero du throttle, message, redirection vers `/admin/orders` | 7.1 OUT-1, ERR-1, ERR-2 | `OrderAdminController::cancel` |
 
 ### 4.1 Re-credit conditionnel du stock (`RG-T11`)
 
-Le re-credit ne s'applique que si la commande etait au statut `paid` avant
-l'annulation (7.1 RG-3). Une commande `pending_payment` n'avait pas encore
-decremente le stock (le decrement a lieu a la transition `paid`), donc il n'y a
-rien a re-crediter. Pour chaque `order_item` d'une commande `paid`, les unites
-consommees sont recalculees (format `normal`/`maxi`, ajustees par les
-`order_item_modifier`), `ingredient.stock_quantity` est re-incremente et un
-`stock_movement` de type `cancellation` est insere. `RG-T11` garantit que ce
-re-credit et l'`UPDATE` du statut sont dans la **meme transaction** : il n'y a pas
-de decrement orphelin si une etape echoue.
+Le re-credit est decide sur l'**existence de mouvements `sale`** pour la commande,
+lue dans la transaction, et non sur le statut lu avant : si un encaissement
+concurrent gagne la course `pending_payment -> preparing -> cancel`, le stock qu'il a
+debite est bien re-credite. Une commande non encaissee n'a aucun mouvement `sale`
+et rien n'est re-credite. Les unites sont celles de l'encaissement ; le stock
+re-credite ne depasse pas `stock_capacity`, et le `stock_movement` de type
+`cancellation` porte le delta reellement applique.
 
 ### 4.2 Garde de concurrence (`RG-T07`)
 
-L'`UPDATE` porte la clause `AND status IN ('pending_payment','paid')`. Si deux
-postes tentent d'annuler la meme commande au meme instant, seul le premier
-obtient une ligne affectee ; le second recoit 0 ligne et le controleur repond
-409 `INVALID_TRANSITION` apres `ROLLBACK` (7.1 ERR-2). Cette garde optimiste
-reduit le risque d'une double annulation et d'un double re-credit du stock.
+L'`UPDATE` porte la clause `AND status IN (...)`. Si deux postes annulent la meme
+commande au meme instant, seul le premier obtient une ligne affectee ; pour le
+second, la transaction est annulee (`INVALID_TRANSITION`) et l'equipier voit le
+message « Transition invalide : la commande a change d'etat. ».
 
-### 4.3 PIN distinct de la session (`RG-T13`)
+### 4.3 PIN distinct de la session (`RG-T13`, `RG-T22`)
 
-La session reste **partagee par poste** pour le flux routine. Le PIN est verifie
-a chaque action du sous-ensemble sensible (annulation, prix/VAT, RBAC, gestion
-utilisateur, correction d'inventaire), et c'est lui qui fournit l'`actor_user_id`
-ecrit dans `audit_log`. Le `pin_hash` est un hash argon2id (`dictionary.md` 3.14),
-compare via `password_verify` ; il fait partie des champs RESTRICTED tenus hors
-des logs et des reponses API.
+Le PIN est verifie a chaque action du sous-ensemble sensible. Les echecs sont
+comptes par **utilisateur de la session** dans `pin_throttle`, separement des
+compteurs de connexion ; au-dela du seuil, un verrou degressif s'applique et le
+message reste generique (« Email ou PIN invalide »). Le `pin_hash` est un hash
+argon2id, classe RESTRICTED et tenu hors des journaux et des reponses (`dictionary.md` 3.14).
 
 ---
 
 ## 5. Menace adressee : repudiation et detournement d'especes
 
-L'annulation d'une commande `paid` est le geste qui permet le schema de fraude
-"encaisser puis annuler pour garder le cash" (insider cash-skim). Sans controle,
-sur un poste a session partagee, une annulation ne serait rattachee a personne :
-l'auteur pourrait nier l'avoir faite (repudiation). Le flux ci-dessus reduit le
-risque de ce schema en combinant deux mecanismes concrets :
+L'annulation d'une commande encaissee est le geste qui permet le schema de fraude
+"encaisser puis annuler pour garder le cash". Sans controle, sur un poste a session
+partagee, une annulation ne serait rattachee a personne. Deux mecanismes reduisent ce
+risque :
 
-- **PIN par equipier (`RG-T13`)** : l'annulation exige une re-authentification
-  individuelle. Sur un poste partage, cela rattache l'acte a une personne et non
-  au seul poste. Le PIN tend a dissuader l'usage opportuniste d'une session
-  laissee ouverte par un collegue.
-- **`audit_log` immuable (`RG-T14`)** : chaque annulation ecrit une ligne
-  `audit_log` (`action_code = order.cancel`, `actor_user_id`, `actor_role_id`,
-  `entity_type`, `entity_id`, `summary` avec le statut anterieur et le montant
-  re-credite) dans la **meme transaction** que l'`UPDATE` du statut. La table
-  n'accepte ni `UPDATE` ni `DELETE` au niveau applicatif (`dictionary.md` 3.20).
-  Une annulation ne peut donc pas exister sans sa trace, et la trace ne peut pas
-  etre effacee par l'auteur.
+- **PIN par equipier (`RG-T13`)** : l'annulation exige l'email et le PIN d'un equipier
+  actif, ce qui rattache l'acte a une personne et non au seul poste.
+- **`audit_log` (`RG-T14`)** : chaque annulation ecrit une ligne `order.cancel`
+  (`actor_user_id`, `actor_role_id`, `entity_type`, `entity_id`, `summary` avec le
+  statut anterieur et le montant re-credite) dans la **meme transaction** que la mise
+  a jour du statut ; chaque PIN refuse ecrit une ligne `pin.failed`. La table n'est
+  modifiee ni supprimee par l'application (`dictionary.md` 3.20).
 
-L'effet combine : un pic d'annulations rattachees a un meme `actor_user_id`
-devient visible et opposable lors d'une revue. Ceci ne supprime pas le risque,
-mais le **reduit** en transformant un acte anonyme et niable en un acte attribue
-et trace. La residualite (collusion, partage de PIN) releve de controles
-organisationnels hors du modele de donnees.
-
-> Note : `audit_log` enregistre des **noms de champs** et un `summary`
-> non-personnel (`details` stocke les noms de champs modifies, pas de PII),
-> conformement a `RG-T14` et a la classification de `PROJECT_CONTEXT.md` section 19.
-> L'attribution `stock_movement.user_id` du re-credit complete la trace cote stock
-> sans double journalisation.
+Un pic d'annulations rattachees a un meme equipier, ou de `pin.failed`, devient
+visible lors d'une revue. Le risque est reduit, pas supprime : la collusion ou le
+partage de PIN relevent de controles organisationnels.
 
 ---
 
@@ -209,24 +211,23 @@ organisationnels hors du modele de donnees.
 
 | Verification | Resultat |
 |---|---|
-| Statuts annulables coherents avec `state-commande.md` | Oui : `pending_payment` et `paid` (T3, T5) ; `delivered` non annulable (7.1 ERR-1) |
-| Transition `paid -> cancelled` avec re-credit | Couverte par T5 et 7.1 RG-3 (`stock_movement` type `cancellation`) |
-| Entites ecrites presentes au dictionnaire | `customer_order` (3.10), `ingredient`, `stock_movement`, `audit_log` (3.20) |
-| Regle PIN appliquee | `RG-T13` (sous-ensemble sensible inclut 7.1) ; `user.pin_hash` (3.14) |
-| Regle audit appliquee | `RG-T14` ; colonnes conformes a `audit_log` (3.20) |
+| Statuts annulables coherents avec `state-commande.md` | Oui : `pending_payment`, `paid`, `preparing`, `ready` (T5) ; `delivered` et `cancelled` finaux |
+| Re-credit | Conditionne aux mouvements `sale` (T5, 7.1 RG-3), `stock_movement` type `cancellation` |
+| Entites ecrites presentes au dictionnaire | `customer_order` (3.10), `ingredient`, `stock_movement`, `audit_log` (3.20), `pin_throttle` (3.22) |
+| Regles PIN et audit | `RG-T13`, `RG-T14`, `RG-T22` |
 | Atomicite re-credit + statut + audit | `RG-T08` + `RG-T11` (une transaction, `COMMIT` / `ROLLBACK`) |
-| Codes d'erreur | 422 `CANNOT_CANCEL_IN_STATE` (ERR-1), 409 `INVALID_TRANSITION` (ERR-2) |
+| Reponses | Page 422 pour un PIN refuse ; message puis redirection vers `/admin/orders` pour le succes, `CANNOT_CANCEL_IN_STATE` et `INVALID_TRANSITION` |
 
 ---
 
 ## 7. Arbitrage tranche
 
-Le flux retient la re-authentification **par PIN** plutot qu'une re-saisie du mot
-de passe complet : le PIN couvre le sous-ensemble sensible sans casser le routine
-95% a session partagee (`RG-T13`), tout en fournissant l'attribution
-individuelle. L'`audit_log` est ecrit dans la **meme transaction** que l'effet
-(`RG-T14` + `RG-T08`) : une annulation sans trace ne peut pas etre committee. Le
-re-credit du stock est conditionnel au statut anterieur `paid` (`RG-T11`), ce qui
-ecarte un re-credit indu sur une commande `pending_payment` qui n'a pas ete
-decrementee. Les codes d'erreur (`CANNOT_CANCEL_IN_STATE`, `INVALID_TRANSITION`)
-reprennent ceux de `mlt.md` 7.1, sans en inventer de nouveaux.
+Le flux retient la re-authentification **par PIN** plutot qu'une re-saisie du mot de
+passe : le PIN couvre le sous-ensemble sensible sans casser le flux routinier a
+session partagee (`RG-T13`), tout en fournissant l'attribution individuelle.
+L'`audit_log` est ecrit dans la **meme transaction** que l'effet (`RG-T14` +
+`RG-T08`) : une annulation sans trace ne peut pas etre committee. Le re-credit du
+stock repose sur les mouvements `sale` reellement ecrits (`RG-T11`), ce qui ecarte
+un re-credit indu comme un re-credit oublie. La version v0.2 de ce document decrivait
+une API JSON (`POST /api/orders/{id}/cancel`, codes 422 et 409) et deux statuts
+annulables ; elle a ete remplacee le 2026-09-24.

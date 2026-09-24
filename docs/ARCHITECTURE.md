@@ -1,5 +1,7 @@
 # Architecture — Wakdo
 
+**Version** : v0.3 (2026-09-24) — mise en coherence avec le code livre (2a09597) : le subnet explicite de `wakdo_internal` en production est decrit comme un reglage du fichier propre a l'hote (le modele versionne n'en declare pas) ; les tests de bout en bout Playwright, qui existent et se lancent a la main, ne sont plus presentes comme a venir.
+
 Vue d'ensemble technique du projet (borne de commande fast-food, certification RNCP 37805).
 Point d'entree pour comprendre la stack, le decoupage et les choix de conception.
 
@@ -93,8 +95,11 @@ Cinq services Docker. Deux modes, par fichier compose :
   un script donnerait deux proprietaires a cette machine (voir
   `docs/adr/0014-expiration-commandes-pending.md`). Les purges de retention, elles,
   restent en bash : tables techniques, aucun etat metier, aucune trace a ecrire.
-- Choix d'un **subnet RFC 1918 explicite** sur `wakdo_internal` cote prod : l'hote
-  mutualise a un allocateur Docker sature ; le subnet evite l'echec d'allocation auto.
+- **Subnet de `wakdo_internal` en production** : l'hote mutualise a un allocateur Docker
+  sature, et le fichier `docker-compose.prod.yml` propre a l'hote peut fixer un subnet
+  RFC 1918 explicite pour eviter l'echec d'allocation automatique. Le modele versionne
+  `docker-compose.prod.yml.example` n'en declare pas ; ce reglage n'est donc pas verifiable
+  depuis le depot.
 
 Detail reseaux/volumes : `docs/PROJECT_CONTEXT.md` section 5.
 
@@ -259,8 +264,9 @@ MCD / MLD / dictionnaire : `docs/merise/`.
 - **Branch protection** : `dev` et `main` proteges (PR requise, force-push bloque,
   checks requis).
 
-Pyramide visee : Unit > Integration > E2E. Les tests E2E navigateur (Playwright) sont
-une initiative a venir.
+Pyramide visee : Unit > Integration > E2E. Les tests E2E navigateur (Playwright, `tests/e2e/`)
+existent et se lancent a la main contre une pile jetable (`tests/e2e/run.sh`, `tests/e2e/run-a11y.sh`
+pour l'audit d'accessibilite) ; ils ne tournent pas en CI, le runner n'offrant pas le socket Docker aux jobs.
 
 ---
 

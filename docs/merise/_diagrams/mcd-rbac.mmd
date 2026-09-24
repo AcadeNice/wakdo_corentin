@@ -1,7 +1,7 @@
 erDiagram
     user {
         int id PK
-        varchar email
+        varchar email UK
         varchar password_hash
         varchar pin_hash
         varchar first_name
@@ -10,12 +10,15 @@ erDiagram
         tinyint is_active
         datetime last_login_at
         smallint failed_login_attempts
+        datetime last_failed_login_at
         datetime lockout_until
+        varchar password_reset_token_hash
+        datetime password_reset_expires_at
         datetime anonymized_at
     }
     role {
         int id PK
-        varchar code
+        varchar code UK
         varchar label
         text description
         varchar default_route
@@ -23,18 +26,18 @@ erDiagram
         tinyint is_active
     }
     role_visible_source {
-        int role_id FK
-        enum source
+        int role_id PK,FK
+        enum source PK
     }
     permission {
         int id PK
-        varchar code
+        varchar code UK
         varchar label
         text description
     }
     role_permission {
-        int role_id FK
-        int permission_id FK
+        int role_id PK,FK
+        int permission_id PK,FK
     }
     audit_log {
         int id PK
@@ -55,6 +58,14 @@ erDiagram
         datetime lockout_until
         datetime last_attempt_at
     }
+    pin_throttle {
+        int id PK
+        int actor_user_id FK,UK
+        smallint failed_attempts
+        datetime window_started_at
+        datetime lockout_until
+        datetime last_attempt_at
+    }
 
     user }o--|| role : "holds"
     role ||--o{ role_visible_source : "sees_source"
@@ -62,3 +73,4 @@ erDiagram
     permission ||--o{ role_permission : "granted_to"
     user |o--o{ audit_log : "performs"
     role |o--o{ audit_log : "context_of"
+    user ||--o| pin_throttle : "pin_throttled_as"

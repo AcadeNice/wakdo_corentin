@@ -1,7 +1,8 @@
 # Diagramme d'etats-transitions - Commande
 
 **Phase UML** : P1 - Conception, complement UML (apres MCD)
-**Statut** : v0.3 - realigne sur le code livre, machine a 6 valeurs
+**Statut** : v0.4 - realigne sur le code livre, machine a 6 valeurs
+**Historique** : v0.4 (2026-09-24) - mise en coherence avec le code livre (2a09597) : references `OrderRepository.php:ligne` recalees sur le code courant (le fichier a evolue depuis le 2026-07-31) ; libelles du diagramme ecrits avec `<br/>`, que Mermaid 11 affiche en retour a la ligne dans un `stateDiagram-v2` (il y affichait `\n` tel quel).
 **Date** : 2026-07-31
 **Auteur methodologie** : BYAN
 
@@ -48,12 +49,12 @@ proprietaire pour la machine a etats.
 
 | Etat | Valeur ENUM | Signification | Ecrit par |
 |---|---|---|---|
-| En attente de paiement | `pending_payment` | Commande composee, totaux figes, lignes persistees, rien de debite. Etat initial. **Observable** : la creation committe dans sa propre transaction. | `persist()` (`OrderRepository.php:212-274`) |
+| En attente de paiement | `pending_payment` | Commande composee, totaux figes, lignes persistees, rien de debite. Etat initial. **Observable** : la creation committe dans sa propre transaction. | `persist()` (`OrderRepository.php:314-342`) |
 | Payee | `paid` | **Etat historique.** Aucun chemin de code ne l'ecrit plus depuis que le paiement met directement en preparation. Il subsiste dans l'enumeration et dans les gardes pour les commandes creees AVANT ce changement (11 lignes en base de demonstration au 2026-07-31). | plus aucun code |
-| En preparation | `preparing` | Encaissee et en cuisine. C'est ici que le stock est debite. `paid_at` ET `preparing_at` sont poses ensemble ; `paid_at` reste l'horloge de reference du SLA et des indicateurs de vente. | `pay()` (`:348`) |
-| Prete | `ready` | Preparation terminee, en attente de remise. | `markReady()` (`:468`) |
-| Remise | `delivered` | Remise au client. Etat **final**. | `deliver()` (`:417`) |
-| Annulee | `cancelled` | Annulee par un equipier, ou expiree par le planificateur. Etat **final**. | `cancel()` (`:533`), `expireStalePending()` (`:656`) |
+| En preparation | `preparing` | Encaissee et en cuisine. C'est ici que le stock est debite. `paid_at` ET `preparing_at` sont poses ensemble ; `paid_at` reste l'horloge de reference du SLA et des indicateurs de vente. | `pay()` (`:575`) |
+| Prete | `ready` | Preparation terminee, en attente de remise. | `markReady()` (`:700`) |
+| Remise | `delivered` | Remise au client. Etat **final**. | `deliver()` (`:649`) |
+| Annulee | `cancelled` | Annulee par un equipier, ou expiree par le planificateur. Etat **final**. | `cancel()` (`:772`), `expireStalePending()` (`:901`) |
 
 ---
 
@@ -61,24 +62,24 @@ proprietaire pour la machine a etats.
 
 ```mermaid
 stateDiagram-v2
-    [*] --> pending_payment : creer la commande (T1)
+    [*] --> pending_payment : creer la commande<br/>(T1)
 
-    pending_payment --> pending_payment : modifier le panier (M1)\n[lignes remplacees, totaux recalcules\nAUCUN effet de stock, statut inchange]
-    pending_payment --> preparing : payer (T2)\n[paid_at + preparing_at poses\nstock debite dans la meme transaction]
-    pending_payment --> cancelled : annuler (T5)\n[aucun re-credit : rien n a ete debite]
-    pending_payment --> cancelled : expirer (T6)\n[planificateur 02h00, sans acteur]
+    pending_payment --> pending_payment : modifier le panier (M1)<br/>[lignes remplacees,<br/>totaux recalcules<br/>AUCUN effet de stock,<br/>statut inchange]
+    pending_payment --> preparing : payer (T2)<br/>[paid_at + preparing_at<br/>poses<br/>stock debite dans<br/>la meme transaction]
+    pending_payment --> cancelled : annuler (T5)<br/>[aucun re-credit :<br/>rien n a ete debite]
+    pending_payment --> cancelled : expirer (T6)<br/>[planificateur<br/>02h00, sans acteur]
 
-    paid --> preparing : etat historique\n[aucune transition ecrite aujourd hui]
-    paid --> ready : marquer prete (T3)
+    paid --> preparing : etat historique<br/>[aucune transition<br/>ecrite aujourd hui]
+    paid --> ready : marquer prete<br/>(T3)
     paid --> delivered : remettre (T4)
     paid --> cancelled : annuler (T5)
 
-    preparing --> ready : marquer prete (T3)
+    preparing --> ready : marquer prete<br/>(T3)
     preparing --> delivered : remettre (T4)
-    preparing --> cancelled : annuler (T5)\n[re-credit du stock debite]
+    preparing --> cancelled : annuler (T5)<br/>[re-credit du<br/>stock debite]
 
     ready --> delivered : remettre (T4)
-    ready --> cancelled : annuler (T5)\n[re-credit du stock debite]
+    ready --> cancelled : annuler (T5)<br/>[re-credit du<br/>stock debite]
 
     delivered --> [*]
     cancelled --> [*]
@@ -90,12 +91,12 @@ stateDiagram-v2
 
 | # | De | Vers | Evenement | Garde | Acteur | Code |
 |---|---|---|---|---|---|---|
-| T1 | (initial) | `pending_payment` | Creation de la commande composee | Au moins une ligne resolue ; produits disponibles (RG-T21) ; prix refiges serveur | Client (borne) / Equipier (comptoir, drive) | `persist()` `:212-274` |
-| T2 | `pending_payment` | `preparing` | Encaissement | `WHERE status = 'pending_payment'` ; 0 ligne affectee et etat deja encaisse -> sortie idempotente, sinon transition invalide | Client / Equipier | `pay()` `:344-375` |
-| T3 | `paid`, `preparing` | `ready` | Preparation terminee | `WHERE status IN ('paid','preparing')` ; permission `order.read` | Cuisine | `markReady()` `:467-471` |
-| T4 | `paid`, `preparing`, `ready` | `delivered` | Remise physique | `WHERE status IN ('paid','preparing','ready')` ; permission `order.deliver` ; source compatible avec le role (`role_visible_source`, PRE-3) | Comptoir / Drive | `deliver()` `:416-420` |
-| T5 | `pending_payment`, `paid`, `preparing`, `ready` | `cancelled` | Annulation | `WHERE status IN (...)` ; permission `order.cancel` + PIN equipier ; re-credit du stock **conditionne a l'existence de mouvements `sale`**, pas au statut lu | Comptoir / Drive / Admin | `cancel()` `:507` |
-| T6 | `pending_payment` | `cancelled` | **Expiration automatique** | Age > `ORDER_PENDING_EXPIRY_MINUTES` ; `WHERE status = 'pending_payment'` ; aucun mouvement `sale` ; **aucun effet de stock** | Systeme (planificateur 02h00) | `expireStalePending()` `:618` |
+| T1 | (initial) | `pending_payment` | Creation de la commande composee | Au moins une ligne resolue ; produits disponibles (RG-T21) ; prix refiges serveur | Client (borne) / Equipier (comptoir, drive) | `persist()` `:314-342` |
+| T2 | `pending_payment` | `preparing` | Encaissement | `WHERE status = 'pending_payment'` ; 0 ligne affectee et etat deja encaisse -> sortie idempotente, sinon transition invalide | Client / Equipier | `pay()` `:559-607` |
+| T3 | `paid`, `preparing` | `ready` | Preparation terminee | `WHERE status IN ('paid','preparing')` ; permission `order.read` | Cuisine | `markReady()` `:699-703` |
+| T4 | `paid`, `preparing`, `ready` | `delivered` | Remise physique | `WHERE status IN ('paid','preparing','ready')` ; permission `order.deliver` ; source compatible avec le role (`role_visible_source`, PRE-3) | Comptoir / Drive | `deliver()` `:648-652` |
+| T5 | `pending_payment`, `paid`, `preparing`, `ready` | `cancelled` | Annulation | `WHERE status IN (...)` ; permission `order.cancel` + PIN equipier ; re-credit du stock **conditionne a l'existence de mouvements `sale`**, pas au statut lu | Comptoir / Drive / Admin | `cancel()` `:747` |
+| T6 | `pending_payment` | `cancelled` | **Expiration automatique** | Age > `ORDER_PENDING_EXPIRY_MINUTES` ; `WHERE status = 'pending_payment'` ; aucun mouvement `sale` ; **aucun effet de stock** | Systeme (planificateur 02h00) | `expireStalePending()` `:858` |
 
 ### Boucle sur place (pas une transition)
 

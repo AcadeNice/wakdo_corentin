@@ -1,10 +1,11 @@
 # Modele Conceptuel des Traitements (MCT) — Wakdo
 
 **Phase Merise** : P1 - Conception, etape 3 (apres le MCD)
-**Version** : v0.2 — prod-like, machine a 4 etats (+ couche security-by-design 2026-06-11)
+**Version** : v0.3 — prod-like, machine a 6 etats (+ couche security-by-design 2026-06-11)
+**Historique** : v0.3 (2026-09-24) — mise en coherence avec le code livre (2a09597) : CREATE_ORDER (3.3) ne decrit plus que la creation, nouvelle operation PAY_ORDER (3.3ter) pour l'encaissement, CREATE_COUNTER_ORDER (4.1) en deux transactions, DISPLAY_CONFIRMATION (3.4) sur le statut `preparing`, COMPOSE_CART (3.2) sans modificateur d'ingredient cote borne, CANCEL_ORDER (7.1) sur quatre statuts avec re-credit conditionne aux mouvements `sale`, modificateurs d'ingredient envoyes par la saisie comptoir et drive (et non par la borne), role `kitchen` qui marque une commande prete, tableau des operations complete (30 operations), matrice de verification croisee MCT -> MCD (section 15) mise a jour, dont `pin_throttle`.
 **Date** : 2026-06-04 (ajouts security-by-design 2026-06-11)
 **Branche** : `feat/p1-conception`
-**Statut** : prod-like — toutes les decisions D1-D8 + stock appliquees (voir `docs/notes/revue-alignement-p1.md` §7) ; operations security-by-design ajoutees (ERASE_USER_PII, RESET_PASSWORD, ensemble sensible protege par PIN, ecritures audit_log, throttling d'authentification) — 28 operations
+**Statut** : prod-like — toutes les decisions D1-D8 + stock appliquees (voir `docs/notes/revue-alignement-p1.md` §7) ; operations security-by-design ajoutees (ERASE_USER_PII, RESET_PASSWORD, ensemble sensible protege par PIN, ecritures audit_log, throttling d'authentification) — 30 operations (PAY_ORDER et MARK_READY ajoutees au tableau en v0.3)
 **Auteur** : BYAN (couche methodologie)
 
 ---
@@ -32,7 +33,7 @@ Le MCT couvre :
 | Client (kiosk) | CUSTOMER | Borne tactile (public, non authentifie) |
 | Personnel comptoir | COUNTER | Back-office, role `counter` |
 | Personnel drive | DRIVE | Back-office, role `drive` |
-| Personnel cuisine | KITCHEN | Back-office, role `kitchen` (lecture seule sur les commandes) |
+| Personnel cuisine | KITCHEN | Back-office, role `kitchen` : consulte la file de preparation et marque une commande prete (MARK_READY) ; ne cree, ne remet ni n'annule de commande |
 | Manager | MANAGER | Back-office, role `manager` |
 | Administrateur | ADMIN | Back-office, role `admin` |
 | Systeme | SYS | API interne / logique PHP |
@@ -69,11 +70,10 @@ comme `ready` avant la remise, geste routinier sans PIN et sans mouvement de sto
 `DELIVER_ORDER` n'est donc plus la seule action faisant avancer le statut pour le personnel ;
 elle reste la seule action vers l'etat terminal `delivered` (condition mise a jour en 6.1).
 
-*Hors perimetre de cette correction* : les operations 3.3 (CREATE_ORDER) et 4.1
-(CREATE_COUNTER_ORDER) plus bas decrivent encore l'encaissement comme un temps unique
-`pending_payment -> paid` ; le comportement reel (deux appels HTTP pour le kiosk, transition
-directe vers `preparing`) est documente dans `mlt.md` 3.3 POST-1 / 3.3bis / section 14 et
-n'est pas realigne ici.
+*Note soldee en v0.3 (2026-09-24)* : cette version 0.2 laissait hors perimetre les operations 3.3
+(CREATE_ORDER) et 4.1 (CREATE_COUNTER_ORDER), qui decrivaient l'encaissement comme un temps unique
+`pending_payment -> paid`. Elles sont desormais realignees : creation en `pending_payment`, puis
+PAY_ORDER (3.3ter) vers `preparing`.
 
 **Couche security-by-design (2026-06-11)** : deux operations sont ajoutees — `RESET_PASSWORD` (12.3)
 et `ERASE_USER_PII` (10.5, anonymisation RGPD). Un sous-ensemble d'operations est **protege par PIN** :
@@ -144,11 +144,11 @@ Pour chaque operation, le document fournit :
 |-------|-------|
 | **Evenement declencheur** | Le client selectionne un produit ou un menu sur le kiosk |
 | **Acteur** | CUSTOMER |
-| **Synchronisation** | Evenement repetable (OR : ajouter produit, ajouter menu, modifier quantite, retirer un article, choisir un slot de menu, choisir le format Normal/Maxi, ajouter/retirer un modificateur d'ingredient) |
+| **Synchronisation** | Evenement repetable (OR : ajouter produit, ajouter menu, choisir une taille, modifier quantite, retirer un article, choisir un slot de menu, choisir le format Normal/Maxi, abandonner la commande) |
 | **Condition** | Le produit ou le menu selectionne a `is_available=1` |
 | **Operation** | COMPOSE_CART |
-| **Description** | Construction du panier en memoire : ajouter un article (produit autonome ou menu), selectionner les produits des slots (`order_item_selection`), modifier optionnellement les ingredients (`order_item_modifier`), choisir le format Normal ou Maxi pour les menus, recalculer le total TTC. Le panier est une structure volatile cote client ; aucune ecriture en base a ce stade. |
-| **Entites MCD** | R: `product`, `menu`, `menu_slot`, `menu_slot_option`, `ingredient`, `product_ingredient` — W: aucune (etat volatile front-end) |
+| **Description** | Construction du panier cote borne : ajouter un article (produit autonome, avec sa quantite et sa taille s'il en a plusieurs, ou menu), selectionner les produits des slots (futurs `order_item_selection`), choisir le format Normal ou Maxi pour les menus, recalculer le total TTC affiche. Le panier est conserve dans le `localStorage` du navigateur (`state.js`) ; aucune ecriture en base a ce stade. Modificateurs d'ingredient : la borne n'en construit pas ; la saisie comptoir et drive en envoie (CREATE_COUNTER_ORDER, 4.1). Le serveur les revalide (`OrderRepository::resolveModifiers`). |
+| **Entites MCD** | R: `product`, `menu`, `menu_slot`, `menu_slot_option` — W: aucune (etat cote navigateur) |
 | **Resultat** | Panier mis a jour, total recalcule, recapitulatif affiche |
 
 ---
@@ -157,14 +157,29 @@ Pour chaque operation, le document fournit :
 
 | Champ | Valeur |
 |-------|-------|
-| **Evenements declencheurs** | 1. Le client confirme le panier (appuie sur « Valider ») AND 2. Le client saisit son numero de commande (substitut de paiement RNCP) |
+| **Evenements declencheurs** | Le client touche « Payer » puis choisit un mode de paiement (simule, cadre RNCP). En service sur place, il saisit d'abord le numero de son chevalet. |
 | **Acteur** | CUSTOMER |
-| **Synchronisation** | AND (les deux actions requises) |
-| **Condition** | Le panier contient au moins 1 article. Le numero de commande saisi est non vide. |
+| **Synchronisation** | AND (paiement choisi ; chevalet saisi si le mode est `dine_in`) |
+| **Condition** | Le panier contient au moins 1 article. Le mode de service est valide. |
 | **Operation** | CREATE_ORDER |
-| **Description** | Creation atomique de la commande : INSERT `customer_order` avec statut `pending_payment`, source `kiosk`, snapshot des totaux HT/TVA/TTC (calcules ligne par ligne en utilisant `vat_rate` snapshote par article). INSERT des lignes `order_item` avec `label_snapshot`, `unit_price_cents_snapshot`, `vat_rate_snapshot`. INSERT `order_item_selection` pour chaque slot rempli dans un article de menu. INSERT `order_item_modifier` pour chaque modification d'ingredient. Decrement de `ingredient.stock_quantity` pour chaque ingredient consomme (ajuste par les modificateurs : retrait => pas de decrement ; ajout => decrement supplementaire) ; INSERT d'une ligne `stock_movement` de type `sale` par unite d'ingredient affectee. Les decrements de stock et l'insertion de la commande sont dans la meme transaction. Apres que le client a saisi son numero de commande, le statut passe `pending_payment -> paid` dans la meme transaction ; `paid_at` est positionne. Le systeme genere le numero de commande au format prefixe canal + id (`K<id>`, voir dictionnaire note 4). |
-| **Entites MCD** | R: `product`, `menu`, `ingredient`, `product_ingredient` (snapshot) — W: `customer_order` (INSERT status `pending_payment` then UPDATE status `paid`, `paid_at`), `order_item` (INSERT N lines), `order_item_selection` (INSERT per menu slot chosen), `order_item_modifier` (INSERT per modification), `ingredient` (UPDATE stock_quantity), `stock_movement` (INSERT type `sale` per unit) |
-| **Resultat** | Commande creee (statut `paid` en fin d'operation), numero de commande affiche au client, evenement logique ORDER_CREATED emis vers le domaine de preparation |
+| **Description** | Premier des deux appels de la borne (`POST /api/orders`). Les prix, la TVA et la disponibilite sont relus en base (RG-T16, RG-T21). Dans une transaction : INSERT `customer_order` au statut `pending_payment`, source `kiosk`, totaux HT/TVA/TTC ; numero genere au format prefixe canal + id (`K<id>`, dictionnaire note 4) ; INSERT des lignes `order_item` avec `label_snapshot`, `unit_price_cents_snapshot`, `vat_rate_snapshot`, et des `order_item_selection` pour les menus. Aucun effet sur le stock. La transaction committe : `pending_payment` est un etat observable. Si la cle d'idempotence est deja connue et porte une commande en attente, le panier modifie remplace ses lignes (MODIFY_PENDING_ORDER, `mlt.md` 3.3bis). |
+| **Entites MCD** | R: `product`, `menu`, `menu_slot`, `ingredient`, `product_ingredient` — W: `customer_order` (INSERT `pending_payment`), `order_item`, `order_item_selection` |
+| **Resultat** | Commande creee au statut `pending_payment` ; son numero est renvoye a la borne, qui enchaine avec PAY_ORDER |
+
+---
+
+### 3.3ter PAY_ORDER
+
+| Champ | Valeur |
+|-------|-------|
+| **Evenement declencheur** | CREATE_ORDER a renvoye le numero de la commande (borne), ou CREATE_COUNTER_ORDER vient de creer la commande (comptoir, drive) |
+| **Acteur** | CUSTOMER (borne), COUNTER ou DRIVE (dans la meme requete que la creation) |
+| **Synchronisation** | Aucune |
+| **Condition** | La commande existe et est au statut `pending_payment`. Deja encaissee : renvoi de l'etat reel, sans nouvel effet. Annulee : refus. |
+| **Operation** | PAY_ORDER |
+| **Description** | Second appel de la borne (`POST /api/orders/{number}/pay`). Dans une transaction : verrou de la ligne de commande (`SELECT ... FOR UPDATE`) et relecture du total, transition `pending_payment -> preparing` avec `paid_at` et `preparing_at` poses ensemble, decrement de `ingredient.stock_quantity` pour chaque ingredient consomme et INSERT d'une ligne `stock_movement` de type `sale` par ingredient. La commande part en cuisine sans geste intermediaire. |
+| **Entites MCD** | R: `order_item`, `order_item_modifier`, `product_ingredient` — W: `customer_order` (UPDATE `preparing`, `paid_at`, `preparing_at`), `ingredient` (UPDATE stock_quantity), `stock_movement` (INSERT type `sale`) |
+| **Resultat** | Commande au statut `preparing`, visible dans la file de preparation ; stock debite |
 
 ---
 
@@ -172,12 +187,12 @@ Pour chaque operation, le document fournit :
 
 | Champ | Valeur |
 |-------|-------|
-| **Evenement declencheur** | ORDER_CREATED (reponse API 201 apres CREATE_ORDER) |
+| **Evenement declencheur** | Reponse de PAY_ORDER (HTTP 200) |
 | **Acteur** | SYS |
 | **Synchronisation** | Aucune |
-| **Condition** | La reponse API contient un id, un order_number et le statut `paid` |
+| **Condition** | La reponse contient le numero de commande et le montant, au statut `preparing` |
 | **Operation** | DISPLAY_CONFIRMATION |
-| **Description** | Affichage de l'ecran de confirmation sur le kiosk avec le numero de commande. Le kiosk se reinitialise ensuite pour le client suivant. |
+| **Description** | La borne memorise le numero et le montant (`sessionStorage`), vide le panier et affiche `confirmation.html`, sans nouvel appel a l'API. Le client lance ensuite une nouvelle commande. |
 | **Entites MCD** | R: aucune (les donnees sont dans la reponse API) |
 | **Resultat** | Ecran de confirmation affiche ; kiosk disponible pour la commande suivante |
 
@@ -194,9 +209,9 @@ Pour chaque operation, le document fournit :
 | **Synchronisation** | Aucune |
 | **Condition** | L'acteur est authentifie et detient la permission `order.create`. La `source` est `counter` ou `drive` (auto-taggee depuis `role.order_source`). |
 | **Operation** | CREATE_COUNTER_ORDER |
-| **Description** | Composition manuelle de la commande via le back-office : selectionner produits et menus, choisir le mode de service (`dine_in`/`takeaway`/`drive`), remplir les slots de menu, ajouter des modificateurs d'ingredient. Logique de creation identique a CREATE_ORDER (snapshot, decrement de stock dans la meme transaction, transition atomique `pending_payment -> paid`). La `source` est auto-taggee depuis `role.order_source` (counter -> `counter`, drive -> `drive`). Format du numero de commande : prefixe canal + id (`C<id>` comptoir, `D<id>` drive). Contrainte croisee : si `source = 'drive'` alors `service_mode = 'drive'` (verifie a la creation). |
-| **Entites MCD** | R: `product`, `menu`, `menu_slot`, `menu_slot_option`, `ingredient`, `product_ingredient` — W: `customer_order` (INSERT status `pending_payment` then UPDATE status `paid`, `paid_at`), `order_item`, `order_item_selection`, `order_item_modifier`, `ingredient` (stock decrement), `stock_movement` (INSERT type `sale`) |
-| **Resultat** | Commande creee (statut `paid`), numero de commande communique au client |
+| **Description** | Composition de la commande sur l'ecran de saisie du back-office : selectionner produits et menus, choisir le mode de service (`dine_in`/`takeaway`/`drive`), remplir les slots de menu, choisir des modificateurs d'ingredient (retirer ou ajouter, `counter-order.js`). Une seule requete, deux transactions : la creation (identique a CREATE_ORDER, statut `pending_payment`) puis PAY_ORDER (statut `preparing`, decrement du stock attribue a l'equipier). La `source` est auto-taggee depuis `role.order_source` (counter -> `counter`, drive -> `drive`). Format du numero de commande : prefixe canal + id (`C<id>` comptoir, `D<id>` drive). Contrainte croisee : si `source = 'drive'` alors `service_mode = 'drive'` (verifie a la creation). |
+| **Entites MCD** | R: `product`, `menu`, `menu_slot`, `menu_slot_option`, `ingredient`, `product_ingredient` — W: `customer_order` (INSERT `pending_payment` puis UPDATE `preparing`, `paid_at`, `preparing_at`, `acting_user_id`), `order_item`, `order_item_selection`, `order_item_modifier` (INSERT par modification choisie), `ingredient` (stock decrement), `stock_movement` (INSERT type `sale`) |
+| **Resultat** | Commande creee au statut `preparing`, numero de commande communique au client |
 
 ---
 
@@ -243,11 +258,11 @@ Pour chaque operation, le document fournit :
 | **Evenement declencheur** | Un acteur autorise demande l'annulation d'une commande |
 | **Acteur** | COUNTER, DRIVE ou ADMIN |
 | **Synchronisation** | Aucune |
-| **Condition** | La commande existe. `customer_order.status` est dans `['pending_payment', 'paid']`. Les statuts terminaux `delivered` et `cancelled` ne peuvent pas transiter vers `cancelled`. L'acteur detient la permission `order.cancel`. |
+| **Condition** | La commande existe. `customer_order.status` est dans `['pending_payment', 'paid', 'preparing', 'ready']`. Les statuts terminaux `delivered` et `cancelled` ne peuvent pas transiter vers `cancelled`. L'acteur detient la permission `order.cancel` et saisit l'email et le PIN d'un equipier actif avec la demande (RG-T13). |
 | **Operation** | CANCEL_ORDER |
-| **Description** | Transition du statut courant vers `cancelled`. Positionne `cancelled_at = NOW()`. La commande est conservee en base pour l'historique et les stats (pas de suppression physique). Si le statut courant est `paid`, le stock est recredite : pour chaque ingredient consomme par la commande (en tenant compte des modificateurs), `ingredient.stock_quantity` est incremente ; une ligne `stock_movement` de type `cancellation` est inseree par unite d'ingredient affectee. Le recredit du stock et la mise a jour du statut sont dans la meme transaction. |
-| **Entites MCD** | R: `order_item`, `order_item_modifier`, `ingredient`, `product_ingredient` — W: `customer_order` (UPDATE status -> `cancelled`, `cancelled_at = NOW()`), `ingredient` (UPDATE stock_quantity, conditional on status `paid`), `stock_movement` (INSERT type `cancellation`, conditional on status `paid`) |
-| **Resultat** | Commande au statut `cancelled`, visible dans l'historique admin |
+| **Description** | Transition du statut courant vers `cancelled`. Positionne `cancelled_at = NOW()`. La commande est conservee en base pour l'historique et les stats (pas de suppression physique). Si des mouvements `sale` existent pour la commande (elle a ete encaissee), le stock est recredite : pour chaque ingredient consomme, `ingredient.stock_quantity` est incremente dans la limite de `stock_capacity` et une ligne `stock_movement` de type `cancellation` est inseree par ingredient. Une ligne `audit_log` (`order.cancel`) rattache l'annulation a l'equipier identifie par son PIN. Le recredit, la mise a jour du statut et la trace sont dans la meme transaction. Un PIN refuse ecrit `pin.failed` dans `audit_log` et incremente `pin_throttle`, sans toucher a la commande. |
+| **Entites MCD** | R: `order_item`, `order_item_modifier`, `ingredient`, `product_ingredient` — W: `customer_order` (UPDATE status -> `cancelled`, `cancelled_at = NOW()`), `ingredient` (UPDATE stock_quantity, si des mouvements `sale` existent), `stock_movement` (INSERT type `cancellation`, meme condition), `audit_log` (INSERT `order.cancel`) |
+| **Resultat** | Commande au statut `cancelled`, visible dans l'historique admin ; message puis retour a la liste des commandes |
 
 ---
 
@@ -576,7 +591,7 @@ et `docs/uml/state-commande.md`.
                       v
            [ pending_payment ]  (commande composee, encaissement en attente)
                       |
-    [CUSTOMER / COUNTER / DRIVE] encaissement confirme
+    [CUSTOMER / COUNTER / DRIVE] PAY_ORDER (encaissement)
     (paid_at ET preparing_at poses ensemble)
                       |
                       v
@@ -604,8 +619,8 @@ et `docs/uml/state-commande.md`.
 ```
 
 **Note sur la transition `pending_payment -> preparing`** : dans le contexte RNCP, le
-paiement est remplace par la saisie du numero de commande (kiosk) ou par la validation du
-personnel (comptoir/drive). Pour le kiosk, creation et encaissement sont deux appels HTTP
+paiement est simule : choix d'un mode de paiement sur la borne (le numero de commande est genere
+par le serveur), validation du formulaire de saisie au comptoir et au drive. Pour le kiosk, creation et encaissement sont deux appels HTTP
 distincts (`mlt.md` 3.3 POST-1, 3.3bis) : `pending_payment` EST observable entre les deux
 appels (la commande reste modifiable — F18 — et peut expirer, purge documentee en `mlt.md`
 13.6). L'encaissement pose `paid_at` et `preparing_at` dans la meme transaction et fait
@@ -613,9 +628,8 @@ passer directement a `preparing` : `paid` n'est pas observe sur ce chemin.
 
 **`paid` : statut historique.** Il reste dans l'ENUM et dans les gardes `status IN (...)`
 pour les commandes creees avant le realignement du 2026-07-31 ; aucun chemin de code actuel
-ne l'ecrit plus. Les operations 3.3/4.1 plus haut dans ce document, qui decrivent encore une
-transition `-> paid`, refletent ce comportement pre-realignement (voir la note de portee en
-section 1).
+ne l'ecrit plus. Depuis la v0.3 de ce document (2026-09-24), les operations 3.3, 3.3ter et 4.1
+decrivent le comportement livre : creation en `pending_payment`, puis PAY_ORDER vers `preparing`.
 
 **Reintroduit par rapport a la v0.2 (juin 2026)** : etats `preparing` et `ready` ; operation
 `MARK_READY`. `MARK_IN_PREPARATION` reste absente (l'encaissement pose `preparing`
@@ -630,13 +644,13 @@ LIST_ORDERS_DISPLAY (domaine 5) mais peut, depuis le meme ecran, declencher `MAR
 | # | Operation | Domaine | Acteur | Entites W | Entites R |
 |---|-----------|--------|-------|------------|------------|
 | 1 | LOAD_CATALOGUE | Order kiosk | CUSTOMER | — | category, product, menu, menu_slot, menu_slot_option, ingredient, allergen, ingredient_allergen |
-| 2 | COMPOSE_CART | Order kiosk | CUSTOMER | — (volatile) | product, menu, menu_slot, menu_slot_option, ingredient, product_ingredient |
-| 3 | CREATE_ORDER | Order kiosk | CUSTOMER | customer_order, order_item, order_item_selection, order_item_modifier, ingredient, stock_movement | product, menu, ingredient, product_ingredient |
+| 2 | COMPOSE_CART | Order kiosk | CUSTOMER | — (navigateur) | product, menu, menu_slot, menu_slot_option |
+| 3 | CREATE_ORDER | Order kiosk | CUSTOMER | customer_order, order_item, order_item_selection | product, menu, menu_slot, ingredient, product_ingredient |
 | 4 | DISPLAY_CONFIRMATION | Order kiosk | SYS | — | — |
 | 5 | CREATE_COUNTER_ORDER | Order counter/drive | COUNTER/DRIVE | customer_order, order_item, order_item_selection, order_item_modifier, ingredient, stock_movement | product, menu, menu_slot, menu_slot_option, ingredient, product_ingredient |
 | 6 | LIST_ORDERS_DISPLAY | Preparation | KITCHEN/COUNTER/DRIVE/ADMIN | — | customer_order, order_item, order_item_selection, order_item_modifier, role_visible_source |
 | 7 | DELIVER_ORDER | Delivery | COUNTER/DRIVE | customer_order | — |
-| 8 | CANCEL_ORDER | Cancellation | COUNTER/DRIVE/ADMIN | customer_order, ingredient, stock_movement | order_item, order_item_modifier, ingredient, product_ingredient |
+| 8 | CANCEL_ORDER | Cancellation | COUNTER/DRIVE/ADMIN | customer_order, ingredient, stock_movement, audit_log, pin_throttle | order_item, order_item_modifier, ingredient, product_ingredient, user |
 | 9 | CREATE_PRODUCT | Catalogue | ADMIN/MANAGER | product | category |
 | 10 | UPDATE_PRODUCT | Catalogue | ADMIN/MANAGER | product | — |
 | 11 | DELETE_PRODUCT | Catalogue | ADMIN | product | menu_slot_option, order_item, menu |
@@ -657,9 +671,13 @@ LIST_ORDERS_DISPLAY (domaine 5) mais peut, depuis le meme ecran, declencher `MAR
 | 26 | LOGOUT_USER | Auth | ALL BACK | — | — |
 | 27 | ERASE_USER_PII | RBAC | ADMIN | user, audit_log | user |
 | 28 | RESET_PASSWORD | Auth | ALL BACK | user, audit_log | user |
+| 29 | PAY_ORDER | Order kiosk / counter / drive | CUSTOMER/COUNTER/DRIVE | customer_order, ingredient, stock_movement | order_item, order_item_modifier, product_ingredient |
+| 30 | MARK_READY | Preparation | KITCHEN/COUNTER/DRIVE/ADMIN | customer_order | — |
 
-**Total : 28 operations** (26 prod-like + `ERASE_USER_PII` et `RESET_PASSWORD` de la
-couche security-by-design).
+**Total : 30 operations** (26 prod-like + `ERASE_USER_PII` et `RESET_PASSWORD` de la
+couche security-by-design + `PAY_ORDER` et `MARK_READY`, ajoutees au tableau en v0.3 pour refleter le code livre).
+MODIFY_PENDING_ORDER (`mlt.md` 3.3bis) et l'expiration planifiee (`mlt.md` 13.6) completent CREATE_ORDER sans
+figurer comme lignes separees.
 
 **Ecritures du journal d'audit (security-by-design)** : les operations sensibles 7.1 (annulation), 8.2/8.3
 (modification/suppression de produit), 8.6 (suppression de menu), 10.1-10.5 (utilisateur/RBAC/effacement) et 12.1 (connexion)
@@ -680,22 +698,25 @@ Verification que chaque entite MCD participe a au moins une operation MCT.
 | `menu` | 1, 2, 3, 5, 12, 14 | 12, 13, 14 | OK |
 | `menu_slot` | 1, 2, 5 | 12, 13, 14 | OK |
 | `menu_slot_option` | 1, 2, 5, 11 | 12, 13, 14 | OK |
-| `ingredient` | 1, 2, 3, 5, 8, 16, 17, 18, 19 | 3, 5, 8, 16, 17, 18 | OK |
-| `product_ingredient` | 2, 3, 5, 8 | 16 | OK |
+| `ingredient` | 1, 3, 5, 8, 16, 17, 18, 19 | 5, 8, 16, 17, 18, 29 | OK |
+| `product_ingredient` | 3, 5, 8, 29 | 16 | OK |
 | `allergen` | 1 | — (static seed) | OK (*) |
 | `ingredient_allergen` | 1 | 16 | OK |
-| `customer_order` | 6, 8, 24 | 3, 5, 7, 8 | OK |
-| `order_item` | 6, 8, 14, 24 | 3, 5 | OK |
+| `customer_order` | 6, 8, 24, 29 | 3, 5, 7, 8, 29, 30 | OK |
+| `order_item` | 6, 8, 14, 24, 29 | 3, 5 | OK |
 | `order_item_selection` | 6 | 3, 5 | OK |
-| `order_item_modifier` | 6, 8 | 3, 5 | OK |
-| `user` | 25 | 20, 21, 22, 25 | OK |
+| `order_item_modifier` | 6, 8, 29 | 3, 5 (seulement quand le corps en porte) | OK |
+| `user` | 8, 25 | 20, 21, 22, 25 | OK |
 | `role` | 20, 23, 25 | 23 | OK |
 | `role_visible_source` | 6 | 23 | OK |
 | `permission` | 23 | — (static seed) | OK (*) |
 | `role_permission` | 25 | 23 | OK |
-| `stock_movement` | 19 | 3, 5, 8, 17, 18 | OK |
+| `stock_movement` | 8, 19 | 5, 8, 17, 18, 29 | OK |
 | `audit_log` | (vue d'audit admin) | 8, 10, 11, 14, 20, 21, 22, 23, 25, 27, 28 | OK |
 | `login_throttle` | 25 | 25 | OK |
+| `pin_throttle` | 8, 10, 11, 14, 18, 20, 21, 22, 23, 27 | 8, 10, 11, 14, 18, 20, 21, 22, 23, 27 | OK (**) |
+
+(**) `pin_throttle` est lu (verrou actif ?) puis ecrit (echec compte, ou remise a zero apres un PIN valide) par chaque operation du sous-ensemble sensible sous PIN (RG-T13, RG-T22) : annulation (8), produit (10, 11), suppression de menu (14), inventaire (18), utilisateurs et RBAC (20 a 23, 27).
 
 (*) `allergen` et `permission` sont en lecture seule au niveau MCT : leurs valeurs sont declarees
 dans les migrations de seed et ne sont pas modifiables via l'UI. `allergen` est gere indirectement

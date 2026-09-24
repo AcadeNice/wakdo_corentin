@@ -1,5 +1,7 @@
 # Schema fonctionnel — Wakdo
 
+**Version** : v0.3 (2026-09-24) — mise en coherence avec le code livre (2a09597) : la vue « Panier (cart.html) » est retiree du parcours borne (la page n'existe pas : le panier est le panneau persistant de `products.html`, `order-panel.js`, dont le bouton « Payer » mene a `payment.html`) ; l'appel de suivi `GET /api/orders/{number}` n'est plus rattache a la confirmation (la route existe, aucun script de la borne ne l'appelle) ; ajout de la transition « Abandon ».
+
 > Conceptualisation de l'application (Cr 4.a.1 a 4.a.4) : enchainement des vues en
 > fonction des actions et interactions utilisateur, pour les deux interfaces
 > (borne kiosk Bloc 1, back-office Bloc 2). Complete les diagrammes UML
@@ -28,19 +30,18 @@ action, et quel appel API ou garde de securite intervient.
 ```mermaid
 flowchart TD
     A["Accueil (index.html)\nchoix sur place / a emporter"] -->|clic mode| B["Categories (categories.html)"]
-    B -->|clic categorie| C["Produits (products.html?category)\npanneau commande persistant"]
+    B -->|clic categorie| C["Produits (products.html?category)\npanneau commande persistant\n(order-panel.js) :\nmodifier quantite / retirer"]
     C -->|produit simple| D["Modale options (product-options.js)\ntaille / quantite"]
     C -->|menu| E["Composeur menu (page-product-menu.js)\nslots GET /api/menus/{id}"]
     D -->|ajouter| C
     E -->|ajouter| C
-    C -->|voir panier| F["Panier (cart.html)\nmodifier quantite / retirer"]
-    F -->|valider| G["Paiement (payment.html)\nsaisie numero chevalet si sur place"]
+    C -->|payer| G["Paiement (payment.html)\nsaisie numero chevalet si sur place"]
     G -->|enregistrer| H["Confirmation (confirmation.html)\nnumero + montant"]
-    H -->|nouvelle commande| A
+    H -->|"nouvelle\ncommande"| A
 
-    C -. "GET /api/categories,/products,/menus (data.js)" .-> API[(API kiosk)]
+    C -. "GET /api/categories,\n/products,/menus (data.js)" .-> API[(API kiosk)]
     G -. "POST /api/orders puis /pay (checkout.js)" .-> API
-    H -. "suivi optionnel GET /api/orders/{number}" .-> API
+    C -->|"abandon\n(confirmation)"| A
 ```
 
 **Transitions detaillees :**
@@ -52,8 +53,9 @@ flowchart TD
 | Produits | Cliquer un produit simple | Modale options | `GET /api/products` |
 | Produits | Cliquer un menu | Composeur de menu | `GET /api/menus/{id}` (slots) |
 | Modale / Composeur | Ajouter au panier | Produits (panneau mis a jour) | panier en `localStorage` |
-| Produits | Voir le panier | Panier | — |
-| Panier | Valider | Paiement | — |
+| Produits (panneau de commande) | Ajuster la quantite (+ / -) ou retirer une ligne | Produits (panneau mis a jour) | `localStorage` (`order-panel.js`) |
+| Produits (panneau de commande) | Payer | Paiement | — |
+| Produits (panneau de commande) | Abandon, puis confirmer | Accueil | panier vide |
 | Paiement | Saisir le numero (chevalet, si sur place) puis enregistrer | Confirmation | `POST /api/orders` puis `POST /api/orders/{number}/pay` (idempotent) |
 | Confirmation | Nouvelle commande | Accueil | panier vide |
 
@@ -118,8 +120,10 @@ detail des routes.
 
 | Interface | Appelle | Sens |
 |---|---|---|
-| Borne | `GET /api/categories`, `/products`, `/products/{id}`, `/menus`, `/menus/{id}`, `/allergens` | lecture catalogue (anonyme) |
-| Borne | `POST /api/orders`, `POST /api/orders/{number}/pay`, `GET /api/orders/{number}` | commande + suivi (anonyme, idempotent) |
+| Borne | `GET /api/categories`, `/products`, `/menus`, `/menus/{id}`, `/allergens` | lecture catalogue (anonyme) |
+| (aucun client livre) | `GET /api/products/{id}` | detail d'un produit : route exposee (`CatalogueController::product`), non appelee par la borne |
+| Borne | `POST /api/orders`, `POST /api/orders/{number}/pay` | commande (anonyme, idempotent) |
+| (aucun client livre) | `GET /api/orders/{number}` | suivi du statut par numero : route exposee (`OrderController::show`), non appelee par la borne |
 | Back-office | pages rendues serveur sous `/admin/*` + `GET /admin/me` | session + RBAC |
 
 CORS : la borne et le back-office partagent l'origine via une passerelle `/api/*`

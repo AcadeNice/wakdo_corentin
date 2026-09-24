@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 #
-# Wakdo - deploiement scripte (declenchement humain ; socle d'un CD pull-based).
+# Wakdo - deploiement scripte (declenche par le CD ou a la main).
 #
-# Strategie CD : deploiement DECLENCHE A LA MAIN pour l'instant (solo dev, prod
-# unique). Ce script fiabilise l'operation (Cr 7.b.2). Il :
+# Strategie CD : a chaque arrivee sur `main`, le workflow .forgejo/workflows/deploy.yml
+# ouvre une session SSH dont la commande forcee cote hote lance ce script
+# (DEPLOY_YES=1, voir docs/architecture/deployment.md). Il reste lancable a la main.
+# Ce script fiabilise l'operation (Cr 7.b.2). Il :
 #   1. recupere la derniere `main` depuis Forgejo (git fetch + fast-forward) ;
 #   2. RECONSTRUIT les images depuis les Dockerfiles -- les images wakdo
 #      (apache / php-fpm / cron) sont buildees localement, il n'y a pas de registre,
 #      donc on `build`, on ne `pull` pas ;
 #   3. recree la stack.
-# L'automatisation "pull-based" (un job cron cote hote qui detecte un nouveau `main`
-# et lance ce script) est l'etape suivante : elle reutilisera ce meme script.
 #
 # A lancer SUR L'HOTE de prod, depuis la racine du depot :
 #   scripts/deploy.sh [BRANCHE]                        (defaut : main)
