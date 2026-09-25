@@ -24,6 +24,7 @@ une decision revisee donne une nouvelle fiche qui *supersede* l'ancienne (statut
 | [0014](0014-expiration-commandes-pending.md) | Expiration des commandes restees en attente de paiement (cron 02h00) | Accepte |
 | [0015](0015-allergenes-calcules-par-produit.md) | Allergenes calcules par produit, avec etat de revue explicite | Accepte |
 | [0016](0016-modification-commande-avant-paiement.md) | Modifier une commande avant paiement, et le verrou de ligne qui va avec | Accepte |
+| [0017](0017-api-admin-json.md) | API d'administration JSON (`/admin/api`), en complement du MVC rendu serveur | Accepte |
 
 ## Modele de fiche
 

@@ -448,7 +448,7 @@ class UserController extends AdminController
      *
      * @param array<string, mixed> $user
      */
-    private function isLastActiveAdmin(array $user): bool
+    protected function isLastActiveAdmin(array $user): bool
     {
         return (int) ($user['is_active'] ?? 0) === 1
             && $this->userRepository()->isAdmin((int) ($user['id'] ?? 0))
@@ -498,7 +498,7 @@ class UserController extends AdminController
      * @param array<string, string> $form
      * @return array{0: array{email: string, first_name: string, last_name: string, role_id: int, password: ?string}, 1: array<string, string>}
      */
-    private function validate(array $form, bool $isUpdate): array
+    protected function validate(array $form, bool $isUpdate): array
     {
         $errors = [];
 
@@ -549,7 +549,7 @@ class UserController extends AdminController
      * @param array{email: string, first_name: string, last_name: string, role_id: int, password: ?string} $data
      * @return list<string>
      */
-    private function changedFields(array $current, array $data, int $isActive): array
+    protected function changedFields(array $current, array $data, int $isActive): array
     {
         $changed = [];
         if ($data['email'] !== (string) ($current['email'] ?? '')) {

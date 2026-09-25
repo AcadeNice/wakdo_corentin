@@ -258,7 +258,7 @@ class CategoryController extends AdminController
      * @param array<string, string> $form
      * @return array{0: array{name: string, slug: string, image_path: ?string, display_order: int, is_active: int}, 1: array<string, string>}
      */
-    private function validate(array $form, CategoryRepository $repo, int $exceptId): array
+    protected function validate(array $form, CategoryRepository $repo, int $exceptId): array
     {
         $name = trim($form['name'] ?? '');
         $slug = trim($form['slug'] ?? '');

@@ -248,7 +248,7 @@ class RoleController extends AdminController
      * @param array<string, string> $form
      * @return list<int>
      */
-    private function selectedPermissionIds(array $form): array
+    protected function selectedPermissionIds(array $form): array
     {
         $ids = [];
         foreach ($this->roleRepository()->allPermissions() as $p) {
@@ -265,7 +265,7 @@ class RoleController extends AdminController
      * @param array<string, string> $form
      * @return list<string>
      */
-    private function selectedSources(array $form): array
+    protected function selectedSources(array $form): array
     {
         $out = [];
         foreach (self::SOURCES as $source) {
@@ -283,7 +283,7 @@ class RoleController extends AdminController
      * @param list<int> $ids
      * @return list<string>
      */
-    private function codesForIds(array $ids): array
+    protected function codesForIds(array $ids): array
     {
         $map = [];
         foreach ($this->roleRepository()->allPermissions() as $p) {
@@ -336,7 +336,7 @@ class RoleController extends AdminController
      * @param array<string, string> $form
      * @return array{0: array{code: ?string, label: string, description: ?string, default_route: ?string, order_source: ?string}, 1: array<string, string>}
      */
-    private function validate(array $form, bool $isCreate): array
+    protected function validate(array $form, bool $isCreate): array
     {
         $errors = [];
 

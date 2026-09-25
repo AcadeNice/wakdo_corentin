@@ -625,7 +625,7 @@ class ProductController extends AdminController
      * @param array<string, string> $form
      * @return array{0: array{category_id: int, name: string, description: ?string, price_cents: int, size_cl: ?int, base_product_id: ?int, maxi_variant_product_id: ?int, vat_rate: int, image_path: ?string, is_available: int, display_order: int}, 1: array<string, string>}
      */
-    private function validate(array $form, int $currentId): array
+    protected function validate(array $form, int $currentId): array
     {
         $errors = [];
 
@@ -743,7 +743,7 @@ class ProductController extends AdminController
      * @param array<string, mixed> $current
      * @param array{price_cents: int, vat_rate: int} $data
      */
-    private function changeSummary(array $current, array $data, bool $priceChanged, bool $vatChanged): string
+    protected function changeSummary(array $current, array $data, bool $priceChanged, bool $vatChanged): string
     {
         $parts = [];
         if ($priceChanged) {
@@ -803,7 +803,7 @@ class ProductController extends AdminController
      * @param array<string, string> $errors
      * @return list<array{ingredient_id:int, quantity_normal:int, quantity_maxi:int, is_removable:int, is_addable:int, extra_price_cents:int}>
      */
-    private function parseComposition(string $json, array &$errors): array
+    protected function parseComposition(string $json, array &$errors): array
     {
         $json = trim($json);
         if ($json === '' || $json === '[]') {

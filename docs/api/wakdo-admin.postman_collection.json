@@ -1,0 +1,2125 @@
+{
+  "info": {
+    "_postman_id": "af595ff2-dcb3-5c54-a5d2-37b23c91b344",
+    "name": "Wakdo - API d'administration JSON",
+    "description": "CRUD JSON de l'API d'administration Wakdo (/admin/api/*, docs/api/conventions.md section 5.3). Prerequis : lire docs/api/postman.md (cookie de session + jeton CSRF). Toutes les requetes portent le cookie WAKDO_SID et, pour les ecritures, l'en-tete X-CSRF-Token. Les actions marquees PIN exigent en plus pin_email + pin dans le corps JSON.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Authentification",
+      "item": [
+        {
+          "name": "GET identite courante + jeton CSRF",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "me"
+              ]
+            },
+            "description": "Point d'entree obligatoire : lit l'identite/permissions de la session (cookie WAKDO_SID, copie depuis le navigateur, cf. docs/api/postman.md) et stocke csrf_token dans la variable d'environnement 'csrf', reutilisee par toutes les requetes POST/PUT/DELETE ci-dessous."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.test('200 OK', function () { pm.response.to.have.status(200); });",
+                  "if (body && body.data && body.data.csrf_token) {",
+                  "    pm.environment.set('csrf', body.data.csrf_token);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Categories",
+      "item": [
+        {
+          "name": "Lister les categories",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/categories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "categories"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Lire une categorie",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/categories/{{categoryId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "categories",
+                "{{categoryId}}"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Creer une categorie",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/categories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "categories"
+              ]
+            },
+            "description": "category.manage, pas de PIN. 201 + Location.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Desserts Postman\",\n  \"slug\": \"desserts-postman\",\n  \"display_order\": 50\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', function () { pm.response.to.have.status(201); });",
+                  "const body = pm.response.json();",
+                  "if (body && body.data && body.data.id) {",
+                  "    pm.environment.set('categoryId', body.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Modifier une categorie",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/categories/{{categoryId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "categories",
+                "{{categoryId}}"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Desserts Postman v2\",\n  \"slug\": \"desserts-postman\",\n  \"display_order\": 51\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Desactiver une categorie (DELETE = is_active=0)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/categories/{{categoryId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "categories",
+                "{{categoryId}}"
+              ]
+            },
+            "description": "Pas de suppression dure (FK RESTRICT) : bascule is_active=0, meme geste que le bouton Masquer du back-office."
+          }
+        },
+        {
+          "name": "Basculer visible/masque (toggle)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/categories/{{categoryId}}/toggle",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "categories",
+                "{{categoryId}}",
+                "toggle"
+              ]
+            },
+            "description": "Bascule dans les DEUX sens (contrairement a DELETE qui ne masque que)."
+          }
+        },
+        {
+          "name": "Deplacer d'un rang (move)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/categories/{{categoryId}}/move",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "categories",
+                "{{categoryId}}",
+                "move"
+              ]
+            },
+            "description": "direction : \"up\" ou \"down\".",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"direction\": \"up\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Produits",
+      "item": [
+        {
+          "name": "Lister les produits",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/products",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "products"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Lire un produit",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/products/{{productId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "products",
+                "{{productId}}"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Creer un produit",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/products",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "products"
+              ]
+            },
+            "description": "product.create, pas de PIN. price_cents en CENTIMES, ENTIER STRICT (mlt 8.1) : un decimal (590.9) ou une chaine en euros (\"12,50\") sont refuses (422), jamais tronques ni relus comme des euros. Adaptez category_id a un id reel de votre seed.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category_id\": 1,\n  \"name\": \"Produit Postman\",\n  \"price_cents\": 490,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', function () { pm.response.to.have.status(201); });",
+                  "const body = pm.response.json();",
+                  "if (body && body.data && body.data.id) {",
+                  "    pm.environment.set('productId', body.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Modifier un produit (sans changement de prix/TVA)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/products/{{productId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "products",
+                "{{productId}}"
+              ]
+            },
+            "description": "Aucun PIN requis tant que price_cents et vat_rate ne changent pas (mlt 8.2 RG-4). price_cents reste un entier de centimes strict (voir la requete de creation).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category_id\": 1,\n  \"name\": \"Produit Postman renomme\",\n  \"price_cents\": 490,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Modifier le prix d'un produit (PIN requis)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/products/{{productId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "products",
+                "{{productId}}"
+              ]
+            },
+            "description": "Changer price_cents ou vat_rate est une action sensible (RG-T13) : pin_email + pin obligatoires (modele identifiant equipier + PIN). Definissez d'abord un PIN sur le compte via /admin/profile/pin (navigateur, cf. postman.md).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category_id\": 1,\n  \"name\": \"Produit Postman renomme\",\n  \"price_cents\": 590,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99,\n  \"pin_email\": \"{{pin_email}}\",\n  \"pin\": \"{{pin}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Supprimer un produit (PIN requis)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/products/{{productId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "products",
+                "{{productId}}"
+              ]
+            },
+            "description": "409 CONFLICT si le produit est encore reference (commande, menu, recette).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pin_email\": \"{{pin_email}}\",\n  \"pin\": \"{{pin}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Deplacer d'un rang dans sa categorie (move)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/products/{{productId}}/move",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "products",
+                "{{productId}}",
+                "move"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"direction\": \"up\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Lire la recette (composition)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/products/{{productId}}/recipe",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "products",
+                "{{productId}}",
+                "recipe"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Remplacer la recette",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/products/{{productId}}/recipe",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "products",
+                "{{productId}}",
+                "recipe"
+              ]
+            },
+            "description": "ingredient.manage, pas de PIN. Composition vide autorisee (purge la recette).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"composition\": [\n    {\n      \"ingredient_id\": 1,\n      \"quantity_normal\": 1,\n      \"quantity_maxi\": 2,\n      \"is_removable\": true,\n      \"is_addable\": false,\n      \"extra_price_cents\": 0\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Menus",
+      "item": [
+        {
+          "name": "Lister les menus",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/menus",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "menus"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Lire un menu (avec slots)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/menus/{{menuId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "menus",
+                "{{menuId}}"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Creer un menu",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/menus",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "menus"
+              ]
+            },
+            "description": "menu.create, pas de PIN. burger_product_id doit etre un produit DE BASE (pas une variante de taille). price_normal_cents/price_maxi_cents sont des entiers de centimes stricts (un decimal ou une chaine en euros est refuse, 422). Adaptez les ids a votre seed.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category_id\": 1,\n  \"burger_product_id\": 1,\n  \"name\": \"Menu Postman\",\n  \"price_normal_cents\": 890,\n  \"price_maxi_cents\": 990,\n  \"is_available\": true,\n  \"display_order\": 50,\n  \"slots\": [\n    {\n      \"name\": \"Boisson\",\n      \"slot_type\": \"drink\",\n      \"is_required\": true,\n      \"options\": [\n        2\n      ]\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', function () { pm.response.to.have.status(201); });",
+                  "const body = pm.response.json();",
+                  "if (body && body.data && body.data.id) {",
+                  "    pm.environment.set('menuId', body.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Modifier un menu",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/menus/{{menuId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "menus",
+                "{{menuId}}"
+              ]
+            },
+            "description": "Memes regles que la creation : prix en entiers de centimes stricts.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category_id\": 1,\n  \"burger_product_id\": 1,\n  \"name\": \"Menu Postman v2\",\n  \"price_normal_cents\": 890,\n  \"price_maxi_cents\": 990,\n  \"is_available\": true,\n  \"display_order\": 50,\n  \"slots\": [\n    {\n      \"name\": \"Boisson\",\n      \"slot_type\": \"drink\",\n      \"is_required\": true,\n      \"options\": [\n        2\n      ]\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Supprimer un menu (PIN requis)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/menus/{{menuId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "menus",
+                "{{menuId}}"
+              ]
+            },
+            "description": "409 CONFLICT si le menu est encore reference par des commandes.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pin_email\": \"{{pin_email}}\",\n  \"pin\": \"{{pin}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Basculer la disponibilite (toggle)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/menus/{{menuId}}/toggle",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "menus",
+                "{{menuId}}",
+                "toggle"
+              ]
+            },
+            "description": ""
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ingredients",
+      "item": [
+        {
+          "name": "Lister les ingredients",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/ingredients",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "ingredients"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Lire un ingredient",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/ingredients/{{ingredientId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "ingredients",
+                "{{ingredientId}}"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Creer un ingredient",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/ingredients",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "ingredients"
+              ]
+            },
+            "description": "ingredient.manage, pas de PIN. stock_quantity pose a 0 cote serveur (RG-CREATE-ING).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ingredient Postman\",\n  \"unit\": \"unite\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', function () { pm.response.to.have.status(201); });",
+                  "const body = pm.response.json();",
+                  "if (body && body.data && body.data.id) {",
+                  "    pm.environment.set('ingredientId', body.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Modifier un ingredient",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/ingredients/{{ingredientId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "ingredients",
+                "{{ingredientId}}"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ingredient Postman v2\",\n  \"unit\": \"unite\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Reapprovisionner (restock)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/ingredients/{{ingredientId}}/restock",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "ingredients",
+                "{{ingredientId}}",
+                "restock"
+              ]
+            },
+            "description": "stock.manage, pas de PIN (mlt 9.1). L'ingredient doit etre actif.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"packs\": 5,\n  \"note\": \"reappro Postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Supprimer un ingredient",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/ingredients/{{ingredientId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "ingredients",
+                "{{ingredientId}}"
+              ]
+            },
+            "description": "409 CONFLICT si reference par une recette ou des mouvements de stock."
+          }
+        },
+        {
+          "name": "Basculer actif/inactif (toggle)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/ingredients/{{ingredientId}}/toggle",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "ingredients",
+                "{{ingredientId}}",
+                "toggle"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Reglage rapide des seuils",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/ingredients/{{ingredientId}}/thresholds",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "ingredients",
+                "{{ingredientId}}",
+                "thresholds"
+              ]
+            },
+            "description": "stock.manage, pas de PIN (calibrage, pas un comptage).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stock_capacity\": 600,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Inventaire (comptage absolu, PIN requis)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/ingredients/{{ingredientId}}/inventory",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "ingredients",
+                "{{ingredientId}}",
+                "inventory"
+              ]
+            },
+            "description": "stock.count + PIN (mlt 9.2). Pas d'audit_log au succes (stock_movement suffit).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actual_quantity\": 42,\n  \"note\": \"comptage Postman\",\n  \"pin_email\": \"{{pin_email}}\",\n  \"pin\": \"{{pin}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Ajustement libre (delta signe, PIN requis)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/ingredients/{{ingredientId}}/adjust",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "ingredients",
+                "{{ingredientId}}",
+                "adjust"
+              ]
+            },
+            "description": "stock.count + PIN. delta entier non nul (+ pour ajouter, - pour retirer).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"delta\": -3,\n  \"note\": \"casse Postman\",\n  \"pin_email\": \"{{pin_email}}\",\n  \"pin\": \"{{pin}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Revue des allergenes",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/ingredients/{{ingredientId}}/allergens",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "ingredients",
+                "{{ingredientId}}",
+                "allergens"
+              ]
+            },
+            "description": "ingredient.manage, pas de PIN. source obligatoire (une revue non sourcee est refusee, 422).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"allergen_ids\": [\n    1\n  ],\n  \"source\": \"Fiche fournisseur\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Utilisateurs",
+      "item": [
+        {
+          "name": "Lister les utilisateurs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "users"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Lire un utilisateur",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/users/{{userId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "users",
+                "{{userId}}"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Creer un utilisateur (PIN requis)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "users"
+              ]
+            },
+            "description": "user.create, PIN obligatoire (mlt 10.1). Adaptez role_id a un role reel de votre seed.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"equipier.postman@wakdo.local\",\n  \"first_name\": \"Postman\",\n  \"last_name\": \"Equipier\",\n  \"role_id\": 2,\n  \"password\": \"MotDePasse123!\",\n  \"pin_email\": \"{{pin_email}}\",\n  \"pin\": \"{{pin}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', function () { pm.response.to.have.status(201); });",
+                  "const body = pm.response.json();",
+                  "if (body && body.data && body.data.id) {",
+                  "    pm.environment.set('userId', body.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Modifier un utilisateur (PIN requis)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/users/{{userId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "users",
+                "{{userId}}"
+              ]
+            },
+            "description": "user.update, PIN obligatoire (mlt 10.2). PUT PARTIEL sur is_active : omis, il conserve la valeur actuelle (ne desactive jamais par omission) ; envoye ici a true pour l'illustrer explicitement.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"equipier.postman@wakdo.local\",\n  \"first_name\": \"Postman\",\n  \"last_name\": \"Equipier v2\",\n  \"role_id\": 2,\n  \"is_active\": true,\n  \"pin_email\": \"{{pin_email}}\",\n  \"pin\": \"{{pin}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Desactiver un utilisateur (DELETE, PIN requis)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/users/{{userId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "users",
+                "{{userId}}"
+              ]
+            },
+            "description": "user.deactivate. == desactivation (PAS de suppression physique ni d'effacement RGPD, mlt 10.3). Refuse sur son propre compte (403) ou sur le dernier administrateur actif (422).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pin_email\": \"{{pin_email}}\",\n  \"pin\": \"{{pin}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Reinitialiser le PIN (PIN requis)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/users/{{userId}}/reset-pin",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "users",
+                "{{userId}}",
+                "reset-pin"
+              ]
+            },
+            "description": "Efface le PIN de la cible ; elle le redefinit ensuite en self-service (/admin/profile/pin).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pin_email\": \"{{pin_email}}\",\n  \"pin\": \"{{pin}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Anonymiser (RGPD, PIN requis)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/users/{{userId}}/erase",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "users",
+                "{{userId}}",
+                "erase"
+              ]
+            },
+            "description": "Tombstone (pas de suppression physique). 403 sur son propre compte, 409 si deja anonymise.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pin_email\": \"{{pin_email}}\",\n  \"pin\": \"{{pin}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Roles (RBAC)",
+      "item": [
+        {
+          "name": "Lister les roles",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/roles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "roles"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Lire un role (avec permissions)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/roles/{{roleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "roles",
+                "{{roleId}}"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Creer un role (PIN requis)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/roles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "roles"
+              ]
+            },
+            "description": "role.manage, PIN obligatoire (escalade de privileges, mlt 10.4). permission_ids : liste d'ids du catalogue fige (voir GET /admin/api/roles/{id}).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"shift_lead_postman\",\n  \"label\": \"Chef de faction (Postman)\",\n  \"permission_ids\": [\n    1\n  ],\n  \"visible_sources\": [\n    \"counter\"\n  ],\n  \"pin_email\": \"{{pin_email}}\",\n  \"pin\": \"{{pin}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', function () { pm.response.to.have.status(201); });",
+                  "const body = pm.response.json();",
+                  "if (body && body.data && body.data.id) {",
+                  "    pm.environment.set('roleId', body.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Modifier un role (PIN requis)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/roles/{{roleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "roles",
+                "{{roleId}}"
+              ]
+            },
+            "description": "Garde-fou anti-lockout (422) : le role 'admin' doit garder role.manage et rester actif. PUT PARTIEL sur is_active, meme regle que les utilisateurs (omis = valeur actuelle conservee).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"label\": \"Chef de faction (Postman) v2\",\n  \"permission_ids\": [\n    1\n  ],\n  \"visible_sources\": [\n    \"counter\",\n    \"drive\"\n  ],\n  \"pin_email\": \"{{pin_email}}\",\n  \"pin\": \"{{pin}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Commandes",
+      "item": [
+        {
+          "name": "Lister les commandes (filtre par canaux visibles)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "orders"
+              ]
+            },
+            "description": "order.read. Filtre par role_visible_source (RG-T12), meme regle que la file cuisine."
+          }
+        },
+        {
+          "name": "Lire une commande",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/orders/{{orderNumber}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "orders",
+                "{{orderNumber}}"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Saisir une commande comptoir/drive",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "orders"
+              ]
+            },
+            "description": "order.create, pas de PIN, encaissee immediatement (comme le HTML). Un seul endpoint JSON pour les deux canaux (le HTML a deux pages, /counter/orders et /drive/orders) : un role a canal FIXE (role.order_source) impose sa source et IGNORE ce champ 'source' s'il est fourni ; un role SANS canal fixe (admin/manager) doit le renseigner ('counter' ou 'drive'), sinon 422.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"service_mode\": \"dine_in\",\n  \"source\": \"counter\",\n  \"items\": [\n    {\n      \"type\": \"product\",\n      \"product_id\": 1,\n      \"quantity\": 1\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const b = pm.response.json(); if (b && b.data && b.data.order_number) { pm.environment.set('orderNumber', b.data.order_number); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Marquer prete (cuisine)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/orders/{{orderNumber}}/ready",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "orders",
+                "{{orderNumber}}",
+                "ready"
+              ]
+            },
+            "description": "order.read, pas de PIN. Meme garde de visibilite de source (PRE-3) que le HTML."
+          }
+        },
+        {
+          "name": "Remettre au client (deliver)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/orders/{{orderNumber}}/deliver",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "orders",
+                "{{orderNumber}}",
+                "deliver"
+              ]
+            },
+            "description": "order.deliver, pas de PIN."
+          }
+        },
+        {
+          "name": "Annuler (PIN requis)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/orders/{{orderNumber}}/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "orders",
+                "{{orderNumber}}",
+                "cancel"
+              ]
+            },
+            "description": "order.cancel + PIN (RG-T13). 422 CANNOT_CANCEL_IN_STATE si deja livree/annulee.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pin_email\": \"{{pin_email}}\",\n  \"pin\": \"{{pin}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Statistiques",
+      "item": [
+        {
+          "name": "Tableau de bord (compteurs + stock + ventes)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "WAKDO_SID={{sid}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/stats",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "stats"
+              ]
+            },
+            "description": "stats.read, lecture seule."
+          }
+        }
+      ]
+    }
+  ]
+}

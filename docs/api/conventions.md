@@ -1,7 +1,9 @@
 # API Wakdo - conventions de nommage, structure et listing
 
-**Statut** : v0.2 - convention de casse arbitree (snake_case, voir section 4)
-**Perimetre** : back-office admin (rendu serveur) + API REST sous `/api/*`
+**Statut** : v0.3 - API d'administration JSON livree sous `/admin/api/*` (section 5.3,
+[ADR-0017](../adr/0017-api-admin-json.md))
+**Perimetre** : back-office admin (rendu serveur) + API REST publique sous `/api/*` + API
+d'administration JSON sous `/admin/api/*`
 **Auteur methodologie** : BYAN
 **A lire avec** : `docs/PROJECT_CONTEXT.md`, `docs/merise/dictionary.md` (source de verite des
 noms de champs), `docs/merise/mct.md` + `mlt.md` (operations metier), `db/seeds/0001_rbac_and_reference.sql`
@@ -46,14 +48,21 @@ Code de reference : routes dans `src/public/admin/index.php`, controleurs dans
 
 ---
 
-## 3. Deux familles d'endpoints
+## 3. Trois familles d'endpoints
 
 | Famille | Prefixe | Rendu | Authentification | Exemple |
 |---|---|---|---|---|
 | Pages back-office | aucun | HTML (vue serveur + `layout.php`) | session admin | `/login`, `/forgot_password` |
-| API REST | `/api/` | JSON (enveloppe section 7) | selon la ressource (section 10) | `/api/health`, `/api/categories` (livre) |
+| API REST publique | `/api/` | JSON (enveloppe section 7) | publique ou session (section 10) | `/api/health`, `/api/categories` (livre) |
+| API d'administration JSON | `/admin/api/` | JSON (enveloppe section 7) | session admin + permission + PIN (section 5.3) | `/admin/api/products` (livre) |
 
 La borne (kiosk) consomme l'API REST `/api/*` en lecture pour le catalogue (voir section 8.3).
+L'API d'administration (`/admin/api/*`, section 5.3) est un troisieme prefixe, DISTINCT de
+`/api/*` : le vhost kiosk relaie tout `/api/*` vers PHP-FPM pour la borne PUBLIQUE
+(`docker/apache/vhost.conf`, `ProxyPassMatch "^/api(/.*)?$"`), donc une route authentifiee
+placee sous `/api` serait atteignable depuis l'origine kiosk. `/admin/api/*` ne matche pas ce
+prefixe et reste hors de portee du vhost kiosk (meme raisonnement que `/admin/me`, deja en
+service). Voir [ADR-0017](../adr/0017-api-admin-json.md).
 
 ---
 
@@ -98,13 +107,18 @@ Autres regles :
 | POST | `/forgot_password` | public + CSRF | HTML (neutre) | envoi du lien (mlt 12.3) |
 | GET | `/reset_password` | public (token en query) | HTML | formulaire nouveau mot de passe |
 | POST | `/reset_password` | public + CSRF | 302 / HTML | confirmation (mlt 12.3) |
-| GET | `/api/me` | session | JSON | identite + permissions du compte courant (RG-6/RG-T02/RG-T03) |
+| GET | `/admin/me` | session | JSON | identite + permissions + jeton CSRF du compte courant (RG-6/RG-T02/RG-T03) |
 
-`/api/me` est le premier consommateur reel de `SessionGuard` (RG-6 idle/absolu + RG-T02
-is_active) et d'`Authorizer` (RG-T03, permissions rechargees depuis la base). Reponse :
-`{ "data": { "user_id", "role_id", "role_code", "permissions": [...] } }` ; `401 AUTH_REQUIRED`
-si la session est absente, expiree ou le compte desactive. Les autorisations par operation
-(et le PIN des actions sensibles, RG-T13) se cablent quand les operations existent (P3).
+`/admin/me` (sous `/admin`, pas `/api` : cf. section 3) est le premier consommateur reel de
+`SessionGuard` (RG-6 idle/absolu + RG-T02 is_active) et d'`Authorizer` (RG-T03, permissions
+rechargees depuis la base). Reponse :
+`{ "data": { "user_id", "role_id", "role_code", "permissions": [...], "csrf_token" } }` ;
+`401 AUTH_REQUIRED` si la session est absente, expiree ou le compte desactive. `csrf_token`
+est le point d'entree du jeton CSRF pour l'API d'administration JSON (section 5.3) : un
+client sans formulaire HTML (Postman, script) le lit ici puis le renvoie en en-tete
+`X-CSRF-Token` sur chaque `POST`/`PUT`/`DELETE`. Les autorisations par operation et le PIN
+des actions sensibles (RG-T13) sont cables depuis P3 sur les pages HTML, et depuis ce
+chantier sur l'API JSON equivalente (section 5.3).
 
 ### 5.2 API kiosk - lecture catalogue + commande (livre, public)
 
@@ -122,62 +136,143 @@ La borne est publique (aucune session) ; cf. `mlt.md` CREATE_ORDER, declencheur 
 | POST | `/api/orders/{number}/pay` | (kiosk public) | (encaissement) | livre (paid + decrement stock RG-T20) |
 | GET | `/api/orders/{number}` | (lecture publique) | (suivi statut) | livre (champs non sensibles : numero, statut, total) |
 
-### 5.3 API / pages back-office (prevu P3-P4, session + permission)
+### 5.3 API d'administration JSON (`/admin/api/*`, livre, session + permission + PIN)
 
-Provisoire : le choix entre endpoints JSON `/api/*` et pages rendues serveur pour les ecritures
-admin est tranche phase par phase (P3 CRUD). Les colonnes Permission renvoient au catalogue fige
-des 23 permissions (`db/seeds/0001_rbac_and_reference.sql`) ; l'imputabilite et le PIN suivent
+Le choix entre endpoints JSON et pages rendues serveur pour les ecritures admin a ete
+tranche : le back-office HTML (`/admin/*`, formulaires + redirections) reste le canal
+primaire (ADR-0002), et cette API JSON sous **`/admin/api/*`** (et non `/api/*`, cf. section
+3) le complete pour l'usage machine (tests Postman, integrations). Elle REUTILISE la meme
+logique metier que le HTML — memes repositories, memes regles de validation, meme PIN — via
+heritage de controleur (voir [ADR-0017](../adr/0017-api-admin-json.md)), pas une
+reimplementation parallele. Les colonnes Permission renvoient au catalogue fige des 23
+permissions (`db/seeds/0001_rbac_and_reference.sql`) ; l'imputabilite et le PIN suivent
 `mlt.md` RG-T13/RG-T14.
 
-Commandes (cote equipier) :
+**Authentification commune a toute route `/admin/api/*`** :
 
-| Methode | Chemin | Permission | Op MCT | Note |
-|---|---|---|---|---|
-| GET | `/api/orders` | `order.read` | READ_ORDERS | filtre par `role_visible_source` (RG-T12) |
-| GET | `/api/orders/{number}` | `order.read` | READ_ORDERS | vue back-office detaillee (differe) ; le suivi public minimal est livre en 5.2 |
-| POST | `/api/orders` (comptoir/drive) | `order.create` | CREATE_COUNTER_ORDER (mlt 4.1) | source auto-taggee |
-| POST | `/api/orders/{id}/deliver` | `order.deliver` | DELIVER_ORDER (mlt 6.1) | |
-| POST | `/api/orders/{id}/cancel` | `order.cancel` | CANCEL_ORDER (mlt 7.1) | PIN + audit_log (RG-T13/14) |
+| Etape | Regle |
+|---|---|
+| Session | Cookie `WAKDO_SID` (section 9). Absente/expiree/compte desactive -> `401 AUTH_REQUIRED`. |
+| Permission | Verifiee via `role_permission`, meme code que la page HTML equivalente (colonne Permission ci-dessous). Manquante -> `403 FORBIDDEN`. |
+| Content-Type | Un corps NON VIDE doit s'annoncer `application/json` -> sinon `415 UNSUPPORTED_MEDIA_TYPE` (RFC 9110 §15.5.16). Un corps vide (GET, DELETE sans PIN) n'a pas cette contrainte. |
+| Corps JSON invalide (syntaxe, ou racine qui n'est pas un objet) | `400 INVALID_JSON`. La racine DOIT etre un objet (`{...}`) ; une liste (`[...]`), un nombre, une chaine ou un booleen a la racine sont refuses (impossibles a lire comme des champs). |
+| CSRF | En-tete `X-CSRF-Token` (le formulaire HTML utilise un champ cache `_csrf` ; l'API JSON n'en a pas, donc l'en-tete), exige sur `POST`/`PUT`/`DELETE`. Jeton lu via `GET /admin/me` (champ `csrf_token`). Absent/invalide -> `403 CSRF_INVALID`. Jeton SYNCHRONISEUR (ne tourne qu'a la regeneration de session, pas a chaque lecture de `/admin/me`) : un enchainement de requetes Postman reste valide sans le rafraichir. |
+| PIN (actions marquees PIN) | Corps JSON `{ "pin_email": "...", "pin": "...." }` (modele "identifiant equipier + PIN", RG-T13, meme modele que le formulaire HTML). Invalide/verrouille -> `422 PIN_INVALID`. |
+| Erreur de validation de champ (y compris un champ non scalaire -- tableau/objet -- pour un champ cense etre simple, et le garde-fou anti-lockout du dernier administrateur actif / du role `admin`) | `422 VALIDATION_ERROR`, avec le detail par champ dans `error.fields`. |
+| Conflit (unicite, FK RESTRICT) | `409 CONFLICT`. |
+| Ressource introuvable | `404 NOT_FOUND`. Exception anti-enumeration : sur les commandes (`/admin/api/orders/*`), un numero inconnu se comporte comme un canal non visible et renvoie `403 FORBIDDEN` plutot que `404` (cf. tableau Commandes ci-dessous). |
+| Methode non enregistree sur un chemin connu | `405 METHOD_NOT_ALLOWED` (`Router::dispatch`). |
 
-Catalogue (produits, menus, categories) :
+Categories (`category.manage`, pas de PIN — hors ensemble sensible RG-T13) :
 
-| Methode | Chemin | Permission | Op MCT |
+| Methode | Chemin | PIN | Note |
 |---|---|---|---|
-| POST | `/api/products` | `product.create` | CREATE_PRODUCT (mlt 8.1) |
-| PUT | `/api/products/{id}` | `product.update` | UPDATE_PRODUCT (mlt 8.2) - PIN sur prix/TVA |
-| DELETE | `/api/products/{id}` | `product.delete` | DELETE_PRODUCT (mlt 8.3) - PIN |
-| POST | `/api/menus` | `menu.create` | CREATE_MENU |
-| PUT | `/api/menus/{id}` | `menu.update` | UPDATE_MENU |
-| DELETE | `/api/menus/{id}` | `menu.delete` | DELETE_MENU - PIN |
-| POST/PUT/DELETE | `/api/categories[/{id}]` | `category.manage` | MANAGE_CATEGORY |
+| GET | `/admin/api/categories` | non | liste (`{data: [...], total}`) |
+| GET | `/admin/api/categories/{id}` | non | |
+| POST | `/admin/api/categories` | non | `201` + en-tete `Location` |
+| PUT | `/admin/api/categories/{id}` | non | |
+| DELETE | `/admin/api/categories/{id}` | non | PAS de suppression dure (FK RESTRICT) : bascule `is_active=0`, meme semantique que le bouton "Masquer" HTML. `200 { data: { id, status: "deactivated" } }` |
+| POST | `/admin/api/categories/{id}/toggle` | non | bascule visible/masque dans les DEUX sens (contrairement a `DELETE`) |
+| POST | `/admin/api/categories/{id}/move` | non | `{ "direction": "up"\|"down" }` |
 
-Stock et ingredients :
+Produits (`product.read` / `product.create` / `product.update` / `product.delete` /
+`ingredient.manage` pour la recette) :
 
-| Methode | Chemin | Permission | Op MCT |
+| Methode | Chemin | PIN | Note |
 |---|---|---|---|
-| GET | `/api/ingredients` | `ingredient.manage` | READ_INGREDIENTS |
-| GET | `/api/stock` | `stock.read` | READ_STOCK |
-| POST | `/api/stock/restock` | `stock.manage` | RESTOCK (mlt 9.1) |
-| POST | `/api/stock/count` | `stock.count` | INVENTORY_COUNT (mlt 9.2) - PIN |
+| GET | `/admin/api/products` | non | |
+| GET | `/admin/api/products/{id}` | non | |
+| POST | `/admin/api/products` | non | `price_cents` en CENTIMES (entier), pas en euros (mlt 8.1) |
+| PUT | `/admin/api/products/{id}` | UNIQUEMENT si `price_cents` ou `vat_rate` change (mlt 8.2 RG-4) | sinon mise a jour simple sans PIN. PUT PARTIEL sur `is_available` (voir note ci-dessous) |
+| DELETE | `/admin/api/products/{id}` | oui | `409 CONFLICT` si encore reference par une commande ou un menu (FK RESTRICT). La recette (`product_ingredient`) N'EST PAS un blocage : elle part en CASCADE avec le produit (comptee dans le resume d'audit). L'image deposee est supprimee (sauf image du catalogue livre avec le projet). |
+| POST | `/admin/api/products/{id}/move` | non | `{ "direction": "up"\|"down" }`, dans sa categorie |
+| GET | `/admin/api/products/{id}/recipe` | non | composition (`product_ingredient`) |
+| PUT | `/admin/api/products/{id}/recipe` | non | remplace la composition ; `composition: []` autorise (purge la recette) |
 
-Utilisateurs et RBAC :
+Menus composes (`menu.read` / `menu.create` / `menu.update` / `menu.delete`) :
 
-| Methode | Chemin | Permission | Op MCT |
+| Methode | Chemin | PIN | Note |
 |---|---|---|---|
-| GET | `/api/users` | `user.read` | READ_USERS |
-| POST | `/api/users` | `user.create` | CREATE_USER (mlt 10.1) - PIN |
-| PUT | `/api/users/{id}` | `user.update` | UPDATE_USER (mlt 10.2) - PIN |
-| POST | `/api/users/{id}/deactivate` | `user.deactivate` | DEACTIVATE_USER (mlt 10.3) - PIN |
-| GET/PUT | `/api/roles[/{id}/permissions]` | `role.manage` | MANAGE_RBAC (mlt 10.4) - PIN |
+| GET | `/admin/api/menus` | non | |
+| GET | `/admin/api/menus/{id}` | non | inclut `slots` (composition) |
+| POST | `/admin/api/menus` | non | `slots` = tableau JSON natif (le formulaire HTML le soumet en `slots_json` serialise ; meme garde serveur F12/RG-T16 des deux cotes) |
+| PUT | `/admin/api/menus/{id}` | non | PUT PARTIEL sur `is_available` (voir note ci-dessous) |
+| DELETE | `/admin/api/menus/{id}` | oui | `409 CONFLICT` si reference par des commandes (proposer la desactivation) |
+| POST | `/admin/api/menus/{id}/toggle` | non | bascule la disponibilite |
 
-Statistiques :
+Stock et ingredients (`stock.read` / `ingredient.manage` / `stock.manage` / `stock.count`) :
 
-| Methode | Chemin | Permission | Op MCT |
+| Methode | Chemin | PIN | Note |
 |---|---|---|---|
-| GET | `/api/stats` | `stats.read` | READ_STATS (mlt 11.x) |
+| GET | `/admin/api/ingredients` | non | |
+| GET | `/admin/api/ingredients/{id}` | non | |
+| POST | `/admin/api/ingredients` | non | `stock_quantity=0` pose serveur (RG-CREATE-ING) |
+| PUT | `/admin/api/ingredients/{id}` | non | |
+| DELETE | `/admin/api/ingredients/{id}` | non | `409 CONFLICT` si reference (recette/mouvements) |
+| POST | `/admin/api/ingredients/{id}/restock` | non | reapprovisionnement (mlt 9.1), `stock.manage` |
+| POST | `/admin/api/ingredients/{id}/toggle` | non | bascule actif/inactif |
+| PUT | `/admin/api/ingredients/{id}/thresholds` | non | capacite + seuils alerte/critique (`stock.manage`, calibrage) |
+| POST | `/admin/api/ingredients/{id}/inventory` | oui | comptage absolu (mlt 9.2, `stock.count`) ; PAS d'audit_log au succes (RG-T14 : `stock_movement` suffit) |
+| POST | `/admin/api/ingredients/{id}/adjust` | oui | delta signe non nul, meme garde que l'inventaire (R9, `stock.count`) |
+| PUT | `/admin/api/ingredients/{id}/allergens` | non | `{ "allergen_ids": [int], "source": "..." }` (`ingredient.manage`) ; `source` obligatoire |
 
-> Les chemins exacts en 5.2/5.3 sont une projection a partir des operations MCT et des permissions
-> seedees ; ils sont confirmes au moment d'ecrire chaque endpoint. Seule la section 5.1 est en service.
+Utilisateurs et RBAC (`user.read` / `user.create` / `user.update` / `user.deactivate` /
+`role.manage`) :
+
+| Methode | Chemin | PIN | Note |
+|---|---|---|---|
+| GET | `/admin/api/users` | non | |
+| GET | `/admin/api/users/{id}` | non | |
+| POST | `/admin/api/users` | oui | mlt 10.1 |
+| PUT | `/admin/api/users/{id}` | oui | mlt 10.2. PUT PARTIEL sur `is_active` (voir note ci-dessous) |
+| DELETE | `/admin/api/users/{id}` | oui | == desactivation (`user.deactivate`), PAS de suppression physique ni d'effacement RGPD (mlt 10.3) ; anti-lockout (dernier admin actif) -> `422 VALIDATION_ERROR` |
+| POST | `/admin/api/users/{id}/reset-pin` | oui | efface le PIN de la cible (redefini ensuite en self-service HTML) |
+| POST | `/admin/api/users/{id}/erase` | oui | anonymisation RGPD (mlt 10.5, tombstone, ADR-0007) ; `403` sur son propre compte, `409` si deja anonymise |
+| GET | `/admin/api/roles` | non | |
+| GET | `/admin/api/roles/{id}` | non | inclut `permission_ids`, `permissions`, `visible_sources` |
+| POST | `/admin/api/roles` | oui | `permission_ids: [int]`, `visible_sources: ["kiosk"\|"counter"\|"drive"]` (mlt 10.4) |
+| PUT | `/admin/api/roles/{id}` | oui | garde-fou anti-lockout (`422 VALIDATION_ERROR`) : le role `admin` garde `role.manage` et reste actif. PUT PARTIEL sur `is_active` (voir note ci-dessous) |
+
+> **PUT partiel sur `is_active` / `is_available`** -- `is_active` sur
+> `/admin/api/users/{id}` et `/admin/api/roles/{id}` ; `is_available` sur
+> `/admin/api/products/{id}` et `/admin/api/menus/{id}` : ce champ OMIS du corps
+> CONSERVE la valeur actuelle -- il ne desactive/rend JAMAIS indisponible par
+> omission. Seule une valeur EXPLICITE (`false`) change l'etat, sous la meme
+> permission et le meme PIN (quand il y en a un) que la mutation elle-meme. Tous
+> les autres champs du PUT restent, eux, un ecrasement complet (pas de fusion
+> partielle) : seuls ces deux champs (un par ressource) beneficient de cette
+> semantique, pour ne jamais desactiver un compte/role ou rendre un produit/menu
+> indisponible par un simple oubli de champ dans un client JSON.
+>
+> **Booleen JSON STRICT** -- `is_active`, `is_available`, et tout autre champ
+> booleen de cette API, n'acceptent QUE le type JSON natif `true`/`false`. Une
+> valeur presente mais d'un autre type -- la chaine `"true"`, la chaine `"false"`,
+> l'entier `1` ou `0` -- est refusee : `422 VALIDATION_ERROR`, jamais interpretee
+> comme un booleen "truthy"/"falsy" a la maniere de PHP.
+
+> **Limite documentee** : aucune suppression de role — le back-office HTML n'en propose pas
+> non plus (un role est rattache a des comptes).
+
+Commandes (`order.read` / `order.create` / `order.deliver` / `order.cancel`) :
+
+| Methode | Chemin | PIN | Note |
+|---|---|---|---|
+| GET | `/admin/api/orders` | non | liste recente, FILTREE par les sources visibles du role (`role_visible_source`, RG-T12), meme regle que la file cuisine |
+| GET | `/admin/api/orders/{number}` | non | `403 FORBIDDEN` si le numero est inconnu OU si sa source n'est pas visible par le role : les deux cas rendent la meme reponse (anti-enumeration), pas de `404` qui reveleriat qu'une commande d'un autre canal existe |
+| POST | `/admin/api/orders` | non | saisie comptoir/drive (mlt 4.1), encaissee immediatement. Un seul endpoint JSON (contrairement aux deux pages HTML `/counter/orders`/`/drive/orders`) : un role a CANAL FIXE (`role.order_source` = `counter`/`drive`) l'impose, le champ `source` du corps est alors IGNORE s'il est fourni ; un role SANS canal fixe (admin/manager, `role.order_source` NULL) DOIT choisir `"source": "counter"` ou `"drive"` dans le corps, sinon `422 VALIDATION_ERROR` |
+| POST | `/admin/api/orders/{number}/ready` | non | etat cuisine paid/preparing -> ready ; meme garde de visibilite PRE-3 que le HTML (403 anti-enumeration comme le GET unitaire) |
+| POST | `/admin/api/orders/{number}/deliver` | non | paid/preparing/ready -> delivered ; meme garde PRE-3 |
+| POST | `/admin/api/orders/{number}/cancel` | oui | mlt 7.1 ; meme garde de visibilite PRE-3 que le GET unitaire/ready/deliver (403 anti-enumeration, verifiee AVANT le PIN : un numero inconnu et un canal non visible rendent la meme reponse, non distinguables via le PIN) ; puis `422 CANNOT_CANCEL_IN_STATE` (statut terminal) ou `409 INVALID_TRANSITION` (course perdue) ; audit ecrit par `OrderRepository::cancel()` lui-meme. **Limite connue, cote HTML uniquement** : `OrderAdminController::cancel()` (HTML) ne verifie pas cette visibilite de canal -- seule la permission `order.cancel` y est exigee (non corrige sur ce chantier pour ne pas introduire un comportement de securite nouveau et non revu sur un chemin de production existant ; l'API JSON, elle, ferme desormais ce cas) |
+
+Statistiques (`stats.read`) :
+
+| Methode | Chemin | PIN | Note |
+|---|---|---|---|
+| GET | `/admin/api/stats` | non | compteurs de catalogue + sante du stock (RG-T21) + KPIs de vente, lecture seule |
+
+> **Limite documentee** : l'upload d'image (produit/categorie, multipart) reste HTML
+> uniquement — l'API JSON accepte `image_path` deja heberge (chaine), pas de transfert
+> binaire.
 
 ---
 
@@ -187,8 +282,8 @@ Statistiques :
 |---|---|
 | GET | lecture, sans effet de bord |
 | POST | creation, ou action de formulaire back-office (login, logout, reset) |
-| PUT | mise a jour d'une ressource (prevu, CRUD admin P3) |
-| DELETE | suppression d'une ressource (prevu) |
+| PUT | mise a jour d'une ressource (livre sur `/admin/api/*`, section 5.3) |
+| DELETE | suppression (ou desactivation, selon la ressource) d'une ressource (livre sur `/admin/api/*`, section 5.3) |
 
 Le Router fait une correspondance exacte de la methode : methode connue sur chemin connu mais non
 enregistree -> `405` ; chemin inconnu -> `404` (`Router::dispatch`). Une requete `HEAD` sur une
@@ -258,10 +353,14 @@ stable).
 |---|---|---|
 | `NOT_FOUND` | 404 | ressource introuvable |
 | `METHOD_NOT_ALLOWED` | 405 | methode non autorisee sur ce chemin |
-| `VALIDATION_ERROR` | 422 | entree invalide (champ, longueur, enum) |
-| `CONFLICT` | 409 | conflit d'etat (ex. transition de commande concurrente) ; suppression dure bloquee par une reference (FK RESTRICT) ; unicite slug/name deja prise (remontee par la base). La validation simple en amont (champ/format/bornes) reste `VALIDATION_ERROR` 422 |
-| `AUTH_REQUIRED` | 401 | authentification requise (prevu, API admin) |
-| `FORBIDDEN` | 403 | permission insuffisante, ou jeton CSRF invalide cote formulaire |
+| `VALIDATION_ERROR` | 422 | entree invalide (champ, longueur, enum) ; `error.fields` porte le detail par champ sur `/admin/api/*` |
+| `CONFLICT` | 409 | conflit d'etat (ex. transition de commande concurrente) ; suppression dure bloquee par une reference (FK RESTRICT) ; unicite slug/name/code/email deja prise (remontee par la base). La validation simple en amont (champ/format/bornes) reste `VALIDATION_ERROR` 422 |
+| `AUTH_REQUIRED` | 401 | authentification requise (session absente/expiree, `/admin/me` et `/admin/api/*`) |
+| `FORBIDDEN` | 403 | permission insuffisante |
+| `CSRF_INVALID` | 403 | jeton CSRF absent ou invalide (formulaire `_csrf` ou en-tete `X-CSRF-Token` sur `/admin/api/*`) |
+| `PIN_INVALID` | 422 | PIN d'action sensible absent, invalide, ou acteur verrouille (RG-T13/RG-T22, `/admin/api/*`) |
+| `INVALID_JSON` | 400 | corps de requete JSON malforme, OU dont la racine n'est pas un objet (une liste/un scalaire) (`/admin/api/*`) |
+| `UNSUPPORTED_MEDIA_TYPE` | 415 | corps non vide envoye sans en-tete `Content-Type: application/json` (`/admin/api/*`) |
 | `RATE_LIMITED` | 429 | throttling (prevu) |
 | `INTERNAL_ERROR` | 500 | erreur interne, message generique (pas de divulgation) |
 
@@ -333,11 +432,14 @@ Voir [ADR-0015](../adr/0015-allergenes-calcules-par-produit.md).
   `SameSite=Strict`. Bornes de validite appliquees cote application (idle 4h, absolue 10h),
   pas par la duree du cookie.
 - **Formulaires back-office** : jeton CSRF synchroniseur en champ cache `_csrf`, verifie sur chaque
-  POST (`/login`, `/logout`, `/forgot_password`, `/reset_password`). Jeton invalide -> `403`.
-- **API REST** : endpoints kiosk de lecture catalogue et creation de commande publics (pas de
-  session ; `mlt.md` CREATE_ORDER). Endpoints d'administration sous `/api` (P3/P4) : session admin +
-  verification de permission via `role_permission` ; actions sensibles avec re-autorisation PIN
-  (`mlt.md` RG-T13).
+  POST (`/login`, `/logout`, `/forgot_password`, `/reset_password`, et chaque ecriture
+  `/admin/*`). Jeton invalide -> `403`.
+- **API REST publique (`/api/*`)** : endpoints kiosk de lecture catalogue et creation de
+  commande, publics (pas de session ; `mlt.md` CREATE_ORDER).
+- **API d'administration JSON (`/admin/api/*`, section 5.3)** : session admin + verification
+  de permission via `role_permission` + jeton CSRF en en-tete `X-CSRF-Token` (le meme jeton
+  synchroniseur que le HTML, transporte differemment faute de formulaire) ; actions sensibles
+  avec re-autorisation PIN (`mlt.md` RG-T13) dans le corps JSON.
 
 Le schema `ApiKey` / `Bearer` de l'API plateforme BYAN (`docs/api/byan-api.md`) ne s'applique pas
 ici.
@@ -373,7 +475,12 @@ introduit a ce moment-la, en gardant `/api/...` pour la v1 tant que des clients 
 | Resolution / 404 / 405 | `src/app/Core/Router.php` |
 | Enveloppe `data` / `error` / contenu JSON | `src/app/Core/Response.php` |
 | Lecture de la requete (chemin, query, corps, IP) | `src/app/Core/Request.php` |
-| Controleurs | `src/app/Controllers/` |
+| Controleurs (HTML) | `src/app/Controllers/` |
+| Controleurs (API d'administration JSON, section 5.3) | `src/app/Controllers/Admin/Api/` (etendent leur homologue HTML) |
+| Garde JSON commune (401/403/CSRF/PIN/enveloppe) | `src/app/Controllers/Admin/Api/JsonApiTrait.php` |
+| Porte du PIN d'action sensible pour l'API JSON | `src/app/Auth/PinGate.php` |
 | Acces base (requetes preparees, transaction) | `src/app/Core/Database.php` |
 | Noms de champs (source de verite) | `docs/merise/dictionary.md` |
 | Operations metier et permissions | `docs/merise/mct.md`, `mlt.md`, `db/seeds/0001_rbac_and_reference.sql` |
+| Collection Postman + guide | `docs/api/wakdo-admin.postman_collection.json`, `docs/api/postman.md` |
+| Decision d'architecture | [ADR-0017](../adr/0017-api-admin-json.md) |
