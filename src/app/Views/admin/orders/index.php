@@ -12,11 +12,20 @@ declare(strict_types=1);
  * audit schemas 6.3). Tri du plus recent au plus ancien (cf.
  * OrderQueryRepository::recent). Toute valeur est echappee (RG-T15).
  *
+ * $highlightOrder (numero de commande ou null) : posee par OrderAdminController
+ * juste avant une redirection ici (ready/deliver/cancel reussis), consommee une
+ * seule fois (comme _flash). Signale la ligne concernee par la derniere action,
+ * SANS s'appuyer sur la seule couleur (WCAG 1.4.1) : classe .row-updated (fond qui
+ * s'efface seul, cf. <style> plus bas) + texte "Mise a jour a l'instant" dans la
+ * cellule Statut.
+ *
  * @var list<array<string, mixed>> $orders
  * @var bool                       $canCancel
+ * @var string|null                $highlightOrder
  */
 
 $canCancelOrder = isset($canCancel) && $canCancel === true;
+$highlight = isset($highlightOrder) && is_string($highlightOrder) ? $highlightOrder : null;
 
 $esc = static fn (mixed $v): string => htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
 $euros = static fn (mixed $cents): string => number_format(((int) $cents) / 100, 2, ',', ' ') . ' EUR';
@@ -73,7 +82,7 @@ $rows = isset($orders) && is_array($orders) ? $orders : [];
                     <th>Mode</th>
                     <th>Chevalet</th>
                     <th>Statut</th>
-                    <th>Total</th>
+                    <th class="table-num">Total</th>
                     <th>Date</th>
                     <?php if ($canCancelOrder): ?><th></th><?php endif; ?>
                 </tr>
@@ -86,18 +95,24 @@ $rows = isset($orders) && is_array($orders) ? $orders : [];
                     // PRE-3 (7.1) : les commandes non terminales sont annulables (cancel()
                     // accepte pending_payment, paid et les etats de cuisine preparing/ready).
                     $rowCancellable = in_array($status, ['pending_payment', 'paid', 'preparing', 'ready'], true);
+                    $isUpdated = $number !== '' && $number === $highlight;
                     ?>
-                    <tr>
+                    <tr<?= $isUpdated ? ' class="row-updated"' : '' ?>>
                         <td><strong><?= $esc($number) ?></strong></td>
                         <td><?= $esc($modeLabel((string) ($o['service_mode'] ?? ''))) ?></td>
                         <td><?= ($o['service_tag'] ?? '') !== '' ? $esc($o['service_tag']) : '—' ?></td>
-                        <td><span class="pill <?= $esc($statusPill($status)) ?>"><?= $esc($statusLabel($status)) ?></span></td>
-                        <td><?= $esc($euros($o['total_ttc_cents'] ?? 0)) ?></td>
+                        <td>
+                            <span class="pill <?= $esc($statusPill($status)) ?>"><?= $esc($statusLabel($status)) ?></span>
+                            <?php if ($isUpdated): ?><span class="row-updated__badge">Mise à jour à l'instant</span><?php endif; ?>
+                        </td>
+                        <td class="table-num"><?= $esc($euros($o['total_ttc_cents'] ?? 0)) ?></td>
                         <td><?= $esc($dateHuman($o['created_at'] ?? '')) ?></td>
                         <?php if ($canCancelOrder): ?>
                             <td>
                                 <?php if ($rowCancellable): ?>
-                                    <a class="btn btn-secondary" href="/admin/orders/<?= rawurlencode($number) ?>/cancel">Annuler</a>
+                                    <span class="row-actions">
+                                        <a class="btn btn-secondary" href="/admin/orders/<?= rawurlencode($number) ?>/cancel">Annuler</a>
+                                    </span>
                                 <?php endif; ?>
                             </td>
                         <?php endif; ?>
@@ -108,3 +123,37 @@ $rows = isset($orders) && is_array($orders) ? $orders : [];
         </div>
     <?php endif; ?>
 </section>
+<?php /*
+ * Ligne mise en evidence apres une action (statut ou annulation) -- non couvert par
+ * le lot 0 (design-system.md, plan.md 2.6 : point volontairement exclu du gel commun
+ * pour ne pas toucher plusieurs lots a la fois). Scope local a CE fichier (le lot 2
+ * n'a pas le droit de modifier admin.css, propriete d'un autre lot en parallele) :
+ * jetons de couleur repris de :root (admin.css), aucune valeur codee en dur. Respecte
+ * prefers-reduced-motion (pas d'animation forcee). Le fond seul ne porte pas le sens
+ * (WCAG 1.4.1) : le texte ".row-updated__badge" l'accompagne toujours.
+*/ ?>
+<style>
+.row-updated {
+    animation: lot2-row-updated-fade 4s ease-out forwards;
+}
+.row-updated__badge {
+    display: inline-block;
+    margin-left: var(--space-2);
+    font-size: var(--text-xs);
+    font-weight: 700;
+    color: var(--color-success-text);
+    animation: lot2-badge-fade 4s ease-out forwards;
+}
+@keyframes lot2-row-updated-fade {
+    0%, 15% { background: var(--color-success-bg); }
+    100% { background: transparent; }
+}
+@keyframes lot2-badge-fade {
+    0%, 70% { opacity: 1; }
+    100% { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .row-updated { animation: none; background: var(--color-success-bg); }
+    .row-updated__badge { animation: none; }
+}
+</style>

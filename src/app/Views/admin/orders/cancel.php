@@ -76,7 +76,7 @@ $cancellable = in_array($status, ['pending_payment', 'paid', 'preparing', 'ready
             </fieldset>
 
             <div class="form-actions">
-                <button class="btn btn-primary" type="submit">Annuler la commande</button>
+                <button class="btn btn-danger" type="submit">Annuler la commande</button>
                 <a class="btn btn-secondary" href="/admin/orders">Retour</a>
             </div>
         </form>
