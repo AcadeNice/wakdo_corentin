@@ -63,6 +63,10 @@ class OrderAdminController extends AdminController
             // RG-T03 : adapte l'affichage (bouton Annuler) sans remplacer la garde
             // par-action de cancel(). manager n'a PAS order.cancel (decision D5).
             'canCancel'  => $this->may($guard, 'order.cancel'),
+            // Ligne a signaler (retour visuel apres deliver()/cancel(), qui posent
+            // _highlight_order juste avant de rediriger ici). Voir la note du meme nom
+            // dans admin/orders/index.php pour le pourquoi.
+            'highlightOrder' => $this->takeHighlight(),
         ], $guard);
     }
 
@@ -107,6 +111,7 @@ class OrderAdminController extends AdminController
         try {
             $this->orders()->deliver($number);
             $this->setFlash('Commande remise (livrée).');
+            $this->setHighlight($number);
         } catch (OrderValidationException $exception) {
             $this->setFlash(
                 $exception->getMessage() === 'ORDER_NOT_FOUND'
@@ -149,6 +154,7 @@ class OrderAdminController extends AdminController
         try {
             $this->orders()->markReady($number);
             $this->setFlash('Commande marquée prête.');
+            $this->setHighlight($number);
         } catch (OrderValidationException $exception) {
             $this->setFlash(
                 $exception->getMessage() === 'ORDER_NOT_FOUND'
@@ -265,6 +271,7 @@ class OrderAdminController extends AdminController
             // = $actorId), surtout pas $actor['id'] (l'equipier resolu par le PIN).
             $this->pinThrottle()->reset($actorId);
             $this->setFlash('Commande annulée.');
+            $this->setHighlight($number);
         } catch (OrderValidationException $exception) {
             $this->setFlash(match ($exception->getMessage()) {
                 'ORDER_NOT_FOUND'         => 'Commande introuvable.',
@@ -399,6 +406,34 @@ class OrderAdminController extends AdminController
     private function redirect(string $location): Response
     {
         return Response::make('', 302, ['Location' => $location]);
+    }
+
+    /**
+     * Pose le numero de commande a signaler (retour visuel) sur le prochain rendu,
+     * juste avant une redirection (meme mecanique poser-puis-lire que
+     * AdminController::setFlash()). Consomme une seule fois par takeHighlight() (ici
+     * ou dans KitchenController, selon la page de redirection).
+     */
+    private function setHighlight(string $number): void
+    {
+        $this->sessionManager()->set('_highlight_order', $number);
+    }
+
+    /**
+     * Lit puis efface le numero de commande a signaler (voir setHighlight()). Duplique
+     * dans KitchenController a dessein : AdminController est un socle partage par TOUS
+     * les controleurs admin, y compris ceux des autres lots en cours en parallele -- ne
+     * pas y toucher hors du perimetre confie pour ce lot.
+     */
+    private function takeHighlight(): ?string
+    {
+        $value = $this->sessionManager()->get('_highlight_order');
+        if ($value === null) {
+            return null;
+        }
+        $this->sessionManager()->set('_highlight_order', null);
+
+        return is_string($value) ? $value : null;
     }
 
     private function invalidCsrf(): Response
