@@ -2,10 +2,18 @@
 #
 # Wakdo - tests de scripts/lib/demo-snapshot-lib.sh.
 #
-# Couvre validate_snapshot_dir, le controle joue a l'etape [1/6] de
-# scripts/demo-reset.sh AVANT toute destruction (mode --dry-run compris). Un
-# instantane corrompu doit etre refuse LA, pas au milieu de l'etape [4/6] quand
-# les DROP/CREATE ont deja commence et que la base est a moitie ecrasee.
+# Couvre les deux controles joues a l'etape [1/6] de scripts/demo-reset.sh
+# AVANT toute destruction (mode --dry-run compris) :
+#
+#   - validate_snapshot_dir : un instantane corrompu doit etre refuse LA, pas au
+#     milieu de l'etape [4/6] quand les DROP/CREATE ont deja commence et que la
+#     base est a moitie ecrasee ;
+#   - rollback_escape_granted / schema_decision : la sortie de secours du retour
+#     arriere. Une restauration interrompue AVANT d'avoir remis schema_migrations
+#     en place laisse la base a un schema hybride ; le retour arriere vers la
+#     sauvegarde de securite que l'outil vient de prendre doit rester possible,
+#     sans pour autant desarmer le garde-fou de compatibilite pour un instantane
+#     quelconque.
 #
 # Aucun conteneur demarre, aucune base touchee : les fonctions exercees ici ne
 # lisent que des fichiers. C'est ce qui permet de les faire tourner en CI sans
@@ -34,6 +42,14 @@ FAIL=0
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
+# Le marqueur de retour arriere repose sur une empreinte sha256, calculee cote
+# hote par sha256_hex. Sans outil de hachage, la moitie des assertions echouerait
+# sans dire pourquoi : autant le constater ici, en clair.
+if ! printf 'x' | sha256_hex > /dev/null 2>&1; then
+    echo "ERREUR : aucun outil de hachage sha256 disponible (sha256sum, shasum ou openssl)." >&2
+    exit 1
+fi
+
 check() {
     local label="$1" got="$2" want="$3"
     if [ "$got" = "$want" ]; then
@@ -59,12 +75,17 @@ expect_validate() {
 
 # Fabrique un instantane bien forme, au format exact de capture_snapshot :
 # db.sql.gz (dump gzip se terminant par "-- Dump completed"), migrations.txt,
-# counts.txt, meta.txt, et uploads.tar.gz si $2 = yes.
+# counts.txt, meta.txt, et uploads.tar.gz si $2 = yes. $3 = kind de meta.txt
+# ("reference" par defaut, "pre-reset" pour une sauvegarde de securite).
+#
+# Le contenu du dump varie avec le nom du dossier : deux instantanes distincts
+# ont donc deux empreintes sha256 distinctes, ce qui permet de tester qu'un
+# marqueur recopie d'une sauvegarde vers un autre instantane est rejete.
 make_snapshot() {
-    local dir="$1" uploads="${2:-no}"
+    local dir="$1" uploads="${2:-no}" kind="${3:-reference}"
     mkdir -p "$dir"
     {
-        printf -- '-- MariaDB dump (fixture de test)\n'
+        printf -- '-- MariaDB dump (fixture de test, %s)\n' "$(basename "$dir")"
         printf 'CREATE TABLE `t` (`id` int);\n'
         printf 'INSERT INTO `t` VALUES (1);\n'
         printf -- '-- Dump completed on 2026-09-26 12:00:00\n'
@@ -73,7 +94,7 @@ make_snapshot() {
     printf 't\t1\n' > "$dir/counts.txt"
     {
         printf 'created_at=2026-09-26T12:00:00+00:00\n'
-        printf 'kind=reference\n'
+        printf 'kind=%s\n' "$kind"
         printf 'table_count=1\n'
         printf 'uploads_included=%s\n' "$uploads"
         printf 'uploads_files=%s\n' "$([ "$uploads" = yes ] && echo 1 || echo 0)"
@@ -142,6 +163,142 @@ expect_validate "uploads_included=yes + archive illisible -> refus" "$WORK/uploa
 # uploads_included=no : aucune archive n'est attendue, l'absence est normale.
 make_snapshot "$WORK/uploads-non-attendu" no
 expect_validate "uploads_included=no + archive absente -> accepte" "$WORK/uploads-non-attendu" 0
+
+# --- Sortie de secours du retour arriere ------------------------------------
+
+# Deux empreintes de base distinctes, au format rendu par db_identity (sha256).
+LIVE_ID="$(printf 'wakdo|2026-09-26 16:03:36|pile-a|pile-a-db' | sha256_hex)"
+AUTRE_ID="$(printf 'wakdo|2026-09-26 16:03:36|pile-b|pile-b-db' | sha256_hex)"
+
+# Fabrique une sauvegarde de securite MARQUEE, comme le fait capture_snapshot
+# en mode pre-reset : instantane bien forme + marqueur ecrit par la fonction
+# REELLE (write_rollback_tag), pas par une imitation ecrite dans le test.
+make_backup() {
+    local dir="$1" identity="$2" uploads="${3:-no}"
+    make_snapshot "$dir" "$uploads" pre-reset
+    write_rollback_tag "$dir" "$identity"
+}
+
+# 0 = passe-droit accorde, 1 = refuse.
+expect_escape() {
+    local label="$1" dir="$2" identity="$3" want="$4" got
+    rollback_escape_granted "$dir" "$identity" > "$WORK/last.log" 2>&1
+    got=$?
+    check "$label" "$got" "$want"
+    if [ "$got" != "$want" ] && [ -s "$WORK/last.log" ]; then
+        sed 's/^/     /' "$WORK/last.log" >&2
+    fi
+}
+
+expect_decision() {
+    local label="$1" extra_live="$2" extra_snap="$3" dir="$4" identity="$5" want="$6" got
+    got="$(schema_decision "$extra_live" "$extra_snap" "$dir" "$identity" 2>/dev/null)"
+    check "$label" "$got" "$want"
+}
+
+echo "== rollback_escape_granted : la sauvegarde de securite marquee"
+make_backup "$WORK/sauvegarde" "$LIVE_ID"
+expect_escape "sauvegarde marquee + meme base -> accorde" "$WORK/sauvegarde" "$LIVE_ID" 0
+
+echo "== rollback_escape_granted : ce qui n'ouvre PAS la sortie de secours"
+# Un instantane ordinaire (le cas de tous les jours) n'a pas de marqueur.
+make_snapshot "$WORK/ordinaire" no
+expect_escape "instantane ordinaire (kind=reference, sans marqueur) -> refus" "$WORK/ordinaire" "$LIVE_ID" 1
+
+# Marqueur ABSENT alors que meta.txt annonce une sauvegarde de securite.
+make_snapshot "$WORK/sans-marqueur" no pre-reset
+expect_escape "kind=pre-reset sans marqueur -> refus" "$WORK/sans-marqueur" "$LIVE_ID" 1
+
+# Marqueur venu d'une AUTRE base (autre pile, autre volume de donnees).
+make_backup "$WORK/autre-base" "$AUTRE_ID"
+expect_escape "marqueur d'une autre base -> refus" "$WORK/autre-base" "$LIVE_ID" 1
+
+# Marqueur VALIDE recopie tel quel sur un AUTRE instantane : l'empreinte du dump
+# enregistree dans le marqueur ne correspond plus au dump de ce dossier-la.
+make_snapshot "$WORK/marqueur-recopie" no pre-reset
+cp "$WORK/sauvegarde/rollback.tag" "$WORK/marqueur-recopie/rollback.tag"
+expect_escape "marqueur recopie sur un autre instantane -> refus" "$WORK/marqueur-recopie" "$LIVE_ID" 1
+
+# Marqueur retouche a la main : l'empreinte du dump ne colle plus.
+make_backup "$WORK/marqueur-retouche" "$LIVE_ID"
+sed -i 's/^dump_sha256=.*/dump_sha256=0000000000000000000000000000000000000000000000000000000000000000/' \
+    "$WORK/marqueur-retouche/rollback.tag"
+expect_escape "empreinte du dump falsifiee -> refus" "$WORK/marqueur-retouche" "$LIVE_ID" 1
+
+# Marqueur ampute de son empreinte de base.
+make_backup "$WORK/marqueur-sans-base" "$LIVE_ID"
+sed -i 's/^origin_db=.*/origin_db=/' "$WORK/marqueur-sans-base/rollback.tag"
+expect_escape "marqueur sans empreinte de base -> refus" "$WORK/marqueur-sans-base" "$LIVE_ID" 1
+
+# Dump remplace APRES l'ecriture du marqueur (sauvegarde alteree apres coup).
+make_backup "$WORK/dump-remplace" "$LIVE_ID"
+printf -- '-- MariaDB dump (autre contenu)\n-- Dump completed on 2026-09-26 13:00:00\n' \
+    | gzip -9 -c > "$WORK/dump-remplace/db.sql.gz"
+expect_escape "dump remplace apres coup -> refus" "$WORK/dump-remplace" "$LIVE_ID" 1
+
+# Marqueur parfaitement valide, mais meta.txt annonce un instantane de reference :
+# le marqueur SEUL ne suffit pas, les deux doivent concorder.
+make_snapshot "$WORK/kind-reference" no reference
+write_rollback_tag "$WORK/kind-reference" "$LIVE_ID"
+expect_escape "marqueur valide mais kind=reference -> refus" "$WORK/kind-reference" "$LIVE_ID" 1
+
+# Identite de la base courante indisponible (wakdo-db muet sur ce point) : pas
+# de comparaison possible, donc pas de passe-droit.
+expect_escape "identite de la base courante inconnue -> refus" "$WORK/sauvegarde" "" 1
+
+echo "== schema_decision : le garde-fou mord toujours, sauf sur le retour arriere"
+EXTRA="0015_ajout.sql"
+
+expect_decision "schemas identiques -> ok" "" "" "$WORK/ordinaire" "$LIVE_ID" ok
+
+# Migration appliquee DEPUIS l'instantane : vraie erreur, refus inchange - y
+# compris sur une sauvegarde de securite marquee (la sortie de secours ne joue
+# que dans l'autre sens).
+expect_decision "migration appliquee depuis l'instantane -> refus" \
+    "$EXTRA" "" "$WORK/ordinaire" "$LIVE_ID" extra-live
+expect_decision "migration appliquee depuis la sauvegarde marquee -> refus quand meme" \
+    "$EXTRA" "" "$WORK/sauvegarde" "$LIVE_ID" extra-live
+expect_decision "divergence des deux cotes sur une sauvegarde marquee -> refus" \
+    "$EXTRA" "$EXTRA" "$WORK/sauvegarde" "$LIVE_ID" extra-live
+
+# La base a PERDU des migrations que l'instantane possede : c'est la signature
+# d'une restauration interrompue avant la remise en place de schema_migrations.
+expect_decision "base amputee + instantane ordinaire -> refus (inchange)" \
+    "" "$EXTRA" "$WORK/ordinaire" "$LIVE_ID" extra-snap
+expect_decision "base amputee + sauvegarde marquee de CETTE base -> retour arriere" \
+    "" "$EXTRA" "$WORK/sauvegarde" "$LIVE_ID" rollback
+expect_decision "base amputee + sauvegarde marquee d'une AUTRE base -> refus" \
+    "" "$EXTRA" "$WORK/autre-base" "$LIVE_ID" extra-snap
+expect_decision "base amputee + marqueur recopie -> refus" \
+    "" "$EXTRA" "$WORK/marqueur-recopie" "$LIVE_ID" extra-snap
+
+echo "== l'integrite du dump reste verifiee sur le retour arriere"
+# La sortie de secours porte sur la COMPATIBILITE de schema, pas sur l'integrite
+# du fichier : une sauvegarde marquee dont le dump est abime reste refusee par
+# validate_snapshot_dir, qui tourne avant et independamment.
+make_backup "$WORK/sauvegarde-dump-tronque" "$LIVE_ID"
+FULL="$(wc -c < "$WORK/sauvegarde-dump-tronque/db.sql.gz" | tr -d '[:space:]')"
+head -c "$((FULL / 2))" "$WORK/sauvegarde/db.sql.gz" > "$WORK/sauvegarde-dump-tronque/db.sql.gz"
+expect_validate "sauvegarde marquee + dump tronque -> refus" "$WORK/sauvegarde-dump-tronque" 1
+expect_escape "sauvegarde marquee + dump tronque -> pas de passe-droit non plus" \
+    "$WORK/sauvegarde-dump-tronque" "$LIVE_ID" 1
+
+make_backup "$WORK/sauvegarde-dump-vide" "$LIVE_ID"
+: > "$WORK/sauvegarde-dump-vide/db.sql.gz"
+expect_validate "sauvegarde marquee + dump vide -> refus" "$WORK/sauvegarde-dump-vide" 1
+
+make_backup "$WORK/sauvegarde-dump-sans-fin" "$LIVE_ID"
+{
+    printf -- '-- MariaDB dump (fixture de test)\n'
+    printf 'INSERT INTO `t` VALUES (1),(2\n'
+} | gzip -9 -c > "$WORK/sauvegarde-dump-sans-fin/db.sql.gz"
+expect_validate "sauvegarde marquee + dump sans '-- Dump completed' -> refus" \
+    "$WORK/sauvegarde-dump-sans-fin" 1
+
+make_backup "$WORK/sauvegarde-uploads-corrompu" "$LIVE_ID" yes
+printf 'ceci-nest-pas-un-tar-gz' > "$WORK/sauvegarde-uploads-corrompu/uploads.tar.gz"
+expect_validate "sauvegarde marquee + archive uploads illisible -> refus" \
+    "$WORK/sauvegarde-uploads-corrompu" 1
 
 echo
 printf '%s assertion(s) OK, %s en echec\n' "$PASS" "$FAIL"

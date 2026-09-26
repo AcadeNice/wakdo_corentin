@@ -177,8 +177,10 @@ jobs:
     # Fonctions pures du filet "instantane + remise a zero" de la demo
     # (scripts/lib/demo-snapshot-lib.sh). Elles ne lisent que des fichiers :
     # ni conteneur, ni base, donc pas de service MariaDB ici - contrairement a
-    # static-tests. Ce job garde notamment le refus d'un instantane au dump
-    # corrompu AVANT toute destruction (etape [1/6] de demo-reset.sh).
+    # static-tests. Ce job garde les deux controles de l'etape [1/6] de
+    # demo-reset.sh : le refus d'un instantane au dump corrompu AVANT toute
+    # destruction, et la sortie de secours du retour arriere (une sauvegarde de
+    # securite marquee passe, un instantane quelconque reste refuse).
     # GARDE : ne s'active que si tests/shell/ existe.
     runs-on: docker
     steps:
