@@ -68,6 +68,16 @@ Thumbs.db
 /src/public/uploads/
 /data/
 
+# Instantanes de demo (scripts/demo-snapshot.sh) et sauvegardes de securite
+# (scripts/demo-reset.sh) : dumps + images uploads, potentiellement volumineux
+# et propres a chaque hote. Volontairement PAS sous /var/ : ce dossier est
+# parfois cree root:root par le tout premier `docker compose up` (bind-mount
+# var/backups de wakdo-cron), ce qui empecherait un utilisateur non-root d'y
+# creer des sous-dossiers.
+/demo-snapshots/
+/demo-backups/
+/.demo-reset.lock
+
 # === Build artifacts ===
 /dist/
 /build/
