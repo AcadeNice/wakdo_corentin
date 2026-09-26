@@ -438,18 +438,53 @@ capture_snapshot() {
 }
 
 # Verifie qu'un dossier a la forme d'un instantane produit par capture_snapshot,
-# ET que son archive uploads (si l'instantane est cense en contenir une) est
-# exploitable. Appele AVANT toute etape destructive (y compris en --dry-run) :
-# une archive vide/illisible doit etre detectee avant que quoi que ce soit
-# n'ait ete ecrase, pas seulement au moment ou on tente de l'utiliser.
+# ET que ses deux archives (le dump de la base, et l'archive uploads si
+# l'instantane est cense en contenir une) sont exploitables. Appele AVANT toute
+# etape destructive (y compris en --dry-run) : une archive vide/illisible doit
+# etre detectee avant que quoi que ce soit n'ait ete ecrase, pas seulement au
+# moment ou on tente de l'utiliser.
 validate_snapshot_dir() {
-    local dir="$1" uploads_included
+    local dir="$1" uploads_included db_tail
     for f in db.sql.gz migrations.txt counts.txt meta.txt; do
         if [ ! -f "$dir/$f" ]; then
             echo "ERREUR : instantane invalide, $f absent de $dir" >&2
             return 1
         fi
     done
+
+    # Integrite du DUMP, au meme titre que l'archive uploads plus bas - et avant
+    # elle, parce que c'est l'artefact critique. capture_snapshot verifie ces
+    # memes proprietes a la CREATION, mais un instantane peut etre corrompu
+    # APRES coup (disque plein, copie ou transfert interrompu), et
+    # `--snapshot <chemin>` accepte n'importe quel dossier, y compris un que ces
+    # scripts n'ont pas produit. Sans ce controle, un dump tronque passait
+    # l'etape [1/6] - le --dry-run annoncait meme "compatible" - puis cassait EN
+    # PLEIN [4/6], DROP/CREATE deja joues, base laissee dans un etat
+    # intermediaire incoherent.
+    #
+    # gzip -t (et non `gzip -dc | tail`) pour ne dependre d'aucune option de
+    # shell chez l'appelant : un pipe ne remonterait l'echec de gzip que sous
+    # `pipefail`.
+    if [ ! -s "$dir/db.sql.gz" ]; then
+        echo "ERREUR : instantane invalide, db.sql.gz absent ou vide ($dir)" >&2
+        return 1
+    fi
+    if ! gzip -t "$dir/db.sql.gz" 2>/dev/null; then
+        echo "ERREUR : instantane invalide, db.sql.gz illisible - gzip -t a echoue, dump tronque ou corrompu ($dir)" >&2
+        return 1
+    fi
+    # Integrite gzip acquise ci-dessus : cette seconde passe ne peut plus echouer
+    # sur une troncature du flux, seulement constater un dump SQL incomplet qui
+    # aurait ete recompresse (ce que capture_snapshot refuse deja a la creation).
+    db_tail="$(gzip -dc "$dir/db.sql.gz" 2>/dev/null | tail -1 || true)"
+    case "$db_tail" in
+        "-- Dump completed"*) : ;;
+        *)
+            echo "ERREUR : instantane invalide, db.sql.gz ne se termine pas par '-- Dump completed' (dump incomplet) ($dir)" >&2
+            return 1
+            ;;
+    esac
+
     uploads_included="$(meta_get "$dir" uploads_included)"
     if [ "$uploads_included" = yes ]; then
         if [ ! -s "$dir/uploads.tar.gz" ]; then

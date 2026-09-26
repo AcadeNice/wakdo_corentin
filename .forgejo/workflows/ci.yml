@@ -172,3 +172,26 @@ jobs:
           # qu'a tests/e2e via le conteneur officiel.)
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm ci
           npm run test:js
+
+  shell-tests:
+    # Fonctions pures du filet "instantane + remise a zero" de la demo
+    # (scripts/lib/demo-snapshot-lib.sh). Elles ne lisent que des fichiers :
+    # ni conteneur, ni base, donc pas de service MariaDB ici - contrairement a
+    # static-tests. Ce job garde notamment le refus d'un instantane au dump
+    # corrompu AVANT toute destruction (etape [1/6] de demo-reset.sh).
+    # GARDE : ne s'active que si tests/shell/ existe.
+    runs-on: docker
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run shell tests
+        run: |
+          set -eu
+          if [ ! -d tests/shell ]; then
+            echo "Shell tests skipped: no tests/shell/ yet"
+            exit 0
+          fi
+          for t in tests/shell/*.test.sh; do
+            [ -f "$t" ] || continue
+            echo "== $t"
+            bash "$t"
+          done
