@@ -38,7 +38,7 @@
     -->
 
     <header class="site-header">
-        <a href="index.html" class="site-header__back" aria-label="Retour à l'accueil" title="Retour à l'accueil">
+        <a href="index.html" id="back-to-welcome" class="site-header__back" aria-label="Retour à l'accueil" title="Retour à l'accueil">
             &#8592; Retour
         </a>
         <img
@@ -77,6 +77,11 @@
          service_mode null (422). C'est la 1re page post-accueil, elle doit donc le charger. -->
     <script type="module" src="assets/js/nav.js"></script>
     <script type="module" src="assets/js/page-categories.js"></script>
+    <!-- abandon-guard.js (via ce point d'entree externe : la CSP script-src 'self'
+         de la borne refuse tout script en ligne) : seule page ou "Retour" quitte
+         reellement le parcours (categories -> accueil) ; demande confirmation si
+         le panier n'est pas vide. -->
+    <script type="module" src="assets/js/page-categories-leave-guard.js"></script>
     <script type="module" src="assets/js/a11y.js"></script>
 </body>
 </html>
