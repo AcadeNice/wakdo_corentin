@@ -150,6 +150,18 @@
             block.style.padding = '0.75rem';
             block.style.marginBottom = '0.75rem';
 
+            // Un fieldset sans legend est un groupe sans nom : le lecteur d'ecran
+            // annonce "groupe" et l'equipier n'entend pas a quoi se rattachent le nom,
+            // le type, la case Requis et les cases d'options qui suivent. Le
+            // constructeur de recette du formulaire produit (product-recipe.js) pose
+            // deja une legende sur chacun de ses blocs ; ce builder-ci ne le faisait
+            // pas. Trouve en elargissant l'audit d'accessibilite a cet ecran
+            // (06-audit-accessibilite-mesure.md, section 9 bis) : aucune regle axe
+            // WCAG AA ne couvre ce cas, c'est une lecture du balisage qui l'a leve.
+            var legend = el(doc, 'legend');
+            legend.textContent = 'Slot du menu';
+            block.appendChild(legend);
+
             var head = el(doc, 'div');
 
             // Nom du slot

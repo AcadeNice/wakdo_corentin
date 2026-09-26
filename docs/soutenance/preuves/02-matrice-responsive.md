@@ -81,13 +81,15 @@ Note sur le composant de composition de menu (modale ouverte depuis la grille pr
 
 Tous les liens restent dans la page, dans le meme ordre de tabulation ; seul le recentrage de la bande sur la page courante passe par JavaScript (`admin.js`), la mise en page n'en depend pas.
 
-**Mesure** dans Chromium (`tests/e2e/responsive.spec.js`) sur 15 pages du back-office (tableau de bord, ingredients, produits, nouveau produit, produits par categorie, categories, menus, nouveau menu, commandes, saisie commande, cuisine, statistiques, utilisateurs, roles, mon PIN) a 360 et 390 px. Le back-office ne defile pas au niveau du document (`.admin-layout` : hauteur fixe, `overflow: hidden`) : c'est la zone de contenu `main.content` qui defile, c'est donc elle qui est mesuree. Resultat : aucun defilement horizontal de la zone de contenu, menu et contenu a pleine largeur, menu au-dessus du contenu, page courante visible dans la bande ; a 1366 px, le menu reste une colonne a gauche. Les tableaux larges defilent dans leur propre cadre (`.table-wrapper`), ce qui est voulu.
+**Mesure** dans Chromium (`tests/e2e/responsive.spec.js`) sur **16 pages** du back-office (tableau de bord, ingredients, produits, nouveau produit, produits par categorie, categories, menus, nouveau menu, commandes, saisie commande, **nouvelle commande comptoir**, cuisine, statistiques, utilisateurs, roles, mon PIN) a 360 et 390 px. Le back-office ne defile pas au niveau du document (`.admin-layout` : hauteur fixe, `overflow: hidden`) : c'est la zone de contenu `main.content` qui defile, c'est donc elle qui est mesuree. Resultat : aucun defilement horizontal de la zone de contenu, menu et contenu a pleine largeur, menu au-dessus du contenu, page courante visible dans la bande ; a 1366 px, le menu reste une colonne a gauche. Les tableaux larges defilent dans leur propre cadre (`.table-wrapper`), ce qui est voulu.
+
+**Ajout du 2026-09-26 : la caisse elle-meme est mesuree.** Jusque-la, la liste ne contenait que `/counter/orders` (la **liste** des commandes comptoir), pas `/counter/orders/new` — c'est-a-dire l'ecran de caisse a tuiles dont la ligne « POS comptoir/drive » du tableau ci-dessus decrit l'empilement sous 860 px. Le comportement etait donc decrit dans le CSS et affirme ici, sans etre mesure a aucune largeur. Il l'est desormais aux deux largeurs telephone, avec capture.
 
 Cette mesure a d'abord echoue, ce qui a fait corriger trois defauts du back-office sur telephone : les 4 tuiles du tableau de bord (382 px de trop a 360 px), les boutons d'en-tete de la liste des produits (19 px), et trois tableaux poses sans cadre defilant (liste des commandes, deux listes de la saisie comptoir : 275 px de trop avec une seule commande). Une premiere version du test mesurait le document, qui ne peut pas deborder ici : elle passait a tort, la relecture l'a releve.
 
 ### 3.3 Defaut corrige : page produits de la borne sur telephone
 
-Le meme test a revele un defaut plus ancien, present dans le code de `dev` au commit `74d4398` : sur la page produits, a 360 et 390 px, toute la page defilait horizontalement (902 et 872 px de trop). Sous `900px`, `.order-layout` passe en colonne avec `align-items: flex-start` : le contenu prenait alors la largeur de son element le plus large, le bandeau de categories (1 206 px), au lieu de celle de l'ecran. La regle `min-width: 0` existante ne joue qu'en ligne. Correctif : `.order-layout > main { align-self: stretch; }` sous `900px` ; le bandeau defile desormais dans son propre cadre, et le debordement mesure est de 0 px aux deux largeurs. Le defaut touchait toute largeur sous `900px` : les anciennes captures `captures-responsive/produits-mobile.png` (1 506 x 6 394 pixels pour une fenetre de 390 px) et `produits-tablette.png` (1 538 x 3 588 pixels pour 768 px) le montraient deja, sans qu'il ait ete releve. Elles ont ete remplacees, et le test verifie desormais 360, 390 et 768 px.
+Le meme test a revele un defaut plus ancien, present dans le code de `dev` au commit `74d4398` : sur la page produits, a 360 et 390 px, toute la page defilait horizontalement (902 et 872 px de trop). Sous `900px`, `.order-layout` passe en colonne avec `align-items: flex-start` : le contenu prenait alors la largeur de son element le plus large, le bandeau de categories (1 206 px), au lieu de celle de l'ecran. La regle `min-width: 0` existante ne joue qu'en ligne. Correctif : `.order-layout > main { align-self: stretch; }` sous `900px` ; le bandeau defile desormais dans son propre cadre, et le debordement mesure est de 0 px aux deux largeurs. Le defaut touchait toute largeur sous `900px` : les captures d'alors (`produits-mobile.png`, 1 506 x 6 394 pixels pour une fenetre de 390 px, et `produits-tablette.png`, 1 538 x 3 588 pixels pour 768 px) le montraient deja, sans qu'il ait ete releve. Elles ont ete remplacees le 2026-09-23, puis regenerees le 2026-09-26 sous les noms `borne-produits-<largeur>.png` (voir section 5) ; les deux fichiers cites ici ne sont plus sur disque, ils restent consultables dans l'historique git. Le test verifie desormais 360, 390, 768 et 1366 px.
 
 ## 4. Mecanismes d'adaptation employes (synthese technique)
 
@@ -100,40 +102,61 @@ Le meme test a revele un defaut plus ancien, present dans le code de `dev` au co
 
 ## 5. Captures multi-viewport
 
-Les captures reelles multi-viewport ont ete generees via Playwright (Chromium, image officielle `mcr.microsoft.com/playwright:v1.49.1-jammy`) contre la borne en ligne (`https://corentin-wakdo.stark.a3n.fr`, categorie « burgers ») aux trois tailles de reference : **mobile 390px**, **tablette 768px**, **desktop 1366px**. Les neuf images (3 pages x 3 viewports) sont versionnees dans `docs/soutenance/preuves/captures-responsive/`. La methode de generation (harnais Playwright + selection de viewport) est reproductible ; elle partage le moteur avec la validation W3C (voir `01-validation-w3c.md`).
+**Refaites integralement le 2026-09-26.** Les captures precedentes dataient du 2026-09-23 et montraient une interface qui n'existe plus : la borne a recu cinq lots depuis (dont la mise en conformite a la maquette), et le back-office a ete entierement refondu (demandes de fusion #158 a #166). Presenter au jury des images de l'ancienne version, sur un oral dont l'accessibilite est l'axe principal, aurait ete une incoherence.
 
-Correspondance viewport -> tranche CSS attendue de la borne :
-- **390px** -> tranche XS (`<=480`) : produits en `1fr 1fr` resserre, panneau commande empile sous la grille, choix d'accueil en colonne.
-- **768px** -> tranche S/M (`<=900` et `<=700`) : produits 2 colonnes, panneau commande empile, paiement en colonne.
-- **1366px** -> tranche XL (`>=1080`) : categories 4 colonnes, produits 3 colonnes, panneau commande lateral sticky.
+### Comment elles sont produites (une commande)
 
-### Accueil
+```bash
+# Monte une pile jetable, joue responsive.spec.js avec CAPTURES_DIR pose,
+# range les images dans les deux dossiers de preuves, puis demonte tout.
+tests/e2e/run-captures.sh
+```
 
-- Mobile 390px : ![Accueil borne 390px](captures-responsive/accueil-mobile.png)
-- Tablette 768px : ![Accueil borne 768px](captures-responsive/accueil-tablette.png)
-- Desktop 1366px : ![Accueil borne 1366px](captures-responsive/accueil-desktop.png)
+Playwright, image officielle `mcr.microsoft.com/playwright:v1.49.1-jammy`, Chromium 131, contre une **pile de test jetable** (donnees de demonstration), pas contre la production : aucune donnee reelle n'entre dans le dossier de preuves. Le script tourne sous l'identifiant de l'appelant, les fichiers deposes ne sont donc pas la propriete de root. Avant cette date, les captures de la borne etaient prises a la main contre la borne en ligne, sans script versionne : elles n'etaient pas refaisables a l'identique.
 
-### Categories
+**52 images** sont versionnees dans `captures-responsive/`, nommees `<perimetre>-<ecran>-<largeur>.png` — exactement les noms que la commande produit :
 
-- Mobile 390px : ![Categories borne 390px](captures-responsive/categories-mobile.png)
-- Tablette 768px : ![Categories borne 768px](captures-responsive/categories-tablette.png)
-- Desktop 1366px : ![Categories borne 1366px](captures-responsive/categories-desktop.png)
+- **Borne** : 5 ecrans (accueil, categories, produits, paiement, confirmation) x 4 largeurs (360, 390, 768, 1366) = 20 images.
+- **Back-office** : 16 ecrans x 2 largeurs (360, 390) = 32 images.
 
-### Produits / commande
+Correspondance largeur -> tranche CSS attendue de la borne :
+- **360 et 390 px** -> tranche XS (`<=480`) : produits en `1fr 1fr` resserre, panneau commande empile sous la grille, choix d'accueil en colonne.
+- **768 px** -> tranche S/M (`<=900` et `<=700`) : produits 2 colonnes, panneau commande empile, paiement en colonne.
+- **1366 px** -> tranche XL (`>=1080`) : categories 4 colonnes, produits 3 colonnes, panneau commande lateral sticky.
 
-- Mobile 390px : ![Produits borne 390px](captures-responsive/produits-mobile.png)
-- Tablette 768px : ![Produits borne 768px](captures-responsive/produits-tablette.png)
-- Desktop 1366px : ![Produits borne 1366px](captures-responsive/produits-desktop.png)
+### 5.1 Defaut trouve en refaisant les captures : le paiement n'etait pas capture
 
-### Back-office a 390px (ajoutees le 2026-09-23)
+En regenerant, une anomalie est apparue tout de suite : `borne-paiement-390.png` etait **identique octet pour octet** a `borne-categories-390.png`, aux quatre largeurs. Explication : le test chargeait `/payment.html` **sans panier**, et `page-payment.js` renvoie alors le client vers les categories. Le test mesurait donc deux fois l'ecran categories, dont une fois sous le nom « paiement », et il passait — un ecran sans debordement reste un ecran sans debordement, meme si ce n'est pas le bon.
 
-Captures Playwright du meme harnais que le test `tests/e2e/responsive.spec.js`, sur une pile de test jetable (donnees de demonstration), fenetre de 390 x 800 :
+C'est le meme angle mort que celui trouve cote audit d'accessibilite (`06-audit-accessibilite-mesure.md`, section 5 ter), dans l'autre fichier de test : **mesurer un ecran qui ne s'est pas affiche**.
 
-- Tableau de bord : ![Tableau de bord admin 390px](captures-responsive/admin-tableau-de-bord-390.png)
-- Ingredients : ![Ingredients admin 390px](captures-responsive/admin-ingredients-390.png)
-- Nouveau produit : ![Formulaire produit admin 390px](captures-responsive/admin-nouveau-produit-390.png)
+**Correction.** `responsive.spec.js` seme desormais l'etat client (mode de consommation, panier de deux lignes, derniere commande) avant chaque page borne, comme le fait deja l'audit d'accessibilite, et **verifie l'adresse reellement atteinte** apres chaque navigation. Une page qui se renverrait ailleurs fait maintenant echouer le test au lieu de produire une capture mal etiquetee. Les captures « paiement » et « confirmation » montrent desormais un recapitulatif calcule et un numero de commande.
 
-Les captures « Produits / commande » mobile et tablette ci-dessus ont ete refaites le meme jour, apres le correctif de la section 3.3, avec le meme harnais (fenetres de 390 x 800 et 768 x 800).
+Aucune commande n'est creee pour autant : l'etat est pose dans le stockage du navigateur, aucun envoi ne part vers le serveur.
+
+### 5.2 Les ecrans de la borne
+
+| Ecran | 360 px | 390 px | 768 px | 1366 px |
+|---|---|---|---|---|
+| Accueil | `borne-accueil-360.png` | `borne-accueil-390.png` | `borne-accueil-768.png` | `borne-accueil-1366.png` |
+| Categories | `borne-categories-360.png` | `borne-categories-390.png` | `borne-categories-768.png` | `borne-categories-1366.png` |
+| Produits / commande | `borne-produits-360.png` | `borne-produits-390.png` | `borne-produits-768.png` | `borne-produits-1366.png` |
+| Paiement | `borne-paiement-360.png` | `borne-paiement-390.png` | `borne-paiement-768.png` | `borne-paiement-1366.png` |
+| Confirmation | `borne-confirmation-360.png` | `borne-confirmation-390.png` | `borne-confirmation-768.png` | `borne-confirmation-1366.png` |
+
+- Accueil, mobile 390 px : ![Accueil borne 390 px](captures-responsive/borne-accueil-390.png)
+- Categories, tablette 768 px : ![Categories borne 768 px](captures-responsive/borne-categories-768.png)
+- Produits, bureau 1366 px : ![Produits borne 1366 px](captures-responsive/borne-produits-1366.png)
+- Paiement, mobile 390 px : ![Paiement borne 390 px](captures-responsive/borne-paiement-390.png)
+
+### 5.3 Les ecrans du back-office
+
+Seize ecrans, aux deux largeurs telephone (360 et 390 px), fichiers `admin-<ecran>-<largeur>.png` : tableau de bord, ingredients, produits, nouveau produit, produits par categorie, categories, menus, nouveau menu, commandes, saisie commande, **nouvelle commande comptoir**, cuisine, statistiques, utilisateurs, roles, mon PIN.
+
+- Tableau de bord, 390 px : ![Tableau de bord admin 390 px](captures-responsive/admin-tableau-de-bord-390.png)
+- Ingredients, 390 px : ![Ingredients admin 390 px](captures-responsive/admin-ingredients-390.png)
+- Nouveau produit, 390 px : ![Formulaire produit admin 390 px](captures-responsive/admin-nouveau-produit-390.png)
+- Nouvelle commande comptoir (caisse a tuiles), 390 px : ![Caisse comptoir 390 px](captures-responsive/admin-nouvelle-commande-comptoir-390.png)
 
 ### Captures de reference deja presentes dans le depot
 
@@ -162,9 +185,20 @@ Ces captures montrent les etats fonctionnels d'un seul viewport (borne portrait)
 | Empilement des panneaux lateraux en etroit | Couvert | `.order-layout`/`.order-panel` (style.css, section 15), `.pos__main`/`.pos__panel` (admin.css, section « POS tactile a tuiles comptoir/drive ») |
 | Reflow des grilles multi-colonnes | Couvert | citations section 4 |
 | Ossature admin (sidebar) sur mobile portrait etroit | Couvert | bande de navigation sous `640px` (section 3.2), mesuree dans Chromium |
-| Aucun defilement horizontal (borne : 5 pages a 360, 390 et 768 px ; back-office : 15 pages a 360 et 390 px, mesure dans la zone de contenu) | Couvert | `tests/e2e/responsive.spec.js` ; defauts corriges : page produits de la borne (section 3.3), tableau de bord, en-tetes et trois tableaux du back-office (section 3.2) |
-| Preuve visuelle multi-viewport | Couvert | 12 captures Playwright (9 de la borne, 3 du back-office) ; versionnees (section 5) |
+| Aucun defilement horizontal (borne : 5 pages a 360, 390, 768 et 1366 px ; back-office : 16 pages a 360 et 390 px, mesure dans la zone de contenu) | Couvert | `tests/e2e/responsive.spec.js` ; defauts corriges : page produits de la borne (section 3.3), tableau de bord, en-tetes et trois tableaux du back-office (section 3.2) |
+| L'ecran mesure est bien celui demande | Couvert | controle d'adresse apres chaque navigation borne, ajoute le 2026-09-26 apres la decouverte de la section 5.1 |
+| Preuve visuelle multi-viewport | Couvert | **52 captures** Playwright (20 de la borne, 32 du back-office), regenerees le 2026-09-26 par `tests/e2e/run-captures.sh` (section 5) |
 
-**Conclusion.** Le critere Cr 1.b.1 est demontre pour la borne client (interface principale evaluee au titre du front-end) via cinq points de rupture verifies dans le code, et pour le back-office via les points de rupture de ses composants et, depuis le 2026-09-23, de son ossature. Un test dans un vrai navigateur verifie l'absence de defilement horizontal sur 20 pages (borne : 5 pages a 360, 390 et 768 px ; back-office : 15 pages a 360 et 390 px) ; il a revele et fait corriger un defaut de la page produits de la borne sous 900 px (section 3.3) et trois defauts du back-office sur telephone (section 3.2). Les captures versionnees completent la preuve visuelle.
+**Conclusion.** Le critere Cr 1.b.1 est demontre pour la borne client (interface principale evaluee au titre du front-end) via cinq points de rupture verifies dans le code, et pour le back-office via les points de rupture de ses composants et, depuis le 2026-09-23, de son ossature. Un test dans un vrai navigateur verifie l'absence de defilement horizontal sur **21 pages** (borne : 5 pages a 360, 390, 768 et 1366 px ; back-office : 16 pages a 360 et 390 px) ; il a revele et fait corriger un defaut de la page produits de la borne sous 900 px (section 3.3) et trois defauts du back-office sur telephone (section 3.2). Les captures versionnees, refaites le 2026-09-26 contre le code courant, completent la preuve visuelle.
+
+**Ce qui a bouge entre le 2026-09-23 et le 2026-09-26 (avant / apres).**
+
+| Indicateur | 2026-09-23 | 2026-09-26 |
+|---|---|---|
+| Pages borne mesurees | 5 annoncees, **4 reellement distinctes** (le paiement retombait sur les categories) | 5, controle d'adresse a l'appui |
+| Largeurs borne | 360, 390, 768 | 360, 390, 768, **1366** |
+| Pages back-office mesurees | 15 | **16** (ajout de la caisse comptoir) |
+| Captures versionnees | 12 | **52** |
+| Provenance des captures borne | borne en ligne, harnais manuel | pile de test jetable, une commande versionnee |
 
 **Correction du 2026-09-24.** Les renvois `fichier:ligne` d'origine dataient de la redaction du document ; les feuilles de style ont evolue depuis (sommaire et renumerotation de `style.css`, ossature d'`admin.css`), et plusieurs lignes citees ne pointaient plus vers la bonne regle. Ce document cite desormais chaque regle par son selecteur et par sa section (numero du sommaire pour `style.css`, nom du bloc de commentaire pour `admin.css`), un repere qui reste juste meme si des corrections d'interface deplacent des lignes ailleurs dans le fichier.

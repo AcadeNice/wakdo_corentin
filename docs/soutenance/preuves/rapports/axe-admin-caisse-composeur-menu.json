@@ -1,0 +1,1715 @@
+{
+  "page": "admin-caisse-composeur-menu",
+  "url": "http://admin.wakdo.test/counter/orders/new",
+  "date": "2026-09-26T14:24:34.391Z",
+  "moteur": {
+    "axe": {
+      "name": "axe-core",
+      "version": "4.13.0"
+    },
+    "regles": [
+      "wcag2a",
+      "wcag2aa",
+      "wcag21a",
+      "wcag21aa"
+    ]
+  },
+  "navigateur": {
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.6778.33 Safari/537.36",
+    "windowWidth": 1440,
+    "windowHeight": 900,
+    "orientationAngle": 0,
+    "orientationType": "landscape-primary"
+  },
+  "violations": [],
+  "indetermines": [
+    {
+      "id": "color-contrast",
+      "impact": "serious",
+      "tags": [
+        "cat.color",
+        "wcag2aa",
+        "wcag143",
+        "TTv5",
+        "TT13.c",
+        "EN-301-549",
+        "EN-9.1.4.3",
+        "ACT",
+        "RGAAv4",
+        "RGAA-3.2.1"
+      ],
+      "description": "Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds",
+      "help": "Elements must meet minimum color contrast ratio thresholds",
+      "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/color-contrast?application=playwright",
+      "nodes": [
+        {
+          "any": [
+            {
+              "id": "color-contrast",
+              "data": {
+                "contrastRatio": 0,
+                "fontSize": "18.0pt (24px)",
+                "fontWeight": "bold",
+                "messageKey": "shortTextContent",
+                "expectedContrastRatio": "3:1"
+              },
+              "relatedNodes": [],
+              "impact": "serious",
+              "message": "Element content is too short to determine if it is actual text content"
+            }
+          ],
+          "all": [],
+          "none": [],
+          "impact": "serious",
+          "html": "<span class=\"pos-tile__pastille\" aria-hidden=\"true\">M</span>",
+          "target": [
+            ".pos-tile[aria-haspopup=\"dialog\"][type=\"button\"]:nth-child(1) > .pos-tile__media > .pos-tile__pastille[aria-hidden=\"true\"]"
+          ],
+          "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+        },
+        {
+          "any": [
+            {
+              "id": "color-contrast",
+              "data": {
+                "contrastRatio": 0,
+                "fontSize": "18.0pt (24px)",
+                "fontWeight": "bold",
+                "messageKey": "shortTextContent",
+                "expectedContrastRatio": "3:1"
+              },
+              "relatedNodes": [],
+              "impact": "serious",
+              "message": "Element content is too short to determine if it is actual text content"
+            }
+          ],
+          "all": [],
+          "none": [],
+          "impact": "serious",
+          "html": "<span class=\"pos-tile__pastille\" aria-hidden=\"true\">M</span>",
+          "target": [
+            ".pos-tile[aria-haspopup=\"dialog\"][type=\"button\"]:nth-child(2) > .pos-tile__media > .pos-tile__pastille[aria-hidden=\"true\"]"
+          ],
+          "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+        },
+        {
+          "any": [
+            {
+              "id": "color-contrast",
+              "data": {
+                "contrastRatio": 0,
+                "fontSize": "18.0pt (24px)",
+                "fontWeight": "bold",
+                "messageKey": "shortTextContent",
+                "expectedContrastRatio": "3:1"
+              },
+              "relatedNodes": [],
+              "impact": "serious",
+              "message": "Element content is too short to determine if it is actual text content"
+            }
+          ],
+          "all": [],
+          "none": [],
+          "impact": "serious",
+          "html": "<span class=\"pos-tile__pastille\" aria-hidden=\"true\">M</span>",
+          "target": [
+            ".pos-tile[aria-haspopup=\"dialog\"][type=\"button\"]:nth-child(3) > .pos-tile__media > .pos-tile__pastille[aria-hidden=\"true\"]"
+          ],
+          "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+        },
+        {
+          "any": [
+            {
+              "id": "color-contrast",
+              "data": {
+                "contrastRatio": 0,
+                "fontSize": "18.0pt (24px)",
+                "fontWeight": "bold",
+                "messageKey": "shortTextContent",
+                "expectedContrastRatio": "3:1"
+              },
+              "relatedNodes": [],
+              "impact": "serious",
+              "message": "Element content is too short to determine if it is actual text content"
+            }
+          ],
+          "all": [],
+          "none": [],
+          "impact": "serious",
+          "html": "<span class=\"pos-tile__pastille\" aria-hidden=\"true\">M</span>",
+          "target": [
+            ".pos-tile[aria-haspopup=\"dialog\"][type=\"button\"]:nth-child(4) > .pos-tile__media > .pos-tile__pastille[aria-hidden=\"true\"]"
+          ],
+          "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+        },
+        {
+          "any": [
+            {
+              "id": "color-contrast",
+              "data": {
+                "contrastRatio": 0,
+                "fontSize": "18.0pt (24px)",
+                "fontWeight": "bold",
+                "messageKey": "shortTextContent",
+                "expectedContrastRatio": "3:1"
+              },
+              "relatedNodes": [],
+              "impact": "serious",
+              "message": "Element content is too short to determine if it is actual text content"
+            }
+          ],
+          "all": [],
+          "none": [],
+          "impact": "serious",
+          "html": "<span class=\"pos-tile__pastille\" aria-hidden=\"true\">M</span>",
+          "target": [
+            ".pos-tile[aria-haspopup=\"dialog\"][type=\"button\"]:nth-child(5) > .pos-tile__media > .pos-tile__pastille[aria-hidden=\"true\"]"
+          ],
+          "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+        },
+        {
+          "any": [
+            {
+              "id": "color-contrast",
+              "data": {
+                "contrastRatio": 0,
+                "fontSize": "18.0pt (24px)",
+                "fontWeight": "bold",
+                "messageKey": "shortTextContent",
+                "expectedContrastRatio": "3:1"
+              },
+              "relatedNodes": [],
+              "impact": "serious",
+              "message": "Element content is too short to determine if it is actual text content"
+            }
+          ],
+          "all": [],
+          "none": [],
+          "impact": "serious",
+          "html": "<span class=\"pos-tile__pastille\" aria-hidden=\"true\">M</span>",
+          "target": [
+            ".pos-tile[aria-haspopup=\"dialog\"][type=\"button\"]:nth-child(6) > .pos-tile__media > .pos-tile__pastille[aria-hidden=\"true\"]"
+          ],
+          "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+        },
+        {
+          "any": [
+            {
+              "id": "color-contrast",
+              "data": {
+                "contrastRatio": 0,
+                "fontSize": "18.0pt (24px)",
+                "fontWeight": "bold",
+                "messageKey": "shortTextContent",
+                "expectedContrastRatio": "3:1"
+              },
+              "relatedNodes": [],
+              "impact": "serious",
+              "message": "Element content is too short to determine if it is actual text content"
+            }
+          ],
+          "all": [],
+          "none": [],
+          "impact": "serious",
+          "html": "<span class=\"pos-tile__pastille\" aria-hidden=\"true\">M</span>",
+          "target": [
+            ".pos-tile[aria-haspopup=\"dialog\"][type=\"button\"]:nth-child(7) > .pos-tile__media > .pos-tile__pastille[aria-hidden=\"true\"]"
+          ],
+          "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+        },
+        {
+          "any": [
+            {
+              "id": "color-contrast",
+              "data": {
+                "contrastRatio": 0,
+                "fontSize": "18.0pt (24px)",
+                "fontWeight": "bold",
+                "messageKey": "shortTextContent",
+                "expectedContrastRatio": "3:1"
+              },
+              "relatedNodes": [],
+              "impact": "serious",
+              "message": "Element content is too short to determine if it is actual text content"
+            }
+          ],
+          "all": [],
+          "none": [],
+          "impact": "serious",
+          "html": "<span class=\"pos-tile__pastille\" aria-hidden=\"true\">M</span>",
+          "target": [
+            ".pos-tile[aria-haspopup=\"dialog\"][type=\"button\"]:nth-child(8) > .pos-tile__media > .pos-tile__pastille[aria-hidden=\"true\"]"
+          ],
+          "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+        },
+        {
+          "any": [
+            {
+              "id": "color-contrast",
+              "data": {
+                "contrastRatio": 0,
+                "fontSize": "18.0pt (24px)",
+                "fontWeight": "bold",
+                "messageKey": "shortTextContent",
+                "expectedContrastRatio": "3:1"
+              },
+              "relatedNodes": [],
+              "impact": "serious",
+              "message": "Element content is too short to determine if it is actual text content"
+            }
+          ],
+          "all": [],
+          "none": [],
+          "impact": "serious",
+          "html": "<span class=\"pos-tile__pastille\" aria-hidden=\"true\">M</span>",
+          "target": [
+            ".pos-tile[aria-haspopup=\"dialog\"][type=\"button\"]:nth-child(9) > .pos-tile__media > .pos-tile__pastille[aria-hidden=\"true\"]"
+          ],
+          "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+        },
+        {
+          "any": [
+            {
+              "id": "color-contrast",
+              "data": {
+                "contrastRatio": 0,
+                "fontSize": "18.0pt (24px)",
+                "fontWeight": "bold",
+                "messageKey": "shortTextContent",
+                "expectedContrastRatio": "3:1"
+              },
+              "relatedNodes": [],
+              "impact": "serious",
+              "message": "Element content is too short to determine if it is actual text content"
+            }
+          ],
+          "all": [],
+          "none": [],
+          "impact": "serious",
+          "html": "<span class=\"pos-tile__pastille\" aria-hidden=\"true\">M</span>",
+          "target": [
+            ".pos-tile[aria-haspopup=\"dialog\"][type=\"button\"]:nth-child(10) > .pos-tile__media > .pos-tile__pastille[aria-hidden=\"true\"]"
+          ],
+          "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+        },
+        {
+          "any": [
+            {
+              "id": "color-contrast",
+              "data": {
+                "contrastRatio": 0,
+                "fontSize": "18.0pt (24px)",
+                "fontWeight": "bold",
+                "messageKey": "shortTextContent",
+                "expectedContrastRatio": "3:1"
+              },
+              "relatedNodes": [],
+              "impact": "serious",
+              "message": "Element content is too short to determine if it is actual text content"
+            }
+          ],
+          "all": [],
+          "none": [],
+          "impact": "serious",
+          "html": "<span class=\"pos-tile__pastille\" aria-hidden=\"true\">M</span>",
+          "target": [
+            ".pos-tile[aria-haspopup=\"dialog\"][type=\"button\"]:nth-child(11) > .pos-tile__media > .pos-tile__pastille[aria-hidden=\"true\"]"
+          ],
+          "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+        },
+        {
+          "any": [
+            {
+              "id": "color-contrast",
+              "data": {
+                "contrastRatio": 0,
+                "fontSize": "18.0pt (24px)",
+                "fontWeight": "bold",
+                "messageKey": "shortTextContent",
+                "expectedContrastRatio": "3:1"
+              },
+              "relatedNodes": [],
+              "impact": "serious",
+              "message": "Element content is too short to determine if it is actual text content"
+            }
+          ],
+          "all": [],
+          "none": [],
+          "impact": "serious",
+          "html": "<span class=\"pos-tile__pastille\" aria-hidden=\"true\">M</span>",
+          "target": [
+            ".pos-tile[aria-haspopup=\"dialog\"][type=\"button\"]:nth-child(12) > .pos-tile__media > .pos-tile__pastille[aria-hidden=\"true\"]"
+          ],
+          "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+        },
+        {
+          "any": [
+            {
+              "id": "color-contrast",
+              "data": {
+                "messageKey": "nonBmp"
+              },
+              "relatedNodes": [],
+              "impact": "serious",
+              "message": "Element content contains only non-text characters"
+            }
+          ],
+          "all": [],
+          "none": [],
+          "impact": "serious",
+          "html": "<button class=\"order-cart__qty-btn\" type=\"button\" aria-label=\"Diminuer la quantité de Coca Cola\">−</button>",
+          "target": [
+            ".order-cart__qty-btn[type=\"button\"]:nth-child(1)"
+          ],
+          "failureSummary": "Fix any of the following:\n  Element content contains only non-text characters"
+        }
+      ]
+    }
+  ],
+  "contrastes_mesures": [
+    {
+      "compartiment": "conforme",
+      "selecteur": ".topbar-user-avatar",
+      "extrait": "<div class=\"topbar-user-avatar\">WA</div>",
+      "avant_plan": "#ffc72c",
+      "arriere_plan": "#1a1a1a",
+      "ratio": 11.15,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".topbar-user-name",
+      "extrait": "<div class=\"topbar-user-name\">Wakdo Admin</div>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".topbar-user-role",
+      "extrait": "<div class=\"topbar-user-role\">Administrateur</div>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-brand-name",
+      "extrait": "<span class=\"sidebar-brand-name\">Wak<span>do</span></span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "3:1",
+      "taille_px": "15.8pt (21px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-brand-name > span",
+      "extrait": "<span>do</span>",
+      "avant_plan": "#ae7f09",
+      "arriere_plan": "#ffffff",
+      "ratio": 3.59,
+      "seuil_attendu": "3:1",
+      "taille_px": "15.8pt (21px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-section:nth-child(2) > .sidebar-section-label",
+      "extrait": "<div class=\"sidebar-section-label\">Vue d'ensemble</div>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"dashboard\"]",
+      "extrait": "<a href=\"/admin/dashboard\" class=\"sidebar-item\">Tableau de bord</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-section:nth-child(3) > .sidebar-section-label",
+      "extrait": "<div class=\"sidebar-section-label\">Catalogue</div>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"categories\"]",
+      "extrait": "<a href=\"/admin/categories\" class=\"sidebar-item\">Catégories</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"products\"]",
+      "extrait": "<a href=\"/admin/products\" class=\"sidebar-item\">Produits</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"by-category\"]",
+      "extrait": "<a href=\"/admin/products/by-category\" class=\"sidebar-item\">Produits par catégorie</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"menus\"]",
+      "extrait": "<a href=\"/admin/menus\" class=\"sidebar-item\">Menus</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-section:nth-child(4) > .sidebar-section-label",
+      "extrait": "<div class=\"sidebar-section-label\">Stock</div>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"ingredients\"]",
+      "extrait": "<a href=\"/admin/ingredients\" class=\"sidebar-item\">Ingrédients</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-section:nth-child(5) > .sidebar-section-label",
+      "extrait": "<div class=\"sidebar-section-label\">Pilotage</div>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".active",
+      "extrait": "<a href=\"/counter/orders\" class=\"sidebar-item active\">Saisie commande</a>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#fff3d1",
+      "ratio": 15.74,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"stats\"]",
+      "extrait": "<a href=\"/admin/stats\" class=\"sidebar-item\">Statistiques</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-item[href$=\"orders\"]:nth-child(4)",
+      "extrait": "<a href=\"/admin/orders\" class=\"sidebar-item\">Commandes</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"display\"]",
+      "extrait": "<a href=\"/kitchen/display\" class=\"sidebar-item\">Cuisine (KDS)</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-section:nth-child(6) > .sidebar-section-label",
+      "extrait": "<div class=\"sidebar-section-label\">Administration</div>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"users\"]",
+      "extrait": "<a href=\"/admin/users\" class=\"sidebar-item\">Utilisateurs</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"roles\"]",
+      "extrait": "<a href=\"/admin/roles\" class=\"sidebar-item\">Rôles</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "h1",
+      "extrait": "<h1 class=\"page-title\">Nouvelle commande comptoir</h1>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#f5f5f5",
+      "ratio": 15.96,
+      "seuil_attendu": "3:1",
+      "taille_px": "15.0pt (20px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".btn-secondary.btn[href$=\"orders\"]",
+      "extrait": "<a class=\"btn btn-secondary\" href=\"/counter/orders\">Annuler</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "#pos-tab-2",
+      "extrait": "<button class=\"pos__tab\" type=\"button\" id=\"pos-tab-2\" data-category-id=\"2\" role=\"tab\" aria-selected=",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "#pos-tab-3",
+      "extrait": "<button class=\"pos__tab\" type=\"button\" id=\"pos-tab-3\" data-category-id=\"3\" role=\"tab\" aria-selected=",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "#pos-tab-4",
+      "extrait": "<button class=\"pos__tab\" type=\"button\" id=\"pos-tab-4\" data-category-id=\"4\" role=\"tab\" aria-selected=",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "#pos-tab-5",
+      "extrait": "<button class=\"pos__tab\" type=\"button\" id=\"pos-tab-5\" data-category-id=\"5\" role=\"tab\" aria-selected=",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "#pos-tab-6",
+      "extrait": "<button class=\"pos__tab\" type=\"button\" id=\"pos-tab-6\" data-category-id=\"6\" role=\"tab\" aria-selected=",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "#pos-tab-7",
+      "extrait": "<button class=\"pos__tab\" type=\"button\" id=\"pos-tab-7\" data-category-id=\"7\" role=\"tab\" aria-selected=",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "#pos-tab-8",
+      "extrait": "<button class=\"pos__tab\" type=\"button\" id=\"pos-tab-8\" data-category-id=\"8\" role=\"tab\" aria-selected=",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "#pos-tab-9",
+      "extrait": "<button class=\"pos__tab\" type=\"button\" id=\"pos-tab-9\" data-category-id=\"9\" role=\"tab\" aria-selected=",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "#pos-tab-1",
+      "extrait": "<button class=\"pos__tab is-active\" type=\"button\" id=\"pos-tab-1\" data-category-id=\"1\" role=\"tab\" aria",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffc72c",
+      "ratio": 11.15,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".pos-tile[aria-haspopup=\"dialog\"][type=\"button\"]:nth-child(1) > .pos-tile__body > .pos-tile__name",
+      "extrait": "<span class=\"pos-tile__name\">Menu Le 280</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".pos-tile[aria-haspopup=\"dialog\"][type=\"button\"]:nth-child(1) > .pos-tile__body > .pos-tile__price",
+      "extrait": "<span class=\"pos-tile__price\">Normal 8,80 EUR / Maxi 10,30 EUR</span>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".pos-tile[aria-haspopup=\"dialog\"][type=\"button\"]:nth-child(1) > .pos-tile__badge[aria-hidden=\"true\"]",
+      "extrait": "<span class=\"pos-tile__badge\" aria-hidden=\"true\">Menu</span>",
+      "avant_plan": "#ffffff",
+      "arriere_plan": "#1a1a1a",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".pos-tile[aria-haspopup=\"dialog\"][type=\"button\"]:nth-child(2) > .pos-tile__body > .pos-tile__name",
+      "extrait": "<span class=\"pos-tile__name\">Menu Big Tasty</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".pos-tile[aria-haspopup=\"dialog\"][type=\"button\"]:nth-child(2) > .pos-tile__body > .pos-tile__price",
+      "extrait": "<span class=\"pos-tile__price\">Normal 10,60 EUR / Maxi 12,10 EUR</span>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".pos-tile[aria-haspopup=\"dialog\"][type=\"button\"]:nth-child(2) > .pos-tile__badge[aria-hidden=\"true\"]",
+      "extrait": "<span class=\"pos-tile__badge\" aria-hidden=\"true\">Menu</span>",
+      "avant_plan": "#ffffff",
+      "arriere_plan": "#1a1a1a",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".pos-tile[aria-haspopup=\"dialog\"][type=\"button\"]:nth-child(3) > .pos-tile__body > .pos-tile__name",
+      "extrait": "<span class=\"pos-tile__name\">Menu Big Tasty Bacon</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".pos-tile[aria-haspopup=\"dialog\"][type=\"button\"]:nth-child(3) > .pos-tile__body > .pos-tile__price",
+      "extrait": "<span class=\"pos-tile__price\">Normal 10,90 EUR / Maxi 12,40 EUR</span>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".pos-tile[aria-haspopup=\"dialog\"][type=\"button\"]:nth-child(3) > .pos-tile__badge[aria-hidden=\"true\"]",
+      "extrait": "<span class=\"pos-tile__badge\" aria-hidden=\"true\">Menu</span>",
+      "avant_plan": "#ffffff",
+      "arriere_plan": "#1a1a1a",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".pos-tile[aria-haspopup=\"dialog\"][type=\"button\"]:nth-child(4) > .pos-tile__body > .pos-tile__name",
+      "extrait": "<span class=\"pos-tile__name\">Menu Big Mac</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".pos-tile[aria-haspopup=\"dialog\"][type=\"button\"]:nth-child(4) > .pos-tile__body > .pos-tile__price",
+      "extrait": "<span class=\"pos-tile__price\">Normal 8,00 EUR / Maxi 9,50 EUR</span>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".pos-tile[aria-haspopup=\"dialog\"][type=\"button\"]:nth-child(4) > .pos-tile__badge[aria-hidden=\"true\"]",
+      "extrait": "<span class=\"pos-tile__badge\" aria-hidden=\"true\">Menu</span>",
+      "avant_plan": "#ffffff",
+      "arriere_plan": "#1a1a1a",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".pos-tile[aria-haspopup=\"dialog\"][type=\"button\"]:nth-child(5) > .pos-tile__body > .pos-tile__name",
+      "extrait": "<span class=\"pos-tile__name\">Menu CBO</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".pos-tile[aria-haspopup=\"dialog\"][type=\"button\"]:nth-child(5) > .pos-tile__body > .pos-tile__price",
+      "extrait": "<span class=\"pos-tile__price\">Normal 10,90 EUR / Maxi 12,40 EUR</span>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".pos-tile[aria-haspopup=\"dialog\"][type=\"button\"]:nth-child(5) > .pos-tile__badge[aria-hidden=\"true\"]",
+      "extrait": "<span class=\"pos-tile__badge\" aria-hidden=\"true\">Menu</span>",
+      "avant_plan": "#ffffff",
+      "arriere_plan": "#1a1a1a",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".pos-tile[aria-haspopup=\"dialog\"][type=\"button\"]:nth-child(6) > .pos-tile__body > .pos-tile__name",
+      "extrait": "<span class=\"pos-tile__name\">Menu MC Chicken</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".pos-tile[aria-haspopup=\"dialog\"][type=\"button\"]:nth-child(6) > .pos-tile__body > .pos-tile__price",
+      "extrait": "<span class=\"pos-tile__price\">Normal 9,30 EUR / Maxi 10,80 EUR</span>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".pos-tile[aria-haspopup=\"dialog\"][type=\"button\"]:nth-child(6) > .pos-tile__badge[aria-hidden=\"true\"]",
+      "extrait": "<span class=\"pos-tile__badge\" aria-hidden=\"true\">Menu</span>",
+      "avant_plan": "#ffffff",
+      "arriere_plan": "#1a1a1a",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".pos-tile[aria-haspopup=\"dialog\"][type=\"button\"]:nth-child(7) > .pos-tile__body > .pos-tile__name",
+      "extrait": "<span class=\"pos-tile__name\">Menu MC Crispy</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".pos-tile[aria-haspopup=\"dialog\"][type=\"button\"]:nth-child(7) > .pos-tile__body > .pos-tile__price",
+      "extrait": "<span class=\"pos-tile__price\">Normal 7,20 EUR / Maxi 8,70 EUR</span>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".pos-tile[aria-haspopup=\"dialog\"][type=\"button\"]:nth-child(7) > .pos-tile__badge[aria-hidden=\"true\"]",
+      "extrait": "<span class=\"pos-tile__badge\" aria-hidden=\"true\">Menu</span>",
+      "avant_plan": "#ffffff",
+      "arriere_plan": "#1a1a1a",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".pos-tile[aria-haspopup=\"dialog\"][type=\"button\"]:nth-child(8) > .pos-tile__body > .pos-tile__name",
+      "extrait": "<span class=\"pos-tile__name\">Menu MC Fish</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".pos-tile[aria-haspopup=\"dialog\"][type=\"button\"]:nth-child(8) > .pos-tile__body > .pos-tile__price",
+      "extrait": "<span class=\"pos-tile__price\">Normal 7,20 EUR / Maxi 8,70 EUR</span>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".pos-tile[aria-haspopup=\"dialog\"][type=\"button\"]:nth-child(8) > .pos-tile__badge[aria-hidden=\"true\"]",
+      "extrait": "<span class=\"pos-tile__badge\" aria-hidden=\"true\">Menu</span>",
+      "avant_plan": "#ffffff",
+      "arriere_plan": "#1a1a1a",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".pos-tile[aria-haspopup=\"dialog\"][type=\"button\"]:nth-child(9) > .pos-tile__badge[aria-hidden=\"true\"]",
+      "extrait": "<span class=\"pos-tile__badge\" aria-hidden=\"true\">Menu</span>",
+      "avant_plan": "#ffffff",
+      "arriere_plan": "#1a1a1a",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".pos-tile[aria-haspopup=\"dialog\"][type=\"button\"]:nth-child(10) > .pos-tile__badge[aria-hidden=\"true\"]",
+      "extrait": "<span class=\"pos-tile__badge\" aria-hidden=\"true\">Menu</span>",
+      "avant_plan": "#ffffff",
+      "arriere_plan": "#1a1a1a",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".pos-tile[aria-haspopup=\"dialog\"][type=\"button\"]:nth-child(11) > .pos-tile__badge[aria-hidden=\"true\"]",
+      "extrait": "<span class=\"pos-tile__badge\" aria-hidden=\"true\">Menu</span>",
+      "avant_plan": "#ffffff",
+      "arriere_plan": "#1a1a1a",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".pos-tile[aria-haspopup=\"dialog\"][type=\"button\"]:nth-child(12) > .pos-tile__badge[aria-hidden=\"true\"]",
+      "extrait": "<span class=\"pos-tile__badge\" aria-hidden=\"true\">Menu</span>",
+      "avant_plan": "#ffffff",
+      "arriere_plan": "#1a1a1a",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".pos__panel-title",
+      "extrait": "<span class=\"pos__panel-title\">Commande</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "12.8pt (17px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "label[for=\"service_mode\"]",
+      "extrait": "<label class=\"pos__service-label\" for=\"service_mode\">Mode</label>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "#service_mode",
+      "extrait": "<select class=\"form-input\" id=\"service_mode\" name=\"service_mode\"> <option value=\"dine_in\" selected=\"",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "label[for=\"service_tag\"]",
+      "extrait": "<label class=\"pos__service-label\" for=\"service_tag\">Table</label>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "#service_tag",
+      "extrait": "<input class=\"form-input\" type=\"text\" id=\"service_tag\" name=\"service_tag\" maxlength=\"20\" value=\"\" au",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".order-cart__label",
+      "extrait": "<span class=\"order-cart__label\">Coca Cola</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".order-cart__price",
+      "extrait": "<span class=\"order-cart__price\">1,90 EUR</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".order-cart__qty-value",
+      "extrait": "<span class=\"order-cart__qty-value\">1</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "12.0pt (16px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".order-cart__remove",
+      "extrait": "<button class=\"btn btn-secondary order-cart__remove\" type=\"button\" aria-label=\"Retirer Coca Cola de ",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "#order-total",
+      "extrait": "<p class=\"order-total\" id=\"order-total\">Total <span id=\"order-total-value\">1,90 EUR</span></p>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#f9fafb",
+      "ratio": 16.65,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "13.5pt (18px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "#order-total-value",
+      "extrait": "<span id=\"order-total-value\">1,90 EUR</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#f9fafb",
+      "ratio": 16.65,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "13.5pt (18px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "#order-submit",
+      "extrait": "<button class=\"btn btn-primary pos__pay\" type=\"submit\" id=\"order-submit\">Encaisser 1,90 EUR</button>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffc72c",
+      "ratio": 11.15,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "12.8pt (17px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "#menu-composer-title",
+      "extrait": "<h2 class=\"menu-composer__title\" id=\"menu-composer-title\">Menu Le 280</h2>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "13.5pt (18px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".menu-composer__format > .menu-composer__legend",
+      "extrait": "<p class=\"menu-composer__legend\">Format</p>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "button[data-value=\"normal\"] > .pos-tile__body > .pos-tile__name",
+      "extrait": "<span class=\"pos-tile__name\">Normal</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#fffbeb",
+      "ratio": 16.78,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "button[data-value=\"maxi\"] > .pos-tile__body > .pos-tile__name",
+      "extrait": "<span class=\"pos-tile__name\">Maxi</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".menu-composer__slot:nth-child(3) > .menu-composer__legend",
+      "extrait": "<p class=\"menu-composer__legend\">Accompagnement</p>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "button[data-value=\"23\"] > .pos-tile__body > .pos-tile__name",
+      "extrait": "<span class=\"pos-tile__name\">Moyenne Frite</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#fffbeb",
+      "ratio": 16.78,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "button[data-value=\"25\"] > .pos-tile__body > .pos-tile__name",
+      "extrait": "<span class=\"pos-tile__name\">Potatoes</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".menu-composer__slot:nth-child(4) > .menu-composer__legend",
+      "extrait": "<p class=\"menu-composer__legend\">Boisson</p>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "button[data-value=\"14\"] > .pos-tile__body > .pos-tile__name",
+      "extrait": "<span class=\"pos-tile__name\">Coca Cola</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#fffbeb",
+      "ratio": 16.78,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "button[data-value=\"15\"] > .pos-tile__body > .pos-tile__name",
+      "extrait": "<span class=\"pos-tile__name\">Coca Sans Sucres</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "button[data-value=\"16\"] > .pos-tile__body > .pos-tile__name",
+      "extrait": "<span class=\"pos-tile__name\">Eau</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "button[data-value=\"17\"] > .pos-tile__body > .pos-tile__name",
+      "extrait": "<span class=\"pos-tile__name\">Fanta Orange</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "button[data-value=\"18\"] > .pos-tile__body > .pos-tile__name",
+      "extrait": "<span class=\"pos-tile__name\">Ice Tea Pêche</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "button[data-value=\"19\"] > .pos-tile__body > .pos-tile__name",
+      "extrait": "<span class=\"pos-tile__name\">Ice Tea Citron</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "button[data-value=\"20\"] > .pos-tile__body > .pos-tile__name",
+      "extrait": "<span class=\"pos-tile__name\">Jus d'Orange</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "button[data-value=\"21\"] > .pos-tile__body > .pos-tile__name",
+      "extrait": "<span class=\"pos-tile__name\">Jus de Pommes Bio</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".menu-composer__slot:nth-child(5) > .menu-composer__legend",
+      "extrait": "<p class=\"menu-composer__legend\">Sauce (optionnel)</p>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "button[data-value=\"\"] > .pos-tile__body > .pos-tile__name",
+      "extrait": "<span class=\"pos-tile__name\">Sans</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#fffbeb",
+      "ratio": 16.78,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "button[data-value=\"47\"] > .pos-tile__body > .pos-tile__name",
+      "extrait": "<span class=\"pos-tile__name\">Classic Barbecue</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "button[data-value=\"48\"] > .pos-tile__body > .pos-tile__name",
+      "extrait": "<span class=\"pos-tile__name\">Classic Moutarde</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "button[data-value=\"49\"] > .pos-tile__body > .pos-tile__name",
+      "extrait": "<span class=\"pos-tile__name\">Creamy Deluxe</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "button[data-value=\"50\"] > .pos-tile__body > .pos-tile__name",
+      "extrait": "<span class=\"pos-tile__name\">Ketchup</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "button[data-value=\"51\"] > .pos-tile__body > .pos-tile__name",
+      "extrait": "<span class=\"pos-tile__name\">Chinoise</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "button[data-value=\"52\"] > .pos-tile__body > .pos-tile__name",
+      "extrait": "<span class=\"pos-tile__name\">Curry</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "button[data-value=\"53\"] > .pos-tile__body > .pos-tile__name",
+      "extrait": "<span class=\"pos-tile__name\">Pommes Frites</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".menu-composer__modifiers > .menu-composer__legend",
+      "extrait": "<p class=\"menu-composer__legend\">Personnalisation</p>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".menu-composer__modifier:nth-child(2)",
+      "extrait": "<label class=\"menu-composer__modifier\"><input type=\"checkbox\" class=\"menu-composer__modifier-remove\"",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".menu-composer__modifier:nth-child(3)",
+      "extrait": "<label class=\"menu-composer__modifier\"><input type=\"checkbox\" class=\"menu-composer__modifier-add\" da",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".menu-composer__modifier:nth-child(4)",
+      "extrait": "<label class=\"menu-composer__modifier\"><input type=\"checkbox\" class=\"menu-composer__modifier-remove\"",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".menu-composer__modifier:nth-child(5)",
+      "extrait": "<label class=\"menu-composer__modifier\"><input type=\"checkbox\" class=\"menu-composer__modifier-remove\"",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".menu-composer__modifier:nth-child(6)",
+      "extrait": "<label class=\"menu-composer__modifier\"><input type=\"checkbox\" class=\"menu-composer__modifier-remove\"",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".menu-composer__add",
+      "extrait": "<button class=\"btn btn-primary menu-composer__add\" type=\"button\">Ajouter au panier</button>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffc72c",
+      "ratio": 11.15,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".menu-composer__cancel",
+      "extrait": "<button class=\"btn btn-secondary menu-composer__cancel\" type=\"button\">Annuler</button>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".a11y-toggle__icon",
+      "extrait": "<span class=\"a11y-toggle__icon\" aria-hidden=\"true\">Aa</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".a11y-toggle__label",
+      "extrait": "<span class=\"a11y-toggle__label\">Police adaptée</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "bold"
+    }
+  ],
+  "conformes_resume": [
+    {
+      "id": "aria-allowed-attr",
+      "noeuds": 58
+    },
+    {
+      "id": "aria-conditional-attr",
+      "noeuds": 58
+    },
+    {
+      "id": "aria-deprecated-role",
+      "noeuds": 38
+    },
+    {
+      "id": "aria-hidden-body",
+      "noeuds": 1
+    },
+    {
+      "id": "aria-hidden-focus",
+      "noeuds": 40
+    },
+    {
+      "id": "aria-prohibited-attr",
+      "noeuds": 58
+    },
+    {
+      "id": "aria-required-attr",
+      "noeuds": 38
+    },
+    {
+      "id": "aria-required-children",
+      "noeuds": 1
+    },
+    {
+      "id": "aria-required-parent",
+      "noeuds": 9
+    },
+    {
+      "id": "aria-roles",
+      "noeuds": 38
+    },
+    {
+      "id": "aria-valid-attr",
+      "noeuds": 58
+    },
+    {
+      "id": "aria-valid-attr-value",
+      "noeuds": 58
+    },
+    {
+      "id": "autocomplete-valid",
+      "noeuds": 1
+    },
+    {
+      "id": "button-name",
+      "noeuds": 50
+    },
+    {
+      "id": "bypass",
+      "noeuds": 1
+    },
+    {
+      "id": "color-contrast",
+      "noeuds": 108
+    },
+    {
+      "id": "document-title",
+      "noeuds": 1
+    },
+    {
+      "id": "duplicate-id-aria",
+      "noeuds": 6
+    },
+    {
+      "id": "form-field-multiple-labels",
+      "noeuds": 7
+    },
+    {
+      "id": "html-has-lang",
+      "noeuds": 1
+    },
+    {
+      "id": "html-lang-valid",
+      "noeuds": 1
+    },
+    {
+      "id": "image-alt",
+      "noeuds": 1
+    },
+    {
+      "id": "label",
+      "noeuds": 6
+    },
+    {
+      "id": "link-name",
+      "noeuds": 14
+    },
+    {
+      "id": "list",
+      "noeuds": 1
+    },
+    {
+      "id": "listitem",
+      "noeuds": 1
+    },
+    {
+      "id": "meta-viewport",
+      "noeuds": 1
+    },
+    {
+      "id": "nested-interactive",
+      "noeuds": 58
+    },
+    {
+      "id": "scrollable-region-focusable",
+      "noeuds": 2
+    },
+    {
+      "id": "select-name",
+      "noeuds": 1
+    }
+  ],
+  "non_applicables": [
+    "area-alt",
+    "aria-braille-equivalent",
+    "aria-command-name",
+    "aria-input-field-name",
+    "aria-meter-name",
+    "aria-progressbar-name",
+    "aria-tab-name",
+    "aria-toggle-field-name",
+    "aria-tooltip-name",
+    "avoid-inline-spacing",
+    "blink",
+    "definition-list",
+    "dlitem",
+    "frame-focusable-content",
+    "frame-title",
+    "frame-title-unique",
+    "html-xml-lang-mismatch",
+    "input-button-name",
+    "input-image-alt",
+    "link-in-text-block",
+    "marquee",
+    "meta-refresh",
+    "no-autoplay-audio",
+    "object-alt",
+    "role-img-alt",
+    "server-side-image-map",
+    "summary-name",
+    "svg-img-alt",
+    "td-headers-attr",
+    "th-has-data-cells",
+    "valid-lang",
+    "video-caption"
+  ]
+}

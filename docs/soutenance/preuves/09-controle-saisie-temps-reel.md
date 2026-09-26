@@ -121,12 +121,19 @@ recevoir le focus) : le modal ne s'ouvrait pas et le bouton restait sans effet.
 
 | Test | Ce qu'il verifie |
 |---|---|
-| `tests/js/form-validation.test.js` (21 tests, jsdom) | messages par type d'ecart ; saisie numerique illisible ; entier en notation scientifique ; signe moins selon le minimum ; espaces de bord et longueur en caracteres ; un message par champ meme sans id, place hors du label ; champ ajoute apres le chargement ; affichage pendant la frappe puis effacement ; obligatoire signale en quittant le champ ; message conserve pendant le clic qui suit une correction et pendant un appui long ; confirmation recontrolee ; envoi bloque avant les autres scripts, focus sur le premier ecart ; champs masques ignores ; message serveur retire des que la saisie change ; remise a zero par `reset` ; zone de message presente des le chargement ; formulaires exclus |
-| `tests/js/pin-modal.test.js` (6 tests) | les champs PIN masques perdent `required` ; le message PIN du serveur reste visible et s'affiche dans le modal, y compris avec `form-validation.js` charge avant |
+| `tests/js/form-validation.test.js` (22 tests, jsdom) | messages par type d'ecart ; saisie numerique illisible ; entier en notation scientifique ; signe moins selon le minimum ; espaces de bord et longueur en caracteres ; un message par champ meme sans id, place hors du label ; champ ajoute apres le chargement ; affichage pendant la frappe puis effacement ; obligatoire signale en quittant le champ ; message conserve pendant le clic qui suit une correction et pendant un appui long ; confirmation recontrolee ; envoi bloque avant les autres scripts, focus sur le premier ecart ; champs masques ignores ; message serveur retire des que la saisie change ; remise a zero par `reset` ; zone de message presente des le chargement ; formulaires exclus |
+| `tests/js/pin-modal.test.js` (12 tests) | les champs PIN masques perdent `required` ; le message PIN du serveur reste visible et s'affiche dans le modal, y compris avec `form-validation.js` charge avant |
 | `tests/Unit/Auth/PinVerifierTest.php`, `tests/Unit/Admin/ProfileControllerTest.php` | bornes du PIN lues dans la configuration ; motif `[0-9]{4,12}` et `data-match` rendus dans la page |
 | `tests/e2e/responsive.spec.js` (Chromium) | message affiche et efface dans un vrai navigateur ; modal PIN ouvert a l'envoi, avec et sans `form-validation.js` ; apres un PIN refuse sur la page reelle, message du serveur visible et repris par le modal |
 
 Capture du controle pendant la saisie : `captures-controle-saisie/saisie-en-direct.png`.
+
+**Captures regenerees le 2026-09-26.** Les trois captures « apres » (`saisie-en-direct`,
+`modal-pin-apres`, `modal-pin-refuse`) ont ete refaites contre le code courant par
+`tests/e2e/run-captures.sh`, apres la refonte du back-office : les anciennes montraient des
+formulaires qui n'existent plus. `modal-pin-avant.png` n'est pas regeneree et ne peut pas
+l'etre — elle montre le defaut corrige (le modal qui ne s'ouvrait pas), que le code actuel
+ne produit plus. Elle reste versionnee telle quelle comme trace du diagnostic.
 
 ## 6. Reserves
 

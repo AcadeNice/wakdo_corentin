@@ -83,10 +83,11 @@ L'information ne repose pas sur la seule couleur : un libelle textuel ou une ico
 
 **Verdict Cr 1.c.3 : conforme** sur les etats identifies. **Reserve levee** (etait :
 « les ratios de contraste exacts n'ont pas ete mesures avec un outil dedie »). Les
-ratios ont depuis ete mesures a l'outil `axe-core` sur 11 ecrans reels (407 mesures), et
-les 10 noeuds trouves sous le seuil AA — dont un dans ce perimetre borne — ont ete
-corriges puis remesures conformes. Detail complet, chiffres avant/apres, et methode :
-`06-audit-accessibilite-mesure.md`.
+ratios ont depuis ete mesures a l'outil `axe-core` sur des ecrans reels, et les 10 noeuds
+trouves sous le seuil AA — dont un dans ce perimetre borne — ont ete corriges puis
+remesures conformes. La campagne courante (2026-09-26) porte sur **18 ecrans et
+858 mesures**, contre 11 ecrans et 407 a la campagne d'origine. Detail complet, chiffres
+avant/apres, et methode : `06-audit-accessibilite-mesure.md`.
 
 ---
 
@@ -145,7 +146,7 @@ Verdicts : **conforme** (preuve dans le code) · **partiel** (couvert mais reser
 | Critere | Preuve (fichier:ligne) | Verdict | Commentaire |
 |---|---|---|---|
 | Info pas donnee par la seule couleur | `page-products.js:75,87` ; `style.css` (cherchez « 2e cue » et « not signalled by colour alone ») | conforme | Rupture = badge texte + aria ; actif = fond + libelle + `aria-pressed`. |
-| Contraste texte suffisant | `style.css` (cherchez « --color-text-muted »), `06-audit-accessibilite-mesure.md` | conforme | Mesure a l'outil (`axe-core`, 407 ratios) : un noeud sous le seuil trouve sur ce perimetre, corrige et remesure conforme. |
+| Contraste texte suffisant | `style.css` (cherchez « --color-text-muted »), `06-audit-accessibilite-mesure.md` | conforme | Mesure a l'outil (`axe-core`, 858 ratios sur 18 ecrans au 2026-09-26) : un noeud sous le seuil trouve sur ce perimetre au premier passage, corrige et remesure conforme. |
 
 ### Theme 10 — Presentation / focus
 
@@ -196,7 +197,7 @@ Verdicts : **conforme** (preuve dans le code) · **partiel** (couvert mais reser
 ## 8. Reserves honnetes (a ne pas survendre au jury)
 
 1. **Aucun audit avec lecteur d'ecran reel.** Le mapping ARIA est correct dans le code, mais le rendu effectif sous NVDA/VoiceOver/TalkBack n'a pas ete teste sur cette borne. Toute affirmation de restitution vocale reelle est [UNVERIFIED].
-2. **Ratios de contraste non mesures a l'outil — RESOLU, voir `06-audit-accessibilite-mesure.md`.** Cette reserve disait que les tokens etaient choisis pour viser AA sans rapport d'outil joint. Depuis, `axe-core` a mesure 407 ratios sur 11 ecrans reels ; 10 noeuds sous le seuil AA ont ete trouves (dont un sur ce perimetre borne, `#767676` sur un fond gris a 4,16:1), corriges (`#767676` -> `#6E6E6E`), puis remesures conformes sur les 11 ecrans. Le detail, les chiffres avant/apres et la methode sont dans le document cite.
+2. **Ratios de contraste non mesures a l'outil — RESOLU, voir `06-audit-accessibilite-mesure.md`.** Cette reserve disait que les tokens etaient choisis pour viser AA sans rapport d'outil joint. Depuis, `axe-core` a mesure 407 ratios sur 11 ecrans reels ; 10 noeuds sous le seuil AA ont ete trouves (dont un sur ce perimetre borne, `#767676` sur un fond gris a 4,16:1), corriges (`#767676` -> `#6E6E6E`), puis remesures conformes sur les 11 ecrans. La campagne a ete rejouee et **elargie a 18 ecrans (858 mesures) le 2026-09-26**, apres la refonte du back-office : le resultat reste a 0 violation. Le detail, les chiffres avant/apres et la methode sont dans le document cite.
 3. **Coherence du style de focus partielle.** Le focus n'est pas perdu (pas de reset global), mais quelques controles secondaires (`.size-btn`, bouton info allergenes `.allergen-info-btn`, fermeture modale allergenes `.allergen-modal-close`, tous reperables par selecteur dans `style.css`) reposent sur l'anneau de focus natif du navigateur plutot que sur le halo jaune maison. C'est conforme (focus visible) mais visuellement heterogene.
 4. **Champ chevalet hors des 5 pages lues.** Le picker de chevalet (sur place) a un focus visible en CSS (`style.css`, cherchez « .chevalet__input ») mais son etiquette textuelle vit dans une modale JS non incluse dans les 5 pages de ce perimetre ; verdict « partiel » par prudence.
 5. **Contenu genere = surface a re-tester.** Les cartes produit et le panneau commande sont construits en JavaScript. Les attributs ARIA sont poses dans le code (`page-products.js`, `order-panel.js`), mais leur presence a l'ecran depend de l'execution correcte du rendu ; a demontrer en live plutot qu'a affirmer.
@@ -268,7 +269,29 @@ Le gabarit admin porte `<meta name="robots" content="noindex, nofollow">` depuis
 
 Point de mesure apres ce lot : 755 tests PHP (etaient 747), 209 tests JS (etaient 203), PHPStan niveau 6 a zero erreur, validateur W3C Nu rejoue sur les 5 pages borne (`{"messages":[]}`, inchange).
 
-**Reserve honnete.** Le rendu HTML du back-office n'a pas ete soumis au validateur W3C Nu : la preuve `01-validation-w3c.md` scope explicitement cette campagne a la borne statique, et l'admin est du HTML rendu serveur (necessite une instance qui tourne, hors de ce lot). Les balises ajoutees ici (lien d'evitement, `id`, `<link rel="icon">`, `<script type="module">`) suivent une syntaxe standard deja utilisee ailleurs dans le depot, mais leur passage reel au validateur reste [UNVERIFIED].
+**Point de mesure au 2026-09-26** (apres la refonte du back-office et la regeneration du dossier de preuves) : **1 677 tests PHP, 4 855 assertions, `OK`** ; **356 tests JS** ; PHPStan niveau 6 a zero erreur ; validateur W3C Nu rejoue sur les 5 pages borne et sur 4 captures de DOM rendu (0 erreur, 1 avertissement assume).
+
+### 10.7 Le back-office est desormais mesure, pas seulement relu (2026-09-26)
+
+Cette section 10 documentait la parite d'accessibilite du back-office par **lecture du
+code** : gabarit, assets partages, focus, semantique. L'audit mesure (`axe-core`), lui, ne
+couvrait que **cinq** ecrans du back-office. Il en couvre **douze** depuis le 2026-09-26,
+dont les cinq surfaces que le navigateur construit de toutes pieces : les lignes de recette
+du formulaire produit, le bloc de slot du formulaire menu, la caisse comptoir, son composeur
+de menu, et la caisse drive.
+
+Deux resultats a retenir pour l'oral :
+
+- **0 violation WCAG AA** sur les douze ecrans, contrastes compris (858 mesures au total
+  avec la borne).
+- **Un ecart trouve, corrige, et invisible pour l'outil** : le bloc de slot du formulaire
+  menu etait un `<fieldset>` sans `<legend>`, donc un groupe de champs sans nom pour une
+  technologie d'assistance. Aucune regle du jeu WCAG A/AA active ne couvre ce cas ; c'est
+  la lecture du balisage nouvellement audite qui l'a leve. `menu-form.js` pose desormais
+  une legende, et `tests/js/menu-form.test.js` la garde. Detail :
+  `06-audit-accessibilite-mesure.md`, section 5 ter.
+
+**Reserve honnete.** Le rendu HTML du back-office n'a pas ete soumis au validateur W3C Nu : la preuve `01-validation-w3c.md` scope explicitement cette campagne a la borne, et l'admin est du HTML rendu serveur. Les balises ajoutees ici (lien d'evitement, `id`, `<link rel="icon">`, `<script type="module">`) suivent une syntaxe standard deja utilisee ailleurs dans le depot, mais leur passage reel au validateur reste [UNVERIFIED]. Depuis le 2026-09-26, l'outillage existe pour lever cette reserve si besoin : `tests/e2e/run-w3c.sh` monte une pile qui sert le back-office, et `tests/e2e/w3c-capture.spec.js` sait serialiser un DOM rendu — il suffirait d'y ajouter les vues admin. Ce n'est pas fait : le perimetre du Bloc 1 reste la borne.
 
 ---
 

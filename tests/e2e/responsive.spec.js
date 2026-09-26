@@ -1,9 +1,12 @@
 // E2E responsive (Cr 1.b.1) et controle de saisie (Cr 2.b.1), dans un vrai Chromium.
 //
 // 1. Aucune page ne defile horizontalement a 360 et 390 px de large (telephones
-//    courants en portrait), borne ET back-office, ni a 768 px (tablette) pour la borne.
+//    courants en portrait), borne ET back-office, ni a 768 et 1366 px pour la borne.
 //    Ce test a revele le 2026-09-23 que la page produits de la borne debordait de
 //    872 a 902 px sous 900 px de large (bandeau de categories) : corrige dans style.css.
+//    Chaque ecran borne est mesure avec un etat client seme et un controle d'adresse :
+//    sans eux, la page de paiement se renvoyait aux categories et le fichier mesurait
+//    deux fois le meme ecran (corrige le 2026-09-26, voir ETAT_CLIENT).
 // 2. Sous 640 px, le menu lateral du back-office passe en bande au-dessus du contenu,
 //    qui prend toute la largeur. Le back-office ne defile pas au niveau du document
 //    (.admin-layout : hauteur fixe, overflow hidden) : c'est la zone de contenu
@@ -23,7 +26,12 @@ const ADMIN = 'http://admin.wakdo.test';
 const EMAIL = 'admin@wakdo.local';
 const PASSWORD = 'WakdoAdmin2026!';
 const PHONE_WIDTHS = [360, 390];
-const BORNE_WIDTHS = [360, 390, 768];
+// 1366 px est la largeur de reference de la tranche XL de la preuve 02 (categories en
+// 4 colonnes, panneau de commande lateral). Elle est jouee ici pour deux raisons : le
+// dossier a besoin d'une capture de cette tranche produite par le meme harnais que les
+// autres, et un element a largeur fixe plus large que l'ecran y serait attrape comme
+// aux largeurs etroites.
+const BORNE_WIDTHS = [360, 390, 768, 1366];
 
 const BORNE_PAGES = [
   ['accueil', '/index.html'],
@@ -32,6 +40,42 @@ const BORNE_PAGES = [
   ['paiement', '/payment.html'],
   ['confirmation', '/confirmation.html'],
 ];
+
+/*
+ * Etat client seme avant le chargement de chaque page borne.
+ *
+ * POURQUOI : sans panier, `page-payment.js` renvoie l'ecran de paiement vers les
+ * categories, et sans derniere commande la confirmation n'a rien a afficher. Sans cet
+ * etat, ce fichier mesurait DEUX FOIS l'ecran categories en croyant mesurer aussi le
+ * paiement -- les captures `borne-paiement-*.png` du dossier de preuves etaient, octet
+ * pour octet, les captures `borne-categories-*.png`. Le controle d'adresse pose plus
+ * bas empeche ce silence de revenir.
+ *
+ * C'est de l'etat purement client : AUCUNE commande n'est creee, aucun POST ne part.
+ */
+const ETAT_CLIENT = {
+  mode: 'sur-place',
+  panier: [
+    { id: 1, type: 'produit', categorie: 2, libelle: 'Capture responsive - article 1', prix_cents: 250, quantite: 2, image: null },
+    { id: 2, type: 'produit', categorie: 2, libelle: 'Capture responsive - article 2', prix_cents: 200, quantite: 1, image: null },
+  ],
+  derniereCommande: { order_number: 'WK-CAPTURE', total_ttc_cents: 700 },
+};
+
+/** Injecte l'etat client avant tout script de page (rejoue a chaque navigation). */
+async function semerEtatBorne(page) {
+  await page.addInitScript((etat) => {
+    try {
+      localStorage.setItem('wakdo_mode', etat.mode);
+      localStorage.setItem('wakdo_cart', JSON.stringify(etat.panier));
+      sessionStorage.setItem('wakdo_last_order', JSON.stringify(etat.derniereCommande));
+    } catch {
+      // Stockage indisponible : la page retombe sur son etat vide. La mesure reste
+      // valide sur ce qui s'affiche, elle ne doit pas planter pour autant.
+    }
+  }, ETAT_CLIENT);
+}
+
 const ADMIN_PAGES = [
   ['tableau-de-bord', '/admin/dashboard'],
   ['ingredients', '/admin/ingredients'],
@@ -43,6 +87,10 @@ const ADMIN_PAGES = [
   ['nouveau-menu', '/admin/menus/new'],
   ['commandes', '/admin/orders'],
   ['saisie-commande', '/counter/orders'],
+  // La caisse elle-meme, pas seulement sa liste : c'est l'ecran dont la preuve 02
+  // decrit l'empilement sous 860 px (.pos__main / .pos__panel), et il n'etait mesure
+  // a aucune largeur.
+  ['nouvelle-commande-comptoir', '/counter/orders/new'],
   ['cuisine', '/kitchen/display'],
   ['statistiques', '/admin/stats'],
   ['utilisateurs', '/admin/users'],
@@ -76,9 +124,14 @@ for (const width of BORNE_WIDTHS) {
     test.use({ viewport: { width, height: 800 } });
 
     test('aucune page ne defile horizontalement', async ({ page }) => {
+      await semerEtatBorne(page);
       for (const [name, url] of BORNE_PAGES) {
         await page.goto(url);
         await page.waitForLoadState('networkidle');
+        // L'ecran mesure doit etre CELUI qu'on a demande : une page borne qui ne trouve
+        // pas son etat client se renvoie ailleurs (accueil ou categories) sans erreur,
+        // et la mesure passerait alors sur le mauvais ecran.
+        expect(new URL(page.url()).pathname, `${name} : ecran atteint`).toBe(url.split('?')[0]);
         expect(await horizontalOverflow(page), `${name} a ${width} px`).toBeLessThanOrEqual(0);
         await capture(page, `borne-${name}-${width}`);
       }

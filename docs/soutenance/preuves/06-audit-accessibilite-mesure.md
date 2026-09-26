@@ -6,25 +6,32 @@ Titre professionnel RNCP 37805 — Bloc 1 (developpement front-end)
 Cr 1.c.3 par une reserve explicite : « les ratios de contraste exacts n'ont pas ete
 mesures avec un outil dedie ([UNVERIFIED], section 8) ». Le meme aveu revient en
 section 8, reserve n° 2, et dans les reserves consolidees du `README.md` du dossier.
-Ce document remplace cette reserve par **407 ratios de contraste mesures** sur 11 ecrans
-reels, et par le detail des 10 elements qui passaient sous le seuil.
+Ce document remplace cette reserve par **858 ratios de contraste mesures** sur 18 ecrans
+reels, et par le detail des 10 elements qui passaient sous le seuil au premier passage.
 
-**Avertissement de lecture.** Ce rapport documente **deux campagnes**, pas une seule :
+**Avertissement de lecture.** Ce rapport documente **trois campagnes**, pas une seule :
 
 1. **Campagne AVANT correction** (sections 4 a 6, telles qu'ecrites au premier passage) :
-   10 noeuds de texte sous le seuil WCAG AA, dont 9 dans le back-office. C'est volontaire :
-   un audit qui ne trouve rien est un audit qu'on n'a pas fait. Chaque defaut y est nomme,
-   chiffre, et accompagne d'une correction calculee.
+   11 ecrans, 10 noeuds de texte sous le seuil WCAG AA, dont 9 dans le back-office. C'est
+   volontaire : un audit qui ne trouve rien est un audit qu'on n'a pas fait. Chaque defaut
+   y est nomme, chiffre, et accompagne d'une correction calculee.
 2. **Campagne APRES correction** (section 5 bis) : les trois couleurs corrigees, puis le
    meme outillage rejoue a l'identique sur les memes 11 ecrans. Resultat :
    **0 violation, toutes gravites confondues**. La section 5 bis documente aussi un
    ecart trouve en verifiant les autres usages des tokens corriges, traite avant meme
    d'etre mesure par une campagne dediee.
+3. **Campagne a perimetre elargi du 2026-09-26** (section 5 ter) : la refonte du
+   back-office (demandes de fusion #158 a #166) a change les ecrans mesures et en a cree
+   de nouveaux. La campagne a ete rejouee, et surtout **elargie a sept ecrans qui lui
+   echappaient**, dont la caisse tactile comptoir et drive. Cette section explique ce que
+   l'audit mesure de plus qu'avant, pourquoi il ne le mesurait pas, et ce que la mesure
+   elargie a trouve.
 
-Les deux campagnes sont conservees telles quelles, l'une a la suite de l'autre : un
+Les trois campagnes sont conservees telles quelles, l'une a la suite de l'autre : un
 dossier qui montre « 10 violations trouvees, voici les corrections, voici la remesure a
 0 » a plus de valeur devant un jury qu'un dossier qui n'aurait rien trouve des le premier
-passage, ou qu'un dossier qui aurait efface la trace du probleme initial.
+passage, ou qu'un dossier qui aurait efface la trace du probleme initial. Les chiffres
+courants, ceux que portent les artefacts sur disque, sont ceux de la section 5 ter.
 
 ---
 
@@ -36,8 +43,8 @@ passage, ou qu'un dossier qui aurait efface la trace du probleme initial.
 | Liaison navigateur | `@axe-core/playwright` **4.13.0** (version exacte epinglee, pas une plage) |
 | Navigateur | Chromium 131.0.6778.33, image officielle `mcr.microsoft.com/playwright:v1.49.1-jammy` |
 | Familles de regles | `wcag2a`, `wcag2aa`, `wcag21a`, `wcag21aa` |
-| Date de la campagne | 2026-09-22 |
-| Ecrans analyses | 11 (6 borne, 5 back-office) |
+| Date de la campagne courante | 2026-09-26 (campagnes precedentes : 2026-09-22, puis 2026-09-26 au matin) |
+| Ecrans analyses | 18 (6 borne, 12 back-office) — ils etaient 11 aux deux campagnes precedentes |
 
 ### Pourquoi exactement ces quatre familles de regles
 
@@ -69,7 +76,7 @@ chiffres ci-dessous.
 ## 2. Reproductibilite
 
 ```bash
-# Monte une stack jetable isolee, lance axe sur les 11 ecrans, depose les artefacts,
+# Monte une pile jetable isolee, lance axe sur les 18 ecrans, depose les artefacts,
 # puis demonte tout. Aucune dependance Node/Playwright sur l'hote.
 tests/e2e/run-a11y.sh
 ```
@@ -83,9 +90,14 @@ tests/e2e/run-a11y.sh
   panier vide, `page-payment.js` renvoie aux categories) : cet etat est **seme dans
   `localStorage` / `sessionStorage`**, cote navigateur. `checkout.submitOrder` n'est
   jamais appele, aucun POST de commande ne part.
-- **Double passage identique.** La campagne a ete jouee deux fois de suite. Les deux
-  fichiers `contrastes-mesures.csv` sont **identiques octet pour octet** (407 lignes de
-  mesure), et les verdicts des 11 ecrans sont inchanges.
+- **Double passage identique.** La campagne d'origine a ete jouee deux fois de suite. Les
+  deux fichiers `contrastes-mesures.csv` etaient **identiques octet pour octet**
+  (407 lignes de mesure a ce moment-la), et les verdicts des 11 ecrans inchanges. Le
+  controle a ete refait pour la campagne courante, sur le perimetre elargi : deux
+  executions successives de `run-a11y.sh`, deux piles jetables distinctes, et le meme
+  resultat — **18 ecrans, 858 mesures, 41 noeuds non calculables, 83 combinaisons
+  couleur/fond, 0 violation**, avec le meme compte de mesures ecran par ecran. Seul
+  l'horodatage des artefacts change d'un passage a l'autre.
 - **Controle independant du calcul.** Les ratios rendus par axe ont ete recalcules a la
   main avec la formule WCAG (luminance relative sRGB, `(L1 + 0,05) / (L2 + 0,05)`) :
   `#767676` sur `#FFFFFF` -> 4,54 (axe : 4,54) ; `#767676` sur `#F5F5F5` -> 4,17
@@ -95,24 +107,29 @@ tests/e2e/run-a11y.sh
 ### Etat de l'arbre au moment de la mesure
 
 Les ratios dependent du CSS servi. Pour que le chiffre reste verifiable, voici
-l'empreinte SHA-256 des fichiers determinants, **avant** puis **apres** la correction de
-la section 5 bis (memes 16 premiers caracteres, memes fichiers) :
+l'empreinte SHA-256 des fichiers determinants, aux trois campagnes (16 premiers
+caracteres) :
 
-| Fichier | SHA-256 AVANT (16 premiers) | SHA-256 APRES (16 premiers) |
-|---|---|---|
-| `src/public/borne/assets/css/style.css` | `04c27ae6d22ab2e8` | `6450730a9fa4953a` |
-| `src/public/admin/assets/css/admin.css` | `04cd4a9e8bf2d690` | `c3421eef51250ca6` |
-| `src/app/Views/admin/layout.php` | `cfe3a277b0389ef8` | `cfe3a277b0389ef8` (inchange) |
+| Fichier | AVANT correction (09-22) | APRES correction (09-22) | Perimetre elargi (09-26) |
+|---|---|---|---|
+| `src/public/borne/assets/css/style.css` | `04c27ae6d22ab2e8` | `6450730a9fa4953a` | `184fd2db6132fb80` |
+| `src/public/admin/assets/css/admin.css` | `04cd4a9e8bf2d690` | `c3421eef51250ca6` | `e5abb181bd470728` |
+| `src/app/Views/admin/layout.php` | `cfe3a277b0389ef8` | `cfe3a277b0389ef8` | `ff7a3697d633e7dc` |
 
-`layout.php` n'a pas bouge : seules les trois couleurs de token ont ete touchees, dans les
-deux feuilles de style. Toute modification future de ces feuilles invalide les chiffres :
-relancer `tests/e2e/run-a11y.sh`.
+Entre les deux premieres campagnes, seules les trois couleurs de token avaient bouge, et
+`layout.php` etait reste identique. Les trois empreintes ont change depuis, et c'est
+attendu : la refonte du back-office (demandes de fusion #158 a #166) a touche le systeme
+de design, les jetons d'espacement, les tailles de cible et les contrastes. **C'est
+precisement pour ca que cette campagne a ete rejouee** : toute modification de ces
+fichiers invalide les chiffres, et il faut relancer `tests/e2e/run-a11y.sh`.
 
 ---
 
 ## 3. Perimetre analyse
 
-Onze ecrans, chacun dans un etat **representatif** et non a vide.
+**Dix-huit** ecrans depuis la campagne du 2026-09-26 (ils etaient onze avant), chacun
+dans un etat **representatif** et non a vide. Les sept dernieres lignes sont les ecrans
+ajoutes par cette campagne ; la section 5 ter explique pourquoi ils manquaient.
 
 | Ecran | Adresse | Etat impose |
 |---|---|---|
@@ -127,16 +144,25 @@ Onze ecrans, chacun dans un etat **representatif** et non a vide.
 | admin-ingredients | `/admin/ingredients` | vue la plus longue du back-office, avec son sommaire d'ancres |
 | admin-produits | `/admin/products` | liste du catalogue |
 | admin-commandes | `/admin/orders` | liste (etat vide du jour) |
+| admin-produit-formulaire | `/admin/products/new` | **une ligne de recette de chaque type reellement posee** (ingredient du catalogue, puis creation d'ingredient) |
+| admin-menu-formulaire | `/admin/menus/new` | bloc de slot rendu par le navigateur (nom, type, cases d'options filtrees) |
+| admin-produits-import | `/admin/products/import` | ecran de depot du fichier CSV |
+| admin-produits-import-apercu | `/admin/products/import/preview` | rapport d'apercu, genere apres un depot reel du modele telechargeable |
+| admin-caisse-comptoir | `/counter/orders/new` | **onglets, grille de tuiles et panier peuple** par un tap sur une tuile a ajout direct |
+| admin-caisse-composeur-menu | idem, modale ouverte | composeur de menu ouvert (format, un groupe de choix par slot, modificateurs du burger) |
+| admin-caisse-drive | `/drive/orders/new` | meme caisse, canal drive : mode de service fige, pas de numero de table |
 
 Resolutions retenues : **1080x1920** pour la borne (l'ecran tactile fixe portrait
 reellement cible, et non le 1280x720 du profil « Desktop Chrome » par defaut), et
 **1440x900** pour le back-office (poste de gestion). Les regles sensibles a la mise en
 page doivent etre evaluees sur la geometrie que l'utilisateur voit.
 
-Deux surfaces meritent d'etre signalees, parce qu'aucune lecture statique du depot ne
-peut les atteindre : la **modale d'options produit** et le **panneau de commande** sont
-integralement construits en JavaScript ; leur balisage n'existe dans aucun fichier
-`.html`. Ils sont ici audites tels qu'ils s'affichent.
+Plusieurs surfaces meritent d'etre signalees, parce qu'aucune lecture statique du depot
+ne peut les atteindre : la **modale d'options produit** et le **panneau de commande** de
+la borne, et depuis cette campagne les **lignes de recette**, le **bloc de slot de menu**,
+les **onglets, tuiles et lignes de panier de la caisse** et son **composeur de menu**,
+sont integralement construits en JavaScript ; leur balisage n'existe dans aucun fichier
+`.html` ni dans aucune vue PHP. Ils sont ici audites tels qu'ils s'affichent.
 
 ---
 
@@ -265,8 +291,9 @@ annoncee ci-dessus a ete faite, et elle a change la couleur finale. Les trois au
 emplois sont deux icones decoratives (`.feed-ico`, du CSS mort — aucune trace dans le
 balisage ; `.pin-modal-ico`, une icone SVG `aria-hidden="true"`, sans texte, donc hors du
 perimetre de la regle `color-contrast`) et surtout **`.pos-tile__pastille`** : la lettre
-de repli (24 px, graisse 800) affichee sur les tuiles produit du POS comptoir/drive
-(`counter-order.js`, ecran hors des 11 audites ici) quand aucune image n'est disponible.
+de repli (24 px, graisse 800) affichee sur les tuiles produit de la caisse comptoir/drive
+(`counter-order.js`, ecran hors des 11 audites ici — il est entre dans le perimetre a la
+campagne du 2026-09-26, section 7.4) quand aucune image n'est disponible.
 Elle utilise le meme token, sur le fond `--color-yellow-soft` (`#FFF3D1`), plus sombre
 que le blanc. Calcul : `#B8860B` sur `#FFF3D1` -> **2,94:1**, sous le seuil 3:1 de
 texte large. La valeur proposee ici aurait donc corrige le « do » tout en laissant une
@@ -434,6 +461,149 @@ phpunit.xml`, 755 tests) et PHPStan niveau 6 restent sans regression.
 
 ---
 
+## 5 ter. Campagne du 2026-09-26 — perimetre elargi
+
+La refonte du back-office (demandes de fusion #158 a #166 : systeme de design, jetons
+d'espacement, tailles de cible, contrastes, caisse comptoir et drive en tuiles, import
+CSV, recette produit, accents des donnees) a change le CSS et les vues mesurees par les
+campagnes precedentes. Leurs chiffres ne decrivaient donc plus le code servi. La campagne
+a ete rejouee — et, en la rejouant, un trou a ete trouve dans le protocole lui-meme.
+
+### 5 ter.1 Le trou : mesurer un ecran qui n'a pas encore ete construit
+
+`tests/e2e/a11y.spec.js` visitait `/admin/products/new` et attendait la **presence du
+bouton** « Ajouter un ingredient » avant de mesurer. Or `#recipe-builder` demarre **vide**
+a la creation : `product-recipe.js` ne batit une ligne de recette qu'au clic. Le moteur ne
+lisait donc aucune ligne rendue — ni les etiquettes de ses champs, ni ses contrastes, ni
+ses cibles. L'ecran etait compte comme audite alors que la partie interessante de l'ecran
+n'existait pas au moment de la lecture.
+
+Le commentaire du fichier decrivait bien ce demarrage a vide, mais en tirait la conclusion
+inverse : il justifiait d'attendre le bouton **au lieu** d'attendre une ligne. Un
+commentaire juste sur le fait, faux sur la consequence.
+
+**Correction.** Le test pose desormais **une ligne de chaque type** avant de mesurer
+(ingredient du catalogue, puis creation d'ingredient : les deux n'ont pas le meme
+balisage), et le commentaire dit ce qui est reellement fait.
+
+### 5 ter.2 Le meme controle, applique partout ou le navigateur construit l'ecran
+
+La question a ete reposee a tout le back-office : quels ecrans ont un contenu bati par le
+navigateur, et lesquels echappaient a la mesure ?
+
+| Ecran | Ce que le HTML servi contient | Ce que le navigateur ajoute | Etat avant cette campagne |
+|---|---|---|---|
+| Formulaire produit, recette | un conteneur vide + un bouton | les lignes de recette | audite **a vide** |
+| Formulaire menu, slots | un conteneur vide + ses donnees | le bloc de slot (rendu d'office a la creation) | **pas audite du tout** |
+| Caisse comptoir | une barre d'onglets vide, une grille reduite a « Activez JavaScript », un panier reduit a « Panier vide. » | onglets, tuiles, lignes de panier avec steppers et retrait | **pas audite du tout** |
+| Composeur de menu (caisse) | un conteneur `hidden` | toute la modale : format, un groupe de choix par slot, modificateurs | **pas audite du tout** |
+| Caisse drive | idem comptoir, mode de service fige | idem comptoir | **pas audite du tout** |
+
+La caisse est la surface la plus construite par le navigateur de toute l'application, et
+c'etait la plus grande absente. Les cinq ecrans sont desormais mesures dans un etat
+representatif ; le detail des etats imposes est dans le tableau de la section 3.
+
+### 5 ter.3 Ce que la mesure elargie rapporte
+
+| Indicateur | Campagne precedente | Campagne du 2026-09-26 |
+|---|---|---|
+| Ecrans mesures | 11 | **18** |
+| dont back-office | 5 | **12** |
+| Ratios de contraste mesures | 415 | **858** |
+| Combinaisons couleur/fond distinctes | 65 | **83** |
+| Noeuds de contraste non calculables | 11 | **41** |
+| Violations WCAG AA, toutes gravites | 0 | **0** |
+
+Verdict : **0 violation sur les 18 ecrans**, toutes gravites confondues. Les 858 lignes de
+`rapports/contrastes-mesures.csv` sont toutes au compartiment `conforme` ; aucune ligne
+`violation`.
+
+Deux precisions d'honnetete sur ce tableau :
+
+- **Les chiffres « campagne precedente » viennent des artefacts, pas du texte.** Le
+  `resume.json` et le CSV versionnes portaient 415 mesures sur 11 ecrans ; les sections 4
+  a 6 de ce document, elles, parlent de 407. L'ecart vient d'une campagne intermediaire
+  (2026-09-26 au matin, lot borne) qui a regenere les artefacts sans que le texte soit
+  remis a jour. C'est exactement la derive que cette mise a jour corrige.
+- **Plus de noeuds non calculables n'est pas une degradation.** Les trente nouveaux se
+  repartissent en **28 pastilles de repli** des tuiles de caisse et **2 boutons de
+  quantite** du panier de caisse (voir section 7.4) : ce sont des noeuds qu'`axe` refuse
+  de chiffrer, pas des noeuds qu'il trouve fautifs. Les mesurer, c'est savoir qu'ils
+  existent ; ne pas auditer l'ecran, c'etait les ignorer.
+
+### 5 ter.4 Contraste minimum par ecran (campagne courante)
+
+| Ecran | Mesures | Minimum mesure | Element portant ce minimum |
+|---|---|---|---|
+| accueil | 8 | 17,40:1 | titre d'accueil |
+| categories | 15 | 8,12:1 | sous-titre sur fond de page |
+| produits | 51 | 8,12:1 | sous-titre sur fond de page |
+| produits-modale-options | 61 | 8,12:1 | sous-titre sur fond de page |
+| paiement | 11 | 5,09:1 | mode de consommation du recapitulatif |
+| confirmation | 12 | 4,67:1 | libelle du numero de commande (le noeud corrige en 5.1) |
+| admin-connexion | 8 | 4,98:1 | sous-titre du bloc de connexion |
+| admin-tableau-de-bord | 50 | 3,59:1 | « do » de la barre laterale |
+| admin-ingredients | 90 | 3,59:1 | idem |
+| admin-produits | 78 | 3,59:1 | idem |
+| admin-commandes | 27 | 3,59:1 | idem |
+| admin-produit-formulaire | 64 | 3,59:1 | idem |
+| admin-menu-formulaire | 49 | 3,59:1 | idem |
+| admin-produits-import | 33 | 3,59:1 | idem |
+| admin-produits-import-apercu | 73 | 3,59:1 | idem |
+| admin-caisse-comptoir | 63 | 3,59:1 | idem |
+| admin-caisse-composeur-menu | 108 | 3,59:1 | idem |
+| admin-caisse-drive | 57 | 3,59:1 | idem |
+| **Total** | **858** | — | — |
+
+Le minimum de tous les ecrans du back-office reste celui des campagnes precedentes : le
+« do » du nom de marque, a 3,59:1 pour un seuil de 3:1 (texte large). C'est la marge la
+plus etroite de la campagne, et elle tient. Hors ce noeud commun a toute page du
+back-office, l'element le plus serre de la caisse est le role de l'utilisateur dans la
+barre du haut, a **4,98:1** pour un seuil de 4,5:1.
+
+### 5 ter.5 Les quatre combinaisons couleur/fond nouvelles
+
+Elargir le perimetre a fait entrer quatre paires couleur/fond que les campagnes
+precedentes n'avaient pas rencontrees. Toutes sont conformes, et largement :
+
+| Ratio mesure | Texte | Fond | Ou |
+|---|---|---|---|
+| 17,40:1 | `#ffffff` | `#1a1a1a` | badge « Menu » d'une tuile de caisse |
+| 16,79:1 | `#1a1a1a` | `#fafbfc` | zone de depot d'image du formulaire produit |
+| 16,78:1 | `#1a1a1a` | `#fffbeb` | tuile selectionnee dans le composeur de menu |
+| 5,79:1 | `#5a6472` | `#fafbfc` | consigne de la zone de depot d'image |
+
+### 5 ter.6 Un ecart trouve — que le moteur ne voit pas
+
+La mesure elargie n'a rapporte **aucune** violation `axe`. Mais lire le balisage
+nouvellement audite en a revele un que le jeu de regles WCAG AA ne couvre pas :
+
+**Le bloc de slot du formulaire menu etait un `fieldset` sans `legend`.**
+`menu-form.js` construit chaque slot dans un `<fieldset>` qui regroupe le nom, le type, la
+case « Requis » et les cases a cocher des options. Sans `<legend>`, ce groupe n'a pas de
+nom : une technologie d'assistance annonce « groupe » et l'equipier n'entend pas a quoi se
+rattachent les champs qui suivent. Le constructeur de recette du formulaire produit
+(`product-recipe.js`), lui, pose bien une legende sur chacun de ses blocs — c'etait donc
+une incoherence interne, pas un parti pris.
+
+Pourquoi `axe` ne le signale pas : la regle `fieldset` ne fait pas partie du jeu WCAG A/AA
+active ici (elle n'apparait ni dans les regles conformes, ni dans les non applicables de
+`rapports/axe-admin-menu-formulaire.json`). Le controle des **etiquettes de champ**
+(`label`), lui, passe : chaque champ du bloc est bien etiquete individuellement. C'est le
+**nom du groupe** qui manquait.
+
+**Correction appliquee.** `menu-form.js` pose desormais une legende sur chaque bloc de
+slot, et `tests/js/menu-form.test.js` verifie qu'elle existe, qu'elle n'est pas vide et
+qu'elle est le **premier** enfant du `fieldset` (en HTML, seule la premiere `legend` d'un
+`fieldset` fait titre de groupe). Remesure : la legende ressort a **15,96:1**
+(`#1a1a1a` sur `#f5f5f5`), conforme, et l'ecran reste a 0 violation.
+
+Ce point vaut d'etre raconte a l'oral : **un ecran qu'on n'audite pas ne rend aucun
+defaut**, et un moteur automatique ne remplace pas la lecture du balisage. Les deux ont
+ete necessaires ici — le premier pour elargir, le second pour trouver.
+
+---
+
 ## 6. Les ratios mesures, en clair (campagne AVANT correction)
 
 C'est le trou que ce document comble. **407 ratios mesures**, sur 11 ecrans, soit
@@ -490,11 +660,18 @@ l'information d'etat n'est pas rendue par une couleur faible.
 
 ---
 
-## 7. Ce que l'outil n'a pas pu trancher (13 noeuds)
+## 7. Ce que l'outil n'a pas pu trancher (41 noeuds)
 
 `axe` distingue trois verdicts : conforme, en violation, et **indetermine** — quand la
 regle s'applique mais que le moteur ne peut pas conclure seul. Ces cas ne sont ni des
 succes ni des echecs, et les passer sous silence serait malhonnete.
+
+Repartition de la campagne courante, pour les **41 noeuds que la regle de contraste n'a
+pas pu chiffrer** : 7 etiquettes du graphique du tableau de bord (7.1), 6 boutons de
+quantite a caractere non textuel (7.3 — 4 cote borne, 2 cote caisse), et **28 pastilles de
+tuile de caisse** (7.4). Les 4 noeuds `aria-hidden-focus` de la modale d'options (7.2)
+relevent d'une autre regle et se comptent a part. Les sections 7.1 a 7.3 sont celles des
+campagnes precedentes ; la 7.4 est apparue avec l'elargissement du perimetre.
 
 ### 7.1 Sept etiquettes du graphique du tableau de bord
 
@@ -525,13 +702,38 @@ seul `aria-hidden`. `inert` retire les elements de l'ordre de tabulation au nive
 navigateur ; la propriete devient alors verifiable par l'outil au lieu de dependre d'un
 ecouteur. La meme remarque vaut pour `confirm-modal.js`, qui applique le meme motif.
 
-### 7.3 Deux boutons de quantite du panneau de commande
+### 7.3 Six boutons de quantite (borne et caisse)
 
-Motif : « Element content contains only non-text characters ». Les boutons
-`.order-panel__qty-btn` de decrement contiennent le caractere `&minus;`. `axe` ne
+Motif : « Element content contains only non-text characters ». Les boutons de decrement
+contiennent le caractere `&minus;` : `.order-panel__qty-btn` cote borne (4 noeuds, sur la
+page produits et sur la modale d'options) et `.order-cart__qty-btn` cote caisse (2 noeuds,
+sur le comptoir et sur le composeur, apparus avec l'elargissement du perimetre). `axe` ne
 calcule pas de contraste sur un contenu qui n'est pas du texte. Ce n'est pas un defaut :
 ces boutons portent par ailleurs un `aria-label` explicite (« Diminuer la quantite de
-... »), verifie conforme par la meme campagne.
+... »), verifie conforme par la meme campagne — y compris sur la caisse, ou la regle
+`button-name` ressort conforme sur les trois ecrans.
+
+### 7.4 Vingt-huit pastilles de repli des tuiles de caisse
+
+Motif : « Element content is too short to determine if it is actual text content ». Quand
+un produit ou un menu n'a pas d'image exploitable, `counter-order.js` affiche a la place
+une **pastille** : l'initiale du nom, en gros, sur un rond `--color-yellow-soft`
+(`#FFF3D1`). Le contenu se reduisant a un caractere, le moteur ne se prononce pas sur le
+fait qu'il s'agisse de texte, et ne chiffre donc pas son contraste.
+
+**Pourquoi ce point est interessant.** La section 5.2 avait calcule cette combinaison **a
+la main**, parce que l'ecran de caisse etait alors hors perimetre : c'est elle qui avait
+fait retenir `#AE7F09` plutot que `#B8860B` pour `--color-yellow-ink`. Maintenant que
+l'ecran est audite, le moteur **confirme que la pastille est rendue**, mais il reste sans
+verdict sur sa couleur. Le calcul manuel demeure donc la seule preuve chiffree de cette
+combinaison, et il a ete refait pour cette campagne, avec la formule WCAG (luminance
+relative sRGB) : `#AE7F09` sur `#FFF3D1` -> **3,25:1**, au-dessus du seuil 3:1 du texte
+large (la pastille fait 24 px, graisse 800). La valeur est identique a celle de la
+section 5.2.
+
+Ce sont d'ailleurs ces pastilles qui expliquent l'essentiel de la hausse des noeuds non
+calculables (11 -> 41) : elles ne sont ni conformes ni fautives au sens de l'outil, elles
+sont **hors de sa portee**, et il vaut mieux le savoir que de ne pas auditer l'ecran.
 
 ---
 
@@ -571,12 +773,20 @@ Les limites sont structurelles, pas des oublis.
    ne la leve pas, elle ne portait pas sur ce point.
 3. **Un seul moteur de rendu.** Chromium 131. Les couleurs calculees peuvent differer a
    la marge sur un autre moteur, notamment sur les fonds composites.
-4. **Onze ecrans, pas toute l'application.** Le back-office compte 34 vues ; cinq ont ete
-   auditees. Les formulaires de creation et d'edition, les modales de confirmation admin
-   et l'ecran cuisine n'ont pas ete mesures.
-5. **La mesure est datee et liee a l'arbre.** Les empreintes de la section 2 la pinnent.
+4. **Dix-huit ecrans, pas toute l'application.** Le back-office compte 34 vues ; douze
+   sont auditees depuis la campagne du 2026-09-26 (elles etaient cinq). Restent hors
+   mesure : l'ecran cuisine, les modales de confirmation du back-office, les formulaires
+   d'edition (distincts de la creation), les ecrans d'administration des roles et des
+   utilisateurs, et l'ecran de statistiques.
+5. **Les tailles de cible ne sont pas verifiees par ce jeu de regles.** Le critere
+   « Target Size (Minimum) » est un critere **WCAG 2.2** ; les quatre familles activees
+   ici s'arretent a WCAG 2.1. Les tailles de cible posees par la refonte du back-office
+   sont donc hors de portee de cette campagne : leur verification releve du CSS et des
+   tests dedies, pas de ce rapport. Le dire evite de laisser croire que « 0 violation »
+   couvre ce point.
+6. **La mesure est datee et liee a l'arbre.** Les empreintes de la section 2 la pinnent.
    Une retouche de couleur invalide les chiffres.
-6. **Zoom et redimensionnement non evalues.** La borne pose `touch-action: manipulation`
+7. **Zoom et redimensionnement non evalues.** La borne pose `touch-action: manipulation`
    et vise un ecran fixe ; le critere de redimensionnement du texte reste traite comme en
    section 7 de la preuve 04.
 
@@ -605,6 +815,13 @@ en bout.
 - `run.sh` joue la barriere mais **n'ecrit aucun fichier** dans `docs/` ; seul
   `run-a11y.sh` depose les artefacts (il pose la variable `A11Y_OUT`). Le dossier de
   preuves ne peut donc pas etre reecrit par accident.
+- **Ce que la barriere ne protegeait pas, et protege depuis le 2026-09-26.** Une barriere
+  ne couvre que les ecrans qu'on lui donne, dans l'etat ou on les lui donne. Elle ne
+  pouvait pas signaler que la recette du formulaire produit etait mesuree avant d'exister,
+  ni que la caisse n'etait pas mesuree du tout (section 5 ter). Trois tests couvrent
+  desormais 18 ecrans, et chaque ecran bati par le navigateur est mesure **apres**
+  attente d'un element reellement rendu (une ligne de recette, un bloc de slot, une tuile,
+  une ligne de panier, la modale du composeur) et non de son conteneur vide.
 
 ---
 
@@ -614,15 +831,17 @@ Tout est sous `rapports/` :
 
 | Fichier | Contenu |
 |---|---|
-| `resume.json` | synthese machine : 11 ecrans, violations par gravite, nombre de mesures, ratio minimum, nombre de noeuds non calculables |
-| `contrastes-mesures.csv` | **407 lignes** de mesure : ecran, compartiment, selecteur, couleur de texte, couleur de fond, ratio, seuil attendu, taille, graisse, extrait. Separateur point-virgule (ouverture directe en tableur francais) |
-| `axe-<ecran>.json` (x11) | sortie par ecran : violations et indetermines **integraux**, toutes les mesures de contraste, decompte des regles conformes, liste des regles non applicables |
+| `resume.json` | synthese machine : 18 ecrans, violations par gravite, nombre de mesures, ratio minimum, nombre de noeuds non calculables |
+| `contrastes-mesures.csv` | **858 lignes** de mesure : ecran, compartiment, selecteur, couleur de texte, couleur de fond, ratio, seuil attendu, taille, graisse, extrait. Separateur point-virgule (ouverture directe en tableur francais) |
+| `axe-<ecran>.json` (x18) | sortie par ecran : violations et indetermines **integraux**, toutes les mesures de contraste, decompte des regles conformes, liste des regles non applicables |
 
-**Ces artefacts portent la campagne la plus recente.** `run-a11y.sh` purge et regenere ces
-fichiers a chaque execution (il n'existe pas d'historique automatique) : depuis la
-correction, ils refletent la campagne APRES (section 5 bis), 0 violation. Les chiffres de
-la campagne AVANT (sections 4 a 6) restent lisibles dans ce document en texte, mais leurs
-fichiers sources d'origine ne sont plus sur disque.
+**Ces artefacts portent la campagne la plus recente**, celle du 2026-09-26 a perimetre
+elargi (section 5 ter), 0 violation sur 18 ecrans. `run-a11y.sh` purge et regenere ces
+fichiers a chaque execution (il n'existe pas d'historique automatique) : les chiffres des
+campagnes precedentes (sections 4 a 6, puis 5 bis) restent lisibles dans ce document en
+texte, mais leurs fichiers sources ne sont plus sur disque. Les versions precedentes des
+artefacts restent consultables dans l'historique git du dossier — c'est la seule trace
+machine de l'avant.
 
 **Une reduction, annoncee.** Les fichiers `axe-<ecran>.json` ne portent pas le compartiment
 `passes` d'`axe` dans son integralite : il contient un noeud par element teste par chaque
@@ -677,14 +896,30 @@ reserve sur les ratios non mesures y est levee et pointe vers ce document).
 7. **Montrer que verifier un token, c'est verifier tous ses usages.** La correction de
    `--color-yellow-ink` proposait d'abord `#B8860B` (section 5.2) ; relire les AUTRES
    endroits ou ce token est utilise a revele qu'il echouait encore sur la pastille de
-   repli du POS comptoir/drive, un ecran hors des 11 mesures ici. La valeur finalement
-   appliquee (`#AE7F09`) tient sur les deux usages. C'est la preuve qu'une correction
-   locale, verifiee uniquement sur le point qui a echoue, peut laisser un angle mort.
+   repli de la caisse comptoir/drive, un ecran hors des 11 mesures d'alors. La valeur
+   finalement appliquee (`#AE7F09`) tient sur les deux usages. C'est la preuve qu'une
+   correction locale, verifiee uniquement sur le point qui a echoue, peut laisser un
+   angle mort.
+8. **Raconter le trou du protocole (section 5 ter).** L'audit visitait le formulaire
+   produit et mesurait AVANT que le navigateur ait construit la recette : un ecran compte
+   comme audite, une surface qui n'etait pas lue. Le corriger a conduit a poser la meme
+   question a tout le back-office, et a faire entrer la caisse comptoir/drive — la surface
+   la plus construite par le navigateur de l'application — dans le perimetre. C'est le
+   point le plus fort de cette mise a jour : **la premiere chose qu'un audit doit prouver,
+   c'est qu'il regarde ce qu'il pretend regarder.**
+9. **Assumer que « 0 violation » ne couvre pas les tailles de cible.** Elles relevent de
+   WCAG 2.2, hors des quatre familles activees (section 9, limite n° 5). Le dire avant
+   qu'on ne le demande vaut mieux que de laisser le chiffre parler a la place.
 
 ---
 
 Perimetre couvert : Cr 1.c.3 (contraste, mesure a l'outil puis corrige — reserve de la
-preuve 04 levee, 0 violation `color-contrast` sur les 11 ecrans apres correction), et en
-renfort Cr 1.c.1 / Cr 1.c.4 (aucune violation mesuree sur les alternatives textuelles,
-les roles, les etiquettes et la structure des 11 ecrans). Les references au code se font
-par citation de texte cherchable, conformement a la convention du dossier.
+preuve 04 levee, 0 violation `color-contrast` sur les **18 ecrans** de la campagne
+courante), et en renfort Cr 1.c.1 / Cr 1.c.4 (aucune violation mesuree sur les
+alternatives textuelles, les roles, les etiquettes et la structure de ces 18 ecrans). Les
+references au code se font par citation de texte cherchable, conformement a la convention
+du dossier.
+
+Etat des suites au moment de la campagne courante (2026-09-26, meme arbre que les
+empreintes de la section 2) : `npm run test:js` **356 tests**, PHPUnit **1 677 tests,
+4 855 assertions, `OK`**, PHPStan niveau 6 sans erreur.

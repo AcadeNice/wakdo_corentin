@@ -1,7 +1,7 @@
 {
   "page": "admin-ingredients",
   "url": "http://admin.wakdo.test/admin/ingredients",
-  "date": "2026-09-26T05:32:22.750Z",
+  "date": "2026-09-26T14:24:26.742Z",
   "moteur": {
     "axe": {
       "name": "axe-core",
@@ -334,7 +334,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".stock-explainer:nth-child(3)",
+      "selecteur": ".stock-explainer:nth-child(4)",
       "extrait": "<p class=\"stock-explainer\"> Le stock pilote ce qui est commandable sur la borne. Un ingrédient requi",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#fffbeb",
@@ -466,7 +466,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".stock-list__row:nth-child(1) > .stock-list__main > .stock-list__name",
+      "selecteur": "li[data-row-key=\"ingredient:35\"] > .stock-list__main > .stock-list__name",
       "extrait": "<span class=\"stock-list__name\">Brownie</span>",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#ffffff",
@@ -477,8 +477,8 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".stock-list__row:nth-child(1) > .stock-list__main > .stock-list__unit",
-      "extrait": "<span class=\"stock-list__unit\">piece</span>",
+      "selecteur": "li[data-row-key=\"ingredient:35\"] > .stock-list__main > .stock-list__unit",
+      "extrait": "<span class=\"stock-list__unit\">pièce</span>",
       "avant_plan": "#69707d",
       "arriere_plan": "#ffffff",
       "ratio": 4.98,
@@ -488,7 +488,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".stock-list__row:nth-child(1) > .stock-list__main > .pill.pill-success",
+      "selecteur": "li[data-row-key=\"ingredient:35\"] > .stock-list__main > .pill.pill-success",
       "extrait": "<span class=\"pill pill-success\">Actif</span>",
       "avant_plan": "#065f46",
       "arriere_plan": "#d1fae5",
@@ -499,7 +499,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".stock-list__row:nth-child(1) > .stock-list__bar > .stock-bar__meta > .stock-bar__pct",
+      "selecteur": "li[data-row-key=\"ingredient:35\"] > .stock-list__bar > .stock-bar__meta > .stock-bar__pct",
       "extrait": "<span class=\"stock-bar__pct\">100%</span>",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#ffffff",
@@ -510,7 +510,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".stock-list__row:nth-child(1) > .stock-list__bar > .stock-bar__meta > .stock-bar__qty",
+      "selecteur": "li[data-row-key=\"ingredient:35\"] > .stock-list__bar > .stock-bar__meta > .stock-bar__qty",
       "extrait": "<span class=\"stock-bar__qty\">150 / 150</span>",
       "avant_plan": "#69707d",
       "arriere_plan": "#ffffff",
@@ -521,7 +521,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".stock-list__row:nth-child(1) > .stock-list__actions > .btn-secondary:nth-child(1)",
+      "selecteur": "li[data-row-key=\"ingredient:35\"] > .stock-list__actions.row-actions > .btn-secondary:nth-child(1)",
       "extrait": "<a class=\"btn btn-secondary btn-sm\" href=\"/admin/ingredients/35/inventory\">Inventaire</a>",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",
@@ -532,7 +532,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".stock-list__row:nth-child(1) > .stock-list__actions > .btn-secondary[href$=\"adjust\"]",
+      "selecteur": "li[data-row-key=\"ingredient:35\"] > .stock-list__actions.row-actions > .btn-secondary[href$=\"adjust\"]",
       "extrait": "<a class=\"btn btn-secondary btn-sm\" href=\"/admin/ingredients/35/adjust\">Ajuster</a>",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",
@@ -554,7 +554,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".stock-list__row:nth-child(1) > .stock-list__actions > .btn-ghost:nth-child(4)",
+      "selecteur": "li[data-row-key=\"ingredient:35\"] > .stock-list__actions.row-actions > .btn-ghost:nth-child(4)",
       "extrait": "<a class=\"btn btn-ghost btn-sm\" href=\"/admin/ingredients/35/movements\">Mouvements</a>",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",
@@ -565,7 +565,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".stock-list__row:nth-child(1) > .stock-list__actions > .stock-list__crud > .btn-ghost[href$=\"edit\"]",
+      "selecteur": "li[data-row-key=\"ingredient:35\"] > .stock-list__actions.row-actions > .stock-list__crud > .btn-ghost[href$=\"edit\"]",
       "extrait": "<a class=\"btn btn-ghost btn-sm\" href=\"/admin/ingredients/35/edit\">Modifier</a>",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",
@@ -587,7 +587,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".stock-list__row:nth-child(1) > .stock-list__actions > .stock-list__crud > .btn-ghost[href$=\"delete\"]",
+      "selecteur": "li[data-row-key=\"ingredient:35\"] > .stock-list__actions.row-actions > .stock-list__crud > .row-actions__danger > .btn-ghost[href$=\"delete\"]",
       "extrait": "<a class=\"btn btn-ghost btn-sm\" href=\"/admin/ingredients/35/delete\">Supprimer</a>",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",
@@ -598,7 +598,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".stock-list__row:nth-child(2) > .stock-list__main > .stock-list__name",
+      "selecteur": "li[data-row-key=\"ingredient:11\"] > .stock-list__main > .stock-list__name",
       "extrait": "<span class=\"stock-list__name\">Cheddar</span>",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#ffffff",
@@ -609,7 +609,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".stock-list__row:nth-child(2) > .stock-list__main > .stock-list__unit",
+      "selecteur": "li[data-row-key=\"ingredient:11\"] > .stock-list__main > .stock-list__unit",
       "extrait": "<span class=\"stock-list__unit\">tranche</span>",
       "avant_plan": "#69707d",
       "arriere_plan": "#ffffff",
@@ -620,7 +620,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".stock-list__row:nth-child(2) > .stock-list__main > .pill.pill-success",
+      "selecteur": "li[data-row-key=\"ingredient:11\"] > .stock-list__main > .pill.pill-success",
       "extrait": "<span class=\"pill pill-success\">Actif</span>",
       "avant_plan": "#065f46",
       "arriere_plan": "#d1fae5",
@@ -631,7 +631,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".stock-list__row:nth-child(2) > .stock-list__bar > .stock-bar__meta > .stock-bar__pct",
+      "selecteur": "li[data-row-key=\"ingredient:11\"] > .stock-list__bar > .stock-bar__meta > .stock-bar__pct",
       "extrait": "<span class=\"stock-bar__pct\">100%</span>",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#ffffff",
@@ -642,7 +642,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".stock-list__row:nth-child(2) > .stock-list__bar > .stock-bar__meta > .stock-bar__qty",
+      "selecteur": "li[data-row-key=\"ingredient:11\"] > .stock-list__bar > .stock-bar__meta > .stock-bar__qty",
       "extrait": "<span class=\"stock-bar__qty\">600 / 600</span>",
       "avant_plan": "#69707d",
       "arriere_plan": "#ffffff",
@@ -653,7 +653,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".stock-list__row:nth-child(2) > .stock-list__actions > .btn-secondary:nth-child(1)",
+      "selecteur": "li[data-row-key=\"ingredient:11\"] > .stock-list__actions.row-actions > .btn-secondary:nth-child(1)",
       "extrait": "<a class=\"btn btn-secondary btn-sm\" href=\"/admin/ingredients/11/inventory\">Inventaire</a>",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",
@@ -664,7 +664,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".stock-list__row:nth-child(2) > .stock-list__actions > .btn-secondary[href$=\"adjust\"]",
+      "selecteur": "li[data-row-key=\"ingredient:11\"] > .stock-list__actions.row-actions > .btn-secondary[href$=\"adjust\"]",
       "extrait": "<a class=\"btn btn-secondary btn-sm\" href=\"/admin/ingredients/11/adjust\">Ajuster</a>",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",
@@ -686,7 +686,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".stock-list__row:nth-child(2) > .stock-list__actions > .btn-ghost:nth-child(4)",
+      "selecteur": "li[data-row-key=\"ingredient:11\"] > .stock-list__actions.row-actions > .btn-ghost:nth-child(4)",
       "extrait": "<a class=\"btn btn-ghost btn-sm\" href=\"/admin/ingredients/11/movements\">Mouvements</a>",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",
@@ -697,7 +697,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".stock-list__row:nth-child(2) > .stock-list__actions > .stock-list__crud > .btn-ghost[href$=\"edit\"]",
+      "selecteur": "li[data-row-key=\"ingredient:11\"] > .stock-list__actions.row-actions > .stock-list__crud > .btn-ghost[href$=\"edit\"]",
       "extrait": "<a class=\"btn btn-ghost btn-sm\" href=\"/admin/ingredients/11/edit\">Modifier</a>",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",
@@ -719,7 +719,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".stock-list__row:nth-child(2) > .stock-list__actions > .stock-list__crud > .btn-ghost[href$=\"delete\"]",
+      "selecteur": "li[data-row-key=\"ingredient:11\"] > .stock-list__actions.row-actions > .stock-list__crud > .row-actions__danger > .btn-ghost[href$=\"delete\"]",
       "extrait": "<a class=\"btn btn-ghost btn-sm\" href=\"/admin/ingredients/11/delete\">Supprimer</a>",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",
@@ -730,7 +730,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".stock-list__row:nth-child(3) > .stock-list__main > .stock-list__name",
+      "selecteur": "li[data-row-key=\"ingredient:36\"] > .stock-list__main > .stock-list__name",
       "extrait": "<span class=\"stock-list__name\">Cheesecake</span>",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#ffffff",
@@ -741,8 +741,8 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".stock-list__row:nth-child(3) > .stock-list__main > .stock-list__unit",
-      "extrait": "<span class=\"stock-list__unit\">piece</span>",
+      "selecteur": "li[data-row-key=\"ingredient:36\"] > .stock-list__main > .stock-list__unit",
+      "extrait": "<span class=\"stock-list__unit\">pièce</span>",
       "avant_plan": "#69707d",
       "arriere_plan": "#ffffff",
       "ratio": 4.98,
@@ -752,7 +752,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".stock-list__row:nth-child(3) > .stock-list__main > .pill.pill-success",
+      "selecteur": "li[data-row-key=\"ingredient:36\"] > .stock-list__main > .pill.pill-success",
       "extrait": "<span class=\"pill pill-success\">Actif</span>",
       "avant_plan": "#065f46",
       "arriere_plan": "#d1fae5",
@@ -763,7 +763,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".stock-list__row:nth-child(3) > .stock-list__bar > .stock-bar__meta > .stock-bar__pct",
+      "selecteur": "li[data-row-key=\"ingredient:36\"] > .stock-list__bar > .stock-bar__meta > .stock-bar__pct",
       "extrait": "<span class=\"stock-bar__pct\">100%</span>",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#ffffff",
@@ -774,7 +774,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".stock-list__row:nth-child(3) > .stock-list__bar > .stock-bar__meta > .stock-bar__qty",
+      "selecteur": "li[data-row-key=\"ingredient:36\"] > .stock-list__bar > .stock-bar__meta > .stock-bar__qty",
       "extrait": "<span class=\"stock-bar__qty\">150 / 150</span>",
       "avant_plan": "#69707d",
       "arriere_plan": "#ffffff",
@@ -785,7 +785,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".stock-list__row:nth-child(3) > .stock-list__actions > .btn-secondary:nth-child(1)",
+      "selecteur": "li[data-row-key=\"ingredient:36\"] > .stock-list__actions.row-actions > .btn-secondary:nth-child(1)",
       "extrait": "<a class=\"btn btn-secondary btn-sm\" href=\"/admin/ingredients/36/inventory\">Inventaire</a>",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",
@@ -796,7 +796,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".stock-list__row:nth-child(3) > .stock-list__actions > .btn-secondary[href$=\"adjust\"]",
+      "selecteur": "li[data-row-key=\"ingredient:36\"] > .stock-list__actions.row-actions > .btn-secondary[href$=\"adjust\"]",
       "extrait": "<a class=\"btn btn-secondary btn-sm\" href=\"/admin/ingredients/36/adjust\">Ajuster</a>",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",
@@ -818,7 +818,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".stock-list__row:nth-child(3) > .stock-list__actions > .btn-ghost:nth-child(4)",
+      "selecteur": "li[data-row-key=\"ingredient:36\"] > .stock-list__actions.row-actions > .btn-ghost:nth-child(4)",
       "extrait": "<a class=\"btn btn-ghost btn-sm\" href=\"/admin/ingredients/36/movements\">Mouvements</a>",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",
@@ -829,7 +829,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".stock-list__row:nth-child(3) > .stock-list__actions > .stock-list__crud > .btn-ghost[href$=\"edit\"]",
+      "selecteur": "li[data-row-key=\"ingredient:36\"] > .stock-list__actions.row-actions > .stock-list__crud > .btn-ghost[href$=\"edit\"]",
       "extrait": "<a class=\"btn btn-ghost btn-sm\" href=\"/admin/ingredients/36/edit\">Modifier</a>",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",
@@ -851,7 +851,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".stock-list__row:nth-child(3) > .stock-list__actions > .stock-list__crud > .btn-ghost[href$=\"delete\"]",
+      "selecteur": "li[data-row-key=\"ingredient:36\"] > .stock-list__actions.row-actions > .stock-list__crud > .row-actions__danger > .btn-ghost[href$=\"delete\"]",
       "extrait": "<a class=\"btn btn-ghost btn-sm\" href=\"/admin/ingredients/36/delete\">Supprimer</a>",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",
@@ -862,7 +862,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".stock-list__row:nth-child(4) > .stock-list__main > .stock-list__name",
+      "selecteur": "li[data-row-key=\"ingredient:37\"] > .stock-list__main > .stock-list__name",
       "extrait": "<span class=\"stock-list__name\">Cookie</span>",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#ffffff",
@@ -873,8 +873,8 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".stock-list__row:nth-child(4) > .stock-list__main > .stock-list__unit",
-      "extrait": "<span class=\"stock-list__unit\">piece</span>",
+      "selecteur": "li[data-row-key=\"ingredient:37\"] > .stock-list__main > .stock-list__unit",
+      "extrait": "<span class=\"stock-list__unit\">pièce</span>",
       "avant_plan": "#69707d",
       "arriere_plan": "#ffffff",
       "ratio": 4.98,
@@ -884,7 +884,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".stock-list__row:nth-child(4) > .stock-list__main > .pill.pill-success",
+      "selecteur": "li[data-row-key=\"ingredient:37\"] > .stock-list__main > .pill.pill-success",
       "extrait": "<span class=\"pill pill-success\">Actif</span>",
       "avant_plan": "#065f46",
       "arriere_plan": "#d1fae5",
@@ -895,7 +895,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".stock-list__row:nth-child(4) > .stock-list__bar > .stock-bar__meta > .stock-bar__pct",
+      "selecteur": "li[data-row-key=\"ingredient:37\"] > .stock-list__bar > .stock-bar__meta > .stock-bar__pct",
       "extrait": "<span class=\"stock-bar__pct\">100%</span>",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#ffffff",
@@ -906,7 +906,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".stock-list__row:nth-child(4) > .stock-list__bar > .stock-bar__meta > .stock-bar__qty",
+      "selecteur": "li[data-row-key=\"ingredient:37\"] > .stock-list__bar > .stock-bar__meta > .stock-bar__qty",
       "extrait": "<span class=\"stock-bar__qty\">150 / 150</span>",
       "avant_plan": "#69707d",
       "arriere_plan": "#ffffff",
@@ -917,7 +917,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".stock-list__row:nth-child(4) > .stock-list__actions > .btn-secondary:nth-child(1)",
+      "selecteur": "li[data-row-key=\"ingredient:37\"] > .stock-list__actions.row-actions > .btn-secondary:nth-child(1)",
       "extrait": "<a class=\"btn btn-secondary btn-sm\" href=\"/admin/ingredients/37/inventory\">Inventaire</a>",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",
@@ -928,7 +928,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".stock-list__row:nth-child(4) > .stock-list__actions > .btn-secondary[href$=\"adjust\"]",
+      "selecteur": "li[data-row-key=\"ingredient:37\"] > .stock-list__actions.row-actions > .btn-secondary[href$=\"adjust\"]",
       "extrait": "<a class=\"btn btn-secondary btn-sm\" href=\"/admin/ingredients/37/adjust\">Ajuster</a>",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",
@@ -950,7 +950,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".stock-list__row:nth-child(4) > .stock-list__actions > .btn-ghost:nth-child(4)",
+      "selecteur": "li[data-row-key=\"ingredient:37\"] > .stock-list__actions.row-actions > .btn-ghost:nth-child(4)",
       "extrait": "<a class=\"btn btn-ghost btn-sm\" href=\"/admin/ingredients/37/movements\">Mouvements</a>",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",
@@ -961,7 +961,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".stock-list__row:nth-child(4) > .stock-list__actions > .stock-list__crud > .btn-ghost[href$=\"edit\"]",
+      "selecteur": "li[data-row-key=\"ingredient:37\"] > .stock-list__actions.row-actions > .stock-list__crud > .btn-ghost[href$=\"edit\"]",
       "extrait": "<a class=\"btn btn-ghost btn-sm\" href=\"/admin/ingredients/37/edit\">Modifier</a>",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",
@@ -983,7 +983,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".stock-list__row:nth-child(4) > .stock-list__actions > .stock-list__crud > .btn-ghost[href$=\"delete\"]",
+      "selecteur": "li[data-row-key=\"ingredient:37\"] > .stock-list__actions.row-actions > .stock-list__crud > .row-actions__danger > .btn-ghost[href$=\"delete\"]",
       "extrait": "<a class=\"btn btn-ghost btn-sm\" href=\"/admin/ingredients/37/delete\">Supprimer</a>",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",

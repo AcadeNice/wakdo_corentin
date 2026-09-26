@@ -30,10 +30,34 @@ Depuis le passage de l'ecran categories sur `GET /api/categories`, cet ecran rel
 
 ## 2. Resultat
 
+**Campagne du 2026-09-26**, rejouee contre le code courant (la borne a recu cinq lots
+depuis la campagne precedente ; les captures du DOM rendu dataient, elles, du
+2026-07-31).
+
 | Niveau | Pages | Erreurs | Avertissements |
 |---|---|---|---|
 | Pages servies | 5 (index, categories, products, payment, confirmation) | **0** | 0 |
 | DOM rendu (donnees reelles) | 3 (accueil, categories, produits) | **0** | 1 (voir 4.3) |
+| DOM rendu, modale allergenes ouverte | 1 | **0** | 1 (le meme, voir 4.3) |
+
+Resultat **identique** a celui des campagnes precedentes : le seul message reste
+l'avertissement `aria-disabled` du lien « Payer » (section 3.3), assume. Les cinq lots
+livres sur la borne depuis n'ont introduit ni erreur ni avertissement nouveau.
+
+### Une commande, les deux niveaux
+
+```bash
+# Niveau 1 sur les fichiers servis, puis pile jetable + capture du DOM rendu +
+# validation des captures. Depose les artefacts dans w3c/, puis demonte tout.
+tests/e2e/run-w3c.sh
+```
+
+Ce script est nouveau (2026-09-26). Avant lui, le niveau 2 etait capture **a la main** :
+les fichiers de `w3c/dom-rendu/` ne pouvaient donc pas etre refaits a l'identique, et ils
+ont derive du code — la reserve datee ci-dessous en portait la trace. La capture vit
+desormais dans `tests/e2e/w3c-capture.spec.js`, qui n'ecrit que si la variable `W3C_OUT`
+est posee (meme garde que `A11Y_OUT` pour l'audit d'accessibilite) : un passage ordinaire
+des tests de bout en bout ne reecrit pas le dossier de preuves.
 
 Sorties brutes du validateur versionnees comme artefacts :
 
@@ -41,19 +65,25 @@ Sorties brutes du validateur versionnees comme artefacts :
 - `w3c/borne-rendu.json` — 0 erreur, 1 avertissement sur `produits`.
 - `w3c/dom-rendu/` — le HTML rendu (accueil, categories, produits) reellement soumis au validateur.
 - `w3c/borne-modale-allergenes.json` — 0 erreur sur le DOM **modale allergenes ouverte**
-  (capture `w3c/dom-rendu/produits-modale-allergenes.html`, faite le 2026-07-31).
+  (capture `w3c/dom-rendu/produits-modale-allergenes.html`).
+
+Les quatre captures et les trois sorties de validateur portent la campagne du
+2026-09-26 ; les versions precedentes restent consultables dans l'historique git.
 
 **Ajout du 2026-07-31 — la modale allergenes, du DOM genere resté hors validation.**
 Les captures precedentes figeaient l'etat FERME de la page produits : elles contenaient les
 boutons "i" mais pas le panneau que le clic construit. Le balisage de la modale echappait donc
 au validateur, alors qu'il est entierement genere en JavaScript (F11b l'a de plus reecrit :
-liste par produit, bandeaux d'etat, avertissement de traces). Capture faite avec la modale du
-Big Mac ouverte, puis validee : **le seul message est l'avertissement `aria-disabled` deja
+liste par produit, bandeaux d'etat, avertissement de traces). Capture faite avec une modale
+ouverte, puis validee : **le seul message est l'avertissement `aria-disabled` deja
 present sur le lien Payer du panneau de commande**, identique a celui de `borne-rendu.json`.
-Le nouveau balisage n'introduit aucun message.
+Le nouveau balisage n'introduit aucun message. La capture du 2026-09-26 ouvre la modale du
+premier produit de la categorie 2 (« Allergenes - Coca Cola ») ; celle du 2026-07-31 ouvrait
+celle d'un burger. Le balisage valide est le meme, seule la liste d'allergenes differe.
 
 ```bash
-# Capture : Playwright ouvre la modale, puis serialise document.documentElement.outerHTML.
+# Capture + validation en une commande (voir section 2). La validation seule, si les
+# captures sont deja sur disque :
 docker run --rm -v "$PWD/docs/soutenance/preuves/w3c/dom-rendu":/data:ro --entrypoint java \
   ghcr.io/validator/validator:latest -jar /vnu.jar --format json \
   /data/produits-modale-allergenes.html
@@ -64,7 +94,10 @@ docker run --rm -v "$PWD/docs/soutenance/preuves/w3c/dom-rendu":/data:ro --entry
 
 **Niveau 1 rejoue apres le passage de l'ecran categories en dynamique** : la commande ci-dessous a ete relancee sur le nouveau balisage, resultat identique (`{"messages":[]}`), artefact inchange au bit pres.
 
-**Reserve datee sur le niveau 2** : `w3c/dom-rendu/categories.html` est la capture d'AVANT ce changement (elle contient encore la grille servie en dur). La recapture est faite en une seule campagne a la fin des lots qui touchent au balisage de la borne, et apres nettoyage des donnees de demonstration — capturer maintenant figerait dans une piece destinee au jury deux categories de test creees pendant les essais du back-office. Le niveau 1 ci-dessus, lui, est a jour.
+**Reserve du niveau 2 — levee le 2026-09-26.** Elle disait ceci : « `w3c/dom-rendu/categories.html` est la capture d'AVANT le passage en dynamique (elle contient encore la grille servie en dur) ; la recapture est faite en une seule campagne a la fin des lots qui touchent au balisage de la borne, et apres nettoyage des donnees de demonstration. » Les deux conditions sont remplies. Les lots borne sont livres ; et la crainte des categories de test tombe d'elle-meme, parce que la capture est prise contre une **pile jetable montee depuis les fichiers de donnees de demonstration** (`db/seeds/`) : elle porte les 9 categories du catalogue (Menus, Boissons, Burgers, Frites, Encas, Wraps, Salades, Desserts, Sauces) et aucune categorie creee a la main pendant des essais. Les quatre captures ont ete refaites par `tests/e2e/run-w3c.sh` ; `categories.html` porte desormais la grille reellement construite par `page-categories.js` depuis `GET /api/categories`. Deux consequences a assumer devant le jury :
+
+- Les captures viennent de la **pile de test jetable**, pas de la borne en ligne. Le lien canonique reste celui du domaine de production, parce qu'il est ecrit en dur dans les pages servies ; le reste du document est celui de la pile de test.
+- L'artefact ne peut plus deriver en silence : la capture est un fichier de test versionne, rejouable en une commande.
 
 ### Commande reproductible (pages servies)
 
@@ -118,7 +151,7 @@ Le balisage s'appuie sur les landmarks HTML5 a leur role : `header`, `nav`, `mai
 ## 5. Reserves honnetes
 
 1. **Back-office non couvert ici.** Les 29 vues PHP du back-office ne sont pas validees dans cette preuve (perimetre = front borne, Bloc 1). Leur balisage a ete relu (doctype + `lang` portes par les deux layouts, `<th>` de colonne d'action parfois vides — valide mais signale par un audit a11y) mais sans passage au validateur.
-2. **Etats interactifs non exhaustivement rendus.** Le DOM rendu valide couvre l'accueil, la liste categories et la grille produits peuplee. Les modales (composeur de menu, options produit, allergenes) n'ont pas ete soumises page par page ; leur structure a toutefois ete relue en statique : le composeur (`page-product-menu.js`) et le panneau commande (`order-panel.js`) utilisent des `<ul>` a enfants `<li>` conformes.
+2. **Etats interactifs non exhaustivement rendus.** Le DOM rendu valide couvre l'accueil, la liste categories, la grille produits peuplee et la **modale allergenes ouverte**. Les deux autres modales (composeur de menu, options produit) n'ont pas ete soumises au validateur ; leur structure a toutefois ete relue en statique (le composeur `page-product-menu.js` et le panneau commande `order-panel.js` utilisent des `<ul>` a enfants `<li>` conformes) et la modale d'options est, elle, mesuree par l'audit d'accessibilite (`06-audit-accessibilite-mesure.md`, ecran `produits-modale-options`). Ajouter ces deux etats a `tests/e2e/w3c-capture.spec.js` est desormais une modification d'une dizaine de lignes.
 3. **Le validateur en ligne reste a rejouer a l'oral.** La preuve locale utilise le meme moteur ; montrer `validator.w3.org` en direct sur l'URL de la borne renforce la demonstration.
 
 ---
