@@ -156,6 +156,188 @@ resolve_target_info() {
     printf '%s\n%s\n%s\n' "$project" "$db_name" "$app_name"
 }
 
+# Empreinte d'un flux (stdin) en sha256, hexadecimal minuscule sans nom de
+# fichier. Statut non nul si aucun outil de hachage n'est disponible : les
+# appelants traitent ce cas comme "empreinte indisponible", jamais comme une
+# empreinte vide qui correspondrait a tout.
+sha256_hex() {
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum | cut -d' ' -f1
+    elif command -v shasum >/dev/null 2>&1; then
+        shasum -a 256 | cut -d' ' -f1
+    elif command -v openssl >/dev/null 2>&1; then
+        openssl dgst -sha256 | sed 's/.*= *//'
+    else
+        return 1
+    fi
+}
+
+# Empreinte de la BASE elle-meme, et non de ses tables applicatives :
+#   nom du schema | instant de creation des tables systeme du schema `mysql` |
+#   projet compose | conteneur wakdo-db
+#
+# Les tables du schema `mysql` sont creees une seule fois, a l'initialisation du
+# volume de donnees. Une restauration applicative (DROP/CREATE des tables de
+# wakdo) ne les touche pas, et ne touche pas non plus les etiquettes du
+# conteneur : l'empreinte survit donc telle quelle a une restauration
+# interrompue. C'est precisement ce qui permet de reconnaitre "la meme base"
+# au moment d'un retour arriere, alors que le schema applicatif, lui, est a
+# moitie change.
+#
+# MariaDB n'expose pas de `server_uuid` (verifie sur mariadb:11.4 : variable
+# systeme inconnue), d'ou cette empreinte composee plutot qu'un identifiant
+# fourni par le serveur.
+#
+# Statut non nul (et rien sur stdout) si la base ne repond pas : l'appelant ne
+# doit pas confondre "empreinte indisponible" et "empreinte vide".
+db_identity() {
+    local raw target project db_container
+    if ! raw="$(dc exec -T wakdo-db sh -c '
+            BIN="$(command -v mariadb || command -v mysql)"
+            MYSQL_PWD="$MARIADB_ROOT_PASSWORD" "$BIN" -N -B -uroot "$MARIADB_DATABASE" -e \
+                "SELECT CONCAT(DATABASE(), '"'"'|'"'"', IFNULL(MIN(create_time), '"'"'?'"'"')) FROM information_schema.tables WHERE table_schema = '"'"'mysql'"'"';"
+        ' < /dev/null 2>/dev/null)"; then
+        return 1
+    fi
+    raw="$(printf '%s' "$raw" | tr -d '\r' | head -1)"
+    [ -n "$raw" ] || return 1
+
+    target="$(resolve_target_info)"
+    project="$(sed -n '1p' <<<"$target")"
+    db_container="$(sed -n '2p' <<<"$target")"
+
+    printf '%s|%s|%s' "$raw" "$project" "$db_container" | sha256_hex
+}
+
+# --- Marqueur de sauvegarde de securite ---------------------------------------
+#
+# Une sauvegarde de securite (etape [3/6] de demo-reset.sh) est, par
+# construction, l'image de CETTE base-la prise quelques secondes plus tot.
+# write_rollback_tag y depose un marqueur qui atteste de cette origine :
+#
+#   origin_db     empreinte de la base d'ou la sauvegarde vient (db_identity)
+#   dump_sha256   empreinte du dump depose a cote, qui lie le marqueur a CE
+#                 contenu precis - un marqueur recopie vers un autre instantane
+#                 ne correspond plus au dump de ce dossier-la
+#
+# Le marqueur est une preuve d'INTEGRITE et d'ORIGINE, pas une signature : il
+# ecarte les recopies et les alterations, pas une falsification deliberee ligne
+# a ligne (il n'y a aucun secret dans le depot pour signer quoi que ce soit).
+# Voir docs/ops/demo-reset.md, "Ce que la sortie de secours ne couvre pas".
+write_rollback_tag() {
+    local dir="$1" identity="$2" dump_hash
+    [ -n "$identity" ] || return 1
+    [ -s "$dir/db.sql.gz" ] || return 1
+    dump_hash="$(sha256_hex < "$dir/db.sql.gz")" || return 1
+    [ -n "$dump_hash" ] || return 1
+    {
+        printf 'tool=demo-reset.sh\n'
+        printf 'kind=pre-reset\n'
+        printf 'created_at=%s\n' "$(date -Iseconds)"
+        printf 'origin_db=%s\n'  "$identity"
+        printf 'dump_sha256=%s\n' "$dump_hash"
+    } > "$dir/rollback.tag"
+    [ -s "$dir/rollback.tag" ]
+}
+
+# Lit une cle de rollback.tag (vide si le marqueur ou la cle est absent). Meme
+# forme et meme precaution `|| true` que meta_get.
+tag_get() {
+    local dir="$1" key="$2"
+    grep -E "^${key}=" "$dir/rollback.tag" 2>/dev/null | head -1 | cut -d= -f2- || true
+}
+
+# Le dossier vise ouvre-t-il la sortie de secours du retour arriere ?
+#   $1 dossier de l'instantane vise
+#   $2 empreinte de la base courante (db_identity), vide si indisponible
+#
+# Statut 0 seulement si les QUATRE conditions tiennent :
+#   - meta.txt annonce une sauvegarde de securite (kind=pre-reset) ;
+#   - le marqueur rollback.tag est present ;
+#   - son empreinte de base correspond a celle de la base courante ;
+#   - son empreinte de dump correspond au db.sql.gz pose a cote.
+# Sinon statut 1, avec la raison exacte sur stderr.
+rollback_escape_granted() {
+    local dir="$1" live_identity="$2" tag_identity tag_hash real_hash
+
+    if [ "$(meta_get "$dir" kind)" != "pre-reset" ]; then
+        echo "      (pas une sauvegarde de securite : meta.txt n'annonce pas kind=pre-reset)" >&2
+        return 1
+    fi
+    if [ ! -f "$dir/rollback.tag" ]; then
+        echo "      (sauvegarde de securite sans marqueur rollback.tag - prise par une version" >&2
+        echo "       anterieure de l'outil, ou marqueur supprime)" >&2
+        return 1
+    fi
+
+    tag_identity="$(tag_get "$dir" origin_db)"
+    if [ -z "$live_identity" ]; then
+        echo "      (empreinte de la base courante indisponible : rien a comparer au marqueur)" >&2
+        return 1
+    fi
+    if [ -z "$tag_identity" ]; then
+        echo "      (marqueur sans empreinte de base)" >&2
+        return 1
+    fi
+    if [ "$tag_identity" != "$live_identity" ]; then
+        echo "      (marqueur pris sur une AUTRE base que celle visee maintenant)" >&2
+        return 1
+    fi
+
+    tag_hash="$(tag_get "$dir" dump_sha256)"
+    if [ -z "$tag_hash" ]; then
+        echo "      (marqueur sans empreinte de dump)" >&2
+        return 1
+    fi
+    real_hash="$(sha256_hex < "$dir/db.sql.gz" 2>/dev/null || true)"
+    if [ -z "$real_hash" ] || [ "$tag_hash" != "$real_hash" ]; then
+        echo "      (le marqueur ne correspond pas au dump pose a cote : marqueur recopie," >&2
+        echo "       retouche, ou dump remplace depuis)" >&2
+        return 1
+    fi
+
+    return 0
+}
+
+# Verdict de compatibilite de schema de l'etape [1/6] de demo-reset.sh.
+#   $1 migrations presentes dans la base mais absentes de l'instantane
+#   $2 migrations presentes dans l'instantane mais absentes de la base
+#   $3 dossier de l'instantane vise
+#   $4 empreinte de la base courante (db_identity)
+#
+# Ecrit un seul mot sur stdout :
+#   ok          schemas identiques - restauration normale
+#   extra-live  une migration a ete appliquee DEPUIS l'instantane -> REFUS
+#   extra-snap  l'instantane porte une migration absente de la base -> REFUS
+#   rollback    meme divergence que extra-snap, mais l'instantane vise est une
+#               sauvegarde de securite marquee, prise sur CETTE base -> retour
+#               arriere autorise
+#
+# Le sens de la divergence decide. Une base qui a PERDU des migrations que la
+# sauvegarde possede est la signature d'une restauration interrompue avant la
+# remise en place de schema_migrations - le cas ou le retour arriere est le plus
+# necessaire, et ou comparer les schemas n'a plus de sens puisque le schema
+# courant est justement celui qu'une restauration a laisse a moitie change.
+# Une base qui a GAGNE des migrations, elle, signale un deploiement depuis :
+# vraie erreur, refusee meme sur une sauvegarde marquee.
+schema_decision() {
+    local extra_live="$1" extra_snap="$2" dir="$3" identity="$4"
+    if [ -n "$extra_live" ]; then
+        printf 'extra-live\n'
+        return 0
+    fi
+    if [ -z "$extra_snap" ]; then
+        printf 'ok\n'
+        return 0
+    fi
+    if rollback_escape_granted "$dir" "$identity"; then
+        printf 'rollback\n'
+        return 0
+    fi
+    printf 'extra-snap\n'
+    return 0
+}
+
 # --- Introspection (lecture seule, non destructive) ---------------------------
 
 # Liste des tables BASE TABLE, une par ligne, triee.
@@ -235,6 +417,14 @@ uploads_file_count() {
 # et uploads.tar.gz si le volume uploads contient au moins un fichier. N'ecrit
 # rien en dehors de ce dossier (aucune ecriture en base, lecture seule cote
 # BDD/uploads).
+#
+# En mode "pre-reset" UNIQUEMENT, un fichier rollback.tag est depose en plus :
+# le marqueur qui atteste que cette sauvegarde vient de la base visee (voir
+# write_rollback_tag). C'est lui qui autorise le retour arriere quand une
+# restauration interrompue a laisse le schema a moitie change. Un instantane de
+# reference n'en recoit pas : il n'est pas l'image de la base d'il y a quelques
+# secondes, et lui ouvrir la sortie de secours reviendrait a desarmer le
+# garde-fou de compatibilite pour tout le monde.
 #
 # <dossier_cible> doit exister et etre VIDE, ou ne pas exister du tout (dans ce
 # second cas il est cree ici). Un dossier non vide est refuse : cela permet a
@@ -432,6 +622,21 @@ capture_snapshot() {
     if [ ! -s "$target/meta.txt" ]; then
         echo "ERREUR : meta.txt n'a pas pu etre ecrit - abandon, instantane incomplet." >&2
         return 2
+    fi
+
+    # Marqueur de retour arriere : seulement sur une sauvegarde de securite, et
+    # seulement apres meta.txt (dont kind=pre-reset est relu a la verification).
+    # Une empreinte de base indisponible n'annule PAS la sauvegarde : le dump
+    # reste exploitable, c'est uniquement la sortie de secours qui ne sera pas
+    # armee - et l'appelant le dit clairement a l'utilisateur.
+    if [ "$kind" = "pre-reset" ]; then
+        local identity=""
+        if ! identity="$(db_identity)" || [ -z "$identity" ]; then
+            echo "  - empreinte de la base indisponible : sauvegarde SANS marqueur de retour arriere." >&2
+        elif ! write_rollback_tag "$target" "$identity"; then
+            echo "  - marqueur de retour arriere non ecrit : sauvegarde conservee, sortie de secours non armee." >&2
+            rm -f "$target/rollback.tag"
+        fi
     fi
 
     return 0

@@ -22,7 +22,9 @@ Il n'existe pas de script `demo-restore.sh` distinct : restaurer une sauvegarde
 (de securite ou un instantane plus ancien) se fait avec `demo-reset.sh --snapshot
 <chemin>`, qui accepte n'importe quel dossier produit par le meme mecanisme de
 capture — y compris les sauvegardes de securite que `demo-reset.sh` prend
-lui-meme avant chaque ecrasement.
+lui-meme avant chaque ecrasement. Ce retour arriere reste possible meme quand
+une restauration s'est interrompue en plein milieu (voir "Sortie de secours du
+retour arriere" plus bas).
 
 ## Quand figer l'instantane (important)
 
@@ -118,6 +120,11 @@ proprietaire, voir "Permissions" plus bas) contient :
   conteneurs resolus a la capture** (sert a la verification d'identite de
   cible, voir plus bas), compteurs.
 
+Une **sauvegarde de securite** (`demo-backups/<horodatage>_pre-reset.<suffixe>/`)
+a exactement le meme contenu, plus un fichier de plus : `rollback.tag`, le
+marqueur qui atteste qu'elle vient de la base visee (voir "Sortie de secours du
+retour arriere"). Un instantane de reference n'en a pas.
+
 `demo-reset.sh` restaure ce contenu a l'identique : si l'instantane ne
 contenait aucune image, le dossier uploads se retrouve vide apres reset
 (fidelite a l'instantane, pas de melange avec un etat intermediaire). Les
@@ -199,7 +206,9 @@ apparaissent a l'identique en mode normal et dans la sortie de `--dry-run`
      respectant la regle "quand figer l'instantane" plus haut : uniquement sur
      un etat sain). Symetriquement, si l'instantane contient une migration
      absente de la base courante (code deploie plus ancien que l'instantane
-     choisi), il refuse aussi.
+     choisi), il refuse aussi — **sauf** pour le seul retour arriere vers une
+     sauvegarde de securite marquee, voir "Sortie de secours du retour
+     arriere".
 2. **`[2/6]` Confirmation tapee `RESET`**, sautee avec `--yes`.
 3. **`[3/6]` Sauvegarde de securite** de l'etat courant (avant tout
    ecrasement), au meme format qu'un instantane, sous un dossier au nom
@@ -213,7 +222,10 @@ apparaissent a l'identique en mode normal et dans la sortie de `--dry-run`
    injoignable pour compter les images...), le script abandonne entierement :
    rien n'est ecrase sans sauvegarde valide au prealable, et le dossier
    reserve par `mktemp -d` pour cette tentative precise (pas une sauvegarde
-   preexistante, grace au nom unique) est supprime.
+   preexistante, grace au nom unique) est supprime. La sauvegarde recoit en
+   plus son marqueur `rollback.tag` ; la sortie du script dit explicitement si
+   ce marqueur a bien ete pose, donc si le retour arriere survivra a une
+   restauration interrompue.
 4. **`[4/6]` Restauration des donnees** : le dump complet de l'instantane est
    rejoue (DROP puis CREATE de chaque table, puis reinsertion des lignes — la
    base elle-meme n'est ni supprimee ni recreee). Les comptages par table sont
@@ -236,6 +248,82 @@ retour arriere exacte vers la sauvegarde de securite de l'etape 3 - y compris
 une sortie totalement inattendue (signal, coupure de la base en plein milieu)
 qui ne serait pas passee par un des messages d'erreur explicites : un filet de
 dernier recours l'affiche quand meme avant que le script ne se termine.
+
+## Sortie de secours du retour arriere
+
+Le probleme qu'elle resout. Si l'etape 4 meurt en cours de route — coupure,
+disque plein, base qui tombe — APRES avoir supprime la table
+`schema_migrations` et AVANT de l'avoir remise en place, la base reste a un
+schema hybride : les tables applicatives sont a moitie changees, et la table
+qui sert a comparer les schemas a disparu. Le retour arriere vers la sauvegarde
+de securite que le script vient de prendre repasse par l'etape 1, qui voit une
+divergence de schema... et refuse. Le retour arriere etait donc bloque
+exactement au moment ou il sert.
+
+Ce qui l'ouvre. Une sauvegarde de securite est, par construction, l'image de
+CETTE base-la prise quelques secondes plus tot ; la comparer au schema courant
+n'a plus de sens quand le schema courant est justement celui qu'une
+restauration interrompue a laisse a moitie change. `demo-reset.sh` depose donc,
+dans chaque sauvegarde de securite, un marqueur `rollback.tag` qui contient :
+
+- `origin_db` : une empreinte de la base d'ou la sauvegarde vient — nom du
+  schema, instant de creation des tables systeme du schema `mysql` (pose une
+  seule fois, a l'initialisation du volume de donnees), projet compose et
+  conteneur `wakdo-db`, le tout condense en sha256. Une restauration
+  applicative ne touche ni le schema `mysql` ni les etiquettes du conteneur :
+  l'empreinte survit donc telle quelle a une restauration interrompue, ce qui
+  est exactement ce qu'il faut pour reconnaitre "la meme base" ;
+- `dump_sha256` : l'empreinte du `db.sql.gz` pose a cote, qui lie le marqueur a
+  CE contenu precis.
+
+Au retour arriere, l'etape 1 leve la comparaison de schema seulement si les
+quatre conditions tiennent ensemble : `meta.txt` annonce une sauvegarde de
+securite (`kind=pre-reset`), le marqueur est present, son empreinte de base
+correspond a la base visee maintenant, et son empreinte de dump correspond au
+dump pose a cote. Sinon, refus inchange (code 3), avec la raison exacte
+affichee.
+
+Le sens de la divergence decide aussi. La levee ne joue que dans un seul sens :
+la base a **perdu** des migrations que la sauvegarde possede (signature d'une
+restauration interrompue). Une migration appliquee **depuis** — un vrai
+deploiement entre-temps — reste refusee, marqueur ou pas. Il n'y a pas
+d'option `--force` : le garde-fou n'est pas desarmable, seul le chemin sur par
+construction est ouvert.
+
+Chaque levee est annoncee en clair dans la sortie du script (avec la liste des
+migrations manquantes et la date de la sauvegarde) et tracee dans
+`demo-backups/rollback-escape.log`. En `--dry-run`, elle est annoncee mais rien
+n'est ecrit, trace comprise.
+
+### Ce que la sortie de secours ne couvre PAS
+
+- **Elle ne verifie pas l'integrite du fichier.** Elle porte sur la
+  compatibilite de schema, rien d'autre. Une sauvegarde au `db.sql.gz` vide,
+  tronque, non-gzip, ou ne se terminant pas par `-- Dump completed`, reste
+  refusee (code 2) par le controle d'integrite de l'etape 1 — marqueur ou pas.
+  Idem pour une archive uploads illisible.
+- **Elle ne remplace pas l'identite de cible.** La verification de cible
+  (code 7) passe avant et reste entiere : une sauvegarde prise sur une autre
+  pile est refusee la, sans meme arriver au marqueur.
+- **Ce n'est pas une signature.** Le marqueur prouve l'origine et l'integrite
+  de l'ensemble marqueur + dump ; il ecarte un marqueur absent, recopie vers un
+  autre dossier, retouche a la main, ou venu d'une autre base. Il n'ecarterait
+  pas une falsification deliberee et complete (recalculer l'empreinte du dump
+  ET recopier l'empreinte d'une base a laquelle on a deja acces) : signer
+  demanderait un secret, et il n'y en a aucun dans le depot. Le garde-fou vise
+  l'erreur de manipulation, pas un adversaire.
+- **Elle ne verifie pas que le code deploye correspond au schema restaure.**
+  Le retour arriere remet la base telle qu'elle etait ; si le code servi a
+  change entre-temps, c'est a l'operateur de le voir.
+- **Elle ne repare pas une sauvegarde non marquee.** Une sauvegarde prise par
+  une version anterieure de l'outil, ou prise alors que l'empreinte de la base
+  etait indisponible, n'a pas de marqueur : son retour arriere reste refuse
+  apres une restauration interrompue. L'etape 3 le dit au moment ou elle prend
+  la sauvegarde, pas apres coup.
+- **Elle ne couvre pas la perte du conteneur ou du volume.** Si le volume de
+  donnees disparait, l'empreinte de base disparait avec lui : c'est un sinistre,
+  pas une restauration interrompue, et le filet est alors le dump nocturne du
+  service `wakdo-cron` (voir plus bas).
 
 ## Tables ecrites par la borne sans authentification
 
@@ -300,7 +388,9 @@ souvenir de ces variables.
   relancer `demo-snapshot.sh`.
 - **Schema incompatible** (etape 1, code 3) : relancer `scripts/demo-snapshot.sh
   -f docker-compose.prod.yml` pour figer un instantane a jour (sur un etat
-  sain, voir "Quand figer l'instantane"), puis reset.
+  sain, voir "Quand figer l'instantane"), puis reset. Ce refus reste entier
+  pour un instantane ordinaire ; seul le retour arriere vers une sauvegarde de
+  securite marquee y echappe (voir les deux dernieres entrees de cette liste).
 - **La sauvegarde de securite echoue** (etape 3, code 4) : le script s'arrete
   avant toute restauration, la base n'est pas touchee. Regarder le message
   d'erreur (mysqldump/mariadb-dump), diagnostiquer en lecture seule :
@@ -318,25 +408,34 @@ souvenir de ces variables.
 - **La verification post-restauration signale un ecart** (etape 6, code 6) :
   meme rappel et meme commande de retour arriere que ci-dessus, meme si les
   etapes precedentes se sont deroulees sans erreur apparente.
-- **Le retour arriere lui-meme echoue parce que `schema_migrations` a disparu**
-  (restauration interrompue en plein milieu du DROP/CREATE, table de suivi
-  comprise) : le mecanisme de `demo-reset.sh` compare `schema_migrations` a
-  l'instantane a l'etape 1, donc un schema disparu le bloque lui aussi. Dans ce
-  cas extreme, restaurer directement via le mecanisme du cron, independant de
-  ce mecanisme de suivi. Utiliser `exec` sur le service `wakdo-cron` DEJA
-  demarre, pas `run --rm` : `run` demarre ses dependances declarees
-  (`wakdo-db`) si elles ne tournent pas, et peut aussi la recreer si le `.env`
-  a change depuis son dernier demarrage — `exec` ne fait qu'executer une
-  commande dans un conteneur existant, sans toucher a ses dependances :
+- **`schema_migrations` a disparu parce que la restauration s'est interrompue en
+  plein DROP/CREATE** : le retour arriere vers la sauvegarde de securite de
+  l'etape 3 fonctionne quand meme. La comparaison de schema est levee pour
+  cette sauvegarde-la, parce qu'elle porte le marqueur de cette base (voir
+  "Sortie de secours du retour arriere") ; la commande a lancer est celle que
+  le message d'echec affiche, sans rien y ajouter. Le script annonce la levee
+  et la trace dans `demo-backups/rollback-escape.log`.
+- **Le retour arriere est refuse alors que la sauvegarde semble la bonne** : le
+  message indique la raison exacte juste au-dessus du refus (marqueur absent,
+  venu d'une autre base, ne correspondant pas au dump pose a cote, ou
+  `meta.txt` qui n'annonce pas une sauvegarde de securite). Une sauvegarde sans
+  marqueur n'ouvre pas la sortie de secours : dans ce cas seulement, et si la
+  base est inexploitable, le dernier recours est le dump nocturne du service
+  `wakdo-cron`, independant de ce mecanisme de suivi. Utiliser `exec` sur le
+  service `wakdo-cron` DEJA demarre, pas `run --rm` : `run` demarre ses
+  dependances declarees (`wakdo-db`) si elles ne tournent pas, et peut aussi la
+  recreer si le `.env` a change depuis son dernier demarrage — `exec` ne fait
+  qu'executer une commande dans un conteneur existant, sans toucher a ses
+  dependances :
   ```bash
   docker compose -f docker-compose.prod.yml exec -T wakdo-cron \
       /scripts/restore-db.sh /backups/wakdo_<horodatage>.sql.gz --force
   ```
   (le montage `/backups` du service `wakdo-cron` est deja celui de
   `./var/backups` sur l'hote, voir `docker-compose.prod.yml.example` ; voir
-  aussi "Lien avec la sauvegarde quotidienne" plus bas ; ce chemin restaure le
-  dernier dump nocturne, pas necessairement l'instantane de demo le plus
-  recent).
+  aussi "Lien avec la sauvegarde quotidienne" plus bas. Ce chemin restaure le
+  dernier dump NOCTURNE : tout ce qui s'est passe depuis la nuit est perdu,
+  c'est pourquoi il n'est plus le chemin normal du retour arriere).
 - **"Une autre operation demo-snapshot.sh/demo-reset.sh est deja en cours"**
   (code 1) : le message indique le PID du detenteur ; attendre sa fin (affichee
   dans sa propre sortie) avant de relancer.
@@ -367,6 +466,10 @@ dossiers et deux formats de nommage distincts.
   de la verification stricte post-restauration (voir plus haut) : un ecart sur
   ces tables specifiquement n'est pas signale, meme s'il traduirait un vrai
   probleme ailleurs.
+- La sortie de secours du retour arriere a ses propres limites, listees dans sa
+  section ("Ce que la sortie de secours ne couvre PAS") : elle porte sur la
+  compatibilite de schema, pas sur l'integrite du fichier, pas sur l'identite
+  de cible, et ce n'est pas une signature.
 - La duree d'un reset depend de la taille reelle des donnees de prod (mesuree
   a environ 1-2 secondes sur un jeu de donnees de taille seed sur une pile
   jetable de verification ; a mesurer sur stark au premier usage reel, le

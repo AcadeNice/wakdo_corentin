@@ -17,11 +17,14 @@
 #         l'integrite de son dump db.sql.gz ET de son archive uploads, verifiees
 #         ICI, avant toute destruction), CIBLE (projet/conteneurs compose
 #         resolus) et SCHEMA (schema_migrations de la base courante vs
-#         migrations.txt de l'instantane) - REFUS si l'un ou l'autre diverge ;
+#         migrations.txt de l'instantane) - REFUS si l'un ou l'autre diverge,
+#         SAUF pour le seul retour arriere sur une sauvegarde de securite
+#         marquee (voir "Sortie de secours" plus bas) ;
 #   [2/6] confirmation tapee "RESET" (sautee avec --yes) ;
 #   [3/6] sauvegarde de securite de l'etat COURANT (avant tout ecrasement), au
-#         meme format qu'un instantane, sous demo-backups/ - abandon total si
-#         cette sauvegarde echoue ou parait suspecte ;
+#         meme format qu'un instantane, sous demo-backups/, avec un marqueur
+#         rollback.tag qui atteste de son origine - abandon total si cette
+#         sauvegarde echoue ou parait suspecte ;
 #   [4/6] restauration des DONNEES (dump complet de l'instantane : DROP/CREATE
 #         des tables puis reinsertion - la base elle-meme n'est ni supprimee ni
 #         recreee) ;
@@ -61,6 +64,17 @@
 # (de securite ou un instantane plus ancien) se fait avec ce meme script via
 # --snapshot <chemin>.
 #
+# Sortie de secours du retour arriere :
+#   Si l'etape [4/6] s'interrompt AVANT d'avoir remis la table schema_migrations
+#   en place, la base reste a un schema hybride. L'etape [1/6] du retour arriere
+#   verrait alors une divergence et refuserait - au moment precis ou le retour
+#   arriere est le plus necessaire. Une sauvegarde de securite porte donc un
+#   marqueur (rollback.tag) qui atteste qu'elle vient de CETTE base, prise
+#   quelques secondes plus tot ; la comparaison de schema est levee pour elle
+#   seule, et seulement dans le sens "la base a PERDU des migrations que la
+#   sauvegarde possede". Une migration appliquee DEPUIS (vrai deploiement entre
+#   temps) reste refusee, marqueur ou pas. Il n'y a pas d'option --force.
+#
 # Un seul demo-snapshot.sh/demo-reset.sh a la fois sur ce depot (verrou partage,
 # voir acquire_demo_lock dans la lib) : un second lancement pendant qu'un reset
 # est en cours est refuse immediatement (il ne se met pas en attente).
@@ -71,7 +85,8 @@
 #       verrou deja pris
 #   2 - instantane cible introuvable ou invalide (y compris dump db.sql.gz ou
 #       archive uploads corrompu - detecte avant toute destruction)
-#   3 - schema incompatible (migration appliquee depuis l'instantane, ou inverse)
+#   3 - schema incompatible (migration appliquee depuis l'instantane, ou inverse
+#       sans marqueur de sauvegarde de securite valable pour cette base)
 #   4 - la sauvegarde de securite a echoue - RIEN n'a ete touche
 #   5 - la restauration a echoue en cours de route (donnees, uploads, invalidation
 #       de session, ou sortie inattendue - signal, erreur non geree) - etat
@@ -188,7 +203,7 @@ while [ $# -gt 0 ]; do
         --yes)
             YES=1; shift ;;
         -h|--help)
-            sed -n '2,83p' "$0" | sed 's/^# \{0,1\}//'
+            sed -n '2,97p' "$0" | sed 's/^# \{0,1\}//'
             exit 0 ;;
         *)
             echo "ERREUR : option inconnue : $1" >&2
@@ -290,23 +305,62 @@ SNAP_MIGRATIONS="$(sort "$SNAPSHOT_DIR/migrations.txt")"
 EXTRA_LIVE="$(comm -23 <(echo "$LIVE_MIGRATIONS") <(echo "$SNAP_MIGRATIONS") 2>/dev/null | sed '/^$/d' || true)"
 EXTRA_SNAP="$(comm -13 <(echo "$LIVE_MIGRATIONS") <(echo "$SNAP_MIGRATIONS") 2>/dev/null | sed '/^$/d' || true)"
 
-if [ -n "$EXTRA_LIVE" ]; then
-    echo "REFUS : une ou plusieurs migrations ont ete appliquees DEPUIS la prise de l'instantane :" >&2
-    echo "$EXTRA_LIVE" | sed 's/^/  + /' >&2
-    echo "        Reprendre un instantane a jour avant de reset : scripts/demo-snapshot.sh -f $COMPOSE_FILE" >&2
-    echo "        Ne figer ce nouvel instantane que sur des donnees SAINES - pas juste apres le passage" >&2
-    echo "        du jury si des donnees ont ete modifiees pendant la demo (cela figerait ces donnees" >&2
-    echo "        abimees comme nouvelle reference)." >&2
-    exit 3
-fi
-if [ -n "$EXTRA_SNAP" ]; then
-    echo "REFUS : l'instantane contient des migrations ABSENTES de la base courante :" >&2
-    echo "$EXTRA_SNAP" | sed 's/^/  - /' >&2
-    echo "        Le code deploie semble plus ancien que l'instantane choisi. Verifier le deploiement," >&2
-    echo "        ou choisir un instantane plus ancien (--snapshot)." >&2
-    exit 3
-fi
-echo "      instantane, cible et schema compatibles ($(echo "$LIVE_MIGRATIONS" | sed '/^$/d' | wc -l | tr -d '[:space:]') migration(s))."
+# Empreinte de la base VISEE maintenant : c'est elle que le marqueur d'une
+# sauvegarde de securite doit retrouver pour ouvrir la sortie de secours.
+# Indisponible (base muette sur ce point) -> chaine vide, donc aucun passe-droit.
+LIVE_DB_IDENTITY="$(db_identity || true)"
+SCHEMA_VERDICT="$(schema_decision "$EXTRA_LIVE" "$EXTRA_SNAP" "$SNAPSHOT_DIR" "$LIVE_DB_IDENTITY")"
+
+case "$SCHEMA_VERDICT" in
+    extra-live)
+        echo "REFUS : une ou plusieurs migrations ont ete appliquees DEPUIS la prise de l'instantane :" >&2
+        echo "$EXTRA_LIVE" | sed 's/^/  + /' >&2
+        echo "        Reprendre un instantane a jour avant de reset : scripts/demo-snapshot.sh -f $COMPOSE_FILE" >&2
+        echo "        Ne figer ce nouvel instantane que sur des donnees SAINES - pas juste apres le passage" >&2
+        echo "        du jury si des donnees ont ete modifiees pendant la demo (cela figerait ces donnees" >&2
+        echo "        abimees comme nouvelle reference)." >&2
+        exit 3
+        ;;
+    extra-snap)
+        echo "REFUS : l'instantane contient des migrations ABSENTES de la base courante :" >&2
+        echo "$EXTRA_SNAP" | sed 's/^/  - /' >&2
+        echo "        Le code deploie semble plus ancien que l'instantane choisi. Verifier le deploiement," >&2
+        echo "        ou choisir un instantane plus ancien (--snapshot)." >&2
+        echo "        (la raison exacte pour laquelle ce dossier n'ouvre pas la sortie de secours du" >&2
+        echo "         retour arriere est indiquee juste au-dessus)" >&2
+        exit 3
+        ;;
+    rollback)
+        # Divergence dans le SEUL sens qui signe une restauration interrompue :
+        # la base a perdu des migrations que la sauvegarde possede. Le dossier
+        # vise porte le marqueur de cette base-la : on leve la comparaison de
+        # schema pour ce retour arriere, et on le dit haut et fort.
+        ROLLBACK_LOG="$ROOT/demo-backups/rollback-escape.log"
+        echo
+        echo "SORTIE DE SECOURS : retour arriere vers une sauvegarde de securite."
+        echo "  La base courante a PERDU des migrations que la sauvegarde possede :"
+        echo "$EXTRA_SNAP" | sed 's/^/    - /'
+        echo "  C'est la signature d'une restauration interrompue avant la remise en place de"
+        echo "  schema_migrations. Le dossier vise porte le marqueur depose par cet outil et"
+        echo "  vient de CETTE base : la comparaison de schema est levee pour ce retour arriere,"
+        echo "  et pour lui seul."
+        echo "    sauvegarde : $SNAPSHOT_DIR"
+        echo "    prise le   : $(tag_get "$SNAPSHOT_DIR" created_at)"
+        if [ "$DRY_RUN" -eq 1 ]; then
+            echo "    (dry-run : rien n'est ecrit, pas de trace non plus)"
+        else
+            mkdir -p "$ROOT/demo-backups"
+            chmod 700 "$ROOT/demo-backups"
+            printf '%s\tretour-arriere\tsauvegarde=%s\tbase=%s\tmigrations_manquantes=%s\n' \
+                "$(date -Iseconds)" "$SNAPSHOT_DIR" "$LIVE_DB_IDENTITY" \
+                "$(printf '%s' "$EXTRA_SNAP" | tr '\n' ',')" >> "$ROLLBACK_LOG"
+            echo "    trace      : $ROLLBACK_LOG"
+        fi
+        ;;
+    *)
+        echo "      instantane, cible et schema compatibles ($(echo "$LIVE_MIGRATIONS" | sed '/^$/d' | wc -l | tr -d '[:space:]') migration(s))."
+        ;;
+esac
 
 if [ "$DRY_RUN" -eq 1 ]; then
     echo
@@ -358,6 +412,14 @@ if ! capture_snapshot "$BACKUP_DIR" "pre-reset avant restauration de $SNAPSHOT_L
 fi
 echo "      sauvegarde OK ($(stat -c '%s' "$BACKUP_DIR/db.sql.gz" 2>/dev/null || stat -f '%z' "$BACKUP_DIR/db.sql.gz") octets)."
 echo "      retour arriere possible : $(rollback_cmd)"
+if [ -f "$BACKUP_DIR/rollback.tag" ]; then
+    echo "      sauvegarde marquee : ce retour arriere reste possible meme si la restauration"
+    echo "      s'interrompt avant d'avoir remis la table schema_migrations en place."
+else
+    echo "      ATTENTION : sauvegarde NON marquee (empreinte de la base indisponible). Si la"
+    echo "      restauration s'interrompt avant d'avoir remis schema_migrations en place, ce"
+    echo "      retour arriere sera refuse - voir docs/ops/demo-reset.md."
+fi
 
 # --- [4/6] Restauration des donnees -------------------------------------------
 # A PARTIR D'ICI, une erreur peut laisser la pile dans un etat intermediaire
