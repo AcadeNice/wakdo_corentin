@@ -61,12 +61,16 @@ class OrderRepository
     }
 
     /**
-     * Recherche une commande par son numero (prefixe canal K/C/D + id). Lecture
-     * publique du statut cote borne (suivi apres encaissement). Renvoie null si le
-     * numero est inconnu. Lecture seule : ne sert que des champs non sensibles
-     * (la commande kiosk est anonyme, pas de PII).
+     * Recherche une commande par son numero (prefixe canal K/C/D + id). Utilisee a
+     * la fois par le suivi public borne (`OrderController::show()`, restreint au
+     * canal kiosk par l'appelant) et par l'annulation back-office
+     * (`OrderAdminController::cancel()`/`confirmCancel()`). Renvoie null si le
+     * numero est inconnu. `source` est INCLUS (relecture adverse, point 5b) : sans
+     * elle, l'appelant ne peut pas distinguer une commande kiosk (anonyme par
+     * nature) d'une commande comptoir/drive -- l'ajout est additif, aucun appelant
+     * existant ne lisait ce champ.
      *
-     * @return array{id:int, order_number:string, total_ttc_cents:int, status:string}|null
+     * @return array{id:int, order_number:string, total_ttc_cents:int, status:string, source:string}|null
      */
     public function findByNumber(string $number): ?array
     {
@@ -74,7 +78,7 @@ class OrderRepository
             return null;
         }
         $row = $this->db->fetch(
-            'SELECT id, order_number, total_ttc_cents, status FROM customer_order WHERE order_number = :n',
+            'SELECT id, order_number, total_ttc_cents, status, source FROM customer_order WHERE order_number = :n',
             ['n' => $number],
         );
         if ($row === null) {
@@ -86,6 +90,7 @@ class OrderRepository
             'order_number'    => (string) $row['order_number'],
             'total_ttc_cents' => (int) $row['total_ttc_cents'],
             'status'          => (string) $row['status'],
+            'source'          => (string) ($row['source'] ?? ''),
         ];
     }
 

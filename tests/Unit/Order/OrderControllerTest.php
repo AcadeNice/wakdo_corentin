@@ -186,8 +186,13 @@ final class OrderControllerTest extends TestCase
 
     public function testShowReturnsOrderStatus(): void
     {
+        // Relecture adverse (changes), point 5b : cet endpoint est PUBLIC ANONYME et
+        // les numeros sont sequentiels -- il ne doit exposer que le statut d'une
+        // commande KIOSK (aucun ecran borne ne consomme total_ttc_cents aujourd'hui,
+        // verifie dans checkout.js/page-confirmation.js/confirm-modal.js), jamais
+        // celui d'une commande comptoir/drive.
         $db = new FakeOrderDatabase();
-        $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => 'paid'];
+        $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => 'paid', 'source' => 'kiosk'];
 
         $response = $this->controller($db, '', '/api/orders/K100')->show(['number' => 'K100']);
 
@@ -196,7 +201,8 @@ final class OrderControllerTest extends TestCase
         self::assertIsArray($data);
         self::assertSame('K100', $data['data']['order_number'] ?? null);
         self::assertSame('paid', $data['data']['status'] ?? null);
-        self::assertSame(890, $data['data']['total_ttc_cents'] ?? null);
+        self::assertArrayNotHasKey('total_ttc_cents', $data['data']);
+        self::assertArrayNotHasKey('id', $data['data']);
     }
 
     public function testShowUnknownReturns404(): void
@@ -212,10 +218,29 @@ final class OrderControllerTest extends TestCase
         self::assertSame('ORDER_NOT_FOUND', $data['error']['code'] ?? null);
     }
 
+    public function testShowNonKioskOrderReturns404SameAsUnknown(): void
+    {
+        // Point 5b : une commande comptoir/drive n'est pas "kiosk anonyme" --
+        // findByNumber() ne filtre pas par source, et les numeros sont sequentiels
+        // (K/C/D + id) : sans cette garde, n'importe qui pouvait lire le statut ET
+        // le total d'une commande comptoir/drive via cet endpoint public anonyme.
+        // Meme reponse (404 ORDER_NOT_FOUND) qu'un numero inconnu -- anti-enumeration.
+        $db = new FakeOrderDatabase();
+        $db->orderByNumber = ['id' => 100, 'order_number' => 'C100', 'total_ttc_cents' => 890, 'status' => 'paid', 'source' => 'counter'];
+
+        $response = $this->controller($db, '', '/api/orders/C100')->show(['number' => 'C100']);
+        $unknownResponse = $this->controller(new FakeOrderDatabase(), '', '/api/orders/C999')->show(['number' => 'C999']);
+
+        self::assertSame(404, $response->status());
+        $data = json_decode($response->body(), true);
+        self::assertSame('ORDER_NOT_FOUND', $data['error']['code'] ?? null);
+        self::assertSame($unknownResponse->body(), $response->body());
+    }
+
     public function testShowEmptyNumberReturns404(): void
     {
         $db = new FakeOrderDatabase();
-        $db->orderByNumber = ['id' => 1, 'order_number' => 'K1', 'total_ttc_cents' => 100, 'status' => 'paid'];
+        $db->orderByNumber = ['id' => 1, 'order_number' => 'K1', 'total_ttc_cents' => 100, 'status' => 'paid', 'source' => 'kiosk'];
 
         // Numero vide : court-circuite avant toute lecture BDD (findByNumber renvoie null).
         $response = $this->controller($db, '', '/api/orders/')->show(['number' => '']);
