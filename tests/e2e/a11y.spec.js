@@ -21,6 +21,7 @@
  *     barriere joue, le dossier de preuves n'est pas reecrit par accident.
  */
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { test, expect } = require('@playwright/test');
 const AxeBuilder = require('@axe-core/playwright');
@@ -101,6 +102,11 @@ const ACCEPTE = {
     'admin-ingredients': [],
     'admin-produits': [],
     'admin-commandes': [],
+    // Chantier "recette dans le formulaire produit + import CSV" (2026-09-26) :
+    // trois ecrans nouveaux/enrichis, mesures ici pour la premiere fois.
+    'admin-produit-formulaire': [],
+    'admin-produits-import': [],
+    'admin-produits-import-apercu': [],
 };
 
 const GRAVITES = ['critical', 'serious', 'moderate', 'minor'];
@@ -360,11 +366,41 @@ test.describe('audit d\'accessibilite mesure (axe-core, regles WCAG AA)', () => 
         await expect(page.locator('main.content')).toBeVisible();
         await auditer(page, 'admin-produits');
 
+        // Formulaire produit : porte desormais la section "Composition (recette)"
+        // (chantier CSV/recette, 2026-09-26) -- picker d'ingredient, bouton
+        // "Creer un nouvel ingredient", champs dynamiques.
+        await page.goto(`${ADMIN}/admin/products/new`);
+        // #recipe-builder demarre VIDE a la creation (aucune ligne de recette
+        // encore posee) : un conteneur sans contenu a une hauteur nulle, donc
+        // "non visible" au sens actionnable de Playwright meme si rien ne le
+        // masque. Le bouton "Ajouter un ingrédient", lui, est toujours rendu.
+        await expect(page.locator('#add-ingredient')).toBeVisible();
+        await auditer(page, 'admin-produit-formulaire');
+
+        // Import CSV : ecran de depot.
+        await page.goto(`${ADMIN}/admin/products/import`);
+        await expect(page.locator('#csv_file')).toBeVisible();
+        await auditer(page, 'admin-produits-import');
+
+        // Import CSV : ecran d'apercu (tableau de rapport), atteint par un
+        // depot reel du modele telechargeable -- l'apercu genere dynamiquement
+        // son balisage (compteurs, tableaux), il ne peut pas etre lu a froid.
+        const modele = await page.request.get(`${ADMIN}/admin/products/import/template`);
+        const cheminModele = path.join(os.tmpdir(), 'wakdo-a11y-import.csv');
+        fs.writeFileSync(cheminModele, await modele.text());
+        await page.setInputFiles('#csv_file', cheminModele);
+        await page.locator('form[action="/admin/products/import/preview"] button[type="submit"]').click();
+        await expect(page).toHaveURL(/\/admin\/products\/import\/preview$/);
+        await auditer(page, 'admin-produits-import-apercu');
+
         await page.goto(`${ADMIN}/admin/orders`);
         await expect(page.locator('main.content')).toBeVisible();
         await auditer(page, 'admin-commandes');
 
-        verifierBarriere(['admin-connexion', 'admin-tableau-de-bord', 'admin-ingredients', 'admin-produits', 'admin-commandes']);
+        verifierBarriere([
+            'admin-connexion', 'admin-tableau-de-bord', 'admin-ingredients', 'admin-produits', 'admin-commandes',
+            'admin-produit-formulaire', 'admin-produits-import', 'admin-produits-import-apercu',
+        ]);
     });
 
     test.afterAll(() => {

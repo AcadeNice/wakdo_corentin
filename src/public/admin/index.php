@@ -216,6 +216,16 @@ try {
     $router->add('GET', '/admin/products/{id}/recipe', [ProductController::class, 'recipeForm']);
     $router->add('POST', '/admin/products/{id}/recipe', [ProductController::class, 'saveRecipe']);
 
+    // Import CSV de produits + recettes (product.create ; ingredient.manage EN
+    // PLUS pour les lignes qui creeraient un ingredient). Deux temps (RG-T18) :
+    // preview() n'ecrit rien, confirm() rejoue l'analyse et ecrit tout en une
+    // transaction (ProductImportService). Chemins litteraux a 3-4 segments :
+    // aucune collision avec /admin/products/{id}/... (dernier segment different).
+    $router->add('GET', '/admin/products/import', [ProductController::class, 'importForm']);
+    $router->add('GET', '/admin/products/import/template', [ProductController::class, 'importTemplate']);
+    $router->add('POST', '/admin/products/import/preview', [ProductController::class, 'importPreview']);
+    $router->add('POST', '/admin/products/import/confirm', [ProductController::class, 'importConfirm']);
+
     // CRUD Menus (menu.read/create/update/delete). Menu compose = burger de base +
     // slots (menu_slot / menu_slot_option). PIN equipier + audit sur suppression
     // (mlt 8.6) ; create/update sans PIN. {id} = un seul segment, pas de collision
@@ -300,6 +310,12 @@ try {
     $router->add('POST', '/admin/api/products/{id}/move', [ProductApiController::class, 'apiMove']);
     $router->add('GET', '/admin/api/products/{id}/recipe', [ProductApiController::class, 'apiRecipeShow']);
     $router->add('PUT', '/admin/api/products/{id}/recipe', [ProductApiController::class, 'apiRecipeSave']);
+    // Import CSV (docs/api/import-produits.md) : le CSV voyage en JSON (champ
+    // "csv", une chaine), pas en multipart -- ce point d'entree reste sur le
+    // meme contrat JSON que le reste de l'API admin. ?dry_run=1 -> apercu seul
+    // (aucune ecriture) ; absent -> applique (PIN dans le corps si un prix change).
+    $router->add('GET', '/admin/api/products/import/template', [ProductApiController::class, 'apiImportTemplate']);
+    $router->add('POST', '/admin/api/products/import', [ProductApiController::class, 'apiImportRun']);
 
     $router->add('GET', '/admin/api/menus', [MenuApiController::class, 'apiIndex']);
     $router->add('GET', '/admin/api/menus/{id}', [MenuApiController::class, 'apiShow']);

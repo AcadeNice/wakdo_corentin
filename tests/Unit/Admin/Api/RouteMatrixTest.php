@@ -87,6 +87,8 @@ final class RouteMatrixTest extends TestCase
         ['POST', '/admin/api/products/{id}/move', 'Product', 'apiMove', 'product.update', true],
         ['GET', '/admin/api/products/{id}/recipe', 'Product', 'apiRecipeShow', 'ingredient.manage', false],
         ['PUT', '/admin/api/products/{id}/recipe', 'Product', 'apiRecipeSave', 'ingredient.manage', true],
+        ['GET', '/admin/api/products/import/template', 'Product', 'apiImportTemplate', 'product.create', false],
+        ['POST', '/admin/api/products/import', 'Product', 'apiImportRun', 'product.create', true],
 
         ['GET', '/admin/api/menus', 'Menu', 'apiIndex', 'menu.read', false],
         ['GET', '/admin/api/menus/{id}', 'Menu', 'apiShow', 'menu.read', false],

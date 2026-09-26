@@ -3035,3 +3035,99 @@ details.form-advanced > summary:focus-visible {
    4. .btn-danger   : reserve aux actions IRREVERSIBLES (Supprimer, Anonymiser,
       Annuler une commande). Pas de 5e variante "warning" : une action sensible
       mais reversible reste .btn-secondary, le texte porte deja la nuance. */
+
+/* --- Composition d'un produit (builder de recette), rendu par product-recipe.js ---
+   Meme builder pour la section "Composition" du formulaire produit et pour la
+   page recette dediee. Ce bloc remplace les styles que le script posait en
+   ligne (element.style.border = '1px solid #ddd' / '1px dashed #999',
+   width: 7rem, marginRight: 1rem) : deux couleurs brutes hors systeme de
+   design, jamais mesurees, et des largeurs fixes qui debordaient sous 390px.
+   Tout passe desormais par les jetons du lot 0 ; aucune couleur neuve.
+
+   Cible tactile (WCAG 2.2, critere 2.5.8) : une case a cocher native mesure
+   ~13x13px. Les deux cases de chaque ligne (Retirable / Ajoutable) sont
+   portees a 24x24px -- meme plancher que .btn-order plus haut, pose pour la
+   meme raison lors du balayage du lot 0. */
+.recipe-line {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-3) var(--space-4);
+    margin-bottom: var(--space-3);
+}
+/* Ligne "nouvel ingredient" : le trait discontinu marque le provisoire (rien
+   n'existe encore en base). Il ne PORTE pas l'information -- la legende
+   "Nouvel ingredient (cree a stock 0)" la dit en toutes lettres, et la note
+   sous les champs la repete (WCAG 1.4.1, pas d'info par la seule couleur). */
+.recipe-line-new {
+    border-style: dashed;
+    border-color: var(--color-border-dark);
+}
+.recipe-line > legend {
+    padding: 0 var(--space-2);
+    font-size: var(--text-sm);
+    font-weight: 700;
+    color: var(--color-text-sec);
+}
+/* Les champs vivent dans un conteneur DANS le fieldset plutot que sur le
+   fieldset lui-meme : un <legend> est un enfant a traitement special, et le
+   mettre en element flex donne un rendu instable selon les navigateurs. */
+.recipe-line__fields {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: var(--space-3);
+}
+/* Un champ = une etiquette au-dessus de son controle, dans un <label> qui
+   l'entoure : association implicite, aucun identifiant a synchroniser cote
+   script alors que plusieurs lignes coexistent sur la meme page. */
+.recipe-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    font-size: var(--text-sm);
+    color: var(--color-text-sec);
+}
+.recipe-field .form-input { width: 100%; }
+.recipe-field--num { width: 7rem; }
+.recipe-field--text { width: 12rem; }
+.recipe-field--wide { flex: 1 1 16rem; min-width: 12rem; }
+
+/* .form-check : meme plancher de cible pour une case a cocher isolee d'un
+   formulaire (ex. "Disponible" du formulaire produit), ou une case native de
+   ~13x13px passe sous le minimum 24x24px de WCAG 2.2 (critere 2.5.8). Classe
+   explicite plutot qu'un selecteur large sur .form-label : la matrice de
+   permissions de roles/form.php est une grille dense, hors du perimetre de ce
+   lot, qu'un plancher pose a l'aveugle aurait bousculee. */
+.recipe-check,
+.form-check {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: 24px;
+    font-size: var(--text-base);
+    color: var(--color-text);
+}
+.recipe-check input[type="checkbox"],
+.form-check input[type="checkbox"] {
+    flex: 0 0 auto;
+    width: 24px;
+    height: 24px;
+    margin: 0;
+}
+/* Retirer une ligne est l'action la moins frequente : poussee en fin de rangee
+   pour ne pas se trouver sous le doigt qui saisit une quantite. */
+.recipe-line__fields .recipe-remove { margin-left: auto; }
+.recipe-note {
+    flex: 1 1 100%;
+    margin: 0;
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+}
+
+/* Sous 640px (telephone d'equipier), une ligne empile ses champs : sept
+   controles cote a cote deborderaient de l'ecran. */
+@media (max-width: 640px) {
+    .recipe-field--num,
+    .recipe-field--text { width: 100%; }
+    .recipe-line__fields .recipe-remove { margin-left: 0; }
+}

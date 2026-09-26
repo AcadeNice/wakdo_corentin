@@ -7,6 +7,20 @@
  * avec son email + PIN (ou ceux d'un responsable), on reinjecte dans les champs caches,
  * puis on soumet. Le contrat serveur ne change pas (il lit toujours pin_email + pin).
  *
+ * CONFIRMATION CONDITIONNELLE (data-pin-when-changed) : sur la plupart des ecrans,
+ * l'action ENTIERE est sensible (supprimer un produit, annuler une commande) et le
+ * modal s'ouvre a chaque soumission. Le formulaire produit, lui, ne l'est que par
+ * endroits : le serveur n'exige le PIN que si le prix ou la TVA a change
+ * (ProductController::update, RG-T13/8.2) -- renommer un produit ou changer sa
+ * recette ne l'est pas. Un formulaire peut donc declarer
+ * data-pin-when-changed="price_cents,vat_rate" : le modal ne s'ouvre alors que si
+ * l'un de ces champs a bouge depuis l'ouverture de la page. Attribut absent =
+ * comportement historique inchange (modal systematique).
+ *
+ * Le serveur reste l'autorite : s'il a refuse un PIN, son message est present dans
+ * le bloc et le modal s'arme quoi qu'il arrive -- la condition cliente ne peut donc
+ * pas faire passer une action sensible sans confirmation.
+ *
  * CSP 'self' : script externe, aucun handler inline, le DOM du modal est construit ici.
  */
 (function () {
@@ -60,9 +74,19 @@
         var modalError = overlay.querySelector('[data-pm-error]');
         var confirmed = false;
 
+        // Champs surveilles (data-pin-when-changed) et leur valeur a l'ouverture de
+        // la page. Liste vide = aucune condition, le modal s'ouvre toujours.
+        var watched = watchedFields(doc, form);
+        // Le serveur a deja refuse un PIN sur cette page : la condition cliente est
+        // neutralisee, il en faut un de toute facon.
+        var pinWasRefused = serverError !== null && serverError.textContent.trim() !== '';
+
         form.addEventListener('submit', function (e) {
             if (confirmed) {
                 return; // deja valide via le modal -> soumission reelle
+            }
+            if (!pinWasRefused && watched.length > 0 && !hasChanged(watched)) {
+                return; // rien de sensible n'a bouge : pas de confirmation a demander
             }
             e.preventDefault();
             openModal();
@@ -113,6 +137,47 @@
         }
     }
 
+    /**
+     * Champs declares dans data-pin-when-changed (identifiants separes par des
+     * virgules), avec la valeur qu'ils portaient a l'ouverture de la page. Un
+     * identifiant inconnu est ignore : un attribut mal ecrit ne doit pas rendre
+     * le formulaire inutilisable.
+     */
+    function watchedFields(doc, form) {
+        var raw = form.getAttribute('data-pin-when-changed') || '';
+        var fields = [];
+        raw.split(',').forEach(function (name) {
+            var id = name.trim();
+            if (id === '') {
+                return;
+            }
+            var input = doc.getElementById(id);
+            if (input) {
+                fields.push({ input: input, initial: currentValue(input) });
+            }
+        });
+
+        return fields;
+    }
+
+    function currentValue(input) {
+        if (input.type === 'checkbox' || input.type === 'radio') {
+            return input.checked ? '1' : '0';
+        }
+
+        return String(input.value);
+    }
+
+    function hasChanged(fields) {
+        for (var i = 0; i < fields.length; i++) {
+            if (currentValue(fields[i].input) !== fields[i].initial) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     function buildModal(doc) {
         var overlay = doc.createElement('div');
         overlay.className = 'pin-modal-overlay';
@@ -150,7 +215,7 @@
     }
 
     if (typeof module !== 'undefined' && module.exports) {
-        module.exports = { init: init, buildModal: buildModal };
+        module.exports = { init: init, buildModal: buildModal, watchedFields: watchedFields, hasChanged: hasChanged };
     }
     if (typeof document !== 'undefined' && document.addEventListener) {
         document.addEventListener('DOMContentLoaded', function () {

@@ -137,6 +137,116 @@ test('l erreur PIN renvoyee par le serveur reste visible et s affiche dans le mo
     assert.equal(modalError.textContent, 'PIN incorrect.');
 });
 
+/**
+ * Formulaire produit (admin/products/form.php) : le serveur n'exige le PIN que si le
+ * prix ou la TVA a change (ProductController::update, RG-T13/8.2). Le formulaire le
+ * declare par data-pin-when-changed ; les tests ci-dessous verifient les trois cas.
+ */
+function setupConditional(serverPinError) {
+    const dom = new JSDOM(
+        '<!DOCTYPE html><html><body data-user-email="a@b.c">' +
+        '<form id="f" method="post" action="/admin/products/9" data-pin-when-changed="price_cents,vat_rate">' +
+        '  <input type="text" id="name" name="name" value="Burger">' +
+        '  <input type="text" id="price_cents" name="price_cents" value="6,90">' +
+        '  <select id="vat_rate" name="vat_rate"><option value="100" selected>10%</option><option value="55">5,5%</option></select>' +
+        '  <fieldset id="pinfs">' +
+        '    <input type="email" id="pin_email" name="pin_email">' +
+        '    <input type="password" id="pin" name="pin">' +
+        (serverPinError ? '    <p class="form-error" id="server-pin-error">Email ou PIN invalide.</p>' : '') +
+        '  </fieldset>' +
+        '  <button type="submit">Enregistrer</button>' +
+        '</form></body></html>',
+    );
+
+    return dom;
+}
+
+test('confirmation conditionnelle : changer le nom ou la recette ne demande aucun code', () => {
+    const dom = setupConditional(false);
+    const doc = dom.window.document;
+    pinModal.init(doc);
+    const form = doc.getElementById('f');
+
+    doc.getElementById('name').value = 'Burger maison';
+    const event = new dom.window.Event('submit', { cancelable: true, bubbles: true });
+    form.dispatchEvent(event);
+
+    assert.equal(event.defaultPrevented, false, 'la soumission suit son cours');
+    assert.equal(doc.querySelector('.pin-modal-overlay.open'), null, 'aucune fenetre ouverte');
+});
+
+test('confirmation conditionnelle : changer le prix ouvre la fenetre de code', () => {
+    const dom = setupConditional(false);
+    const doc = dom.window.document;
+    pinModal.init(doc);
+    const form = doc.getElementById('f');
+    let submitted = false;
+    form.submit = () => { submitted = true; };
+
+    doc.getElementById('price_cents').value = '7,50';
+    fireSubmit(dom, form);
+
+    assert.equal(doc.querySelector('.pin-modal-overlay').classList.contains('open'), true);
+    assert.equal(submitted, false);
+});
+
+test('confirmation conditionnelle : changer la TVA ouvre aussi la fenetre', () => {
+    const dom = setupConditional(false);
+    const doc = dom.window.document;
+    pinModal.init(doc);
+    const form = doc.getElementById('f');
+    form.submit = () => {};
+
+    doc.getElementById('vat_rate').value = '55';
+    fireSubmit(dom, form);
+
+    assert.equal(doc.querySelector('.pin-modal-overlay').classList.contains('open'), true);
+});
+
+test('confirmation conditionnelle : un code deja refuse par le serveur reste exige', () => {
+    // Le serveur a rejete le PIN et reaffiche la page AVEC le prix modifie : la
+    // comparaison cliente le verrait "inchange". Le message du serveur arme quand
+    // meme la fenetre -- la condition cliente ne peut pas laisser passer une action
+    // que le serveur juge sensible.
+    const dom = setupConditional(true);
+    const doc = dom.window.document;
+    pinModal.init(doc);
+    const form = doc.getElementById('f');
+    form.submit = () => {};
+
+    fireSubmit(dom, form);
+
+    assert.equal(doc.querySelector('.pin-modal-overlay').classList.contains('open'), true);
+});
+
+test('sans data-pin-when-changed, la fenetre s ouvre a chaque soumission (ecrans historiques)', () => {
+    const dom = setup('a@b.c');
+    const doc = dom.window.document;
+    pinModal.init(doc);
+    doc.getElementById('f').submit = () => {};
+
+    fireSubmit(dom, doc.getElementById('f'));
+
+    assert.equal(doc.querySelector('.pin-modal-overlay').classList.contains('open'), true);
+});
+
+test('un identifiant inconnu dans data-pin-when-changed est ignore sans casser le formulaire', () => {
+    const dom = new JSDOM(
+        '<!DOCTYPE html><html><body data-user-email="a@b.c">' +
+        '<form id="f" method="post" action="/admin/products/9" data-pin-when-changed="price_cents, champ_absent ,">' +
+        '  <input type="text" id="price_cents" name="price_cents" value="6,90">' +
+        '  <fieldset id="pinfs">' +
+        '    <input type="email" id="pin_email" name="pin_email">' +
+        '    <input type="password" id="pin" name="pin">' +
+        '  </fieldset>' +
+        '</form></body></html>',
+    );
+    const doc = dom.window.document;
+    pinModal.init(doc);
+
+    assert.equal(pinModal.watchedFields(doc, doc.getElementById('f')).length, 1);
+});
+
 test('avec le controle de saisie charge avant lui, le modal retrouve bien le message du serveur', () => {
     // Ordre du gabarit admin/layout.php : form-validation.js puis pin-modal.js. Le
     // premier cree des zones de message vides (classe form-error--live) dans le bloc

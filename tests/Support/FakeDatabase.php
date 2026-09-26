@@ -250,6 +250,15 @@ final class FakeDatabase implements DatabaseInterface
     public ?array $ingredientRow = null;
 
     /**
+     * Identifiants d'ingredients qui EXISTENT, quand un scenario en a besoin de
+     * plusieurs (une recette a plusieurs lignes, alors que $ingredientRow n'en
+     * decrit qu'une). Vide = on retombe sur l'id porte par $ingredientRow.
+     *
+     * @var list<int>
+     */
+    public array $existingIngredientIds = [];
+
+    /**
      * Lignes renvoyees par IngredientRepository::all().
      *
      * @var list<array<string, mixed>>
@@ -591,6 +600,27 @@ final class FakeDatabase implements DatabaseInterface
         }
 
         if (str_contains($sql, 'FROM ingredient WHERE id = :id')) {
+            // Le vrai SQL filtre sur l'id : une lecture d'un AUTRE id que celui
+            // pose par le test doit rendre "introuvable", sinon un double trop
+            // complaisant fait croire que n'importe quel ingredient existe
+            // (ProductRepository::ingredientExists() repose entierement sur ce
+            // point). Ne s'applique que si le test a pose un id ET que la
+            // requete en demande un : les autres montages gardent le
+            // comportement historique.
+            $wanted = $params['id'] ?? null;
+            if ($wanted === null) {
+                return $this->ingredientRow;
+            }
+            if ($this->existingIngredientIds !== []) {
+                return in_array((int) $wanted, $this->existingIngredientIds, true)
+                    ? ($this->ingredientRow ?? ['id' => (int) $wanted])
+                    : null;
+            }
+            $posed = $this->ingredientRow['id'] ?? null;
+            if ($posed !== null && (int) $wanted !== (int) $posed) {
+                return null;
+            }
+
             return $this->ingredientRow;
         }
 
