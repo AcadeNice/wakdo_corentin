@@ -19,22 +19,36 @@ use App\Tests\Support\FakeDatabase;
 /**
  * Stub d'OrderQueryRepository : liste canned (rendu de la table teste sans base ;
  * les requetes sont couvertes par OrderQueryRepositoryDbTest).
+ *
+ * recentVisible() (pas recent()) : OrderAdminController::index() filtre desormais
+ * EN SQL (relecture adverse, point 6) -- ce stub reproduit le meme contrat (filtre
+ * par $sources, ordre deja croissant en anciennete des lignes canned) plutot que de
+ * laisser le controleur filtrer en PHP apres coup.
  */
 final class StubRecentOrders extends OrderQueryRepository
 {
-    public function recent(int $limit = 50): array
+    /** @var list<array<string, mixed>> */
+    private const ROWS = [
+        ['order_number' => 'K42', 'source' => 'counter', 'service_mode' => 'dine_in', 'service_tag' => '261', 'status' => 'paid', 'total_ttc_cents' => 1990, 'created_at' => '2026-06-19 12:00:00', 'paid_at' => '2026-06-19 12:01:00'],
+        ['order_number' => 'K43', 'source' => 'counter', 'service_mode' => 'takeaway', 'service_tag' => null, 'status' => 'pending_payment', 'total_ttc_cents' => 800, 'created_at' => '2026-06-19 12:05:00', 'paid_at' => null],
+        // E15 (audit schemas 6.3) : le domaine (OrderRepository::cancel) accepte
+        // aussi les etats de cuisine ; le lien Annuler doit suivre, pas seulement
+        // pending_payment/paid.
+        ['order_number' => 'K44', 'source' => 'kiosk', 'service_mode' => 'dine_in', 'service_tag' => '10', 'status' => 'preparing', 'total_ttc_cents' => 700, 'created_at' => '2026-06-19 12:06:00', 'paid_at' => '2026-06-19 12:06:01'],
+        // RG-T12 : source 'drive', utilisee par testIndexFiltersOrdersByRoleVisibleSource
+        // pour verifier qu'un role dont role_visible_source exclut le drive ne voit
+        // pas cette ligne, alors que recentVisible() sans filtre la ramenerait.
+        ['order_number' => 'K45', 'source' => 'drive', 'service_mode' => 'dine_in', 'service_tag' => '11', 'status' => 'ready', 'total_ttc_cents' => 600, 'created_at' => '2026-06-19 12:07:00', 'paid_at' => '2026-06-19 12:07:01'],
+        ['order_number' => 'K46', 'source' => 'counter', 'service_mode' => 'dine_in', 'service_tag' => '12', 'status' => 'delivered', 'total_ttc_cents' => 500, 'created_at' => '2026-06-19 12:08:00', 'paid_at' => '2026-06-19 12:08:01'],
+        ['order_number' => 'K47', 'source' => 'counter', 'service_mode' => 'dine_in', 'service_tag' => '13', 'status' => 'cancelled', 'total_ttc_cents' => 400, 'created_at' => '2026-06-19 12:09:00', 'paid_at' => null],
+    ];
+
+    public function recentVisible(array $sources, int $limit = 50): array
     {
-        return [
-            ['order_number' => 'K42', 'service_mode' => 'dine_in', 'service_tag' => '261', 'status' => 'paid', 'total_ttc_cents' => 1990, 'created_at' => '2026-06-19 12:00:00', 'paid_at' => '2026-06-19 12:01:00'],
-            ['order_number' => 'K43', 'service_mode' => 'takeaway', 'service_tag' => null, 'status' => 'pending_payment', 'total_ttc_cents' => 800, 'created_at' => '2026-06-19 12:05:00', 'paid_at' => null],
-            // E15 (audit schemas 6.3) : le domaine (OrderRepository::cancel) accepte
-            // aussi les etats de cuisine ; le lien Annuler doit suivre, pas seulement
-            // pending_payment/paid.
-            ['order_number' => 'K44', 'service_mode' => 'dine_in', 'service_tag' => '10', 'status' => 'preparing', 'total_ttc_cents' => 700, 'created_at' => '2026-06-19 12:06:00', 'paid_at' => '2026-06-19 12:06:01'],
-            ['order_number' => 'K45', 'service_mode' => 'dine_in', 'service_tag' => '11', 'status' => 'ready', 'total_ttc_cents' => 600, 'created_at' => '2026-06-19 12:07:00', 'paid_at' => '2026-06-19 12:07:01'],
-            ['order_number' => 'K46', 'service_mode' => 'dine_in', 'service_tag' => '12', 'status' => 'delivered', 'total_ttc_cents' => 500, 'created_at' => '2026-06-19 12:08:00', 'paid_at' => '2026-06-19 12:08:01'],
-            ['order_number' => 'K47', 'service_mode' => 'dine_in', 'service_tag' => '13', 'status' => 'cancelled', 'total_ttc_cents' => 400, 'created_at' => '2026-06-19 12:09:00', 'paid_at' => null],
-        ];
+        return array_values(array_filter(
+            self::ROWS,
+            static fn (array $o): bool => in_array((string) $o['source'], $sources, true),
+        ));
     }
 }
 
@@ -141,6 +155,10 @@ final class OrderAdminControllerTest extends TestCase
         $db = $this->permittedDb();
         $db->permissionCodes = ['order.read', 'order.cancel'];
         $db->orderByNumberRow = ['id' => 100, 'order_number' => 'K42', 'total_ttc_cents' => 1990, 'status' => 'paid'];
+        // PRE-3 (RG-T12) : source visible par defaut (role_visible_source vide en
+        // base = vue globale, cf. $db->roleSources par defaut = []) ; les tests de
+        // non-visibilite ecrasent orderSourceRow/roleSources explicitement.
+        $db->orderSourceRow = ['source' => 'counter'];
 
         return $db;
     }
@@ -174,6 +192,36 @@ final class OrderAdminControllerTest extends TestCase
         // Regression F40 : date au format brut MySQL affichee telle quelle.
         self::assertStringContainsString('19/06/2026 12:00', $body);
         self::assertStringNotContainsString('2026-06-19 12:00:00', $body);
+    }
+
+    public function testIndexFiltersOrdersByRoleVisibleSource(): void
+    {
+        // RG-T12 : un role dont role_visible_source restreint le canal (ici kiosk +
+        // counter, comme l'ecran cuisine) ne voit PAS ici les commandes du drive
+        // (K45), alors que recent() les ramene toutes sans filtre -- avant ce
+        // correctif, /admin/orders ignorait role_visible_source alors que le KDS et
+        // la file comptoir/drive l'appliquent deja.
+        $db = $this->permittedDb();
+        $db->roleSources = [['source' => 'kiosk'], ['source' => 'counter']];
+
+        $body = $this->controller($db)->index()->body();
+
+        self::assertStringContainsString('K42', $body); // counter, visible
+        self::assertStringContainsString('K44', $body); // kiosk, visible
+        self::assertStringNotContainsString('K45', $body); // drive, hors sources visibles
+    }
+
+    public function testIndexShowsAllSourcesForGlobalViewRole(): void
+    {
+        // Contre-exemple : role_visible_source vide (admin/manager) = vue globale,
+        // toutes les sources restent visibles (comportement par defaut inchange).
+        $db = $this->permittedDb();
+        $db->roleSources = [];
+
+        $body = $this->controller($db)->index()->body();
+
+        self::assertStringContainsString('K42', $body);
+        self::assertStringContainsString('K45', $body);
     }
 
     public function testCancelLinkFollowsTheServerAcceptedStatusSet(): void
@@ -400,16 +448,44 @@ final class OrderAdminControllerTest extends TestCase
         self::assertSame(['order.cancel'], $db->auditActions());
     }
 
-    public function testCancelUnknownOrderReturns404(): void
+    public function testCancelUnknownOrderReturns403NotFoundToAvoidEnumeration(): void
     {
+        // PRE-3 (RG-T12, limite fermee) : un numero inconnu (source null) retombe
+        // desormais sur le MEME chemin "canal non visible" (403), verifie AVANT le
+        // PIN, comme OrderApiController::apiCancel() -- avant ce correctif ce cas
+        // rendait 404 sans meme verifier la visibilite de canal.
         $db = $this->cancelDb();
         $db->orderByNumberRow = null; // numero inconnu
+        $db->orderSourceRow = null;   // numero inconnu -> orderSource() renvoie null
 
         $request = $this->post([
             '_csrf' => $this->csrf, 'pin_email' => 'sam@wakdo.local', 'pin' => '4729',
         ], '/admin/orders/K99/cancel');
 
-        self::assertSame(404, $this->controllerWith($request, $db)->cancel(['number' => 'K99'])->status());
+        $response = $this->controllerWith($request, $db)->cancel(['number' => 'K99']);
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($db->wrote('UPDATE customer_order SET status'));
+    }
+
+    public function testCancelRejectsSourceNotVisibleByRole(): void
+    {
+        // PRE-3 (RG-T12) : le role agissant ne voit que 'drive' (role_visible_source),
+        // la commande est de source 'counter' -> 403 AVANT tout PIN (aucune tentative
+        // de resolution d'acteur, aucun audit pin.failed).
+        $db = $this->cancelDb();
+        $db->roleSources = [['source' => 'drive']];
+        $db->orderSourceRow = ['source' => 'counter'];
+
+        $request = $this->post([
+            '_csrf' => $this->csrf, 'pin_email' => 'sam@wakdo.local', 'pin' => '4729',
+        ], '/admin/orders/K42/cancel');
+
+        $response = $this->controllerWith($request, $db)->cancel(['number' => 'K42']);
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($db->wrote('UPDATE customer_order SET status'));
+        self::assertSame([], $db->auditActions()); // pas de pin.failed : le PIN n'est jamais tente
     }
 
     public function testConfirmCancelRendersPinForm(): void
@@ -423,5 +499,33 @@ final class OrderAdminControllerTest extends TestCase
         $body = $response->body();
         self::assertStringContainsString('K42', $body);
         self::assertStringContainsString('PIN', $body);
+    }
+
+    public function testConfirmCancelForbiddenWhenSourceNotVisible(): void
+    {
+        // PRE-3 (RG-T12) : la page de confirmation (GET, lecture seule) ne doit pas
+        // reveler numero/statut/total d'une commande hors des canaux visibles du
+        // role -- fermer seulement le POST cancel() laisserait fuiter l'existence
+        // et le statut de la commande via cette page.
+        $db = $this->cancelDb();
+        $db->roleSources = [['source' => 'drive']];
+        $db->orderSourceRow = ['source' => 'counter'];
+        $request = new Request('GET', '/admin/orders/K42/cancel', [], [], '', '203.0.113.5');
+
+        $response = $this->controllerWith($request, $db)->confirmCancel(['number' => 'K42']);
+
+        self::assertSame(403, $response->status());
+    }
+
+    public function testConfirmCancelUnknownOrderReturns403NotFoundToAvoidEnumeration(): void
+    {
+        $db = $this->cancelDb();
+        $db->orderByNumberRow = null;
+        $db->orderSourceRow = null;
+        $request = new Request('GET', '/admin/orders/K99/cancel', [], [], '', '203.0.113.5');
+
+        $response = $this->controllerWith($request, $db)->confirmCancel(['number' => 'K99']);
+
+        self::assertSame(403, $response->status());
     }
 }

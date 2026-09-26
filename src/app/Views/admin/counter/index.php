@@ -79,6 +79,7 @@ $createPath = isset($newPath) && is_string($newPath) ? $newPath : '/counter/orde
                     <th>Numéro</th>
                     <th>Mode</th>
                     <th>Table</th>
+                    <th>Statut</th>
                     <th>Total</th>
                     <th>Payée à</th>
                 </tr>
@@ -91,11 +92,18 @@ $createPath = isset($newPath) && is_string($newPath) ? $newPath : '/counter/orde
                     // l'equipier distingue "pas de table" d'une donnee manquante.
                     $queueMode = (string) ($o['service_mode'] ?? '');
                     $queueTag = $queueMode === 'dine_in' ? (string) ($o['service_tag'] ?? '') : '';
+                    // ERG-02 (audit UX pre-soutenance) : la file "En cours" ne portait aucune
+                    // colonne Statut -- l'equipier ne pouvait pas savoir si une commande etait
+                    // prete sans ouvrir le KDS. paidQueue() ramene deja le statut (paid/
+                    // preparing/ready) ; on le libelle et on le colore comme le fait deja le
+                    // tableau "Historique recent" juste en dessous (memes $statusLabel/$statusPill).
+                    $queueStatus = (string) ($o['status'] ?? '');
                     ?>
                     <tr>
                         <td><strong><?= $esc($o['order_number'] ?? '') ?></strong></td>
                         <td><?= $esc($modeLabel($queueMode)) ?></td>
                         <td><?= $queueTag !== '' ? $esc($queueTag) : '-' ?></td>
+                        <td><span class="pill <?= $esc($statusPill($queueStatus)) ?>"><?= $esc($statusLabel($queueStatus)) ?></span></td>
                         <td><?= $esc($euros($o['total_ttc_cents'] ?? 0)) ?></td>
                         <td><?= $esc($dateHuman($o['paid_at'] ?? '')) ?></td>
                     </tr>

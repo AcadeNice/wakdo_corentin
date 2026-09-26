@@ -19,9 +19,28 @@ use App\Order\OrderValidationException;
  * UN seul controleur sert les DEUX canaux : la `source` est derivee du CHEMIN de la
  * requete (un chemin commencant par '/drive' -> 'drive', sinon 'counter'). Ce choix
  * evite un controleur par canal alors que la logique est identique ; seules la source
- * auto-tagguee, le titre et les liens d'action changent. Le decoupage par chemin (et
- * non par parametre de route) garantit que counter et drive restent etanches : un
- * equipier drive ne peut pas creer une commande comptoir en falsifiant un champ.
+ * auto-tagguee, le titre et les liens d'action changent.
+ *
+ * RG-T12 (canal fixe, `role.order_source`) : le decoupage par CHEMIN ne suffit pas a
+ * lui seul a garantir l'etancheite -- rien n'empechait un compte drive de visiter
+ * `/counter/orders` (chemin valide, route existante) et d'y creer une commande taguee
+ * `counter`. `channelGuard()` ferme ce trou en deux temps (relecture adverse, points 1
+ * et 2) :
+ *  - un role dont `order_source` est FIXE et NON NUL (`counter`/`drive`, ou tout autre
+ *    valeur comme `kiosk` propose par le formulaire de role -- `RoleController::SOURCES`
+ *    -- alors qu'aucune page HTML ne lui est dediee) n'accede QU'A la page de son
+ *    propre canal (GET et POST), l'autre page rend `403` ;
+ *  - MEME un role SANS canal fixe (`order_source` NULL) reste borne par ses sources
+ *    VISIBLES (`role_visible_source`) : une page dont la source n'y figure pas rend
+ *    aussi `403`. `admin` (seul role du seed 0001 qui cumule `order_source` NULL et
+ *    `order.create`) garde ainsi l'acces aux deux pages parce que role_visible_source
+ *    est vide pour lui (vue globale) -- PAS parce que `order_source` est NULL a lui
+ *    seul suffirait : `manager`, lui aussi `order_source` NULL, n'a de toute facon PAS
+ *    `order.create` (decision D5, ADR-0017) et ne depasse jamais la garde de
+ *    permission qui precede `channelGuard()`.
+ * Meme regle que `OrderApiController::apiStore()` (canal impose par le role, et
+ * desormais visibilite verifiee cote API aussi), factorisee dans
+ * `AdminController::roleFixedSource()`.
  *
  * Composeur (sous-lot 3c) : produits ET menus composes (slots accompagnement/
  * boisson/sauce + format Normal/Maxi) ET modificateurs d'ingredients (retrait/ajout).
@@ -56,17 +75,20 @@ class CounterOrderController extends AdminController
         if ($guard instanceof Response) {
             return $guard;
         }
+        if (($forbidden = $this->channelGuard($guard)) !== null) {
+            return $forbidden;
+        }
 
         $source = $this->source();
         $orderQuery = $this->orderQuery();
 
-        // RG-1 (5.1, source filter) : ne lister que les commandes du canal. recent()
-        // ramene les plus recentes tous canaux ; on filtre sur la source derivee du
-        // chemin pour que le comptoir ne voie pas le drive et inversement.
-        $orders = array_values(array_filter(
-            $orderQuery->recent(50),
-            static fn (array $o): bool => (string) ($o['source'] ?? '') === $source,
-        ));
+        // RG-1 (5.1, source filter) : ne lister que les commandes du canal, filtree
+        // EN SQL (recentVisible), pas apres coup sur recent(50) (relecture adverse,
+        // point 3 du 2e tour) : un filtre PHP APRES le LIMIT peut faire disparaitre
+        // des commandes reelles de ce canal si elles sont plus anciennes que les 50
+        // plus recentes TOUS canaux confondus -- meme motif corrige pour
+        // OrderAdminController::index() (relecture adverse, 1er tour, point 6).
+        $orders = $orderQuery->recentVisible([$source], 50);
 
         // File "En cours" (RG-T12) : commandes du canal au statut paid non livrees,
         // la plus ancienne d'abord (tri paid_at croissant fait par paidQueue). Filtree
@@ -93,6 +115,9 @@ class CounterOrderController extends AdminController
         if ($guard instanceof Response) {
             return $guard;
         }
+        if (($forbidden = $this->channelGuard($guard)) !== null) {
+            return $forbidden;
+        }
 
         $source = $this->source();
 
@@ -114,6 +139,9 @@ class CounterOrderController extends AdminController
         $guard = $this->guard('order.create');
         if ($guard instanceof Response) {
             return $guard;
+        }
+        if (($forbidden = $this->channelGuard($guard)) !== null) {
+            return $forbidden;
         }
 
         $form = $this->request->formBody();
@@ -339,6 +367,41 @@ class CounterOrderController extends AdminController
     private function source(): string
     {
         return str_starts_with($this->request->path(), '/drive') ? 'drive' : 'counter';
+    }
+
+    /**
+     * RG-T12 (canal fixe) : refuse l'acces a la page de l'AUTRE canal quand le role
+     * agissant a un `order_source` FIXE. Un role comptoir visitant `/drive/orders`
+     * (ou l'inverse) ne doit jamais atteindre `index()`/`create()`/`store()` de ce
+     * canal, quel que soit le chemin valide emprunte -- sinon le decoupage par
+     * chemin (voir le docblock de la classe) ne protege rien. Un role SANS canal
+     * fixe (admin/manager) n'est jamais bloque ici : `roleFixedSource()` renvoie
+     * `null` et les deux pages restent ouvertes. Meme reponse (403, vue
+     * `admin/forbidden`) que la garde de permission d'`AdminController::guard()`,
+     * pour une convention de refus homogene.
+     */
+    private function channelGuard(GuardResult $guard): ?Response
+    {
+        $roleId = $guard->roleId ?? 0;
+        $pageSource = $this->source();
+        $roleSource = $this->roleFixedSource($roleId);
+
+        // Deux gardes independantes, l'une n'excusant pas l'absence de l'autre :
+        //  - canal FIXE (role.order_source non nul) : la page doit etre CELLE du
+        //    role, sinon 403 (voir roleFixedSource()) ;
+        //  - visibilite (role_visible_source, RG-T12) : meme un role SANS canal fixe
+        //    peut avoir sa vue restreinte (ex. order_source NULL + visible=['drive']
+        //    sur un role personnalise) -- la page doit rester dans ses sources
+        //    visibles, sinon 403. Relecture adverse : channelGuard() ne verifiait
+        //    jusque-la QUE le canal fixe, jamais cette visibilite ; un role sans
+        //    canal fixe mais restreint pouvait donc encore ouvrir et alimenter la
+        //    page d'un canal qu'il ne voit pas.
+        $visible = $this->orderQuery()->visibleSources($roleId);
+        if (($roleSource !== null && $roleSource !== $pageSource) || !in_array($pageSource, $visible, true)) {
+            return $this->adminView('admin/forbidden', ['title' => 'Accès refusé', 'activeNav' => ''], $guard, 403);
+        }
+
+        return null;
     }
 
     private function landing(string $source): string

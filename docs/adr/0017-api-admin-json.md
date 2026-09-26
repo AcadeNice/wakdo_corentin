@@ -84,11 +84,32 @@ Ce qui n'est PAS du code partage, mais une REIMPLEMENTATION du meme comportement
   production), `PinGate` evite seulement de la re-dupliquer une septieme fois pour les six
   ressources JSON ;
 - la visibilite de canal des commandes (RG-T12, `OrderApiController::sourceVisible()`/
-  `orderDetail()`) reproduit le principe de `OrderAdminController::orderSource()` (memes
-  regles) dans du code neuf, pas partage ;
-- la resolution de la source comptoir/drive (`OrderApiController::roleFixedSource()`) n'a
-  pas d'equivalent HTML a reutiliser : le HTML la deduit du CHEMIN (deux pages), l'API n'a
-  qu'un endpoint et invente cette resolution (voir plus bas).
+  `orderDetail()`) reproduit le principe de `OrderAdminController::orderSource()`/
+  `sourceVisibleToRole()` (memes regles) dans du code neuf, pas partage.
+
+**Mise a jour (post-soutenance, chantier RBAC canal)** : `roleFixedSource()` (canal
+FIXE du role, `role.order_source`), a la redaction initiale de cet ADR, n'avait pas
+d'equivalent HTML reutilise : le HTML deduisait sa source du CHEMIN (`/counter/orders`
+vs `/drive/orders`) sans verifier que le role visitant cette page y avait droit --
+faille verifiee en direct lors d'une revue de securite pre-soutenance (un compte a
+canal fixe, ex. `drive`, pouvait visiter `/counter/orders`, route valide, meme
+permission `order.create`, et y creer une commande taguee `counter`). Corrige :
+`roleFixedSource()` est remontee dans `AdminController` (une seule lecture, un seul
+contrat, `protected`) ; `CounterOrderController::channelGuard()` (HTML, appele par
+`index()`/`create()`/`store()`) et `OrderApiController::apiStore()` (JSON)
+appliquent desormais la meme regle depuis cette source unique -- ce qui n'etait pas
+partage devient partage. Un role a canal fixe n'accede QU'A la page de son propre
+canal quand celle-ci existe (`counter`/`drive`, 403 sur l'autre) ; un canal fixe SANS
+page HTML dediee (ex. `kiosk`, propose par `RoleController::SOURCES` mais sans route
+`/kiosk/orders`) reste ferme sur LES DEUX (relecture adverse, point 1 : bloquer par
+defaut, pas seulement reconnaitre `counter`/`drive`). Un role SANS canal fixe reste,
+lui, borne par ses sources VISIBLES (`role_visible_source`, point 2) plutot que par un
+acces inconditionnel aux deux pages -- `admin` (seul role du seed 0001 a la fois sans
+canal fixe et titulaire d'`order.create`) garde l'acces aux deux parce que sa
+visibilite est globale (role_visible_source vide), pas parce que `order_source` NULL
+suffirait a lui seul ; `manager`, lui aussi sans canal fixe, n'a de toute facon PAS
+`order.create` (decision D5) et une garde de permission en amont l'arrete avant cette
+resolution de canal.
 
 Un trait (`JsonApiTrait`) porte ce qui est propre au transport JSON (garde 401/403, CSRF
 par en-tete `X-CSRF-Token`, enveloppe `{data}`/`{error}`, rejet nomme d'un champ non
@@ -131,18 +152,25 @@ parent et que ce parent est deja pris par le controleur HTML.
   - le HTML sert la saisie comptoir/drive par DEUX pages (`/counter/orders`,
     `/drive/orders`), la source etant deduite du CHEMIN. L'API JSON n'a qu'un seul endpoint
     (`POST /admin/api/orders`) : un role a canal FIXE (`role.order_source`) l'impose, un
-    role SANS canal fixe (admin/manager) doit le CHOISIR dans le corps (`source`) -- une
-    regle que le HTML n'a pas a exprimer puisque son choix se fait par l'URL visitee ;
+    role SANS canal fixe (`admin` au seed 0001 -- `manager`, lui aussi sans canal fixe,
+    n'a pas `order.create` et n'atteint pas cet endpoint) doit le CHOISIR dans le corps
+    (`source`), et ce choix doit en outre rester dans ses sources VISIBLES
+    (`role_visible_source`, relecture adverse point 2) -- une regle que le HTML n'a pas
+    a exprimer puisque son choix se fait par l'URL visitee ;
   - la lecture unitaire, les transitions (ready/deliver) ET l'annulation (`cancel`,
     corrige lors de la seconde relecture adverse) renvoient toutes `403` (pas `404`) pour
     un numero INCONNU comme pour un canal non visible, VERIFIE AVANT le PIN sur `cancel`
     (un acteur ne doit pas pouvoir distinguer "n'existe pas" de "existe, PIN faux" via le
     code HTTP) -- pour ne pas reveler par la difference de code qu'une commande d'un
-    autre canal existe. Cote HTML, `OrderAdminController::cancel()` garde sa limite
-    d'origine (pas de verification de visibilite de canal, seule la permission
-    `order.cancel` est exigee) : non corrige sur ce chantier pour ne pas introduire un
-    comportement de securite nouveau et non revu sur un chemin de production existant
-    (voir `conventions.md` section 5.3).
+    autre canal existe. **Limite levee (chantier RBAC canal, post-soutenance)** : cote
+    HTML, `OrderAdminController::cancel()` applique desormais la MEME garde de
+    visibilite de canal (`sourceVisibleToRole()`, verifiee AVANT le PIN, meme reponse
+    403 pour un numero inconnu et pour un canal non visible), et `confirmCancel()`
+    (page de confirmation GET, en amont de `cancel()`) l'applique aussi, pour ne pas
+    reveler numero/statut/total d'une commande hors des canaux visibles du role avant
+    meme le PIN. Le paragraphe ci-dessus decrivait une limite CONNUE et assumee au
+    moment de ce chantier JSON ; elle ne l'est plus (voir `conventions.md` section 5.3
+    pour le contrat a jour).
 - Fichiers concernes : `src/app/Controllers/Admin/Api/*` (dont `OrderApiController` et
   `StatsApiController`, ajoutes au second chantier), `src/app/Auth/PinGate.php`,
   `src/public/admin/index.php` (routes), `docs/api/conventions.md` (section 5.3),

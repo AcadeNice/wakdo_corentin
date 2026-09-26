@@ -85,6 +85,36 @@ abstract class AdminController extends AuthenticatedController
     }
 
     /**
+     * Canal FIXE du role agissant (`role.order_source`, RG-T12) : `null` UNIQUEMENT
+     * quand `order_source` est NULL en base (role SANS canal fixe, admin/manager --
+     * ils peuvent saisir pour n'importe quel canal). TOUT `order_source` non nul est
+     * un canal fixe -- pas seulement `'counter'`/`'drive'` : `RoleController::SOURCES`
+     * (formulaire de role) propose aussi `'kiosk'`, et un role personnalise avec
+     * `order_source='kiosk'` n'a AUCUNE page HTML dediee (pas de `/kiosk/orders`) ;
+     * bloquer par defaut (retourner la valeur telle quelle, jamais `null` pour une
+     * valeur non-vide) garantit qu'un tel role reste ferme sur `/counter/orders`
+     * COMME sur `/drive/orders`, plutot que de profiter d'un flou "ni counter ni
+     * drive -> pas de canal fixe -> acces libre" (relecture adverse, faille
+     * verifiee : un role `order_source='kiosk'` ouvrait les deux pages avant ce
+     * correctif). Factorise ici pour que le HTML (`CounterOrderController`) et le
+     * JSON (`OrderApiController`) appliquent EXACTEMENT la meme regle a partir
+     * d'une seule lecture -- plus de lecture ciblee que `RoleRepository::findRole()`
+     * (memes colonnes), mais pas un nouveau contrat : meme requete que celle deja
+     * utilisee par ce dernier.
+     */
+    protected function roleFixedSource(int $roleId): ?string
+    {
+        $row = $this->db()->fetch(
+            'SELECT id, code, label, description, default_route, order_source, is_active FROM role WHERE id = :id',
+            ['id' => $roleId],
+        );
+
+        $source = $row['order_source'] ?? null;
+
+        return (is_string($source) && $source !== '') ? $source : null;
+    }
+
+    /**
      * Message de confirmation a afficher apres une redirection (pose avant le 302,
      * consomme au rendu suivant). Stocke en session pour survivre a la redirection.
      */

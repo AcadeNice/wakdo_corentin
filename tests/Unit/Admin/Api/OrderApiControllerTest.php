@@ -329,6 +329,59 @@ final class OrderApiControllerTest extends TestCase
         self::assertFalse($db->wrote('INSERT INTO customer_order'));
     }
 
+    public function testStoreRejectsBodySourceNotVisibleToRole(): void
+    {
+        // Relecture adverse (1er tour, point 2 ; 2e tour, point 4) : un role SANS
+        // canal fixe mais dont role_visible_source restreint le canal doit voir son
+        // choix de corps refuse s'il sort de ses sources visibles -- avant le 1er
+        // correctif, seule la forme ('counter'|'drive') etait verifiee, jamais la
+        // visibilite reelle. 403 FORBIDDEN (pas 422) : c'est un droit absent, pas
+        // une saisie mal formee.
+        $db = $this->permittedDb();
+        $db->roleManageRow = ['order_source' => null];
+        $db->roleSources = [['source' => 'drive']];
+        $request = $this->jsonRequest('POST', '/admin/api/orders', [
+            'service_mode' => 'dine_in',
+            'source'       => 'counter',
+            'items'        => [['type' => 'product', 'product_id' => 12, 'quantity' => 1]],
+        ]);
+
+        $response = $this->controller($request, $db)->apiStore();
+        $body = json_decode($response->body(), true);
+
+        self::assertSame(403, $response->status());
+        self::assertSame('FORBIDDEN', $body['error']['code'] ?? null);
+        self::assertFalse($db->wrote('INSERT INTO customer_order'));
+    }
+
+    public function testStoreKioskFixedRoleGetsAnExplicitChannelMessageNotAGenericItemsError(): void
+    {
+        // Relecture adverse (2e tour), point 5 : un role a canal fixe 'kiosk'
+        // (reconnu comme canal fixe depuis le 1er tour, point 1) doit recevoir un
+        // message EXPLICITE ("votre canal ne permet pas la creation de commande par
+        // un equipier"), pas tomber plus loin sur un rejet generique de
+        // service_mode/items qui ne dirait pas pourquoi une saisie bien formee
+        // echoue. Verifie aussi qu'aucune ecriture n'a lieu, quel que soit le corps
+        // envoye (ici volontairement bien forme, pour prouver que le rejet est sur
+        // le CANAL, pas sur la forme du panier).
+        $db = $this->permittedDb();
+        $db->roleManageRow = ['order_source' => 'kiosk'];
+        $db->roleSources = [['source' => 'kiosk']];
+        $request = $this->jsonRequest('POST', '/admin/api/orders', [
+            'service_mode' => 'takeaway',
+            'items'        => [['type' => 'product', 'product_id' => 12, 'quantity' => 1]],
+        ]);
+
+        $response = $this->controller($request, $db)->apiStore();
+        $body = json_decode($response->body(), true);
+
+        self::assertSame(403, $response->status());
+        self::assertSame('FORBIDDEN', $body['error']['code'] ?? null);
+        self::assertStringContainsString('kiosk', $body['error']['message'] ?? '');
+        self::assertStringContainsString('ne permet pas la création de commande par un équipier', $body['error']['message'] ?? '');
+        self::assertFalse($db->wrote('INSERT INTO customer_order'));
+    }
+
     public function testStoreFixedSourceRoleIgnoresBodySourceOverride(): void
     {
         // Un role a canal FIXE (counter) ne peut pas se faire passer pour le

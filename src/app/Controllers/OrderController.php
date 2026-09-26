@@ -63,19 +63,29 @@ class OrderController extends Controller
      * Lecture publique du statut d'une commande par son numero (suivi borne apres
      * encaissement). Anonyme, lecture seule ; 404 si le numero est inconnu.
      *
+     * RESTREINT AU CANAL KIOSK (relecture adverse, point 5b) : cet endpoint est
+     * PUBLIC, sans session, et les numeros sont SEQUENTIELS (prefixe canal + id
+     * auto-incremente) -- avant ce correctif, `findByNumber()` ne filtrait pas par
+     * source : n'importe qui pouvait deviner un numero comptoir/drive voisin
+     * ("K102" existe -> "C102"/"D102" probablement aussi) et en lire le statut ET
+     * le total, alors que ces commandes ne sont PAS anonymes par nature (saisies par
+     * un equipier identifie). Une commande d'un AUTRE canal rend la MEME reponse 404
+     * qu'un numero inconnu (anti-enumeration : ne pas reveler qu'une commande existe
+     * hors kiosk).
+     *
      * @param array<string, string> $params
      */
     public function show(array $params = []): Response
     {
         $order = $this->orders()->findByNumber((string) ($params['number'] ?? ''));
-        if ($order === null) {
+        if ($order === null || ($order['source'] ?? '') !== 'kiosk') {
             return $this->json(
                 ['data' => null, 'error' => ['code' => 'ORDER_NOT_FOUND', 'message' => $this->messageFor('ORDER_NOT_FOUND')]],
                 404,
             );
         }
 
-        return $this->json(['data' => $this->present($order)]);
+        return $this->json(['data' => $this->presentPublicStatus($order)]);
     }
 
     /**
@@ -108,6 +118,28 @@ class OrderController extends Controller
             'order_number'    => $order['order_number'],
             'status'          => $order['status'],
             'total_ttc_cents' => $order['total_ttc_cents'],
+        ];
+    }
+
+    /**
+     * Presentation du suivi PUBLIC (show(), restreint au canal kiosk) : uniquement
+     * `order_number` + `status`. Ni `id` (technique, sans usage cote client) ni
+     * `total_ttc_cents` (relecture adverse, point 5b) : aucun ecran borne ne
+     * consomme ce champ sur cet endpoint aujourd'hui (verifie -- `checkout.js` ne
+     * fait que POSTer `/api/orders` puis `/api/orders/{number}/pay` ; ni
+     * `page-confirmation.js` ni `confirm-modal.js` n'appellent `GET
+     * /api/orders/{number}`), donc pas de raison de l'exposer "au cas ou" sur un
+     * endpoint anonyme. `present()` ci-dessus reste utilise par `create()`/`pay()`,
+     * qui EUX ont besoin du total pour l'affichage de paiement.
+     *
+     * @param array{order_number:string, status:string} $order
+     * @return array{order_number:string, status:string}
+     */
+    private function presentPublicStatus(array $order): array
+    {
+        return [
+            'order_number' => $order['order_number'],
+            'status'       => $order['status'],
         ];
     }
 

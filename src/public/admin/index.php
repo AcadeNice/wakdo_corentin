@@ -328,7 +328,10 @@ try {
 
     // Domaine commande (mlt 4.1/6.1/7.1, section 5.3). Un seul endpoint de creation
     // (contrairement au HTML qui a une page par canal /counter/orders et /drive/orders) :
-    // la source est deduite du role agissant (OrderApiController::roleOrderSource()).
+    // la source est deduite du role agissant (AdminController::roleFixedSource(),
+    // heritee par OrderApiController) quand il a un canal fixe, choisie dans le corps
+    // sinon -- dans les deux cas verifiee contre les sources visibles du role
+    // (OrderQueryRepository::visibleSources()).
     $router->add('GET', '/admin/api/orders', [OrderApiController::class, 'apiIndex']);
     $router->add('GET', '/admin/api/orders/{number}', [OrderApiController::class, 'apiShow']);
     $router->add('POST', '/admin/api/orders', [OrderApiController::class, 'apiStore']);

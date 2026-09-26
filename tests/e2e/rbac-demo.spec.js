@@ -88,6 +88,13 @@ test.describe('RBAC - comptes de demonstration', () => {
 
     // Refus donne dans la commande : le comptoir ouvre /admin/users -> 403.
     await expectForbidden(page, '/admin/users');
+
+    // C6 (relecture adverse, RG-T12, docs/demo/matrice-rbac.md section 3) : canal
+    // FIXE 'counter' -> l'AUTRE canal (drive) rend 403, channelGuard() refuse meme
+    // avec order.create detenu. Preuve avec le vrai compte de demo, pas un role
+    // auto-provisionne (cf. tests/e2e/rbac-channel.spec.js pour les roles
+    // personnalises kiosk/visibilite restreinte).
+    await expectForbidden(page, '/drive/orders');
   });
 
   test('comptoir (2e equipier) : memes droits/refus que le premier equipier comptoir', async ({ page }) => {
@@ -111,5 +118,9 @@ test.describe('RBAC - comptes de demonstration', () => {
 
     // Refus : drive ne detient pas ingredient.manage (creation d'ingredient).
     await expectForbidden(page, '/admin/ingredients/new');
+
+    // D6 (relecture adverse, RG-T12, symetrique de C6 ci-dessus) : canal FIXE
+    // 'drive' -> l'AUTRE canal (counter) rend 403.
+    await expectForbidden(page, '/counter/orders');
   });
 });

@@ -2015,6 +2015,25 @@ tbody td.mono {
         max-height: none;
     }
     .order-cart { max-height: 320px; }
+
+    /* ERG-03 (audit UX pre-soutenance) : a cette largeur, le panneau commande
+       passe en flux normal SOUS la grille de produits (position: static ci-dessus).
+       .content est une grille de hauteur FIXE (100vh - topbar, overflow-y: auto) :
+       le padding-bottom de 80px qu'elle reserve deja (F40, capture 26) ne degage
+       le bas du contenu qu'UNE FOIS DEFILE jusqu'au bout -- il ne joue pas au repos
+       (scrollTop=0), qui est l'etat du premier affichage. Sur cette page, le pied
+       du panneau (bouton "Encaisser") atterrit alors assez bas pour chevaucher
+       le bouton fixe "Police adaptee" (.a11y-toggle, bottom:16px) DES LE CHARGEMENT,
+       sans le moindre defilement -- mesure par calcul de zones (chevauchement
+       confirme a 768x1024 avant ce correctif, cf. tests/e2e/counter-pos.spec.js).
+       `position: sticky` avec la MEME marge de 80px epingle le pied a cette
+       distance du bas visible du conteneur de defilement, que le contenu ait ou
+       non besoin de defiler : la meme garantie que le F40, mais valable aussi au
+       repos. */
+    .pos__panel-foot {
+        position: sticky;
+        bottom: 80px;
+    }
 }
 
 /* Modale de composition : overlay + panneau centre. */
