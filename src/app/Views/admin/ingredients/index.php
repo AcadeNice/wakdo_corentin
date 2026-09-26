@@ -104,6 +104,30 @@ $renderBar = static function (array $row) use ($esc, $barClass): string {
     return $html;
 };
 ?>
+<?php /*
+    Repere visuel "ligne modifiee" (plan.md §2.6, design-system.md §2.6 : ce lot l'implemente
+    a la demande explicite, hors du gel recommande par le plan pour un changement multi-lots -
+    ici limite a cette seule page). Style scope-page (pas admin.css, hors perimetre de ce lot ;
+    autorise par la CSP de ce vhost admin, style-src 'self' 'unsafe-inline') : a promouvoir en
+    classe partagee si le lot 0 la retient. Jetons de couleur existants uniquement. Pas
+    uniquement une couleur (RGAA/WCAG 1.4.1) : le repere est un liseré qui apparaît puis
+    s'efface (forme, pas seulement teinte) ; le texte du bandeau .flash annonce deja le
+    changement pour les lecteurs d'ecran (role="status"), donc aucune redite necessaire ici.
+    S'efface seule par animation ; duree reduite si mouvement reduit demande par l'utilisateur.
+    Cablage cote JS : stock-thresholds.js (initRowHighlight), generique et partage avec
+    products/index.php.
+*/ ?>
+<style>
+.row-highlight { animation: rowHighlightFade 3s ease-out forwards; }
+@keyframes rowHighlightFade {
+    0%   { box-shadow: inset 4px 0 0 var(--color-yellow-dark); }
+    70%  { box-shadow: inset 4px 0 0 var(--color-yellow-dark); }
+    100% { box-shadow: inset 4px 0 0 transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .row-highlight { animation-duration: 0.8s; }
+}
+</style>
 <div class="page-header">
     <div>
         <h1 class="page-title">Stock des ingrédients</h1>
@@ -183,7 +207,7 @@ $unreviewed = (int) ($unreviewedAllergens ?? 0);
                 $bandPill = $band === 'critical' ? 'pill pill-danger' : 'pill pill-warning';
                 $bandText = $band === 'critical' ? 'Critique' : 'Alerte';
                 ?>
-                <div class="stock-card stock-card--<?= $esc($band) ?>">
+                <div class="stock-card stock-card--<?= $esc($band) ?>" data-row-key="ingredient:<?= $id ?>">
                     <div class="stock-card__head">
                         <div>
                             <span class="stock-card__name"><?= $esc($row['name'] ?? '') ?></span>
@@ -215,7 +239,7 @@ $unreviewed = (int) ($unreviewedAllergens ?? 0);
                 $id = (int) ($row['id'] ?? 0);
                 $active = (int) ($row['is_active'] ?? 0) === 1;
                 ?>
-                <li class="stock-list__row">
+                <li class="stock-list__row" data-row-key="ingredient:<?= $id ?>">
                     <div class="stock-list__main">
                         <span class="stock-list__name"><?= $esc($row['name'] ?? '') ?></span>
                         <span class="stock-list__unit"><?= $esc($row['unit'] ?? '') ?></span>
@@ -226,7 +250,7 @@ $unreviewed = (int) ($unreviewedAllergens ?? 0);
                         <?php endif; ?>
                     </div>
                     <div class="stock-list__bar"><?= $renderBar($row) ?></div>
-                    <div class="stock-list__actions">
+                    <div class="stock-list__actions row-actions">
                         <?php if ($count): ?>
                             <a class="btn btn-secondary btn-sm" href="/admin/ingredients/<?= $id ?>/inventory">Inventaire</a>
                             <a class="btn btn-secondary btn-sm" href="/admin/ingredients/<?= $id ?>/adjust">Ajuster</a>
@@ -240,7 +264,9 @@ $unreviewed = (int) ($unreviewedAllergens ?? 0);
                                     <input type="hidden" name="_csrf" value="<?= $csrf ?>">
                                     <button class="btn btn-ghost btn-sm" type="submit"><?= $active ? 'Désactiver' : 'Réactiver' ?></button>
                                 </form>
-                                <a class="btn btn-ghost btn-sm" href="/admin/ingredients/<?= $id ?>/delete">Supprimer</a>
+                                <span class="row-actions__danger">
+                                    <a class="btn btn-ghost btn-sm" href="/admin/ingredients/<?= $id ?>/delete">Supprimer</a>
+                                </span>
                             </span>
                         <?php endif; ?>
                     </div>

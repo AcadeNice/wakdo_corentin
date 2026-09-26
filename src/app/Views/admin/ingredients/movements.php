@@ -57,7 +57,7 @@ $colspan = $withActor ? 5 : 4;
                 <tr>
                     <th>Date</th>
                     <th>Type</th>
-                    <th>Variation</th>
+                    <th class="table-num">Variation</th>
                     <th>Note</th>
                     <?php if ($withActor): ?><th>Auteur</th><?php endif; ?>
                 </tr>
@@ -74,7 +74,7 @@ $colspan = $withActor ? 5 : 4;
                     <tr>
                         <td class="muted"><?= $esc($dateHuman($row['created_at'] ?? '')) ?></td>
                         <td><?= $esc($typeText((string) ($row['movement_type'] ?? ''))) ?></td>
-                        <td><?= $delta > 0 ? '+' . $delta : (string) $delta ?></td>
+                        <td class="table-num"><?= $delta > 0 ? '+' . $delta : (string) $delta ?></td>
                         <td class="muted"><?= $esc($row['note'] ?? '') ?></td>
                         <?php if ($withActor): ?>
                             <td class="muted"><?= $uid > 0 ? $esc($names[$uid] ?? ('#' . $uid)) : '-' ?></td>

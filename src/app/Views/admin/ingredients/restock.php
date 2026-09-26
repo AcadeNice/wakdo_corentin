@@ -35,7 +35,7 @@ $packLabel = (string) ($ing['pack_label'] ?? '');
     </div>
 </div>
 
-<form method="post" action="/admin/ingredients/<?= $id ?>/restock" class="form-card">
+<form method="post" action="/admin/ingredients/<?= $id ?>/restock" class="form-card" data-row-key="ingredient:<?= $id ?>">
     <input type="hidden" name="_csrf" value="<?= $csrf ?>">
 
     <p><small>Un pack = <?= $esc((string) $packSize) ?> unité(s)<?= $packLabel !== '' ? ' (' . $esc($packLabel) . ')' : '' ?>. Le stock augmente de N x taille de pack.</small></p>
