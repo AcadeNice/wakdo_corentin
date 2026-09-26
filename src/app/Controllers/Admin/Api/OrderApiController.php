@@ -121,7 +121,8 @@ class OrderApiController extends CounterOrderController
             return $body;
         }
 
-        $fixedSource = $this->roleFixedSource($guard->roleId ?? 0);
+        $roleId = $guard->roleId ?? 0;
+        $fixedSource = $this->roleFixedSource($roleId);
         if ($fixedSource !== null) {
             $source = $fixedSource;
         } else {
@@ -133,6 +134,18 @@ class OrderApiController extends CounterOrderController
                 return $this->validationErrorResponse(['source' => 'Votre rôle n\'a pas de canal fixe : indiquez "source": "counter" ou "drive".']);
             }
             $source = $requested;
+        }
+
+        // Relecture adverse (changes), point 2 : la forme ('counter'|'drive', ou le
+        // canal fixe du role) ne suffit pas -- le canal doit AUSSI etre dans les
+        // sources visibles du role (role_visible_source, RG-T12). Un role sans canal
+        // fixe mais restreint (ex. visible=['drive']) pouvait jusque-la choisir
+        // "source":"counter" dans le corps et l'API l'acceptait (201) sans jamais
+        // consulter visibleSources() -- seule la forme etait validee, pas le droit
+        // reel. Meme verification qu'apiShow()/transition() (sourceVisible()), mais
+        // AVANT creation plutot qu'apres lecture.
+        if (!in_array($source, $this->orderQuery()->visibleSources($roleId), true)) {
+            return $this->validationErrorResponse(['source' => 'Votre rôle ne peut pas créer de commande pour ce canal.']);
         }
 
         $serviceMode = $this->fieldString($body, 'service_mode');

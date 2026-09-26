@@ -329,6 +329,29 @@ final class OrderApiControllerTest extends TestCase
         self::assertFalse($db->wrote('INSERT INTO customer_order'));
     }
 
+    public function testStoreRejectsBodySourceNotVisibleToRole(): void
+    {
+        // Relecture adverse (changes), point 2 : un role SANS canal fixe mais dont
+        // role_visible_source restreint le canal doit voir son choix de corps
+        // refuse s'il sort de ses sources visibles -- avant ce correctif, seule la
+        // forme ('counter'|'drive') etait verifiee, jamais la visibilite reelle.
+        $db = $this->permittedDb();
+        $db->roleManageRow = ['order_source' => null];
+        $db->roleSources = [['source' => 'drive']];
+        $request = $this->jsonRequest('POST', '/admin/api/orders', [
+            'service_mode' => 'dine_in',
+            'source'       => 'counter',
+            'items'        => [['type' => 'product', 'product_id' => 12, 'quantity' => 1]],
+        ]);
+
+        $response = $this->controller($request, $db)->apiStore();
+        $body = json_decode($response->body(), true);
+
+        self::assertSame(422, $response->status());
+        self::assertArrayHasKey('source', $body['error']['fields']);
+        self::assertFalse($db->wrote('INSERT INTO customer_order'));
+    }
+
     public function testStoreFixedSourceRoleIgnoresBodySourceOverride(): void
     {
         // Un role a canal FIXE (counter) ne peut pas se faire passer pour le

@@ -831,6 +831,90 @@ final class CounterOrderControllerTest extends TestCase
         self::assertSame(200, $this->controller($this->get('/drive/orders'), $db)->index()->status());
     }
 
+    // --- Relecture adverse (changes) : point 1 -- tout order_source non nul est un
+    // canal fixe, pas seulement 'counter'/'drive'. Le formulaire de role
+    // (RoleController::SOURCES) propose aussi 'kiosk' -- un role personnalise avec
+    // order_source='kiosk' n'a pourtant AUCUNE page HTML dediee (pas de
+    // /kiosk/orders) : il doit rester bloque sur les DEUX pages comptoir/drive,
+    // pas y avoir un acces libre faute d'etre reconnu comme 'canal fixe'.
+
+    public function testKioskFixedRoleCannotAccessCounterIndex(): void
+    {
+        $db = $this->permittedDb();
+        $db->roleManageRow = ['order_source' => 'kiosk'];
+
+        self::assertSame(403, $this->controller($this->get('/counter/orders'), $db)->index()->status());
+    }
+
+    public function testKioskFixedRoleCannotAccessDriveIndex(): void
+    {
+        $db = $this->permittedDb();
+        $db->roleManageRow = ['order_source' => 'kiosk'];
+
+        self::assertSame(403, $this->controller($this->get('/drive/orders'), $db)->index()->status());
+    }
+
+    public function testKioskFixedRoleCannotPostCounterStore(): void
+    {
+        $db = $this->permittedDb();
+        $db->roleManageRow = ['order_source' => 'kiosk'];
+        $request = $this->post(['_csrf' => $this->csrf, 'service_mode' => 'dine_in', 'qty_12' => '1'], '/counter/orders');
+
+        $response = $this->controller($request, $db)->store();
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($db->wrote('INSERT INTO customer_order'));
+    }
+
+    public function testKioskFixedRoleCannotPostDriveStore(): void
+    {
+        $db = $this->permittedDb();
+        $db->roleManageRow = ['order_source' => 'kiosk'];
+        $request = $this->post(['_csrf' => $this->csrf, 'service_mode' => 'drive', 'qty_12' => '1'], '/drive/orders');
+
+        $response = $this->controller($request, $db)->store();
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($db->wrote('INSERT INTO customer_order'));
+    }
+
+    // --- Relecture adverse (changes) : point 2 -- un role SANS canal fixe
+    // (order_source NULL) mais dont role_visible_source restreint le canal doit
+    // aussi etre bloque sur une page hors de ses sources visibles. channelGuard()
+    // ne verifiait jusque-la QUE le canal fixe, jamais la visibilite.
+
+    public function testRoleWithoutFixedSourceButRestrictedToVisibleDriveCannotAccessCounterIndex(): void
+    {
+        $db = $this->permittedDb();
+        $db->roleManageRow = ['order_source' => null];
+        $db->roleSources = [['source' => 'drive']];
+
+        self::assertSame(403, $this->controller($this->get('/counter/orders'), $db)->index()->status());
+    }
+
+    public function testRoleWithoutFixedSourceButRestrictedToVisibleDriveCannotPostCounterStore(): void
+    {
+        $db = $this->permittedDb();
+        $db->roleManageRow = ['order_source' => null];
+        $db->roleSources = [['source' => 'drive']];
+        $request = $this->post(['_csrf' => $this->csrf, 'service_mode' => 'dine_in', 'qty_12' => '1'], '/counter/orders');
+
+        $response = $this->controller($request, $db)->store();
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($db->wrote('INSERT INTO customer_order'));
+    }
+
+    public function testRoleWithoutFixedSourceButRestrictedToVisibleDriveCanAccessDriveIndex(): void
+    {
+        // Contre-exemple : la page DANS la liste des sources visibles reste ouverte.
+        $db = $this->permittedDb();
+        $db->roleManageRow = ['order_source' => null];
+        $db->roleSources = [['source' => 'drive']];
+
+        self::assertSame(200, $this->controller($this->get('/drive/orders'), $db)->index()->status());
+    }
+
     public function testNavRoutesDriveRoleToDriveLanding(): void
     {
         // 3 : le lien "Saisie commande" du layout pointe vers le canal du role courant.
