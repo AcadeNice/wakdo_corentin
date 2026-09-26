@@ -1,7 +1,7 @@
 {
   "page": "accueil",
   "url": "http://kiosk.wakdo.test/index.html",
-  "date": "2026-09-22T14:53:06.683Z",
+  "date": "2026-09-26T05:32:14.458Z",
   "moteur": {
     "axe": {
       "name": "axe-core",
@@ -38,7 +38,29 @@
     {
       "compartiment": "conforme",
       "selecteur": "p",
-      "extrait": "<p class=\"welcome__question\"> Souhaitez-vous consommer votre menu sur place<br> ou preferez-vous l'e",
+      "extrait": "<p class=\"welcome__question\"> Souhaitez-vous consommer votre menu <strong>sur place</strong><br> ou ",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "3:1",
+      "taille_px": "15.0pt (20px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "strong:nth-child(1)",
+      "extrait": "<strong>sur place</strong>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "3:1",
+      "taille_px": "15.0pt (20px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "strong:nth-child(3)",
+      "extrait": "<strong>l'emporter</strong>",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#ffffff",
       "ratio": 17.4,
@@ -59,8 +81,8 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": "a[aria-label=\"Commander a emporter\"] > .choice-btn__label",
-      "extrait": "<span class=\"choice-btn__label\">A Emporter</span>",
+      "selecteur": "a[aria-label=\"Commander à emporter\"] > .choice-btn__label",
+      "extrait": "<span class=\"choice-btn__label\">À Emporter</span>",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#ffffff",
       "ratio": 17.4,
@@ -82,7 +104,7 @@
     {
       "compartiment": "conforme",
       "selecteur": ".a11y-toggle__label",
-      "extrait": "<span class=\"a11y-toggle__label\">Police adaptee</span>",
+      "extrait": "<span class=\"a11y-toggle__label\">Police adaptée</span>",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#ffffff",
       "ratio": 17.4,
@@ -142,7 +164,7 @@
     },
     {
       "id": "color-contrast",
-      "noeuds": 6
+      "noeuds": 8
     },
     {
       "id": "document-title",

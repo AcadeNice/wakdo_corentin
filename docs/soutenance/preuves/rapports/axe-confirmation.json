@@ -1,7 +1,7 @@
 {
   "page": "confirmation",
   "url": "http://kiosk.wakdo.test/confirmation.html",
-  "date": "2026-09-22T14:53:09.983Z",
+  "date": "2026-09-26T05:32:18.477Z",
   "moteur": {
     "axe": {
       "name": "axe-core",
@@ -27,7 +27,7 @@
     {
       "compartiment": "conforme",
       "selecteur": "h1",
-      "extrait": "<h1 class=\"confirmation-banner__title\">Commande confirmee !</h1>",
+      "extrait": "<h1 class=\"confirmation-banner__title\">Commande confirmée&nbsp;!</h1>",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#ffffff",
       "ratio": 17.4,
@@ -38,7 +38,18 @@
     {
       "compartiment": "conforme",
       "selecteur": ".confirmation-banner__sub",
-      "extrait": "<p class=\"confirmation-banner__sub\">Votre commande est en preparation</p>",
+      "extrait": "<p class=\"confirmation-banner__sub\">Votre commande est <em>en préparation</em></p>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "15.0pt (20px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "em",
+      "extrait": "<em>en préparation</em>",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",
       "ratio": 8.86,
@@ -49,7 +60,7 @@
     {
       "compartiment": "conforme",
       "selecteur": ".confirmation-banner__number-label",
-      "extrait": "<span class=\"confirmation-banner__number-label\">Votre numero de commande</span>",
+      "extrait": "<span class=\"confirmation-banner__number-label\">Votre numéro de commande</span>",
       "avant_plan": "#6e6e6e",
       "arriere_plan": "#f5f5f5",
       "ratio": 4.67,
@@ -71,7 +82,7 @@
     {
       "compartiment": "conforme",
       "selecteur": ".confirmation-banner__total",
-      "extrait": "<p class=\"confirmation-banner__total\"> Montant regle : <strong id=\"order-total\">7,00&nbsp;EUR</stron",
+      "extrait": "<p class=\"confirmation-banner__total\"> Montant réglé&nbsp;: <strong id=\"order-total\">7,00&nbsp;EUR</",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",
       "ratio": 8.86,
@@ -93,7 +104,7 @@
     {
       "compartiment": "conforme",
       "selecteur": ".confirmation-banner__delay",
-      "extrait": "<p class=\"confirmation-banner__delay\"> Temps d'attente estime : <strong>5 - 10 minutes</strong> </p>",
+      "extrait": "<p class=\"confirmation-banner__delay\"> Temps d'attente estimé&nbsp;: <strong>5 à 10 minutes</strong>",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",
       "ratio": 8.86,
@@ -104,7 +115,7 @@
     {
       "compartiment": "conforme",
       "selecteur": ".confirmation-banner__delay > strong",
-      "extrait": "<strong>5 - 10 minutes</strong>",
+      "extrait": "<strong>5 à 10 minutes</strong>",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",
       "ratio": 8.86,
@@ -137,7 +148,7 @@
     {
       "compartiment": "conforme",
       "selecteur": ".a11y-toggle__label",
-      "extrait": "<span class=\"a11y-toggle__label\">Police adaptee</span>",
+      "extrait": "<span class=\"a11y-toggle__label\">Police adaptée</span>",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#ffffff",
       "ratio": 17.4,
@@ -197,7 +208,7 @@
     },
     {
       "id": "color-contrast",
-      "noeuds": 11
+      "noeuds": 12
     },
     {
       "id": "document-title",

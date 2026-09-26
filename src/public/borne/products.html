@@ -66,6 +66,11 @@
             <h1 id="products-heading" class="products-main__heading">Nos produits</h1>
             <span class="mode-badge" data-mode-badge>Sur place</span>
         </div>
+        <!-- A6 (audit maquette vs front) : phrase descriptive sous le titre de categorie,
+             posee par page-products.js (CATEGORY_SUBTITLES) quand la maquette en donne une.
+             Vide et masquee par defaut : pas de texte invente pour les categories non
+             couvertes par la maquette fournie. -->
+        <p id="products-subheading" class="products-main__sub" hidden></p>
 
         <!-- Error block: hidden by default, shown if fetch fails -->
         <p id="products-error" class="products-error" hidden role="alert"></p>

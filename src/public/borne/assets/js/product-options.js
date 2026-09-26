@@ -76,6 +76,13 @@ export function openProductOptions(product, categorySlug) {
     const sizes = productSizes(product);
     let selectedSize = sizes.length ? sizes[0] : null;
     const unitPrice = () => (selectedSize ? selectedSize.price_cents : product.prix);
+    // A2 (audit maquette vs front) : phrase d'aide donnant le supplement REEL du plus
+    // grand format, comme la maquette ("Une petite soif ?... +0,50€ pour le format 50 Cl").
+    // Bornee a >=0 : les tailles sont deja triees par volume, mais on ne suppose pas
+    // l'ordre des prix.
+    const sizeSupplement = sizes.length > 1
+        ? formatPrice(Math.max(0, sizes[sizes.length - 1].price_cents - sizes[0].price_cents))
+        : null;
 
     const overlay = document.createElement('div');
     overlay.className = 'composer-overlay';
@@ -89,6 +96,10 @@ export function openProductOptions(product, categorySlug) {
                 <div class="product-options">
                     <img class="product-options__image" src="${escHtml(product.image)}"
                          alt="${escHtml(product.nom)}" data-fallback="logo">
+                    ${sizeSupplement ? `
+                    <p class="composer-step__subtitle">Une petite soif ?</p>
+                    <p class="composer-step__hint">Choisissez la taille de votre boisson, +${escHtml(sizeSupplement)} pour le plus grand format.</p>
+                    ` : ''}
                     <div class="product-options__sizes" role="group" aria-label="Taille"></div>
                     <p class="product-options__unit" id="po-unit">${formatPrice(unitPrice())} / unité</p>
                     <div class="qty-control" role="group" aria-label="Quantité">
@@ -137,7 +148,18 @@ export function openProductOptions(product, categorySlug) {
             const isDefault = size === selectedSize;
             btn.setAttribute('aria-checked', isDefault ? 'true' : 'false');
             if (isDefault) btn.classList.add('size-btn--selected');
-            btn.textContent = size.label;
+            // A3 (audit maquette vs front) : grande carte-image comme la maquette (le
+            // meme visuel produit pour les deux tailles, seul le format change) plutot
+            // qu'une pastille texte seul. L'image est decorative ici (le nom du produit
+            // est deja porte par le titre de la modale) : alt vide, pas de doublon lu
+            // deux fois par un lecteur d'ecran.
+            const img = document.createElement('img');
+            img.className = 'size-btn__image';
+            img.src = product.image;
+            img.alt = '';
+            img.dataset.fallback = 'logo';
+            btn.appendChild(img);
+            btn.appendChild(document.createTextNode(size.label));
             btn.addEventListener('click', () => {
                 selectedSize = size;
                 sizesWrap.querySelectorAll('.size-btn').forEach((b) => {

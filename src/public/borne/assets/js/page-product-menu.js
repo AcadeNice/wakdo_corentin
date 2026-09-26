@@ -155,6 +155,78 @@ export function composerIsViable(model) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Visuel compose de la carte de format (A3, retour coordinateur)       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Image de l'accompagnement pour la carte de format : la photo REELLE de la
+ * variante Maxi (maxiImage, resolue depuis maxi_variant_image_path -- migration
+ * 0006) en format Maxi, sinon la photo de base. Pur.
+ * @param {Object|null} option — premiere option resolue du slot 'side'
+ * @param {'N'|'M'} size
+ * @returns {string|null}
+ */
+export function formatCardSideImage(option, size) {
+    if (!option) return null;
+    return (size === 'M' && option.maxiImage) ? option.maxiImage : (option.image ?? null);
+}
+
+/**
+ * Boisson par defaut representee sur la carte de format : Coca Cola si l'emplacement
+ * la propose (repere le plus proche de la maquette), sinon la premiere option de
+ * l'emplacement. Pur.
+ * @param {Array<Object>} options — options resolues du slot 'drink'
+ * @returns {Object|null}
+ */
+export function pickDefaultDrinkOption(options) {
+    return options.find(o => o.nom === 'Coca Cola') ?? options[0] ?? null;
+}
+
+/**
+ * Image de la boisson par defaut pour la carte de format : la variante REELLEMENT
+ * servie pour ce format (30 cl Normal / 50 cl Maxi, R4), resolue par son PROPRE
+ * product_id (option.sizes) dans l'index produit -- pas la photo de la base
+ * reutilisee a l'aveugle. Une boisson mono-taille (sizes vide, ex. Eau) garde sa
+ * photo de base. Pur.
+ * @param {Object|null} option
+ * @param {'N'|'M'} size
+ * @param {Object<number,Object>} byId
+ * @returns {string|null}
+ */
+export function formatCardDrinkImage(option, size, byId) {
+    if (!option) return null;
+    const targetCl = size === 'M' ? 50 : 30;
+    if (Array.isArray(option.sizes) && option.sizes.length) {
+        const match = option.sizes.find(s => s.size_cl === targetCl) ?? option.sizes[0];
+        const resolved = byId[match.product_id];
+        if (resolved && resolved.image) return resolved.image;
+    }
+    return option.image ?? null;
+}
+
+/**
+ * Bundle les trois photos de la carte de format (burger devant, accompagnement et
+ * boisson par defaut derriere), donnees REELLES uniquement (aucune image inventee) :
+ * une photo introuvable devient null, le rendu n'affiche alors que le burger, sans
+ * trou. Pur.
+ * @param {Object} model — sortie de buildComposerSteps
+ * @param {'N'|'M'} size
+ * @param {Object<number,Object>} byId
+ * @returns {{burger: string|null, side: string|null, drink: string|null}}
+ */
+export function buildFormatCardVisual(model, size, byId) {
+    const sideSlot = model.slots.find(s => s.slotType === 'side');
+    const drinkSlot = model.slots.find(s => s.slotType === 'drink');
+    const sideOption = sideSlot?.options[0] ?? null;
+    const drinkOption = drinkSlot ? pickDefaultDrinkOption(drinkSlot.options) : null;
+    return {
+        burger: model.burger?.image ?? null,
+        side: formatCardSideImage(sideOption, size),
+        drink: formatCardDrinkImage(drinkOption, size, byId),
+    };
+}
+
+/* ------------------------------------------------------------------ */
 /* Entree publique — appelee par page-products.js                      */
 /* ------------------------------------------------------------------ */
 
@@ -186,6 +258,7 @@ export async function openMenuComposer(menu, returnCategory) {
         menu,
         returnCategory,
         model,
+        byId,                       // index produit complet (A3) : resout les variantes de taille
         size: 'N',                  // 'N' (Normal) | 'M' (Maxi)
         selections: {},             // slotId -> productId ; pre-selection du 1er requis
         currentStep: 0,             // 0 = format ; 1..N = slots ; N+1 = recap
@@ -272,24 +345,58 @@ function renderStep(modal, state) {
     });
 }
 
-/* Etape 0 — Format Normal / Maxi (burger impose affiche) */
+/* Rend le visuel compose d'une carte de format (burger devant, accompagnement a
+ * gauche et boisson a droite derriere, A3) ; une photo introuvable est omise, la
+ * carte n'affiche alors que le burger, sans <img> casse ni trou vide. */
+function formatCardVisualMarkup(model, size, byId) {
+    const v = buildFormatCardVisual(model, size, byId);
+    return `
+        <span class="composer-card__visual">
+            ${v.side ? `<img class="composer-card__visual-side" src="${escHtml(v.side)}" alt="">` : ''}
+            ${v.drink ? `<img class="composer-card__visual-drink" src="${escHtml(v.drink)}" alt="">` : ''}
+            ${v.burger ? `<img class="composer-card__visual-burger" src="${escHtml(v.burger)}" alt="" data-fallback="logo">` : ''}
+        </span>
+    `;
+}
+
+/* Etape 0 — Format Normal / Maxi (burger impose affiche).
+ * A3/A2 (audit maquette vs front, puis corrections apres retour du coordinateur) :
+ * deux cartes FIXES et CENTREES (pas une grille auto-fill qui les laissait collees
+ * a gauche a leur taille minimale), chacune avec un visuel compose a partir des
+ * VRAIES donnees (burger + accompagnement + boisson du format), Maxi en premier
+ * (gauche) comme la maquette ("Menu Maxi X" / "Menu X"). Titre de question + phrase
+ * d'aide donnant le supplement reel du format Maxi ("Une grosse faim ?"). */
 function renderFormatStep(body, footer, modal, state) {
-    const { model } = state;
+    const { model, byId } = state;
     const burgerName = model.burger ? escHtml(model.burger.nom) : escHtml(state.menu.nom);
+    const supplement = formatPrice(Math.max(0, (model.priceMaxiCents ?? 0) - (model.priceNormalCents ?? 0)));
+    // Libelles calques sur la maquette ("Menu Maxi Best Of" / "Menu Best Of") :
+    // menu.nom porte deja le prefixe "Menu" ("Menu Le 280"), burger.nom non ("Le 280").
+    const normalLabel = escHtml(state.menu.nom);
+    const maxiLabel = escHtml(`Menu Maxi ${model.burger ? model.burger.nom : state.menu.nom}`);
+    // Maxi a gauche, Normal a droite (ordre maquette) : le marquage suit l'ordre
+    // visuel, donc l'ordre de tabulation clavier suit lui aussi cet ordre.
     body.innerHTML = `
-        <p class="composer-step__subtitle">Votre menu : ${burgerName}</p>
-        <div class="composer-taille" role="group" aria-label="Format du menu">
-            <button class="composer-card ${state.size === 'N' ? 'composer-card--selected' : ''}"
-                type="button" data-size="N" aria-pressed="${state.size === 'N'}">
-                <span class="composer-card__name">Normal</span>
-                <span class="composer-card__price">${formatPrice(model.priceNormalCents)}</span>
-            </button>
-            <button class="composer-card ${state.size === 'M' ? 'composer-card--selected' : ''}"
-                type="button" data-size="M" aria-pressed="${state.size === 'M'}">
-                <span class="composer-card__name">Maxi</span>
-                <span class="composer-card__price">${formatPrice(model.priceMaxiCents)}</span>
-            </button>
-        </div>
+        <p class="composer-step__subtitle">Une grosse faim ?</p>
+        <p class="composer-step__hint">Le menu Maxi (${burgerName}) agrandit l'accompagnement et la boisson, pour un supplément de ${supplement}.</p>
+        <ul class="composer-grid composer-grid--format" role="list" aria-label="Format du menu" id="format-grid">
+            <li>
+                <button class="composer-card ${state.size === 'M' ? 'composer-card--selected' : ''}"
+                    type="button" data-size="M" aria-pressed="${state.size === 'M'}" aria-label="${maxiLabel}, ${formatPrice(model.priceMaxiCents)}">
+                    ${formatCardVisualMarkup(model, 'M', byId)}
+                    <span class="composer-card__name">${maxiLabel}</span>
+                    <span class="composer-card__price">${formatPrice(model.priceMaxiCents)}</span>
+                </button>
+            </li>
+            <li>
+                <button class="composer-card ${state.size === 'N' ? 'composer-card--selected' : ''}"
+                    type="button" data-size="N" aria-pressed="${state.size === 'N'}" aria-label="${normalLabel}, ${formatPrice(model.priceNormalCents)}">
+                    ${formatCardVisualMarkup(model, 'N', byId)}
+                    <span class="composer-card__name">${normalLabel}</span>
+                    <span class="composer-card__price">${formatPrice(model.priceNormalCents)}</span>
+                </button>
+            </li>
+        </ul>
     `;
     body.querySelectorAll('[data-size]').forEach(btn => {
         btn.addEventListener('click', () => {

@@ -1,5 +1,5 @@
 {
-  "date": "2026-09-22T14:53:15.138Z",
+  "date": "2026-09-26T05:32:24.599Z",
   "outil": {
     "axe": {
       "name": "axe-core",
@@ -27,7 +27,7 @@
       },
       "regles": [],
       "regles_indeterminees": [],
-      "contrastes_mesures": 6,
+      "contrastes_mesures": 8,
       "contrastes_non_calculables": 0,
       "contraste_minimum_mesure": 17.4,
       "contrastes_sous_le_seuil": 0
@@ -137,7 +137,7 @@
       },
       "regles": [],
       "regles_indeterminees": [],
-      "contrastes_mesures": 14,
+      "contrastes_mesures": 15,
       "contrastes_non_calculables": 0,
       "contraste_minimum_mesure": 8.12,
       "contrastes_sous_le_seuil": 0
@@ -155,7 +155,7 @@
       },
       "regles": [],
       "regles_indeterminees": [],
-      "contrastes_mesures": 11,
+      "contrastes_mesures": 12,
       "contrastes_non_calculables": 0,
       "contraste_minimum_mesure": 4.67,
       "contrastes_sous_le_seuil": 0
@@ -193,7 +193,7 @@
       "regles_indeterminees": [
         "color-contrast"
       ],
-      "contrastes_mesures": 50,
+      "contrastes_mesures": 51,
       "contrastes_non_calculables": 2,
       "contraste_minimum_mesure": 8.12,
       "contrastes_sous_le_seuil": 0
@@ -214,7 +214,7 @@
         "aria-hidden-focus",
         "color-contrast"
       ],
-      "contrastes_mesures": 58,
+      "contrastes_mesures": 61,
       "contrastes_non_calculables": 2,
       "contraste_minimum_mesure": 8.12,
       "contrastes_sous_le_seuil": 0

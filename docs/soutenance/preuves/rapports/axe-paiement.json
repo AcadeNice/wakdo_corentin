@@ -1,7 +1,7 @@
 {
   "page": "paiement",
   "url": "http://kiosk.wakdo.test/payment.html",
-  "date": "2026-09-22T14:53:09.564Z",
+  "date": "2026-09-26T05:32:18.006Z",
   "moteur": {
     "axe": {
       "name": "axe-core",
@@ -27,7 +27,7 @@
     {
       "compartiment": "conforme",
       "selecteur": ".site-header__back",
-      "extrait": "<a class=\"site-header__back\" href=\"categories.html\" aria-label=\"Retour aux categories\"> ← Retour </a",
+      "extrait": "<a class=\"site-header__back\" href=\"categories.html\" aria-label=\"Retour aux catégories\" title=\"Retour",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",
       "ratio": 8.86,
@@ -115,7 +115,7 @@
     {
       "compartiment": "conforme",
       "selecteur": "#pay-cash > .payment-choice__label",
-      "extrait": "<span class=\"payment-choice__label\">Especes</span>",
+      "extrait": "<span class=\"payment-choice__label\">Espèces</span>",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#ffffff",
       "ratio": 17.4,
@@ -137,7 +137,7 @@
     {
       "compartiment": "conforme",
       "selecteur": ".a11y-toggle__label",
-      "extrait": "<span class=\"a11y-toggle__label\">Police adaptee</span>",
+      "extrait": "<span class=\"a11y-toggle__label\">Police adaptée</span>",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#ffffff",
       "ratio": 17.4,

@@ -1,7 +1,7 @@
 {
   "page": "admin-connexion",
   "url": "http://admin.wakdo.test/login",
-  "date": "2026-09-22T14:53:10.747Z",
+  "date": "2026-09-26T05:32:19.417Z",
   "moteur": {
     "axe": {
       "name": "axe-core",
@@ -60,7 +60,7 @@
     {
       "compartiment": "conforme",
       "selecteur": "#email",
-      "extrait": "<input class=\"form-input\" type=\"email\" id=\"email\" name=\"email\" autocomplete=\"email\" required=\"\">",
+      "extrait": "<input class=\"form-input\" type=\"email\" id=\"email\" name=\"email\" autocomplete=\"email\" required=\"\" aria",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#ffffff",
       "ratio": 17.4,
@@ -104,7 +104,7 @@
     {
       "compartiment": "conforme",
       "selecteur": "a",
-      "extrait": "<a href=\"/forgot_password\">Mot de passe oublie ?</a>",
+      "extrait": "<a href=\"/forgot_password\">Mot de passe oublié ?</a>",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",
       "ratio": 8.86,
@@ -115,8 +115,28 @@
   ],
   "conformes_resume": [
     {
+      "id": "aria-allowed-attr",
+      "noeuds": 2
+    },
+    {
+      "id": "aria-conditional-attr",
+      "noeuds": 2
+    },
+    {
       "id": "aria-hidden-body",
       "noeuds": 1
+    },
+    {
+      "id": "aria-prohibited-attr",
+      "noeuds": 2
+    },
+    {
+      "id": "aria-valid-attr",
+      "noeuds": 2
+    },
+    {
+      "id": "aria-valid-attr-value",
+      "noeuds": 2
     },
     {
       "id": "autocomplete-valid",
@@ -140,7 +160,7 @@
     },
     {
       "id": "duplicate-id-aria",
-      "noeuds": 2
+      "noeuds": 4
     },
     {
       "id": "form-field-multiple-labels",
@@ -177,16 +197,13 @@
   ],
   "non_applicables": [
     "area-alt",
-    "aria-allowed-attr",
     "aria-braille-equivalent",
     "aria-command-name",
-    "aria-conditional-attr",
     "aria-deprecated-role",
     "aria-hidden-focus",
     "aria-input-field-name",
     "aria-meter-name",
     "aria-progressbar-name",
-    "aria-prohibited-attr",
     "aria-required-attr",
     "aria-required-children",
     "aria-required-parent",
@@ -194,8 +211,6 @@
     "aria-tab-name",
     "aria-toggle-field-name",
     "aria-tooltip-name",
-    "aria-valid-attr",
-    "aria-valid-attr-value",
     "avoid-inline-spacing",
     "blink",
     "definition-list",

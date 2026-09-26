@@ -11,6 +11,9 @@
 
 import { getTotalCents, formatPrice, getCart, getMode, clearCart, escHtml } from './state.js';
 import { submitOrder } from './checkout.js';
+// Illustration du chevalet (A8, audit maquette vs front) : repli CSP-safe si l'asset
+// venait a manquer (voir img-fallback.js).
+import './img-fallback.js';
 
 const recap   = document.getElementById('payment-recap');
 const errorEl = document.getElementById('payment-error');
@@ -88,6 +91,8 @@ function openChevalet(onValidate, onDismiss) {
                 <h2 class="composer-title" id="chevalet-title">Pour être servi à table</h2>
             </div>
             <div class="composer-body">
+                <img class="chevalet__illustration" src="assets/images/ui/chevalet.svg"
+                     alt="Chevalet de service à table, portant un numéro" data-fallback="hide">
                 <p class="chevalet__hint">Récupérez un chevalet et indiquez ici le numéro inscrit dessus.</p>
                 <input class="chevalet__input" id="chevalet-input" inputmode="numeric" pattern="[0-9]*"
                        maxlength="4" aria-label="Numéro du chevalet" autocomplete="off">

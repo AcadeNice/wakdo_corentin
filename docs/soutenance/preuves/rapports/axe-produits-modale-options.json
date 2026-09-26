@@ -1,7 +1,7 @@
 {
   "page": "produits-modale-options",
   "url": "http://kiosk.wakdo.test/products.html?category=2",
-  "date": "2026-09-22T14:53:09.069Z",
+  "date": "2026-09-26T05:32:17.463Z",
   "moteur": {
     "axe": {
       "name": "axe-core",
@@ -49,7 +49,7 @@
               "data": null,
               "relatedNodes": [
                 {
-                  "html": "<a class=\"skip-link\" href=\"#main-content\" aria-hidden=\"true\">Aller au contenu</a>",
+                  "html": "<a class=\"skip-link\" href=\"#main-content\" title=\"Aller au contenu principal\" aria-hidden=\"true\">Aller au contenu</a>",
                   "target": [
                     ".skip-link"
                   ]
@@ -61,7 +61,7 @@
           ],
           "none": [],
           "impact": "serious",
-          "html": "<a class=\"skip-link\" href=\"#main-content\" aria-hidden=\"true\">Aller au contenu</a>",
+          "html": "<a class=\"skip-link\" href=\"#main-content\" title=\"Aller au contenu principal\" aria-hidden=\"true\">Aller au contenu</a>",
           "target": [
             ".skip-link"
           ],
@@ -75,7 +75,7 @@
               "data": null,
               "relatedNodes": [
                 {
-                  "html": "<a id=\"back-to-categories\" class=\"site-header__back\" href=\"categories.html\" aria-label=\"Retour aux categories\">\n            ← Categories\n        </a>",
+                  "html": "<a id=\"back-to-categories\" class=\"site-header__back\" href=\"categories.html\" aria-label=\"Retour aux catégories\" title=\"Retour aux catégories\">\n            ← Catégories\n        </a>",
                   "target": [
                     "#back-to-categories"
                   ]
@@ -101,175 +101,175 @@
               "data": null,
               "relatedNodes": [
                 {
-                  "html": "<button class=\"category-strip__arrow category-strip__arrow--prev\" type=\"button\" aria-label=\"Categories precedentes\">◀</button>",
+                  "html": "<button class=\"category-strip__arrow category-strip__arrow--prev\" type=\"button\" aria-label=\"Catégories précédentes\">◀</button>",
                   "target": [
                     ".category-strip__arrow--prev"
                   ]
                 },
                 {
-                  "html": "<a class=\"category-strip__item\" href=\"products.html?category=1\" aria-label=\"Menus\">\n            <img class=\"category-strip__img\" src=\"assets/images/categories/menus.png\" alt=\"\" aria-hidden=\"true\" data-fallback=\"hide\">\n            <span class=\"category-strip__label\">Menus</span>\n        </a>",
+                  "html": "<a class=\"category-strip__item\" href=\"products.html?category=1\" aria-label=\"Menus\" title=\"Menus\">",
                   "target": [
                     "a[href=\"products.html?category=1\"]"
                   ]
                 },
                 {
-                  "html": "<a class=\"category-strip__item is-active\" href=\"products.html?category=2\" aria-label=\"Boissons\" aria-current=\"true\">",
+                  "html": "<a class=\"category-strip__item is-active\" href=\"products.html?category=2\" aria-label=\"Boissons\" title=\"Boissons\" aria-current=\"true\">",
                   "target": [
                     ".is-active"
                   ]
                 },
                 {
-                  "html": "<a class=\"category-strip__item\" href=\"products.html?category=3\" aria-label=\"Burgers\">\n            <img class=\"category-strip__img\" src=\"assets/images/categories/burgers.png\" alt=\"\" aria-hidden=\"true\" data-fallback=\"hide\">\n            <span class=\"category-strip__label\">Burgers</span>\n        </a>",
+                  "html": "<a class=\"category-strip__item\" href=\"products.html?category=3\" aria-label=\"Burgers\" title=\"Burgers\">",
                   "target": [
                     "a[href=\"products.html?category=3\"]"
                   ]
                 },
                 {
-                  "html": "<a class=\"category-strip__item\" href=\"products.html?category=4\" aria-label=\"Frites\">\n            <img class=\"category-strip__img\" src=\"assets/images/categories/frites.png\" alt=\"\" aria-hidden=\"true\" data-fallback=\"hide\">\n            <span class=\"category-strip__label\">Frites</span>\n        </a>",
+                  "html": "<a class=\"category-strip__item\" href=\"products.html?category=4\" aria-label=\"Frites\" title=\"Frites\">",
                   "target": [
                     "a[href=\"products.html?category=4\"]"
                   ]
                 },
                 {
-                  "html": "<a class=\"category-strip__item\" href=\"products.html?category=5\" aria-label=\"Encas\">\n            <img class=\"category-strip__img\" src=\"assets/images/categories/encas.png\" alt=\"\" aria-hidden=\"true\" data-fallback=\"hide\">\n            <span class=\"category-strip__label\">Encas</span>\n        </a>",
+                  "html": "<a class=\"category-strip__item\" href=\"products.html?category=5\" aria-label=\"Encas\" title=\"Encas\">",
                   "target": [
                     "a[href=\"products.html?category=5\"]"
                   ]
                 },
                 {
-                  "html": "<a class=\"category-strip__item\" href=\"products.html?category=6\" aria-label=\"Wraps\">\n            <img class=\"category-strip__img\" src=\"assets/images/categories/wraps.png\" alt=\"\" aria-hidden=\"true\" data-fallback=\"hide\">\n            <span class=\"category-strip__label\">Wraps</span>\n        </a>",
+                  "html": "<a class=\"category-strip__item\" href=\"products.html?category=6\" aria-label=\"Wraps\" title=\"Wraps\">",
                   "target": [
                     "a[href=\"products.html?category=6\"]"
                   ]
                 },
                 {
-                  "html": "<a class=\"category-strip__item\" href=\"products.html?category=7\" aria-label=\"Salades\">\n            <img class=\"category-strip__img\" src=\"assets/images/categories/salades.png\" alt=\"\" aria-hidden=\"true\" data-fallback=\"hide\">\n            <span class=\"category-strip__label\">Salades</span>\n        </a>",
+                  "html": "<a class=\"category-strip__item\" href=\"products.html?category=7\" aria-label=\"Salades\" title=\"Salades\">",
                   "target": [
                     "a[href=\"products.html?category=7\"]"
                   ]
                 },
                 {
-                  "html": "<a class=\"category-strip__item\" href=\"products.html?category=8\" aria-label=\"Desserts\">\n            <img class=\"category-strip__img\" src=\"assets/images/categories/desserts.png\" alt=\"\" aria-hidden=\"true\" data-fallback=\"hide\">\n            <span class=\"category-strip__label\">Desserts</span>\n        </a>",
+                  "html": "<a class=\"category-strip__item\" href=\"products.html?category=8\" aria-label=\"Desserts\" title=\"Desserts\">",
                   "target": [
                     "a[href=\"products.html?category=8\"]"
                   ]
                 },
                 {
-                  "html": "<a class=\"category-strip__item\" href=\"products.html?category=9\" aria-label=\"Sauces\">\n            <img class=\"category-strip__img\" src=\"assets/images/categories/sauces.png\" alt=\"\" aria-hidden=\"true\" data-fallback=\"hide\">\n            <span class=\"category-strip__label\">Sauces</span>\n        </a>",
+                  "html": "<a class=\"category-strip__item\" href=\"products.html?category=9\" aria-label=\"Sauces\" title=\"Sauces\">",
                   "target": [
                     "a[href=\"products.html?category=9\"]"
                   ]
                 },
                 {
-                  "html": "<button class=\"category-strip__arrow category-strip__arrow--next\" type=\"button\" aria-label=\"Categories suivantes\">▶</button>",
+                  "html": "<button class=\"category-strip__arrow category-strip__arrow--next\" type=\"button\" aria-label=\"Catégories suivantes\">▶</button>",
                   "target": [
                     ".category-strip__arrow--next"
                   ]
                 },
                 {
-                  "html": "<a class=\"product-card\" href=\"#\" aria-label=\"Coca Cola - 1,90 EUR\">",
+                  "html": "<a class=\"product-card\" href=\"#\" aria-label=\"Coca Cola - 1,90 EUR\" title=\"Coca Cola - 1,90 EUR\">",
                   "target": [
                     "a[aria-label=\"Coca Cola - 1,90 EUR\"]"
                   ]
                 },
                 {
-                  "html": "<button type=\"button\" class=\"allergen-info-btn\" aria-label=\"Informations allergenes\" title=\"Informations allergenes\">i</button>",
+                  "html": "<button type=\"button\" class=\"allergen-info-btn\" aria-label=\"Informations allergènes\" title=\"Informations allergènes\">i</button>",
                   "target": [
-                    ".product-card-cell:nth-child(1) > .allergen-info-btn[aria-label=\"Informations allergenes\"][title=\"Informations allergenes\"]"
+                    ".product-card-cell:nth-child(1) > .allergen-info-btn[aria-label=\"Informations allergènes\"][title=\"Informations allergènes\"]"
                   ]
                 },
                 {
-                  "html": "<a class=\"product-card\" href=\"#\" aria-label=\"Coca Sans Sucres - 1,90 EUR\">",
+                  "html": "<a class=\"product-card\" href=\"#\" aria-label=\"Coca Sans Sucres - 1,90 EUR\" title=\"Coca Sans Sucres - 1,90 EUR\">",
                   "target": [
                     "a[aria-label=\"Coca Sans Sucres - 1,90 EUR\"]"
                   ]
                 },
                 {
-                  "html": "<button type=\"button\" class=\"allergen-info-btn\" aria-label=\"Informations allergenes\" title=\"Informations allergenes\">i</button>",
+                  "html": "<button type=\"button\" class=\"allergen-info-btn\" aria-label=\"Informations allergènes\" title=\"Informations allergènes\">i</button>",
                   "target": [
-                    ".product-card-cell:nth-child(2) > .allergen-info-btn[aria-label=\"Informations allergenes\"][title=\"Informations allergenes\"]"
+                    ".product-card-cell:nth-child(2) > .allergen-info-btn[aria-label=\"Informations allergènes\"][title=\"Informations allergènes\"]"
                   ]
                 },
                 {
-                  "html": "<a class=\"product-card\" href=\"#\" aria-label=\"Eau - 1,00 EUR\">",
+                  "html": "<a class=\"product-card\" href=\"#\" aria-label=\"Eau - 1,00 EUR\" title=\"Eau - 1,00 EUR\">",
                   "target": [
                     "a[aria-label=\"Eau - 1,00 EUR\"]"
                   ]
                 },
                 {
-                  "html": "<button type=\"button\" class=\"allergen-info-btn\" aria-label=\"Informations allergenes\" title=\"Informations allergenes\">i</button>",
+                  "html": "<button type=\"button\" class=\"allergen-info-btn\" aria-label=\"Informations allergènes\" title=\"Informations allergènes\">i</button>",
                   "target": [
-                    ".product-card-cell:nth-child(3) > .allergen-info-btn[aria-label=\"Informations allergenes\"][title=\"Informations allergenes\"]"
+                    ".product-card-cell:nth-child(3) > .allergen-info-btn[aria-label=\"Informations allergènes\"][title=\"Informations allergènes\"]"
                   ]
                 },
                 {
-                  "html": "<a class=\"product-card\" href=\"#\" aria-label=\"Fanta Orange - 1,90 EUR\">",
+                  "html": "<a class=\"product-card\" href=\"#\" aria-label=\"Fanta Orange - 1,90 EUR\" title=\"Fanta Orange - 1,90 EUR\">",
                   "target": [
                     "a[aria-label=\"Fanta Orange - 1,90 EUR\"]"
                   ]
                 },
                 {
-                  "html": "<button type=\"button\" class=\"allergen-info-btn\" aria-label=\"Informations allergenes\" title=\"Informations allergenes\">i</button>",
+                  "html": "<button type=\"button\" class=\"allergen-info-btn\" aria-label=\"Informations allergènes\" title=\"Informations allergènes\">i</button>",
                   "target": [
-                    ".product-card-cell:nth-child(4) > .allergen-info-btn[aria-label=\"Informations allergenes\"][title=\"Informations allergenes\"]"
+                    ".product-card-cell:nth-child(4) > .allergen-info-btn[aria-label=\"Informations allergènes\"][title=\"Informations allergènes\"]"
                   ]
                 },
                 {
-                  "html": "<a class=\"product-card\" href=\"#\" aria-label=\"Ice Tea Peche - 1,90 EUR\">",
+                  "html": "<a class=\"product-card\" href=\"#\" aria-label=\"Ice Tea Peche - 1,90 EUR\" title=\"Ice Tea Peche - 1,90 EUR\">",
                   "target": [
                     "a[aria-label=\"Ice Tea Peche - 1,90 EUR\"]"
                   ]
                 },
                 {
-                  "html": "<button type=\"button\" class=\"allergen-info-btn\" aria-label=\"Informations allergenes\" title=\"Informations allergenes\">i</button>",
+                  "html": "<button type=\"button\" class=\"allergen-info-btn\" aria-label=\"Informations allergènes\" title=\"Informations allergènes\">i</button>",
                   "target": [
-                    ".product-card-cell:nth-child(5) > .allergen-info-btn[aria-label=\"Informations allergenes\"][title=\"Informations allergenes\"]"
+                    ".product-card-cell:nth-child(5) > .allergen-info-btn[aria-label=\"Informations allergènes\"][title=\"Informations allergènes\"]"
                   ]
                 },
                 {
-                  "html": "<a class=\"product-card\" href=\"#\" aria-label=\"Ice Tea Citron - 1,90 EUR\">",
+                  "html": "<a class=\"product-card\" href=\"#\" aria-label=\"Ice Tea Citron - 1,90 EUR\" title=\"Ice Tea Citron - 1,90 EUR\">",
                   "target": [
                     "a[aria-label=\"Ice Tea Citron - 1,90 EUR\"]"
                   ]
                 },
                 {
-                  "html": "<button type=\"button\" class=\"allergen-info-btn\" aria-label=\"Informations allergenes\" title=\"Informations allergenes\">i</button>",
+                  "html": "<button type=\"button\" class=\"allergen-info-btn\" aria-label=\"Informations allergènes\" title=\"Informations allergènes\">i</button>",
                   "target": [
-                    ".product-card-cell:nth-child(6) > .allergen-info-btn[aria-label=\"Informations allergenes\"][title=\"Informations allergenes\"]"
+                    ".product-card-cell:nth-child(6) > .allergen-info-btn[aria-label=\"Informations allergènes\"][title=\"Informations allergènes\"]"
                   ]
                 },
                 {
-                  "html": "<a class=\"product-card\" href=\"#\" aria-label=\"Jus d'Orange - 2,10 EUR\">",
+                  "html": "<a class=\"product-card\" href=\"#\" aria-label=\"Jus d'Orange - 2,10 EUR\" title=\"Jus d'Orange - 2,10 EUR\">",
                   "target": [
                     "a[aria-label=\"Jus d'Orange - 2,10 EUR\"]"
                   ]
                 },
                 {
-                  "html": "<button type=\"button\" class=\"allergen-info-btn\" aria-label=\"Informations allergenes\" title=\"Informations allergenes\">i</button>",
+                  "html": "<button type=\"button\" class=\"allergen-info-btn\" aria-label=\"Informations allergènes\" title=\"Informations allergènes\">i</button>",
                   "target": [
-                    ".product-card-cell:nth-child(7) > .allergen-info-btn[aria-label=\"Informations allergenes\"][title=\"Informations allergenes\"]"
+                    ".product-card-cell:nth-child(7) > .allergen-info-btn[aria-label=\"Informations allergènes\"][title=\"Informations allergènes\"]"
                   ]
                 },
                 {
-                  "html": "<a class=\"product-card\" href=\"#\" aria-label=\"Jus de Pommes Bio - 2,30 EUR\">",
+                  "html": "<a class=\"product-card\" href=\"#\" aria-label=\"Jus de Pommes Bio - 2,30 EUR\" title=\"Jus de Pommes Bio - 2,30 EUR\">",
                   "target": [
                     "a[aria-label=\"Jus de Pommes Bio - 2,30 EUR\"]"
                   ]
                 },
                 {
-                  "html": "<button type=\"button\" class=\"allergen-info-btn\" aria-label=\"Informations allergenes\" title=\"Informations allergenes\">i</button>",
+                  "html": "<button type=\"button\" class=\"allergen-info-btn\" aria-label=\"Informations allergènes\" title=\"Informations allergènes\">i</button>",
                   "target": [
-                    ".product-card-cell:nth-child(8) > .allergen-info-btn[aria-label=\"Informations allergenes\"][title=\"Informations allergenes\"]"
+                    ".product-card-cell:nth-child(8) > .allergen-info-btn[aria-label=\"Informations allergènes\"][title=\"Informations allergènes\"]"
                   ]
                 },
                 {
-                  "html": "<button class=\"order-panel__qty-btn\" data-action=\"dec\" data-index=\"0\" type=\"button\" aria-label=\"Diminuer la quantite de Audit A11Y - article 1\">−</button>",
+                  "html": "<button class=\"order-panel__qty-btn\" data-action=\"dec\" data-index=\"0\" type=\"button\" aria-label=\"Diminuer la quantité de Audit A11Y - article 1\">−</button>",
                   "target": [
                     ".order-panel__qty-btn[data-action=\"dec\"][data-index=\"0\"]"
                   ]
                 },
                 {
-                  "html": "<button class=\"order-panel__qty-btn\" data-action=\"inc\" data-index=\"0\" type=\"button\" aria-label=\"Augmenter la quantite de Audit A11Y - article 1\">+</button>",
+                  "html": "<button class=\"order-panel__qty-btn\" data-action=\"inc\" data-index=\"0\" type=\"button\" aria-label=\"Augmenter la quantité de Audit A11Y - article 1\">+</button>",
                   "target": [
                     ".order-panel__qty-btn[data-action=\"inc\"][data-index=\"0\"]"
                   ]
@@ -281,13 +281,13 @@
                   ]
                 },
                 {
-                  "html": "<button class=\"order-panel__qty-btn\" data-action=\"dec\" data-index=\"1\" type=\"button\" aria-label=\"Diminuer la quantite de Audit A11Y - article 2\">−</button>",
+                  "html": "<button class=\"order-panel__qty-btn\" data-action=\"dec\" data-index=\"1\" type=\"button\" aria-label=\"Diminuer la quantité de Audit A11Y - article 2\">−</button>",
                   "target": [
                     ".order-panel__qty-btn[data-action=\"dec\"][data-index=\"1\"]"
                   ]
                 },
                 {
-                  "html": "<button class=\"order-panel__qty-btn\" data-action=\"inc\" data-index=\"1\" type=\"button\" aria-label=\"Augmenter la quantite de Audit A11Y - article 2\">+</button>",
+                  "html": "<button class=\"order-panel__qty-btn\" data-action=\"inc\" data-index=\"1\" type=\"button\" aria-label=\"Augmenter la quantité de Audit A11Y - article 2\">+</button>",
                   "target": [
                     ".order-panel__qty-btn[data-action=\"inc\"][data-index=\"1\"]"
                   ]
@@ -331,7 +331,7 @@
               "data": null,
               "relatedNodes": [
                 {
-                  "html": "<button type=\"button\" class=\"a11y-toggle\" data-a11y-dys-toggle=\"\" aria-pressed=\"false\" aria-label=\"Police adaptee aux personnes dyslexiques\" aria-hidden=\"true\"><span class=\"a11y-toggle__icon\" aria-hidden=\"true\">Aa</span><span class=\"a11y-toggle__label\">Police adaptee</span></button>",
+                  "html": "<button type=\"button\" class=\"a11y-toggle\" data-a11y-dys-toggle=\"\" aria-pressed=\"false\" aria-label=\"Police adaptée aux personnes dyslexiques\" aria-hidden=\"true\"><span class=\"a11y-toggle__icon\" aria-hidden=\"true\">Aa</span><span class=\"a11y-toggle__label\">Police adaptée</span></button>",
                   "target": [
                     ".a11y-toggle"
                   ]
@@ -343,7 +343,7 @@
           ],
           "none": [],
           "impact": "serious",
-          "html": "<button type=\"button\" class=\"a11y-toggle\" data-a11y-dys-toggle=\"\" aria-pressed=\"false\" aria-label=\"Police adaptee aux personnes dyslexiques\" aria-hidden=\"true\"><span class=\"a11y-toggle__icon\" aria-hidden=\"true\">Aa</span><span class=\"a11y-toggle__label\">Police adaptee</span></button>",
+          "html": "<button type=\"button\" class=\"a11y-toggle\" data-a11y-dys-toggle=\"\" aria-pressed=\"false\" aria-label=\"Police adaptée aux personnes dyslexiques\" aria-hidden=\"true\"><span class=\"a11y-toggle__icon\" aria-hidden=\"true\">Aa</span><span class=\"a11y-toggle__label\">Police adaptée</span></button>",
           "target": [
             ".a11y-toggle"
           ],
@@ -385,7 +385,7 @@
           "all": [],
           "none": [],
           "impact": "serious",
-          "html": "<button class=\"order-panel__qty-btn\" data-action=\"dec\" data-index=\"0\" type=\"button\" aria-label=\"Diminuer la quantite de Audit A11Y - article 1\">−</button>",
+          "html": "<button class=\"order-panel__qty-btn\" data-action=\"dec\" data-index=\"0\" type=\"button\" aria-label=\"Diminuer la quantité de Audit A11Y - article 1\">−</button>",
           "target": [
             ".order-panel__qty-btn[data-action=\"dec\"][data-index=\"0\"]"
           ],
@@ -406,7 +406,7 @@
           "all": [],
           "none": [],
           "impact": "serious",
-          "html": "<button class=\"order-panel__qty-btn\" data-action=\"dec\" data-index=\"1\" type=\"button\" aria-label=\"Diminuer la quantite de Audit A11Y - article 2\">−</button>",
+          "html": "<button class=\"order-panel__qty-btn\" data-action=\"dec\" data-index=\"1\" type=\"button\" aria-label=\"Diminuer la quantité de Audit A11Y - article 2\">−</button>",
           "target": [
             ".order-panel__qty-btn[data-action=\"dec\"][data-index=\"1\"]"
           ],
@@ -518,7 +518,7 @@
     {
       "compartiment": "conforme",
       "selecteur": "#products-heading",
-      "extrait": "<h1 id=\"products-heading\" class=\"products-main__heading\">Nos Boissons</h1>",
+      "extrait": "<h1 id=\"products-heading\" class=\"products-main__heading\">Nos boissons</h1>",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#f5f5f5",
       "ratio": 15.96,
@@ -536,6 +536,17 @@
       "seuil_attendu": "4.5:1",
       "taille_px": "9.0pt (12px)",
       "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "#products-subheading",
+      "extrait": "<p id=\"products-subheading\" class=\"products-main__sub\">Une petite soif, sucrée, légère, rafraîchissa",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#f5f5f5",
+      "ratio": 8.12,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "12.0pt (16px)",
+      "graisse": "normal"
     },
     {
       "compartiment": "conforme",
@@ -561,8 +572,8 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".product-card-cell:nth-child(1) > .allergen-info-btn[aria-label=\"Informations allergenes\"][title=\"Informations allergenes\"]",
-      "extrait": "<button type=\"button\" class=\"allergen-info-btn\" aria-label=\"Informations allergenes\" title=\"Informat",
+      "selecteur": ".product-card-cell:nth-child(1) > .allergen-info-btn[aria-label=\"Informations allergènes\"][title=\"Informations allergènes\"]",
+      "extrait": "<button type=\"button\" class=\"allergen-info-btn\" aria-label=\"Informations allergènes\" title=\"Informat",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#ffffff",
       "ratio": 17.4,
@@ -594,8 +605,8 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".product-card-cell:nth-child(2) > .allergen-info-btn[aria-label=\"Informations allergenes\"][title=\"Informations allergenes\"]",
-      "extrait": "<button type=\"button\" class=\"allergen-info-btn\" aria-label=\"Informations allergenes\" title=\"Informat",
+      "selecteur": ".product-card-cell:nth-child(2) > .allergen-info-btn[aria-label=\"Informations allergènes\"][title=\"Informations allergènes\"]",
+      "extrait": "<button type=\"button\" class=\"allergen-info-btn\" aria-label=\"Informations allergènes\" title=\"Informat",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#ffffff",
       "ratio": 17.4,
@@ -627,8 +638,8 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".product-card-cell:nth-child(3) > .allergen-info-btn[aria-label=\"Informations allergenes\"][title=\"Informations allergenes\"]",
-      "extrait": "<button type=\"button\" class=\"allergen-info-btn\" aria-label=\"Informations allergenes\" title=\"Informat",
+      "selecteur": ".product-card-cell:nth-child(3) > .allergen-info-btn[aria-label=\"Informations allergènes\"][title=\"Informations allergènes\"]",
+      "extrait": "<button type=\"button\" class=\"allergen-info-btn\" aria-label=\"Informations allergènes\" title=\"Informat",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#ffffff",
       "ratio": 17.4,
@@ -660,8 +671,8 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".product-card-cell:nth-child(4) > .allergen-info-btn[aria-label=\"Informations allergenes\"][title=\"Informations allergenes\"]",
-      "extrait": "<button type=\"button\" class=\"allergen-info-btn\" aria-label=\"Informations allergenes\" title=\"Informat",
+      "selecteur": ".product-card-cell:nth-child(4) > .allergen-info-btn[aria-label=\"Informations allergènes\"][title=\"Informations allergènes\"]",
+      "extrait": "<button type=\"button\" class=\"allergen-info-btn\" aria-label=\"Informations allergènes\" title=\"Informat",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#ffffff",
       "ratio": 17.4,
@@ -693,8 +704,8 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".product-card-cell:nth-child(5) > .allergen-info-btn[aria-label=\"Informations allergenes\"][title=\"Informations allergenes\"]",
-      "extrait": "<button type=\"button\" class=\"allergen-info-btn\" aria-label=\"Informations allergenes\" title=\"Informat",
+      "selecteur": ".product-card-cell:nth-child(5) > .allergen-info-btn[aria-label=\"Informations allergènes\"][title=\"Informations allergènes\"]",
+      "extrait": "<button type=\"button\" class=\"allergen-info-btn\" aria-label=\"Informations allergènes\" title=\"Informat",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#ffffff",
       "ratio": 17.4,
@@ -726,8 +737,8 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".product-card-cell:nth-child(6) > .allergen-info-btn[aria-label=\"Informations allergenes\"][title=\"Informations allergenes\"]",
-      "extrait": "<button type=\"button\" class=\"allergen-info-btn\" aria-label=\"Informations allergenes\" title=\"Informat",
+      "selecteur": ".product-card-cell:nth-child(6) > .allergen-info-btn[aria-label=\"Informations allergènes\"][title=\"Informations allergènes\"]",
+      "extrait": "<button type=\"button\" class=\"allergen-info-btn\" aria-label=\"Informations allergènes\" title=\"Informat",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#ffffff",
       "ratio": 17.4,
@@ -759,8 +770,8 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".product-card-cell:nth-child(7) > .allergen-info-btn[aria-label=\"Informations allergenes\"][title=\"Informations allergenes\"]",
-      "extrait": "<button type=\"button\" class=\"allergen-info-btn\" aria-label=\"Informations allergenes\" title=\"Informat",
+      "selecteur": ".product-card-cell:nth-child(7) > .allergen-info-btn[aria-label=\"Informations allergènes\"][title=\"Informations allergènes\"]",
+      "extrait": "<button type=\"button\" class=\"allergen-info-btn\" aria-label=\"Informations allergènes\" title=\"Informat",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#ffffff",
       "ratio": 17.4,
@@ -792,8 +803,8 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".product-card-cell:nth-child(8) > .allergen-info-btn[aria-label=\"Informations allergenes\"][title=\"Informations allergenes\"]",
-      "extrait": "<button type=\"button\" class=\"allergen-info-btn\" aria-label=\"Informations allergenes\" title=\"Informat",
+      "selecteur": ".product-card-cell:nth-child(8) > .allergen-info-btn[aria-label=\"Informations allergènes\"][title=\"Informations allergènes\"]",
+      "extrait": "<button type=\"button\" class=\"allergen-info-btn\" aria-label=\"Informations allergènes\" title=\"Informat",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#ffffff",
       "ratio": 17.4,
@@ -903,7 +914,7 @@
     {
       "compartiment": "conforme",
       "selecteur": ".order-panel__total-value",
-      "extrait": "<span class=\"order-panel__total-value\">7,00&nbsp;EUR</span>",
+      "extrait": "<span class=\"order-panel__total-value\" aria-live=\"off\">7,00&nbsp;EUR</span>",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#ffffff",
       "ratio": 17.4,
@@ -947,7 +958,7 @@
     {
       "compartiment": "conforme",
       "selecteur": ".a11y-toggle__label",
-      "extrait": "<span class=\"a11y-toggle__label\">Police adaptee</span>",
+      "extrait": "<span class=\"a11y-toggle__label\">Police adaptée</span>",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#ffffff",
       "ratio": 17.4,
@@ -968,30 +979,52 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".size-btn--selected",
-      "extrait": "<button type=\"button\" class=\"size-btn size-btn--selected\" data-product-id=\"14\" role=\"radio\" aria-che",
+      "selecteur": ".composer-step__subtitle",
+      "extrait": "<p class=\"composer-step__subtitle\">Une petite soif ?</p>",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#ffffff",
       "ratio": 17.4,
       "seuil_attendu": "3:1",
-      "taille_px": "15.0pt (20px)",
+      "taille_px": "18.0pt (24px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".composer-step__hint",
+      "extrait": "<p class=\"composer-step__hint\">Choisissez la taille de votre boisson, +0,50&nbsp;EUR pour le plus gr",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "12.0pt (16px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".size-btn--selected",
+      "extrait": "<button type=\"button\" class=\"size-btn size-btn--selected\" data-product-id=\"14\" role=\"radio\" aria-che",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#fffcf2",
+      "ratio": 16.95,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "12.0pt (16px)",
       "graisse": "bold"
     },
     {
       "compartiment": "conforme",
       "selecteur": "button[data-product-id=\"54\"]",
-      "extrait": "<button type=\"button\" class=\"size-btn\" data-product-id=\"54\" role=\"radio\" aria-checked=\"false\">50 cl<",
+      "extrait": "<button type=\"button\" class=\"size-btn\" data-product-id=\"54\" role=\"radio\" aria-checked=\"false\"><img c",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#ffffff",
       "ratio": 17.4,
       "seuil_attendu": "4.5:1",
-      "taille_px": "15.0pt (20px)",
-      "graisse": "normal"
+      "taille_px": "12.0pt (16px)",
+      "graisse": "bold"
     },
     {
       "compartiment": "conforme",
       "selecteur": "#po-unit",
-      "extrait": "<p class=\"product-options__unit\" id=\"po-unit\">1,90&nbsp;EUR / unite</p>",
+      "extrait": "<p class=\"product-options__unit\" id=\"po-unit\">1,90&nbsp;EUR / unité</p>",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",
       "ratio": 8.86,
@@ -1046,7 +1079,7 @@
     {
       "compartiment": "conforme",
       "selecteur": "#po-add",
-      "extrait": "<button class=\"btn btn--primary\" type=\"button\" id=\"po-add\">Ajouter a ma commande</button>",
+      "extrait": "<button class=\"btn btn--primary\" type=\"button\" id=\"po-add\">Ajouter à ma commande</button>",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#ffc72c",
       "ratio": 11.15,
@@ -1110,7 +1143,7 @@
     },
     {
       "id": "color-contrast",
-      "noeuds": 58
+      "noeuds": 61
     },
     {
       "id": "document-title",
@@ -1130,7 +1163,7 @@
     },
     {
       "id": "image-alt",
-      "noeuds": 1
+      "noeuds": 3
     },
     {
       "id": "meta-viewport",

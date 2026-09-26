@@ -1,7 +1,7 @@
 {
   "page": "admin-tableau-de-bord",
   "url": "http://admin.wakdo.test/admin/dashboard",
-  "date": "2026-09-22T14:53:11.912Z",
+  "date": "2026-09-26T05:32:20.592Z",
   "moteur": {
     "axe": {
       "name": "axe-core",
@@ -55,7 +55,7 @@
               },
               "relatedNodes": [
                 {
-                  "html": "<svg class=\"dash-chart\" viewBox=\"0 0 700 200\" role=\"img\" aria-label=\"Chiffre d affaires des 7 derniers jours, total 0,00 EUR\" preserveAspectRatio=\"xMidYMid meet\">",
+                  "html": "<svg class=\"dash-chart\" viewBox=\"0 0 700 200\" role=\"img\" aria-label=\"Chiffre d'affaires des 7 derniers jours, total 0,00 EUR\" preserveAspectRatio=\"xMidYMid meet\">",
                   "target": [
                     ".dash-chart"
                   ]
@@ -68,7 +68,7 @@
           "all": [],
           "none": [],
           "impact": "serious",
-          "html": "<text class=\"dash-label\" x=\"60.3\" y=\"180\" text-anchor=\"middle\">16/09</text>",
+          "html": "<text class=\"dash-label\" x=\"60.3\" y=\"180\" text-anchor=\"middle\">20/09</text>",
           "target": [
             "text[x=\"60.3\"]"
           ],
@@ -87,7 +87,7 @@
               },
               "relatedNodes": [
                 {
-                  "html": "<svg class=\"dash-chart\" viewBox=\"0 0 700 200\" role=\"img\" aria-label=\"Chiffre d affaires des 7 derniers jours, total 0,00 EUR\" preserveAspectRatio=\"xMidYMid meet\">",
+                  "html": "<svg class=\"dash-chart\" viewBox=\"0 0 700 200\" role=\"img\" aria-label=\"Chiffre d'affaires des 7 derniers jours, total 0,00 EUR\" preserveAspectRatio=\"xMidYMid meet\">",
                   "target": [
                     ".dash-chart"
                   ]
@@ -100,7 +100,7 @@
           "all": [],
           "none": [],
           "impact": "serious",
-          "html": "<text class=\"dash-label\" x=\"156.9\" y=\"180\" text-anchor=\"middle\">17/09</text>",
+          "html": "<text class=\"dash-label\" x=\"156.9\" y=\"180\" text-anchor=\"middle\">21/09</text>",
           "target": [
             "text[x=\"156.9\"]"
           ],
@@ -119,7 +119,7 @@
               },
               "relatedNodes": [
                 {
-                  "html": "<svg class=\"dash-chart\" viewBox=\"0 0 700 200\" role=\"img\" aria-label=\"Chiffre d affaires des 7 derniers jours, total 0,00 EUR\" preserveAspectRatio=\"xMidYMid meet\">",
+                  "html": "<svg class=\"dash-chart\" viewBox=\"0 0 700 200\" role=\"img\" aria-label=\"Chiffre d'affaires des 7 derniers jours, total 0,00 EUR\" preserveAspectRatio=\"xMidYMid meet\">",
                   "target": [
                     ".dash-chart"
                   ]
@@ -132,7 +132,7 @@
           "all": [],
           "none": [],
           "impact": "serious",
-          "html": "<text class=\"dash-label\" x=\"253.4\" y=\"180\" text-anchor=\"middle\">18/09</text>",
+          "html": "<text class=\"dash-label\" x=\"253.4\" y=\"180\" text-anchor=\"middle\">22/09</text>",
           "target": [
             "text[x=\"253.4\"]"
           ],
@@ -151,7 +151,7 @@
               },
               "relatedNodes": [
                 {
-                  "html": "<svg class=\"dash-chart\" viewBox=\"0 0 700 200\" role=\"img\" aria-label=\"Chiffre d affaires des 7 derniers jours, total 0,00 EUR\" preserveAspectRatio=\"xMidYMid meet\">",
+                  "html": "<svg class=\"dash-chart\" viewBox=\"0 0 700 200\" role=\"img\" aria-label=\"Chiffre d'affaires des 7 derniers jours, total 0,00 EUR\" preserveAspectRatio=\"xMidYMid meet\">",
                   "target": [
                     ".dash-chart"
                   ]
@@ -164,7 +164,7 @@
           "all": [],
           "none": [],
           "impact": "serious",
-          "html": "<text class=\"dash-label\" x=\"350\" y=\"180\" text-anchor=\"middle\">19/09</text>",
+          "html": "<text class=\"dash-label\" x=\"350\" y=\"180\" text-anchor=\"middle\">23/09</text>",
           "target": [
             "text[x=\"350\"]"
           ],
@@ -183,7 +183,7 @@
               },
               "relatedNodes": [
                 {
-                  "html": "<svg class=\"dash-chart\" viewBox=\"0 0 700 200\" role=\"img\" aria-label=\"Chiffre d affaires des 7 derniers jours, total 0,00 EUR\" preserveAspectRatio=\"xMidYMid meet\">",
+                  "html": "<svg class=\"dash-chart\" viewBox=\"0 0 700 200\" role=\"img\" aria-label=\"Chiffre d'affaires des 7 derniers jours, total 0,00 EUR\" preserveAspectRatio=\"xMidYMid meet\">",
                   "target": [
                     ".dash-chart"
                   ]
@@ -196,7 +196,7 @@
           "all": [],
           "none": [],
           "impact": "serious",
-          "html": "<text class=\"dash-label\" x=\"446.6\" y=\"180\" text-anchor=\"middle\">20/09</text>",
+          "html": "<text class=\"dash-label\" x=\"446.6\" y=\"180\" text-anchor=\"middle\">24/09</text>",
           "target": [
             "text[x=\"446.6\"]"
           ],
@@ -215,7 +215,7 @@
               },
               "relatedNodes": [
                 {
-                  "html": "<svg class=\"dash-chart\" viewBox=\"0 0 700 200\" role=\"img\" aria-label=\"Chiffre d affaires des 7 derniers jours, total 0,00 EUR\" preserveAspectRatio=\"xMidYMid meet\">",
+                  "html": "<svg class=\"dash-chart\" viewBox=\"0 0 700 200\" role=\"img\" aria-label=\"Chiffre d'affaires des 7 derniers jours, total 0,00 EUR\" preserveAspectRatio=\"xMidYMid meet\">",
                   "target": [
                     ".dash-chart"
                   ]
@@ -228,7 +228,7 @@
           "all": [],
           "none": [],
           "impact": "serious",
-          "html": "<text class=\"dash-label\" x=\"543.1\" y=\"180\" text-anchor=\"middle\">21/09</text>",
+          "html": "<text class=\"dash-label\" x=\"543.1\" y=\"180\" text-anchor=\"middle\">25/09</text>",
           "target": [
             "text[x=\"543.1\"]"
           ],
@@ -247,7 +247,7 @@
               },
               "relatedNodes": [
                 {
-                  "html": "<svg class=\"dash-chart\" viewBox=\"0 0 700 200\" role=\"img\" aria-label=\"Chiffre d affaires des 7 derniers jours, total 0,00 EUR\" preserveAspectRatio=\"xMidYMid meet\">",
+                  "html": "<svg class=\"dash-chart\" viewBox=\"0 0 700 200\" role=\"img\" aria-label=\"Chiffre d'affaires des 7 derniers jours, total 0,00 EUR\" preserveAspectRatio=\"xMidYMid meet\">",
                   "target": [
                     ".dash-chart"
                   ]
@@ -260,7 +260,7 @@
           "all": [],
           "none": [],
           "impact": "serious",
-          "html": "<text class=\"dash-label\" x=\"639.7\" y=\"180\" text-anchor=\"middle\">22/09</text>",
+          "html": "<text class=\"dash-label\" x=\"639.7\" y=\"180\" text-anchor=\"middle\">26/09</text>",
           "target": [
             "text[x=\"639.7\"]"
           ],
@@ -295,7 +295,7 @@
     {
       "compartiment": "conforme",
       "selecteur": ".topbar-user-role",
-      "extrait": "<div class=\"topbar-user-role\">Administrator</div>",
+      "extrait": "<div class=\"topbar-user-role\">Administrateur</div>",
       "avant_plan": "#69707d",
       "arriere_plan": "#ffffff",
       "ratio": 4.98,
@@ -361,7 +361,7 @@
     {
       "compartiment": "conforme",
       "selecteur": "a[href$=\"categories\"]",
-      "extrait": "<a href=\"/admin/categories\" class=\"sidebar-item\">Categories</a>",
+      "extrait": "<a href=\"/admin/categories\" class=\"sidebar-item\">Catégories</a>",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",
       "ratio": 8.86,
@@ -383,7 +383,7 @@
     {
       "compartiment": "conforme",
       "selecteur": "a[href$=\"by-category\"]",
-      "extrait": "<a href=\"/admin/products/by-category\" class=\"sidebar-item\">Produits par categorie</a>",
+      "extrait": "<a href=\"/admin/products/by-category\" class=\"sidebar-item\">Produits par catégorie</a>",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",
       "ratio": 8.86,
@@ -416,7 +416,7 @@
     {
       "compartiment": "conforme",
       "selecteur": "a[href$=\"ingredients\"]",
-      "extrait": "<a href=\"/admin/ingredients\" class=\"sidebar-item\">Ingredients</a>",
+      "extrait": "<a href=\"/admin/ingredients\" class=\"sidebar-item\">Ingrédients</a>",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",
       "ratio": 8.86,
@@ -504,7 +504,7 @@
     {
       "compartiment": "conforme",
       "selecteur": "a[href$=\"roles\"]",
-      "extrait": "<a href=\"/admin/roles\" class=\"sidebar-item\">Roles</a>",
+      "extrait": "<a href=\"/admin/roles\" class=\"sidebar-item\">Rôles</a>",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",
       "ratio": 8.86,
@@ -570,7 +570,7 @@
     {
       "compartiment": "conforme",
       "selecteur": "article:nth-child(2) > .tile-top > .tile-tag",
-      "extrait": "<span class=\"tile-tag\">Classees</span>",
+      "extrait": "<span class=\"tile-tag\">Classées</span>",
       "avant_plan": "#065f46",
       "arriere_plan": "#d1fae5",
       "ratio": 6.77,
@@ -592,7 +592,7 @@
     {
       "compartiment": "conforme",
       "selecteur": "article:nth-child(2) > .tile-label",
-      "extrait": "<div class=\"tile-label\">Categories</div>",
+      "extrait": "<div class=\"tile-label\">Catégories</div>",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",
       "ratio": 8.86,
@@ -680,7 +680,7 @@
     {
       "compartiment": "conforme",
       "selecteur": ".page-header:nth-child(3) > div > p",
-      "extrait": "<p class=\"page-subtitle\">0,00 EUR aujourd'hui — 0 commande(s) payee(s).</p>",
+      "extrait": "<p class=\"page-subtitle\">0,00 EUR aujourd'hui — 0 commande(s) payée(s).</p>",
       "avant_plan": "#69707d",
       "arriere_plan": "#f5f5f5",
       "ratio": 4.57,
@@ -735,7 +735,7 @@
     {
       "compartiment": "conforme",
       "selecteur": ".stat-card:nth-child(2) > .stat-card__label",
-      "extrait": "<div class=\"stat-card__label\">Commandes payees (jour)</div>",
+      "extrait": "<div class=\"stat-card__label\">Commandes payées (jour)</div>",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#ffffff",
       "ratio": 17.4,
@@ -779,7 +779,7 @@
     {
       "compartiment": "conforme",
       "selecteur": ".stat-card:nth-child(3) > .stat-card__sub.muted",
-      "extrait": "<div class=\"stat-card__sub muted\">par commande payee</div>",
+      "extrait": "<div class=\"stat-card__sub muted\">par commande payée</div>",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#ffffff",
       "ratio": 17.4,
@@ -812,7 +812,7 @@
     {
       "compartiment": "conforme",
       "selecteur": ".a11y-toggle__label",
-      "extrait": "<span class=\"a11y-toggle__label\">Police adaptee</span>",
+      "extrait": "<span class=\"a11y-toggle__label\">Police adaptée</span>",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#ffffff",
       "ratio": 17.4,
