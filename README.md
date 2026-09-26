@@ -151,7 +151,7 @@ Avec un `.env` adapte : `APP_ENV=prod`, `APP_DEBUG=false`, mots de passe forts,
 |   |-- merise/                  # dictionnaire, MCD, MCT, MLD, MLT (+ diagrammes)
 |   |-- uml/                     # use-cases, sequences, machine a etats
 |   `-- adr/ api/ domaines/ design/ journal/ _ref/
-|-- scripts/                     # deploy, install-hooks, forgejo-* (branch-protection, pr-automerge)
+|-- scripts/                     # deploy, install-hooks, forgejo-*, demo-snapshot/demo-reset (voir docs/ops/demo-reset.md)
 |-- src/
 |   |-- app/                     # namespace App\ : Core, Controllers, Auth, Catalogue, Order, Views
 |   `-- public/                  # DocumentRoots Apache : borne/ (kiosk) + admin/ (back-office + API)
@@ -213,6 +213,7 @@ La CI Forgejo execute secret-scan, php-lint, static-tests (PHPStan niveau 6 + PH
 | `docs/journal/` | Retrospectives par session et par feature (preparation de l'oral RNCP) |
 | `docs/merise/` | Modelisation Merise : dictionnaire, MCD, MCT, MLD, MLT (+ diagrammes) |
 | `docs/ARCHITECTURE.md` / `docs/adr/` | Vue technique + decisions d'architecture (ADR) |
+| `docs/ops/demo-reset.md` | Remise a zero des donnees de demo avant/pendant la soutenance (`scripts/demo-snapshot.sh`, `scripts/demo-reset.sh`) |
 | `.claude/CLAUDE.md` | Constitution du projet pour les agents Claude Code |
 | `.claude/rules/` | Protocoles appliques : fact-check, merise-agile, elo-trust, hermes-dispatcher, byan-api, byan-agents |
 
