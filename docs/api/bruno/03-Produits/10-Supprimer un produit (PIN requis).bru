@@ -1,0 +1,25 @@
+meta {
+  name: Supprimer un produit (PIN requis)
+  type: http
+  seq: 10
+}
+
+delete {
+  url: {{baseUrl}}/admin/api/products/{{created_product_id}}
+}
+
+headers {
+  Content-Type: application/json
+  X-CSRF-Token: {{csrf}}
+}
+
+body {
+  {
+    "pin_email": "{{pin_email}}",
+    "pin": "{{pin}}"
+  }
+}
+
+docs {
+409 CONFLICT si le produit est encore reference (commande, menu). La recette part en CASCADE (ADR-0017), donc PAS un blocage ici. Suppression DURE (contrairement aux categories) : etat terminal de ce dossier pour CETTE ressource (suppression dure reelle).
+}

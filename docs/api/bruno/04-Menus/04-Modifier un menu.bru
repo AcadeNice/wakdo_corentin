@@ -1,0 +1,40 @@
+meta {
+  name: Modifier un menu
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{baseUrl}}/admin/api/menus/{{created_menu_id}}
+}
+
+headers {
+  Content-Type: application/json
+  X-CSRF-Token: {{csrf}}
+}
+
+body {
+  {
+    "category_id": "{{menusCategoryId}}",
+    "burger_product_id": "{{burgerBaseProductId}}",
+    "name": "Menu Demo {{run}} v2",
+    "price_normal_cents": 890,
+    "price_maxi_cents": 990,
+    "is_available": true,
+    "display_order": 50,
+    "slots": [
+      {
+        "name": "Boisson",
+        "slot_type": "drink",
+        "is_required": true,
+        "options": [
+          "{{drinkBaseProductId}}"
+        ]
+      }
+    ]
+  }
+}
+
+docs {
+Memes regles que la creation : prix en entiers de centimes stricts.
+}

@@ -1,0 +1,39 @@
+meta {
+  name: Creer un utilisateur (PIN requis)
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/admin/api/users
+}
+
+headers {
+  Content-Type: application/json
+  X-CSRF-Token: {{csrf}}
+}
+
+body {
+  {
+    "email": "equipier-{{run}}@wakdo.local",
+    "first_name": "Demo",
+    "last_name": "Equipier {{run}}",
+    "role_id": "{{firstRoleId}}",
+    "password": "Demo-{{run}}!",
+    "pin_email": "{{pin_email}}",
+    "pin": "{{pin}}"
+  }
+}
+
+docs {
+user.create, PIN obligatoire (mlt 10.1). Email unique par execution ({{run}}). role_id recupere dynamiquement (dossier Roles). Mot de passe 'Demo-{{run}}!' : la partie fixe seule ferait moins de 8 caracteres et, surtout, serait un LITTERAL constant commis en clair -- {{run}} (horodatage pose par 'Se connecter', change a chaque execution) rend ce mot de passe different a chaque passage de la collection, pas un secret reutilisable.
+}
+
+script:post-response {
+  const body = res.getBody();
+  if (body && body.data && body.data.id) { bru.setEnvVar('created_user_id', body.data.id); }
+}
+
+tests {
+  expect(res.getStatus()).to.equal(201);
+}

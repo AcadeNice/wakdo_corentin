@@ -1,0 +1,22 @@
+meta {
+  name: Se deconnecter
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/admin/api/auth/logout
+}
+
+headers {
+  Content-Type: application/json
+  X-CSRF-Token: {{csrf}}
+}
+
+docs {
+Detruit la session serveur (204, sans corps). Toute requete /admin/api/* suivante, tant qu'on ne s'est pas reconnecte, renvoie 401 AUTH_REQUIRED.
+}
+
+tests {
+  expect(res.getStatus()).to.equal(204);
+}

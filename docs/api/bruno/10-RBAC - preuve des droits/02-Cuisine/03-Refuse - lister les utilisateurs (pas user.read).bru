@@ -1,0 +1,17 @@
+meta {
+  name: Refuse : lister les utilisateurs (pas user.read)
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/admin/api/users
+}
+
+docs {
+La cuisine n'a AUCUNE permission user.*. 403 FORBIDDEN attendu.
+}
+
+tests {
+  expect(res.getStatus()).to.equal(403);
+}

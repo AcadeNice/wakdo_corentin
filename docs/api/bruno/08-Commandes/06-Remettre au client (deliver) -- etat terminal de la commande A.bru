@@ -1,0 +1,18 @@
+meta {
+  name: Remettre au client (deliver) -- etat terminal de la commande A
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/admin/api/orders/{{created_order_number}}/deliver
+}
+
+headers {
+  Content-Type: application/json
+  X-CSRF-Token: {{csrf}}
+}
+
+docs {
+order.deliver, pas de PIN. "delivered" est un etat terminal NORMAL (pas une pollution a nettoyer) : une commande livree fait partie de l'historique reel du restaurant.
+}

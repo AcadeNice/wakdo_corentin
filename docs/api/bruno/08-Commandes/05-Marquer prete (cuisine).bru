@@ -1,0 +1,18 @@
+meta {
+  name: Marquer prete (cuisine)
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/admin/api/orders/{{created_order_number}}/ready
+}
+
+headers {
+  Content-Type: application/json
+  X-CSRF-Token: {{csrf}}
+}
+
+docs {
+order.read, pas de PIN. Meme garde de visibilite de source (PRE-3) que le HTML.
+}

@@ -1,0 +1,17 @@
+meta {
+  name: Verifier la deconnexion (401 attendu)
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/admin/api/auth/me
+}
+
+docs {
+Preuve directe : la meme requete qui renvoyait 200 juste avant renvoie desormais 401 AUTH_REQUIRED, en JSON (jamais une redirection HTML vers /login).
+}
+
+tests {
+  expect(res.getStatus()).to.equal(401);
+}

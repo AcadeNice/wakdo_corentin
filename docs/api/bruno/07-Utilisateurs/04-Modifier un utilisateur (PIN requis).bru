@@ -1,0 +1,30 @@
+meta {
+  name: Modifier un utilisateur (PIN requis)
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{baseUrl}}/admin/api/users/{{created_user_id}}
+}
+
+headers {
+  Content-Type: application/json
+  X-CSRF-Token: {{csrf}}
+}
+
+body {
+  {
+    "email": "equipier-{{run}}@wakdo.local",
+    "first_name": "Demo",
+    "last_name": "Equipier {{run}} v2",
+    "role_id": "{{firstRoleId}}",
+    "is_active": true,
+    "pin_email": "{{pin_email}}",
+    "pin": "{{pin}}"
+  }
+}
+
+docs {
+user.update, PIN obligatoire (mlt 10.2). PUT PARTIEL sur is_active : omis, il conserve la valeur actuelle (ne desactive jamais par omission) ; envoye ici a true pour l'illustrer explicitement.
+}

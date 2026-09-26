@@ -1,0 +1,13 @@
+meta {
+  name: Tableau de bord (compteurs + stock + ventes)
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/admin/api/stats
+}
+
+docs {
+stats.read, lecture seule.
+}

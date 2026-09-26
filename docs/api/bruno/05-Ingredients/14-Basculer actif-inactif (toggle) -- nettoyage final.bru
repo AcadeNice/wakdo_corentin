@@ -1,0 +1,18 @@
+meta {
+  name: Basculer actif/inactif (toggle) -- nettoyage final
+  type: http
+  seq: 14
+}
+
+post {
+  url: {{baseUrl}}/admin/api/ingredients/{{created_restock_ingredient_id}}/toggle
+}
+
+headers {
+  Content-Type: application/json
+  X-CSRF-Token: {{csrf}}
+}
+
+docs {
+Pas de DELETE possible ici : cet ingredient porte des stock_movement (restock/inventaire/ajustement ci-dessus), donc 409 CONFLICT sur une suppression dure (conventions.md section 5.3, comportement voulu -- une demarque non tracee serait pire). La bascule vers inactif est le nettoyage correct pour CETTE ressource.
+}

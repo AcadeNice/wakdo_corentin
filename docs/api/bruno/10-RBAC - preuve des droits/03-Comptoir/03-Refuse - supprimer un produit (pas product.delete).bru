@@ -1,0 +1,22 @@
+meta {
+  name: Refuse : supprimer un produit (pas product.delete)
+  type: http
+  seq: 3
+}
+
+delete {
+  url: {{baseUrl}}/admin/api/products/1
+}
+
+headers {
+  Content-Type: application/json
+  X-CSRF-Token: {{csrf_comptoir}}
+}
+
+docs {
+Le comptoir n'a que product.read sur le catalogue. 403 FORBIDDEN attendu (verifie AVANT toute lecture de la ressource).
+}
+
+tests {
+  expect(res.getStatus()).to.equal(403);
+}

@@ -416,6 +416,31 @@ final class OrderApiControllerTest extends TestCase
         self::assertFalse($db->wrote('INSERT INTO customer_order'));
     }
 
+    /**
+     * REGLE : la garde de permission passe AVANT la validation du corps. Sans
+     * elle, un corps volontairement invalide ({"items": []}) pourrait servir a
+     * SONDER si order.create est accorde par la difference entre 403 (refuse
+     * avant meme de lire le corps) et 422 (lu, donc la permission a ete
+     * accordee) -- ce qui est exactement ce que le dossier RBAC de la
+     * collection Postman/Bruno exploite DELIBEREMENT pour un role QUI A la
+     * permission (docs/api/demo-api.md, section 5) ; ce test verifie l'autre
+     * sens, qu'un role SANS la permission ne peut pas se faire reveler une
+     * validation reussie par erreur.
+     */
+    public function testStoreWithoutPermissionReturns403EvenWithEmptyItems(): void
+    {
+        $db = $this->permittedDb();
+        $db->grantedCodes = ['order.read']; // order.create explicitement absent
+        $request = $this->jsonRequest('POST', '/admin/api/orders', ['items' => []]);
+
+        $response = $this->controller($request, $db)->apiStore();
+        $body = json_decode($response->body(), true);
+
+        self::assertSame(403, $response->status());
+        self::assertSame('FORBIDDEN', $body['error']['code'] ?? null);
+        self::assertFalse($db->wrote('INSERT INTO customer_order'));
+    }
+
     // --- ready / deliver ---
 
     public function testReadyForbiddenWhenSourceNotVisible(): void

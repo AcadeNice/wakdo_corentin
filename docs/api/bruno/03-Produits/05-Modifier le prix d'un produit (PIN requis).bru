@@ -1,0 +1,31 @@
+meta {
+  name: Modifier le prix d'un produit (PIN requis)
+  type: http
+  seq: 5
+}
+
+put {
+  url: {{baseUrl}}/admin/api/products/{{created_product_id}}
+}
+
+headers {
+  Content-Type: application/json
+  X-CSRF-Token: {{csrf}}
+}
+
+body {
+  {
+    "category_id": "{{burgersCategoryId}}",
+    "name": "Produit Demo {{run}} renomme",
+    "price_cents": 590,
+    "vat_rate": 100,
+    "is_available": true,
+    "display_order": 99,
+    "pin_email": "{{pin_email}}",
+    "pin": "{{pin}}"
+  }
+}
+
+docs {
+Changer price_cents ou vat_rate est une action sensible (RG-T13) : pin_email + pin obligatoires (modele identifiant equipier + PIN). Definissez d'abord un PIN sur le compte via /admin/profile/pin (cf. docs/api/demo-api.md).
+}

@@ -1,0 +1,27 @@
+meta {
+  name: Revue des allergenes
+  type: http
+  seq: 13
+}
+
+put {
+  url: {{baseUrl}}/admin/api/ingredients/{{created_restock_ingredient_id}}/allergens
+}
+
+headers {
+  Content-Type: application/json
+  X-CSRF-Token: {{csrf}}
+}
+
+body {
+  {
+    "allergen_ids": [
+      1
+    ],
+    "source": "Fiche fournisseur"
+  }
+}
+
+docs {
+ingredient.manage, pas de PIN. source obligatoire (une revue non sourcee est refusee, 422). allergen_ids=[1] : catalogue INCO FIGE (14 allergenes UE), pas un id de ressource creee par cette collection.
+}

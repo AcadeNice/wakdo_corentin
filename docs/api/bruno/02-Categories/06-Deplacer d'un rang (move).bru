@@ -1,0 +1,24 @@
+meta {
+  name: Deplacer d'un rang (move)
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/admin/api/categories/{{created_category_id}}/move
+}
+
+headers {
+  Content-Type: application/json
+  X-CSRF-Token: {{csrf}}
+}
+
+body {
+  {
+    "direction": "up"
+  }
+}
+
+docs {
+direction : "up" ou "down".
+}

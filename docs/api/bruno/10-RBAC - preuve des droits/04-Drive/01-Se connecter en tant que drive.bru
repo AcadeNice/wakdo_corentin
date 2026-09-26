@@ -1,0 +1,33 @@
+meta {
+  name: Se connecter en tant que drive
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/admin/api/auth/login
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body {
+  {
+    "email": "{{email_drive}}",
+    "password": "{{password_drive}}"
+  }
+}
+
+docs {
+Identifiants VIDES par defaut (email_drive/password_drive) : a completer depuis docs/demo/comptes-demo.md (compte de demo par poste), jamais commis en clair dans cette collection. Droits attendus (memes droits que Comptoir (seed) : order.create oui, product.delete non) : db/seeds/0001_rbac_and_reference.sql, section role_permission.
+}
+
+script:post-response {
+  const body = res.getBody();
+  if (body && body.data && body.data.csrf_token) { bru.setEnvVar('csrf_drive', body.data.csrf_token); }
+}
+
+tests {
+  expect(res.getStatus()).to.equal(200);
+}

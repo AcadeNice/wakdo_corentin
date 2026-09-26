@@ -1,0 +1,22 @@
+meta {
+  name: Refuse : supprimer un produit (pas product.delete)
+  type: http
+  seq: 3
+}
+
+delete {
+  url: {{baseUrl}}/admin/api/products/1
+}
+
+headers {
+  Content-Type: application/json
+  X-CSRF-Token: {{csrf_drive}}
+}
+
+docs {
+Meme ensemble de droits que Comptoir (seed) : 403 FORBIDDEN attendu.
+}
+
+tests {
+  expect(res.getStatus()).to.equal(403);
+}

@@ -23,6 +23,13 @@ final class FakeDatabase implements DatabaseInterface
      */
     public ?array $userRow = null;
 
+    /**
+     * Hash STOCKE de reference renvoye par 'SELECT password_hash FROM user
+     * LIMIT 1' (AuthService::referenceHashForDecoy(), calibrage du leurre sur
+     * email inconnu) ; null = aucun utilisateur en base (borne de demarrage).
+     */
+    public ?string $referenceUserPasswordHash = null;
+
     /** lockout_until renvoye pour la porte de throttling IP ; null = pas de verrou. */
     public ?string $ipLockoutUntil = null;
 
@@ -507,6 +514,17 @@ final class FakeDatabase implements DatabaseInterface
         // retirer ce filtre en production ferait virer au rouge le test du compte inactif.
         if (str_contains($sql, 'SELECT password_hash FROM user WHERE id') && str_contains($sql, 'is_active = 1')) {
             return $this->currentPasswordRow;
+        }
+
+        // AuthService::referenceHashForDecoy() : un hash STOCKE quelconque
+        // (distinct des routes ci-dessus qui filtrent toutes par id/email) pour
+        // calibrer le leurre sur email inconnu. Le predicat `password_hash <> ''`
+        // est exige ICI aussi : il exclut les tombstones RGPD (dont le hash est
+        // vide), et le retirer en production rouvrirait l'ecart de temps --
+        // AuthServiceTest::testReferenceHashQueryExcludesAnonymisedTombstones
+        // vire au rouge si la requete perd ce predicat ou son tri.
+        if (str_contains($sql, 'SELECT password_hash FROM user') && str_contains($sql, "password_hash <> ''")) {
+            return $this->referenceUserPasswordHash !== null ? ['password_hash' => $this->referenceUserPasswordHash] : null;
         }
 
         // Exige is_active = 1 (garde RG-T13) : retirer le predicat en production
