@@ -42,9 +42,14 @@ Preuves de l'absence de dependance externe :
   HTML de la borne (`src/public/borne/*.html`). Tous les scripts sont charges
   en `type="module"` depuis `assets/js/` (ex. `products.html:64-68`).
 - `package.json` (racine) ne declare aucune dependance de production :
-  seulement deux `devDependencies` d'outillage de test
-  (`@playwright/test`, `jsdom`) — `package.json:devDependencies`. Aucun
-  framework front, aucun utilitaire runtime.
+  seulement trois `devDependencies` d'outillage de test
+  (`@playwright/test`, `jsdom`, et `@axe-core/playwright` ajoute pour l'audit
+  d'accessibilite mesure) — `package.json:devDependencies`. Aucun framework
+  front, aucun utilitaire charge par le navigateur. `axe-core` merite d'etre
+  nomme a l'oral : c'est bien une librairie externe, mais elle **mesure** le
+  produit, elle n'en fait pas partie — elle ne part pas dans le navigateur du
+  client. Elle ne remplit donc pas le critere C2.d, qui vise une ressource
+  integree a l'application.
 - Aucun bundler dans le depot (pas de `webpack.config.js`, `vite.config.*`,
   `rollup.config.*`, `.babelrc`, `tsconfig.json`). Le navigateur charge les
   modules ES6 nativement.

@@ -107,6 +107,13 @@ const ACCEPTE = {
     'admin-produit-formulaire': [],
     'admin-produits-import': [],
     'admin-produits-import-apercu': [],
+    // Surfaces bâties par le navigateur, mesurées à partir du 2026-09-26 (voir
+    // 06-audit-accessibilite-mesure.md section 5 ter) : le constructeur de slots du
+    // formulaire menu, et les deux canaux de la caisse tactile avec leur composeur.
+    'admin-menu-formulaire': [],
+    'admin-caisse-comptoir': [],
+    'admin-caisse-composeur-menu': [],
+    'admin-caisse-drive': [],
 };
 
 const GRAVITES = ['critical', 'serious', 'moderate', 'minor'];
@@ -261,6 +268,58 @@ function verifierBarriere(cles) {
     expect(fautifs, `regles WCAG AA non documentees dans ACCEPTE :\n${fautifs.join('\n')}`).toEqual([]);
 }
 
+/**
+ * Ouvre une session back-office. Partage entre l'audit du back-office et celui de la
+ * caisse tactile, qui tournent dans deux contextes de navigation distincts.
+ * @param {import('@playwright/test').Page} page
+ */
+async function connexionAdmin(page) {
+    await page.goto(`${ADMIN}/login`);
+    await page.fill('#email', ADMIN_EMAIL);
+    await page.fill('#password', ADMIN_PASSWORD);
+    await page.locator('form[action="/login"] button[type="submit"]').click();
+    await expect(page).toHaveURL(/\/admin\/dashboard/);
+}
+
+/**
+ * Rend l'attente d'animation explicite avant une mesure de couleur.
+ *
+ * POURQUOI : une modale lue pendant son entree rend un fond COMPOSITE transitoire, donc
+ * un ratio non reproductible (incident documente en section 8 de
+ * 06-audit-accessibilite-mesure.md). L'appel est sans effet sur une surface qui
+ * n'anime rien, ce qui permet de l'appliquer a toute modale sans se demander si elle
+ * anime aujourd'hui.
+ * @param {import('@playwright/test').Locator} racine
+ */
+async function attendreFinAnimations(racine) {
+    await racine.evaluate(el => Promise.all(el.getAnimations({ subtree: true }).map(a => a.finished)));
+}
+
+/**
+ * Cherche dans la caisse tactile la premiere tuile repondant au selecteur, en
+ * parcourant les onglets de categorie si besoin.
+ *
+ * POURQUOI parcourir : la grille n'affiche que la categorie active. Le catalogue de
+ * demonstration ne garantit pas qu'une tuile simple (ajout direct au panier) et une
+ * tuile menu (ouverture du composeur) se trouvent dans la meme categorie.
+ *
+ * @param {import('@playwright/test').Page} page
+ * @param {string} selecteur selecteur CSS applique sous #pos-grid
+ * @returns {Promise<import('@playwright/test').Locator|null>}
+ */
+async function tuileDansLesOnglets(page, selecteur) {
+    const active = page.locator(`#pos-grid ${selecteur}`);
+    if (await active.count()) return active.first();
+
+    const onglets = page.locator('#pos-tabs .pos__tab');
+    for (let i = 0, n = await onglets.count(); i < n; i += 1) {
+        await onglets.nth(i).click();
+        const trouve = page.locator(`#pos-grid ${selecteur}`);
+        if (await trouve.count()) return trouve.first();
+    }
+    return null;
+}
+
 /** Injecte l'etat client avant tout script de page (rejoue a chaque navigation). */
 async function semerEtatBorne(page) {
     await page.addInitScript(etat => {
@@ -325,7 +384,7 @@ test.describe('audit d\'accessibilite mesure (axe-core, regles WCAG AA)', () => 
         // meme audit ont rendu #e9e9e9 puis #e3e3e3 pour le meme element. Un chiffre
         // non reproductible n'est pas une preuve. On attend donc que toutes les
         // animations de la modale soient terminees avant de lire les couleurs.
-        await modale.evaluate(el => Promise.all(el.getAnimations({ subtree: true }).map(a => a.finished)));
+        await attendreFinAnimations(modale);
         await auditer(page, 'produits-modale-options');
 
         await page.goto('/payment.html');
@@ -370,12 +429,31 @@ test.describe('audit d\'accessibilite mesure (axe-core, regles WCAG AA)', () => 
         // (chantier CSV/recette, 2026-09-26) -- picker d'ingredient, bouton
         // "Creer un nouvel ingredient", champs dynamiques.
         await page.goto(`${ADMIN}/admin/products/new`);
-        // #recipe-builder demarre VIDE a la creation (aucune ligne de recette
-        // encore posee) : un conteneur sans contenu a une hauteur nulle, donc
-        // "non visible" au sens actionnable de Playwright meme si rien ne le
-        // masque. Le bouton "Ajouter un ingrédient", lui, est toujours rendu.
-        await expect(page.locator('#add-ingredient')).toBeVisible();
+        // #recipe-builder demarre VIDE a la creation : aucune ligne de recette n'est
+        // encore posee, product-recipe.js ne les batit qu'au clic. Se contenter
+        // d'attendre le bouton, comme le faisait la premiere version de ce bloc,
+        // auditait donc un conteneur vide : les etiquettes, les cibles et les
+        // contrastes des lignes de recette echappaient au moteur. On
+        // pose donc UNE LIGNE DE CHAQUE TYPE avant de mesurer -- ingredient existant
+        // (select + quantites + cases retirable/ajoutable) et creation d'ingredient
+        // (nom, unite, conditionnement), qui n'ont pas le meme balisage.
+        await page.locator('#add-ingredient').click();
+        await expect(page.locator('#recipe-builder .recipe-line-existing').first()).toBeVisible();
+        const creerIngredient = page.locator('#add-new-ingredient');
+        if (await creerIngredient.count()) {
+            await creerIngredient.click();
+            await expect(page.locator('#recipe-builder .recipe-line-new').first()).toBeVisible();
+        }
         await auditer(page, 'admin-produit-formulaire');
+
+        // Formulaire menu : le constructeur de slots est lui aussi bati par le
+        // navigateur (menu-form.js) -- la page servie ne contient qu'un conteneur vide
+        // porteur de ses data-*. A la difference de la recette, le script pose d'office
+        // un bloc de slot a la creation ; on attend donc CE BLOC et pas le conteneur,
+        // sans quoi la mesure partirait avant l'ecriture du JS.
+        await page.goto(`${ADMIN}/admin/menus/new`);
+        await expect(page.locator('#slot-builder .slot-block').first()).toBeVisible();
+        await auditer(page, 'admin-menu-formulaire');
 
         // Import CSV : ecran de depot.
         await page.goto(`${ADMIN}/admin/products/import`);
@@ -399,8 +477,68 @@ test.describe('audit d\'accessibilite mesure (axe-core, regles WCAG AA)', () => 
 
         verifierBarriere([
             'admin-connexion', 'admin-tableau-de-bord', 'admin-ingredients', 'admin-produits', 'admin-commandes',
-            'admin-produit-formulaire', 'admin-produits-import', 'admin-produits-import-apercu',
+            'admin-produit-formulaire', 'admin-menu-formulaire',
+            'admin-produits-import', 'admin-produits-import-apercu',
         ]);
+    });
+
+    /*
+     * Caisse tactile comptoir / drive, dans un test separe.
+     *
+     * POURQUOI separe du back-office : c'est la surface la plus construite par le
+     * navigateur de toute l'application. Le HTML servi par `counter/new.php` ne
+     * contient qu'une barre d'onglets VIDE, une grille reduite a un repli
+     * "Activez JavaScript", et un panier reduit a "Panier vide." ; les onglets, les
+     * tuiles, les lignes de panier avec leurs steppers, et la modale de composition
+     * sont tous batis par `counter-order.js`. Mesurer ces ecrans a froid reviendrait a
+     * auditer une page quasi vide en croyant auditer une caisse.
+     */
+    test('caisse tactile : comptoir avec panier, composeur de menu, canal drive', async ({ page }) => {
+        test.setTimeout(180000);
+        // Meme geometrie que le reste du back-office : la caisse vise un poste de
+        // comptoir ou une tablette en paysage.
+        await page.setViewportSize({ width: 1440, height: 900 });
+        await connexionAdmin(page);
+
+        await page.goto(`${ADMIN}/counter/orders/new`);
+        // Une tuile reelle, pas le conteneur : tant que la grille n'a pas rendu, le
+        // repli sans JavaScript est le seul contenu present.
+        await expect(page.locator('#pos-grid .pos-tile').first()).toBeVisible();
+
+        // Tuile SANS `aria-haspopup` et commandable = ajout direct. C'est ce tap qui
+        // fait rendre la ligne de panier, son groupe de quantite et son bouton de
+        // retrait -- une surface d'accessibilite a part entiere, invisible tant que le
+        // panier reste vide.
+        const tuileSimple = await tuileDansLesOnglets(
+            page,
+            '.pos-tile:not([aria-haspopup]):not([aria-disabled="true"])',
+        );
+        expect(tuileSimple, 'aucune tuile a ajout direct dans le catalogue').not.toBeNull();
+        await tuileSimple.click();
+        await expect(page.locator('#order-cart .order-cart__line').first()).toBeVisible();
+        await auditer(page, 'admin-caisse-comptoir');
+
+        // Composeur de menu : modale construite de bout en bout par le JS (choix du
+        // format Normal/Maxi, un groupe de boutons radio par slot, cases de
+        // modificateurs du burger). Une tuile menu porte ", menu a composer" dans son
+        // nom accessible.
+        const tuileMenu = await tuileDansLesOnglets(page, '.pos-tile[aria-label*="menu à composer"]');
+        expect(tuileMenu, 'aucune tuile menu dans le catalogue').not.toBeNull();
+        await tuileMenu.click();
+        const composeur = page.locator('#menu-composer-modal [role="dialog"]');
+        await expect(composeur).toBeVisible();
+        await attendreFinAnimations(composeur);
+        await auditer(page, 'admin-caisse-composeur-menu');
+
+        // Canal drive : meme controleur, mais le mode de service est FIGE (affichage
+        // non editable + champ cache) et le numero de table disparait. Le balisage du
+        // panneau de commande n'est donc pas celui du comptoir.
+        await page.goto(`${ADMIN}/drive/orders/new`);
+        await expect(page.locator('#pos-grid .pos-tile').first()).toBeVisible();
+        await expect(page.locator('#service_mode_display')).toBeVisible();
+        await auditer(page, 'admin-caisse-drive');
+
+        verifierBarriere(['admin-caisse-comptoir', 'admin-caisse-composeur-menu', 'admin-caisse-drive']);
     });
 
     test.afterAll(() => {

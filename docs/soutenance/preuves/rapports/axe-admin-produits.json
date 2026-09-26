@@ -1,7 +1,7 @@
 {
   "page": "admin-produits",
   "url": "http://admin.wakdo.test/admin/products",
-  "date": "2026-09-26T05:32:23.908Z",
+  "date": "2026-09-26T14:24:27.706Z",
   "moteur": {
     "axe": {
       "name": "axe-core",
@@ -335,7 +335,7 @@
     {
       "compartiment": "conforme",
       "selecteur": "th:nth-child(3)",
-      "extrait": "<th>Prix</th>",
+      "extrait": "<th class=\"table-num\">Prix</th>",
       "avant_plan": "#69707d",
       "arriere_plan": "#f9fafb",
       "ratio": 4.76,
@@ -367,7 +367,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": "tr:nth-child(1) > .fw-600",
+      "selecteur": "tr[data-row-key=\"product:38\"] > .fw-600",
       "extrait": "<td class=\"fw-600\"> Brownie </td>",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#ffffff",
@@ -378,7 +378,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": "tr:nth-child(1) > .muted:nth-child(2)",
+      "selecteur": "tr[data-row-key=\"product:38\"] > .muted:nth-child(2)",
       "extrait": "<td class=\"muted\">Desserts</td>",
       "avant_plan": "#69707d",
       "arriere_plan": "#ffffff",
@@ -389,8 +389,8 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": "tr:nth-child(1) > td:nth-child(3)",
-      "extrait": "<td>2,60 EUR</td>",
+      "selecteur": "tr[data-row-key=\"product:38\"] > .table-num",
+      "extrait": "<td class=\"table-num\">2,60 EUR</td>",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#ffffff",
       "ratio": 17.4,
@@ -400,7 +400,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": "tr:nth-child(1) > .muted:nth-child(4)",
+      "selecteur": "tr[data-row-key=\"product:38\"] > .muted:nth-child(4)",
       "extrait": "<td class=\"muted\">10%</td>",
       "avant_plan": "#69707d",
       "arriere_plan": "#ffffff",
@@ -411,7 +411,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": "tr:nth-child(1) > td:nth-child(5) > .pill-success.pill",
+      "selecteur": "tr[data-row-key=\"product:38\"] > td:nth-child(5) > .pill-success.pill",
       "extrait": "<span class=\"pill pill-success\">Disponible</span>",
       "avant_plan": "#065f46",
       "arriere_plan": "#d1fae5",
@@ -422,7 +422,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": "tr:nth-child(1) > td:nth-child(6) > .btn-secondary.btn[href$=\"edit\"]",
+      "selecteur": "tr[data-row-key=\"product:38\"] > td:nth-child(6) > .row-actions > .btn-secondary.btn[href$=\"edit\"]",
       "extrait": "<a class=\"btn btn-secondary\" href=\"/admin/products/38/edit\">Modifier</a>",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",
@@ -433,7 +433,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": "tr:nth-child(1) > td:nth-child(6) > .btn-secondary.btn[href$=\"recipe\"]",
+      "selecteur": "tr[data-row-key=\"product:38\"] > td:nth-child(6) > .row-actions > .btn-secondary.btn[href$=\"recipe\"]",
       "extrait": "<a class=\"btn btn-secondary\" href=\"/admin/products/38/recipe\">Recette</a>",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",
@@ -444,7 +444,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": "tr:nth-child(1) > td:nth-child(6) > .btn-secondary.btn[href$=\"delete\"]",
+      "selecteur": "tr[data-row-key=\"product:38\"] > td:nth-child(6) > .row-actions > .row-actions__danger > .btn-secondary.btn[href$=\"delete\"]",
       "extrait": "<a class=\"btn btn-secondary\" href=\"/admin/products/38/delete\">Supprimer</a>",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",
@@ -455,7 +455,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": "tr:nth-child(2) > .fw-600",
+      "selecteur": "tr[data-row-key=\"product:27\"] > .fw-600",
       "extrait": "<td class=\"fw-600\"> Cheeseburger </td>",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#ffffff",
@@ -466,7 +466,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": "tr:nth-child(2) > .muted:nth-child(2)",
+      "selecteur": "tr[data-row-key=\"product:27\"] > .muted:nth-child(2)",
       "extrait": "<td class=\"muted\">Encas</td>",
       "avant_plan": "#69707d",
       "arriere_plan": "#ffffff",
@@ -477,8 +477,8 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": "tr:nth-child(2) > td:nth-child(3)",
-      "extrait": "<td>2,60 EUR</td>",
+      "selecteur": "tr[data-row-key=\"product:27\"] > .table-num",
+      "extrait": "<td class=\"table-num\">2,60 EUR</td>",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#ffffff",
       "ratio": 17.4,
@@ -488,7 +488,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": "tr:nth-child(2) > .muted:nth-child(4)",
+      "selecteur": "tr[data-row-key=\"product:27\"] > .muted:nth-child(4)",
       "extrait": "<td class=\"muted\">10%</td>",
       "avant_plan": "#69707d",
       "arriere_plan": "#ffffff",
@@ -499,7 +499,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": "tr:nth-child(2) > td:nth-child(5) > .pill-success.pill",
+      "selecteur": "tr[data-row-key=\"product:27\"] > td:nth-child(5) > .pill-success.pill",
       "extrait": "<span class=\"pill pill-success\">Disponible</span>",
       "avant_plan": "#065f46",
       "arriere_plan": "#d1fae5",
@@ -510,7 +510,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": "tr:nth-child(2) > td:nth-child(6) > .btn-secondary.btn[href$=\"edit\"]",
+      "selecteur": "tr[data-row-key=\"product:27\"] > td:nth-child(6) > .row-actions > .btn-secondary.btn[href$=\"edit\"]",
       "extrait": "<a class=\"btn btn-secondary\" href=\"/admin/products/27/edit\">Modifier</a>",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",
@@ -521,7 +521,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": "tr:nth-child(2) > td:nth-child(6) > .btn-secondary.btn[href$=\"recipe\"]",
+      "selecteur": "tr[data-row-key=\"product:27\"] > td:nth-child(6) > .row-actions > .btn-secondary.btn[href$=\"recipe\"]",
       "extrait": "<a class=\"btn btn-secondary\" href=\"/admin/products/27/recipe\">Recette</a>",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",
@@ -532,7 +532,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": "tr:nth-child(2) > td:nth-child(6) > .btn-secondary.btn[href$=\"delete\"]",
+      "selecteur": "tr[data-row-key=\"product:27\"] > td:nth-child(6) > .row-actions > .row-actions__danger > .btn-secondary.btn[href$=\"delete\"]",
       "extrait": "<a class=\"btn btn-secondary\" href=\"/admin/products/27/delete\">Supprimer</a>",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",
@@ -543,51 +543,51 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": "tr:nth-child(3) > .fw-600",
+      "selecteur": "tr[data-row-key=\"product:47\"] > .fw-600",
       "extrait": "<td class=\"fw-600\"> Classic Barbecue </td>",
       "avant_plan": "#1a1a1a",
-      "arriere_plan": "#ffffff",
-      "ratio": 17.4,
+      "arriere_plan": "#f9fafb",
+      "ratio": 16.65,
       "seuil_attendu": "4.5:1",
       "taille_px": "9.8pt (13px)",
       "graisse": "normal"
     },
     {
       "compartiment": "conforme",
-      "selecteur": "tr:nth-child(3) > .muted:nth-child(2)",
+      "selecteur": "tr[data-row-key=\"product:47\"] > .muted:nth-child(2)",
       "extrait": "<td class=\"muted\">Sauces</td>",
       "avant_plan": "#69707d",
-      "arriere_plan": "#ffffff",
-      "ratio": 4.98,
+      "arriere_plan": "#f9fafb",
+      "ratio": 4.76,
       "seuil_attendu": "4.5:1",
       "taille_px": "9.8pt (13px)",
       "graisse": "normal"
     },
     {
       "compartiment": "conforme",
-      "selecteur": "tr:nth-child(3) > td:nth-child(3)",
-      "extrait": "<td>0,70 EUR</td>",
+      "selecteur": "tr[data-row-key=\"product:47\"] > .table-num",
+      "extrait": "<td class=\"table-num\">0,70 EUR</td>",
       "avant_plan": "#1a1a1a",
-      "arriere_plan": "#ffffff",
-      "ratio": 17.4,
+      "arriere_plan": "#f9fafb",
+      "ratio": 16.65,
       "seuil_attendu": "4.5:1",
       "taille_px": "9.8pt (13px)",
       "graisse": "normal"
     },
     {
       "compartiment": "conforme",
-      "selecteur": "tr:nth-child(3) > .muted:nth-child(4)",
+      "selecteur": "tr[data-row-key=\"product:47\"] > .muted:nth-child(4)",
       "extrait": "<td class=\"muted\">10%</td>",
       "avant_plan": "#69707d",
-      "arriere_plan": "#ffffff",
-      "ratio": 4.98,
+      "arriere_plan": "#f9fafb",
+      "ratio": 4.76,
       "seuil_attendu": "4.5:1",
       "taille_px": "9.8pt (13px)",
       "graisse": "normal"
     },
     {
       "compartiment": "conforme",
-      "selecteur": "tr:nth-child(3) > td:nth-child(5) > .pill-success.pill",
+      "selecteur": "tr[data-row-key=\"product:47\"] > td:nth-child(5) > .pill-success.pill",
       "extrait": "<span class=\"pill pill-success\">Disponible</span>",
       "avant_plan": "#065f46",
       "arriere_plan": "#d1fae5",
@@ -598,7 +598,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": "tr:nth-child(3) > td:nth-child(6) > .btn-secondary.btn[href$=\"edit\"]",
+      "selecteur": "tr[data-row-key=\"product:47\"] > td:nth-child(6) > .row-actions > .btn-secondary.btn[href$=\"edit\"]",
       "extrait": "<a class=\"btn btn-secondary\" href=\"/admin/products/47/edit\">Modifier</a>",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",
@@ -609,7 +609,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": "tr:nth-child(3) > td:nth-child(6) > .btn-secondary.btn[href$=\"recipe\"]",
+      "selecteur": "tr[data-row-key=\"product:47\"] > td:nth-child(6) > .row-actions > .btn-secondary.btn[href$=\"recipe\"]",
       "extrait": "<a class=\"btn btn-secondary\" href=\"/admin/products/47/recipe\">Recette</a>",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",
@@ -620,7 +620,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": "tr:nth-child(3) > td:nth-child(6) > .btn-secondary.btn[href$=\"delete\"]",
+      "selecteur": "tr[data-row-key=\"product:47\"] > td:nth-child(6) > .row-actions > .row-actions__danger > .btn-secondary.btn[href$=\"delete\"]",
       "extrait": "<a class=\"btn btn-secondary\" href=\"/admin/products/47/delete\">Supprimer</a>",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",
@@ -631,51 +631,51 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": "tr:nth-child(4) > .fw-600",
+      "selecteur": "tr[data-row-key=\"product:14\"] > .fw-600",
       "extrait": "<td class=\"fw-600\"> Coca Cola </td>",
       "avant_plan": "#1a1a1a",
-      "arriere_plan": "#f9fafb",
-      "ratio": 16.65,
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
       "seuil_attendu": "4.5:1",
       "taille_px": "9.8pt (13px)",
       "graisse": "normal"
     },
     {
       "compartiment": "conforme",
-      "selecteur": "tr:nth-child(4) > .muted:nth-child(2)",
+      "selecteur": "tr[data-row-key=\"product:14\"] > .muted:nth-child(2)",
       "extrait": "<td class=\"muted\">Boissons</td>",
       "avant_plan": "#69707d",
-      "arriere_plan": "#f9fafb",
-      "ratio": 4.76,
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
       "seuil_attendu": "4.5:1",
       "taille_px": "9.8pt (13px)",
       "graisse": "normal"
     },
     {
       "compartiment": "conforme",
-      "selecteur": "tr:nth-child(4) > td:nth-child(3)",
-      "extrait": "<td>1,90 EUR</td>",
+      "selecteur": "tr[data-row-key=\"product:14\"] > .table-num",
+      "extrait": "<td class=\"table-num\">1,90 EUR</td>",
       "avant_plan": "#1a1a1a",
-      "arriere_plan": "#f9fafb",
-      "ratio": 16.65,
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
       "seuil_attendu": "4.5:1",
       "taille_px": "9.8pt (13px)",
       "graisse": "normal"
     },
     {
       "compartiment": "conforme",
-      "selecteur": "tr:nth-child(4) > .muted:nth-child(4)",
+      "selecteur": "tr[data-row-key=\"product:14\"] > .muted:nth-child(4)",
       "extrait": "<td class=\"muted\">10%</td>",
       "avant_plan": "#69707d",
-      "arriere_plan": "#f9fafb",
-      "ratio": 4.76,
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
       "seuil_attendu": "4.5:1",
       "taille_px": "9.8pt (13px)",
       "graisse": "normal"
     },
     {
       "compartiment": "conforme",
-      "selecteur": "tr:nth-child(4) > td:nth-child(5) > .pill-success.pill",
+      "selecteur": "tr[data-row-key=\"product:14\"] > td:nth-child(5) > .pill-success.pill",
       "extrait": "<span class=\"pill pill-success\">Disponible</span>",
       "avant_plan": "#065f46",
       "arriere_plan": "#d1fae5",
@@ -686,7 +686,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": "tr:nth-child(4) > td:nth-child(6) > .btn-secondary.btn[href$=\"edit\"]",
+      "selecteur": "tr[data-row-key=\"product:14\"] > td:nth-child(6) > .row-actions > .btn-secondary.btn[href$=\"edit\"]",
       "extrait": "<a class=\"btn btn-secondary\" href=\"/admin/products/14/edit\">Modifier</a>",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",
@@ -697,7 +697,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": "tr:nth-child(4) > td:nth-child(6) > .btn-secondary.btn[href$=\"recipe\"]",
+      "selecteur": "tr[data-row-key=\"product:14\"] > td:nth-child(6) > .row-actions > .btn-secondary.btn[href$=\"recipe\"]",
       "extrait": "<a class=\"btn btn-secondary\" href=\"/admin/products/14/recipe\">Recette</a>",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",
@@ -708,7 +708,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": "tr:nth-child(4) > td:nth-child(6) > .btn-secondary.btn[href$=\"delete\"]",
+      "selecteur": "tr[data-row-key=\"product:14\"] > td:nth-child(6) > .row-actions > .row-actions__danger > .btn-secondary.btn[href$=\"delete\"]",
       "extrait": "<a class=\"btn btn-secondary\" href=\"/admin/products/14/delete\">Supprimer</a>",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",
@@ -719,7 +719,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": "tr:nth-child(5) > .fw-600",
+      "selecteur": "tr[data-row-key=\"product:54\"] > .fw-600",
       "extrait": "<td class=\"fw-600\">",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#ffffff",
@@ -730,7 +730,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": "tr:nth-child(5) > .fw-600 > .pill-neutral.pill",
+      "selecteur": "tr[data-row-key=\"product:54\"] > .fw-600 > .pill-neutral.pill",
       "extrait": "<span class=\"pill pill-neutral\" title=\"Cette ligne est une variante de taille, pas un produit affich",
       "avant_plan": "#374151",
       "arriere_plan": "#f3f4f6",
@@ -741,7 +741,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": "tr:nth-child(5) > .muted:nth-child(2)",
+      "selecteur": "tr[data-row-key=\"product:54\"] > .muted:nth-child(2)",
       "extrait": "<td class=\"muted\">Boissons</td>",
       "avant_plan": "#69707d",
       "arriere_plan": "#ffffff",
@@ -752,8 +752,8 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": "tr:nth-child(5) > td:nth-child(3)",
-      "extrait": "<td>2,40 EUR</td>",
+      "selecteur": "tr[data-row-key=\"product:54\"] > .table-num",
+      "extrait": "<td class=\"table-num\">2,40 EUR</td>",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#ffffff",
       "ratio": 17.4,
@@ -763,7 +763,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": "tr:nth-child(5) > .muted:nth-child(4)",
+      "selecteur": "tr[data-row-key=\"product:54\"] > .muted:nth-child(4)",
       "extrait": "<td class=\"muted\">10%</td>",
       "avant_plan": "#69707d",
       "arriere_plan": "#ffffff",
@@ -774,7 +774,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": "tr:nth-child(5) > td:nth-child(5) > .pill-success.pill",
+      "selecteur": "tr[data-row-key=\"product:54\"] > td:nth-child(5) > .pill-success.pill",
       "extrait": "<span class=\"pill pill-success\">Disponible</span>",
       "avant_plan": "#065f46",
       "arriere_plan": "#d1fae5",
@@ -785,7 +785,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": "tr:nth-child(5) > td:nth-child(6) > .btn-secondary.btn[href$=\"edit\"]",
+      "selecteur": "tr[data-row-key=\"product:54\"] > td:nth-child(6) > .row-actions > .btn-secondary.btn[href$=\"edit\"]",
       "extrait": "<a class=\"btn btn-secondary\" href=\"/admin/products/54/edit\">Modifier</a>",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",
@@ -796,7 +796,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": "tr:nth-child(5) > td:nth-child(6) > .btn-secondary.btn[href$=\"recipe\"]",
+      "selecteur": "tr[data-row-key=\"product:54\"] > td:nth-child(6) > .row-actions > .btn-secondary.btn[href$=\"recipe\"]",
       "extrait": "<a class=\"btn btn-secondary\" href=\"/admin/products/54/recipe\">Recette</a>",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",
@@ -807,7 +807,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": "tr:nth-child(5) > td:nth-child(6) > .btn-secondary.btn[href$=\"delete\"]",
+      "selecteur": "tr[data-row-key=\"product:54\"] > td:nth-child(6) > .row-actions > .row-actions__danger > .btn-secondary.btn[href$=\"delete\"]",
       "extrait": "<a class=\"btn btn-secondary\" href=\"/admin/products/54/delete\">Supprimer</a>",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",
@@ -818,7 +818,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": "tr:nth-child(6) > .fw-600",
+      "selecteur": "tr[data-row-key=\"product:1\"] > .fw-600",
       "extrait": "<td class=\"fw-600\"> Le 280 </td>",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#ffffff",
@@ -829,7 +829,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": "tr:nth-child(6) > .muted:nth-child(2)",
+      "selecteur": "tr[data-row-key=\"product:1\"] > .muted:nth-child(2)",
       "extrait": "<td class=\"muted\">Burgers</td>",
       "avant_plan": "#69707d",
       "arriere_plan": "#ffffff",
@@ -840,8 +840,8 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": "tr:nth-child(6) > td:nth-child(3)",
-      "extrait": "<td>6,80 EUR</td>",
+      "selecteur": "tr[data-row-key=\"product:1\"] > .table-num",
+      "extrait": "<td class=\"table-num\">6,80 EUR</td>",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#ffffff",
       "ratio": 17.4,
@@ -851,55 +851,11 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": "tr:nth-child(6) > .muted:nth-child(4)",
+      "selecteur": "tr[data-row-key=\"product:1\"] > .muted:nth-child(4)",
       "extrait": "<td class=\"muted\">10%</td>",
       "avant_plan": "#69707d",
       "arriere_plan": "#ffffff",
       "ratio": 4.98,
-      "seuil_attendu": "4.5:1",
-      "taille_px": "9.8pt (13px)",
-      "graisse": "normal"
-    },
-    {
-      "compartiment": "conforme",
-      "selecteur": "tr:nth-child(6) > td:nth-child(5) > .pill-success.pill",
-      "extrait": "<span class=\"pill pill-success\">Disponible</span>",
-      "avant_plan": "#065f46",
-      "arriere_plan": "#d1fae5",
-      "ratio": 6.77,
-      "seuil_attendu": "4.5:1",
-      "taille_px": "9.0pt (12px)",
-      "graisse": "normal"
-    },
-    {
-      "compartiment": "conforme",
-      "selecteur": "tr:nth-child(6) > td:nth-child(6) > .btn-secondary.btn[href$=\"edit\"]",
-      "extrait": "<a class=\"btn btn-secondary\" href=\"/admin/products/1/edit\">Modifier</a>",
-      "avant_plan": "#4a4a4a",
-      "arriere_plan": "#ffffff",
-      "ratio": 8.86,
-      "seuil_attendu": "4.5:1",
-      "taille_px": "9.8pt (13px)",
-      "graisse": "normal"
-    },
-    {
-      "compartiment": "conforme",
-      "selecteur": "tr:nth-child(6) > td:nth-child(6) > .btn-secondary.btn[href$=\"recipe\"]",
-      "extrait": "<a class=\"btn btn-secondary\" href=\"/admin/products/1/recipe\">Recette</a>",
-      "avant_plan": "#4a4a4a",
-      "arriere_plan": "#ffffff",
-      "ratio": 8.86,
-      "seuil_attendu": "4.5:1",
-      "taille_px": "9.8pt (13px)",
-      "graisse": "normal"
-    },
-    {
-      "compartiment": "conforme",
-      "selecteur": "tr:nth-child(6) > td:nth-child(6) > .btn-secondary.btn[href$=\"delete\"]",
-      "extrait": "<a class=\"btn btn-secondary\" href=\"/admin/products/1/delete\">Supprimer</a>",
-      "avant_plan": "#4a4a4a",
-      "arriere_plan": "#ffffff",
-      "ratio": 8.86,
       "seuil_attendu": "4.5:1",
       "taille_px": "9.8pt (13px)",
       "graisse": "normal"
@@ -970,7 +926,7 @@
     },
     {
       "id": "color-contrast",
-      "noeuds": 82
+      "noeuds": 78
     },
     {
       "id": "document-title",

@@ -1,0 +1,18 @@
+# Override JETABLE pour la campagne de captures du dossier de preuves : neutralise les container_name fixes
+# du compose afin de monter une pile isolee (`-p wakdocaptures`) en parallele d'une pile
+# existante (production, `wakdoe2e` de run.sh, `wakdoa11y` de run-a11y.sh), sans
+# collision de noms ni de port.
+# N'est PAS un compose de deploiement ; sert uniquement a run-captures.sh.
+services:
+  wakdo-db:
+    container_name: wakdocaptures-db
+  wakdo-migrate:
+    container_name: wakdocaptures-migrate
+  wakdo-app:
+    container_name: wakdocaptures-app
+  wakdo-web:
+    container_name: wakdocaptures-web
+    # Pas de port hote : Playwright joint wakdo-web par le reseau interne (--add-host).
+    ports: !reset []
+  wakdo-cron:
+    container_name: wakdocaptures-cron

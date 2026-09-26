@@ -1,15 +1,22 @@
-<!DOCTYPE html>
-<html lang="fr"><head>
+<!DOCTYPE html><html lang="fr"><head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex, nofollow">
-    <meta name="description" content="Wakdo - Produits de la categorie selectionnee">
-    <title>Wakdo - Burgers</title>
+    <!-- Titre et description uniques et mesures (Cr 1.e.5) : voir index.html. -->
+    <meta name="description" content="Choisissez vos produits Wakdo dans la catégorie sélectionnée, consultez les allergènes, ajustez les quantités et suivez votre commande en direct.">
+    <title>Nos boissons - Borne de commande Wakdo</title>
     <link rel="canonical" href="https://corentin-wakdo.stark.a3n.fr/products.html">
     <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg">
     <link rel="stylesheet" href="assets/css/style.css">
+    <!-- schema.org (Cr 1.e.3) : section de la carte. Ce bloc de depart est remplace par
+         page-products.js (seo.js) des que les produits sont charges : nom de la
+         categorie et un MenuItem par produit, avec son prix et sa disponibilite. -->
+    <script type="application/ld+json" id="ld-menu-section">{"@context":"https://schema.org","@type":"MenuSection","@id":"https://corentin-wakdo.stark.a3n.fr/products.html?category=2#section","name":"Nos boissons","url":"https://corentin-wakdo.stark.a3n.fr/products.html?category=2","inLanguage":"fr-FR","isPartOf":{"@id":"https://corentin-wakdo.stark.a3n.fr/categories.html#carte"},"hasMenuItem":[{"@type":"MenuItem","name":"Coca Cola","offers":{"@type":"Offer","price":"1.90","priceCurrency":"EUR","availability":"https://schema.org/InStock"},"image":"https://corentin-wakdo.stark.a3n.fr/assets/images/produits/boissons/coca-cola.png"},{"@type":"MenuItem","name":"Coca Sans Sucres","offers":{"@type":"Offer","price":"1.90","priceCurrency":"EUR","availability":"https://schema.org/InStock"},"image":"https://corentin-wakdo.stark.a3n.fr/assets/images/produits/boissons/coca-sans-sucres.png"},{"@type":"MenuItem","name":"Eau","offers":{"@type":"Offer","price":"1.00","priceCurrency":"EUR","availability":"https://schema.org/InStock"},"image":"https://corentin-wakdo.stark.a3n.fr/assets/images/produits/boissons/eau.png"},{"@type":"MenuItem","name":"Fanta Orange","offers":{"@type":"Offer","price":"1.90","priceCurrency":"EUR","availability":"https://schema.org/InStock"},"image":"https://corentin-wakdo.stark.a3n.fr/assets/images/produits/boissons/fanta.png"},{"@type":"MenuItem","name":"Ice Tea Pêche","offers":{"@type":"Offer","price":"1.90","priceCurrency":"EUR","availability":"https://schema.org/InStock"},"image":"https://corentin-wakdo.stark.a3n.fr/assets/images/produits/boissons/ice-tea-peche.png"},{"@type":"MenuItem","name":"Ice Tea Citron","offers":{"@type":"Offer","price":"1.90","priceCurrency":"EUR","availability":"https://schema.org/InStock"},"image":"https://corentin-wakdo.stark.a3n.fr/assets/images/produits/boissons/the-vert-citron-sans-sucres.png"},{"@type":"MenuItem","name":"Jus d'Orange","offers":{"@type":"Offer","price":"2.10","priceCurrency":"EUR","availability":"https://schema.org/InStock"},"image":"https://corentin-wakdo.stark.a3n.fr/assets/images/produits/boissons/jus-orange.png"},{"@type":"MenuItem","name":"Jus de Pommes Bio","offers":{"@type":"Offer","price":"2.30","priceCurrency":"EUR","availability":"https://schema.org/InStock"},"image":"https://corentin-wakdo.stark.a3n.fr/assets/images/produits/boissons/jus-pomme-bio.png"}]}</script>
 </head>
 <body class="products-page">
+
+    <!-- Lien d'evitement (RGAA Cr 1.e.11) : premier element focalisable de l'ecran. -->
+    <a class="skip-link" href="#main-content" title="Aller au contenu principal">Aller au contenu</a>
 
     <!--
         products.html — List of products in a category.
@@ -19,64 +26,64 @@
     -->
 
     <header class="site-header">
-        <a id="back-to-categories" class="site-header__back" href="categories.html?mode=sur-place" aria-label="Retour aux categories">
-            ← Categories
+        <a id="back-to-categories" class="site-header__back" href="categories.html" aria-label="Retour aux catégories" title="Retour aux catégories">
+            ← Catégories
         </a>
         <img class="site-header__logo" src="assets/images/ui/logo.png" alt="Wakdo">
     </header>
 
     <div class="order-layout">
-    <main class="products-main" aria-label="Liste des produits">
+    <main class="products-main" id="main-content" aria-label="Liste des produits">
 
-        <nav class="category-strip" data-category-strip="" aria-label="Categories">
-        <button class="category-strip__arrow category-strip__arrow--prev" type="button" aria-label="Categories precedentes">◀</button>
+        <nav class="category-strip" data-category-strip="" aria-label="Catégories">
+        <button class="category-strip__arrow category-strip__arrow--prev" type="button" aria-label="Catégories précédentes">◀</button>
         <div class="category-strip__scroller">
-        <a class="category-strip__item" href="products.html?category=1&amp;mode=sur-place" aria-label="Menus">
-            <img class="category-strip__img" src="assets/images/categories/menus.png" alt="" aria-hidden="true" data-fallback="hide">
+        <a class="category-strip__item" href="products.html?category=1" aria-label="Menus" title="Menus">
+            <img class="category-strip__img" src="assets/images/categories/menus.png" alt="" aria-hidden="true" loading="lazy" decoding="async" data-fallback="hide">
             <span class="category-strip__label">Menus</span>
         </a>
     
-        <a class="category-strip__item" href="products.html?category=2&amp;mode=sur-place" aria-label="Boissons">
-            <img class="category-strip__img" src="assets/images/categories/boissons.png" alt="" aria-hidden="true" data-fallback="hide">
+        <a class="category-strip__item is-active" href="products.html?category=2" aria-label="Boissons" title="Boissons" aria-current="true">
+            <img class="category-strip__img" src="assets/images/categories/boissons.png" alt="" aria-hidden="true" loading="lazy" decoding="async" data-fallback="hide">
             <span class="category-strip__label">Boissons</span>
         </a>
     
-        <a class="category-strip__item is-active" href="products.html?category=3&amp;mode=sur-place" aria-label="Burgers" aria-current="true">
-            <img class="category-strip__img" src="assets/images/categories/burgers.png" alt="" aria-hidden="true" data-fallback="hide">
+        <a class="category-strip__item" href="products.html?category=3" aria-label="Burgers" title="Burgers">
+            <img class="category-strip__img" src="assets/images/categories/burgers.png" alt="" aria-hidden="true" loading="lazy" decoding="async" data-fallback="hide">
             <span class="category-strip__label">Burgers</span>
         </a>
     
-        <a class="category-strip__item" href="products.html?category=4&amp;mode=sur-place" aria-label="Frites">
-            <img class="category-strip__img" src="assets/images/categories/frites.png" alt="" aria-hidden="true" data-fallback="hide">
+        <a class="category-strip__item" href="products.html?category=4" aria-label="Frites" title="Frites">
+            <img class="category-strip__img" src="assets/images/categories/frites.png" alt="" aria-hidden="true" loading="lazy" decoding="async" data-fallback="hide">
             <span class="category-strip__label">Frites</span>
         </a>
     
-        <a class="category-strip__item" href="products.html?category=5&amp;mode=sur-place" aria-label="Encas">
-            <img class="category-strip__img" src="assets/images/categories/encas.png" alt="" aria-hidden="true" data-fallback="hide">
+        <a class="category-strip__item" href="products.html?category=5" aria-label="Encas" title="Encas">
+            <img class="category-strip__img" src="assets/images/categories/encas.png" alt="" aria-hidden="true" loading="lazy" decoding="async" data-fallback="hide">
             <span class="category-strip__label">Encas</span>
         </a>
     
-        <a class="category-strip__item" href="products.html?category=6&amp;mode=sur-place" aria-label="Wraps">
-            <img class="category-strip__img" src="assets/images/categories/wraps.png" alt="" aria-hidden="true" data-fallback="hide">
+        <a class="category-strip__item" href="products.html?category=6" aria-label="Wraps" title="Wraps">
+            <img class="category-strip__img" src="assets/images/categories/wraps.png" alt="" aria-hidden="true" loading="lazy" decoding="async" data-fallback="hide">
             <span class="category-strip__label">Wraps</span>
         </a>
     
-        <a class="category-strip__item" href="products.html?category=7&amp;mode=sur-place" aria-label="Salades">
-            <img class="category-strip__img" src="assets/images/categories/salades.png" alt="" aria-hidden="true" data-fallback="hide">
+        <a class="category-strip__item" href="products.html?category=7" aria-label="Salades" title="Salades">
+            <img class="category-strip__img" src="assets/images/categories/salades.png" alt="" aria-hidden="true" loading="lazy" decoding="async" data-fallback="hide">
             <span class="category-strip__label">Salades</span>
         </a>
     
-        <a class="category-strip__item" href="products.html?category=8&amp;mode=sur-place" aria-label="Desserts">
-            <img class="category-strip__img" src="assets/images/categories/desserts.png" alt="" aria-hidden="true" data-fallback="hide">
+        <a class="category-strip__item" href="products.html?category=8" aria-label="Desserts" title="Desserts">
+            <img class="category-strip__img" src="assets/images/categories/desserts.png" alt="" aria-hidden="true" loading="lazy" decoding="async" data-fallback="hide">
             <span class="category-strip__label">Desserts</span>
         </a>
     
-        <a class="category-strip__item" href="products.html?category=9&amp;mode=sur-place" aria-label="Sauces">
-            <img class="category-strip__img" src="assets/images/categories/sauces.png" alt="" aria-hidden="true" data-fallback="hide">
+        <a class="category-strip__item" href="products.html?category=9" aria-label="Sauces" title="Sauces">
+            <img class="category-strip__img" src="assets/images/categories/sauces.png" alt="" aria-hidden="true" loading="lazy" decoding="async" data-fallback="hide">
             <span class="category-strip__label">Sauces</span>
         </a>
     </div>
-        <button class="category-strip__arrow category-strip__arrow--next" type="button" aria-label="Categories suivantes">▶</button>
+        <button class="category-strip__arrow category-strip__arrow--next" type="button" aria-label="Catégories suivantes">▶</button>
     </nav>
 
         <div class="products-header">
@@ -84,131 +91,91 @@
                 Heading is updated by page-products.js once the category
                 data is loaded — default text shown during load.
             -->
-            <h1 id="products-heading" class="products-main__heading">Nos Burgers</h1>
+            <h1 id="products-heading" class="products-main__heading">Nos boissons</h1>
             <span class="mode-badge" data-mode-badge="">Sur place</span>
         </div>
+        <!-- A6 (audit maquette vs front) : phrase descriptive sous le titre de categorie,
+             posee par page-products.js (CATEGORY_SUBTITLES) quand la maquette en donne une.
+             Vide et masquee par defaut : pas de texte invente pour les categories non
+             couvertes par la maquette fournie. -->
+        <p id="products-subheading" class="products-main__sub">Une petite soif, sucrée, légère, rafraîchissante</p>
 
         <!-- Error block: hidden by default, shown if fetch fails -->
         <p id="products-error" class="products-error" hidden="" role="alert"></p>
 
-        <ul id="products-grid" class="products-grid" aria-label="Grille de produits"><li class="product-card-cell"><a class="product-card" href="#" aria-label="Le 280 - 6,80&nbsp;EUR">
+        <ul id="products-grid" class="products-grid" aria-label="Grille de produits"><li class="product-card-cell"><a class="product-card" href="#" aria-label="Coca Cola - 1,90&nbsp;EUR" title="Coca Cola - 1,90&nbsp;EUR">
                 <div class="product-card__image-wrap">
-                    <img class="product-card__image" src="assets/images/produits/burgers/280.png" alt="Le 280" loading="lazy" data-fallback="logo" data-fallback-alt="Image non disponible">
+                    <img class="product-card__image" src="assets/images/produits/boissons/coca-cola.png" alt="Coca Cola" loading="lazy" data-fallback="logo" data-fallback-alt="Image non disponible">
                     
                 </div>
                 <div class="product-card__body">
-                    <span class="product-card__name">Le 280</span>
-                    <span class="product-card__price">6,80&nbsp;EUR</span>
+                    <span class="product-card__name">Coca Cola</span>
+                    <span class="product-card__price">1,90&nbsp;EUR</span>
                 </div>
-            </a><button type="button" class="allergen-info-btn" aria-label="Informations allergenes" title="Informations allergenes">i</button></li><li class="product-card-cell"><a class="product-card" href="#" aria-label="Big Tasty - 8,60&nbsp;EUR">
+            </a><button type="button" class="allergen-info-btn" aria-label="Informations allergènes" title="Informations allergènes">i</button></li><li class="product-card-cell"><a class="product-card" href="#" aria-label="Coca Sans Sucres - 1,90&nbsp;EUR" title="Coca Sans Sucres - 1,90&nbsp;EUR">
                 <div class="product-card__image-wrap">
-                    <img class="product-card__image" src="assets/images/produits/burgers/big-tasty-1-viande.png" alt="Big Tasty" loading="lazy" data-fallback="logo" data-fallback-alt="Image non disponible">
+                    <img class="product-card__image" src="assets/images/produits/boissons/coca-sans-sucres.png" alt="Coca Sans Sucres" loading="lazy" data-fallback="logo" data-fallback-alt="Image non disponible">
                     
                 </div>
                 <div class="product-card__body">
-                    <span class="product-card__name">Big Tasty</span>
-                    <span class="product-card__price">8,60&nbsp;EUR</span>
+                    <span class="product-card__name">Coca Sans Sucres</span>
+                    <span class="product-card__price">1,90&nbsp;EUR</span>
                 </div>
-            </a><button type="button" class="allergen-info-btn" aria-label="Informations allergenes" title="Informations allergenes">i</button></li><li class="product-card-cell"><a class="product-card" href="#" aria-label="Big Tasty Bacon - 8,90&nbsp;EUR">
+            </a><button type="button" class="allergen-info-btn" aria-label="Informations allergènes" title="Informations allergènes">i</button></li><li class="product-card-cell"><a class="product-card" href="#" aria-label="Eau - 1,00&nbsp;EUR" title="Eau - 1,00&nbsp;EUR">
                 <div class="product-card__image-wrap">
-                    <img class="product-card__image" src="assets/images/produits/burgers/big-tasty-bacon-1-viande.png" alt="Big Tasty Bacon" loading="lazy" data-fallback="logo" data-fallback-alt="Image non disponible">
+                    <img class="product-card__image" src="assets/images/produits/boissons/eau.png" alt="Eau" loading="lazy" data-fallback="logo" data-fallback-alt="Image non disponible">
                     
                 </div>
                 <div class="product-card__body">
-                    <span class="product-card__name">Big Tasty Bacon</span>
-                    <span class="product-card__price">8,90&nbsp;EUR</span>
+                    <span class="product-card__name">Eau</span>
+                    <span class="product-card__price">1,00&nbsp;EUR</span>
                 </div>
-            </a><button type="button" class="allergen-info-btn" aria-label="Informations allergenes" title="Informations allergenes">i</button></li><li class="product-card-cell"><a class="product-card" href="#" aria-label="Big Mac - 6,00&nbsp;EUR">
+            </a><button type="button" class="allergen-info-btn" aria-label="Informations allergènes" title="Informations allergènes">i</button></li><li class="product-card-cell"><a class="product-card" href="#" aria-label="Fanta Orange - 1,90&nbsp;EUR" title="Fanta Orange - 1,90&nbsp;EUR">
                 <div class="product-card__image-wrap">
-                    <img class="product-card__image" src="assets/images/produits/burgers/bigmac.png" alt="Big Mac" loading="lazy" data-fallback="logo" data-fallback-alt="Image non disponible">
+                    <img class="product-card__image" src="assets/images/produits/boissons/fanta.png" alt="Fanta Orange" loading="lazy" data-fallback="logo" data-fallback-alt="Image non disponible">
                     
                 </div>
                 <div class="product-card__body">
-                    <span class="product-card__name">Big Mac</span>
-                    <span class="product-card__price">6,00&nbsp;EUR</span>
+                    <span class="product-card__name">Fanta Orange</span>
+                    <span class="product-card__price">1,90&nbsp;EUR</span>
                 </div>
-            </a><button type="button" class="allergen-info-btn" aria-label="Informations allergenes" title="Informations allergenes">i</button></li><li class="product-card-cell"><a class="product-card" href="#" aria-label="CBO - 8,90&nbsp;EUR">
+            </a><button type="button" class="allergen-info-btn" aria-label="Informations allergènes" title="Informations allergènes">i</button></li><li class="product-card-cell"><a class="product-card" href="#" aria-label="Ice Tea Pêche - 1,90&nbsp;EUR" title="Ice Tea Pêche - 1,90&nbsp;EUR">
                 <div class="product-card__image-wrap">
-                    <img class="product-card__image" src="assets/images/produits/burgers/cbo.png" alt="CBO" loading="lazy" data-fallback="logo" data-fallback-alt="Image non disponible">
+                    <img class="product-card__image" src="assets/images/produits/boissons/ice-tea-peche.png" alt="Ice Tea Pêche" loading="lazy" data-fallback="logo" data-fallback-alt="Image non disponible">
                     
                 </div>
                 <div class="product-card__body">
-                    <span class="product-card__name">CBO</span>
-                    <span class="product-card__price">8,90&nbsp;EUR</span>
+                    <span class="product-card__name">Ice Tea Pêche</span>
+                    <span class="product-card__price">1,90&nbsp;EUR</span>
                 </div>
-            </a><button type="button" class="allergen-info-btn" aria-label="Informations allergenes" title="Informations allergenes">i</button></li><li class="product-card-cell"><a class="product-card" href="#" aria-label="MC Chicken - 7,30&nbsp;EUR">
+            </a><button type="button" class="allergen-info-btn" aria-label="Informations allergènes" title="Informations allergènes">i</button></li><li class="product-card-cell"><a class="product-card" href="#" aria-label="Ice Tea Citron - 1,90&nbsp;EUR" title="Ice Tea Citron - 1,90&nbsp;EUR">
                 <div class="product-card__image-wrap">
-                    <img class="product-card__image" src="assets/images/produits/burgers/mcchicken.png" alt="MC Chicken" loading="lazy" data-fallback="logo" data-fallback-alt="Image non disponible">
+                    <img class="product-card__image" src="assets/images/produits/boissons/the-vert-citron-sans-sucres.png" alt="Ice Tea Citron" loading="lazy" data-fallback="logo" data-fallback-alt="Image non disponible">
                     
                 </div>
                 <div class="product-card__body">
-                    <span class="product-card__name">MC Chicken</span>
-                    <span class="product-card__price">7,30&nbsp;EUR</span>
+                    <span class="product-card__name">Ice Tea Citron</span>
+                    <span class="product-card__price">1,90&nbsp;EUR</span>
                 </div>
-            </a><button type="button" class="allergen-info-btn" aria-label="Informations allergenes" title="Informations allergenes">i</button></li><li class="product-card-cell"><a class="product-card" href="#" aria-label="MC Crispy - 5,30&nbsp;EUR">
+            </a><button type="button" class="allergen-info-btn" aria-label="Informations allergènes" title="Informations allergènes">i</button></li><li class="product-card-cell"><a class="product-card" href="#" aria-label="Jus d'Orange - 2,10&nbsp;EUR" title="Jus d'Orange - 2,10&nbsp;EUR">
                 <div class="product-card__image-wrap">
-                    <img class="product-card__image" src="assets/images/produits/burgers/mccrispy.png" alt="MC Crispy" loading="lazy" data-fallback="logo" data-fallback-alt="Image non disponible">
+                    <img class="product-card__image" src="assets/images/produits/boissons/jus-orange.png" alt="Jus d'Orange" loading="lazy" data-fallback="logo" data-fallback-alt="Image non disponible">
                     
                 </div>
                 <div class="product-card__body">
-                    <span class="product-card__name">MC Crispy</span>
-                    <span class="product-card__price">5,30&nbsp;EUR</span>
+                    <span class="product-card__name">Jus d'Orange</span>
+                    <span class="product-card__price">2,10&nbsp;EUR</span>
                 </div>
-            </a><button type="button" class="allergen-info-btn" aria-label="Informations allergenes" title="Informations allergenes">i</button></li><li class="product-card-cell"><a class="product-card" href="#" aria-label="MC Fish - 4,85&nbsp;EUR">
+            </a><button type="button" class="allergen-info-btn" aria-label="Informations allergènes" title="Informations allergènes">i</button></li><li class="product-card-cell"><a class="product-card" href="#" aria-label="Jus de Pommes Bio - 2,30&nbsp;EUR" title="Jus de Pommes Bio - 2,30&nbsp;EUR">
                 <div class="product-card__image-wrap">
-                    <img class="product-card__image" src="assets/images/produits/burgers/mcfish.png" alt="MC Fish" loading="lazy" data-fallback="logo" data-fallback-alt="Image non disponible">
+                    <img class="product-card__image" src="assets/images/produits/boissons/jus-pomme-bio.png" alt="Jus de Pommes Bio" loading="lazy" data-fallback="logo" data-fallback-alt="Image non disponible">
                     
                 </div>
                 <div class="product-card__body">
-                    <span class="product-card__name">MC Fish</span>
-                    <span class="product-card__price">4,85&nbsp;EUR</span>
+                    <span class="product-card__name">Jus de Pommes Bio</span>
+                    <span class="product-card__price">2,30&nbsp;EUR</span>
                 </div>
-            </a><button type="button" class="allergen-info-btn" aria-label="Informations allergenes" title="Informations allergenes">i</button></li><li class="product-card-cell"><a class="product-card" href="#" aria-label="Royal Bacon - 5,10&nbsp;EUR">
-                <div class="product-card__image-wrap">
-                    <img class="product-card__image" src="assets/images/produits/burgers/royalbacon.png" alt="Royal Bacon" loading="lazy" data-fallback="logo" data-fallback-alt="Image non disponible">
-                    
-                </div>
-                <div class="product-card__body">
-                    <span class="product-card__name">Royal Bacon</span>
-                    <span class="product-card__price">5,10&nbsp;EUR</span>
-                </div>
-            </a><button type="button" class="allergen-info-btn" aria-label="Informations allergenes" title="Informations allergenes">i</button></li><li class="product-card-cell"><a class="product-card" href="#" aria-label="Royal Cheese - 4,40&nbsp;EUR">
-                <div class="product-card__image-wrap">
-                    <img class="product-card__image" src="assets/images/produits/burgers/royalcheese.png" alt="Royal Cheese" loading="lazy" data-fallback="logo" data-fallback-alt="Image non disponible">
-                    
-                </div>
-                <div class="product-card__body">
-                    <span class="product-card__name">Royal Cheese</span>
-                    <span class="product-card__price">4,40&nbsp;EUR</span>
-                </div>
-            </a><button type="button" class="allergen-info-btn" aria-label="Informations allergenes" title="Informations allergenes">i</button></li><li class="product-card-cell"><a class="product-card" href="#" aria-label="Royal Deluxe - 5,40&nbsp;EUR">
-                <div class="product-card__image-wrap">
-                    <img class="product-card__image" src="assets/images/produits/burgers/royaldeluxe.png" alt="Royal Deluxe" loading="lazy" data-fallback="logo" data-fallback-alt="Image non disponible">
-                    
-                </div>
-                <div class="product-card__body">
-                    <span class="product-card__name">Royal Deluxe</span>
-                    <span class="product-card__price">5,40&nbsp;EUR</span>
-                </div>
-            </a><button type="button" class="allergen-info-btn" aria-label="Informations allergenes" title="Informations allergenes">i</button></li><li class="product-card-cell"><a class="product-card" href="#" aria-label="Signature BBQ Beef 2 viandes - 11,40&nbsp;EUR">
-                <div class="product-card__image-wrap">
-                    <img class="product-card__image" src="assets/images/produits/burgers/signature-bbq-beef-2-viandes.png" alt="Signature BBQ Beef 2 viandes" loading="lazy" data-fallback="logo" data-fallback-alt="Image non disponible">
-                    
-                </div>
-                <div class="product-card__body">
-                    <span class="product-card__name">Signature BBQ Beef 2 viandes</span>
-                    <span class="product-card__price">11,40&nbsp;EUR</span>
-                </div>
-            </a><button type="button" class="allergen-info-btn" aria-label="Informations allergenes" title="Informations allergenes">i</button></li><li class="product-card-cell"><a class="product-card" href="#" aria-label="Signature Beef BBQ - 10,30&nbsp;EUR">
-                <div class="product-card__image-wrap">
-                    <img class="product-card__image" src="assets/images/produits/burgers/signature-beef-bbq-burger-1-viande.png" alt="Signature Beef BBQ" loading="lazy" data-fallback="logo" data-fallback-alt="Image non disponible">
-                    
-                </div>
-                <div class="product-card__body">
-                    <span class="product-card__name">Signature Beef BBQ</span>
-                    <span class="product-card__price">10,30&nbsp;EUR</span>
-                </div>
-            </a><button type="button" class="allergen-info-btn" aria-label="Informations allergenes" title="Informations allergenes">i</button></li></ul>
+            </a><button type="button" class="allergen-info-btn" aria-label="Informations allergènes" title="Informations allergènes">i</button></li></ul>
 
     </main>
 
@@ -222,7 +189,7 @@
         <div class="order-panel__foot">
             <div class="order-panel__total">
                 <span>TOTAL (ttc)</span>
-                <span class="order-panel__total-value">0,00&nbsp;EUR</span>
+                <span class="order-panel__total-value" aria-live="off">0,00&nbsp;EUR</span>
             </div>
             <div class="order-panel__actions">
                 <button class="order-panel__abandon" type="button">Abandon</button>
@@ -239,4 +206,4 @@
     <script type="module" src="assets/js/a11y.js"></script>
 
 
-<button type="button" class="a11y-toggle" data-a11y-dys-toggle="" aria-pressed="false" aria-label="Police adaptee aux personnes dyslexiques"><span class="a11y-toggle__icon" aria-hidden="true">Aa</span><span class="a11y-toggle__label">Police adaptee</span></button><div class="allergen-modal-overlay" role="dialog" aria-modal="true" aria-label="Informations allergenes"><div class="allergen-modal"><button type="button" class="allergen-modal-close" aria-label="Fermer">x</button><h2 class="allergen-modal-title">Allergenes - Big Mac</h2><p class="allergen-modal-intro">Ce produit contient :</p><ul class="allergen-modal-list"><li><span class="allergen-name">Gluten</span><span class="allergen-desc"> - Cereales contenant du gluten (ble, seigle, orge, avoine, epeautre, kamut) et produits a base de ces cereales.</span></li><li><span class="allergen-name">Oeufs</span><span class="allergen-desc"> - Oeufs et produits a base d'oeufs.</span></li><li><span class="allergen-name">Lait</span><span class="allergen-desc"> - Lait et produits a base de lait (y compris le lactose).</span></li><li><span class="allergen-name">Moutarde</span><span class="allergen-desc"> - Moutarde et produits a base de moutarde.</span></li><li><span class="allergen-name">Graines de sesame</span><span class="allergen-desc"> - Graines de sesame et produits a base de graines de sesame.</span></li><li><span class="allergen-name">Anhydride sulfureux et sulfites</span><span class="allergen-desc"> - Anhydride sulfureux et sulfites en concentration superieure a 10 mg/kg ou 10 mg/l (exprimes en SO2).</span></li></ul><p class="allergen-modal-traces">Nos plats sont prepares dans une cuisine ou les 14 allergenes sont manipules : une presence accidentelle par traces n est pas exclue.</p></div></div></body></html>
+<button type="button" class="a11y-toggle" data-a11y-dys-toggle="" aria-pressed="false" aria-label="Police adaptée aux personnes dyslexiques"><span class="a11y-toggle__icon" aria-hidden="true">Aa</span><span class="a11y-toggle__label">Police adaptée</span></button><div class="allergen-modal-overlay" role="dialog" aria-modal="true" aria-label="Informations allergènes"><div class="allergen-modal"><button type="button" class="allergen-modal-close" aria-label="Fermer">x</button><h2 class="allergen-modal-title">Allergènes - Coca Cola</h2><p class="allergen-modal-none">Vérifié : ce produit ne contient aucun des 14 allergènes à déclaration obligatoire.</p><p class="allergen-modal-traces">Nos plats sont préparés dans une cuisine où les 14 allergènes sont manipulés : une présence accidentelle par traces n'est pas exclue.</p></div></div></body></html>

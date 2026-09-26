@@ -111,6 +111,20 @@ test('le cadre d options a une hauteur maximale multiple exacte de la hauteur d 
     assert.equal(maxHeight % rowHeight, 0, 'la coupure tombe entre deux lignes, jamais au milieu');
 });
 
+/* --- nom accessible du groupe (audit a11y elargi, 2026-09-26) ------------- */
+
+test('chaque bloc slot porte une legende : le groupe de champs a un nom', () => {
+    const doc = setup([{ name: 'Boisson', slot_type: 'drink', is_required: 1, options: [] }]);
+    menuForm.init(doc);
+    const block = doc.querySelector('.slot-block');
+    const legend = block.querySelector('legend');
+    assert.ok(legend, 'le fieldset du slot porte une legende');
+    assert.ok(legend.textContent.trim().length > 0, 'la legende n est pas vide');
+    // La legende doit etre le PREMIER enfant du fieldset : ailleurs, elle ne nomme
+    // plus le groupe (HTML : seule la premiere legend d un fieldset fait titre).
+    assert.equal(block.firstChild, legend);
+});
+
 /* --- filtrage des options selon le type de slot --------------------------- */
 
 test('slot drink (edition) : n affiche que les boissons', () => {

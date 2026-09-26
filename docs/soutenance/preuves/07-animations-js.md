@@ -340,6 +340,11 @@ docker run --rm -v "$PWD":/app -w /app wakdo-wakdo-app php phpunit.phar -c phpun
 | PHPStan (niveau 6, `phpstan.neon`) | `[OK] No errors` |
 | PHPUnit (`phpunit.xml`) | 755 tests, 1962 assertions, `OK` (84 marques Skipped, preexistantes — aucun fichier PHP n'a ete touche par ce lot) |
 
+Ces chiffres sont ceux du lot d'animation, a sa date. **Au 2026-09-26**, apres la refonte
+du back-office : `npm run test:js` **356 tests**, PHPUnit **1 677 tests, 4 855 assertions,
+`OK`**, PHPStan niveau 6 sans erreur. Les 22 tests de `cart-total-animation.test.js`
+restent verts ; le module d'animation du total n'a pas ete modifie depuis ce lot.
+
 Aucun fichier PHP n'a ete modifie : ce lot est strictement front-end (un
 module JS, une feuille de style, deux fichiers de tests JS, ce document).
 
