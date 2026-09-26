@@ -159,20 +159,35 @@ pas ailleurs.
 `channelGuard()` et `roleFixedSource()` sont couverts unitairement dans
 `tests/Unit/Admin/CounterOrderControllerTest.php` (rôles `counter`/`drive`
 seedés ET rôle personnalisé `order_source='kiosk'`) et
-`tests/Unit/Admin/Api/OrderApiControllerTest.php` ; les scénarios C6/D6
-ci-dessus, eux, sont vérifiés avec les comptes de démonstration réels sur une
-pile jetable (traçabilité en section 4 ci-dessous).
+`tests/Unit/Admin/Api/OrderApiControllerTest.php`. Les scénarios C6/D6
+ci-dessus sont vérifiés avec les VRAIS comptes de démonstration
+(`comptoir@wakdo.local`, `drive@wakdo.local`) dans `tests/e2e/rbac-demo.spec.js`
+(cas ajoutés à la suite des tests « comptoir » et « drive » existants) ; le
+cloisonnement par canal est en outre vérifié séparément dans
+`tests/e2e/rbac-channel.spec.js`, sur des comptes auto-provisionnés par ce
+fichier (pas les comptes de démo), et pour les rôles PERSONNALISÉS (canal fixe
+`kiosk`, canal NULL à visibilité restreinte) qui n'ont pas de compte de
+démonstration dédié (traçabilité complète en section 4 ci-dessous).
 
 ## 4. Traçabilité des tests
 
-- `tests/Unit/Admin/Api/RouteMatrixRoleTest.php` : rejoue la table des routes de
+- `tests/Integration/RouteMatrixRoleDbTest.php` : rejoue la table des routes de
   `RouteMatrixTest` (reprise par réflexion, pas dupliquée) pour chaque rôle
   RÉEL issu des seeds 0001 + 0009, contre une vraie base migrée/seedée
   (`WAKDO_DB_TESTS=1`).
 - `tests/e2e/rbac-demo.spec.js` : connexion Playwright avec chaque compte de
   démonstration sur une pile jetable, vérifie la page d'arrivée
-  (`role.default_route`), la navigation visible (liens du menu latéral) et au
-  moins un refus par rôle.
+  (`role.default_route`), la navigation visible (liens du menu latéral), au
+  moins un refus par rôle, et (depuis la relecture adverse, 2e tour) les
+  scénarios C6/D6 de cloisonnement par canal (comptoir refusé sur
+  `/drive/orders`, drive refusé sur `/counter/orders`).
+- `tests/e2e/rbac-channel.spec.js` : mêmes scénarios de cloisonnement par canal
+  (page de l'autre canal refusée, annulation refusée avant le PIN), sur des
+  comptes comptoir/drive auto-provisionnés (pas les comptes de démo), plus le
+  rôle sans canal fixe (`admin`) qui garde l'accès aux deux pages.
+- `tests/Integration/OrderQueryRepositoryVisibleDbTest.php` : `recentVisible()`
+  contre une vraie base (filtre avant la limite, plusieurs sources liées,
+  chaîne hostile en paramètre, bornage de la limite).
 - Résultats numériques de la vérification manuelle (pile jetable, seed rejoué
   deux fois, connexions, PIN, scénarios ci-dessus en `curl`) : voir le rapport
   de livraison (section « Résultats chiffrés »), pas dupliqués ici pour éviter
