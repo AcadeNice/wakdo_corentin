@@ -6,8 +6,15 @@ declare(strict_types=1);
  * Liste des menus (CRUD admin), injectee dans admin/layout.php. Texte echappe.
  * Le toggle de disponibilite est un POST CSRF (pas de JS).
  *
+ * Balayage 2026-09-26 ("erreur : lien refuse") : "Nouveau menu", "Modifier" et
+ * "Supprimer" s'affichaient a tout role pouvant lire la liste (menu.read), y
+ * compris sans menu.create/update/delete -- un clic aboutissait alors a un refus
+ * (403). Chaque lien est desormais conditionne a la MEME permission que celle
+ * testee cote serveur par MenuController (menu.create/update/delete).
+ *
  * @var array<int, array<string, mixed>> $menus
  * @var string                           $csrfToken
+ * @var list<string>                     $permissions
  */
 
 /** @var array<int, array<string, mixed>> $rows */
@@ -15,15 +22,21 @@ $rows = isset($menus) && is_array($menus) ? $menus : [];
 $csrf = htmlspecialchars($csrfToken ?? '', ENT_QUOTES, 'UTF-8');
 $esc = static fn (mixed $v): string => htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
 $euros = static fn (int $cents): string => number_format($cents / 100, 2, ',', ' ') . ' EUR';
+
+/** @var list<string> $perms */
+$perms = isset($permissions) && is_array($permissions) ? $permissions : [];
+$can = static fn (string $code): bool => in_array($code, $perms, true);
 ?>
 <div class="page-header">
     <div>
         <h1 class="page-title">Menus</h1>
         <p class="page-subtitle">Gestion des menus composés (burger + slots)</p>
     </div>
-    <div class="page-actions">
-        <a class="btn btn-primary" href="/admin/menus/new">Nouveau menu</a>
-    </div>
+    <?php if ($can('menu.create')): ?>
+        <div class="page-actions">
+            <a class="btn btn-primary" href="/admin/menus/new">Nouveau menu</a>
+        </div>
+    <?php endif; ?>
 </div>
 
 <div class="table-container">
@@ -34,7 +47,7 @@ $euros = static fn (int $cents): string => number_format($cents / 100, 2, ',', '
                     <th>Nom</th>
                     <th>Catégorie</th>
                     <th>Burger de base</th>
-                    <th>Prix (Normal &ndash; Maxi)</th>
+                    <th class="table-num">Prix (Normal &ndash; Maxi)</th>
                     <th>Statut</th>
                     <th style="width:240px;"></th>
                 </tr>
@@ -52,7 +65,7 @@ $euros = static fn (int $cents): string => number_format($cents / 100, 2, ',', '
                         <td class="fw-600"><?= $esc($row['name'] ?? '') ?></td>
                         <td class="muted"><?= $esc($row['category_name'] ?? '') ?></td>
                         <td class="muted"><?= $esc($row['burger_name'] ?? '') ?></td>
-                        <td><?= $esc($euros((int) ($row['price_normal_cents'] ?? 0))) ?> &ndash; <?= $esc($euros((int) ($row['price_maxi_cents'] ?? 0))) ?></td>
+                        <td class="table-num"><?= $esc($euros((int) ($row['price_normal_cents'] ?? 0))) ?> &ndash; <?= $esc($euros((int) ($row['price_maxi_cents'] ?? 0))) ?></td>
                         <td>
                             <?php if ($available): ?>
                                 <span class="pill pill-success">Disponible</span>
@@ -61,12 +74,20 @@ $euros = static fn (int $cents): string => number_format($cents / 100, 2, ',', '
                             <?php endif; ?>
                         </td>
                         <td>
-                            <a class="btn btn-secondary" href="/admin/menus/<?= $id ?>/edit">Modifier</a>
-                            <form method="post" action="/admin/menus/<?= $id ?>/toggle" style="display:inline">
-                                <input type="hidden" name="_csrf" value="<?= $csrf ?>">
-                                <button class="btn btn-secondary" type="submit"><?= $available ? 'Désactiver' : 'Activer' ?></button>
-                            </form>
-                            <a class="btn btn-secondary" href="/admin/menus/<?= $id ?>/delete">Supprimer</a>
+                            <span class="row-actions">
+                                <?php if ($can('menu.update')): ?>
+                                    <a class="btn btn-secondary" href="/admin/menus/<?= $id ?>/edit">Modifier</a>
+                                    <form method="post" action="/admin/menus/<?= $id ?>/toggle">
+                                        <input type="hidden" name="_csrf" value="<?= $csrf ?>">
+                                        <button class="btn btn-secondary" type="submit"><?= $available ? 'Désactiver' : 'Activer' ?></button>
+                                    </form>
+                                <?php endif; ?>
+                                <?php if ($can('menu.delete')): ?>
+                                    <span class="row-actions__danger">
+                                        <a class="btn btn-secondary" href="/admin/menus/<?= $id ?>/delete">Supprimer</a>
+                                    </span>
+                                <?php endif; ?>
+                            </span>
                         </td>
                     </tr>
                 <?php endforeach; ?>
