@@ -171,7 +171,14 @@ final class RoleControllerTest extends TestCase
         $response = $this->controller($this->get('/admin/roles'), $db)->index();
         self::assertSame(200, $response->status());
         $body = $response->body();
-        self::assertStringContainsString('manager', $body);
+        self::assertStringContainsString('Manager', $body);
+        // Balayage 2026-09-26 (defaut "texte technique") : le code interne (admin,
+        // manager, kitchen...) ne doit plus etre affiche en clair sur cette page -- la
+        // migration 0012_role_labels_fr.sql documente explicitement que ces codes
+        // restent des identifiants techniques, jamais affiches aux equipiers. Seul le
+        // libelle humain (colonne "Nom") identifie desormais le role a l'ecran.
+        self::assertStringNotContainsString('>manager<', $body);
+        self::assertStringNotContainsString('>kitchen<', $body);
         // Regression F40 (page d'accueil affichee comme un chemin brut) : la page
         // d'accueil du role kitchen doit avoir un libelle humain, pas /kitchen/display.
         self::assertStringContainsString('Écran cuisine (KDS)', $body);

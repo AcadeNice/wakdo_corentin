@@ -14,31 +14,39 @@ declare(strict_types=1);
  * @var string                $csrfToken
  */
 
+// Style du bouton de confirmation, par cas (design-system.md, regle des boutons S3) :
+// seule l'anonymisation RGPD (erase) est IRREVERSIBLE -> btn-danger. Desactiver est
+// explicitement reversible (message ci-dessous, "reactivation via Modifier") et
+// reinitialiser le PIN est une action neutre : les deux restent btn-primary.
+
 $csrf = htmlspecialchars($csrfToken ?? '', ENT_QUOTES, 'UTF-8');
 $id = (int) ($userId ?? 0);
 $kind = (string) ($kind ?? '');
 $label = htmlspecialchars((string) ($userLabel ?? ''), ENT_QUOTES, 'UTF-8');
 $err = isset($error) && is_string($error) ? htmlspecialchars($error, ENT_QUOTES, 'UTF-8') : '';
 
-/** @var array<string, array{path:string, title:string, message:string, button:string}> $kinds */
+/** @var array<string, array{path:string, title:string, message:string, button:string, buttonClass:string}> $kinds */
 $kinds = [
     'deactivate' => [
         'path'    => '/admin/users/' . $id . '/deactivate',
         'title'   => 'Désactiver le compte',
         'message' => 'L\'utilisateur ne pourra plus se connecter. L\'historique reste intact. Réversible (réactivation via Modifier).',
         'button'  => 'Désactiver',
+        'buttonClass' => 'btn-primary',
     ],
     'reset-pin' => [
         'path'    => '/admin/users/' . $id . '/reset-pin',
         'title'   => 'Réinitialiser le PIN',
         'message' => 'Le PIN d\'action sensible de cet équipier sera effacé. Il devra en redéfinir un en self-service.',
         'button'  => 'Réinitialiser le PIN',
+        'buttonClass' => 'btn-primary',
     ],
     'erase' => [
         'path'    => '/admin/users/' . $id . '/erase',
         'title'   => 'Anonymiser le compte (RGPD)',
         'message' => 'Les données personnelles seront effacées définitivement (droit à l\'effacement). La ligne est conservée anonymisée pour préserver l\'historique. Action IRRÉVERSIBLE.',
         'button'  => 'Anonymiser définitivement',
+        'buttonClass' => 'btn-danger',
     ],
 ];
 $c = $kinds[$kind] ?? $kinds['deactivate'];
@@ -70,7 +78,7 @@ $c = $kinds[$kind] ?? $kinds['deactivate'];
     </fieldset>
 
     <div class="form-actions">
-        <button class="btn btn-primary" type="submit"><?= htmlspecialchars($c['button'], ENT_QUOTES, 'UTF-8') ?></button>
+        <button class="btn <?= htmlspecialchars($c['buttonClass'], ENT_QUOTES, 'UTF-8') ?>" type="submit"><?= htmlspecialchars($c['button'], ENT_QUOTES, 'UTF-8') ?></button>
         <a class="btn btn-secondary" href="/admin/users">Annuler</a>
     </div>
 </form>

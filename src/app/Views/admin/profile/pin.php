@@ -35,7 +35,7 @@ $pinRuleAttributes = ' pattern="' . htmlspecialchars($pinPattern, ENT_QUOTES, 'U
     <p><small>Statut : <?= $alreadySet ? 'un PIN est défini.' : 'aucun PIN défini pour l\'instant.' ?></small></p>
 
     <?php if ($errorMessage !== null): ?>
-        <p role="alert"><?= htmlspecialchars($errorMessage, ENT_QUOTES, 'UTF-8') ?></p>
+        <p class="form-error" role="alert"><?= htmlspecialchars($errorMessage, ENT_QUOTES, 'UTF-8') ?></p>
     <?php endif; ?>
 
     <form method="post" action="/admin/profile/pin" class="form-card">

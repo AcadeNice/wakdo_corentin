@@ -73,16 +73,20 @@ $esc = static fn (mixed $v): string => htmlspecialchars((string) $v, ENT_QUOTES,
                         </td>
                         <td>
                             <?php if (!$anon): ?>
-                                <?php if ($canUpdate): ?>
-                                    <a class="btn btn-secondary" href="/admin/users/<?= $id ?>/edit">Modifier</a>
-                                    <a class="btn btn-secondary" href="/admin/users/<?= $id ?>/reset-pin">Réinitialiser le PIN</a>
-                                <?php endif; ?>
-                                <?php if ($canDeactiv && $active && !$isSelf): ?>
-                                    <a class="btn btn-secondary" href="/admin/users/<?= $id ?>/deactivate">Désactiver</a>
-                                <?php endif; ?>
-                                <?php if ($canUpdate && !$isSelf): ?>
-                                    <a class="btn btn-secondary" href="/admin/users/<?= $id ?>/erase">Anonymiser</a>
-                                <?php endif; ?>
+                                <span class="row-actions">
+                                    <?php if ($canUpdate): ?>
+                                        <a class="btn btn-secondary" href="/admin/users/<?= $id ?>/edit">Modifier</a>
+                                        <a class="btn btn-secondary" href="/admin/users/<?= $id ?>/reset-pin">Réinitialiser le PIN</a>
+                                    <?php endif; ?>
+                                    <?php if ($canDeactiv && $active && !$isSelf): ?>
+                                        <a class="btn btn-secondary" href="/admin/users/<?= $id ?>/deactivate">Désactiver</a>
+                                    <?php endif; ?>
+                                    <?php if ($canUpdate && !$isSelf): ?>
+                                        <span class="row-actions__danger">
+                                            <a class="btn btn-secondary" href="/admin/users/<?= $id ?>/erase">Anonymiser</a>
+                                        </span>
+                                    <?php endif; ?>
+                                </span>
                             <?php endif; ?>
                         </td>
                     </tr>
