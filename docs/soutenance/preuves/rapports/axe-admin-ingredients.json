@@ -1,0 +1,1162 @@
+{
+  "page": "admin-ingredients",
+  "url": "http://admin.wakdo.test/admin/ingredients",
+  "date": "2026-09-26T14:24:26.742Z",
+  "moteur": {
+    "axe": {
+      "name": "axe-core",
+      "version": "4.13.0"
+    },
+    "regles": [
+      "wcag2a",
+      "wcag2aa",
+      "wcag21a",
+      "wcag21aa"
+    ]
+  },
+  "navigateur": {
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.6778.33 Safari/537.36",
+    "windowWidth": 1440,
+    "windowHeight": 900,
+    "orientationAngle": 0,
+    "orientationType": "landscape-primary"
+  },
+  "violations": [],
+  "indetermines": [],
+  "contrastes_mesures": [
+    {
+      "compartiment": "conforme",
+      "selecteur": ".topbar-user-avatar",
+      "extrait": "<div class=\"topbar-user-avatar\">WA</div>",
+      "avant_plan": "#ffc72c",
+      "arriere_plan": "#1a1a1a",
+      "ratio": 11.15,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".topbar-user-name",
+      "extrait": "<div class=\"topbar-user-name\">Wakdo Admin</div>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".topbar-user-role",
+      "extrait": "<div class=\"topbar-user-role\">Administrateur</div>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-brand-name",
+      "extrait": "<span class=\"sidebar-brand-name\">Wak<span>do</span></span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "3:1",
+      "taille_px": "15.8pt (21px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-brand-name > span",
+      "extrait": "<span>do</span>",
+      "avant_plan": "#ae7f09",
+      "arriere_plan": "#ffffff",
+      "ratio": 3.59,
+      "seuil_attendu": "3:1",
+      "taille_px": "15.8pt (21px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-section:nth-child(2) > .sidebar-section-label",
+      "extrait": "<div class=\"sidebar-section-label\">Vue d'ensemble</div>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"dashboard\"]",
+      "extrait": "<a href=\"/admin/dashboard\" class=\"sidebar-item\">Tableau de bord</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-section:nth-child(3) > .sidebar-section-label",
+      "extrait": "<div class=\"sidebar-section-label\">Catalogue</div>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"categories\"]",
+      "extrait": "<a href=\"/admin/categories\" class=\"sidebar-item\">Catégories</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"products\"]",
+      "extrait": "<a href=\"/admin/products\" class=\"sidebar-item\">Produits</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"by-category\"]",
+      "extrait": "<a href=\"/admin/products/by-category\" class=\"sidebar-item\">Produits par catégorie</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"menus\"]",
+      "extrait": "<a href=\"/admin/menus\" class=\"sidebar-item\">Menus</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-section:nth-child(4) > .sidebar-section-label",
+      "extrait": "<div class=\"sidebar-section-label\">Stock</div>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".active",
+      "extrait": "<a href=\"/admin/ingredients\" class=\"sidebar-item active\">Ingrédients</a>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#fff3d1",
+      "ratio": 15.74,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-section:nth-child(5) > .sidebar-section-label",
+      "extrait": "<div class=\"sidebar-section-label\">Pilotage</div>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-item[href$=\"orders\"]:nth-child(2)",
+      "extrait": "<a href=\"/counter/orders\" class=\"sidebar-item\">Saisie commande</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"stats\"]",
+      "extrait": "<a href=\"/admin/stats\" class=\"sidebar-item\">Statistiques</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-item[href$=\"orders\"]:nth-child(4)",
+      "extrait": "<a href=\"/admin/orders\" class=\"sidebar-item\">Commandes</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"display\"]",
+      "extrait": "<a href=\"/kitchen/display\" class=\"sidebar-item\">Cuisine (KDS)</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-section:nth-child(6) > .sidebar-section-label",
+      "extrait": "<div class=\"sidebar-section-label\">Administration</div>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"users\"]",
+      "extrait": "<a href=\"/admin/users\" class=\"sidebar-item\">Utilisateurs</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"roles\"]",
+      "extrait": "<a href=\"/admin/roles\" class=\"sidebar-item\">Rôles</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "h1",
+      "extrait": "<h1 class=\"page-title\">Stock des ingrédients</h1>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#f5f5f5",
+      "ratio": 15.96,
+      "seuil_attendu": "3:1",
+      "taille_px": "15.0pt (20px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".page-subtitle",
+      "extrait": "<p class=\"page-subtitle\">Ce qui est bas à réapprovisionner, en un coup d'œil</p>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#f5f5f5",
+      "ratio": 4.57,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"new\"]",
+      "extrait": "<a class=\"btn btn-secondary\" href=\"/admin/ingredients/new\">Nouvel ingrédient</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".toc__label",
+      "extrait": "<p class=\"toc__label\">Aller à la section :</p>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#f9fafb",
+      "ratio": 4.76,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "li:nth-child(1) > a",
+      "extrait": "<a href=\"#ingredients-a-reapprovisionner\">À réapprovisionner</a>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#f9fafb",
+      "ratio": 16.65,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"#ingredients-tous\"]",
+      "extrait": "<a href=\"#ingredients-tous\">Tous les ingrédients</a>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#f9fafb",
+      "ratio": 16.65,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".stock-explainer:nth-child(4)",
+      "extrait": "<p class=\"stock-explainer\"> Le stock pilote ce qui est commandable sur la borne. Un ingrédient requi",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#fffbeb",
+      "ratio": 8.54,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".stock-summary__item--danger > .stock-summary__count",
+      "extrait": "<span class=\"stock-summary__count\">0</span>",
+      "avant_plan": "#991b1b",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.31,
+      "seuil_attendu": "3:1",
+      "taille_px": "21.0pt (28px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".stock-summary__item--danger > .stock-summary__label",
+      "extrait": "<span class=\"stock-summary__label\">critiques</span>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".stock-summary__item--warning > .stock-summary__count",
+      "extrait": "<span class=\"stock-summary__count\">0</span>",
+      "avant_plan": "#92400e",
+      "arriere_plan": "#ffffff",
+      "ratio": 7.09,
+      "seuil_attendu": "3:1",
+      "taille_px": "21.0pt (28px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".stock-summary__item--warning > .stock-summary__label",
+      "extrait": "<span class=\"stock-summary__label\">en alerte</span>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".stock-summary__item--success > .stock-summary__count",
+      "extrait": "<span class=\"stock-summary__count\">50</span>",
+      "avant_plan": "#065f46",
+      "arriere_plan": "#ffffff",
+      "ratio": 7.68,
+      "seuil_attendu": "3:1",
+      "taille_px": "21.0pt (28px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".stock-summary__item--success > .stock-summary__label",
+      "extrait": "<span class=\"stock-summary__label\">au-dessus du seuil</span>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".stock-explainer--warning",
+      "extrait": "<p class=\"stock-explainer stock-explainer--warning\" role=\"status\">",
+      "avant_plan": "#92400e",
+      "arriere_plan": "#fef3c7",
+      "ratio": 6.36,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "strong",
+      "extrait": "<strong>5</strong>",
+      "avant_plan": "#92400e",
+      "arriere_plan": "#fef3c7",
+      "ratio": 6.36,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "#ingredients-a-reapprovisionner > .stock-section__title",
+      "extrait": "<h2 class=\"stock-section__title\">À réapprovisionner</h2>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#f5f5f5",
+      "ratio": 15.96,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "12.0pt (16px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".stock-empty",
+      "extrait": "<div class=\"stock-empty stock-empty--ok\"> Tous les ingrédients sont au-dessus de leurs seuils. </div",
+      "avant_plan": "#065f46",
+      "arriere_plan": "#d1fae5",
+      "ratio": 6.77,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "#ingredients-tous > .stock-section__title",
+      "extrait": "<h2 class=\"stock-section__title\">Tous les ingrédients</h2>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#f5f5f5",
+      "ratio": 15.96,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "12.0pt (16px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "li[data-row-key=\"ingredient:35\"] > .stock-list__main > .stock-list__name",
+      "extrait": "<span class=\"stock-list__name\">Brownie</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "li[data-row-key=\"ingredient:35\"] > .stock-list__main > .stock-list__unit",
+      "extrait": "<span class=\"stock-list__unit\">pièce</span>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "li[data-row-key=\"ingredient:35\"] > .stock-list__main > .pill.pill-success",
+      "extrait": "<span class=\"pill pill-success\">Actif</span>",
+      "avant_plan": "#065f46",
+      "arriere_plan": "#d1fae5",
+      "ratio": 6.77,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "li[data-row-key=\"ingredient:35\"] > .stock-list__bar > .stock-bar__meta > .stock-bar__pct",
+      "extrait": "<span class=\"stock-bar__pct\">100%</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "li[data-row-key=\"ingredient:35\"] > .stock-list__bar > .stock-bar__meta > .stock-bar__qty",
+      "extrait": "<span class=\"stock-bar__qty\">150 / 150</span>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "li[data-row-key=\"ingredient:35\"] > .stock-list__actions.row-actions > .btn-secondary:nth-child(1)",
+      "extrait": "<a class=\"btn btn-secondary btn-sm\" href=\"/admin/ingredients/35/inventory\">Inventaire</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "li[data-row-key=\"ingredient:35\"] > .stock-list__actions.row-actions > .btn-secondary[href$=\"adjust\"]",
+      "extrait": "<a class=\"btn btn-secondary btn-sm\" href=\"/admin/ingredients/35/adjust\">Ajuster</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "button[data-id=\"35\"]",
+      "extrait": "<button type=\"button\" class=\"btn btn-ghost btn-sm\" data-threshold-open=\"\" data-id=\"35\" data-name=\"Br",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "li[data-row-key=\"ingredient:35\"] > .stock-list__actions.row-actions > .btn-ghost:nth-child(4)",
+      "extrait": "<a class=\"btn btn-ghost btn-sm\" href=\"/admin/ingredients/35/movements\">Mouvements</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "li[data-row-key=\"ingredient:35\"] > .stock-list__actions.row-actions > .stock-list__crud > .btn-ghost[href$=\"edit\"]",
+      "extrait": "<a class=\"btn btn-ghost btn-sm\" href=\"/admin/ingredients/35/edit\">Modifier</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "form[action=\"/admin/ingredients/35/toggle\"] > button[type=\"submit\"]",
+      "extrait": "<button class=\"btn btn-ghost btn-sm\" type=\"submit\">Désactiver</button>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "li[data-row-key=\"ingredient:35\"] > .stock-list__actions.row-actions > .stock-list__crud > .row-actions__danger > .btn-ghost[href$=\"delete\"]",
+      "extrait": "<a class=\"btn btn-ghost btn-sm\" href=\"/admin/ingredients/35/delete\">Supprimer</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "li[data-row-key=\"ingredient:11\"] > .stock-list__main > .stock-list__name",
+      "extrait": "<span class=\"stock-list__name\">Cheddar</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "li[data-row-key=\"ingredient:11\"] > .stock-list__main > .stock-list__unit",
+      "extrait": "<span class=\"stock-list__unit\">tranche</span>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "li[data-row-key=\"ingredient:11\"] > .stock-list__main > .pill.pill-success",
+      "extrait": "<span class=\"pill pill-success\">Actif</span>",
+      "avant_plan": "#065f46",
+      "arriere_plan": "#d1fae5",
+      "ratio": 6.77,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "li[data-row-key=\"ingredient:11\"] > .stock-list__bar > .stock-bar__meta > .stock-bar__pct",
+      "extrait": "<span class=\"stock-bar__pct\">100%</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "li[data-row-key=\"ingredient:11\"] > .stock-list__bar > .stock-bar__meta > .stock-bar__qty",
+      "extrait": "<span class=\"stock-bar__qty\">600 / 600</span>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "li[data-row-key=\"ingredient:11\"] > .stock-list__actions.row-actions > .btn-secondary:nth-child(1)",
+      "extrait": "<a class=\"btn btn-secondary btn-sm\" href=\"/admin/ingredients/11/inventory\">Inventaire</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "li[data-row-key=\"ingredient:11\"] > .stock-list__actions.row-actions > .btn-secondary[href$=\"adjust\"]",
+      "extrait": "<a class=\"btn btn-secondary btn-sm\" href=\"/admin/ingredients/11/adjust\">Ajuster</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "button[data-id=\"11\"]",
+      "extrait": "<button type=\"button\" class=\"btn btn-ghost btn-sm\" data-threshold-open=\"\" data-id=\"11\" data-name=\"Ch",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "li[data-row-key=\"ingredient:11\"] > .stock-list__actions.row-actions > .btn-ghost:nth-child(4)",
+      "extrait": "<a class=\"btn btn-ghost btn-sm\" href=\"/admin/ingredients/11/movements\">Mouvements</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "li[data-row-key=\"ingredient:11\"] > .stock-list__actions.row-actions > .stock-list__crud > .btn-ghost[href$=\"edit\"]",
+      "extrait": "<a class=\"btn btn-ghost btn-sm\" href=\"/admin/ingredients/11/edit\">Modifier</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "form[action=\"/admin/ingredients/11/toggle\"] > button[type=\"submit\"]",
+      "extrait": "<button class=\"btn btn-ghost btn-sm\" type=\"submit\">Désactiver</button>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "li[data-row-key=\"ingredient:11\"] > .stock-list__actions.row-actions > .stock-list__crud > .row-actions__danger > .btn-ghost[href$=\"delete\"]",
+      "extrait": "<a class=\"btn btn-ghost btn-sm\" href=\"/admin/ingredients/11/delete\">Supprimer</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "li[data-row-key=\"ingredient:36\"] > .stock-list__main > .stock-list__name",
+      "extrait": "<span class=\"stock-list__name\">Cheesecake</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "li[data-row-key=\"ingredient:36\"] > .stock-list__main > .stock-list__unit",
+      "extrait": "<span class=\"stock-list__unit\">pièce</span>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "li[data-row-key=\"ingredient:36\"] > .stock-list__main > .pill.pill-success",
+      "extrait": "<span class=\"pill pill-success\">Actif</span>",
+      "avant_plan": "#065f46",
+      "arriere_plan": "#d1fae5",
+      "ratio": 6.77,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "li[data-row-key=\"ingredient:36\"] > .stock-list__bar > .stock-bar__meta > .stock-bar__pct",
+      "extrait": "<span class=\"stock-bar__pct\">100%</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "li[data-row-key=\"ingredient:36\"] > .stock-list__bar > .stock-bar__meta > .stock-bar__qty",
+      "extrait": "<span class=\"stock-bar__qty\">150 / 150</span>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "li[data-row-key=\"ingredient:36\"] > .stock-list__actions.row-actions > .btn-secondary:nth-child(1)",
+      "extrait": "<a class=\"btn btn-secondary btn-sm\" href=\"/admin/ingredients/36/inventory\">Inventaire</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "li[data-row-key=\"ingredient:36\"] > .stock-list__actions.row-actions > .btn-secondary[href$=\"adjust\"]",
+      "extrait": "<a class=\"btn btn-secondary btn-sm\" href=\"/admin/ingredients/36/adjust\">Ajuster</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "button[data-id=\"36\"]",
+      "extrait": "<button type=\"button\" class=\"btn btn-ghost btn-sm\" data-threshold-open=\"\" data-id=\"36\" data-name=\"Ch",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "li[data-row-key=\"ingredient:36\"] > .stock-list__actions.row-actions > .btn-ghost:nth-child(4)",
+      "extrait": "<a class=\"btn btn-ghost btn-sm\" href=\"/admin/ingredients/36/movements\">Mouvements</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "li[data-row-key=\"ingredient:36\"] > .stock-list__actions.row-actions > .stock-list__crud > .btn-ghost[href$=\"edit\"]",
+      "extrait": "<a class=\"btn btn-ghost btn-sm\" href=\"/admin/ingredients/36/edit\">Modifier</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "form[action=\"/admin/ingredients/36/toggle\"] > button[type=\"submit\"]",
+      "extrait": "<button class=\"btn btn-ghost btn-sm\" type=\"submit\">Désactiver</button>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "li[data-row-key=\"ingredient:36\"] > .stock-list__actions.row-actions > .stock-list__crud > .row-actions__danger > .btn-ghost[href$=\"delete\"]",
+      "extrait": "<a class=\"btn btn-ghost btn-sm\" href=\"/admin/ingredients/36/delete\">Supprimer</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "li[data-row-key=\"ingredient:37\"] > .stock-list__main > .stock-list__name",
+      "extrait": "<span class=\"stock-list__name\">Cookie</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "li[data-row-key=\"ingredient:37\"] > .stock-list__main > .stock-list__unit",
+      "extrait": "<span class=\"stock-list__unit\">pièce</span>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "li[data-row-key=\"ingredient:37\"] > .stock-list__main > .pill.pill-success",
+      "extrait": "<span class=\"pill pill-success\">Actif</span>",
+      "avant_plan": "#065f46",
+      "arriere_plan": "#d1fae5",
+      "ratio": 6.77,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "li[data-row-key=\"ingredient:37\"] > .stock-list__bar > .stock-bar__meta > .stock-bar__pct",
+      "extrait": "<span class=\"stock-bar__pct\">100%</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "li[data-row-key=\"ingredient:37\"] > .stock-list__bar > .stock-bar__meta > .stock-bar__qty",
+      "extrait": "<span class=\"stock-bar__qty\">150 / 150</span>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "li[data-row-key=\"ingredient:37\"] > .stock-list__actions.row-actions > .btn-secondary:nth-child(1)",
+      "extrait": "<a class=\"btn btn-secondary btn-sm\" href=\"/admin/ingredients/37/inventory\">Inventaire</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "li[data-row-key=\"ingredient:37\"] > .stock-list__actions.row-actions > .btn-secondary[href$=\"adjust\"]",
+      "extrait": "<a class=\"btn btn-secondary btn-sm\" href=\"/admin/ingredients/37/adjust\">Ajuster</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "button[data-id=\"37\"]",
+      "extrait": "<button type=\"button\" class=\"btn btn-ghost btn-sm\" data-threshold-open=\"\" data-id=\"37\" data-name=\"Co",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "li[data-row-key=\"ingredient:37\"] > .stock-list__actions.row-actions > .btn-ghost:nth-child(4)",
+      "extrait": "<a class=\"btn btn-ghost btn-sm\" href=\"/admin/ingredients/37/movements\">Mouvements</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "li[data-row-key=\"ingredient:37\"] > .stock-list__actions.row-actions > .stock-list__crud > .btn-ghost[href$=\"edit\"]",
+      "extrait": "<a class=\"btn btn-ghost btn-sm\" href=\"/admin/ingredients/37/edit\">Modifier</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "form[action=\"/admin/ingredients/37/toggle\"] > button[type=\"submit\"]",
+      "extrait": "<button class=\"btn btn-ghost btn-sm\" type=\"submit\">Désactiver</button>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "li[data-row-key=\"ingredient:37\"] > .stock-list__actions.row-actions > .stock-list__crud > .row-actions__danger > .btn-ghost[href$=\"delete\"]",
+      "extrait": "<a class=\"btn btn-ghost btn-sm\" href=\"/admin/ingredients/37/delete\">Supprimer</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".a11y-toggle__icon",
+      "extrait": "<span class=\"a11y-toggle__icon\" aria-hidden=\"true\">Aa</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".a11y-toggle__label",
+      "extrait": "<span class=\"a11y-toggle__label\">Police adaptée</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "bold"
+    }
+  ],
+  "conformes_resume": [
+    {
+      "id": "aria-allowed-attr",
+      "noeuds": 53
+    },
+    {
+      "id": "aria-conditional-attr",
+      "noeuds": 53
+    },
+    {
+      "id": "aria-deprecated-role",
+      "noeuds": 51
+    },
+    {
+      "id": "aria-hidden-body",
+      "noeuds": 1
+    },
+    {
+      "id": "aria-hidden-focus",
+      "noeuds": 1
+    },
+    {
+      "id": "aria-prohibited-attr",
+      "noeuds": 53
+    },
+    {
+      "id": "aria-required-attr",
+      "noeuds": 51
+    },
+    {
+      "id": "aria-roles",
+      "noeuds": 51
+    },
+    {
+      "id": "aria-valid-attr",
+      "noeuds": 53
+    },
+    {
+      "id": "aria-valid-attr-value",
+      "noeuds": 53
+    },
+    {
+      "id": "avoid-inline-spacing",
+      "noeuds": 4
+    },
+    {
+      "id": "button-name",
+      "noeuds": 102
+    },
+    {
+      "id": "bypass",
+      "noeuds": 1
+    },
+    {
+      "id": "color-contrast",
+      "noeuds": 93
+    },
+    {
+      "id": "document-title",
+      "noeuds": 1
+    },
+    {
+      "id": "duplicate-id-aria",
+      "noeuds": 6
+    },
+    {
+      "id": "html-has-lang",
+      "noeuds": 1
+    },
+    {
+      "id": "html-lang-valid",
+      "noeuds": 1
+    },
+    {
+      "id": "image-alt",
+      "noeuds": 1
+    },
+    {
+      "id": "link-name",
+      "noeuds": 266
+    },
+    {
+      "id": "list",
+      "noeuds": 2
+    },
+    {
+      "id": "listitem",
+      "noeuds": 52
+    },
+    {
+      "id": "meta-viewport",
+      "noeuds": 1
+    },
+    {
+      "id": "nested-interactive",
+      "noeuds": 153
+    },
+    {
+      "id": "role-img-alt",
+      "noeuds": 50
+    },
+    {
+      "id": "scrollable-region-focusable",
+      "noeuds": 1
+    }
+  ],
+  "non_applicables": [
+    "area-alt",
+    "aria-braille-equivalent",
+    "aria-command-name",
+    "aria-input-field-name",
+    "aria-meter-name",
+    "aria-progressbar-name",
+    "aria-required-children",
+    "aria-required-parent",
+    "aria-tab-name",
+    "aria-toggle-field-name",
+    "aria-tooltip-name",
+    "autocomplete-valid",
+    "blink",
+    "definition-list",
+    "dlitem",
+    "form-field-multiple-labels",
+    "frame-focusable-content",
+    "frame-title",
+    "frame-title-unique",
+    "html-xml-lang-mismatch",
+    "input-button-name",
+    "input-image-alt",
+    "label",
+    "link-in-text-block",
+    "marquee",
+    "meta-refresh",
+    "no-autoplay-audio",
+    "object-alt",
+    "select-name",
+    "server-side-image-map",
+    "summary-name",
+    "svg-img-alt",
+    "td-headers-attr",
+    "th-has-data-cells",
+    "valid-lang",
+    "video-caption"
+  ]
+}

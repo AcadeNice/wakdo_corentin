@@ -4,13 +4,30 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex, nofollow">
-    <meta name="description" content="Wakdo - Produits de la categorie selectionnee">
-    <title>Wakdo - Produits</title>
+    <!-- Titre et description uniques et mesures (Cr 1.e.5) : voir index.html. -->
+    <meta name="description" content="Choisissez vos produits Wakdo dans la catégorie sélectionnée, consultez les allergènes, ajustez les quantités et suivez votre commande en direct.">
+    <title>Produits Wakdo : composez et ajoutez à votre commande</title>
     <link rel="canonical" href="https://corentin-wakdo.stark.a3n.fr/products.html">
     <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg">
     <link rel="stylesheet" href="assets/css/style.css">
+    <!-- schema.org (Cr 1.e.3) : section de la carte. Ce bloc de depart est remplace par
+         page-products.js (seo.js) des que les produits sont charges : nom de la
+         categorie et un MenuItem par produit, avec son prix et sa disponibilite. -->
+    <script type="application/ld+json" id="ld-menu-section">
+    {
+        "@context": "https://schema.org",
+        "@type": "MenuSection",
+        "@id": "https://corentin-wakdo.stark.a3n.fr/products.html#section",
+        "name": "Produits de la carte Wakdo",
+        "inLanguage": "fr-FR",
+        "isPartOf": { "@id": "https://corentin-wakdo.stark.a3n.fr/categories.html#carte" }
+    }
+    </script>
 </head>
 <body class="products-page">
+
+    <!-- Lien d'evitement (RGAA Cr 1.e.11) : premier element focalisable de l'ecran. -->
+    <a class="skip-link" href="#main-content" title="Aller au contenu principal">Aller au contenu</a>
 
     <!--
         products.html — List of products in a category.
@@ -24,9 +41,10 @@
             id="back-to-categories"
             class="site-header__back"
             href="categories.html"
-            aria-label="Retour aux categories"
+            aria-label="Retour aux catégories"
+            title="Retour aux catégories"
         >
-            &#8592; Categories
+            &#8592; Catégories
         </a>
         <img
             class="site-header__logo"
@@ -36,9 +54,9 @@
     </header>
 
     <div class="order-layout">
-    <main class="products-main" aria-label="Liste des produits">
+    <main class="products-main" id="main-content" aria-label="Liste des produits">
 
-        <nav class="category-strip" data-category-strip aria-label="Categories"></nav>
+        <nav class="category-strip" data-category-strip aria-label="Catégories"></nav>
 
         <div class="products-header">
             <!--
@@ -48,6 +66,11 @@
             <h1 id="products-heading" class="products-main__heading">Nos produits</h1>
             <span class="mode-badge" data-mode-badge>Sur place</span>
         </div>
+        <!-- A6 (audit maquette vs front) : phrase descriptive sous le titre de categorie,
+             posee par page-products.js (CATEGORY_SUBTITLES) quand la maquette en donne une.
+             Vide et masquee par defaut : pas de texte invente pour les categories non
+             couvertes par la maquette fournie. -->
+        <p id="products-subheading" class="products-main__sub" hidden></p>
 
         <!-- Error block: hidden by default, shown if fetch fails -->
         <p id="products-error" class="products-error" hidden role="alert"></p>

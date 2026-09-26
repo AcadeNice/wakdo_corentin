@@ -36,7 +36,7 @@ final class AllergenRepositoryByProductTest extends TestCase
         return [
             ['product_id' => '10', 'allergen_id' => '1', 'code' => 'gluten', 'name' => 'Gluten'],
             ['product_id' => '10', 'allergen_id' => '7', 'code' => 'milk',   'name' => 'Lait'],
-            ['product_id' => '11', 'allergen_id' => '3', 'code' => 'eggs',   'name' => 'Oeufs'],
+            ['product_id' => '11', 'allergen_id' => '3', 'code' => 'eggs',   'name' => 'Œufs'],
         ];
     }
 

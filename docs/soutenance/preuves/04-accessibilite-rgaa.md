@@ -1,7 +1,9 @@
 # Preuve 04 — Accessibilite RGAA (competence C1.c)
 
 Titre professionnel RNCP 37805 — Bloc 1 (developpement front-end)
-Perimetre : front borne de commande (`src/public/borne/`), 5 pages HTML + module a11y dedie + design system CSS.
+Perimetre principal : front borne de commande (`src/public/borne/`), 5 pages HTML + module a11y dedie + design system CSS.
+
+**Extension back-office (section 10).** Le gabarit admin (`src/app/Views/admin/layout.php`) et ses assets (`src/public/admin/assets/`) etaient restes hors de cette preuve malgre 2460 lignes de CSS, 7 modules JS et 34 vues PHP pas encore couverts. La section 10 documente desormais la parite d'accessibilite back-office (police dyslexique, focus visible, favicon, semantique) et explique pourquoi les criteres de referencement naturel ne s'y appliquent pas.
 
 Terme du referentiel : **RGAA** (Referentiel General d'Amelioration de l'Accessibilite). Les references de theme et de critere (ex. RGAA 1.4.1) suivent la structuration RGAA. Les seuils de contraste s'appuient sur les niveaux AA, que le RGAA reprend.
 
@@ -77,9 +79,15 @@ L'information ne repose pas sur la seule couleur : un libelle textuel ou une ico
 - **Categorie active dans le bandeau.** L'etat actif combine une bordure epaissie **et** un fond distinct `#FFF8E6`, precisement pour ne pas dependre de la seule bordure coloree : `style.css` (cherchez « 2e cue »).
 - **Selection de carte composeur.** L'etat selectionne cumule bordure jaune fonce, halo et fond legerement teinte, et il est expose a la technologie d'assistance via `aria-pressed` (documente dans `style.css`, cherchez « jaune fonce : contraste » et « Uses aria-pressed »).
 - **Bascule de police active.** L'etat actif change la couleur du bouton mais est aussi expose par `aria-pressed` et par un libelle texte qui reste visible : `style.css` (cherchez « not signalled by colour alone »).
-- **Contraste.** Le token de texte attenue est fixe a `#767676`, choisi pour le seuil de contraste AA sur blanc (`style.css`, cherchez « --color-text-muted ») ; l'accent de selection utilise le jaune fonce `--color-brand-yellow-dk` pour le contraste (meme fichier, cherchez « jaune fonce : contraste »).
+- **Contraste.** Le token de texte attenue est `--color-text-muted` (`style.css`, cherchez ce nom) ; l'accent de selection utilise le jaune fonce `--color-brand-yellow-dk` pour le contraste (meme fichier, cherchez « jaune fonce : contraste »). Valeur et ratios exacts : voir `06-audit-accessibilite-mesure.md`, qui mesure ce token a l'outil et documente sa correction (`#767676` -> `#6E6E6E`, ainsi que deux tokens equivalents cote back-office).
 
-**Verdict Cr 1.c.3 : conforme** sur les etats identifies. Reserve : les ratios de contraste exacts n'ont pas ete mesures avec un outil dedie ([UNVERIFIED], section 8).
+**Verdict Cr 1.c.3 : conforme** sur les etats identifies. **Reserve levee** (etait :
+« les ratios de contraste exacts n'ont pas ete mesures avec un outil dedie »). Les
+ratios ont depuis ete mesures a l'outil `axe-core` sur des ecrans reels, et les 10 noeuds
+trouves sous le seuil AA — dont un dans ce perimetre borne — ont ete corriges puis
+remesures conformes. La campagne courante (2026-09-26) porte sur **18 ecrans et
+858 mesures**, contre 11 ecrans et 407 a la campagne d'origine. Detail complet, chiffres
+avant/apres, et methode : `06-audit-accessibilite-mesure.md`.
 
 ---
 
@@ -87,7 +95,7 @@ L'information ne repose pas sur la seule couleur : un libelle textuel ou une ico
 
 ### Focus visible
 
-- **Focus clavier stylise** sur la grande majorite des controles interactifs via `:focus-visible` (halo jaune ou `outline` epais) : 18 regles `:focus-visible` dans `style.css`, reperables par selecteur (choix accueil `.choice-btn`, retour `.site-header__back`, carte categorie `.category-card`, boutons `.btn--primary`/`.btn--secondary`, carte produit `.product-card`/`.product-card--unavailable`, quantite `.qty-btn`, paiement `.payment-choice`, carte composeur `.composer-card`, taille `.composer-taille__btn`, controles du panneau + bandeau `.order-panel__pay`/`.order-panel__abandon`/`.order-panel__remove`/`.category-strip__item`/`.category-strip__arrow`, saisie chevalet `.chevalet__input`, bascule a11y `.a11y-toggle`).
+- **Focus clavier stylise** sur la grande majorite des controles interactifs via `:focus-visible` (halo jaune ou `outline` epais) : 19 regles `:focus-visible` dans `style.css` (18 avant ce lot, plus `.skip-link` ajoute pour Cr 1.e.11, voir plus bas dans cette section), reperables par selecteur (choix accueil `.choice-btn`, retour `.site-header__back`, carte categorie `.category-card`, boutons `.btn--primary`/`.btn--secondary`, carte produit `.product-card`/`.product-card--unavailable`, quantite `.qty-btn`, paiement `.payment-choice`, carte composeur `.composer-card`, taille `.composer-taille__btn`, controles du panneau + bandeau `.order-panel__pay`/`.order-panel__abandon`/`.order-panel__remove`/`.category-strip__item`/`.category-strip__arrow`, saisie chevalet `.chevalet__input`, bascule a11y `.a11y-toggle`, lien d'evitement `.skip-link`).
 - **`outline: none` systematiquement compense.** Chaque `outline: none` s'accompagne dans la meme regle d'un indicateur de substitution (halo `box-shadow` ou changement de bordure) — verifie regle par regle (ex. `.choice-btn:focus-visible`, `.btn--primary:focus-visible`, `.composer-card:focus-visible` dans `style.css`). Il n'existe pas de suppression globale du focus : le reset (`style.css`, cherchez « box-sizing: border-box ») ne touche que `box-sizing`/`margin`/`padding`.
 
 ### Navigation native, pas de piege
@@ -106,7 +114,17 @@ L'information ne repose pas sur la seule couleur : un libelle textuel ou une ico
 - **Modale allergenes** : fermeture `Echap` (`allergens.js:44-48, 209`), fermeture clic-fond (l.188-192), `role="dialog"` + `aria-modal="true"` (l.113-115), bouton de fermeture etiquete (l.121-123). Depuis F11b, l'avertissement "information non disponible" porte `role="alert"` (l.175) : un lecteur d'ecran l'annonce sans attendre que le client parcoure le panneau, ce qui compte pour une information de securite alimentaire.
 - **Tests** : `tests/js/confirm-modal.test.js` verifie `role="dialog"` + `aria-modal`, la fermeture par Echap et clic-fond sans effet destructeur (l.23-62).
 
-**Verdict Cr 1.c.4 : conforme avec reserve.** Le focus reste visible et non perdu sur le perimetre lu ; la coherence de **style** du focus est partielle (voir section 8 : quelques controles secondaires reposent sur l'anneau natif du navigateur, non stylise).
+### Lien d'evitement et sommaire d'ancres (Cr 1.e.11, renforce Cr 1.c.4)
+
+Critere releve absent lors de l'audit Bloc 1 (aucun `href="#"` dans tout le depot avant ce lot). Deux mecanismes distincts, l'un sur chaque perimetre :
+
+- **Lien d'evitement sur les 5 pages borne.** Premier element du `<body>`, avant tout en-tete : `index.html`, `categories.html`, `products.html`, `payment.html`, `confirmation.html` (cherchez, dans chaque fichier, `class="skip-link"`). Cible un `<main id="main-content">` reellement present sur la meme page. Style dans `style.css` (cherchez `.skip-link`) : hors flot par defaut comme `.sr-only`, replace en haut de l'ecran au focus clavier via `:focus-visible` — meme convention que les 18 autres regles `:focus-visible` du fichier, pas un mecanisme different.
+- **Lien d'evitement sur le gabarit admin.** Meme principe, un seul point d'injection puisque `layout.php` enveloppe toutes les pages back-office : `src/app/Views/admin/layout.php` (cherchez `class="skip-link"`), cible `<main class="content" id="main-content">`. Style dans `src/public/admin/assets/css/admin.css` (cherchez `.skip-link:focus-visible`).
+- **Sommaire d'ancres sur la vue admin la plus longue.** `src/app/Views/admin/ingredients/index.php` (283 lignes avant ce lot, la plus longue vue du back-office) : un `<nav class="toc" aria-label="Sommaire de la page">` (cherchez ce texte) liste deux liens vers les deux sections reelles de la page, `#ingredients-a-reapprovisionner` et `#ingredients-tous`, posees comme `id` sur les `<section>` correspondantes.
+- **Tests.** Borne : `tests/js/skip-link.test.js` (jsdom, lit les 5 fichiers HTML reels sur disque, verifie que le lien d'evitement est le PREMIER element du `<body>`, que sa cible existe, et la regle CSS associee). Admin : `tests/Unit/Admin/DashboardControllerTest.php` (cherchez `testShellHasSkipLinkFaviconAndDyslexiaToggleBeforeMainLandmark` — verifie aussi que le lien precede la topbar dans le HTML rendu, pas seulement sa presence) et `tests/Unit/Admin/IngredientControllerTest.php` (cherchez `testIndexRendersTableOfContentsLinkingBothRealSections` — verifie que les deux ancres du sommaire resolvent vers des id qui existent reellement).
+- **Validation W3C rejouee.** La commande reproductible de `01-validation-w3c.md` (`ghcr.io/validator/validator`, moteur Nu) a ete relancee sur les 5 pages borne apres l'ajout du lien d'evitement : sortie identique a avant ce lot, `{"messages":[]}`.
+
+**Verdict Cr 1.c.4 : conforme avec reserve.** Le focus reste visible et non perdu sur le perimetre lu ; la coherence de **style** du focus est partielle (voir section 8 : quelques controles secondaires reposent sur l'anneau natif du navigateur, non stylise). Le lien d'evitement (Cr 1.e.11) renforce ce critere sans lever la reserve, qui porte sur un point distinct (les controles secondaires cites).
 
 ---
 
@@ -128,13 +146,13 @@ Verdicts : **conforme** (preuve dans le code) · **partiel** (couvert mais reser
 | Critere | Preuve (fichier:ligne) | Verdict | Commentaire |
 |---|---|---|---|
 | Info pas donnee par la seule couleur | `page-products.js:75,87` ; `style.css` (cherchez « 2e cue » et « not signalled by colour alone ») | conforme | Rupture = badge texte + aria ; actif = fond + libelle + `aria-pressed`. |
-| Contraste texte suffisant | `style.css` (cherchez « --color-text-muted » pour `#767676`, « jaune fonce : contraste » pour l'accent) | partiel | Tokens choisis pour AA, mais ratios non mesures a l'outil ([UNVERIFIED]). |
+| Contraste texte suffisant | `style.css` (cherchez « --color-text-muted »), `06-audit-accessibilite-mesure.md` | conforme | Mesure a l'outil (`axe-core`, 858 ratios sur 18 ecrans au 2026-09-26) : un noeud sous le seuil trouve sur ce perimetre au premier passage, corrige et remesure conforme. |
 
 ### Theme 10 — Presentation / focus
 
 | Critere | Preuve (fichier:ligne) | Verdict | Commentaire |
 |---|---|---|---|
-| Focus clavier visible | `style.css`, 18 regles `:focus-visible` reperables par selecteur (`.choice-btn`, `.site-header__back`, `.category-card`, `.btn--primary`, `.btn--secondary`, `.product-card`, `.product-card--unavailable`, `.qty-btn`, `.payment-choice`, `.composer-card`, `.composer-taille__btn`, `.order-panel__pay`, `.order-panel__abandon`, `.order-panel__remove`, `.category-strip__item`, `.category-strip__arrow`, `.chevalet__input`, `.a11y-toggle`) | conforme | Halo jaune / `outline` epais decale. |
+| Focus clavier visible | `style.css`, 19 regles `:focus-visible` reperables par selecteur (`.choice-btn`, `.site-header__back`, `.category-card`, `.btn--primary`, `.btn--secondary`, `.product-card`, `.product-card--unavailable`, `.qty-btn`, `.payment-choice`, `.composer-card`, `.composer-taille__btn`, `.order-panel__pay`, `.order-panel__abandon`, `.order-panel__remove`, `.category-strip__item`, `.category-strip__arrow`, `.chevalet__input`, `.a11y-toggle`, `.skip-link`) | conforme | Halo jaune / `outline` epais decale. |
 | `outline:none` compense | `style.css` (`.choice-btn:focus-visible`, `.btn--primary:focus-visible`, `.composer-card:focus-visible`) | conforme | Chaque suppression a un substitut visible ; pas de reset global du focus. |
 | Coherence du style de focus | `style.css` (`.size-btn`, `.allergen-info-btn`, `.allergen-modal-close`) | partiel | Quelques controles secondaires reposent sur l'anneau natif (non perdu, mais non stylise). |
 
@@ -154,6 +172,7 @@ Verdicts : **conforme** (preuve dans le code) · **partiel** (couvert mais reser
 | Navigation clavier sans piege bloquant | `index.html:72-98` ; `page-products.js:70-74` ; `confirm-modal.js:50-59` | conforme | Liens natifs ; modales sortables (Echap + boucle Tab). |
 | Titre de page pertinent | `index.html:20` ; `categories.html:8` ; `payment.html:8` ; `confirmation.html:8` | conforme | `<title>` distinct par ecran, mis a jour dynamiquement (`page-products.js:48`). |
 | Langue de la page | 5 pages `html lang="fr"` | conforme | Verifie : 1 occurrence par fichier. |
+| Lien d'evitement (Cr 1.e.11) | 5 pages borne + `admin/layout.php` (cherchez `class="skip-link"` dans chaque fichier) | conforme | Absent avant ce lot (zero `href="#"` dans tout le depot). Voir section 5 pour le detail. |
 
 ### Fonctionnalite — Police OpenDyslexic (Cr 1.c.2)
 
@@ -178,7 +197,7 @@ Verdicts : **conforme** (preuve dans le code) · **partiel** (couvert mais reser
 ## 8. Reserves honnetes (a ne pas survendre au jury)
 
 1. **Aucun audit avec lecteur d'ecran reel.** Le mapping ARIA est correct dans le code, mais le rendu effectif sous NVDA/VoiceOver/TalkBack n'a pas ete teste sur cette borne. Toute affirmation de restitution vocale reelle est [UNVERIFIED].
-2. **Ratios de contraste non mesures a l'outil.** Les tokens sont choisis pour viser AA (`#767676` sur blanc, jaune fonce pour les accents), mais aucun rapport d'outil (ex. verificateur de contraste) n'est joint. Verdict « partiel » assume sur le critere contraste.
+2. **Ratios de contraste non mesures a l'outil — RESOLU, voir `06-audit-accessibilite-mesure.md`.** Cette reserve disait que les tokens etaient choisis pour viser AA sans rapport d'outil joint. Depuis, `axe-core` a mesure 407 ratios sur 11 ecrans reels ; 10 noeuds sous le seuil AA ont ete trouves (dont un sur ce perimetre borne, `#767676` sur un fond gris a 4,16:1), corriges (`#767676` -> `#6E6E6E`), puis remesures conformes sur les 11 ecrans. La campagne a ete rejouee et **elargie a 18 ecrans (858 mesures) le 2026-09-26**, apres la refonte du back-office : le resultat reste a 0 violation. Le detail, les chiffres avant/apres et la methode sont dans le document cite.
 3. **Coherence du style de focus partielle.** Le focus n'est pas perdu (pas de reset global), mais quelques controles secondaires (`.size-btn`, bouton info allergenes `.allergen-info-btn`, fermeture modale allergenes `.allergen-modal-close`, tous reperables par selecteur dans `style.css`) reposent sur l'anneau de focus natif du navigateur plutot que sur le halo jaune maison. C'est conforme (focus visible) mais visuellement heterogene.
 4. **Champ chevalet hors des 5 pages lues.** Le picker de chevalet (sur place) a un focus visible en CSS (`style.css`, cherchez « .chevalet__input ») mais son etiquette textuelle vit dans une modale JS non incluse dans les 5 pages de ce perimetre ; verdict « partiel » par prudence.
 5. **Contenu genere = surface a re-tester.** Les cartes produit et le panneau commande sont construits en JavaScript. Les attributs ARIA sont poses dans le code (`page-products.js`, `order-panel.js`), mais leur presence a l'ecran depend de l'execution correcte du rendu ; a demontrer en live plutot qu'a affirmer.
@@ -191,9 +210,89 @@ Verdicts : **conforme** (preuve dans le code) · **partiel** (couvert mais reser
 2. **Expliquer le principe « pas la couleur seule ».** Prendre l'exemple d'une tuile en rupture : montrer le badge `Indisponible`, le grisage, et l'`aria-disabled` — trois signaux, un seul resterait insuffisant (RGAA 1.4.1). Idem pour la categorie active (bordure + fond `#FFF8E6`).
 3. **Demontrer la modale accessible au clavier.** Ouvrir la confirmation d'Abandon, tabuler pour montrer la boucle de focus, appuyer sur Echap pour sortir, verifier que le focus revient au bouton declencheur. Insister : le focus initial est sur « Annuler » pour ne pas confirmer un geste destructeur par inadvertance.
 4. **Assumer la difference RGAA vs WCAG.** Le referentiel opposable en France est le RGAA ; il s'appuie sur WCAG mais ajoute une methodologie de test. Le code cite explicitement des criteres RGAA en commentaire dans `style.css` (cherchez « Accessibility (RGAA Cr 1.c.2) », « Screen-reader only » et « not signalled by colour alone »).
-5. **Etre transparent sur les reserves (section 8).** Un jury valorise l'honnetete : dire clairement que l'audit lecteur d'ecran et la mesure de contraste a l'outil restent a faire, et que ce sont les prochaines etapes d'un vrai chantier de conformite. Ne pas revendiquer une conformite RGAA totale certifiee — revendiquer une **demarche d'accessibilite structuree et testee** sur le perimetre borne.
+5. **Etre transparent sur les reserves (section 8).** Un jury valorise l'honnetete : dire clairement que l'audit lecteur d'ecran reel reste a faire (reserve n° 1, encore ouverte). La mesure de contraste a l'outil, elle, a ete faite depuis (reserve n° 2, resolue — voir `06-audit-accessibilite-mesure.md`) : le dire aussi, et raconter ce qu'elle a trouve, vaut mieux que de la passer sous silence. Ne pas revendiquer une conformite RGAA totale certifiee — revendiquer une **demarche d'accessibilite structuree et testee** sur le perimetre borne.
 6. **Relier a la correction ARIA recente.** Montrer que l'on comprend la specification : les `aria-label` parasites sur des `span`/`div` sans role ont ete retires car un `aria-label` sur un element non semantique n'est pas fiable ; on laisse desormais le lecteur annoncer le texte visible reel du badge de mode.
+7. **Back-office : montrer la parite, pas seulement l'affirmer (section 10).** Basculer la police OpenDyslexic en admin, tabuler pour montrer le lien d'evitement en tout premier arret, montrer le sommaire d'ancres de la page Ingredients. Expliquer pourquoi le `noindex, nofollow` de l'admin n'est pas une lacune : c'est une decision assumee, argumentee en section 10.
 
 ---
 
-Perimetre couvert : Cr 1.c.1 (conforme), Cr 1.c.2 (conforme), Cr 1.c.3 (conforme, reserve contraste), Cr 1.c.4 (conforme, reserve coherence de focus). Toutes les preuves sont sourcees en `fichier:ligne` et verifiees dans le code du depot.
+## 10. Back-office (admin) — parite d'accessibilite
+
+Audit Bloc 1 : le gabarit admin (`src/app/Views/admin/layout.php`) et ses assets (`src/public/admin/assets/`) etaient restes hors de cette preuve. Cette section documente le rattrapage sur quatre points reels, et pose noir sur blanc pourquoi un cinquieme point (le referencement naturel) ne s'applique pas ici — par decision, pas par oubli.
+
+### 10.1 Police pour personnes dyslexiques (parite avec Cr 1.c.2)
+
+Le module `assets/js/a11y.js` est **reutilise physiquement**, pas reecrit : `src/public/admin/assets/js/a11y.js` est un lien symbolique vers le fichier de la borne (`../../../borne/assets/js/a11y.js`), rendu possible par `Options ... +FollowSymLinks` deja active sur les deux vhosts (`docker/apache/vhost.conf`, cherchez `+FollowSymLinks`) et sans consequence CSP puisque le fichier est servi depuis l'origine admin elle-meme (le navigateur voit une ressource same-origin, la question cross-origin ne se pose pas). Meme raisonnement pour les polices : `src/public/admin/assets/fonts` est un lien symbolique vers `assets/fonts` de la borne (les deux `.woff2` OpenDyslexic + la licence OFL).
+
+- **`@font-face` propre a l'admin.** Deux poids (400/700), `font-display: swap` : `admin.css` (cherchez `@font-face`, juste au-dessus de `html.dys-font`).
+- **Bascule par classe racine adaptee au design system admin.** `html.dys-font` redefinit `--font` (le token de police de l'admin, distinct de `--font-family-base` cote borne) : `admin.css` (cherchez `html.dys-font`).
+- **Chargement sur chaque page admin.** Une seule injection suffit : `layout.php` (cherchez `<script type="module" src="/assets/js/a11y.js">`) enveloppe toutes les vues back-office.
+- **Position du bouton adaptee au layout admin.** Bas-droite (`admin.css`, cherchez `.a11y-toggle`) plutot que bas-gauche comme sur la borne : la sidebar admin occupe tout le bord gauche sur chaque page (`admin.css`, cherchez `.sidebar {`), le coin bas-gauche n'y est donc pas libre.
+- **Non-regression testee, pas seulement la premiere fois.** `tests/Unit/Admin/AdminAccessibilityAssetsTest.php` (cherchez `testDyslexiaToggleScriptIsSharedWithBorneNotDuplicated`) compare le contenu du fichier admin a celui de la borne octet pour octet : une divergence future (edition d'un seul cote) ferait echouer ce test avant de devenir un bug silencieux en production.
+
+### 10.2 Focus visible harmonise (parite avec Cr 1.c.4)
+
+Avant ce lot, `admin.css` melangeait deux conventions : `:focus-visible` sur les controles recents (tuiles POS, onglets), `:focus` nu sur quatre selecteurs plus anciens. Corrige par simple changement de pseudo-classe (le comportement visuel au clavier est inchange, seul le declenchement au clic souris disparait sur ces quatre champs — coherent avec le reste du fichier) :
+
+- `.topbar-search input:focus-visible`
+- `.search-field input:focus-visible`
+- `.filter-select:focus-visible`
+- `.form-input:focus-visible, .form-select:focus-visible, .form-textarea:focus-visible`
+
+Verifie par regex negative (pas seulement les quatre selecteurs cites) : `tests/Unit/Admin/AdminAccessibilityAssetsTest.php` (cherchez `testAdminStylesheetHasNoBareFocusSelectorLeft`).
+
+### 10.3 Favicon
+
+Absent du gabarit admin avant ce lot. Ajoute par le meme mecanisme de partage physique que les polices : `layout.php` (cherchez `<link rel="icon" type="image/svg+xml" href="/assets/images/favicon.svg">`), `src/public/admin/assets/images/favicon.svg` est un lien symbolique vers le fichier de la borne. Verifie par `tests/Unit/Admin/AdminAccessibilityAssetsTest.php` (cherchez `testFaviconIsReachableFromAdminOrigin`).
+
+### 10.4 Semantique du gabarit — verification, aucune correction necessaire
+
+`layout.php` utilise deja `<header class="topbar">`, `<nav class="sidebar">` et `<main class="content">` a bon escient : chacun correspond a une seule zone reelle et distincte du gabarit (bandeau superieur, navigation laterale, contenu de page). Aucun `<article>` n'a ete ajoute : rien dans le gabarit ne correspond a un contenu autonome et redistribuable au sens de cet element, l'en introduire un aurait ete du remplissage sans valeur semantique. Ce point est une verification qui conclut a la conformite existante, pas une correction.
+
+### 10.5 Pourquoi le referencement naturel (Cr 1.e, hors 1.e.11) ne s'applique pas au back-office — decision assumee
+
+Le gabarit admin porte `<meta name="robots" content="noindex, nofollow">` depuis avant ce lot (decision deja en place, pas introduite ici). C'est une decision correcte a assumer telle quelle, pas une lacune a combler :
+
+- **Le back-office n'est pas une ressource publique.** Chaque page est derriere authentification (session + permission, `AdminController::guard()`). Un moteur de recherche sans identifiants valides ne peut pas atteindre une page utile de l'admin ; l'indexer ne referencerait donc que des pages de connexion ou des redirections, ce qui n'apporte aucune valeur de decouvrabilite.
+- **Un `canonical` ou une `description` sur une page `noindex` seraient contradictoires.** Le `canonical` dit a un moteur « indexe cette version-ci » ; la `description` sert a composer un extrait dans une page de resultats. Les deux instructions n'ont d'effet que si la page finit par etre indexee — ce que le `noindex` interdit explicitement sur la meme page. Les ajouter aurait ete remplir des cases pour la forme, un jury averti le remarquerait.
+- **Exposer la structure d'URL de l'admin serait plutot un risque qu'un gain.** `/admin/ingredients`, `/admin/users`, `/admin/roles` : rendre ces chemins decouvrables via un moteur de recherche elargit la surface visible depuis l'exterieur pour un gain de trafic organique nul, puisque personne ne peut de toute facon consulter ces pages sans session valide.
+- **Les criteres de referencement naturel de C1.e visent l'interface client.** La borne, elle, porte `canonical` + `description` par page (verifie dans `01-validation-w3c.md` et le code des 5 pages) : c'est l'interface destinee a etre potentiellement decouverte, donc celle ou ces criteres ont un effet reel.
+
+**Verdict Cr 1.e (hors 1.e.11) : non applicable au back-office, par decision documentee.** Cr 1.e.11 (lien d'evitement / ancres), lui, reste un critere d'accessibilite clavier valable sur toute interface authentifiee ou non — c'est pour ca qu'il est traite en section 5, applique aux deux perimetres, sans lien avec cette decision de noindex.
+
+### 10.6 Tests ajoutes et chiffres
+
+- `tests/js/skip-link.test.js` — 6 cas (5 pages + regle CSS).
+- `tests/Unit/Admin/DashboardControllerTest.php` — 1 cas ajoute (`testShellHasSkipLinkFaviconAndDyslexiaToggleBeforeMainLandmark`).
+- `tests/Unit/Admin/IngredientControllerTest.php` — 1 cas ajoute (`testIndexRendersTableOfContentsLinkingBothRealSections`).
+- `tests/Unit/Admin/AdminAccessibilityAssetsTest.php` — 6 cas (nouveau fichier, garde de non-regression sur les assets partages et le CSS).
+
+Point de mesure apres ce lot : 755 tests PHP (etaient 747), 209 tests JS (etaient 203), PHPStan niveau 6 a zero erreur, validateur W3C Nu rejoue sur les 5 pages borne (`{"messages":[]}`, inchange).
+
+**Point de mesure au 2026-09-26** (apres la refonte du back-office et la regeneration du dossier de preuves) : **1 677 tests PHP, 4 855 assertions, `OK`** ; **356 tests JS** ; PHPStan niveau 6 a zero erreur ; validateur W3C Nu rejoue sur les 5 pages borne et sur 4 captures de DOM rendu (0 erreur, 1 avertissement assume).
+
+### 10.7 Le back-office est desormais mesure, pas seulement relu (2026-09-26)
+
+Cette section 10 documentait la parite d'accessibilite du back-office par **lecture du
+code** : gabarit, assets partages, focus, semantique. L'audit mesure (`axe-core`), lui, ne
+couvrait que **cinq** ecrans du back-office. Il en couvre **douze** depuis le 2026-09-26,
+dont les cinq surfaces que le navigateur construit de toutes pieces : les lignes de recette
+du formulaire produit, le bloc de slot du formulaire menu, la caisse comptoir, son composeur
+de menu, et la caisse drive.
+
+Deux resultats a retenir pour l'oral :
+
+- **0 violation WCAG AA** sur les douze ecrans, contrastes compris (858 mesures au total
+  avec la borne).
+- **Un ecart trouve, corrige, et invisible pour l'outil** : le bloc de slot du formulaire
+  menu etait un `<fieldset>` sans `<legend>`, donc un groupe de champs sans nom pour une
+  technologie d'assistance. Aucune regle du jeu WCAG A/AA active ne couvre ce cas ; c'est
+  la lecture du balisage nouvellement audite qui l'a leve. `menu-form.js` pose desormais
+  une legende, et `tests/js/menu-form.test.js` la garde. Detail :
+  `06-audit-accessibilite-mesure.md`, section 5 ter.
+
+**Reserve honnete.** Le rendu HTML du back-office n'a pas ete soumis au validateur W3C Nu : la preuve `01-validation-w3c.md` scope explicitement cette campagne a la borne, et l'admin est du HTML rendu serveur. Les balises ajoutees ici (lien d'evitement, `id`, `<link rel="icon">`, `<script type="module">`) suivent une syntaxe standard deja utilisee ailleurs dans le depot, mais leur passage reel au validateur reste [UNVERIFIED]. Depuis le 2026-09-26, l'outillage existe pour lever cette reserve si besoin : `tests/e2e/run-w3c.sh` monte une pile qui sert le back-office, et `tests/e2e/w3c-capture.spec.js` sait serialiser un DOM rendu — il suffirait d'y ajouter les vues admin. Ce n'est pas fait : le perimetre du Bloc 1 reste la borne.
+
+---
+
+Perimetre couvert : Cr 1.c.1 (conforme), Cr 1.c.2 (conforme), Cr 1.c.3 (conforme, reserve contraste), Cr 1.c.4 (conforme, reserve coherence de focus), Cr 1.e.11 (conforme, borne + admin, section 5), back-office (parite d'accessibilite, section 10 ; Cr 1.e hors 1.e.11 non applicable par decision documentee). Les preuves de ce document combinent deux conventions : les citations historiques `fichier:ligne` (perimetre borne d'origine) et des citations par texte cherchable pour tout ce qui a ete ajoute depuis (moins sensible a la derive des numeros de ligne au fil des commits). Toutes sont verifiees dans le code du depot.

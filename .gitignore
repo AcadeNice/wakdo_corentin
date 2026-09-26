@@ -33,6 +33,10 @@ vendor/
 composer.lock
 composer.phar
 
+# === Python (generateurs scripts/gen_postman.py, scripts/gen_bruno.py) ===
+__pycache__/
+*.pyc
+
 # === Tests / Analyse statique (tooling via .phar autonome, sans Composer) ===
 .phpunit.result.cache
 .phpunit.cache/
@@ -68,13 +72,30 @@ Thumbs.db
 /src/public/uploads/
 /data/
 
+# Instantanes de demo (scripts/demo-snapshot.sh) et sauvegardes de securite
+# (scripts/demo-reset.sh) : dumps + images uploads, potentiellement volumineux
+# et propres a chaque hote. Volontairement PAS sous /var/ : ce dossier est
+# parfois cree root:root par le tout premier `docker compose up` (bind-mount
+# var/backups de wakdo-cron), ce qui empecherait un utilisateur non-root d'y
+# creer des sous-dossiers.
+/demo-snapshots/
+/demo-backups/
+/.demo-reset.lock
+
 # === Build artifacts ===
 /dist/
 /build/
 /public/build/
 
 # === Node (au cas ou) ===
+# Deux lignes deliberees, pas une redondance : "node_modules/" (barre finale)
+# ne matche qu'un VRAI repertoire ; ce depot le monte parfois en LIEN
+# SYMBOLIQUE (scratchpad de travail partage), que "node_modules/" ne reconnait
+# pas de facon fiable -- verifie par un `git status` qui le proposait encore en
+# "??" malgre cette ligne. "node_modules" (sans barre) matche le NOM quel que
+# soit son type (repertoire ou lien), donc ferme ce cas.
 node_modules/
+node_modules
 npm-debug.log
 yarn-error.log
 
@@ -83,6 +104,9 @@ playwright-report/
 test-results/
 /blob-report/
 .last-run.json
+# Captures brutes deposees par un script Playwright jetable (ex. e2e.sh
+# CAPTURES_DIR) : outil de mise au point, jamais un artefact a versionner.
+/.captures/
 
 # === Docker volumes locaux ===
 /docker-data/

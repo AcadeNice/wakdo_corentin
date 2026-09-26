@@ -22,16 +22,36 @@ final class AuthService
         private readonly DatabaseInterface $db,
         private readonly Config $config,
         private readonly SessionManager $session,
-        private readonly PasswordHasher $hasher,
+        private readonly PasswordHasherInterface $hasher,
     ) {
     }
 
     /**
      * Ordre strict (12.1) : RG-1 lookup (toujours, pour payer le cout SELECT sur
-     * hit comme sur miss) -> PRE-3 gate compte+IP -> RG-2 verify (leurre si miss).
+     * hit comme sur miss) -> PRE-3 gate IP puis compte -> RG-2 verify (leurre si
+     * miss OU compte verrouille -- MEME traitement des deux, voir plus bas).
      * Succes : RG-3 regenerate + rotate CSRF, RG-4 session, RG-5/RG-9 reset+audit
-     * (une transaction), RG-7 redirection dynamique. Echec : RG-8 backoff degressif
-     * compte + upsert IP + audit (une transaction). Message d'echec unique (ERR-1/3).
+     * (une transaction), RG-7 redirection dynamique. Echec : RG-8 backoff
+     * degressif compte + upsert IP + audit (une transaction). Message d'echec
+     * unique (ERR-1/3) ; SEUL le verrou IP porte un `retryAfterSeconds`
+     * (consommateur JSON, cf. AuthResult::throttled()).
+     *
+     * REGLE : le verrou COMPTE doit rester indiscernable d'un mot de passe faux
+     * -- meme code, et le meme travail observable sur les deux chemins (meme
+     * appel a `verifyDecoy()`, meme increment du SEUL compteur IP, meme audit).
+     * Sans cette regle, un compte verrouille se distingue d'un email inconnu :
+     * soit par le compteur IP (s'il n'avance pas sur un compte deja verrouille,
+     * il n'atteint jamais le seuil de 429 qu'un email inconnu, lui, atteint),
+     * soit par le temps de reponse (si `verifyDecoy()` n'est pas appele, la
+     * reponse est nettement plus rapide qu'une verification reelle). Voir le
+     * bloc `if ($accountLocked)` ci-dessous. Le leurre est calibre sur un hash
+     * STOCKE de reference (le compte cible s'il existe deja mais est
+     * verrouille, sinon un compte quelconque via referenceHashForDecoy()), PAS
+     * sur la configuration argon2id courante -- c'est le hash stocke qui dicte
+     * le cout REEL d'un `password_verify()`, pas la configuration (voir
+     * PasswordHasherInterface::verifyDecoy() pour le pourquoi complet, et
+     * needsRehash()/recordSuccess() plus bas pour la reconvergence du parc
+     * quand la configuration change).
      */
     public function authenticate(string $email, string $password, string $ip, ?int $now = null): AuthResult
     {
@@ -46,17 +66,48 @@ final class AuthService
         // PRE-3 : porte de throttling AVANT toute verification de mot de passe.
         $accountLockedUntil = $user !== null ? $this->stringOrNull($user['lockout_until'] ?? null) : null;
         $accountLocked = $accountPolicy->isLockedUntil($accountLockedUntil, $now);
-        $ipLocked = $ipPolicy->isLockedUntil($this->ipLockoutUntil($ip), $now);
+        $ipLockedUntil = $this->ipLockoutUntil($ip);
+        $ipLocked = $ipPolicy->isLockedUntil($ipLockedUntil, $now);
 
-        if ($accountLocked || $ipLocked) {
-            // ERR-3 : meme message generique ; ne revele pas l'existence ni le verrou.
-            // Pas d'increment : le compteur tourne deja, le verrou est actif.
+        if ($ipLocked) {
+            // ERR-3 : pas d'increment (le compteur tourne deja, le verrou est actif).
+            // Contrairement au verrou compte ci-dessous, exposer CE verrou (retryAfterSeconds)
+            // ne leak rien : il ne depend pas de l'email tente (cf. AuthResult::throttled()).
+            $lockoutUntil = strtotime((string) $ipLockedUntil);
+            $retryAfter = $lockoutUntil !== false ? $lockoutUntil - $now : 0;
+
+            return AuthResult::throttled($retryAfter);
+        }
+
+        if ($accountLocked) {
+            // REGLE : ce chemin fait EXACTEMENT le meme travail que "email
+            // inconnu" ci-dessous -- meme appel a verifyDecoy() (qui ne paie
+            // qu'UN password_verify(), cf. PasswordHasher::decoyHash()), meme
+            // increment du compteur IP, meme audit. $userId=null, $roleId=null :
+            // le compteur PAR COMPTE n'avance pas plus qu'il ne l'aurait fait
+            // pour un email inconnu (deja verrouille, l'incrementer ne
+            // changerait rien au verrou actif deja calcule) ; SEUL le compteur
+            // IP progresse, exactement comme pour un email inconnu -- sans quoi
+            // un compte verrouille se distingue d'un email inconnu, par le
+            // compteur IP (gele ici, jamais de 429) et par le temps de reponse
+            // (reponse immediate sans le travail de verifyDecoy()).
+            //
+            // Reference de calibrage : le hash STOCKE de CE compte precis (deja
+            // en main, aucune requete de plus) -- pas options() -- puisque
+            // c'est ce hash qui dicte le cout REEL d'une verification contre ce
+            // meme compte une fois deverrouille (cf. PasswordHasherInterface::
+            // verifyDecoy()).
+            $this->hasher->verifyDecoy($password, $this->stringOrNull($user['password_hash'] ?? null));
+            $this->recordFailure(null, null, 0, $ip, $accountPolicy, $ipPolicy, $now);
+
             return AuthResult::failure();
         }
 
         // RG-2 : email inconnu -> verify leurre (timing) puis echec generique.
+        // Reference de calibrage : PAS ce compte (il n'existe pas) -- un hash
+        // STOCKE quelconque d'un autre compte, pour le meme motif que ci-dessus.
         if ($user === null) {
-            $this->hasher->verifyDecoy($password);
+            $this->hasher->verifyDecoy($password, $this->referenceHashForDecoy());
             $this->recordFailure(null, null, 0, $ip, $accountPolicy, $ipPolicy, $now);
 
             return AuthResult::failure();
@@ -64,21 +115,30 @@ final class AuthService
 
         $userId = (int) ($user['id'] ?? 0);
         $roleId = (int) ($user['role_id'] ?? 0);
+        $storedHash = (string) ($user['password_hash'] ?? '');
 
-        if (!$this->hasher->verify($password, (string) ($user['password_hash'] ?? ''))) {
+        if (!$this->hasher->verify($password, $storedHash)) {
             $attempts = (int) ($user['failed_login_attempts'] ?? 0);
             $this->recordFailure($userId, $roleId, $attempts, $ip, $accountPolicy, $ipPolicy, $now);
 
             return AuthResult::failure();
         }
 
+        // (b) Convergence du parc : si ce hash ne porte plus les options()
+        // courantes (ex. ARGON2_MEMORY_COST augmente depuis sa creation), le
+        // rehacher ICI -- seul moment ou le mot de passe clair, deja verifie,
+        // est disponible. Sans ca, un changement de ARGON2_* laisse les hashes
+        // existants a leur ancien cout indefiniment (cf. PasswordHasherInterface::
+        // needsRehash()).
+        $rehashedPassword = $this->hasher->needsRehash($storedHash) ? $this->hasher->hash($password) : null;
+
         // Succes : RG-3 (anti-fixation) d'abord (change l'ID, pas encore d'identite).
         $this->session->regenerate();
 
-        // RG-5 + RG-9 : reset compteurs + clear IP + audit succes, une transaction.
-        // Fait AVANT de poser l'identite en session : si la base echoue, aucune
-        // session authentifiee ne subsiste (fail-closed, D9).
-        $this->recordSuccess($userId, $roleId, $ip, $now);
+        // RG-5 + RG-9 : reset compteurs + clear IP + audit succes (+ rehash si
+        // du), une transaction. Fait AVANT de poser l'identite en session : si
+        // la base echoue, aucune session authentifiee ne subsiste (fail-closed, D9).
+        $this->recordSuccess($userId, $roleId, $ip, $now, $rehashedPassword);
 
         // RG-4 : identite + horodatages pour les bornes idle/absolue (RG-6),
         // puis rotation du jeton CSRF anterieur a l'authentification.
@@ -117,6 +177,47 @@ final class AuthService
             . 'WHERE u.email = :email AND u.is_active = 1 LIMIT 1',
             ['email' => $email],
         );
+    }
+
+    /**
+     * Un hash STOCKE de reference quelconque, pour calibrer le leurre sur le
+     * cout REEL de password_verify() plutot que sur options() (la
+     * configuration) : c'est le hash stocke lui-meme qui dicte son propre cout
+     * (les parametres argon2id sont encodes DEDANS), pas la configuration
+     * courante -- un cout calibre sur la configuration diverge du cout reel
+     * des qu'un deploiement change ARGON2_MEMORY_COST/TIME_COST/THREADS sans
+     * rehacher l'existant (mesure relecture adverse : 256 ms reel contre 99 ms
+     * leurre, cache par ailleurs parfaitement sain, aucune panne necessaire).
+     * On ne cherche pas LE compte le plus representatif, seulement UN hash
+     * reellement stocke -- mais deux precautions sont necessaires pour que
+     * cette ligne en soit vraiment un :
+     *
+     * 1. `WHERE password_hash <> ''` EXCLUT les tombstones RGPD. L'anonymisation
+     *    (UserRepository::anonymise(), mlt 10.5) GARDE la ligne user et y met
+     *    `password_hash = ''` : une chaine vide n'est pas un hash argon2id, donc
+     *    PasswordHasher::verifyDecoy() la rejetterait (looksLikeArgon2idHash())
+     *    et retomberait sur son repli calibre sur options() -- precisement
+     *    l'ecart de temps que cette methode existe pour fermer. Ce n'est pas un
+     *    cas theorique : la collection Postman/Bruno livree anonymise elle-meme
+     *    un utilisateur en fin de section "Utilisateurs".
+     * 2. `ORDER BY id` rend la ligne DETERMINISTE. Sans clause de tri, SQL ne
+     *    garantit AUCUN ordre : la ligne rendue depend du plan choisi par le
+     *    moteur (parcours de cle primaire ou parcours d'un index secondaire),
+     *    donc "le premier compte" pouvait tomber sur un tombstone selon le plan.
+     *    Le tri par cle primaire coute le parcours deja fait et supprime cette
+     *    dependance a un detail non specifie.
+     *
+     * Renvoie null quand AUCUNE ligne ne convient : base fraiche sans aucun
+     * utilisateur (borne de demarrage -- ce depot seede toujours un compte
+     * admin, db/seeds/0001), ou parc entierement anonymise. PasswordHasher::
+     * verifyDecoy() se rabat alors sur son propre mecanisme calibre sur
+     * options() (repli de dernier recours, documente la-bas).
+     */
+    private function referenceHashForDecoy(): ?string
+    {
+        $row = $this->db->fetch("SELECT password_hash FROM user WHERE password_hash <> '' ORDER BY id LIMIT 1");
+
+        return $this->stringOrNull($row['password_hash'] ?? null);
     }
 
     private function ipLockoutUntil(string $ip): ?string
@@ -217,19 +318,28 @@ final class AuthService
                 ['lock' => $ipLockUntil, 'ip' => $ip],
             );
 
-            $this->writeAudit($db, 'auth.login_failed', $userId, $roleId, 'Echec de connexion');
+            $this->writeAudit($db, 'auth.login_failed', $userId, $roleId, 'Échec de connexion');
         });
     }
 
     /**
      * RG-9 : remise a zero du compteur compte + clear du throttle IP + audit du
-     * succes, une seule transaction (RG-T08).
+     * succes (+ rehash du mot de passe si $rehashedPassword est fourni, point
+     * (b) de la convergence du parc -- cf. PasswordHasherInterface::needsRehash()),
+     * une seule transaction (RG-T08).
      */
-    private function recordSuccess(int $userId, int $roleId, string $ip, int $now): void
+    private function recordSuccess(int $userId, int $roleId, string $ip, int $now, ?string $rehashedPassword = null): void
     {
         $nowDt = date('Y-m-d H:i:s', $now);
 
-        $this->db->transaction(function (DatabaseInterface $db) use ($userId, $roleId, $ip, $nowDt): void {
+        $this->db->transaction(function (DatabaseInterface $db) use ($userId, $roleId, $ip, $nowDt, $rehashedPassword): void {
+            if ($rehashedPassword !== null) {
+                $db->execute(
+                    'UPDATE user SET password_hash = :hash WHERE id = :id',
+                    ['hash' => $rehashedPassword, 'id' => $userId],
+                );
+            }
+
             $db->execute(
                 'UPDATE user SET failed_login_attempts = 0, lockout_until = NULL, last_login_at = :now WHERE id = :id',
                 ['now' => $nowDt, 'id' => $userId],
@@ -244,7 +354,7 @@ final class AuthService
                 ['now_w' => $nowDt, 'now_l' => $nowDt, 'ip' => $ip],
             );
 
-            $this->writeAudit($db, 'auth.login_success', $userId, $roleId, 'Connexion reussie');
+            $this->writeAudit($db, 'auth.login_success', $userId, $roleId, 'Connexion réussie');
         });
     }
 

@@ -5,7 +5,7 @@ erDiagram
     }
     ingredient {
         int id PK
-        varchar name
+        varchar name UK
         varchar unit
         int stock_quantity
         int stock_capacity
@@ -14,13 +14,15 @@ erDiagram
         smallint energy_kcal_100g
         varchar nutrition_source
         datetime nutrition_fetched_at
+        datetime allergens_reviewed_at
+        varchar allergens_source
         smallint low_stock_pct
         smallint critical_stock_pct
         tinyint is_active
     }
     product_ingredient {
-        int product_id FK
-        int ingredient_id FK
+        int product_id PK,FK
+        int ingredient_id PK,FK
         smallint quantity_normal
         smallint quantity_maxi
         tinyint is_removable
@@ -29,13 +31,13 @@ erDiagram
     }
     allergen {
         int id PK
-        varchar code
+        varchar code UK
         varchar name
         text description
     }
     ingredient_allergen {
-        int ingredient_id FK
-        int allergen_id FK
+        int ingredient_id PK,FK
+        int allergen_id PK,FK
     }
     customer_order {
         int id PK

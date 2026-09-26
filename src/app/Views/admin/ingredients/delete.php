@@ -22,7 +22,7 @@ $errorMessage = isset($error) && is_string($error) ? $error : null;
 ?>
 <div class="page-header">
     <div>
-        <h1 class="page-title">Supprimer un ingredient</h1>
+        <h1 class="page-title">Supprimer un ingrédient</h1>
         <p class="page-subtitle">Confirmez la suppression de "<?= $ingredientName ?>".</p>
     </div>
 </div>
@@ -32,13 +32,13 @@ $errorMessage = isset($error) && is_string($error) ? $error : null;
         <p role="alert"><?= htmlspecialchars($errorMessage, ENT_QUOTES, 'UTF-8') ?></p>
     <?php endif; ?>
 
-    <form method="post" action="/admin/ingredients/<?= $id ?>/delete" class="form-card">
+    <form method="post" action="/admin/ingredients/<?= $id ?>/delete" class="form-card" data-row-key="ingredient:<?= $id ?>">
         <input type="hidden" name="_csrf" value="<?= $csrf ?>">
 
-        <p><small>Un ingredient deja utilise (recette ou mouvement de stock) ne peut pas etre supprime : desactivez-le a la place.</small></p>
+        <p><small>Un ingrédient déjà utilisé (recette ou mouvement de stock) ne peut pas être supprimé : désactivez-le à la place.</small></p>
 
         <div class="form-actions">
-            <button class="btn btn-primary" type="submit">Supprimer definitivement</button>
+            <button class="btn btn-danger" type="submit">Supprimer définitivement</button>
             <a class="btn btn-secondary" href="/admin/ingredients">Annuler</a>
         </div>
     </form>

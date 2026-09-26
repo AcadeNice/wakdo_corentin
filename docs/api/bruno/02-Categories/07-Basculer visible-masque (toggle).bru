@@ -1,0 +1,18 @@
+meta {
+  name: Basculer visible/masque (toggle)
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/admin/api/categories/{{created_category_id}}/toggle
+}
+
+headers {
+  Content-Type: application/json
+  X-CSRF-Token: {{csrf}}
+}
+
+docs {
+Bascule dans les DEUX sens (contrairement a DELETE qui ne masque que).
+}

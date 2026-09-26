@@ -26,11 +26,11 @@ $status = (string) ($o['status'] ?? '');
 
 $statusLabel = static fn (string $s): string => match ($s) {
     'pending_payment' => 'En attente',
-    'paid'            => 'Payee',
-    'preparing'       => 'En preparation',
-    'ready'           => 'Prete',
-    'delivered'       => 'Livree',
-    'cancelled'       => 'Annulee',
+    'paid'            => 'Payée',
+    'preparing'       => 'En préparation',
+    'ready'           => 'Prête',
+    'delivered'       => 'Livrée',
+    'cancelled'       => 'Annulée',
     default           => $s,
 };
 
@@ -53,7 +53,7 @@ $cancellable = in_array($status, ['pending_payment', 'paid', 'preparing', 'ready
     <?php endif; ?>
 
     <?php if (!$cancellable): ?>
-        <p role="alert">Cette commande est livree ou deja annulee : elle ne peut plus etre annulee.</p>
+        <p role="alert">Cette commande est livrée ou déjà annulée : elle ne peut plus être annulée.</p>
         <div class="form-actions">
             <a class="btn btn-secondary" href="/admin/orders">Retour</a>
         </div>
@@ -61,10 +61,10 @@ $cancellable = in_array($status, ['pending_payment', 'paid', 'preparing', 'ready
         <form method="post" action="/admin/orders/<?= rawurlencode($number) ?>/cancel" class="form-card">
             <input type="hidden" name="_csrf" value="<?= $csrf ?>">
 
-            <p><small>L'annulation est tracee (audit) et re-credite le stock si la commande etait payee. Renseignez votre email et votre PIN.</small></p>
+            <p><small>L'annulation est tracée (audit) et re-crédite le stock si la commande était payée. Renseignez votre email et votre PIN.</small></p>
 
             <fieldset class="form-group">
-                <legend>Confirmation par PIN equipier</legend>
+                <legend>Confirmation par PIN équipier</legend>
                 <div class="form-group">
                     <label class="form-label" for="pin_email">Votre email</label>
                     <input class="form-input" type="email" id="pin_email" name="pin_email" autocomplete="off" required>
@@ -76,7 +76,7 @@ $cancellable = in_array($status, ['pending_payment', 'paid', 'preparing', 'ready
             </fieldset>
 
             <div class="form-actions">
-                <button class="btn btn-primary" type="submit">Annuler la commande</button>
+                <button class="btn btn-danger" type="submit">Annuler la commande</button>
                 <a class="btn btn-secondary" href="/admin/orders">Retour</a>
             </div>
         </form>

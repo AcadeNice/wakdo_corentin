@@ -17,7 +17,9 @@ use App\Order\OrderValidationException;
  * sans session ; l'idempotence (RG-T19, idempotency_key) tient lieu de garde-fou
  * anti double-clic / retry reseau. Deux operations :
  *  - POST /api/orders               : creation en pending_payment (RG-5 etapes 1-4) ;
- *  - POST /api/orders/{number}/pay  : encaissement -> paid + decrement stock (RG-T20).
+ *  - POST /api/orders/{number}/pay  : encaissement -> preparing (part en cuisine sans
+ *    geste manuel supplementaire ; paid_at + preparing_at poses ensemble, voir
+ *    OrderRepository::pay) + decrement stock (RG-T20).
  *
  * Les erreurs metier (OrderValidationException) sont mappees par code :
  * ORDER_NOT_FOUND -> 404, INVALID_TRANSITION -> 409, le reste (reference /
@@ -61,19 +63,29 @@ class OrderController extends Controller
      * Lecture publique du statut d'une commande par son numero (suivi borne apres
      * encaissement). Anonyme, lecture seule ; 404 si le numero est inconnu.
      *
+     * RESTREINT AU CANAL KIOSK (relecture adverse, point 5b) : cet endpoint est
+     * PUBLIC, sans session, et les numeros sont SEQUENTIELS (prefixe canal + id
+     * auto-incremente) -- avant ce correctif, `findByNumber()` ne filtrait pas par
+     * source : n'importe qui pouvait deviner un numero comptoir/drive voisin
+     * ("K102" existe -> "C102"/"D102" probablement aussi) et en lire le statut ET
+     * le total, alors que ces commandes ne sont PAS anonymes par nature (saisies par
+     * un equipier identifie). Une commande d'un AUTRE canal rend la MEME reponse 404
+     * qu'un numero inconnu (anti-enumeration : ne pas reveler qu'une commande existe
+     * hors kiosk).
+     *
      * @param array<string, string> $params
      */
     public function show(array $params = []): Response
     {
         $order = $this->orders()->findByNumber((string) ($params['number'] ?? ''));
-        if ($order === null) {
+        if ($order === null || ($order['source'] ?? '') !== 'kiosk') {
             return $this->json(
                 ['data' => null, 'error' => ['code' => 'ORDER_NOT_FOUND', 'message' => $this->messageFor('ORDER_NOT_FOUND')]],
                 404,
             );
         }
 
-        return $this->json(['data' => $this->present($order)]);
+        return $this->json(['data' => $this->presentPublicStatus($order)]);
     }
 
     /**
@@ -109,6 +121,28 @@ class OrderController extends Controller
         ];
     }
 
+    /**
+     * Presentation du suivi PUBLIC (show(), restreint au canal kiosk) : uniquement
+     * `order_number` + `status`. Ni `id` (technique, sans usage cote client) ni
+     * `total_ttc_cents` (relecture adverse, point 5b) : aucun ecran borne ne
+     * consomme ce champ sur cet endpoint aujourd'hui (verifie -- `checkout.js` ne
+     * fait que POSTer `/api/orders` puis `/api/orders/{number}/pay` ; ni
+     * `page-confirmation.js` ni `confirm-modal.js` n'appellent `GET
+     * /api/orders/{number}`), donc pas de raison de l'exposer "au cas ou" sur un
+     * endpoint anonyme. `present()` ci-dessus reste utilise par `create()`/`pay()`,
+     * qui EUX ont besoin du total pour l'affichage de paiement.
+     *
+     * @param array{order_number:string, status:string} $order
+     * @return array{order_number:string, status:string}
+     */
+    private function presentPublicStatus(array $order): array
+    {
+        return [
+            'order_number' => $order['order_number'],
+            'status'       => $order['status'],
+        ];
+    }
+
     private function orderError(OrderValidationException $exception): Response
     {
         $code = $exception->getMessage();
@@ -139,18 +173,18 @@ class OrderController extends Controller
         return match ($code) {
             'ORDER_NOT_FOUND'          => 'Commande introuvable.',
             'INVALID_TRANSITION'       => 'Transition de statut invalide.',
-            'ORDER_CANCELLED'          => 'Cette commande a ete annulee : recommencez une nouvelle commande.',
+            'ORDER_CANCELLED'          => 'Cette commande a été annulée : recommencez une nouvelle commande.',
             'EMPTY_ORDER'              => 'La commande est vide.',
             'INVALID_SERVICE_MODE'     => 'Mode de service invalide.',
-            'INVALID_SERVICE_TAG'      => 'Numero de chevalet invalide.',
+            'INVALID_SERVICE_TAG'      => 'Numéro de chevalet invalide.',
             'INVALID_ITEM_TYPE'        => 'Type d\'article invalide.',
             'PRODUCT_UNAVAILABLE'      => 'Produit indisponible.',
             'MENU_UNAVAILABLE'         => 'Menu indisponible.',
             'INVALID_SELECTION'        => 'Choix invalide pour ce menu.',
-            'INVALID_MODIFIER'         => 'Modification d\'ingredient invalide.',
-            'INGREDIENT_NOT_REMOVABLE' => 'Cet ingredient ne peut pas etre retire.',
-            'INGREDIENT_NOT_ADDABLE'   => 'Cet ingredient ne peut pas etre ajoute.',
-            default                    => 'Requete invalide.',
+            'INVALID_MODIFIER'         => 'Modification d\'ingrédient invalide.',
+            'INGREDIENT_NOT_REMOVABLE' => 'Cet ingrédient ne peut pas être retiré.',
+            'INGREDIENT_NOT_ADDABLE'   => 'Cet ingrédient ne peut pas être ajouté.',
+            default                    => 'Requête invalide.',
         };
     }
 }

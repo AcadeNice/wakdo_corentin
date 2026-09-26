@@ -217,7 +217,7 @@ final class KitchenControllerTest extends TestCase
         // (les commandes arrivent en preparation des le paiement) -> badge "En preparation".
         $body = $this->controller($this->permittedDb())->display()->body();
         self::assertStringContainsString('kitchen-status', $body);
-        self::assertStringContainsString('En preparation', $body);
+        self::assertStringContainsString('En préparation', $body);
     }
 
     public function testShowsReadyButtonForPreparingOrder(): void
@@ -225,8 +225,8 @@ final class KitchenControllerTest extends TestCase
         // Commande deja en preparation -> badge "En preparation" + bouton "Prete"
         // postant la transition ready.
         $body = $this->controller($this->permittedDb(), new StubKitchenQueryPreparing(new FakeDatabase()))->display()->body();
-        self::assertStringContainsString('En preparation', $body);
-        self::assertStringContainsString('Prete', $body);
+        self::assertStringContainsString('En préparation', $body);
+        self::assertStringContainsString('Prête', $body);
         self::assertStringContainsString('/admin/orders/K77/ready', $body);
     }
 }

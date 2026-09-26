@@ -1,0 +1,17 @@
+meta {
+  name: Relire apres suppression (404 attendu)
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{baseUrl}}/admin/api/ingredients/{{created_ingredient_id}}
+}
+
+docs {
+Preuve de nettoyage.
+}
+
+tests {
+  expect(res.getStatus()).to.equal(404);
+}

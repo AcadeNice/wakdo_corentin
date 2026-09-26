@@ -12,6 +12,7 @@ use App\Auth\PasswordHasher;
 use App\Auth\SessionManager;
 use App\Core\Config;
 use App\Tests\Support\FakeDatabase;
+use App\Tests\Support\SpyPasswordHasher;
 
 /**
  * Branches de securite d'AUTHENTICATE_USER (mlt.md 12.1) testees avec un
@@ -99,6 +100,91 @@ final class AuthServiceTest extends TestCase
         self::assertSame(0, $this->firstWrite('UPDATE user SET failed_login_attempts')['params']['id'] ?? null);
     }
 
+    /**
+     * Coeur du correctif de calibrage (relecture adverse) : sur email inconnu,
+     * le leurre doit etre verifie contre un hash REELLEMENT STOCKE (peu
+     * importe lequel), PAS contre un hash calibre sur options() (la
+     * configuration) -- c'est le hash stocke qui dicte le cout REEL d'un
+     * password_verify(), pas la configuration courante (mesure : 256 ms reel
+     * contre 99 ms leurre calibre sur l'environnement, cache par ailleurs
+     * sain, sans aucune panne).
+     */
+    public function testUnknownEmailCalibratesDecoyOnAStoredReferenceHash(): void
+    {
+        $this->db->userRow = null;
+        $this->db->referenceUserPasswordHash = $this->hasher->hash('some other account password');
+        $spy = new SpyPasswordHasher(new Config());
+        $service = new AuthService($this->db, new Config(), $this->session, $spy);
+
+        $service->authenticate('ghost@wakdo.local', 'whatever', '203.0.113.1', self::NOW);
+
+        self::assertSame(1, $spy->verifyDecoyCalls);
+        self::assertSame([$this->db->referenceUserPasswordHash], $spy->verifyDecoyReferenceHashes);
+    }
+
+    /**
+     * Le hash de reference doit venir d'un compte REEL, jamais d'un tombstone
+     * RGPD : UserRepository::anonymise() GARDE la ligne user et y ecrit
+     * `password_hash = ''`. Une chaine vide n'est pas un hash argon2id, donc
+     * PasswordHasher::verifyDecoy() la rejetterait et retomberait sur son
+     * repli calibre sur la CONFIGURATION -- l'ecart de temps que
+     * referenceHashForDecoy() existe justement pour fermer. La collection
+     * Postman/Bruno livree anonymise elle-meme un utilisateur, donc un parc
+     * reel en contient.
+     *
+     * Ce test est le filet de NON-REGRESSION sur la requete : il vire au rouge
+     * si le predicat `password_hash <> ''` disparait, ou si le tri explicite
+     * par cle primaire est retire (sans tri, SQL ne garantit aucun ordre : la
+     * ligne rendue depend du plan choisi par le moteur, donc un tombstone
+     * pouvait etre servi selon le plan). La preuve de bout en bout contre une
+     * vraie MariaDB est dans AuthServiceDbTest::
+     * testUnknownEmailNeverCalibratesDecoyOnAnAnonymisedTombstone().
+     */
+    public function testReferenceHashQueryExcludesAnonymisedTombstones(): void
+    {
+        $this->db->userRow = null;
+        $this->db->referenceUserPasswordHash = $this->hasher->hash('some other account password');
+
+        $this->service()->authenticate('ghost@wakdo.local', 'whatever', '203.0.113.1', self::NOW);
+
+        $referenceReads = array_values(array_filter(
+            $this->db->reads,
+            static fn (array $read): bool => str_contains($read['sql'], 'SELECT password_hash FROM user')
+                && !str_contains($read['sql'], 'WHERE id')
+                && !str_contains($read['sql'], 'WHERE email'),
+        ));
+
+        self::assertCount(1, $referenceReads, 'le chemin email inconnu doit lire UN hash de reference');
+        self::assertStringContainsString(
+            "password_hash <> ''",
+            $referenceReads[0]['sql'],
+            "la requete doit exclure les tombstones RGPD (password_hash = '' apres anonymisation)",
+        );
+        self::assertStringContainsString(
+            'ORDER BY id',
+            $referenceReads[0]['sql'],
+            'la requete doit trier explicitement : sans tri, la ligne rendue depend du plan du moteur',
+        );
+    }
+
+    /**
+     * Base fraiche sans aucun utilisateur (borne de demarrage, pas un cas
+     * operationnel normal) : aucun hash de reference disponible ->
+     * verifyDecoy() recoit explicitement null, et se rabat alors sur son
+     * propre mecanisme (PasswordHasher::decoyHash()).
+     */
+    public function testUnknownEmailPassesNullReferenceWhenNoUserExistsAtAll(): void
+    {
+        $this->db->userRow = null;
+        $this->db->referenceUserPasswordHash = null;
+        $spy = new SpyPasswordHasher(new Config());
+        $service = new AuthService($this->db, new Config(), $this->session, $spy);
+
+        $service->authenticate('ghost@wakdo.local', 'whatever', '203.0.113.1', self::NOW);
+
+        self::assertSame([null], $spy->verifyDecoyReferenceHashes);
+    }
+
     public function testFailureWriteProfileIsIdenticalForKnownAndUnknownEmail(): void
     {
         // Email inconnu.
@@ -116,19 +202,101 @@ final class AuthServiceTest extends TestCase
         self::assertSame($knownWrites, $unknownWrites, 'meme nombre d ecritures (anti-enumeration)');
     }
 
-    public function testAccountLockedIsRejectedBeforeAnyWrite(): void
+    /**
+     * REGLE : sur un compte verrouille, ce chemin fait EXACTEMENT le meme
+     * travail que "email inconnu" (testUnknownEmailFailsAndRecordsIpFailure
+     * ci-dessus) -- meme appel a verifyDecoy(), meme ecriture IP, compteur DU
+     * COMPTE inchange (UPDATE no-op sur id=0). Sans cette regle, le compteur IP
+     * n'avance pas sur un compte deja verrouille alors qu'il continue d'avancer
+     * pour un email inconnu : un compte existant devient distinguable d'un
+     * email inconnu par le nombre de requetes avant le premier 429, et par le
+     * temps de reponse (verifyDecoy() non appele = reponse quasi immediate).
+     */
+    public function testAccountLockedCallsDecoyAndRecordsIpFailureLikeUnknownEmail(): void
     {
-        // lockout_until dans le futur : porte PRE-3, aucun increment ni ecriture.
         $this->db->userRow = $this->userRow([
             'lockout_until' => date('Y-m-d H:i:s', self::NOW + 120),
         ]);
+        $spy = new SpyPasswordHasher(new Config());
+        $service = new AuthService($this->db, new Config(), $this->session, $spy);
 
-        $result = $this->service()->authenticate('admin@wakdo.local', 'correct horse', '203.0.113.1', self::NOW);
+        $result = $service->authenticate('admin@wakdo.local', 'whatever', '203.0.113.1', self::NOW);
 
         self::assertFalse($result->success);
-        self::assertSame([], $this->db->writes);
-        self::assertSame([], $this->db->transactionEvents);
         self::assertNull($this->session->getInt('user_id'));
+        // Anti-enumeration (RG-2/ERR-3) : le verrou COMPTE reste indiscernable
+        // d'un mot de passe faux -- aucun retryAfterSeconds, donc un consommateur
+        // JSON le mappe en 401 INVALID_CREDENTIALS, pas en 429.
+        self::assertNull($result->retryAfterSeconds);
+
+        // Le leurre est bien appele (pas de verification chronometree instable
+        // ici : compte des appels via l'espion, voir PasswordHasher::decoyHash()
+        // pour le mecanisme qui rend ce leurre reellement du meme cout qu'une
+        // verification reelle).
+        self::assertSame(1, $spy->verifyDecoyCalls);
+
+        // Le compteur IP progresse EXACTEMENT comme pour un email inconnu.
+        self::assertTrue($this->db->wrote('INSERT INTO login_throttle'));
+        self::assertSame(['auth.login_failed'], $this->db->auditActions());
+        self::assertSame(['begin', 'commit'], $this->db->transactionEvents);
+        // Le compteur DU COMPTE reste un UPDATE no-op sur id=0 (pas l'id reel
+        // du compte verrouille) : aucune trace nominative de cette tentative.
+        self::assertTrue($this->db->wrote('UPDATE user SET failed_login_attempts'));
+        self::assertSame(0, $this->firstWrite('UPDATE user SET failed_login_attempts')['params']['id'] ?? null);
+    }
+
+    /**
+     * Coeur du correctif de calibrage (relecture adverse), pour le chemin
+     * "compte verrouille" : le leurre est calibre sur le hash STOCKE de CE
+     * compte precis (deja en main via le SELECT RG-1, aucune requete de plus)
+     * -- pas sur un compte quelconque, pas sur options(). C'est le hash de CE
+     * compte qui dicte le cout REEL d'une verification contre lui une fois
+     * deverrouille.
+     */
+    public function testAccountLockedCalibratesDecoyOnItsOwnStoredHash(): void
+    {
+        $lockedHash = $this->hasher->hash('the real locked account password');
+        $this->db->userRow = $this->userRow([
+            'lockout_until' => date('Y-m-d H:i:s', self::NOW + 120),
+            'password_hash' => $lockedHash,
+        ]);
+        $spy = new SpyPasswordHasher(new Config());
+        $service = new AuthService($this->db, new Config(), $this->session, $spy);
+
+        $service->authenticate('admin@wakdo.local', 'whatever', '203.0.113.1', self::NOW);
+
+        self::assertSame([$lockedHash], $spy->verifyDecoyReferenceHashes);
+    }
+
+    /**
+     * Preuve structurelle de l'equivalence : "compte verrouille" et "email
+     * inconnu" produisent le MEME nombre d'ecritures, avec le MEME gabarit SQL
+     * a chaque rang (les parametres peuvent differer, ex. l'IP si elle differe,
+     * mais pas la requete elle-meme) -- donc rejouer N fois l'un ou l'autre fait
+     * progresser le compteur IP IDENTIQUEMENT, jusqu'au meme seuil de 429
+     * (verifie en conditions reelles par la sonde rejouee, cf. rapport E2E du
+     * commit).
+     */
+    public function testAccountLockedProducesSameWriteShapeAsUnknownEmail(): void
+    {
+        $lockedDb = new FakeDatabase();
+        $lockedDb->userRow = $this->userRow([
+            'lockout_until' => date('Y-m-d H:i:s', self::NOW + 120),
+        ]);
+        $unknownDb = new FakeDatabase();
+        $unknownDb->userRow = null;
+
+        $lockedService = new AuthService($lockedDb, new Config(), new SessionManager(new Config(), true), $this->hasher);
+        $unknownService = new AuthService($unknownDb, new Config(), new SessionManager(new Config(), true), $this->hasher);
+
+        $lockedService->authenticate('admin@wakdo.local', 'whatever', '203.0.113.9', self::NOW);
+        $unknownService->authenticate('ghost@wakdo.local', 'whatever', '203.0.113.9', self::NOW);
+
+        self::assertSame(count($unknownDb->writes), count($lockedDb->writes), 'meme nombre d ecritures sur les deux chemins');
+        foreach ($unknownDb->writes as $i => $write) {
+            self::assertSame($write['sql'], $lockedDb->writes[$i]['sql'], "ecriture #$i : meme gabarit SQL sur les deux chemins");
+        }
+        self::assertSame($unknownDb->transactionEvents, $lockedDb->transactionEvents);
     }
 
     public function testIpLockedIsRejectedBeforeAnyWrite(): void
@@ -141,6 +309,24 @@ final class AuthServiceTest extends TestCase
         self::assertFalse($result->success);
         self::assertSame([], $this->db->writes);
         self::assertNull($this->session->getInt('user_id'));
+        // Le verrou IP, lui, ne depend pas de l'email tente : l'exposer via
+        // retryAfterSeconds ne revele rien sur un compte precis (cf. AuthResult).
+        self::assertSame(300, $result->retryAfterSeconds);
+    }
+
+    public function testIpLockedTakesPriorityOverAccountLockForRetryAfter(): void
+    {
+        // Les deux verrous sont actifs a la fois : le verrou IP (sur qui l'expose
+        // sans risque) doit l'emporter, pas le verrou compte (silencieux).
+        $this->db->userRow = $this->userRow([
+            'lockout_until' => date('Y-m-d H:i:s', self::NOW + 120),
+        ]);
+        $this->db->ipLockoutUntil = date('Y-m-d H:i:s', self::NOW + 300);
+
+        $result = $this->service()->authenticate('admin@wakdo.local', 'correct horse', '203.0.113.1', self::NOW);
+
+        self::assertFalse($result->success);
+        self::assertSame(300, $result->retryAfterSeconds);
     }
 
     public function testWrongPasswordRecordsAccountAndIpFailure(): void
@@ -253,6 +439,64 @@ final class AuthServiceTest extends TestCase
         $this->service()->authenticate('admin@wakdo.local', 'correct horse', '203.0.113.1', self::NOW);
 
         self::assertFalse(Csrf::validate($this->session, $before));
+    }
+
+    /**
+     * Espion : SessionManager::regenerate() ne fait RIEN d'observable en mode test (pas
+     * de session PHP reelle), donc rien ne cassait auparavant si l'appel a
+     * regenerate() etait retire d'authenticate() -- perte silencieuse de RG-3
+     * (anti-fixation de session). regenerateCallCount() est un compteur pose
+     * SANS EFFET sur le comportement de production (cf. SessionManager), le
+     * seul espion possible sans sous-classer cette classe `final`.
+     */
+    public function testSuccessCallsSessionRegenerateForAntiFixation(): void
+    {
+        $this->db->userRow = $this->userRow();
+        self::assertSame(0, $this->session->regenerateCallCount());
+
+        $this->service()->authenticate('admin@wakdo.local', 'correct horse', '203.0.113.1', self::NOW);
+
+        self::assertSame(1, $this->session->regenerateCallCount());
+    }
+
+    /**
+     * (b) Convergence du parc : un succes de connexion dont le hash stocke ne
+     * porte PLUS les options() courantes (ici : cree a un cout different de
+     * celui de ce test, 1024/1/1) doit rehacher ce mot de passe -- seul moment
+     * ou le mot de passe clair, deja verifie, est disponible. Sans ca, un
+     * changement de ARGON2_* laisse les hashes existants a leur ancien cout
+     * indefiniment (ce qui est precisement ce qui rouvre l'ecart de calibrage
+     * du leurre pour CE compte, tant qu'il n'est pas rehache).
+     */
+    public function testSuccessRehashesPasswordWhenStoredCostDiffersFromCurrentConfig(): void
+    {
+        $oldCostHash = password_hash('correct horse', PASSWORD_ARGON2ID, ['memory_cost' => 2048, 'time_cost' => 2, 'threads' => 1]);
+        $this->db->userRow = $this->userRow(['password_hash' => $oldCostHash]);
+
+        $this->service()->authenticate('admin@wakdo.local', 'correct horse', '203.0.113.1', self::NOW);
+
+        $write = $this->firstWrite('UPDATE user SET password_hash');
+        $newHash = $write['params']['hash'] ?? null;
+        self::assertIsString($newHash);
+        self::assertNotSame($oldCostHash, $newHash);
+        self::assertTrue($this->hasher->verify('correct horse', $newHash), 'le nouveau hash doit rester verifiable avec le MEME mot de passe');
+        $info = password_get_info($newHash);
+        self::assertSame(1024, $info['options']['memory_cost'] ?? null, 'le nouveau hash doit porter les options() COURANTES (1024/1/1 dans ce test)');
+    }
+
+    /**
+     * Un hash deja au bon cout (le cas courant) ne doit PAS etre reecrit a
+     * chaque connexion reussie -- sans ca, chaque succes couterait un
+     * password_hash() de plus (le meme cout coupable que le "recalcul
+     * complet" evite ailleurs dans ce fichier) pour un gain nul.
+     */
+    public function testSuccessDoesNotRehashPasswordWhenStoredCostAlreadyMatches(): void
+    {
+        $this->db->userRow = $this->userRow();
+
+        $this->service()->authenticate('admin@wakdo.local', 'correct horse', '203.0.113.1', self::NOW);
+
+        self::assertFalse($this->db->wrote('UPDATE user SET password_hash'));
     }
 
     public function testFailClosedWhenDatabaseThrowsOnFailurePath(): void

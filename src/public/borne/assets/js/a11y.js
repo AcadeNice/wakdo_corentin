@@ -73,7 +73,7 @@ export function buildDyslexiaToggle(initialEnabled, onToggle) {
     btn.setAttribute('aria-pressed', initialEnabled ? 'true' : 'false');
     // Libelle neutre (decrit le controle, pas l'action) : reste correct dans les
     // deux etats ; l'etat actif/inactif est porte par aria-pressed.
-    btn.setAttribute('aria-label', 'Police adaptee aux personnes dyslexiques');
+    btn.setAttribute('aria-label', 'Police adaptée aux personnes dyslexiques');
 
     const icon = document.createElement('span');
     icon.className = 'a11y-toggle__icon';
@@ -83,7 +83,7 @@ export function buildDyslexiaToggle(initialEnabled, onToggle) {
 
     const label = document.createElement('span');
     label.className = 'a11y-toggle__label';
-    label.textContent = 'Police adaptee';
+    label.textContent = 'Police adaptée';
     btn.appendChild(label);
 
     btn.addEventListener('click', () => {

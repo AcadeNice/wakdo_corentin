@@ -103,29 +103,29 @@ class ImageUploader
     public function validate(array $file, string $subdir): string
     {
         if (!in_array($subdir, self::SUBDIRS, true)) {
-            throw new ImageUploadException('Destination d image inconnue.');
+            throw new ImageUploadException('Destination d\'image inconnue.');
         }
 
         $this->assertTransferSucceeded((int) ($file['error'] ?? UPLOAD_ERR_NO_FILE));
 
         $tmp = (string) ($file['tmp_name'] ?? '');
         if ($tmp === '' || !$this->isUploadedFile($tmp)) {
-            throw new ImageUploadException('Le fichier recu n est pas un envoi valide.');
+            throw new ImageUploadException('Le fichier reçu n\'est pas un envoi valide.');
         }
 
         $size = (int) ($file['size'] ?? 0);
         if ($size <= 0) {
-            throw new ImageUploadException('Le fichier envoye est vide.');
+            throw new ImageUploadException('Le fichier envoyé est vide.');
         }
 
         $maxMb = $this->maxMegabytes();
         if ($size > $maxMb * 1024 * 1024) {
-            throw new ImageUploadException(sprintf('L image depasse la taille maximale de %d Mo.', $maxMb));
+            throw new ImageUploadException(sprintf('L\'image dépasse la taille maximale de %d Mo.', $maxMb));
         }
 
         $mime = $this->detectMime($tmp);
         if (!isset(self::EXTENSIONS[$mime]) || !in_array($mime, $this->allowedMimes(), true)) {
-            throw new ImageUploadException('Format d image non accepte. Formats possibles : JPEG, PNG, WebP.');
+            throw new ImageUploadException('Format d\'image non accepté. Formats possibles : JPEG, PNG, WebP.');
         }
 
         // Deuxieme lecture du contenu, volontairement redondante : finfo se
@@ -133,7 +133,7 @@ class ImageUploader
         // signature PNG et continue en autre chose lui echappe. getimagesize,
         // lui, refuse ce qu'il ne sait pas decoder entierement.
         if (@getimagesize($tmp) === false) {
-            throw new ImageUploadException('Le fichier n est pas une image exploitable.');
+            throw new ImageUploadException('Le fichier n\'est pas une image exploitable.');
         }
 
         return $mime;
@@ -159,7 +159,7 @@ class ImageUploader
         $name = bin2hex(random_bytes(16)) . '.' . self::EXTENSIONS[$mime];
 
         if (!$this->moveUploadedFile($tmp, $directory . '/' . $name)) {
-            throw new ImageUploadException('Enregistrement de l image impossible.');
+            throw new ImageUploadException('Enregistrement de l\'image impossible.');
         }
 
         // Lecture seule pour le serveur web : rien de ce qui est depose ici n'a
@@ -209,11 +209,11 @@ class ImageUploader
     {
         $message = match ($error) {
             UPLOAD_ERR_OK        => null,
-            UPLOAD_ERR_NO_FILE   => 'Aucun fichier n a ete envoye.',
+            UPLOAD_ERR_NO_FILE   => 'Aucun fichier n\'a été envoyé.',
             UPLOAD_ERR_INI_SIZE,
-            UPLOAD_ERR_FORM_SIZE => sprintf('L image depasse la taille maximale de %d Mo.', $this->maxMegabytes()),
-            UPLOAD_ERR_PARTIAL   => 'L envoi a ete interrompu, merci de reessayer.',
-            default              => 'L envoi de l image a echoue.',
+            UPLOAD_ERR_FORM_SIZE => sprintf('L\'image dépasse la taille maximale de %d Mo.', $this->maxMegabytes()),
+            UPLOAD_ERR_PARTIAL   => 'L\'envoi a été interrompu, merci de réessayer.',
+            default              => 'L\'envoi de l\'image a échoué.',
         };
 
         if ($message !== null) {

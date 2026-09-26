@@ -140,7 +140,7 @@ test('un produit NON revu n affirme rien et renvoie vers l equipe', () => {
     assert.ok(notice, 'l etat non revu doit etre signale explicitement');
     assert.equal(notice.getAttribute('role'), 'alert');
     const text = notice.textContent.toLowerCase();
-    assert.ok(text.includes('equipe'), 'le client doit etre renvoye vers un humain');
+    assert.ok(text.includes('équipe'), 'le client doit etre renvoye vers un humain');
     // Le piege a eviter : dire "aucun allergene" alors que personne n'a verifie.
     assert.ok(!overlay.textContent.toLowerCase().includes('aucun des 14'));
 });

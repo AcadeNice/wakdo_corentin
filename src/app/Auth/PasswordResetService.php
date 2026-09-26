@@ -100,11 +100,11 @@ final class PasswordResetService
         $now ??= time();
 
         if (strlen($newPassword) < 8) {
-            return AuthResult::failure('Le mot de passe doit contenir au moins 8 caracteres.');
+            return AuthResult::failure('Le mot de passe doit contenir au moins 8 caractères.');
         }
 
         if ($rawToken === '') {
-            return AuthResult::failure('Lien invalide ou expire.');
+            return AuthResult::failure('Lien invalide ou expiré.');
         }
 
         $tokenHash = hash('sha256', $rawToken);
@@ -118,7 +118,7 @@ final class PasswordResetService
         );
 
         if ($user === null) {
-            return AuthResult::failure('Lien invalide ou expire.');
+            return AuthResult::failure('Lien invalide ou expiré.');
         }
 
         $userId = (int) ($user['id'] ?? 0);
@@ -144,7 +144,7 @@ final class PasswordResetService
                     'code' => 'auth.password_reset',
                     'etype' => 'user',
                     'eid' => $userId,
-                    'summary' => 'Reinitialisation du mot de passe',
+                    'summary' => 'Réinitialisation du mot de passe',
                 ],
             );
         });

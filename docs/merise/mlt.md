@@ -1,7 +1,8 @@
 # Modele Logique des Traitements (MLT) — Wakdo
 
 **Phase Merise** : P1 - Conception, etape 4 (derivee du MCT)
-**Version** : v0.2 — prod-like, machine a 4 etats (+ couche security-by-design 2026-06-11)
+**Version** : v0.3 — prod-like, machine a 6 etats (+ couche security-by-design 2026-06-11)
+**Historique** : v0.3 (2026-09-24) — mise en coherence avec le code livre (2a09597) : COMPOSE_CART (3.2) sans modificateur construit par la borne, CREATE_ORDER (3.3) limitee a la creation, nouvelle section 3.3ter PAY_ORDER, DISPLAY_CONFIRMATION (3.4) et CREATE_COUNTER_ORDER (4.1) sur le statut `preparing`, LIST_ORDERS_DISPLAY (5.1) sur trois statuts, CANCEL_ORDER (7.1) realignee sur `OrderAdminController::cancel` et `OrderRepository::cancel`, note 15.3 sur le compteur de numero soldee.
 **Date** : 2026-06-04 (ajouts security-by-design 2026-06-11)
 **Branche** : `feat/p1-conception`
 **Statut** : prod-like — toutes les decisions D1-D8 + stock appliquees (voir `docs/notes/revue-alignement-p1.md` §7) ; regles security-by-design ajoutees (RG-T13-T22 : PIN, audit, escaping, allowlists, idempotence, decrement atomique, disponibilite produit calculee (RG-T21), throttling du PIN d'action sensible par utilisateur agissant (RG-T22) ; ops RESET_PASSWORD, ERASE_USER_PII, throttling d'authentification ; tables de throttle `login_throttle` (par IP) et `pin_throttle` (par acteur))
@@ -56,7 +57,7 @@ Ces regles s'appliquent a plusieurs operations et sont centralisees ici pour evi
 | **RG-T17** | **Allowlist d'identifiants dynamiques** : les tokens de colonne/direction utilises dans un `ORDER BY` / `GROUP BY` dynamique sont resolus contre une allowlist fixe de noms de colonnes avant la construction de la requete (RG-T06 couvre les valeurs via les parametres lies ; les identifiants SQL ne peuvent pas etre lies, ils sont donc en allowlist). | 5.1, 9.3, 11.1 |
 | **RG-T18** | **Validation cote serveur et bornes de longueur** : chaque entree est re-validee cote serveur independamment des verifications cote client — type, plage, longueur max (correspondant aux tailles VARCHAR du dictionnaire), appartenance a l'enum, existence de FK. La validation cote client est une aide UX, pas une frontiere de confiance. | Toutes operations d'ecriture |
 | **RG-T19** | **Idempotence** : `POST /api/orders` porte un `idempotency_key` (UUID) genere par le client. Avant de creer, le rechercher sur `customer_order.idempotency_key` (UNIQUE) ; si une ligne existe, retourner cette commande au lieu de creer un doublon (retry reseau rejoue). | 3.3, 4.1 |
-| **RG-T20** | **Decrement de stock atomique** : pendant la transition `paid`, chaque `ingredient` affecte est decremente par une unique instruction auto-verrouillante `UPDATE ingredient SET stock_quantity = stock_quantity - :units WHERE id = :id` — pas de lecture-gate prealable, pas de `SELECT ... FOR UPDATE`. Les commandes concurrentes sur le meme ingredient appliquent leurs deltas sans perte de mise a jour et sans souci d'ordonnancement de deadlock. `stock_quantity` est signe et peut devenir negatif quand les ventes depassent le stock compte (l'ampleur de la survente est remontee aux managers) ; le decrement ne bloque pas sur un plancher. | 3.3, 4.1 |
+| **RG-T20** | **Decrement de stock atomique** : pendant l'encaissement (PAY_ORDER, transition vers `preparing`), chaque `ingredient` affecte est decremente par une unique instruction auto-verrouillante `UPDATE ingredient SET stock_quantity = stock_quantity - :units WHERE id = :id` — pas de lecture-gate prealable ni de `SELECT ... FOR UPDATE` sur les ingredients (le verrou pris par PAY_ORDER porte sur la ligne de commande, 3.3ter RG-2). Les commandes concurrentes sur le meme ingredient appliquent leurs deltas sans perte de mise a jour et sans souci d'ordonnancement de deadlock. `stock_quantity` est signe et peut devenir negatif quand les ventes depassent le stock compte (l'ampleur de la survente est remontee aux managers) ; le decrement ne bloque pas sur un plancher. | 3.3ter, 4.1 |
 | **RG-T21** | **Disponibilite produit calculee** : la commandabilite effective d'un produit est calculee, pas stockee. Il est commandable lorsque `product.is_available = 1` ET que chaque ingredient non retirable (`is_removable = 0`) de son `product_ingredient` a `stock_quantity > stock_capacity * critical_stock_pct / 100`. A la bande critique, un ingredient requis met le produit en rupture sans ecriture et sans cascade ; un reapprovisionnement au-dessus de la bande critique le rend commandable a nouveau de lui-meme ; un retrait manuel (`product.is_available = 0`) est une surcharge forte ; un ingredient retirable/optionnel a la bande critique ne bloque pas le produit (seul son supplement devient indisponible). | 3.1, 3.3, 4.1, 5.1 |
 | **RG-T22** | **Throttling du PIN d'action sensible** (complement de RG-T13). Les tentatives de PIN echouees sont comptabilisees PAR UTILISATEUR AGISSANT (l'identite de session authentifiee qui soumet email+PIN, RG-T02), dans une table dediee `pin_throttle` (entite 22) STRICTEMENT SEPAREE des compteurs de connexion (`user.failed_login_attempts` / `user.lockout_until` / `login_throttle`) : un echec de PIN n'incremente aucun compteur de login, sinon spammer le PIN d'une victime verrouillerait sa CONNEXION (escalade de DoS sur une surface plus sensible). La dimension est l'AGISSANT et non l'email cible (un compteur par email cible serait contourne par rotation d'emails, RG-T13 verifiant un email arbitraire) ni l'IP (un verrou par IP priverait de re-autorisation tous les equipiers honnetes d'un poste a session partagee). A chaque echec hors verrou : upsert atomique de la ligne cle sur `actor_user_id` (insert sinon increment ; fenetre glissante reinitialisee via `window_started_at` quand elle expire), `last_attempt_at = NOW()`, et au-dela d'un seuil (suggestion 5) pose `lockout_until` avec le meme backoff degressif que RG-8 mais des bornes propres (PIN_THROTTLE_*, plus permissives : base 30s, plafond 300s — ne pas bloquer un manager en plein rush). Backoff degressif, pas verrou definitif. Le verrou est evalue AVANT la verification argon2id ; un acteur verrouille recoit le MEME message generique 'Email ou PIN invalide' (ne revele ni l'existence d'un compte ni l'etat de verrou, RG-2) et l'on paie un leurre de timing pour egaliser la latence avec le chemin mauvais-PIN. Sous verrou actif, aucune nouvelle ligne `audit_log` `pin.failed` n'est ecrite (les echecs ayant arme le verrou sont deja audites), ce qui borne l'amplification de l'audit append-only (RG-T14). En cas d'erreur de lecture du throttle, la requete echoue (fail-closed, pas de contournement silencieux du verrou). Le hook est pose sur la branche de changement sensible dans `update` (prix/TVA) et inconditionnellement dans `delete`. Purge cron des lignes sans verrou actif au-dela de THROTTLE_PURGE_AFTER_HOURS, comme `login_throttle`. Detection : un pic de `pin.failed` reste le controle detectif (alerte de volume) ; un PIN de plus de 4 chiffres pour les roles sensibles est recommande. | 8.2, 8.3, 8.6, 9.2, 10.1-10.5 |
 
@@ -92,10 +93,10 @@ Ces regles s'appliquent a plusieurs operations et sont centralisees ici pour evi
 |-----|---------|
 | **[PRE-1]** | Catalogue charge en memoire front-end (LOAD_CATALOGUE termine) |
 | **[PRE-2]** | L'article selectionne (produit ou menu) est present dans le catalogue charge avec `is_available = 1` |
-| **[RG-1]** | Le panier est une structure JavaScript en memoire (tableau d'articles) ; aucune persistance en base a ce stade |
-| **[RG-2]** | Chaque article contient : `type` (`product` ou `menu`), `item_id`, `label`, `unit_price_cents` (snapshot depuis le catalogue), `quantity`, `format` (`normal` ou `maxi`, pour les menus), `slot_selections` (tableau de `{menu_slot_id, product_id, label}` pour les articles menu), `modifiers` (tableau de `{ingredient_id, action, extra_price_cents}`) |
+| **[RG-1]** | Le panier est un tableau d'articles conserve dans le `localStorage` du navigateur (cle `wakdo_cart`, `state.js`) ; aucune persistance en base a ce stade |
+| **[RG-2]** | Chaque article contient : `type` (`product` ou `menu`), `item_id`, `label`, `unit_price_cents` (snapshot depuis le catalogue), `quantity`, `format` (`normal` ou `maxi`, pour les menus), `slot_selections` (tableau de `{menu_slot_id, product_id, label}` pour les articles menu). `modifiers` (tableau de `{ingredient_id, action}`) : la borne n'en construit pas ; la saisie comptoir et drive en envoie (4.1). Le serveur les revalide (3.3 RG-9). |
 | **[RG-3]** | Format Normal/Maxi (articles menu uniquement) : `normal` utilise `menu.price_normal_cents` ; `maxi` utilise `menu.price_maxi_cents`. Aucun changement de prix de composant individuel n'est stocke ; le differentiel de prix est au niveau du menu. |
-| **[RG-4]** | Regles de modificateur d'ingredient : `action = 'remove'` requiert `is_removable = 1` sur `product_ingredient` (gratuit) ; `action = 'add'` requiert `is_addable = 1` (peut porter un `extra_price_cents`). Ces contraintes sont verifiees au moment de la composition du panier contre le catalogue charge. |
+| **[RG-4]** | Regles de modificateur d'ingredient, pour un client de l'API qui en enverrait : `action = 'remove'` requiert `is_removable = 1` sur `product_ingredient` (gratuit) ; `action = 'add'` requiert `is_addable = 1` (peut porter un `extra_price_cents`). Elles sont verifiees cote serveur (3.3 RG-9) ; la borne n'en construit pas, la saisie comptoir et drive en envoie. |
 | **[RG-5]** | Si un article avec les memes `(type, item_id, format, slot_selections, modifiers)` existe deja dans le panier, sa quantite est incrementee plutot que d'ajouter un nouvel article |
 | **[RG-6]** | Total du panier recalcule apres chaque changement : `SUM(unit_price_cents * quantity + modifier_extras)` sur tous les articles |
 | **[POST-1]** | Aucune ecriture en base ; etat en memoire du panier mis a jour |
@@ -111,26 +112,26 @@ Ces regles s'appliquent a plusieurs operations et sont centralisees ici pour evi
 | Marqueur | Contenu |
 |-----|---------|
 | **[PRE-1]** | Le panier contient au moins 1 article (`items.length >= 1`) |
-| **[PRE-2]** | Le numero de commande saisi par le client est non vide (validation front-end) |
+| **[PRE-2]** | Chevalet (`service_tag`, service sur place seulement) : le navigateur exige un numero non vide de 1 a 4 chiffres (`page-payment.js`) ; le serveur accepte un chevalet vide et refuse plus de 20 caracteres (`INVALID_SERVICE_TAG`, `OrderRepository::resolveHeader`), et ignore le chevalet hors `dine_in`. Le numero de commande n'est pas saisi : il est genere par le serveur (RG-3). |
 | **[PRE-3]** | Le corps JSON du POST est valide (validation de schema a la couche API) |
 | **[RG-1]** | Verification de disponibilite cote serveur : pour chaque article, verifier `product.is_available = 1` ou `menu.is_available = 1`. Si un article est indisponible, rejeter avec la liste des articles indisponibles. |
 | **[RG-2 — service_day]** | Le `service_day` d'une commande donnee est calcule a l'execution de la requete comme : `CASE WHEN HOUR(created_at) < 10 THEN DATE(created_at) - INTERVAL 1 DAY ELSE DATE(created_at) END`. La coupure est a 10:00. Ce n'est PAS stocke comme colonne — calcule uniquement a l'execution de la requete. La formule v0.1 avec `INTERVAL 4 HOUR 30 MINUTE` etait incorrecte et est abandonnee. |
 | **[RG-3 — order number]** | Format du numero de commande : prefixe canal + id auto-incremente, soit `K<id>` pour la source `kiosk` (ex. `K42`). Genere en deux temps dans la transaction : INSERT avec `order_number` provisoire vide, puis UPDATE `prefix . LAST_INSERT_ID()`. Pas de compteur par service_day (voir dictionnaire note 4). La source est `kiosk` (derivee de l'endpoint public). Le numero provisoire vide partage avant l'UPDATE reste une surface de robustesse a durcir sous forte concurrence (suivi au backlog). |
 | **[RG-4 — VAT by line]** | Pour chaque `order_item` : `vat_rate_snapshot` est copie depuis `product.vat_rate`. Montants de ligne : `unit_ttc = unit_price_cents_snapshot` ; `unit_ht = ROUND(unit_ttc * 1000 / (1000 + vat_rate_snapshot))` ; `unit_vat = unit_ttc - unit_ht`. Totaux de commande : `total_ttc_cents = SUM(unit_ttc * quantity)` sur toutes les lignes ; `total_ht_cents = SUM(unit_ht * quantity)` ; `total_vat_cents = total_ttc_cents - total_ht_cents`. Invariant : `total_ttc_cents = total_ht_cents + total_vat_cents` (verifie avant l'INSERT). |
-| **[RG-5 — atomic transaction]** | Toutes les ecritures dans une seule transaction de base de donnees : (1) INSERT `customer_order` (status `pending_payment`, source `kiosk`, service_mode depuis le panier, totaux calcules) ; (2) INSERT des lignes `order_item` (label_snapshot, unit_price_cents_snapshot, vat_rate_snapshot, quantity, format, item_type, product_id ou menu_id) ; (3) INSERT des lignes `order_item_selection` pour chaque slot rempli dans un article menu (order_item_id, menu_slot_id, product_id, label_snapshot) ; (4) INSERT des lignes `order_item_modifier` pour chaque modification d'ingredient (order_item_id, ingredient_id, action, extra_price_cents snapshot) ; (5) pour chaque ingredient consomme : calculer units = `(order_item.format = 'maxi' ? product_ingredient.quantity_maxi : product_ingredient.quantity_normal) * order_item.quantity`, ajuste par les modificateurs (remove => pas de decrement pour cet ingredient ; add => decrement supplementaire) ; appliquer le decrement atomique `UPDATE ingredient SET stock_quantity = stock_quantity - :units WHERE id = :id` (instruction unique auto-verrouillante, sans lecture-gate prealable, RG-T20) ; `stock_quantity` est signe et peut devenir negatif (ampleur de survente, remontee aux managers) — le decrement ne se conditionne pas a un plancher ; INSERT `stock_movement` (type `sale`, delta = -units, order_id, user_id = NULL pour le kiosk) ; (6) UPDATE `customer_order` SET status = `paid`, `paid_at = NOW()`. Les six etapes committent ensemble ou sont entierement annulees. |
+| **[RG-5 — creation transaction]** | Creation dans une transaction propre, sans effet sur le stock : (1) INSERT `customer_order` (status `pending_payment`, source `kiosk`, service_mode depuis le panier, totaux calcules) ; (2) INSERT des lignes `order_item` (label_snapshot, unit_price_cents_snapshot, vat_rate_snapshot, quantity, format, item_type, product_id ou menu_id) ; (3) INSERT des lignes `order_item_selection` pour chaque slot rempli dans un article menu (order_item_id, menu_slot_id, product_id, label_snapshot) ; (4) INSERT des lignes `order_item_modifier` si le corps en porte. Les quatre etapes committent ensemble ou sont entierement annulees ; la commande reste au statut `pending_payment` (`OrderRepository::persist`). Le decrement du stock et le passage a `preparing` relevent de PAY_ORDER (3.3ter). |
 | **[RG-6 — cross-constraint]** | La source `kiosk` n'implique aucune contrainte particuliere de service_mode ; le client selectionne `dine_in` ou `takeaway`. La contrainte croisee drive (RG-T09) ne s'applique pas aux commandes provenant du kiosk. |
 | **[RG-7 — immutability]** | Apres l'INSERT, `label_snapshot`, `unit_price_cents_snapshot` et `vat_rate_snapshot` ne sont pas modifies meme si le produit source est renomme ou voit son prix change plus tard (voir RG-T05). |
-| **[RG-8 — idempotency]** | Le corps porte un `idempotency_key` client (UUID). Avant toute ecriture, `SELECT id, order_number, status FROM customer_order WHERE idempotency_key = :key`. Si trouve, sauter la creation et retourner cette commande (deduplique un retry rejoue — RG-T19). La cle est stockee sur la nouvelle ligne `customer_order`. |
+| **[RG-8 — idempotency]** | Le corps porte un `idempotency_key` client (UUID), stable pour la session de paiement. Avant toute ecriture, `SELECT id, order_number, status FROM customer_order WHERE idempotency_key = :key`. Si trouve : commande `pending_payment` -> ses lignes sont remplacees (3.3bis) ; commande `cancelled` -> HTTP 409 `ORDER_CANCELLED`, la borne repart d'une cle neuve ; commande deja encaissee -> renvoi de son etat reel sans ecriture (RG-T19). La cle est stockee sur la nouvelle ligne `customer_order`. |
 | **[RG-9 — server-side modificateur re-validation]** | Les modificateurs d'ingredient dans le corps sont re-valides cote serveur contre `product_ingredient` : un `action='remove'` requiert `is_removable=1` ; un `action='add'` requiert `is_addable=1` et snapshote le `extra_price_cents` courant. Les verifications cote client (3.2 RG-4) ne sont pas dignes de confiance ; un POST forge ajoutant un ingredient non addable est rejete (HTTP 422). |
-| **[RG-10 — atomic stock decrement]** | Aucune operation ne se conditionne a une lecture de stock, donc le decrement est une instruction atomique unique `UPDATE ingredient SET stock_quantity = stock_quantity - :units WHERE id = :id` (RG-T20). La ligne s'auto-verrouille pour la duree de la mise a jour, donc les commandes kiosk concurrentes sur le meme ingredient appliquent leurs deltas sans perte de mise a jour et sans souci d'ordonnancement de deadlock ; `stock_quantity` est signe et peut devenir negatif (ampleur de survente remontee aux managers). |
+| **[RG-10 — atomic stock decrement]** | Applique par PAY_ORDER (3.3ter), pas par la creation. Aucune operation ne se conditionne a une lecture de stock, donc le decrement est une instruction atomique unique `UPDATE ingredient SET stock_quantity = stock_quantity - :units WHERE id = :id` (RG-T20). La ligne s'auto-verrouille pour la duree de la mise a jour, donc les commandes kiosk concurrentes sur le meme ingredient appliquent leurs deltas sans perte de mise a jour et sans souci d'ordonnancement de deadlock ; `stock_quantity` est signe et peut devenir negatif (ampleur de survente remontee aux managers). |
 | **[POST-1]** | Une ligne `customer_order` existe avec `source = 'kiosk'`, tous les totaux calcules et `idempotency_key` stocke. **Correction 2026-07-31** : la creation et l'encaissement sont DEUX appels HTTP distincts, donc la creation committe au statut `pending_payment` et cette phase EST observable — c'est ce qui rend possible une commande abandonnee, nettoyee par 13.6. L'encaissement pose ensuite `paid_at`, `preparing_at` et le statut `preparing` (voir section 14). |
 | **[POST-2]** | N lignes `order_item` existent, chacune referencant soit un `product_id` (item_type='product') soit un `menu_id` (item_type='menu') — contrainte d'exclusivite verifiee. |
 | **[POST-3]** | `customer_order.order_number` est unique dans la base (contrainte UNIQUE). |
-| **[POST-4]** | `ingredient.stock_quantity` decremente pour chaque unite d'ingredient consommee ; une ligne `stock_movement` de type `sale` par ingredient affecte. |
+| **[POST-4]** | Aucun mouvement de stock a la creation : le decrement a lieu a l'encaissement (3.3ter POST-2). |
 | **[OUT-1]** | HTTP 201 a la creation : `{data: {id, order_number, status: 'pending_payment'}}` ; l'encaissement est un second appel qui rend le statut `preparing`. |
-| **[OUT-2]** | Evenement logique ORDER_CREATED disponible pour le domaine de preparation (l'affichage de preparation se rafraichit via polling ou push serveur selon l'implementation) |
-| **[ERR-1]** | Panier vide : HTTP 422, `{error: {code: "EMPTY_CART"}}` |
-| **[ERR-2]** | Article indisponible : HTTP 422, `{error: {code: "ITEM_UNAVAILABLE", items: [...]}}` |
+| **[OUT-2]** | La borne enchaine avec PAY_ORDER (`checkout.js`, `submitOrder`) ; la commande n'apparait dans la file de preparation qu'une fois encaissee |
+| **[ERR-1]** | Panier vide : HTTP 422, `{data: null, error: {code: "EMPTY_ORDER", message}}` |
+| **[ERR-2]** | Article indisponible : HTTP 422, code `PRODUCT_UNAVAILABLE` ou `MENU_UNAVAILABLE` ; mode de service ou chevalet invalide : 422 `INVALID_SERVICE_MODE` / `INVALID_SERVICE_TAG` ; cle portant une commande annulee : 409 `ORDER_CANCELLED` (`OrderController::orderError`) |
 | **[ERR-3]** | Erreur DB / timeout : HTTP 500 avec rollback, `{error: {code: "DB_ERROR"}}` |
 
 ---
@@ -173,18 +174,39 @@ et facturer un total perime serait un ecart entre le montant annonce et le conte
 
 ---
 
+### 3.3ter PAY_ORDER
+
+**Correspond a la section 3.3ter du MCT**
+
+| Marqueur | Contenu |
+|-----|---------|
+| **[PRE-1]** | La commande `{number}` existe (sinon HTTP 404 `ORDER_NOT_FOUND`) |
+| **[PRE-2]** | Borne : appel anonyme `POST /api/orders/{number}/pay`, corps vide. Comptoir et drive : appele dans la meme requete que la creation, avec l'id de l'equipier (`OrderRepository::createStaffOrder`) |
+| **[RG-1 — idempotence]** | Statut deja encaisse (`paid`, `preparing`, `ready`, `delivered`) : renvoi de l'etat reel, sans nouvel effet. Statut `cancelled` : HTTP 409 `INVALID_TRANSITION` |
+| **[RG-2 — verrou]** | Dans la transaction : `SELECT ... FOR UPDATE` sur la ligne de commande et relecture du total. Le meme verrou est pris par MODIFY_PENDING_ORDER (3.3bis), de sorte que le debit porte sur les lignes definitives (ADR-0016) |
+| **[RG-3 — transition]** | `UPDATE customer_order SET status = 'preparing', paid_at = NOW(), preparing_at = NOW(), acting_user_id = COALESCE(:uid, acting_user_id) WHERE id = :id AND status = 'pending_payment'`. 0 ligne affectee : relecture du statut, sortie idempotente s'il est encaisse, `INVALID_TRANSITION` sinon |
+| **[RG-4 — decrement]** | Par ingredient consomme (unites agregees, ordre des `ingredient_id` stable) : `UPDATE ingredient SET stock_quantity = stock_quantity - :u` (RG-T20) et INSERT `stock_movement` (type `sale`, delta negatif, order_id, user_id = equipier ou NULL pour la borne). Sans recette (`product_ingredient`), aucun mouvement n'est produit |
+| **[POST-1]** | `customer_order.status = 'preparing'`, `paid_at` et `preparing_at` poses ; la commande entre dans la file de preparation (5.1) |
+| **[POST-2]** | `ingredient.stock_quantity` decremente ; une ligne `stock_movement` de type `sale` par ingredient affecte |
+| **[OUT-1]** | HTTP 200 : `{data: {id, order_number, status: 'preparing', total_ttc_cents}}` |
+| **[ERR-1]** | Commande inconnue : 404 `ORDER_NOT_FOUND` ; commande annulee ou course perdue vers un etat non encaisse : 409 `INVALID_TRANSITION` |
+
+Sources : `OrderRepository::pay`, `OrderController::pay`, `src/public/admin/index.php` (route `POST /api/orders/{number}/pay`).
+
+---
+
 ### 3.4 DISPLAY_CONFIRMATION
 
 **Correspond a la section 3.4 du MCT**
 
 | Marqueur | Contenu |
 |-----|---------|
-| **[PRE-1]** | CREATE_ORDER a retourne HTTP 201 avec `{id, order_number, status: 'paid'}` |
+| **[PRE-1]** | PAY_ORDER a retourne HTTP 200 avec `{order_number, status: 'preparing', total_ttc_cents}` |
 | **[RG-1]** | Numero de commande affiche de maniere proeminente sur l'ecran de confirmation |
-| **[RG-2]** | Apres un delai configurable (suggestion : 15 secondes), le kiosk se reinitialise automatiquement pour le client suivant |
+| **[RG-2]** | Le numero et le montant sont memorises en `sessionStorage` (`wakdo_last_order`) avant la redirection vers `confirmation.html` ; la page les affiche sans appel a l'API, puis le client lance une nouvelle commande |
 | **[POST-1]** | Aucune ecriture en base |
 | **[OUT-1]** | Ecran de confirmation affiche avec le numero de commande |
-| **[ERR-1]** | Si la reponse de l'API est une erreur : message d'erreur generique affiche avec une option de reessai |
+| **[ERR-1]** | Si la creation ou l'encaissement echoue : message sur la page de paiement, qui reste affichee pour un nouvel essai (`page-payment.js`) |
 
 ---
 
@@ -202,12 +224,12 @@ et facturer un total perime serait un ecart entre le montant annonce et le conte
 | **[RG-1]** | Logique de creation identique a CREATE_ORDER (RG-1 a RG-7 s'appliquent), avec les differences suivantes : `source` est auto-tagguee depuis `role.order_source` (role comptoir -> `counter`, role drive -> `drive`) ; `service_mode` est selectionne par le membre du personnel (`dine_in` / `takeaway` / `drive`) ; `user_id` est defini a l'id de l'utilisateur authentifie dans les lignes `stock_movement` (au lieu de NULL pour le kiosk). |
 | **[RG-2 — cross-constraint]** | Si `source = 'drive'` alors `service_mode` doit etre `'drive'` (RG-T09) ; verifie avant l'INSERT. HTTP 422 si viole. |
 | **[RG-3 — order number]** | Format : prefixe canal + id auto-incremente, soit `C<id>` (comptoir) ou `D<id>` (drive). Meme generation en deux temps que CREATE_ORDER RG-3. Pas de compteur par service_day (voir dictionnaire note 4). |
-| **[RG-4 — stock]** | Meme logique de decrement de stock que CREATE_ORDER RG-5 ; `stock_movement.user_id` est defini a l'id du membre du personnel authentifie. |
+| **[RG-4 — stock]** | Creation en `pending_payment` (3.3 RG-5), puis dans la meme requete PAY_ORDER (3.3ter) : decrement du stock avec `stock_movement.user_id` = id du membre du personnel authentifie (`OrderRepository::createStaffOrder`). |
 | **[RG-5 — staff attribution + decrement]** | `customer_order.acting_user_id` est defini a l'id du membre du personnel authentifie (imputabilite ciblee sur les commandes comptoir/drive ; les commandes kiosk restent NULL). La re-validation des modificateurs cote serveur (3.3 RG-9), l'idempotence (RG-T19) et le decrement de stock atomique (RG-T20) s'appliquent a l'identique. Aucun PIN n'est requis pour creer une commande (la permission `order.create` suffit) ; la creation de commande n'est pas dans l'ensemble des actions sensibles. |
-| **[POST-1]** | Une ligne `customer_order` avec `status = 'paid'`, `source = 'counter'` ou `'drive'`, `paid_at` defini, `acting_user_id` defini. |
+| **[POST-1]** | Une ligne `customer_order` avec `status = 'preparing'`, `source = 'counter'` ou `'drive'`, `paid_at` et `preparing_at` definis, `acting_user_id` defini. |
 | **[POST-2]** | N lignes `order_item` avec snapshots. Selections de slot et modificateurs ecrits a l'identique du flux kiosk. |
 | **[POST-3]** | Stock decremente ; mouvements journalises avec l'acteur `user_id`. |
-| **[OUT-1]** | HTTP 201 : `{data: {id: int, order_number: string, status: 'paid'}}`. Numero de commande communique au client. |
+| **[OUT-1]** | Redirection vers la liste des commandes du canal (`/counter/orders` ou `/drive/orders`) ; le numero est communique au client. Echec de validation : formulaire reaffiche en 422 avec le message. |
 | **[ERR-1]** | Memes cas d'erreur que CREATE_ORDER (ERR-1, ERR-2, ERR-3) |
 | **[ERR-2]** | Violation de contrainte croisee (`source = drive` mais `service_mode != drive`) : HTTP 422, `{error: {code: "INVALID_SERVICE_MODE"}}` |
 
@@ -224,12 +246,12 @@ et facturer un total perime serait un ecart entre le montant annonce et le conte
 | **[PRE-1]** | L'acteur est authentifie, `is_active = 1` |
 | **[PRE-2]** | L'acteur detient la permission `order.read` |
 | **[RG-1 — source filter]** | Recuperer les sources visibles pour le role de l'acteur : `SELECT source FROM role_visible_source WHERE role_id = :role_id`. La cuisine voit les trois ; le comptoir voit `kiosk` et `counter` ; le drive voit `drive`. |
-| **[RG-2 — query]** | `SELECT customer_order.*, order_item.* FROM customer_order JOIN order_item ON order_item.order_id = customer_order.id WHERE customer_order.status = 'paid' AND customer_order.source IN (:visible_sources) ORDER BY customer_order.paid_at ASC` |
+| **[RG-2 — query]** | `SELECT customer_order.*, order_item.* FROM customer_order JOIN order_item ON order_item.order_id = customer_order.id WHERE customer_order.status IN ('paid', 'preparing', 'ready') AND customer_order.source IN (:visible_sources) ORDER BY customer_order.paid_at ASC, customer_order.id ASC` (`OrderQueryRepository::paidQueue`) |
 | **[RG-3 — item detail]** | Pour chaque ligne de commande de type `menu`, charger aussi les lignes `order_item_selection` (choix de slot). Pour toutes les lignes, charger les lignes `order_item_modifier` (modifications d'ingredient). L'affichage utilise les snapshots (`label_snapshot`, `quantity`, `format`) ; aucune re-jointure sur les tables `product` ou `menu` necessaire. |
 | **[RG-4 — KDS colour]** | Indicateur de couleur calcule au rendu : `elapsed = NOW() - customer_order.paid_at` ; vert si elapsed < seuil SLA (configurable, approx. 10 min) ; ambre si en approche ; rouge si depasse. Non stocke ; calcule cote client ou en PHP avant la reponse. |
-| **[RG-5 — read only]** | Le personnel de cuisine n'effectue aucune transition de statut depuis cette vue. Aucun UPDATE n'est emis par cette operation. |
+| **[RG-5 — read only]** | Cette operation n'emet aucun UPDATE. Le meme ecran propose separement MARK_READY (`POST /admin/orders/{number}/ready`, permission `order.read`, section 14), qui ecrit la transition vers `ready`. |
 | **[POST-1]** | Aucune ecriture en base |
-| **[OUT-1]** | Liste des commandes au statut `paid`, filtree par role, triee par `paid_at` croissant, avec le detail complet des articles (selections, modificateurs, couleur KDS) |
+| **[OUT-1]** | Liste des commandes aux statuts `paid`, `preparing` et `ready`, filtree par role, triee par `paid_at` croissant, avec le detail complet des articles (selections, modificateurs, couleur KDS) |
 
 ---
 
@@ -262,20 +284,24 @@ et facturer un total perime serait un ecart entre le montant annonce et le conte
 
 | Marqueur | Contenu |
 |-----|---------|
-| **[PRE-1]** | L'acteur est authentifie, detient la permission `order.cancel` |
-| **[PRE-2]** | La commande ciblee existe |
-| **[PRE-3]** | `customer_order.status` est dans `['pending_payment', 'paid']`. Les statuts terminaux `delivered` et `cancelled` ne peuvent pas transiter vers `cancelled`. |
-| **[RG-1 — status update]** | `UPDATE customer_order SET status = 'cancelled', cancelled_at = NOW(), updated_at = NOW() WHERE id = :id AND status IN ('pending_payment', 'paid')` |
-| **[RG-2 — concurrency]** | La clause `AND status IN (...)` protege contre une annulation concurrente (voir RG-T07). |
-| **[RG-3 — stock re-credit — conditional]** | Le re-credit ne s'applique que si la commande etait au statut `paid` avant l'annulation. Les commandes a `pending_payment` n'avaient pas encore decremente le stock (le decrement a lieu a la transition `paid`). Pour chaque ligne `order_item` d'une commande `paid`, recalculer les unites d'ingredient consommees : `(order_item.format = 'maxi' ? product_ingredient.quantity_maxi : product_ingredient.quantity_normal) * order_item.quantity`, ajuste par les lignes `order_item_modifier` (modificateur remove -> l'ingredient n'a pas ete decremente, donc pas de re-credit ; modificateur add -> l'ingredient avait un decrement supplementaire, donc re-credit supplementaire). UPDATE `ingredient.stock_quantity += units`. INSERT `stock_movement` (type `cancellation`, delta = +units, order_id, user_id de l'acteur). |
-| **[RG-4 — transaction]** | La mise a jour du statut et le re-credit de stock (quand applicable) s'executent dans la meme transaction de base de donnees (RG-T11). |
+| **[PRE-1]** | L'acteur est authentifie et detient la permission `order.cancel` (garde de `OrderAdminController::confirmCancel` et `::cancel`) : sinon 302 vers `/login` ou 403 |
+| **[PRE-2]** | La commande ciblee existe (sinon 404) |
+| **[PRE-3]** | `customer_order.status` est dans `['pending_payment', 'paid', 'preparing', 'ready']`. Les statuts terminaux `delivered` et `cancelled` ne peuvent pas transiter vers `cancelled` : la page de confirmation affiche alors un message bloquant sans formulaire |
+| **[RG-0 — parcours]** | `GET /admin/orders/{number}/cancel` affiche la page de confirmation avec un formulaire (email, PIN, jeton CSRF). `POST` sur la meme route soumet la demande avec le PIN saisi. Jeton CSRF invalide : 403 |
+| **[RG-1 — status update]** | `UPDATE customer_order SET status = 'cancelled', cancelled_at = NOW(), updated_at = NOW() WHERE id = :id AND status IN ('pending_payment', 'paid', 'preparing', 'ready')` |
+| **[RG-2 — concurrency]** | La clause `AND status IN (...)` protege contre une annulation concurrente (voir RG-T07) : 0 ligne affectee annule la transaction (`INVALID_TRANSITION`) |
+| **[RG-3 — stock re-credit — conditional]** | Le re-credit est decide sur l'EXISTENCE de mouvements `stock_movement` de type `sale` pour la commande (`OrderRepository::hasSaleMovements`), pas sur le statut lu hors transaction : il est donc insensible a la course `pending_payment -> preparing -> cancel`. Pour chaque ingredient consomme (memes unites que PAY_ORDER), `ingredient.stock_quantity` est augmente dans la limite de `stock_capacity`, et une ligne `stock_movement` (type `cancellation`, delta reellement re-credite, order_id, user_id de l'equipier) est inseree. |
+| **[RG-4 — transaction]** | La mise a jour du statut, le re-credit de stock (quand applicable) et la trace d'audit s'executent dans la meme transaction de base de donnees (RG-T08, RG-T11). |
 | **[RG-5 — history]** | La commande n'est pas physiquement supprimee ; conservee pour l'historique et les stats. Les commandes annulees sont exclues des totaux de chiffre d'affaires mais incluses dans les comptes de volume dans READ_STATS. Les lignes `order_item` ne sont pas supprimees (ON DELETE CASCADE n'est pas declenche) ; elles permettent de reconstruire ce qui a ete commande. |
-| **[RG-6 — PIN + audit]** | L'annulation est une action sensible de manipulation d'argent : elle requiert le PIN propre a chaque membre du personnel (RG-T13) et ecrit une ligne `audit_log` dans la meme transaction (RG-T14) : `action_code='order.cancel'`, `entity_type='customer_order'`, `entity_id=:id`, `summary` avec le statut anterieur et le montant re-credite. |
-| **[POST-1]** | `customer_order.status = 'cancelled'`, `cancelled_at` defini, etat terminal. Une ligne `audit_log` enregistree avec le personnel agissant. |
-| **[POST-2]** | Si le statut anterieur etait `paid` : `ingredient.stock_quantity` re-credite ; une ligne `stock_movement` de type `cancellation` par ingredient affecte. |
-| **[OUT-1]** | HTTP 200 avec confirmation d'annulation |
-| **[ERR-1]** | Tentative d'annulation d'une commande livree ou deja annulee : HTTP 422, `{error: {code: "CANNOT_CANCEL_IN_STATE", current_status: "..."}}` |
-| **[ERR-2]** | Annulation concurrente (0 ligne affectee par l'UPDATE) : HTTP 409, `{error: {code: "INVALID_TRANSITION"}}` |
+| **[RG-6 — PIN + audit]** | L'annulation est une action sensible de manipulation d'argent (RG-T13). Ordre des controles, avant toute ecriture sur la commande : verrou `pin_throttle` de l'utilisateur de la session (RG-T22, leurre de temps et message generique s'il est actif), puis resolution de l'equipier par email + PIN (`PinVerifier::resolveActingUser`, compte actif, argon2id). PIN refuse : une transaction ecrit `audit_log` (`action_code='pin.failed'`, acteur NULL) et incremente `pin_throttle`, puis le formulaire est reaffiche en 422. PIN valide : l'annulation ecrit `audit_log` (`action_code='order.cancel'`, `actor_user_id` et `actor_role_id` de l'equipier, `summary` avec le statut anterieur et le montant re-credite), puis le compteur `pin_throttle` est remis a zero. |
+| **[POST-1]** | `customer_order.status = 'cancelled'`, `cancelled_at` defini, etat terminal. Une ligne `audit_log` enregistree avec l'equipier identifie par son PIN. |
+| **[POST-2]** | Si des mouvements `sale` existaient : `ingredient.stock_quantity` re-credite ; une ligne `stock_movement` de type `cancellation` par ingredient affecte. |
+| **[OUT-1]** | Redirection vers `/admin/orders` avec le message « Commande annulee. » |
+| **[ERR-1]** | Commande livree ou deja annulee (`CANNOT_CANCEL_IN_STATE`) : redirection vers `/admin/orders` avec le message « Annulation impossible : la commande est livree ou deja annulee. » |
+| **[ERR-2]** | Annulation concurrente (0 ligne affectee, `INVALID_TRANSITION`) : redirection vers `/admin/orders` avec le message « Transition invalide : la commande a change d'etat. » |
+| **[ERR-3]** | PIN refuse ou throttle actif : formulaire reaffiche en 422 avec « Email ou PIN invalide (requis pour annuler). » |
+
+Sources : `src/app/Controllers/OrderAdminController.php` (`confirmCancel`, `cancel`, `logFailedPin`), `src/app/Order/OrderRepository.php` (`cancel`, `hasSaleMovements`), `src/app/Auth/PinVerifier.php`, `src/app/Views/admin/orders/cancel.php`.
 
 ---
 
@@ -752,7 +778,7 @@ machine a etats, et les cinq autres vivent dans le meme depot. Voir
 | Transition | Operation | Condition SQL | Protection concurrence | Horodatage pose |
 |------------|-----------|---------------|------------------------|-----------------|
 | `-> pending_payment` (creation) | CREATE_ORDER (3.3), CREATE_COUNTER_ORDER (4.1) | INSERT avec statut `pending_payment` | Transaction propre, **committee** : l'etat est observable entre deux appels HTTP | `created_at` |
-| `pending_payment -> preparing` | PAY_ORDER | `WHERE id = :id AND status = 'pending_payment'` | status dans le WHERE ; 0 ligne affectee et etat deja encaisse -> sortie idempotente | `paid_at` **et** `preparing_at` |
+| `pending_payment -> preparing` | PAY_ORDER (3.3ter) | `WHERE id = :id AND status = 'pending_payment'` | status dans le WHERE ; 0 ligne affectee et etat deja encaisse -> sortie idempotente | `paid_at` **et** `preparing_at` |
 | `paid`/`preparing` `-> ready` | MARK_READY | `WHERE status IN ('paid','preparing')` | status dans le WHERE | `ready_at` |
 | `paid`/`preparing`/`ready` `-> delivered` | DELIVER_ORDER (6.1) | `WHERE status IN ('paid','preparing','ready')` | status dans le WHERE | `delivered_at` |
 | `pending_payment`/`paid`/`preparing`/`ready` `-> cancelled` | CANCEL_ORDER (7.1) | `WHERE status IN (...)` | status dans le WHERE | `cancelled_at` |
@@ -796,7 +822,9 @@ Le documenter comme un invariant applicatif est l'approche retenue pour le perim
 
 ### 15.3 Compteur NNN de numero de commande — concurrence
 
-Le compteur sequentiel NNN par `(source, service_day)` pourrait produire des doublons sous
+**Solde en v0.3 (2026-09-24)** : le code livre n'utilise pas de compteur par service_day ; le numero est
+le prefixe canal suivi de l'id auto-incremente (`K<id>`, `C<id>`, `D<id>`, 3.3 RG-3), ce qui ecarte le risque
+decrit ci-dessous. Texte conserve pour l'historique : le compteur sequentiel NNN par `(source, service_day)` pourrait produire des doublons sous
 forte concurrence s'il est implemente naivement comme `SELECT COUNT + 1`. L'implementation
 recommandee au moment du DDL/code est soit : (a) un verrou consultatif au niveau table autour de la
 sequence count-and-insert ; soit (b) une table de sequence dediee avec un increment atomique.

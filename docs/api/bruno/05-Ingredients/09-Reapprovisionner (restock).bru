@@ -1,0 +1,25 @@
+meta {
+  name: Reapprovisionner (restock)
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/admin/api/ingredients/{{created_restock_ingredient_id}}/restock
+}
+
+headers {
+  Content-Type: application/json
+  X-CSRF-Token: {{csrf}}
+}
+
+body {
+  {
+    "packs": 5,
+    "note": "reappro demo"
+  }
+}
+
+docs {
+stock.manage, pas de PIN (mlt 9.1). L'ingredient doit etre actif. Pose un stock_movement : bloque desormais toute suppression DURE (409), voir plus bas.
+}

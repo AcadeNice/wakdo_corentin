@@ -14,9 +14,32 @@
  * Kiosk target: 1080x1920 portrait (touch screen).
  * Base font stack: system-ui fallback (the school font is not available as a web asset).
  * Accessibility (RGAA Cr 1.c.2): the OpenDyslexic font (OFL 1.1) is self-hosted under
- *   assets/fonts (see @font-face in section 12). a11y.js adds the .dys-font class on
+ *   assets/fonts (see @font-face in section 19). a11y.js adds the .dys-font class on
  *   <html> on demand, which redefines --font-family-base for the whole interface, and
  *   persists the choice in localStorage. Base stack is the default.
+ *
+ * Sommaire (sections numerotees dans l'ordre du fichier) :
+ *   1. CSS CUSTOM PROPERTIES (design tokens)
+ *   2. RESET & BASE
+ *   3. UTILITY CLASSES
+ *   4. COMPONENT — WELCOME SCREEN (index.html)
+ *   5. COMPONENT — CATEGORIES SCREEN (categories.html)
+ *   6. RESPONSIVE — kiosk portrait 1080px is primary target.
+ *   7. SHARED COMPONENTS — header extensions + badges + buttons
+ *   8. COMPONENT — PRODUCTS LIST (products.html)
+ *   9. COMPONENT — QUANTITY CONTROLS (modale options produit)
+ *   10. COMPONENT — PAYMENT (payment.html)
+ *   11. COMPONENT — CONFIRMATION (confirmation.html)
+ *   12. RESPONSIVE EXTENSIONS — new pages
+ *   13. COMPONENT — MENU COMPOSER MODAL (modale ouverte depuis la grille produits)
+ *   14. COMPONENT — ALLERGENES (bouton "i" + modale generale, 14 INCO)
+ *   15. COMPONENT — PANNEAU DE COMMANDE PERSISTANT (maquette L1 : recap a droite)
+ *   16. COMPONENT — BANDEAU CATEGORIES (maquette L1 : strip horizontal en haut)
+ *   17. COMPONENT — MODALE D'OPTIONS PRODUIT (maquette L3 : quantite + ajout)
+ *   18. COMPONENT — MODALE CHEVALET (sur place, maquette L4) + ERREUR PAIEMENT
+ *   19. ACCESSIBILITY — dyslexia-friendly font + toggle (RGAA Cr 1.c.2)
+ *   20. COMPATIBILITE NAVIGATEURS (Cr 1.b.3)
+ *   21. MOUVEMENT REDUIT (Cr 2.a.3 / 2.a.4 -- prefers-reduced-motion)
  */
 
 /* ============================================================
@@ -33,7 +56,12 @@
     /* Neutral palette */
     --color-text-primary:    #1A1A1A;
     --color-text-secondary:  #4A4A4A;
-    --color-text-muted:      #767676; /* min WCAG AA contrast on white */
+    /* #6E6E6E choisi pour tenir AA (4.5:1) sur les DEUX fonds neutres du design
+       system, pas seulement le blanc : 5.10:1 sur #FFFFFF, 4.68:1 sur #F5F5F5
+       (--color-bg-page). L'ancien #767676 ne passait que sur blanc (4.54:1) et
+       tombait a 4.16:1 des qu'il etait pose sur le fond de page — voir
+       docs/soutenance/preuves/06-audit-accessibilite-mesure.md, section 5.1. */
+    --color-text-muted:      #6E6E6E;
     --color-bg-page:         #F5F5F5;
     --color-bg-card:         #FFFFFF;
     --color-border-default:  #D1D1D1;
@@ -145,6 +173,28 @@ button {
     visibility: hidden;
 }
 
+/* Lien d'evitement (RGAA Cr 1.e.11, renforce Cr 1.c.4) : premier element
+   focalisable de chaque ecran. Hors flot comme .sr-only tant qu'il n'a pas le
+   focus, pour ne pas occuper d'espace ni etre lu deux fois par un lecteur
+   d'ecran ; reapparait des que le focus clavier l'atteint (:focus-visible,
+   meme approche que le reste du fichier) pour permettre de sauter directement
+   au contenu principal sans retraverser l'en-tete. */
+.skip-link {
+    position: fixed;
+    top: -1000px;
+    left: 0;
+    z-index: 2000;
+    padding: var(--space-2) var(--space-4);
+    background: var(--color-brand-yellow);
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-bold);
+    border-radius: 0 0 var(--radius-sm) 0;
+}
+
+.skip-link:focus-visible {
+    top: 0;
+}
+
 /* ============================================================
    4. COMPONENT — WELCOME SCREEN (index.html)
    ============================================================ */
@@ -173,6 +223,12 @@ button {
     object-fit: cover;
     object-position: center;
     z-index: 0;
+}
+
+/* Le <picture> qui propose la version WebP ne doit pas devenir un element du flex
+   de .welcome : display: contents garde l'image positionnee comme un enfant direct. */
+.welcome__picture {
+    display: contents;
 }
 
 .welcome__card {
@@ -216,7 +272,18 @@ button {
     gap: var(--space-3);
     padding: var(--space-5) var(--space-4);
     background: var(--color-bg-card);
-    border: 2px solid var(--color-border-default);
+    /* Bordure jaune de marque visible au repos, comme la maquette (A1, rapport
+       audit maquette-vs-front) : avant ce changement, la bordure par defaut etait
+       grise et ne devenait jaune qu'au survol/focus.
+       Mesure (formule WCAG, meme methode que les tokens de texte plus haut dans ce
+       fichier) : #FFC72C sur #FFFFFF = 1,56:1. Sous les 3:1 de 1.4.11, mais 1.4.11
+       ne s'applique pas ici -- cette bordure ne PORTE aucune information (elle ne
+       distingue pas un etat, elle ne fait qu'accentuer la marque) : la carte
+       s'identifie par son icone et son libelle ("Sur Place"/"A Emporter"), visibles
+       et lisibles independamment de la couleur de bordure. Voir :focus-visible
+       ci-dessous pour l'indicateur qui, lui, PORTE une information d'etat et doit
+       passer 3:1. */
+    border: 2px solid var(--color-brand-yellow);
     border-radius: var(--radius-md);
     transition:
         border-color var(--transition-fast),
@@ -229,11 +296,26 @@ button {
 
 .choice-btn:hover,
 .choice-btn:focus-visible {
-    border-color: var(--color-border-active);
+    /* Etat distinct du repos : jaune fonce (meme convention que
+       composer-taille__btn--active / composer-card--selected) + anneau. */
+    border-color: var(--color-brand-yellow-dk);
     box-shadow: 0 0 0 3px rgba(255, 199, 44, 0.35);
     outline: none;
     /* slight lift gives tactile feedback on kiosk screen */
     transform: translateY(-2px);
+}
+
+/* L'indicateur de focus CLAVIER, lui, porte une information d'etat (lequel des
+   deux boutons a le focus) : contrairement a la bordure de repos ci-dessus, il
+   doit rester nettement visible (3:1, WCAG 1.4.11/2.4.11). L'anneau jaune seul
+   (rgba(255,199,44,0.35) sur #FFFFFF) composite a environ #FFEBB5 -- mesure
+   ~1,18:1, trop pale pour porter cette information a lui seul. Un outline plein
+   #1A1A1A par-dessus le referme : #1A1A1A sur #FFFFFF = 17,4:1 (meme paire de
+   couleurs, memes valeurs mesurees par axe-core sur cet ecran -- voir
+   docs/soutenance/preuves/rapports/resume.json, page "accueil"). */
+.choice-btn:focus-visible {
+    outline: 3px solid var(--color-text-primary);
+    outline-offset: 2px;
 }
 
 .choice-btn:active {
@@ -295,6 +377,14 @@ button {
     height: 56px;
     width: auto;
     justify-self: center;
+    /* Colonne centrale EXPLICITE de la grille 3 colonnes (1fr auto 1fr) de
+       .site-header. Sans elle, l'auto-placement CSS Grid pose le SEUL enfant de
+       l'en-tete minimal (confirmation.html : pas de bouton retour, pas de badge)
+       dans la 1re cellule DISPONIBLE (colonne 1, a gauche) plutot que la colonne du
+       milieu -- l'auto-placement ne "sait" pas que cette colonne est reservee au
+       logo (regression F40, captures 15/M10 : logo decale a gauche). Explicite ici,
+       le placement ne depend plus du nombre d'enfants du header. */
+    grid-column: 2;
 }
 
 /* Cale la 3e colonne de l'en-tete (equilibre de la grille). Remplace un style
@@ -412,13 +502,11 @@ button {
    Desktop landscape / smaller tablets get a simplified layout.
    ============================================================ */
 
-/* Landscape / wide desktop: welcome card can be wider */
+/* Landscape / wide desktop: bigger touch targets, denser grid. NOTE: 1080px is
+   ALSO the portrait kiosk's own width (B3) -- the welcome card's width/position
+   is handled separately below, gated on orientation, so it does not widen on the
+   real kiosk (A11). */
 @media (min-width: 1080px) {
-    .welcome__card {
-        max-width: 820px;
-        padding: var(--space-10) var(--space-10);
-    }
-
     .choice-btn__image {
         width: 150px;
         height: 150px;
@@ -427,6 +515,27 @@ button {
     .category-grid {
         /* 4 columns on very wide screens so the grid uses the space */
         grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+/*
+ * A11 (audit maquette vs front) : sur la maquette (desktop 1440x1024 paysage), la
+ * carte d'accueil mesure ~700px (deja la valeur de base ci-dessus) et son CENTRE
+ * est a 44% de la largeur totale, pas au milieu -- elle degage le visuel produit a
+ * droite. La regle precedente elargissait la carte a 820px ET la laissait centree
+ * a 50% des 1080px, y compris sur le kiosk REEL (portrait 1080x1920, B3), qui
+ * n'a pas de visuel a degager a droite puisque la photo se recompose en bas en
+ * portrait. `orientation: landscape` isole donc ce repositionnement au contexte
+ * desktop/paysage de la maquette ; le kiosk portrait garde la carte de base
+ * (700px, centree), sans ce decalage.
+ * padding-left en % : calc() resout le % contre la largeur de .welcome (~100% du
+ * viewport), donc `44% - 350px` place le bord gauche de la carte (700px de large)
+ * tel que son centre tombe exactement a 44% de la largeur d'ecran.
+ */
+@media (min-width: 1080px) and (orientation: landscape) {
+    .welcome {
+        justify-content: flex-start;
+        padding-left: calc(44% - 350px);
     }
 }
 
@@ -481,10 +590,11 @@ button {
     margin-left: auto;
 }
 
-/* Minimal header variant (confirmation page — no back button) */
-.site-header--minimal {
-    justify-content: center;
-}
+/* Minimal header variant (confirmation page — no back button, classe posee par
+   confirmation.html). Le centrage du logo est porte par .site-header__logo
+   { grid-column: 2 } ci-dessus : plus de regle .site-header--minimal ici --
+   justify-content ne centre pas un enfant de grille, c'etait un reste de l'ancien
+   en-tete en flexbox et la cause du logo decale a gauche (F40, captures 15/M10). */
 
 /* Primary / secondary button primitives reused across pages */
 .btn {
@@ -584,6 +694,18 @@ button {
     font-size: var(--font-size-xl);
     font-weight: var(--font-weight-bold);
     color: var(--color-text-primary);
+}
+
+/* A6 (audit maquette vs front) : phrase descriptive sous le titre de categorie
+   ("Un sandwich, une friture ou une salade et une boisson"), comme la maquette.
+   Tire le sous-titre vers le titre (le rythme normal reste sur .products-header),
+   puis retablit l'espacement avant la grille -- absent si aucun texte connu pour
+   la categorie (voir CATEGORY_SUBTITLES, page-products.js), sans regression pour
+   les categories non couvertes par la maquette. */
+.products-main__sub {
+    font-size: var(--font-size-base);
+    color: var(--color-text-secondary);
+    margin: calc(-1 * var(--space-3)) 0 var(--space-5);
 }
 
 .products-error {
@@ -719,31 +841,42 @@ button {
 }
 
 /* ============================================================
-   10. COMPONENT — QUANTITY CONTROLS (modale options produit)
+   9. COMPONENT — QUANTITY CONTROLS (modale options produit)
    ============================================================ */
 
+/* A4 (audit maquette vs front) : la maquette dessine +/- en gros boutons carres
+   pleins jaunes ; avant ce changement, .qty-btn etait un carre blanc a fine
+   bordure grise. 56px reste au-dessus du minimum tactile 44x44 (WCAG 2.5.8),
+   pris comme plancher et non comme cible -- ecran tactile borne, on reste
+   genereux. Texte #1A1A1A sur #FFC72C : ~11:1, largement au-dessus des 3:1
+   requis pour un composant d'interface (WCAG 1.4.11). */
 .qty-btn {
-    width: 44px;
-    height: 44px;
+    width: 56px;
+    height: 56px;
+    min-width: 44px;
+    min-height: 44px;
     border-radius: var(--radius-sm);
-    border: 2px solid var(--color-border-default);
-    background: var(--color-bg-card);
-    font-size: var(--font-size-lg);
+    border: none;
+    background: var(--color-brand-yellow);
+    font-size: var(--font-size-xl);
     font-weight: var(--font-weight-bold);
     color: var(--color-text-primary);
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: border-color var(--transition-fast), background var(--transition-fast);
-    /* Large tap target for kiosk */
+    transition: background var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
 }
 
 .qty-btn:hover,
 .qty-btn:focus-visible {
-    border-color: var(--color-border-active);
-    background: rgba(255, 199, 44, 0.10);
+    background: var(--color-brand-yellow-dk);
     outline: none;
+    box-shadow: 0 0 0 3px rgba(255, 199, 44, 0.45);
+}
+
+.qty-btn:active {
+    transform: translateY(1px);
 }
 
 .qty-value {
@@ -754,7 +887,7 @@ button {
 }
 
 /* ============================================================
-   11. COMPONENT — PAYMENT (payment.html)
+   10. COMPONENT — PAYMENT (payment.html)
    ============================================================ */
 
 .payment-page {
@@ -865,7 +998,7 @@ button {
 }
 
 /* ============================================================
-   12. COMPONENT — CONFIRMATION (confirmation.html)
+   11. COMPONENT — CONFIRMATION (confirmation.html)
    ============================================================ */
 
 .confirmation-page {
@@ -962,7 +1095,7 @@ button {
 }
 
 /* ============================================================
-   13. RESPONSIVE EXTENSIONS — new pages
+   12. RESPONSIVE EXTENSIONS — new pages
    ============================================================ */
 
 @media (max-width: 700px) {
@@ -988,7 +1121,7 @@ button {
 }
 
 /* ============================================================
-   14. COMPONENT — MENU COMPOSER MODAL (modale ouverte depuis la grille produits)
+   13. COMPONENT — MENU COMPOSER MODAL (modale ouverte depuis la grille produits)
    ============================================================ */
 
 /*
@@ -1128,10 +1261,23 @@ button {
     outline: none;
 }
 
+/* A6 (retour coordinateur sur A3) : la maquette pose ce titre en gras, nettement
+   plus grand que le corps de texte -- --font-size-lg (24px) au lieu de md (20px). */
 .composer-step__subtitle {
-    font-size: var(--font-size-md);
+    font-size: var(--font-size-lg);
     font-weight: var(--font-weight-bold);
     color: var(--color-text-primary);
+}
+
+/* A2 (audit maquette vs front) : phrase d'aide sous le titre de question de
+   l'etape (ex. supplement du format Maxi, supplement du format 50cl) -- absente
+   avant ce changement, comme la maquette (Une grosse faim ? / Une petite soif ?).
+   font-size-base (16px, pas sm/14px) : minimum lisible demande. Contraste mesure
+   (formule WCAG) : #4A4A4A sur #FFFFFF = 8,86:1, largement au-dessus des 4,5:1
+   requis pour du texte de cette taille. */
+.composer-step__hint {
+    font-size: var(--font-size-base);
+    color: var(--color-text-secondary);
 }
 
 /* ---------- Selectable card grid ----------------------------- */
@@ -1197,18 +1343,97 @@ button {
     border-radius: var(--radius-sm);
 }
 
+/* Libelle gras et grand, noir, comme la maquette (retour coordinateur sur A3) :
+   avant ce changement, --font-size-sm (14px) faisait lire ce texte comme petit
+   et attenue meme avec la meme couleur --color-text-primary. */
 .composer-card__name {
-    font-size: var(--font-size-sm);
+    font-size: var(--font-size-md);
     font-weight: var(--font-weight-bold);
     color: var(--color-text-primary);
     line-height: 1.3;
 }
 
+/*
+ * Etape Format (A3, corrections apres retour du coordinateur) : deux cartes
+ * FIXES et CENTREES, pas une grille auto-fill qui les laisse collees a gauche a
+ * leur taille minimale (repare.md avant/apres : mesure 300px de large, contre
+ * ~130px avant ce correctif). Mesure sur la maquette (docs/design/maquette-borne.pdf,
+ * page 3, 1440x1024pt) : carte 300,96pt (627px/2.0833, trim exact), ecart entre les
+ * deux cartes 49,92pt. `1fr` + `max-width` plutot que des px fixes : le meme
+ * gabarit reste utilisable si l'ecran se retrecit (kiosk portrait, telephone),
+ * sans media query dediee.
+ */
+.composer-grid--format {
+    grid-template-columns: repeat(2, 1fr);
+    /* width:100% explicite : dans .composer-body (flex column), un <ul> sans
+       largeur posee se dimensionne a son CONTENU (les deux cartes restent a leur
+       taille minimale, cote a cote sans se partager l'espace) au lieu de s'etirer
+       -- align-items:stretch seul ne suffisait pas ici. width:100% + max-width +
+       margin:auto est le patron centre/plafonne habituel. */
+    width: 100%;
+    max-width: 648px; /* 2 x 300px + 48px de gap (mesure ~50pt) */
+    margin: 0 auto;
+    gap: var(--space-8);
+}
+
+/*
+ * Visuel compose de la carte de format (A3, 3e retour coordinateur) : comme la
+ * maquette page 3 -- frite en haut a gauche et boisson en haut a droite,
+ * GRANDES et bien visibles sur les deux tiers superieurs du visuel ; le burger,
+ * plus petit, cale en bas au centre, devant. Le burger ne doit plus les cacher
+ * (2e retour : il les recouvrait presque entierement).
+ * Hauteur : 190px, ~63% de la hauteur totale de la carte (voir calcul plus haut).
+ * top:0 + bottom:25% (sans hauteur explicite) donne a frite/boisson une hauteur
+ * calculee = 190 x 0,75 = 142,5px (75% du conteneur), ancrees en haut -- c'est le
+ * burger, plus petit et cale en bas, qui laisse le haut du visuel a decouvert.
+ */
+.composer-card__visual {
+    position: relative;
+    width: 100%;
+    height: 190px;
+}
+
+.composer-card__visual-side,
+.composer-card__visual-drink,
+.composer-card__visual-burger {
+    position: absolute;
+    object-fit: contain;
+}
+
+.composer-card__visual-side {
+    left: 6%;
+    top: 0;
+    width: 48%;
+    bottom: 25%;
+    z-index: 1;
+}
+
+.composer-card__visual-drink {
+    right: 6%;
+    top: 0;
+    width: 40%;
+    bottom: 25%;
+    z-index: 1;
+}
+
+/* width:42%, pas 58% comme indique : mesure sur le rendu (voir commentaire plus
+   haut) -- a 58%, le burger (carre, comme les trois photos ici) montait haut
+   assez pour ne laisser que ~25% de la hauteur des frites/boisson visible au-
+   dessus de lui, sous le plancher de 50% demande. 42% degage marge (mesure :
+   ~58-70% visible selon la boisson/l'accompagnement, voir rapport). */
+.composer-card__visual-burger {
+    left: 50%;
+    transform: translateX(-50%);
+    width: 42%;
+    bottom: 0;
+    z-index: 2;
+}
+
 /* ============================================================
- * Allergenes — bouton "i" + modale generale (14 INCO)
- * Info reglementaire generale (pas un calcul par produit). La modale reutilise
- * le pattern overlay du composer ; z-index 220 pour passer au-dessus de lui.
- * ============================================================ */
+   14. COMPONENT — ALLERGENES (bouton "i" + modale generale, 14 INCO)
+   Info reglementaire generale (pas un calcul par produit). La modale reutilise
+   le pattern overlay du composer ; z-index 220 pour passer au-dessus de lui.
+   ============================================================ */
 
 /* Le bouton "i" se superpose au coin de l'image de la carte. */
 .product-card__image-wrap {
@@ -1387,60 +1612,6 @@ button {
     flex-shrink: 0;
 }
 
-/* ---------- Taille toggle ------------------------------------ */
-
-.composer-taille {
-    display: flex;
-    gap: var(--space-3);
-    align-items: center;
-    flex-wrap: wrap;
-}
-
-.composer-taille__btn {
-    flex: 1 1 160px;
-    padding: var(--space-3) var(--space-4);
-    border: 2px solid var(--color-border-default);
-    border-radius: var(--radius-md);
-    background: var(--color-bg-card);
-    font-size: var(--font-size-base);
-    font-weight: var(--font-weight-bold);
-    color: var(--color-text-primary);
-    cursor: pointer;
-    transition:
-        border-color var(--transition-fast),
-        background var(--transition-fast),
-        box-shadow var(--transition-fast);
-    -webkit-tap-highlight-color: transparent;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: var(--space-2);
-    min-height: 56px;
-}
-
-.composer-taille__btn:hover,
-.composer-taille__btn:focus-visible {
-    border-color: var(--color-border-active);
-    outline: none;
-    box-shadow: 0 0 0 3px rgba(255, 199, 44, 0.25);
-}
-
-/* Active/selected taille button */
-.composer-taille__btn--active {
-    border-color: var(--color-brand-yellow);
-    background: rgba(255, 199, 44, 0.10);
-}
-
-/* Supplement price hint inside the Grande button */
-.composer-taille__price-hint {
-    font-size: var(--font-size-xs);
-    font-weight: var(--font-weight-normal);
-    color: var(--color-text-muted);
-    background: var(--color-bg-page);
-    padding: 2px var(--space-2);
-    border-radius: var(--radius-pill);
-}
-
 /* ---------- Recap (step 5) ----------------------------------- */
 
 .composer-recap {
@@ -1569,11 +1740,13 @@ button {
     }
 }
 
-/* === Panneau de commande persistant (L1 - maquette : recap a droite) =======
+/* ============================================================
+   15. COMPONENT — PANNEAU DE COMMANDE PERSISTANT (maquette L1 : recap a droite)
    Layout deux colonnes sur les ecrans de commande : contenu a gauche, panneau
    a droite, sticky pleine hauteur. Le panneau = entete (titre + mode), corps
    scrollable (lignes du panier), pied (total + Abandon/Payer). Reutilise les
-   tokens de :root pour rester aligne sur la charte. */
+   tokens de :root pour rester aligne sur la charte.
+   ============================================================ */
 .order-layout {
     display: flex;
     align-items: flex-start;
@@ -1751,7 +1924,9 @@ button {
 .order-panel__pay {
     flex: 1 1 0;
     text-align: center;
-    border-radius: var(--radius-pill);
+    /* A5 (audit maquette vs front) : rectangle a coins moyennement arrondis comme
+       la maquette et comme .btn ailleurs dans l'app -- pas une pilule complete. */
+    border-radius: var(--radius-md);
     padding: var(--space-3) var(--space-4);
     font-weight: var(--font-weight-bold);
     font-size: var(--font-size-base);
@@ -1783,6 +1958,15 @@ button {
         flex-direction: column;
     }
 
+    /* En colonne, align-items: flex-start donne au contenu la largeur de son element
+       le plus large : le bandeau de categories (plus de 1 000 px), d'ou un defilement
+       horizontal de toute la page sur telephone (mesure le 2026-09-23 : 902 px de trop
+       a 360 px). Etire a la largeur disponible, le contenu laisse le bandeau defiler
+       en lui-meme, comme prevu. */
+    .order-layout > main {
+        align-self: stretch;
+    }
+
     .order-panel {
         width: auto;
         flex-basis: auto;
@@ -1792,9 +1976,11 @@ button {
     }
 }
 
-/* === Bandeau categories (L1 - maquette : strip horizontal en haut) =========
+/* ============================================================
+   16. COMPONENT — BANDEAU CATEGORIES (maquette L1 : strip horizontal en haut)
    Cartes categorie defilantes avec fleches rouges ; la categorie courante porte
-   une bordure jaune (charte maquette). Sticky en haut du contenu de commande. */
+   une bordure jaune (charte maquette). Sticky en haut du contenu de commande.
+   ============================================================ */
 .category-strip {
     display: flex;
     align-items: center;
@@ -1875,7 +2061,9 @@ button {
     outline-offset: 2px;
 }
 
-/* === Modale d'options produit (L3 - quantite + ajout, au-dessus de la grille) === */
+/* ============================================================
+   17. COMPONENT — MODALE D'OPTIONS PRODUIT (maquette L3 : quantite + ajout)
+   ============================================================ */
 .product-options {
     display: flex;
     flex-direction: column;
@@ -1894,28 +2082,65 @@ button {
     color: var(--color-text-secondary);
 }
 
-/* Picker de taille (R4 : 30/50 cl) : boutons-pills, l'actif borde par l'accent. */
+/* Picker de taille (R4 : 30/50 cl) : boutons-pills, l'actif borde par l'accent.
+   width:100% (meme raison que .composer-grid--format) : dans .product-options
+   (flex column, align-items:center), un enfant sans largeur posee se dimensionne
+   a son CONTENU -- deux cartes de 300px cote a cote (648px) peuvent alors se voir
+   refuser cet espace et retomber en pile verticale, meme quand la modale a la
+   place. width:100% force la ligne a utiliser toute la largeur disponible ;
+   flex-wrap reste la reponse correcte sur un ecran vraiment trop etroit. */
 .product-options__sizes {
     display: flex;
+    width: 100%;
     gap: var(--space-3);
     flex-wrap: wrap;
     justify-content: center;
 }
 
+/* A3 (audit maquette vs front) : la maquette dessine les tailles 30cl/50cl comme
+   de grandes cartes-image (meme gabarit que .composer-card), pas comme de petites
+   pastilles textuelles -- avant ce changement, .size-btn etait une pastille pill
+   sans image, min-width 72px. Largeur mesuree sur la maquette (page 8, meme
+   methode que .composer-grid--format) : ~300px ; flex-basis (pas une largeur
+   fixe) laisse la carte retrecir sur un ecran etroit au lieu de deborder. */
 .size-btn {
-    min-width: 72px;
-    padding: var(--space-2) var(--space-3);
+    flex: 0 1 300px;
+    max-width: 300px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-3) var(--space-4);
     border: 2px solid var(--color-border-default);
-    border-radius: var(--radius-pill);
+    border-radius: var(--radius-md);
     background: var(--color-bg-card);
+    box-shadow: var(--shadow-card);
     color: var(--color-text-primary);
-    font-size: var(--font-size-md);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-bold);
+    text-align: center;
     cursor: pointer;
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.size-btn:hover,
+.size-btn:focus-visible {
+    border-color: var(--color-border-active);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(255, 199, 44, 0.35), var(--shadow-card);
 }
 
 .size-btn--selected {
-    border-color: var(--color-border-active);
-    font-weight: 700;
+    border-color: var(--color-brand-yellow-dk); /* jaune fonce : contraste a11y 1.4.11, meme convention que composer-card--selected */
+    box-shadow: 0 0 0 3px rgba(230, 168, 0, 0.55), var(--shadow-card);
+    background: rgba(255, 199, 44, 0.06);
+}
+
+.size-btn__image {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    object-fit: contain;
+    max-height: 96px;
 }
 
 .product-options__total {
@@ -1928,7 +2153,24 @@ button {
     gap: var(--space-4);
 }
 
-/* === Modale chevalet (sur-place, L4) + erreur paiement === */
+/* ============================================================
+   18. COMPONENT — MODALE CHEVALET (sur place, maquette L4) + ERREUR PAIEMENT
+   ============================================================ */
+/* A8 (audit maquette vs front) : la maquette montre une photo du chevalet
+   physique au-dessus du texte, pour aider a le reconnaitre -- absente avant ce
+   changement. PAS la photo de la maquette : elle porte le logo McDonald's, et le
+   projet est rebaptise Wakdo (incoherent devant un jury, un logo de marque tierce
+   de plus). Remplacee par un dessin SVG maison (assets/images/ui/chevalet.svg),
+   couleurs de la charte Wakdo, sans logo. Forme non rectangulaire (fond
+   transparent) : pas de coins arrondis ni d'ombre portee ici, ce serait une boite
+   visible autour d'un dessin qui n'en a pas besoin. */
+.chevalet__illustration {
+    display: block;
+    width: 120px;
+    height: auto;
+    margin: 0 auto var(--space-4);
+}
+
 .chevalet__hint {
     color: var(--color-text-secondary);
     text-align: center;
@@ -1968,7 +2210,7 @@ button {
 }
 
 /* ============================================================
-   12. ACCESSIBILITY — dyslexia-friendly font + toggle (RGAA Cr 1.c.2)
+   19. ACCESSIBILITY — dyslexia-friendly font + toggle (RGAA Cr 1.c.2)
    ============================================================ */
 
 /* OpenDyslexic (OFL 1.1), self-hosted under assets/fonts (see LICENSE-OpenDyslexic.txt).
@@ -2037,7 +2279,7 @@ html.dys-font {
 }
 
 /* ============================================================
-   13. COMPATIBILITE NAVIGATEURS (Cr 1.b.3)
+   20. COMPATIBILITE NAVIGATEURS (Cr 1.b.3)
    ============================================================ */
 
 /* 'gap' sur conteneurs flex : non reconnu par d'anciens navigateurs (ex. Safari
@@ -2047,5 +2289,34 @@ html.dys-font {
     .welcome__choices > *,
     .composer-footer__row > * {
         margin: var(--space-2);
+    }
+}
+
+/* ============================================================
+   21. MOUVEMENT REDUIT (Cr 2.a.3 / 2.a.4 -- prefers-reduced-motion)
+   ============================================================ */
+
+/* Une personne qui a demande a son systeme de reduire les animations est
+   respectee PARTOUT sur cet ecran, pas seulement pour la nouvelle animation du
+   total panier (celle-ci est geree cote JavaScript, dans cart-total-animation.js,
+   car elle ne passe jamais par une @keyframes CSS -- voir prefersReducedMotion()
+   dans ce fichier). Regle universelle plutot que trois surcharges nominatives
+   (check-pop, composer-fade-in, composer-slide-up) : une regle unique ne peut pas
+   se desynchroniser d'une future animation CSS ajoutee ailleurs dans ce fichier.
+   Duree quasi nulle plutot que strictement 0 : un script qui attendrait un
+   evenement `animationend` (c'est le cas de tests/e2e/a11y.spec.js, qui attend la
+   fin des animations du composer avant de mesurer un contraste) le recoit quand
+   meme -- une duree exactement a 0 ne declenche pas cet evenement dans tous les
+   moteurs. `animation-fill-mode: both`, deja pose sur les trois animations
+   existantes, garantit que l'etat final (visible, en place) est atteint
+   immediatement : rien ne reste bloque a l'etat de depart (invisible, deplace). */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
     }
 }

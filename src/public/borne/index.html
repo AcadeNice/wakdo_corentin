@@ -16,51 +16,95 @@
         nofollow: prevents link-following by bots reaching the kiosk URL.
     -->
     <meta name="robots" content="noindex, nofollow">
-    <meta name="description" content="Borne de commande Wakdo - choisissez votre mode de consommation">
-    <title>Wakdo - Bienvenue</title>
+    <!--
+        Titre et description uniques par page, mesures (Cr 1.e.5) : environ 50-60
+        caracteres pour le titre et 150-160 pour la description, reperes d'usage
+        courant au-dela desquels les moteurs tronquent l'affichage.
+    -->
+    <meta name="description" content="Commandez vos menus, burgers, boissons et desserts sur la borne Wakdo : choisissez sur place ou à emporter, composez votre menu et payez sans attendre.">
+    <title>Bienvenue chez Wakdo : commandez sur place ou à emporter</title>
     <link rel="canonical" href="https://corentin-wakdo.stark.a3n.fr/">
     <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg">
     <link rel="stylesheet" href="assets/css/style.css">
     <!--
-        Donnees structurees schema.org (JSON-LD) : decrivent l'etablissement pour
-        les moteurs / agents. Demonstratif (la borne porte noindex), Cr 1.e.3.
+        Donnees structurees schema.org (JSON-LD, Cr 1.e.3). Un graphe relie le site,
+        l'etablissement et sa carte par leurs @id : chaque page de la borne decrit son
+        propre role (categories.html : Menu ; products.html : MenuSection ;
+        payment.html : CheckoutPage ; confirmation.html : WebPage) et renvoie ici.
+        paymentAccepted liste des MOYENS de paiement ; les modes de consommation
+        (sur place, a emporter) n'y ont pas leur place. Demonstratif : la borne porte
+        noindex, ces donnees documentent le contenu sans viser l'indexation.
     -->
     <script type="application/ld+json">
     {
         "@context": "https://schema.org",
-        "@type": "FastFoodRestaurant",
-        "name": "Wakdo",
-        "servesCuisine": "Restauration rapide",
-        "openingHours": "Mo-Su 10:00-01:00",
-        "paymentAccepted": "Sur place, A emporter, Drive"
+        "@graph": [
+            {
+                "@type": "WebSite",
+                "@id": "https://corentin-wakdo.stark.a3n.fr/#site",
+                "url": "https://corentin-wakdo.stark.a3n.fr/",
+                "name": "Borne de commande Wakdo",
+                "inLanguage": "fr-FR",
+                "publisher": { "@id": "https://corentin-wakdo.stark.a3n.fr/#restaurant" }
+            },
+            {
+                "@type": "FastFoodRestaurant",
+                "@id": "https://corentin-wakdo.stark.a3n.fr/#restaurant",
+                "name": "Wakdo",
+                "url": "https://corentin-wakdo.stark.a3n.fr/",
+                "servesCuisine": "Restauration rapide",
+                "openingHours": "Mo-Su 10:00-01:00",
+                "paymentAccepted": "Carte bancaire, Espèces",
+                "currenciesAccepted": "EUR",
+                "acceptsReservations": false,
+                "hasMenu": { "@id": "https://corentin-wakdo.stark.a3n.fr/categories.html#carte" }
+            }
+        ]
     }
     </script>
 </head>
 <body>
+
+    <!-- Lien d'evitement (RGAA Cr 1.e.11) : premier element focalisable de l'ecran. -->
+    <a class="skip-link" href="#main-content" title="Aller au contenu principal">Aller au contenu</a>
 
     <!--
         Welcome / landing screen.
         Matches maquette page 1: background photo, white card, two choice buttons.
         Navigation is purely HTML <a> links — no JS required for this screen.
     -->
-    <main class="welcome" aria-label="Ecran d'accueil Wakdo">
+    <main class="welcome" id="main-content" aria-label="Ecran d'accueil Wakdo">
 
         <!--
-            mc-landing-banner.png is the background photo (M arches + food).
-            alt="" because it is purely decorative — the content lives in the card.
+            Photo de fond (arches + produits), decorative : alt="" car le contenu est
+            dans la carte. Poids (Cr 1.e.8) : le PNG d'origine pese 1 256 918 octets ; la
+            version WebP (95 546 octets, soit 93 Kio, transparence conservee, sans
+            difference visible) est servie aux navigateurs qui la lisent, le PNG reste en
+            repli. Mesure a 1,6 Mbit/s (tests/e2e/perf-accueil.spec.js) : le fond arrive a
+            945 ms au lieu de 6 747 ms. Visible des l'arrivee sur l'ecran, il est demande
+            en priorite (fetchpriority) et n'est pas differe. width/height reservent sa
+            place avant chargement.
         -->
-        <img
-            class="welcome__bg"
-            src="assets/images/ui/mc-landing-banner.png"
-            alt=""
-            aria-hidden="true"
-        >
+        <picture class="welcome__picture">
+            <source srcset="assets/images/ui/mc-landing-banner.webp" type="image/webp">
+            <img
+                class="welcome__bg"
+                src="assets/images/ui/mc-landing-banner.png"
+                width="1900"
+                height="775"
+                alt=""
+                aria-hidden="true"
+                fetchpriority="high"
+                decoding="async"
+            >
+        </picture>
 
         <section class="welcome__card" aria-labelledby="welcome-heading">
             <h1 class="welcome__greeting" id="welcome-heading">Bonjour,</h1>
+            <!-- Les deux choix possibles, mis en exergue (Cr 1.e.2). -->
             <p class="welcome__question">
-                Souhaitez-vous consommer votre menu sur place<br>
-                ou preferez-vous l'emporter&nbsp;?
+                Souhaitez-vous consommer votre menu <strong>sur place</strong><br>
+                ou préférez-vous <strong>l'emporter</strong>&nbsp;?
             </p>
 
             <nav class="welcome__choices" aria-label="Mode de consommation">
@@ -74,6 +118,7 @@
                     href="categories.html?mode=sur-place"
                     role="button"
                     aria-label="Commander sur place"
+                    title="Commander sur place"
                 >
                     <img
                         class="choice-btn__image"
@@ -87,20 +132,26 @@
                     class="choice-btn"
                     href="categories.html?mode=a-emporter"
                     role="button"
-                    aria-label="Commander a emporter"
+                    aria-label="Commander à emporter"
+                    title="Commander à emporter"
                 >
                     <img
                         class="choice-btn__image"
                         src="assets/images/ui/illustration-a-emporter.png"
-                        alt="Sac a emporter"
+                        alt="Sac à emporter"
                     >
-                    <span class="choice-btn__label">A Emporter</span>
+                    <span class="choice-btn__label">À Emporter</span>
                 </a>
             </nav>
         </section>
 
     </main>
 
+    <!-- welcome-reset.js : repart d'une session propre (panier/mode residuels effaces
+         silencieusement). Doit charger AVANT toute lecture de panier sur cet ecran ;
+         l'accueil n'en affiche pas mais garantit ainsi qu'aucune commande "fantome"
+         ne survit a un rechargement ou une coupure. -->
+    <script type="module" src="assets/js/welcome-reset.js"></script>
     <script type="module" src="assets/js/a11y.js"></script>
 </body>
 </html>

@@ -15,7 +15,7 @@ declare(strict_types=1);
  *
  * @var int                              $roleId
  * @var bool                             $isAdminRole
- * @var array<int, array<string, mixed>> $permissions    catalogue {id, code, label}
+ * @var array<int, array<string, mixed>> $permissionCatalog catalogue {id, code, label}
  * @var list<string>                     $sources        enum visibles
  * @var list<int>                        $selectedPerms
  * @var list<string>                     $selectedSources
@@ -33,7 +33,7 @@ $vals = isset($values) && is_array($values) ? $values : [];
 /** @var array<string, string> $errs */
 $errs = isset($errors) && is_array($errors) ? $errors : [];
 /** @var array<int, array<string, mixed>> $perms */
-$perms = isset($permissions) && is_array($permissions) ? $permissions : [];
+$perms = isset($permissionCatalog) && is_array($permissionCatalog) ? $permissionCatalog : [];
 /** @var list<int> $selPerms */
 $selPerms = isset($selectedPerms) && is_array($selectedPerms) ? array_map('intval', $selectedPerms) : [];
 /** @var list<string> $selSources */
@@ -58,9 +58,15 @@ $routeOptions = [
     '/admin/products'    => 'Produits',
     '/admin/menus'       => 'Menus',
     '/admin/ingredients' => 'Stock',
-    '/admin/categories'  => 'Categories',
+    '/admin/categories'  => 'Catégories',
     '/admin/users'       => 'Comptes',
-    '/admin/roles'       => 'Roles',
+    '/admin/roles'       => 'Rôles',
+    // Roles operationnels (kitchen/counter/drive, seed 0001) : sans ces entrees, le
+    // chemin technique brut s'affichait dans la liste deroulante (F40, textes
+    // techniques).
+    '/kitchen/display'   => 'Écran cuisine (KDS)',
+    '/counter/orders'    => 'Comptoir',
+    '/drive/orders'      => 'Drive',
 ];
 $currentRoute = (string) ($vals['default_route'] ?? '');
 // Toujours pouvoir reselectionner la valeur courante meme si hors liste (ex. seed).
@@ -69,32 +75,33 @@ if ($currentRoute !== '' && !isset($routeOptions[$currentRoute])) {
 }
 
 // Permissions : code technique -> [groupe, action]. La base reste la source des codes.
+$groupeRoles = 'Rôles & statistiques';
 $permMap = [
     'product.read'      => ['Produits', 'Voir'],
-    'product.create'    => ['Produits', 'Creer'],
+    'product.create'    => ['Produits', 'Créer'],
     'product.update'    => ['Produits', 'Modifier'],
     'product.delete'    => ['Produits', 'Supprimer'],
     'menu.read'         => ['Menus', 'Voir'],
-    'menu.create'       => ['Menus', 'Creer'],
+    'menu.create'       => ['Menus', 'Créer'],
     'menu.update'       => ['Menus', 'Modifier'],
     'menu.delete'       => ['Menus', 'Supprimer'],
-    'category.manage'   => ['Catalogue & recettes', 'Gerer les categories'],
-    'ingredient.manage' => ['Catalogue & recettes', 'Gerer les ingredients et recettes'],
+    'category.manage'   => ['Catalogue & recettes', 'Gérer les catégories'],
+    'ingredient.manage' => ['Catalogue & recettes', 'Gérer les ingrédients et recettes'],
     'stock.read'        => ['Stock', 'Voir'],
     'stock.count'       => ['Stock', "Faire l'inventaire"],
-    'stock.manage'      => ['Stock', 'Reapprovisionner'],
+    'stock.manage'      => ['Stock', 'Réapprovisionner'],
     'order.read'        => ['Commandes', 'Voir'],
-    'order.create'      => ['Commandes', 'Creer'],
+    'order.create'      => ['Commandes', 'Créer'],
     'order.deliver'     => ['Commandes', 'Livrer'],
     'order.cancel'      => ['Commandes', 'Annuler'],
     'user.read'         => ['Comptes', 'Voir'],
-    'user.create'       => ['Comptes', 'Creer'],
+    'user.create'       => ['Comptes', 'Créer'],
     'user.update'       => ['Comptes', 'Modifier'],
-    'user.deactivate'   => ['Comptes', 'Desactiver'],
-    'role.manage'       => ['Roles & statistiques', 'Gerer les roles'],
-    'stats.read'        => ['Roles & statistiques', 'Voir les statistiques'],
+    'user.deactivate'   => ['Comptes', 'Désactiver'],
+    'role.manage'       => [$groupeRoles, 'Gérer les rôles'],
+    'stats.read'        => [$groupeRoles, 'Voir les statistiques'],
 ];
-$groupOrder = ['Produits', 'Menus', 'Catalogue & recettes', 'Stock', 'Commandes', 'Comptes', 'Roles & statistiques', 'Autres'];
+$groupOrder = ['Produits', 'Menus', 'Catalogue & recettes', 'Stock', 'Commandes', 'Comptes', $groupeRoles, 'Autres'];
 
 // Regroupe le catalogue recu par domaine humain.
 $grouped = [];
@@ -110,12 +117,12 @@ foreach ($perms as $p) {
 ?>
 <div class="page-header">
     <div>
-        <h1 class="page-title"><?= $id !== 0 ? 'Modifier le role' : 'Nouveau role' ?></h1>
+        <h1 class="page-title"><?= $id !== 0 ? 'Modifier le rôle' : 'Nouveau rôle' ?></h1>
         <p class="page-subtitle">
             <?php if ($isAdmin): ?>
-                Role administrateur : il doit garder le droit de gerer les roles et rester actif.
+                Rôle administrateur : il doit garder le droit de gérer les rôles et rester actif.
             <?php else: ?>
-                Definissez ce que ce role peut faire dans le back-office.
+                Définissez ce que ce rôle peut faire dans le back-office.
             <?php endif; ?>
         </p>
     </div>
@@ -125,7 +132,7 @@ foreach ($perms as $p) {
     <input type="hidden" name="_csrf" value="<?= $csrf ?>">
 
     <div class="form-group">
-        <label class="form-label" for="label">Nom du role</label>
+        <label class="form-label" for="label">Nom du rôle</label>
         <input class="form-input" type="text" id="label" name="label" maxlength="80" value="<?= $val('label') ?>" required>
         <?php if ($err('label') !== ''): ?><p class="form-error"><?= $err('label') ?></p><?php endif; ?>
     </div>
@@ -133,12 +140,12 @@ foreach ($perms as $p) {
     <div class="form-group">
         <label class="form-label" for="code">Code interne</label>
         <?php if ($id === 0): ?>
-            <input class="form-input" type="text" id="code" name="code" maxlength="40" value="<?= $val('code') ?>" required>
-            <p class="form-helper">Identifiant technique (sans espace), non modifiable apres creation.</p>
+            <input class="form-input" type="text" id="code" name="code" maxlength="40" pattern="[a-z][a-z0-9_]{1,39}" data-pattern-message="Une minuscule pour commencer, puis minuscules, chiffres ou tiret bas, 2 à 40 caractères (exemple : chef_equipe)." value="<?= $val('code') ?>" required>
+            <p class="form-helper">Identifiant technique (sans espace), non modifiable après création.</p>
             <?php if ($err('code') !== ''): ?><p class="form-error"><?= $err('code') ?></p><?php endif; ?>
         <?php else: ?>
             <input class="form-input" type="text" id="code" value="<?= $val('code') ?>" disabled>
-            <p class="form-helper">Identifiant technique, non modifiable apres creation.</p>
+            <p class="form-helper">Identifiant technique, non modifiable après création.</p>
         <?php endif; ?>
     </div>
 
@@ -148,38 +155,38 @@ foreach ($perms as $p) {
     </div>
 
     <div class="form-group">
-        <label class="form-label" for="default_route">Page d'accueil apres connexion</label>
+        <label class="form-label" for="default_route">Page d'accueil après connexion</label>
         <select class="form-input" id="default_route" name="default_route">
             <option value="">— Aucune —</option>
             <?php foreach ($routeOptions as $path => $pageLabel): ?>
                 <option value="<?= htmlspecialchars($path, ENT_QUOTES, 'UTF-8') ?>"<?= $path === $currentRoute ? ' selected' : '' ?>><?= htmlspecialchars($pageLabel, ENT_QUOTES, 'UTF-8') ?></option>
             <?php endforeach; ?>
         </select>
-        <p class="form-helper">L'ecran affiche a cette personne quand elle se connecte.</p>
+        <p class="form-helper">L'écran affiché à cette personne quand elle se connecte.</p>
         <?php if ($err('default_route') !== ''): ?><p class="form-error"><?= $err('default_route') ?></p><?php endif; ?>
     </div>
 
     <div class="form-group">
         <label class="form-label" for="order_source">Canal de commande</label>
         <select class="form-input" id="order_source" name="order_source">
-            <option value="">— Aucun (role de gestion) —</option>
+            <option value="">— Aucun (rôle de gestion) —</option>
             <?php foreach ($srcList as $src): ?>
                 <option value="<?= htmlspecialchars($src, ENT_QUOTES, 'UTF-8') ?>"<?= $src === $selectedSource ? ' selected' : '' ?>><?= htmlspecialchars($canalLabel($src), ENT_QUOTES, 'UTF-8') ?></option>
             <?php endforeach; ?>
         </select>
-        <p class="form-helper">Les commandes prises par ce role sont rattachees a ce canal.</p>
+        <p class="form-helper">Les commandes prises par ce rôle sont rattachées à ce canal.</p>
         <?php if ($err('order_source') !== ''): ?><p class="form-error"><?= $err('order_source') ?></p><?php endif; ?>
     </div>
 
     <?php if ($id !== 0): ?>
     <div class="form-group">
-        <label class="form-label"><input type="checkbox" name="is_active" value="1"<?= $active ? ' checked' : '' ?>> Ce role est actif</label>
+        <label class="form-label"><input type="checkbox" name="is_active" value="1"<?= $active ? ' checked' : '' ?>> Ce rôle est actif</label>
     </div>
     <?php endif; ?>
 
     <fieldset class="form-group">
-        <legend>Droits d'acces</legend>
-        <p class="form-helper">Cochez ce que ce role est autorise a faire.</p>
+        <legend>Droits d'accès</legend>
+        <p class="form-helper">Cochez ce que ce rôle est autorisé à faire.</p>
         <?php if ($err('permissions') !== ''): ?><p class="form-error"><?= $err('permissions') ?></p><?php endif; ?>
         <div class="perm-grid">
             <?php foreach ($groupOrder as $group): ?>
@@ -210,7 +217,7 @@ foreach ($perms as $p) {
     <fieldset class="form-group">
         <legend>Confirmation par PIN</legend>
         <div class="form-group">
-            <label class="form-label" for="pin_email">Email de l'equipier</label>
+            <label class="form-label" for="pin_email">Email de l'équipier</label>
             <input class="form-input" type="email" id="pin_email" name="pin_email" autocomplete="off">
         </div>
         <div class="form-group">

@@ -30,18 +30,18 @@ $packLabel = (string) ($ing['pack_label'] ?? '');
 ?>
 <div class="page-header">
     <div>
-        <h1 class="page-title">Reapprovisionner</h1>
+        <h1 class="page-title">Réapprovisionner</h1>
         <p class="page-subtitle"><?= $esc($ing['name'] ?? '') ?> - stock actuel <?= $esc((string) ((int) ($ing['stock_quantity'] ?? 0))) ?> <?= $esc($ing['unit'] ?? '') ?></p>
     </div>
 </div>
 
-<form method="post" action="/admin/ingredients/<?= $id ?>/restock" class="form-card">
+<form method="post" action="/admin/ingredients/<?= $id ?>/restock" class="form-card" data-row-key="ingredient:<?= $id ?>">
     <input type="hidden" name="_csrf" value="<?= $csrf ?>">
 
-    <p><small>Un pack = <?= $esc((string) $packSize) ?> unite(s)<?= $packLabel !== '' ? ' (' . $esc($packLabel) . ')' : '' ?>. Le stock augmente de N x taille de pack.</small></p>
+    <p><small>Un pack = <?= $esc((string) $packSize) ?> unité(s)<?= $packLabel !== '' ? ' (' . $esc($packLabel) . ')' : '' ?>. Le stock augmente de N x taille de pack.</small></p>
 
     <div class="form-group">
-        <label class="form-label" for="packs">Nombre de packs recus</label>
+        <label class="form-label" for="packs">Nombre de packs reçus</label>
         <input class="form-input" type="number" id="packs" name="packs" min="1" max="65535" value="<?= $val('packs') ?>" required>
         <?php if ($err('packs') !== ''): ?><p class="form-error"><?= htmlspecialchars($err('packs'), ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
     </div>
@@ -53,7 +53,7 @@ $packLabel = (string) ($ing['pack_label'] ?? '');
     </div>
 
     <div class="form-actions">
-        <button class="btn btn-primary" type="submit">Enregistrer le reappro</button>
+        <button class="btn btn-primary" type="submit">Enregistrer le réappro</button>
         <a class="btn btn-secondary" href="/admin/ingredients">Annuler</a>
     </div>
 </form>

@@ -30,16 +30,19 @@ SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;
 -- -----------------------------------------------------------------------------
 -- 1. category (9) — root table, source order = display_order
 -- -----------------------------------------------------------------------------
+-- name (libelle affiche) capitalise (F40, defaut 6) ; slug (identifiant technique,
+-- utilise pour le routage et le mapping slot_type -> categories cote borne/menu)
+-- reste en minuscules, inchange.
 INSERT INTO category (name, slug, image_path, display_order, is_active) VALUES
-  ('menus',    'menus',    'assets/images/categories/menus.png',    1, 1),
-  ('boissons', 'boissons', 'assets/images/categories/boissons.png', 2, 1),
-  ('burgers',  'burgers',  'assets/images/categories/burgers.png',  3, 1),
-  ('frites',   'frites',   'assets/images/categories/frites.png',   4, 1),
-  ('encas',    'encas',    'assets/images/categories/encas.png',    5, 1),
-  ('wraps',    'wraps',    'assets/images/categories/wraps.png',    6, 1),
-  ('salades',  'salades',  'assets/images/categories/salades.png',  7, 1),
-  ('desserts', 'desserts', 'assets/images/categories/desserts.png', 8, 1),
-  ('sauces',   'sauces',   'assets/images/categories/sauces.png',   9, 1);
+  ('Menus',    'menus',    'assets/images/categories/menus.png',    1, 1),
+  ('Boissons', 'boissons', 'assets/images/categories/boissons.png', 2, 1),
+  ('Burgers',  'burgers',  'assets/images/categories/burgers.png',  3, 1),
+  ('Frites',   'frites',   'assets/images/categories/frites.png',   4, 1),
+  ('Encas',    'encas',    'assets/images/categories/encas.png',    5, 1),
+  ('Wraps',    'wraps',    'assets/images/categories/wraps.png',    6, 1),
+  ('Salades',  'salades',  'assets/images/categories/salades.png',  7, 1),
+  ('Desserts', 'desserts', 'assets/images/categories/desserts.png', 8, 1),
+  ('Sauces',   'sauces',   'assets/images/categories/sauces.png',   9, 1);
 
 -- -----------------------------------------------------------------------------
 -- 2. product — every non-menu item (53 rows)
@@ -71,7 +74,7 @@ INSERT INTO product (category_id, name, price_cents, vat_rate, image_path, is_av
   ((SELECT id FROM category WHERE slug='boissons'), 'Coca Sans Sucres',   190, 100, 'assets/images/produits/boissons/coca-sans-sucres.png',            1, 2),
   ((SELECT id FROM category WHERE slug='boissons'), 'Eau',                100,  55, 'assets/images/produits/boissons/eau.png',                         1, 3),
   ((SELECT id FROM category WHERE slug='boissons'), 'Fanta Orange',       190, 100, 'assets/images/produits/boissons/fanta.png',                       1, 4),
-  ((SELECT id FROM category WHERE slug='boissons'), 'Ice Tea Peche',      190, 100, 'assets/images/produits/boissons/ice-tea-peche.png',               1, 5),
+  ((SELECT id FROM category WHERE slug='boissons'), 'Ice Tea Pêche',      190, 100, 'assets/images/produits/boissons/ice-tea-peche.png',               1, 5),
   ((SELECT id FROM category WHERE slug='boissons'), 'Ice Tea Citron',     190, 100, 'assets/images/produits/boissons/the-vert-citron-sans-sucres.png', 1, 6),
   ((SELECT id FROM category WHERE slug='boissons'), 'Jus d''Orange',      210,  55, 'assets/images/produits/boissons/jus-orange.png',                  1, 7),
   ((SELECT id FROM category WHERE slug='boissons'), 'Jus de Pommes Bio',  230,  55, 'assets/images/produits/boissons/jus-pomme-bio.png',               1, 8);
@@ -93,15 +96,15 @@ INSERT INTO product (category_id, name, price_cents, vat_rate, image_path, is_av
 
 -- 2.e wraps
 INSERT INTO product (category_id, name, price_cents, vat_rate, image_path, is_available, display_order) VALUES
-  ((SELECT id FROM category WHERE slug='wraps'), 'MC Wrap Chevre',       310, 100, 'assets/images/produits/wraps/mcwrap-chevre.png',       1, 1),
+  ((SELECT id FROM category WHERE slug='wraps'), 'MC Wrap Chèvre',       310, 100, 'assets/images/produits/wraps/mcwrap-chevre.png',       1, 1),
   ((SELECT id FROM category WHERE slug='wraps'), 'MC Wrap Poulet Bacon', 330, 100, 'assets/images/produits/wraps/mcwrap-poulet-bacon.png', 1, 2),
-  ((SELECT id FROM category WHERE slug='wraps'), 'Ptit Wrap Chevre',     260, 100, 'assets/images/produits/wraps/ptit-wrap-chevre.png',    1, 3),
+  ((SELECT id FROM category WHERE slug='wraps'), 'Ptit Wrap Chèvre',     260, 100, 'assets/images/produits/wraps/ptit-wrap-chevre.png',    1, 3),
   ((SELECT id FROM category WHERE slug='wraps'), 'Ptit Wrap Ranch',      260, 100, 'assets/images/produits/wraps/ptit-wrap-ranch.png',     1, 4);
 
 -- 2.f salades
 INSERT INTO product (category_id, name, price_cents, vat_rate, image_path, is_available, display_order) VALUES
   ((SELECT id FROM category WHERE slug='salades'), 'Petite Salade',   330, 100, 'assets/images/produits/salades/petite-salade.png',         1, 1),
-  ((SELECT id FROM category WHERE slug='salades'), 'Cesar Classic',   880, 100, 'assets/images/produits/salades/salade-classic-caesar.png', 1, 2),
+  ((SELECT id FROM category WHERE slug='salades'), 'César Classic',   880, 100, 'assets/images/produits/salades/salade-classic-caesar.png', 1, 2),
   ((SELECT id FROM category WHERE slug='salades'), 'Italienne Mozza', 880, 100, 'assets/images/produits/salades/salade-italian-mozza.png',  1, 3);
 
 -- 2.g desserts
@@ -150,16 +153,20 @@ INSERT INTO menu (category_id, burger_product_id, name, price_normal_cents, pric
 
 -- -----------------------------------------------------------------------------
 -- 4. menu_slot — three standard slots per menu:
---      drink (required), side (required), sauce (optional).
+--      side (required), drink (required), sauce (optional).
 --    One INSERT per slot_type, fanning out over all 13 menus via SELECT.
+--    Ordre Accompagnement -> Boisson -> Sauce : suit la maquette de l'ecole
+--    (Format -> Accompagnement -> Boisson, cf. migration 0015 / audit A10).
+--    MenuRepository::slotsWithOptions() trie par display_order, s.id : c'est
+--    cette colonne, et elle seule, qui pilote l'ordre affiche par la borne.
 -- -----------------------------------------------------------------------------
 INSERT INTO menu_slot (menu_id, name, slot_type, is_required, display_order)
-SELECT m.id, 'Boisson', 'drink', 1, 1
+SELECT m.id, 'Accompagnement', 'side', 1, 1
 FROM menu m
 JOIN category c ON c.id = m.category_id AND c.slug = 'menus';
 
 INSERT INTO menu_slot (menu_id, name, slot_type, is_required, display_order)
-SELECT m.id, 'Accompagnement', 'side', 1, 2
+SELECT m.id, 'Boisson', 'drink', 1, 2
 FROM menu m
 JOIN category c ON c.id = m.category_id AND c.slug = 'menus';
 

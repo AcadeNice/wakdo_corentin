@@ -1,0 +1,25 @@
+meta {
+  name: Supprimer un menu (PIN requis)
+  type: http
+  seq: 7
+}
+
+delete {
+  url: {{baseUrl}}/admin/api/menus/{{created_menu_id}}
+}
+
+headers {
+  Content-Type: application/json
+  X-CSRF-Token: {{csrf}}
+}
+
+body {
+  {
+    "pin_email": "{{pin_email}}",
+    "pin": "{{pin}}"
+  }
+}
+
+docs {
+409 CONFLICT si le menu est encore reference par des commandes (pas le cas ici, menu jamais commande). Suppression DURE : etat terminal de ce dossier.
+}

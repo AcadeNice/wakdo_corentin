@@ -39,13 +39,34 @@ class OrderAdminController extends AdminController
             return $guard;
         }
 
+        // RG-T12 : filtree par les sources visibles du role (role_visible_source),
+        // MEME regle que la file KDS (KitchenController) et la file comptoir/drive
+        // (CounterOrderController::index()) -- avant ce correctif, cette liste
+        // ramenait TOUTES les sources sans filtre : un role a canal restreint (ex.
+        // le canal 'drive', qui ne voit QUE 'drive' -- seed 0001) y voyait des
+        // commandes hors de ses canaux alors que l'ecran cuisine (kitchen, qui voit
+        // les trois sources) les lui masque deja. Liste vide en base = vue globale
+        // (admin/manager voient tout).
+        //
+        // Filtre EN SQL (recentVisible), pas apres coup sur recent(50) (relecture
+        // adverse, point 6) : un filtre PHP APRES le LIMIT peut faire disparaitre
+        // des commandes reelles d'un canal a faible volume -- les 50 plus recentes
+        // TOUS canaux confondus peuvent ne contenir AUCUNE commande du canal
+        // restreint, meme quand ce canal a des commandes plus anciennes.
+        $visible = $this->orderQuery()->visibleSources($guard->roleId ?? 0);
+        $orders = $this->orderQuery()->recentVisible($visible, 50);
+
         return $this->adminView('admin/orders/index', [
             'title'      => 'Commandes - Wakdo Admin',
             'activeNav'  => 'orders',
-            'orders'     => $this->orderQuery()->recent(50),
+            'orders'     => $orders,
             // RG-T03 : adapte l'affichage (bouton Annuler) sans remplacer la garde
             // par-action de cancel(). manager n'a PAS order.cancel (decision D5).
             'canCancel'  => $this->may($guard, 'order.cancel'),
+            // Ligne a signaler (retour visuel apres deliver()/cancel(), qui posent
+            // _highlight_order juste avant de rediriger ici). Voir la note du meme nom
+            // dans admin/orders/index.php pour le pourquoi.
+            'highlightOrder' => $this->takeHighlight(),
         ], $guard);
     }
 
@@ -79,25 +100,23 @@ class OrderAdminController extends AdminController
         $number = (string) ($params['number'] ?? '');
 
         // PRE-3 (6.1) : refuse la remise d'une commande dont la source n'est pas dans
-        // les sources visibles du role agissant. visibleSources reutilise
-        // role_visible_source (memes donnees que KitchenController) : liste vide en base
-        // = vue globale (admin/manager voient les trois sources). Le numero inconnu
-        // (source null) retombe sur le chemin "non visible" -> 403 ; la branche
-        // ORDER_NOT_FOUND ci-dessous reste atteignable pour une course (commande
-        // supprimee entre la lecture et la transition).
-        $source = $this->orderSource($number);
-        if ($source === null || !in_array($source, $this->orderQuery()->visibleSources($guard->roleId ?? 0), true)) {
+        // les sources visibles du role agissant. Le numero inconnu (source null)
+        // retombe sur le chemin "non visible" -> 403 ; la branche ORDER_NOT_FOUND
+        // ci-dessous reste atteignable pour une course (commande supprimee entre la
+        // lecture et la transition).
+        if (!$this->sourceVisibleToRole($number, $guard->roleId ?? 0)) {
             return $this->forbidden($guard);
         }
 
         try {
             $this->orders()->deliver($number);
-            $this->setFlash('Commande remise (livree).');
+            $this->setFlash('Commande remise (livrée).');
+            $this->setHighlight($number);
         } catch (OrderValidationException $exception) {
             $this->setFlash(
                 $exception->getMessage() === 'ORDER_NOT_FOUND'
                     ? 'Commande introuvable.'
-                    : 'Transition invalide : la commande n\'est pas au statut paye.',
+                    : 'Transition invalide : la commande n\'est pas au statut payé.',
             );
         }
 
@@ -128,14 +147,14 @@ class OrderAdminController extends AdminController
 
         $number = (string) ($params['number'] ?? '');
 
-        $source = $this->orderSource($number);
-        if ($source === null || !in_array($source, $this->orderQuery()->visibleSources($guard->roleId ?? 0), true)) {
+        if (!$this->sourceVisibleToRole($number, $guard->roleId ?? 0)) {
             return $this->forbidden($guard);
         }
 
         try {
             $this->orders()->markReady($number);
-            $this->setFlash('Commande marquee prete.');
+            $this->setFlash('Commande marquée prête.');
+            $this->setHighlight($number);
         } catch (OrderValidationException $exception) {
             $this->setFlash(
                 $exception->getMessage() === 'ORDER_NOT_FOUND'
@@ -148,10 +167,15 @@ class OrderAdminController extends AdminController
     }
 
     /**
-     * Page de confirmation d'annulation (CANCEL_ORDER, mlt 7.1). Garde order.cancel.
-     * Affiche numero/statut/total + le formulaire PIN equipier (modele RG-T13). La
-     * commande est chargee en lecture seule (OrderRepository::findByNumber) ; statut
-     * terminal (delivered/cancelled) -> message bloquant, pas de formulaire.
+     * Page de confirmation d'annulation (CANCEL_ORDER, mlt 7.1). Garde order.cancel,
+     * PUIS la meme garde de visibilite de canal PRE-3 (RG-T12) que `cancel()` : un
+     * numero hors des sources visibles du role ne doit pas etre distinguable d'un
+     * numero inconnu, meme sur cette page de confirmation en LECTURE SEULE -- sinon
+     * elle revelerait numero/statut/total d'une commande d'un canal invisible avant
+     * meme que le PIN de `cancel()` (POST) ne bloque la mutation. Affiche
+     * numero/statut/total + le formulaire PIN equipier (modele RG-T13). La commande
+     * est chargee en lecture seule (OrderRepository::findByNumber) ; statut terminal
+     * (delivered/cancelled) -> message bloquant, pas de formulaire.
      *
      * @param array<string, string> $params
      */
@@ -162,7 +186,12 @@ class OrderAdminController extends AdminController
             return $guard;
         }
 
-        $order = $this->orders()->findByNumber((string) ($params['number'] ?? ''));
+        $number = (string) ($params['number'] ?? '');
+        if (!$this->sourceVisibleToRole($number, $guard->roleId ?? 0)) {
+            return $this->forbidden($guard);
+        }
+
+        $order = $this->orders()->findByNumber($number);
         if ($order === null) {
             return $this->notFound($guard);
         }
@@ -172,7 +201,17 @@ class OrderAdminController extends AdminController
 
     /**
      * Annulation effective (CANCEL_ORDER, mlt 7.1). POST + CSRF + garde order.cancel,
-     * puis flux PIN equipier IDENTIQUE a IngredientController::inventory (RG-T13/T22) :
+     * PUIS la garde de visibilite de canal PRE-3 (RG-T12) -- fermee sur ce chantier
+     * (limite jusque-la documentee dans ADR-0017 et `conventions.md` section 5.3,
+     * l'API JSON `OrderApiController::apiCancel()` la fermait deja) : un numero
+     * INCONNU et un numero d'un canal NON VISIBLE par le role rendent la MEME reponse
+     * (403, anti-enumeration) SUR CETTE ACTION, verifiee AVANT tout PIN, pour qu'un
+     * acteur ne puisse pas distinguer "n'existe pas" de "existe, hors de mes canaux"
+     * en passant par cancel()/confirmCancel(). Portee volontairement bornee au
+     * back-office HTML de ce controleur : ne garantit rien sur un AUTRE point d'entree
+     * qui lirait la meme table sans la meme garde (cf. le correctif separe sur le
+     * suivi public anonyme, `OrderController::show()`, relecture point 5b). Puis flux
+     * PIN equipier IDENTIQUE a IngredientController::inventory (RG-T13/T22) :
      * verrou throttle par utilisateur AGISSANT evalue AVANT la verification (leurre de
      * timing, message generique) ; sur echec PIN -> pin.failed + increment throttle dans
      * UNE transaction. Sur PIN OK -> OrderRepository::cancel (transition + restock
@@ -193,6 +232,10 @@ class OrderAdminController extends AdminController
         }
 
         $number = (string) ($params['number'] ?? '');
+        if (!$this->sourceVisibleToRole($number, $guard->roleId ?? 0)) {
+            return $this->forbidden($guard);
+        }
+
         $order = $this->orders()->findByNumber($number);
         if ($order === null) {
             return $this->notFound($guard);
@@ -227,12 +270,13 @@ class OrderAdminController extends AdminController
             // PIN valide : reinitialise le compteur de l'acteur de SESSION (RG-T22, cle
             // = $actorId), surtout pas $actor['id'] (l'equipier resolu par le PIN).
             $this->pinThrottle()->reset($actorId);
-            $this->setFlash('Commande annulee.');
+            $this->setFlash('Commande annulée.');
+            $this->setHighlight($number);
         } catch (OrderValidationException $exception) {
             $this->setFlash(match ($exception->getMessage()) {
                 'ORDER_NOT_FOUND'         => 'Commande introuvable.',
-                'CANNOT_CANCEL_IN_STATE'  => 'Annulation impossible : la commande est livree ou deja annulee.',
-                default                   => 'Transition invalide : la commande a change d\'etat.',
+                'CANNOT_CANCEL_IN_STATE'  => 'Annulation impossible : la commande est livrée ou déjà annulée.',
+                default                   => 'Transition invalide : la commande a changé d\'état.',
             });
         }
 
@@ -264,6 +308,20 @@ class OrderAdminController extends AdminController
         $source = is_string($row['source'] ?? null) ? (string) $row['source'] : '';
 
         return $source === '' ? null : $source;
+    }
+
+    /**
+     * PRE-3 (RG-T12) : le numero existe-t-il ET sa source est-elle dans les sources
+     * visibles du role agissant ? Factorise ce que `deliver()`, `ready()`,
+     * `confirmCancel()` et `cancel()` verifiaient chacun en double (numero inconnu
+     * comme canal non visible retombent tous deux sur `false`, indistingables pour
+     * l'appelant -- anti-enumeration).
+     */
+    private function sourceVisibleToRole(string $number, int $roleId): bool
+    {
+        $source = $this->orderSource($number);
+
+        return $source !== null && in_array($source, $this->orderQuery()->visibleSources($roleId), true);
     }
 
     protected function orders(): OrderRepository
@@ -312,7 +370,7 @@ class OrderAdminController extends AdminController
                 'code'    => 'pin.failed',
                 'etype'   => 'customer_order',
                 'eid'     => $orderId,
-                'summary' => 'Echec PIN annulation (email tente: ' . $email . ')',
+                'summary' => 'Échec PIN annulation (email tenté: ' . $email . ')',
             ],
         );
     }
@@ -342,7 +400,7 @@ class OrderAdminController extends AdminController
      */
     private function forbidden(GuardResult $guard): Response
     {
-        return $this->adminView('admin/forbidden', ['title' => 'Acces refuse', 'activeNav' => 'orders'], $guard, 403);
+        return $this->adminView('admin/forbidden', ['title' => 'Accès refusé', 'activeNav' => 'orders'], $guard, 403);
     }
 
     private function redirect(string $location): Response
@@ -350,8 +408,36 @@ class OrderAdminController extends AdminController
         return Response::make('', 302, ['Location' => $location]);
     }
 
+    /**
+     * Pose le numero de commande a signaler (retour visuel) sur le prochain rendu,
+     * juste avant une redirection (meme mecanique poser-puis-lire que
+     * AdminController::setFlash()). Consomme une seule fois par takeHighlight() (ici
+     * ou dans KitchenController, selon la page de redirection).
+     */
+    private function setHighlight(string $number): void
+    {
+        $this->sessionManager()->set('_highlight_order', $number);
+    }
+
+    /**
+     * Lit puis efface le numero de commande a signaler (voir setHighlight()). Duplique
+     * dans KitchenController a dessein : AdminController est un socle partage par TOUS
+     * les controleurs admin, y compris ceux des autres lots en cours en parallele -- ne
+     * pas y toucher hors du perimetre confie pour ce lot.
+     */
+    private function takeHighlight(): ?string
+    {
+        $value = $this->sessionManager()->get('_highlight_order');
+        if ($value === null) {
+            return null;
+        }
+        $this->sessionManager()->set('_highlight_order', null);
+
+        return is_string($value) ? $value : null;
+    }
+
     private function invalidCsrf(): Response
     {
-        return Response::make('Requete invalide.', 403, ['Content-Type' => 'text/plain; charset=utf-8']);
+        return Response::make('Requête invalide.', 403, ['Content-Type' => 'text/plain; charset=utf-8']);
     }
 }

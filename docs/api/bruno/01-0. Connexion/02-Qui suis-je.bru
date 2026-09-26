@@ -1,0 +1,18 @@
+meta {
+  name: Qui suis-je
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/admin/api/auth/me
+}
+
+docs {
+Alias JSON de GET /admin/me (meme identite, memes permissions, meme csrf_token courant) : reste sous /admin/api/... pour que toute la demo utilise un seul prefixe. Utile pour rafraichir 'csrf' sans se reconnecter.
+}
+
+script:post-response {
+  const body = res.getBody();
+  if (body && body.data && body.data.csrf_token) { bru.setEnvVar('csrf', body.data.csrf_token); }
+}

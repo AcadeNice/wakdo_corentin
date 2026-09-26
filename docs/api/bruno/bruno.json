@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "Wakdo - API d'administration JSON",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}

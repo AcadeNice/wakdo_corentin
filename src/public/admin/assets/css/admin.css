@@ -19,7 +19,11 @@
     --color-border-dark: #D1D5DB;
     --color-text:        #1A1A1A;
     --color-text-sec:    #4A4A4A;
-    --color-text-muted:  #6B7280;
+    /* #69707D : tient AA (4.5:1) sur les trois fonds neutres reellement utilises
+       (4.98:1 blanc, 4.77:1 --color-surface, 4.57:1 --color-page). L'ancien
+       #6B7280 tombait a 4.43:1 sur --color-page — voir
+       docs/soutenance/preuves/06-audit-accessibilite-mesure.md, section 5.3. */
+    --color-text-muted:  #69707D;
     --color-surface:     #F9FAFB;
 
     /* Accent Wakdo — parcimonieux */
@@ -60,9 +64,39 @@
 
     /* Accent doux + ombres douces (direction A+C) */
     --color-yellow-soft: #FFF3D1;
-    --color-yellow-ink:  #C8920A;
+    /* #AE7F09 : plus fonce que le #B8860B envisage en preuve 06, parce que ce
+       token n'est pas utilise que sur blanc. Il colore aussi la lettre de repli
+       de .pos-tile__pastille et l'icone .pin-modal-ico, TOUTES DEUX sur le fond
+       --color-yellow-soft (#FFF3D1), plus sombre que le blanc. #B8860B y
+       plafonne a 2.94:1 (sous le seuil 3:1, texte large) ; #AE7F09 tient sur
+       les deux fonds : 3.60:1 sur blanc (span "do"), 3.25:1 sur #FFF3D1
+       (pastille). Voir docs/soutenance/preuves/06-audit-accessibilite-mesure.md,
+       section 5.2. */
+    --color-yellow-ink:  #AE7F09;
     --shadow-card:       0 1px 3px rgba(26,26,26,0.04), 0 6px 20px rgba(26,26,26,0.06);
     --shadow-card-hover: 0 2px 6px rgba(26,26,26,0.06), 0 12px 30px rgba(26,26,26,0.10);
+
+    /* Systeme de design (lot 0) — jetons d'espacement et de typographie.
+       Nomment des valeurs deja utilisees partout dans ce fichier ; les regles
+       EXISTANTES gardent leurs valeurs litterales (migrer serait un chantier a
+       part, hors du gel du 30/09 — voir design-system.md section 2.1/2.2). A
+       utiliser dans toute regle NEUVE, ici ou dans un lot qui ecrit du CSS. */
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 20px;
+    --space-6: 24px;
+    --space-7: 32px;
+
+    --text-xs: 11px;
+    --text-sm: 12px;
+    --text-base: 14px;
+    --text-md: 15px;
+    --text-lg: 17px;
+    --text-xl: 20px;
+    --text-2xl: 24px;
+    --text-display: 40px;
 }
 
 html, body {
@@ -97,6 +131,26 @@ button {
     overflow: hidden;
     clip: rect(0, 0, 0, 0);
     white-space: nowrap;
+}
+
+/* Lien d'evitement (RGAA Cr 1.e.11, renforce Cr 1.c.4) : premier element
+   focalisable du gabarit admin (layout.php), avant la topbar et la sidebar.
+   Meme technique que .sr-only tant qu'il n'a pas le focus ; reapparait des que
+   le focus clavier l'atteint (:focus-visible, coherent avec le reste du fichier). */
+.skip-link {
+    position: fixed;
+    top: -1000px;
+    left: 0;
+    z-index: 2000;
+    padding: 8px 16px;
+    background: var(--color-yellow);
+    color: var(--color-text);
+    font-weight: 700;
+    border-radius: 0 0 var(--radius-sm) 0;
+}
+
+.skip-link:focus-visible {
+    top: 0;
 }
 
 /* Message d'erreur de formulaire (global admin : erreurs de validation / serveur). */
@@ -189,7 +243,7 @@ button {
     transition: border-color 0.15s, box-shadow 0.15s;
 }
 
-.topbar-search input:focus {
+.topbar-search input:focus-visible {
     border-color: var(--color-yellow);
     box-shadow: 0 0 0 2px rgba(255, 199, 44, 0.25);
     background: var(--color-white);
@@ -396,6 +450,103 @@ button {
     grid-area: content;
     overflow-y: auto;
     padding: 24px;
+    /* Marge basse elargie : le bouton "Police adaptee" (.a11y-toggle) est en
+       position fixe bas-droite et flotte donc AU-DESSUS du contenu quel que soit
+       le defilement, pas seulement au-dessus du coin libre suppose (F40, capture
+       26 : il recouvrait le bouton Masquer de la derniere categorie une fois le
+       contenu descendu jusqu'en bas). Cette marge reserve la place du bouton
+       (hauteur ~40px + son decalage bottom:16px + un espace confortable) pour
+       qu'aucun contenu ne finisse jamais dessous. */
+    padding-bottom: 80px;
+    /* Lot 0 (balayage 2026-09-26, categorie clavier "focus visible", 59 echecs) :
+       la tabulation amenait l'element focalise au ras bas de la zone de defilement,
+       sous .a11y-toggle — le padding-bottom ci-dessus ne protege que la FIN du
+       defilement, pas ce que scrollIntoView() (declenche par le focus du navigateur)
+       considere comme "visible". scroll-padding-bottom force ce calcul a reserver la
+       meme marge, quel que soit l'element focalise. */
+    scroll-padding-bottom: 80px;
+}
+
+/* --- Ossature sur petit ecran (Cr 1.b.1) ---
+   Sous 900px (ERG-03, lot 0 : seuil remonte de 640 a 900 — la colonne fixe de 264px
+   ne laissait que 2-3 tuiles par ligne a la caisse en tablette portrait, 768px), la
+   colonne du menu lateral ne laisse presque plus de place au contenu. Le menu devient
+   une bande horizontale defilante, sous la barre du haut, et le contenu prend toute la
+   largeur. Sans JavaScript : tous les liens restent dans la page, dans le meme ordre
+   de tabulation ; seuls les intitules de rubrique, redondants avec les liens, sont
+   retires de l'affichage. */
+@media (max-width: 900px) {
+    .admin-layout {
+        grid-template-columns: 1fr;
+        grid-template-rows: var(--topbar-height) auto 1fr;
+        grid-template-areas:
+            "topbar"
+            "sidebar"
+            "content";
+    }
+
+    .topbar {
+        padding: 0 16px;
+    }
+
+    .sidebar {
+        width: auto;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 6px 12px;
+        border-right: 0;
+        border-bottom: 1px solid var(--color-border);
+        overflow-x: auto;
+        overflow-y: hidden;
+    }
+
+    .sidebar-brand {
+        flex-shrink: 0;
+        padding: 0 6px 0 0;
+    }
+
+    .sidebar-brand-logo {
+        height: 26px;
+    }
+
+    .sidebar-brand-name,
+    .sidebar-section-label {
+        display: none;
+    }
+
+    .sidebar-section {
+        display: flex;
+        gap: 4px;
+        padding: 0;
+        flex-shrink: 0;
+    }
+
+    .sidebar-item {
+        height: 40px;
+        margin: 0;
+        padding: 0 12px;
+        white-space: nowrap;
+    }
+
+    /* Repere de la page courante : sous le lien, plus a sa gauche, dans une bande. */
+    .sidebar-item.active {
+        box-shadow: inset 0 -3px 0 var(--color-yellow);
+    }
+
+    .sidebar-item-sub {
+        padding-left: 12px;
+    }
+
+    /* Lot 0 (balayage 2026-09-26, categorie chevauchement "masquage fixe") : le
+       padding en raccourci remplacait les 4 cotes, effacant le padding-bottom: 80px
+       de la regle de base qui protege du bouton fixe .a11y-toggle — regression sur
+       telephone de la correction F40 ("Enregistrer la revue des allergenes" restait
+       recouvert). Cotes ecrits explicitement pour garder la marge basse partout. */
+    .content {
+        padding: 16px 16px 80px;
+    }
+
 }
 
 .page-header {
@@ -417,6 +568,48 @@ button {
     font-size: 13px;
     color: var(--color-text-muted);
     margin-top: 2px;
+}
+
+/* Sommaire d'ancres (RGAA Cr 1.e.11) : en tete des vues longues, liens vers les
+   sections identifiees par id plus bas dans la meme page. Generique : toute
+   vue admin peut le reutiliser, pas seulement le stock des ingredients. */
+.toc {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 12px;
+    padding: 10px 14px;
+    margin-bottom: 16px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    font-size: 13px;
+}
+
+.toc__label {
+    color: var(--color-text-muted);
+    font-weight: 600;
+}
+
+.toc__list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.toc__list a {
+    color: var(--color-text);
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.toc__list a:focus-visible {
+    outline: 3px solid var(--color-yellow-dark);
+    outline-offset: 2px;
 }
 
 .page-actions {
@@ -602,7 +795,7 @@ button {
     transition: border-color 0.15s, box-shadow 0.15s;
 }
 
-.search-field input:focus {
+.search-field input:focus-visible {
     border-color: var(--color-yellow);
     box-shadow: 0 0 0 2px rgba(255, 199, 44, 0.25);
 }
@@ -634,7 +827,7 @@ button {
     transition: border-color 0.15s;
 }
 
-.filter-select:focus {
+.filter-select:focus-visible {
     border-color: var(--color-yellow);
     box-shadow: 0 0 0 2px rgba(255, 199, 44, 0.25);
 }
@@ -916,11 +1109,20 @@ tbody td.mono {
     transition: border-color 0.15s, box-shadow 0.15s;
 }
 
-.form-input:focus,
-.form-select:focus,
-.form-textarea:focus {
+.form-input:focus-visible,
+.form-select:focus-visible,
+.form-textarea:focus-visible {
     border-color: var(--color-yellow);
     box-shadow: 0 0 0 2px rgba(255, 199, 44, 0.25);
+}
+
+/* Champ signale par le controle de saisie (form-validation.js, Cr 2.b.1). La couleur ne
+   porte pas seule l'information : le message ecrit sous le champ la double. Rouge
+   #EF4444 sur blanc : environ 3,8:1, au-dessus du seuil de 3:1 d'un composant d'interface. */
+.form-input[aria-invalid="true"],
+.form-select[aria-invalid="true"],
+.form-textarea[aria-invalid="true"] {
+    border-color: var(--color-danger);
 }
 
 .form-helper {
@@ -1378,6 +1580,48 @@ tbody td.mono {
 
 .tile-label { font-size: 15px; font-weight: 600; color: var(--color-text-sec); margin-top: 8px; }
 
+/* Lot 0 (balayage 2026-09-26, categorie debordement "defilement horizontal", 5 echecs
+   a 768px) : repeat(4, 1fr) n'a pas de palier entre le breakpoint telephone (640px,
+   ci-dessous) et le plein desktop — a 768px, meme une fois la sidebar basculee en
+   bande (seuil 900px, plus haut dans ce fichier), les 4 tuiles ne tiennent pas sur une
+   tablette portrait. Palier intermediaire : 2 colonnes des que la largeur devient
+   inconfortable pour 4, avant meme le seuil telephone. */
+@media (max-width: 1024px) {
+    .dash-tiles {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+    }
+}
+
+/* Tableau de bord et en-tetes de page sur petit ecran (Cr 1.b.1). Mesure du 2026-09-23
+   dans la zone de contenu : les 4 tuiles debordaient de 382 px a 360 px de large, les
+   boutons d'en-tete de la liste des produits de 19 px. Tuiles sur 2 colonnes, boutons
+   sous le titre. Bloc place APRES les regles de base : a specificite egale, une media
+   query ne l'emporte que si elle vient plus bas dans le fichier. */
+@media (max-width: 640px) {
+    .dash-tiles {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+    }
+
+    .tile {
+        padding: 16px;
+    }
+
+    .page-header,
+    .page-actions {
+        flex-wrap: wrap;
+    }
+}
+
+/* Lot 0 : dernier palier, 1 colonne sur telephone etroit — 4 tuiles KPI pleine largeur
+   se lisent mieux que 2 colonnes de ~170px sur les gabarits testes (390px). */
+@media (max-width: 400px) {
+    .dash-tiles {
+        grid-template-columns: 1fr;
+    }
+}
+
 .feed-panel {
     background: var(--color-white);
     border: 1px solid var(--color-border);
@@ -1566,6 +1810,17 @@ tbody td.mono {
     background: var(--color-yellow);
     color: var(--color-text);
 }
+/* Lot 0 (balayage 2026-09-26, categorie clavier "focus visible", 9 echecs) : l'onglet
+   actif porte deja la bordure et le fond jaunes que :focus-visible applique ci-dessus
+   — meme couleur, aucun changement percu au focus. Anneau exterieur sombre, dessine
+   hors de la boite (outline, pas box-shadow) donc visible sur le fond de la barre
+   d'onglets quelle que soit la couleur du bouton lui-meme. Contraste mesure :
+   --color-text (#1A1A1A) sur --color-page (#F5F5F5, fond de la barre) = 15,96:1,
+   tres au-dessus du seuil non-texte 3:1 (WCAG 1.4.11). */
+.pos__tab.is-active:focus-visible {
+    outline: 3px solid var(--color-text);
+    outline-offset: 2px;
+}
 
 /* Grille de tuiles produits/menus : auto-fit, grandes cibles tactiles. */
 .pos__grid {
@@ -1623,13 +1878,16 @@ tbody td.mono {
     padding: 10px;
     background: var(--color-surface);
 }
-/* Pastille de repli (initiale) quand aucune image n'est disponible cote back-office. */
+/* Pastille de repli (initiale) quand aucune image n'est disponible cote back-office.
+ * C'est cet element qui a impose #AE7F09 plutot que #B8860B pour --color-yellow-ink
+ * (voir le commentaire du token en tete de fichier) : lettre en 24px/800, donc seuil
+ * large-text 3:1, sur fond --color-yellow-soft. */
 .pos-tile__pastille {
     width: 56px;
     height: 56px;
     border-radius: 50%;
     background: var(--color-yellow-soft, #FFF3D1);
-    color: var(--color-yellow-ink, #C8920A);
+    color: var(--color-yellow-ink, #AE7F09);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1817,14 +2075,77 @@ tbody td.mono {
 
 /* Tablette etroite / portrait : le panneau passe sous le catalogue. */
 @media (max-width: 860px) {
-    .pos__main { flex-direction: column; }
+    /* Lot 0 (balayage 2026-09-26, categories debordement "sortie de conteneur" et
+       "defilement horizontal", 768/390px) : align-items: flex-start (regle de base,
+       pensee pour la disposition en ligne desktop, pour ne pas etirer catalogue et
+       panneau a la meme hauteur) devient l'axe TRANSVERSAL une fois flex-direction en
+       colonne — un flex-item en colonne avec flex-start ne se contraint plus a la
+       largeur du parent, il prend sa largeur de contenu. .pos__tabs (bandeau
+       d'onglets, nowrap + defilement horizontal interne voulu) poussait alors tout
+       .pos__catalogue, et la page, plus large que l'ecran. stretch restaure la
+       largeur pleine (comportement par defaut de align-items), le defilement
+       horizontal des onglets reste interne a .pos__tabs. */
+    .pos__main { flex-direction: column; align-items: stretch; }
     .pos__panel {
         flex-basis: auto;
         width: 100%;
         position: static;
         max-height: none;
     }
-    .order-cart { max-height: 320px; }
+    /* ERG-03 (audit UX pre-soutenance) : a cette largeur, le panneau commande
+       passe en flux normal SOUS la grille de produits (position: static ci-dessus).
+       .content est une grille de hauteur FIXE (100vh - topbar, overflow-y: auto) :
+       le padding-bottom de 80px qu'elle reserve deja (F40, capture 26) ne degage
+       le bas du contenu qu'UNE FOIS DEFILE jusqu'au bout -- il ne joue pas au repos
+       (scrollTop=0), qui est l'etat du premier affichage. Sur cette page, le pied
+       du panneau (bouton "Encaisser") atterrit alors assez bas pour chevaucher
+       le bouton fixe "Police adaptee" (.a11y-toggle, bottom:16px) DES LE CHARGEMENT,
+       sans le moindre defilement -- mesure par calcul de zones (chevauchement
+       confirme a 768x1024 avant ce correctif, cf. tests/e2e/counter-pos.spec.js).
+       `position: sticky` avec la MEME marge de 80px epingle le pied a cette
+       distance du bas visible du conteneur de defilement, que le contenu ait ou
+       non besoin de defiler : la meme garantie que le F40, mais valable aussi au
+       repos. */
+    .pos__panel-foot {
+        position: sticky;
+        bottom: 80px;
+    }
+
+    /* Croisement avec la PR #156 (champ Table #service_tag_group, ajoute dans
+       .pos__panel-head) : au repos (scrollTop=0), le pied collant ci-dessus remonte
+       de TOUJOURS EXACTEMENT 80px au-dessus de sa position naturelle -- verifie par
+       calcul de zones (tests/e2e/lot-1-comptoir-drive.spec.js, avant/apres). Panier
+       vide ("Panier vide." seul, ~53px) : ce meme ecart de 80px, choisi pour degager
+       .a11y-toggle, grignote alors .pos__panel-head. Le chevauchement mesure = 80 -
+       (hauteur du panier) : garantir au panier au moins 80px absorbe l'ecart cote
+       tete de panneau, quelle que soit la hauteur de celle-ci (verifie : raccourcir
+       .pos__panel-head SEUL, sans toucher au panier, ne change rien au
+       chevauchement -- les deux remontent de la meme quantite). +4px de marge pour
+       ne pas courir apres l'egalite stricte (arrondis sous-pixel). */
+    .order-cart {
+        max-height: 320px;
+        min-height: 84px;
+    }
+
+    /* Meme croisement, second effet : agrandir le panier ci-dessus repousse aussi le
+       pied VERS LE BAS d'autant (l'ecart de 80px etant fixe, tout ce qui precede le
+       pied dans le flux l'entraine avec lui) -- ce qui ronge la marge, deja reduite,
+       entre le pied et .a11y-toggle (tests/e2e/counter-pos.spec.js, chevauchement
+       confirme a la mesure si .pos__panel-head garde sa hauteur pleine). Les DEUX
+       lignes de .pos__panel-head (Mode ; Table, uniquement en sur place comptoir)
+       sont empilees en colonne par defaut (regle desktop, ligne ~1966) : cote a cote
+       il y a largement la largeur (panneau pleine largeur a cette hauteur d'ecran,
+       ~700px utiles) pour les deux controles, ce qui redonne la hauteur d'UNE seule
+       rangee a .pos__panel-head -- assez pour compenser l'agrandissement du panier
+       ci-dessus ET dispenser de replier le titre "Commande" (tente puis ecarte :
+       inutile une fois les deux rangees mises cote a cote, verifie a la mesure). */
+    .pos__panel-head {
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+    .pos__service {
+        flex: 1 1 220px;
+    }
 }
 
 /* Modale de composition : overlay + panneau centre. */
@@ -2435,7 +2756,18 @@ tbody td.mono {
     display: inline;
 }
 
+/* Lot 0 (balayage 2026-09-26, categorie "cible trop petite", 2 echecs a 390px) :
+   ~26x20px mesures (padding + police seuls) ne tenaient pas le minimum 24x24px
+   (WCAG 2.2, 2.5.8) et les deux fleches (Monter/Descendre, deux <form> voisins sans
+   espace) se touchaient. min-width/min-height forcent le plancher quel que soit le
+   contenu, margin separe les deux cibles voisines. */
 .btn-order {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    min-height: 24px;
+    margin: 2px;
     padding: 0.2rem 0.5rem;
     border: 1px solid #ccd3dc;
     border-radius: 4px;
@@ -2457,4 +2789,345 @@ tbody td.mono {
 
 .order-cell {
     white-space: nowrap;
+}
+
+/* ============================================================
+   ACCESSIBILITE — police pour personnes dyslexiques (RGAA Cr 1.c.2)
+   ============================================================
+   Parite avec la borne : le module de bascule (assets/js/a11y.js) est
+   REUTILISE, pas reecrit (voir la note dans admin/layout.php) ; les polices
+   OpenDyslexic auto-hebergees (assets/fonts) sont le meme dossier partage
+   physiquement avec la borne. Seul ce qui est propre au design system admin
+   (le token --font, pas --font-family-base de la borne) est declare ici. Un
+   equipier dyslexique utilise le back-office toute la journee ; cette
+   fonction lui manquait entierement avant ce lot. */
+@font-face {
+    font-family: "OpenDyslexic";
+    src: url("../fonts/opendyslexic-latin-400-normal.woff2") format("woff2");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: "OpenDyslexic";
+    src: url("../fonts/opendyslexic-latin-700-normal.woff2") format("woff2");
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+
+/* a11y.js pose .dys-font sur <html> ; redefinit --font (pile de police admin),
+   heritee par toute l'interface. */
+html.dys-font {
+    --font: "OpenDyslexic", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* Controle fixe, injecte par a11y.js sur chaque page admin. Bas-droite : la
+   sidebar occupe tout le bord gauche et la topbar le haut sur toutes les
+   vues ; ce coin reste libre (aucun autre element fixe n'y est positionne). */
+.a11y-toggle {
+    position: fixed;
+    bottom: 16px;
+    right: 16px;
+    z-index: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--color-white);
+    color: var(--color-text);
+    border: 2px solid var(--color-border-dark);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-card-hover);
+    font-family: var(--font);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.a11y-toggle__icon {
+    font-size: 15px;
+    line-height: 1;
+}
+
+/* Etat actif : pas signale par la seule couleur (RGAA 1.4.1) — aria-pressed
+   (technologies d'assistance) et le libelle texte restent visibles dans les
+   deux etats. */
+.a11y-toggle[aria-pressed="true"] {
+    background: var(--color-yellow);
+    border-color: var(--color-yellow-dark);
+}
+
+.a11y-toggle:focus-visible {
+    outline: 3px solid var(--color-yellow-dark);
+    outline-offset: 2px;
+}
+
+/* =============================================================================
+   SYSTEME DE DESIGN — LOT 0 (design-system.md, section 2)
+   Contrat pour les lots 1-10 : ajouts uniquement, aucune regle existante
+   renommee ni supprimee (les deux corrections ponctuelles du balayage sont en
+   place, pas ici — .content, .dash-tiles, .pos__main, .pos__tab, .btn-order,
+   voir les commentaires "Lot 0" a chaque emplacement). Les jetons d'espacement
+   et de typographie sont dans :root, en tete de fichier.
+   ============================================================================= */
+
+/* --- Alignement numerique dans les tableaux (design-system.md 2.3) ---
+   Aucune couleur neuve : herite de la couleur de texte de la cellule qui la
+   porte (pas de contraste a mesurer ici). */
+.table-num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* --- Actions de ligne regroupees, danger separe (design-system.md 2.4) ---
+   Reutilise --color-border (deja mesure, cf. section 1.1 de design-system.md) :
+   aucune couleur neuve. */
+.row-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+}
+.row-actions__danger {
+    margin-left: var(--space-3);
+    padding-left: var(--space-3);
+    border-left: 1px solid var(--color-border);
+}
+
+/* --- Champs avances replies (design-system.md 2.5) ---
+   Le contour est une bordure pleine (pas un texte) et le triangle ::before
+   herite de la couleur du texte du resume (color-text sur blanc, 17,40:1,
+   script de mesure ci-dessous). Ecart documente vis-a-vis du brouillon de
+   design-system.md, section 2.5 : l'anneau de focus y etait propose en
+   --color-yellow-dark (repris de .form-input:focus-visible), mesure ici a
+   2,99:1 sur blanc — sous le seuil non-texte 3:1 (WCAG 1.4.11), de justesse
+   mais reellement sous. Remplace par --color-text (17,40:1 sur blanc). */
+details.form-advanced {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-3) var(--space-4);
+    margin-bottom: var(--space-4);
+}
+details.form-advanced > summary {
+    cursor: pointer;
+    font-weight: 700;
+    font-size: var(--text-base);
+    color: var(--color-text);
+    list-style: none;
+}
+details.form-advanced > summary::-webkit-details-marker { display: none; }
+details.form-advanced > summary::before {
+    content: '\25b8';
+    display: inline-block;
+    margin-right: var(--space-2);
+    transition: transform 0.12s ease;
+}
+details.form-advanced[open] > summary::before { transform: rotate(90deg); }
+details.form-advanced > summary:focus-visible {
+    outline: 2px solid var(--color-text);
+    outline-offset: 2px;
+}
+
+/* --- Tuile selectionnee, composeur de menu en tuiles (design-system.md 2.6) ---
+   Ecart documente vis-a-vis du brouillon de design-system.md : la version
+   d'origine proposait un anneau box-shadow inset en --color-yellow. Mesure :
+   --color-yellow-dark (bordure) sur --color-yellow-bg (fond de la tuile
+   selectionnee) = 2,88:1, et --color-yellow (anneau d'origine) sur ce meme fond
+   = 1,50:1 — tous deux SOUS le seuil non-texte 3:1 (WCAG 1.4.11). Remplace par
+   --color-text (#1A1A1A) : 16,78:1 sur --color-yellow-bg (#FFFBEB). La bordure
+   --color-yellow-dark est gardee (identite jaune de la marque, cf. direction
+   A+C) mais n'est plus le seul indicateur : l'anneau sombre, tres contraste,
+   porte a lui seul la conformite. */
+.pos-tile.is-selected {
+    border-color: var(--color-yellow-dark);
+    background: var(--color-yellow-bg);
+    box-shadow: 0 0 0 2px var(--color-text) inset;
+}
+/* Sans cette regle, une tuile a la fois selectionnee ET focalisee ne montrerait
+   aucun changement au focus : .pos-tile.is-selected et .pos-tile:focus-visible
+   ont la meme specificite (deux classes) et se disputent border-color/box-shadow ;
+   :focus-visible ne fixe pas outline sur ce cas, donc rien ne le distinguerait
+   (meme defaut que .pos__tab.is-active corrige plus haut). */
+.pos-tile.is-selected:focus-visible {
+    outline: 3px solid var(--color-text);
+    outline-offset: 2px;
+}
+
+/* --- Groupe de tuiles a choix unique (ERG-01, composeur de menu en tuiles) ---
+   Le composeur de menu (counter-order.js, openComposer) remplace les <select> de
+   format/slot par une grille de tuiles .pos-tile compactes (sans media : juste le
+   nom). Sans cette regle, .pos-tile (display:flex en bloc) empilerait une tuile par
+   ligne au lieu d'une rangee qui retourne a la ligne -- lisible mais pas le geste
+   "carte a plat" attendu d'une caisse tactile. */
+.pos-tile-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+}
+.pos-tile-group .pos-tile {
+    flex: 0 0 auto;
+    min-width: 84px;
+    min-height: 44px;
+}
+.pos-tile-group .pos-tile__body {
+    padding: 10px 16px;
+    align-items: center;
+    text-align: center;
+}
+
+/* --- Ligne mise en evidence apres une action (design-system.md 2.6) ---
+   design-system.md recommandait d'exclure ce point du gel (risque multi-lots si mal
+   cadre) ; retenu ici a perimetre REDUIT et cadre : une seule vue (counter/index.php),
+   pilotee par CounterOrderController::store() seul (creation + encaissement, un seul
+   geste dans ce controleur, RG-5/POST-1). Discrete et TEMPORAIRE : s'estompe seule
+   (fondu CSS, sans JavaScript ni etat persiste cote serveur au-dela du parametre
+   d'URL). Pas seulement la couleur (WCAG 1.4.1) : .row-highlight__tag porte le mot
+   "Nouveau" en texte, la teinte de fond n'est qu'un renfort. Fond reutilise
+   --color-yellow-bg, deja mesure a 16,78:1 avec --color-text (commentaire de
+   .pos-tile.is-selected plus haut) : aucune nouvelle combinaison de couleur a mesurer. */
+.row-highlight {
+    animation: row-highlight-fade 4s ease-out forwards;
+}
+@keyframes row-highlight-fade {
+    from { background-color: var(--color-yellow-bg); }
+    to   { background-color: transparent; }
+}
+.row-highlight__tag {
+    display: inline-block;
+    margin-left: var(--space-2);
+    padding: 1px 8px;
+    border-radius: var(--radius-sm);
+    background: var(--color-yellow);
+    color: var(--color-text);
+    font-size: var(--text-xs);
+    font-weight: 700;
+    vertical-align: middle;
+}
+
+/* Respecte prefers-reduced-motion (meme principe que style.css borne, section 21) :
+   admin.css n'avait jusqu'ici aucune animation CSS -- row-highlight-fade ci-dessus est
+   la premiere, donc la premiere regle universelle necessaire ici. Duree quasi nulle
+   (0.01ms) plutot que 0 : declenche quand meme un eventuel evenement de fin
+   d'animation, sans mouvement percu. */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* --- Regle d'usage des boutons (design-system.md section 3) — documentation,
+   aucun CSS neuf : .btn-primary/.btn-secondary/.btn-ghost/.btn-danger existent
+   deja (lignes ~638-690).
+   1. .btn-primary  : action principale et positive, une seule par ecran
+      (Enregistrer, Encaisser, Nouvelle commande).
+   2. .btn-secondary: action alternative ou reversible (Modifier, Annuler une
+      fenetre, Desactiver un compte, Masquer une categorie).
+   3. .btn-ghost    : action secondaire discrete, navigation contextuelle
+      (Mouvements, Recette).
+   4. .btn-danger   : reserve aux actions IRREVERSIBLES (Supprimer, Anonymiser,
+      Annuler une commande). Pas de 5e variante "warning" : une action sensible
+      mais reversible reste .btn-secondary, le texte porte deja la nuance. */
+
+/* --- Composition d'un produit (builder de recette), rendu par product-recipe.js ---
+   Meme builder pour la section "Composition" du formulaire produit et pour la
+   page recette dediee. Ce bloc remplace les styles que le script posait en
+   ligne (element.style.border = '1px solid #ddd' / '1px dashed #999',
+   width: 7rem, marginRight: 1rem) : deux couleurs brutes hors systeme de
+   design, jamais mesurees, et des largeurs fixes qui debordaient sous 390px.
+   Tout passe desormais par les jetons du lot 0 ; aucune couleur neuve.
+
+   Cible tactile (WCAG 2.2, critere 2.5.8) : une case a cocher native mesure
+   ~13x13px. Les deux cases de chaque ligne (Retirable / Ajoutable) sont
+   portees a 24x24px -- meme plancher que .btn-order plus haut, pose pour la
+   meme raison lors du balayage du lot 0. */
+.recipe-line {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-3) var(--space-4);
+    margin-bottom: var(--space-3);
+}
+/* Ligne "nouvel ingredient" : le trait discontinu marque le provisoire (rien
+   n'existe encore en base). Il ne PORTE pas l'information -- la legende
+   "Nouvel ingredient (cree a stock 0)" la dit en toutes lettres, et la note
+   sous les champs la repete (WCAG 1.4.1, pas d'info par la seule couleur). */
+.recipe-line-new {
+    border-style: dashed;
+    border-color: var(--color-border-dark);
+}
+.recipe-line > legend {
+    padding: 0 var(--space-2);
+    font-size: var(--text-sm);
+    font-weight: 700;
+    color: var(--color-text-sec);
+}
+/* Les champs vivent dans un conteneur DANS le fieldset plutot que sur le
+   fieldset lui-meme : un <legend> est un enfant a traitement special, et le
+   mettre en element flex donne un rendu instable selon les navigateurs. */
+.recipe-line__fields {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: var(--space-3);
+}
+/* Un champ = une etiquette au-dessus de son controle, dans un <label> qui
+   l'entoure : association implicite, aucun identifiant a synchroniser cote
+   script alors que plusieurs lignes coexistent sur la meme page. */
+.recipe-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    font-size: var(--text-sm);
+    color: var(--color-text-sec);
+}
+.recipe-field .form-input { width: 100%; }
+.recipe-field--num { width: 7rem; }
+.recipe-field--text { width: 12rem; }
+.recipe-field--wide { flex: 1 1 16rem; min-width: 12rem; }
+
+/* .form-check : meme plancher de cible pour une case a cocher isolee d'un
+   formulaire (ex. "Disponible" du formulaire produit), ou une case native de
+   ~13x13px passe sous le minimum 24x24px de WCAG 2.2 (critere 2.5.8). Classe
+   explicite plutot qu'un selecteur large sur .form-label : la matrice de
+   permissions de roles/form.php est une grille dense, hors du perimetre de ce
+   lot, qu'un plancher pose a l'aveugle aurait bousculee. */
+.recipe-check,
+.form-check {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: 24px;
+    font-size: var(--text-base);
+    color: var(--color-text);
+}
+.recipe-check input[type="checkbox"],
+.form-check input[type="checkbox"] {
+    flex: 0 0 auto;
+    width: 24px;
+    height: 24px;
+    margin: 0;
+}
+/* Retirer une ligne est l'action la moins frequente : poussee en fin de rangee
+   pour ne pas se trouver sous le doigt qui saisit une quantite. */
+.recipe-line__fields .recipe-remove { margin-left: auto; }
+.recipe-note {
+    flex: 1 1 100%;
+    margin: 0;
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+}
+
+/* Sous 640px (telephone d'equipier), une ligne empile ses champs : sept
+   controles cote a cote deborderaient de l'ecran. */
+@media (max-width: 640px) {
+    .recipe-field--num,
+    .recipe-field--text { width: 100%; }
+    .recipe-line__fields .recipe-remove { margin-left: 0; }
 }

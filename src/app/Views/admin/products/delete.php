@@ -29,10 +29,10 @@ $errorMessage = isset($error) && is_string($error) ? $error : null;
         <p role="alert"><?= htmlspecialchars($errorMessage, ENT_QUOTES, 'UTF-8') ?></p>
     <?php endif; ?>
 
-    <form method="post" action="/admin/products/<?= $id ?>/delete" class="form-card">
+    <form method="post" action="/admin/products/<?= $id ?>/delete" class="form-card" data-row-key="product:<?= $id ?>">
         <input type="hidden" name="_csrf" value="<?= $csrf ?>">
 
-        <p><small>La suppression est tracee (audit). Renseignez votre email et votre PIN.</small></p>
+        <p><small>La suppression est tracée (audit). Renseignez votre email et votre PIN.</small></p>
 
         <div class="form-group">
             <label class="form-label" for="pin_email">Votre email</label>
@@ -45,7 +45,7 @@ $errorMessage = isset($error) && is_string($error) ? $error : null;
         </div>
 
         <div class="form-actions">
-            <button class="btn btn-primary" type="submit">Supprimer definitivement</button>
+            <button class="btn btn-danger" type="submit">Supprimer définitivement</button>
             <a class="btn btn-secondary" href="/admin/products">Annuler</a>
         </div>
     </form>

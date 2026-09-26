@@ -36,7 +36,7 @@ class CategoryController extends AdminController
         }
 
         return $this->adminView('admin/categories/index', [
-            'title'      => 'Categories - Wakdo Admin',
+            'title'      => 'Catégories - Wakdo Admin',
             'activeNav'  => 'categories',
             'categories' => $this->categoryRepository()->all(),
         ], $guard);
@@ -66,6 +66,14 @@ class CategoryController extends AdminController
         }
 
         $form = $this->request->formBody();
+
+        // A verifier AVANT le CSRF : un corps rejete par post_max_size (image trop
+        // lourde) vide _csrf comme tout le reste (voir Request::formBody()).
+        $oversized = $this->oversizedUploadError();
+        if ($oversized !== null) {
+            return $this->renderForm($guard, 0, $form, ['image_file' => $oversized], 422);
+        }
+
         if (!Csrf::validate($this->sessionManager(), $form['_csrf'] ?? null)) {
             return $this->invalidCsrf();
         }
@@ -99,7 +107,7 @@ class CategoryController extends AdminController
             return $this->onWriteConflict($exception, $guard, 0, $form);
         }
 
-        $this->setFlash('Categorie creee.');
+        $this->setFlash('Catégorie créée.');
 
         return $this->redirect('/admin/categories');
     }
@@ -134,11 +142,18 @@ class CategoryController extends AdminController
         }
 
         $form = $this->request->formBody();
+
+        $id = (int) ($params['id'] ?? 0);
+
+        $oversized = $this->oversizedUploadError();
+        if ($oversized !== null) {
+            return $this->renderForm($guard, $id, $form, ['image_file' => $oversized], 422);
+        }
+
         if (!Csrf::validate($this->sessionManager(), $form['_csrf'] ?? null)) {
             return $this->invalidCsrf();
         }
 
-        $id = (int) ($params['id'] ?? 0);
         $repo = $this->categoryRepository();
         $current = $repo->find($id);
         if ($current === null) {
@@ -178,7 +193,7 @@ class CategoryController extends AdminController
             $uploader->remove($previousImage);
         }
 
-        $this->setFlash('Categorie mise a jour.');
+        $this->setFlash('Catégorie mise à jour.');
 
         return $this->redirect('/admin/categories');
     }
@@ -207,7 +222,7 @@ class CategoryController extends AdminController
 
         $newActive = (int) ($category['is_active'] ?? 0) !== 1;
         $repo->setActive($id, $newActive);
-        $this->setFlash($newActive ? 'Categorie affichee.' : 'Categorie masquee.');
+        $this->setFlash($newActive ? 'Catégorie affichée.' : 'Catégorie masquée.');
 
         return $this->redirect('/admin/categories');
     }
@@ -236,7 +251,7 @@ class CategoryController extends AdminController
         }
 
         if ($this->categoryRepository()->reorder((int) ($params['id'] ?? 0), $direction)) {
-            $this->setFlash('Ordre des categories mis a jour.');
+            $this->setFlash('Ordre des catégories mis à jour.');
         }
 
         return $this->redirect('/admin/categories');
@@ -258,7 +273,7 @@ class CategoryController extends AdminController
      * @param array<string, string> $form
      * @return array{0: array{name: string, slug: string, image_path: ?string, display_order: int, is_active: int}, 1: array<string, string>}
      */
-    private function validate(array $form, CategoryRepository $repo, int $exceptId): array
+    protected function validate(array $form, CategoryRepository $repo, int $exceptId): array
     {
         $name = trim($form['name'] ?? '');
         $slug = trim($form['slug'] ?? '');
@@ -268,15 +283,15 @@ class CategoryController extends AdminController
         $errors = [];
 
         if ($name === '' || mb_strlen($name) > 60) {
-            $errors['name'] = 'Le libelle est requis (60 caracteres max).';
+            $errors['name'] = 'Le libellé est requis (60 caractères max).';
         } elseif ($repo->nameExists($name, $exceptId)) {
-            $errors['name'] = 'Ce libelle existe deja.';
+            $errors['name'] = 'Ce libellé existe déjà.';
         }
 
         if ($slug === '' || mb_strlen($slug) > 60 || preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/', $slug) !== 1) {
-            $errors['slug'] = 'Reference requise : minuscules, chiffres et tirets (60 max).';
+            $errors['slug'] = 'Référence requise : minuscules, chiffres et tirets (60 max).';
         } elseif ($repo->slugExists($slug, $exceptId)) {
-            $errors['slug'] = 'Cette reference existe deja.';
+            $errors['slug'] = 'Cette référence existe déjà.';
         }
 
         if ($image !== '' && mb_strlen($image) > 255) {
@@ -286,7 +301,7 @@ class CategoryController extends AdminController
         // Borne haute = SMALLINT UNSIGNED (0..65535) : refuse cote serveur (RG-T18)
         // plutot que de laisser un debordement remonter en 500 depuis la base.
         if (!ctype_digit($orderRaw) || (int) $orderRaw > 65535) {
-            $errors['display_order'] = 'L ordre d affichage doit etre un entier entre 0 et 65535.';
+            $errors['display_order'] = 'L\'ordre d\'affichage doit être un entier entre 0 et 65535.';
         }
 
         $data = [
@@ -307,7 +322,7 @@ class CategoryController extends AdminController
     private function renderForm(GuardResult $guard, int $id, array $values, array $errors, int $status = 200): Response
     {
         return $this->adminView('admin/categories/form', [
-            'title'      => ($id !== 0 ? 'Modifier' : 'Nouvelle') . ' categorie - Wakdo Admin',
+            'title'      => ($id !== 0 ? 'Modifier' : 'Nouvelle') . ' catégorie - Wakdo Admin',
             'activeNav'  => 'categories',
             'categoryId' => $id,
             'values'     => [
@@ -335,7 +350,7 @@ class CategoryController extends AdminController
         // getCode() rend la chaine SQLSTATE pour une vraie PDOException ; le cast
         // couvre aussi un code entier (23000 = violation de contrainte d'integrite).
         if ((string) $exception->getCode() === '23000') {
-            return $this->renderForm($guard, $id, $form, ['slug' => 'Ce libelle ou cette reference existe deja.'], 409);
+            return $this->renderForm($guard, $id, $form, ['slug' => 'Ce libellé ou cette référence existe déjà.'], 409);
         }
 
         throw $exception;
@@ -353,6 +368,6 @@ class CategoryController extends AdminController
 
     private function invalidCsrf(): Response
     {
-        return Response::make('Requete invalide.', 403, ['Content-Type' => 'text/plain; charset=utf-8']);
+        return Response::make('Requête invalide.', 403, ['Content-Type' => 'text/plain; charset=utf-8']);
     }
 }

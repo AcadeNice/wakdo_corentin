@@ -1,0 +1,34 @@
+meta {
+  name: Desactiver (PUT is_active=false) -- nettoyage final
+  type: http
+  seq: 7
+}
+
+put {
+  url: {{baseUrl}}/admin/api/roles/{{created_role_id}}
+}
+
+headers {
+  Content-Type: application/json
+  X-CSRF-Token: {{csrf}}
+}
+
+body {
+  {
+    "label": "Role Demo {{run}} v2",
+    "permission_ids": [
+      "{{examplePermissionId}}"
+    ],
+    "visible_sources": [
+      "counter",
+      "drive"
+    ],
+    "is_active": false,
+    "pin_email": "{{pin_email}}",
+    "pin": "{{pin}}"
+  }
+}
+
+docs {
+Aucun endpoint DELETE pour les roles (limite documentee, conventions.md section 5.3 -- un role est rattache a des comptes). Le nettoyage correct est la desactivation, PUT PARTIEL comme pour les utilisateurs.
+}

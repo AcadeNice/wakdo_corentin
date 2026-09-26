@@ -82,11 +82,12 @@ test('loadProducts groupe les produits par slug a la forme borne (type produit)'
     const data = await loadProducts();
     assert.deepEqual(data.burgers, [
         // sizes (R4) : tableau vide par defaut quand l'API n'en renvoie pas.
-        // maxiNom : null par defaut quand l'API n'envoie pas maxi_variant_name.
+        // maxiNom/maxiImage : null par defaut quand l'API n'envoie pas
+        // maxi_variant_name/maxi_variant_image_path.
         // commandable : true par defaut quand l'API n'envoie pas is_orderable.
         // allergenesComplets : false par defaut (F11b) -- defaut PRUDENT, a l'inverse
         // de commandable. Une API muette ne doit pas faire affirmer "sans allergene".
-        { id: 10, nom: 'Big Mac', prix: 600, image: 'assets/images/produits/burgers/bigmac.png', type: 'produit', maxiNom: null, sizes: [], allergenes: [], allergenesComplets: false, commandable: true },
+        { id: 10, nom: 'Big Mac', prix: 600, image: 'assets/images/produits/burgers/bigmac.png', type: 'produit', maxiNom: null, maxiImage: null, sizes: [], allergenes: [], allergenesComplets: false, commandable: true },
     ]);
 });
 
@@ -97,6 +98,15 @@ test('loadProducts reporte maxi_variant_name -> maxiNom (variante Maxi de l acco
 
     const data = await loadProducts();
     assert.equal(data.burgers[0].maxiNom, 'Grande Frite');
+});
+
+test('loadProducts reporte maxi_variant_image_path -> maxiImage (A3, audit maquette vs front)', async () => {
+    const fx = fixtures();
+    fx['/api/products'].data[0].maxi_variant_image_path = 'grande-frite.png';
+    const { loadProducts } = await freshData(fx);
+
+    const data = await loadProducts();
+    assert.equal(data.burgers[0].maxiImage, 'grande-frite.png');
 });
 
 test('loadProducts reporte le tableau sizes du produit (R4) tel quel', async () => {

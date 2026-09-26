@@ -1,0 +1,39 @@
+meta {
+  name: Saisir la commande A (comptoir/drive)
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/admin/api/orders
+}
+
+headers {
+  Content-Type: application/json
+  X-CSRF-Token: {{csrf}}
+}
+
+body {
+  {
+    "service_mode": "dine_in",
+    "source": "counter",
+    "items": [
+      {
+        "type": "product",
+        "product_id": "{{orderProductId}}",
+        "quantity": 1
+      }
+    ]
+  }
+}
+
+docs {
+order.create, pas de PIN, encaissee immediatement (comme le HTML). Un seul endpoint JSON pour les deux canaux (le HTML a deux pages, /counter/orders et /drive/orders) : un role a canal FIXE (role.order_source) impose sa source et IGNORE ce champ 'source' s'il est fourni ; un role SANS canal fixe (admin/manager) doit le renseigner ('counter' ou 'drive'), sinon 422.
+}
+
+script:post-response {
+  const body = res.getBody();
+  if (body && body.data && body.data.order_number) {
+      bru.setEnvVar('created_order_number', body.data.order_number);
+  }
+}

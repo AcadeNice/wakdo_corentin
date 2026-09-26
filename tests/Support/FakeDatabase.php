@@ -23,6 +23,13 @@ final class FakeDatabase implements DatabaseInterface
      */
     public ?array $userRow = null;
 
+    /**
+     * Hash STOCKE de reference renvoye par 'SELECT password_hash FROM user
+     * LIMIT 1' (AuthService::referenceHashForDecoy(), calibrage du leurre sur
+     * email inconnu) ; null = aucun utilisateur en base (borne de demarrage).
+     */
+    public ?string $referenceUserPasswordHash = null;
+
     /** lockout_until renvoye pour la porte de throttling IP ; null = pas de verrou. */
     public ?string $ipLockoutUntil = null;
 
@@ -241,6 +248,15 @@ final class FakeDatabase implements DatabaseInterface
      * @var array<string, mixed>|null
      */
     public ?array $ingredientRow = null;
+
+    /**
+     * Identifiants d'ingredients qui EXISTENT, quand un scenario en a besoin de
+     * plusieurs (une recette a plusieurs lignes, alors que $ingredientRow n'en
+     * decrit qu'une). Vide = on retombe sur l'id porte par $ingredientRow.
+     *
+     * @var list<int>
+     */
+    public array $existingIngredientIds = [];
 
     /**
      * Lignes renvoyees par IngredientRepository::all().
@@ -509,6 +525,17 @@ final class FakeDatabase implements DatabaseInterface
             return $this->currentPasswordRow;
         }
 
+        // AuthService::referenceHashForDecoy() : un hash STOCKE quelconque
+        // (distinct des routes ci-dessus qui filtrent toutes par id/email) pour
+        // calibrer le leurre sur email inconnu. Le predicat `password_hash <> ''`
+        // est exige ICI aussi : il exclut les tombstones RGPD (dont le hash est
+        // vide), et le retirer en production rouvrirait l'ecart de temps --
+        // AuthServiceTest::testReferenceHashQueryExcludesAnonymisedTombstones
+        // vire au rouge si la requete perd ce predicat ou son tri.
+        if (str_contains($sql, 'SELECT password_hash FROM user') && str_contains($sql, "password_hash <> ''")) {
+            return $this->referenceUserPasswordHash !== null ? ['password_hash' => $this->referenceUserPasswordHash] : null;
+        }
+
         // Exige is_active = 1 (garde RG-T13) : retirer le predicat en production
         // ferait virer au rouge les tests de resolveActingUser.
         if (str_contains($sql, 'pin_hash FROM user WHERE email') && str_contains($sql, 'is_active = 1')) {
@@ -573,6 +600,27 @@ final class FakeDatabase implements DatabaseInterface
         }
 
         if (str_contains($sql, 'FROM ingredient WHERE id = :id')) {
+            // Le vrai SQL filtre sur l'id : une lecture d'un AUTRE id que celui
+            // pose par le test doit rendre "introuvable", sinon un double trop
+            // complaisant fait croire que n'importe quel ingredient existe
+            // (ProductRepository::ingredientExists() repose entierement sur ce
+            // point). Ne s'applique que si le test a pose un id ET que la
+            // requete en demande un : les autres montages gardent le
+            // comportement historique.
+            $wanted = $params['id'] ?? null;
+            if ($wanted === null) {
+                return $this->ingredientRow;
+            }
+            if ($this->existingIngredientIds !== []) {
+                return in_array((int) $wanted, $this->existingIngredientIds, true)
+                    ? ($this->ingredientRow ?? ['id' => (int) $wanted])
+                    : null;
+            }
+            $posed = $this->ingredientRow['id'] ?? null;
+            if ($posed !== null && (int) $wanted !== (int) $posed) {
+                return null;
+            }
+
             return $this->ingredientRow;
         }
 

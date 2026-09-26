@@ -1,0 +1,14 @@
+meta {
+  name: Basculer la disponibilite (toggle)
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/admin/api/menus/{{created_menu_id}}/toggle
+}
+
+headers {
+  Content-Type: application/json
+  X-CSRF-Token: {{csrf}}
+}

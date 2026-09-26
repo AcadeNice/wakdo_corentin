@@ -1,0 +1,27 @@
+meta {
+  name: Inventaire (comptage absolu, PIN requis)
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{baseUrl}}/admin/api/ingredients/{{created_restock_ingredient_id}}/inventory
+}
+
+headers {
+  Content-Type: application/json
+  X-CSRF-Token: {{csrf}}
+}
+
+body {
+  {
+    "actual_quantity": 42,
+    "note": "comptage demo",
+    "pin_email": "{{pin_email}}",
+    "pin": "{{pin}}"
+  }
+}
+
+docs {
+stock.count + PIN (mlt 9.2). Pas d'audit_log au succes (stock_movement suffit).
+}

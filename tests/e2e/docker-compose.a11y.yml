@@ -1,0 +1,17 @@
+# Override JETABLE pour l'audit d'accessibilite : neutralise les container_name fixes du
+# compose afin de monter une stack isolee (`-p wakdoa11y`) en parallele d'une stack
+# existante (dont la stack `wakdoe2e` de run.sh), sans collision de noms ni de port.
+# N'est PAS un compose de deploiement ; sert uniquement a run-a11y.sh.
+services:
+  wakdo-db:
+    container_name: wakdoa11y-db
+  wakdo-migrate:
+    container_name: wakdoa11y-migrate
+  wakdo-app:
+    container_name: wakdoa11y-app
+  wakdo-web:
+    container_name: wakdoa11y-web
+    # Pas de port hote : Playwright joint wakdo-web par le reseau interne (--add-host).
+    ports: !reset []
+  wakdo-cron:
+    container_name: wakdoa11y-cron

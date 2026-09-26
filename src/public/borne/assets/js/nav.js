@@ -20,7 +20,7 @@ const VALID_MODES = ['sur-place', 'a-emporter'];
 
 /** Libelle humain d'un mode ; chaine vide si aucun mode valide (ne ment pas). */
 export function modeLabel(mode) {
-    if (mode === 'a-emporter') return 'A emporter';
+    if (mode === 'a-emporter') return 'À emporter';
     if (mode === 'sur-place') return 'Sur place';
     return '';
 }

@@ -46,6 +46,10 @@ class KitchenController extends AdminController
             // automatique au paiement (pay()), il n'y a plus de geste manuel "Commencer".
             // Pas de permission dediee : l'ensemble de roles serait identique a order.read.
             'canPrepare' => $this->may($guard, 'order.read'),
+            // Carte a signaler (retour visuel apres OrderAdminController::ready(), qui
+            // pose _highlight_order juste avant de rediriger ici). Voir la note du meme
+            // nom dans admin/kitchen/display.php pour le pourquoi.
+            'highlightOrder' => $this->takeHighlight(),
         ], $guard);
     }
 
@@ -57,5 +61,23 @@ class KitchenController extends AdminController
     private function may(GuardResult $guard, string $permission): bool
     {
         return $this->authorizer()->can($guard->roleId ?? 0, $permission);
+    }
+
+    /**
+     * Numero de commande a signaler dans la vue, pose par OrderAdminController::ready()
+     * juste avant sa redirection ici (meme mecanique lire-puis-effacer que
+     * AdminController::takeFlash(), duplique ici a dessein : AdminController est un
+     * socle partage par TOUS les controleurs admin, y compris ceux des autres lots en
+     * cours en parallele -- ne pas y toucher hors du perimetre confie pour ce lot).
+     */
+    private function takeHighlight(): ?string
+    {
+        $value = $this->sessionManager()->get('_highlight_order');
+        if ($value === null) {
+            return null;
+        }
+        $this->sessionManager()->set('_highlight_order', null);
+
+        return is_string($value) ? $value : null;
     }
 }

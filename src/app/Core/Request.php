@@ -16,6 +16,7 @@ final class Request
      * @param array<string, string>               $query
      * @param array<string, string>               $headers
      * @param array<string, array<string, mixed>>  $files
+     * @param array<string, mixed>                 $post
      */
     public function __construct(
         private readonly string $method,
@@ -31,6 +32,11 @@ final class Request
         // raison que remoteAddr : les appels existants a 5 ou 6 arguments
         // restent valides sans retouche.
         private readonly array $files = [],
+        // Champs POST tels que PHP les a NATIVEMENT parses ($_POST). Defaut vide
+        // pour la meme raison que files/remoteAddr. Seule source possible pour un
+        // corps multipart/form-data (voir formBody()) : contrairement a l'urlencode,
+        // on ne peut pas re-parser ce format nous-memes depuis php://input.
+        private readonly array $post = [],
     ) {
     }
 
@@ -50,6 +56,9 @@ final class Request
         /** @var array<string, array<string, mixed>> $files */
         $files = $_FILES;
 
+        /** @var array<string, mixed> $post */
+        $post = $_POST;
+
         return new self(
             $method,
             $path,
@@ -58,6 +67,7 @@ final class Request
             (string) file_get_contents('php://input'),
             (string) ($_SERVER['REMOTE_ADDR'] ?? ''),
             $files,
+            $post,
         );
     }
 
@@ -158,10 +168,24 @@ final class Request
     }
 
     /**
-     * Decode un corps application/x-www-form-urlencoded en map cle => valeur.
-     * Symetrique de json() : renvoie [] si le content-type n'est pas un
-     * formulaire urlencode, pour laisser la validation metier decider (pas de
-     * fatale ici). Le back-office se connecte par formulaire POST, pas par JSON.
+     * Decode le corps d'un formulaire POST en map cle => valeur : urlencode
+     * (parse_str sur php://input) OU multipart/form-data (formulaire avec upload
+     * de fichier, ex. produit/categorie avec image).
+     *
+     * BUG (corrige ici) : cette methode ne reconnaissait QUE l'urlencode. Pour un
+     * formulaire multipart -- CHAQUE formulaire produit/categorie, qui portent tous
+     * les deux enctype="multipart/form-data" pour l'upload d'image -- elle
+     * renvoyait TOUJOURS [], _csrf compris. Csrf::validate() echouait alors a
+     * chaque soumission, image ou pas, grosse ou petite : "Requete invalide."
+     * systematique sur la creation/modification de produit ou de categorie, avant
+     * meme que la validation applicative ou la taille du fichier n'entrent en jeu.
+     *
+     * php://input n'est pas fiable a re-parser soi-meme pour du multipart (format
+     * a limites, contrairement a l'urlencode) : $_POST, que PHP a deja NATIVEMENT
+     * parse pour les DEUX types de contenu, est la seule source correcte ici.
+     *
+     * Renvoie [] si le content-type n'est ni multipart ni urlencode (JSON, absent
+     * ...), pour laisser la validation metier decider (pas de fatale ici).
      *
      * @return array<string, string>
      */
@@ -169,15 +193,61 @@ final class Request
     {
         $contentType = $this->header('content-type') ?? '';
 
+        if (str_starts_with($contentType, 'multipart/form-data')) {
+            return $this->scalarize($this->post);
+        }
+
         if (!str_starts_with($contentType, 'application/x-www-form-urlencoded')) {
             return [];
         }
 
         parse_str($this->rawBody, $parsed);
 
-        // parse_str peut produire des valeurs tableau (cle[]=...) ; on ne retient
-        // que les scalaires convertis en chaine pour tenir le contrat strict
-        // array<string, string> (et neutraliser une cle de type "champ[]").
+        return $this->scalarize($parsed);
+    }
+
+    /**
+     * Le corps de la requete a-t-il ete rejete par la limite post_max_size de
+     * PHP ? Dans ce cas PHP vide $_POST ET $_FILES AVANT que le script ne
+     * s'execute, sans lever d'exception applicative (seul un warning du moteur,
+     * absent des journaux applicatifs) : sans detection explicite, la requete
+     * ressemble juste a un formulaire "sans CSRF" et remonte le 403 generique
+     * invalidCsrf(), qui ne dit rien a l'equipier sur la vraie cause (une image
+     * trop lourde, le cas le plus frequent en pratique).
+     *
+     * Un POST de formulaire legitime, meme "vide" de contenu utile, pose au
+     * moins le champ cache _csrf dans $_POST et/ou une entree $_FILES
+     * (UPLOAD_ERR_NO_FILE pour un champ fichier laisse vide) : les DEUX vides en
+     * meme temps, avec un Content-Length annonce non nul, ne peuvent donc venir
+     * que de ce depassement.
+     */
+    public function bodyExceededPostMaxSize(): bool
+    {
+        if ($this->method !== 'POST' || $this->post !== [] || $this->files !== []) {
+            return false;
+        }
+
+        $contentType = $this->header('content-type') ?? '';
+        $isForm = str_starts_with($contentType, 'multipart/form-data')
+            || str_starts_with($contentType, 'application/x-www-form-urlencoded');
+        if (!$isForm) {
+            return false;
+        }
+
+        return ((int) ($this->header('content-length') ?? '0')) > 0;
+    }
+
+    /**
+     * Ne retient que les valeurs SCALAIRES d'un tableau associatif, converties
+     * en chaine, pour tenir le contrat strict array<string, string> attendu par
+     * formBody(). $_POST comme parse_str() peuvent produire des valeurs tableau
+     * (ex. champ "tags[]") ; ce cas est neutralise ici plutot que de jeter.
+     *
+     * @param array<array-key, mixed> $parsed
+     * @return array<string, string>
+     */
+    private function scalarize(array $parsed): array
+    {
         $form = [];
         foreach ($parsed as $key => $value) {
             if (is_scalar($value)) {

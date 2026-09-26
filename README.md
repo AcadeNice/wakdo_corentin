@@ -151,7 +151,7 @@ Avec un `.env` adapte : `APP_ENV=prod`, `APP_DEBUG=false`, mots de passe forts,
 |   |-- merise/                  # dictionnaire, MCD, MCT, MLD, MLT (+ diagrammes)
 |   |-- uml/                     # use-cases, sequences, machine a etats
 |   `-- adr/ api/ domaines/ design/ journal/ _ref/
-|-- scripts/                     # deploy, install-hooks, forgejo-* (branch-protection, pr-automerge)
+|-- scripts/                     # deploy, install-hooks, forgejo-*, demo-snapshot/demo-reset (voir docs/ops/demo-reset.md)
 |-- src/
 |   |-- app/                     # namespace App\ : Core, Controllers, Auth, Catalogue, Order, Views
 |   `-- public/                  # DocumentRoots Apache : borne/ (kiosk) + admin/ (back-office + API)
@@ -171,7 +171,7 @@ Avec un `.env` adapte : `APP_ENV=prod`, `APP_DEBUG=false`, mots de passe forts,
 
 ### Conventions
 
-- **Commits** : Conventional Commits en anglais (`feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `ci`, `db`, `perf`, `style`). Format : `type(scope): description`. Voir `docs/PROJECT_CONTEXT.md` section 9.
+- **Commits** : Conventional Commits en francais (`feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `ci`, `db`, `perf`, `style`). Format : `type(scope): description`. Correction du 2026-09-24 : premiers commits en anglais, en francais depuis mi-juin 2026 ; le francais fait regle. Voir `docs/PROJECT_CONTEXT.md` section 9.
 - **Branches** : `feat/*`, `fix/*`, `refactor/*`, `docs/*`, `ci/*`, `db/*`, `chore/*`, `test/*` depuis `dev`. Merge vers `dev` par PR squashee. Periodiquement `dev` -> `main` par PR avec tag semver.
 - `main` et `dev` sont proteges cote Forgejo (PR requise, force push bloque, checks requis : secret-scan / php-lint / static-tests).
 - Pas d'emoji dans le code, les commits ou les specs techniques (Mantra IA-23).
@@ -213,6 +213,7 @@ La CI Forgejo execute secret-scan, php-lint, static-tests (PHPStan niveau 6 + PH
 | `docs/journal/` | Retrospectives par session et par feature (preparation de l'oral RNCP) |
 | `docs/merise/` | Modelisation Merise : dictionnaire, MCD, MCT, MLD, MLT (+ diagrammes) |
 | `docs/ARCHITECTURE.md` / `docs/adr/` | Vue technique + decisions d'architecture (ADR) |
+| `docs/ops/demo-reset.md` | Remise a zero des donnees de demo avant/pendant la soutenance (`scripts/demo-snapshot.sh`, `scripts/demo-reset.sh`) |
 | `.claude/CLAUDE.md` | Constitution du projet pour les agents Claude Code |
 | `.claude/rules/` | Protocoles appliques : fact-check, merise-agile, elo-trust, hermes-dispatcher, byan-api, byan-agents |
 

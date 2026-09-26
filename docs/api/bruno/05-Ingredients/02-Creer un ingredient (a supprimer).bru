@@ -1,0 +1,39 @@
+meta {
+  name: Creer un ingredient (a supprimer)
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/admin/api/ingredients
+}
+
+headers {
+  Content-Type: application/json
+  X-CSRF-Token: {{csrf}}
+}
+
+body {
+  {
+    "name": "Ingredient Demo Plain {{run}}",
+    "unit": "unite",
+    "pack_size": 50,
+    "pack_label": "carton de 50",
+    "stock_capacity": 500,
+    "low_stock_pct": 20,
+    "critical_stock_pct": 5
+  }
+}
+
+docs {
+ingredient.manage, pas de PIN. Nom unique par execution ({{run}} -- "Cet ingrédient existe déjà" sinon). stock_quantity pose a 0 cote serveur (RG-CREATE-ING).
+}
+
+script:post-response {
+  const body = res.getBody();
+  if (body && body.data && body.data.id) { bru.setEnvVar('created_ingredient_id', body.data.id); }
+}
+
+tests {
+  expect(res.getStatus()).to.equal(201);
+}

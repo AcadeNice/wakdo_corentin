@@ -160,4 +160,78 @@ final class OrderQueryRepositoryTest extends TestCase
         self::assertCount(1, $queue);
         self::assertSame([], $queue[0]['items']);
     }
+
+    // --- recentVisible() : relecture adverse, point 6 (filtre EN SQL, pas apres LIMIT) ---
+
+    public function testRecentVisibleFiltersBeforeTheLimitNotAfter(): void
+    {
+        // Une seule commande 'drive' (la plus ancienne), noyee sous 3 commandes plus
+        // recentes d'autres canaux. recent(2) + filtre PHP APRES coup n'aurait JAMAIS
+        // ramene D1 (hors des 2 lignes les plus recentes tous canaux confondus) ;
+        // recentVisible(['drive'], 2) filtre la source AVANT le LIMIT (WHERE ... IN
+        // (...) LIMIT), donc la retrouve.
+        $db = new FakeRecentDatabase();
+        $db->rows = [
+            ['order_number' => 'C3', 'source' => 'counter'],
+            ['order_number' => 'C2', 'source' => 'counter'],
+            ['order_number' => 'D1', 'source' => 'drive'],
+            ['order_number' => 'C1', 'source' => 'counter'],
+        ];
+
+        $rows = (new OrderQueryRepository($db))->recentVisible(['drive'], 2);
+
+        self::assertCount(1, $rows);
+        self::assertSame('D1', $rows[0]['order_number']);
+    }
+
+    public function testRecentVisibleReturnsEmptyWithoutQueryWhenNoSourceVisible(): void
+    {
+        $db = new FakeRecentDatabase();
+        $db->rows = [['order_number' => 'C1', 'source' => 'counter']];
+
+        self::assertSame([], (new OrderQueryRepository($db))->recentVisible([], 50));
+    }
+}
+
+/**
+ * Double minimal pour OrderQueryRepository::recentVisible() : interprete les
+ * parametres lies (cles s0, s1...) comme l'allowlist de sources et lit le LIMIT
+ * directement dans le texte SQL, pour reproduire fidelement le filtre-AVANT-LIMIT
+ * (WHERE source IN (...) ... LIMIT n) sans base reelle.
+ */
+final class FakeRecentDatabase implements DatabaseInterface
+{
+    /** @var list<array<string, mixed>> lignes canned, deja triees created_at DESC (comme le vrai ORDER BY). */
+    public array $rows = [];
+
+    public function fetch(string $sql, array $params = []): ?array
+    {
+        return null;
+    }
+
+    public function fetchAll(string $sql, array $params = []): array
+    {
+        if (!str_contains($sql, 'FROM customer_order WHERE source IN')) {
+            return [];
+        }
+
+        preg_match('/LIMIT (\d+)/', $sql, $matches);
+        $limit = isset($matches[1]) ? (int) $matches[1] : count($this->rows);
+        $sources = array_values($params);
+
+        return array_slice(array_values(array_filter(
+            $this->rows,
+            static fn (array $r): bool => in_array((string) ($r['source'] ?? ''), $sources, true),
+        )), 0, $limit);
+    }
+
+    public function execute(string $sql, array $params = []): int
+    {
+        return 0;
+    }
+
+    public function transaction(callable $fn): void
+    {
+        $fn($this);
+    }
 }

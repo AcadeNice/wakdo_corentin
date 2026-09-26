@@ -59,8 +59,16 @@ test('parcours borne : de l\'accueil a la confirmation de commande', async ({ pa
     await page.locator('#chevalet-input').fill('12');
     await page.locator('#chevalet-ok').click();
     await expect(page).toHaveURL(/confirmation\.html/);
-    await expect(page.locator('.confirmation-banner__title')).toHaveText(/Commande confirmee/);
+    await expect(page.locator('.confirmation-banner__title')).toHaveText(/Commande confirmée/);
     // Numero de commande genere (plus le placeholder).
     await expect(page.locator('#order-number')).not.toHaveText('—');
+
+    // Regression F40 (captures 15/M10) : l'en-tete minimal (logo seul, pas de bouton
+    // retour ni de badge) rangeait le logo dans la 1re colonne de la grille a 3
+    // colonnes (a gauche) au lieu de la colonne centrale, faute de placement explicite.
+    const logoBox = await page.locator('.site-header__logo').boundingBox();
+    const viewport = page.viewportSize();
+    const logoCenterX = logoBox.x + logoBox.width / 2;
+    expect(Math.abs(logoCenterX - viewport.width / 2)).toBeLessThan(5);
   });
 });

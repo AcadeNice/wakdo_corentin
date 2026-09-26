@@ -31,12 +31,19 @@ SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;
 --    (they may create on behalf of any channel); kitchen NULL (read-only on
 --    orders, never creates one).
 -- -----------------------------------------------------------------------------
+-- Libelles et descriptions en FRANCAIS (F40 point 6 : equipiers francophones, pas
+-- d'anglais dans l'interface). La description kitchen reflete la capacite REELLE
+-- (avance l'etat de preparation via order.read, KDS retour oral #8 / E14 : la
+-- premiere redaction anglaise "Performs no order status transition" etait fausse
+-- une fois cette capacite ajoutee ; on n'en reconduit pas la traduction litterale).
+-- code, default_route et order_source restent des identifiants techniques (non
+-- affiches en clair aux equipiers), donc inchanges.
 INSERT INTO role (code, label, description, default_route, order_source, is_active) VALUES
-    ('admin',   'Administrator',  'Full back-office access: complete catalogue CRUD (incl. deletes), user/role/permission (RBAC) management, stock, stats, order create/deliver/cancel.', '/admin/dashboard', NULL,      1),
-    ('manager', 'Manager',        'Catalogue create/update, ingredient and stock management (restock + inventory), statistics. No user/RBAC administration, no order cancellation.',         '/admin/stats',     NULL,      1),
-    ('kitchen', 'Kitchen Staff',  'Read-only kitchen display (KDS) of paid orders sorted by paid_at ascending, plus inventory counting. Performs no order status transition.',              '/kitchen/display', NULL,      1),
-    ('counter', 'Counter Staff',  'Takes orders at the counter, delivers them to the customer, can cancel. Inventory counting. source auto-tagged as counter.',                            '/counter/orders',  'counter', 1),
-    ('drive',   'Drive Staff',    'Takes orders at the drive-thru (intercom + headset), delivers them, can cancel. Inventory counting. source auto-tagged as drive.',                       '/drive/orders',    'drive',   1);
+    ('admin',   'Administrateur',       'Accès complet au back-office : gestion CRUD complète du catalogue (y compris les suppressions), gestion des utilisateurs, rôles et permissions (RBAC), stock, statistiques, création/remise/annulation de commande.', '/admin/dashboard', NULL,      1),
+    ('manager', 'Responsable',          'Création et mise à jour du catalogue, gestion des ingrédients et du stock (réapprovisionnement et inventaire), statistiques. Ni administration des utilisateurs/rôles, ni annulation de commande.', '/admin/stats',     NULL,      1),
+    ('kitchen', 'Équipier cuisine',     'Écran cuisine (KDS) des commandes actives ; fait avancer l''état de préparation (en préparation puis prête) via order.read, et effectue l''inventaire. N''effectue pas la remise finale (order.deliver).', '/kitchen/display', NULL,      1),
+    ('counter', 'Équipier comptoir',    'Prend les commandes au comptoir, les remet au client, peut annuler. Effectue l''inventaire. Source de commande taguée automatiquement comptoir.', '/counter/orders',  'counter', 1),
+    ('drive',   'Équipier drive',       'Prend les commandes au drive (interphone et casque), les remet au client, peut annuler. Effectue l''inventaire. Source de commande taguée automatiquement drive.', '/drive/orders',    'drive',   1);
 
 -- -----------------------------------------------------------------------------
 -- 2. permission (23) — frozen catalogue, dictionary.md 3.17.
@@ -60,7 +67,10 @@ INSERT INTO permission (code, label, description) VALUES
     ('order.read',        'Read orders',               'View orders and the preparation display.'),
     ('order.create',      'Create order',              'Create an order at the counter or drive-thru.'),
     ('order.deliver',     'Deliver order',             'Mark a paid order as delivered (single-gesture handover).'),
-    ('order.cancel',      'Cancel order',              'Cancel a pending or paid order (restocks ingredients if paid).'),
+    -- E15 (audit schemas 6.3) : le domaine (OrderRepository::cancel, migration 0009)
+    -- accepte aussi les etats de cuisine preparing/ready, pas seulement pending_payment
+    -- et paid ; cette description le reconduisait faux depuis l'ajout de ces etats.
+    ('order.cancel',      'Cancel order',              'Cancel a non-terminal order (pending, paid, preparing or ready ; restocks ingredients if it was paid).'),
     ('user.create',       'Create user',               'Create a new back-office user.'),
     ('user.read',         'Read users',                'View the list and details of back-office users.'),
     ('user.update',       'Update user',               'Edit a back-office user (incl. password reset, RGPD anonymisation).'),
@@ -153,20 +163,20 @@ JOIN (
 --    dictionary.md 3.8. code = machine code (en), name = French display label.
 -- -----------------------------------------------------------------------------
 INSERT INTO allergen (code, name, description) VALUES
-    ('gluten',      'Gluten',                    'Cereales contenant du gluten (ble, seigle, orge, avoine, epeautre, kamut) et produits a base de ces cereales.'),
-    ('crustaceans', 'Crustaces',                 'Crustaces et produits a base de crustaces.'),
-    ('eggs',        'Oeufs',                      'Oeufs et produits a base d''oeufs.'),
-    ('fish',        'Poisson',                   'Poissons et produits a base de poissons.'),
-    ('peanuts',     'Arachides',                 'Arachides et produits a base d''arachides.'),
-    ('soybeans',    'Soja',                      'Soja et produits a base de soja.'),
-    ('milk',        'Lait',                      'Lait et produits a base de lait (y compris le lactose).'),
-    ('nuts',        'Fruits a coque',            'Fruits a coque : amandes, noisettes, noix, noix de cajou, de pecan, du Bresil, pistaches, noix de Macadamia.'),
-    ('celery',      'Celeri',                    'Celeri et produits a base de celeri.'),
-    ('mustard',     'Moutarde',                  'Moutarde et produits a base de moutarde.'),
-    ('sesame',      'Graines de sesame',         'Graines de sesame et produits a base de graines de sesame.'),
-    ('sulphites',   'Anhydride sulfureux et sulfites', 'Anhydride sulfureux et sulfites en concentration superieure a 10 mg/kg ou 10 mg/l (exprimes en SO2).'),
-    ('lupin',       'Lupin',                     'Lupin et produits a base de lupin.'),
-    ('molluscs',    'Mollusques',                'Mollusques et produits a base de mollusques.');
+    ('gluten',      'Gluten',                    'Céréales contenant du gluten (blé, seigle, orge, avoine, épeautre, kamut) et produits à base de ces céréales.'),
+    ('crustaceans', 'Crustacés',                 'Crustacés et produits à base de crustacés.'),
+    ('eggs',        'Œufs',                      'Œufs et produits à base d''œufs.'),
+    ('fish',        'Poisson',                   'Poissons et produits à base de poissons.'),
+    ('peanuts',     'Arachides',                 'Arachides et produits à base d''arachides.'),
+    ('soybeans',    'Soja',                      'Soja et produits à base de soja.'),
+    ('milk',        'Lait',                      'Lait et produits à base de lait (y compris le lactose).'),
+    ('nuts',        'Fruits à coque',            'Fruits à coque : amandes, noisettes, noix, noix de cajou, de pécan, du Brésil, pistaches, noix de Macadamia.'),
+    ('celery',      'Céleri',                    'Céleri et produits à base de céleri.'),
+    ('mustard',     'Moutarde',                  'Moutarde et produits à base de moutarde.'),
+    ('sesame',      'Graines de sésame',         'Graines de sésame et produits à base de graines de sésame.'),
+    ('sulphites',   'Anhydride sulfureux et sulfites', 'Anhydride sulfureux et sulfites en concentration supérieure à 10 mg/kg ou 10 mg/l (exprimés en SO2).'),
+    ('lupin',       'Lupin',                     'Lupin et produits à base de lupin.'),
+    ('molluscs',    'Mollusques',                'Mollusques et produits à base de mollusques.');
 
 -- -----------------------------------------------------------------------------
 -- 6. user (1) — bootstrap administrator. dictionary.md 3.14.

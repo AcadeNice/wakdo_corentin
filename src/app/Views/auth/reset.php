@@ -38,12 +38,12 @@ $errorMessage = isset($error) && is_string($error) ? $error : null;
 
             <div class="form-group">
                 <label class="form-label" for="password_confirm">Confirmer le mot de passe</label>
-                <input class="form-input" type="password" id="password_confirm" name="password_confirm" autocomplete="new-password" minlength="8" required>
+                <input class="form-input" type="password" id="password_confirm" name="password_confirm" autocomplete="new-password" minlength="8" required data-match="password">
             </div>
 
-            <button type="submit" class="btn btn-primary">Reinitialiser</button>
+            <button type="submit" class="btn btn-primary">Réinitialiser</button>
         </form>
 
-        <p class="login-footer"><a href="/login">Retour a la connexion</a></p>
+        <p class="login-footer"><a href="/login">Retour à la connexion</a></p>
     </div>
 </main>

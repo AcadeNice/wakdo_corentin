@@ -1,0 +1,17 @@
+meta {
+  name: Autorise : tableau de bord (stats.read)
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/admin/api/stats
+}
+
+docs {
+Le manager a stats.read (seed) : 200 attendu.
+}
+
+tests {
+  expect(res.getStatus()).to.equal(200);
+}

@@ -113,7 +113,7 @@ final class PasswordResetServiceTest extends TestCase
         $result = $this->service()->confirmReset('whatever', 'newpassword123', self::NOW);
 
         self::assertFalse($result->success);
-        self::assertSame('Lien invalide ou expire.', $result->error);
+        self::assertSame('Lien invalide ou expiré.', $result->error);
         self::assertSame([], $this->db->writes);
     }
 

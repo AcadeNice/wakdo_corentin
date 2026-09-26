@@ -56,18 +56,19 @@ export function renderStripInto(container, model, modeParam) {
             class="category-strip__item${c.active ? ' is-active' : ''}"
             href="products.html?category=${c.id}${modeQS}"
             aria-label="${escHtml(cap(c.title))}"
+            title="${escHtml(cap(c.title))}"
             ${c.active ? 'aria-current="true"' : ''}
         >
             <img class="category-strip__img" src="${escHtml(c.image)}" alt="" aria-hidden="true"
-                 data-fallback="hide">
+                 loading="lazy" decoding="async" data-fallback="hide">
             <span class="category-strip__label">${escHtml(cap(c.title))}</span>
         </a>
     `).join('');
 
     container.innerHTML = `
-        <button class="category-strip__arrow category-strip__arrow--prev" type="button" aria-label="Categories precedentes">&#9664;</button>
+        <button class="category-strip__arrow category-strip__arrow--prev" type="button" aria-label="Catégories précédentes">&#9664;</button>
         <div class="category-strip__scroller">${cards}</div>
-        <button class="category-strip__arrow category-strip__arrow--next" type="button" aria-label="Categories suivantes">&#9654;</button>
+        <button class="category-strip__arrow category-strip__arrow--next" type="button" aria-label="Catégories suivantes">&#9654;</button>
     `;
 
     const scroller = container.querySelector('.category-strip__scroller');

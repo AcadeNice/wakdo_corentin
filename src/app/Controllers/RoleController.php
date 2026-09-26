@@ -50,7 +50,7 @@ class RoleController extends AdminController
         }
 
         return $this->adminView('admin/roles/index', [
-            'title'     => 'Roles et permissions - Wakdo Admin',
+            'title'     => 'Rôles et permissions - Wakdo Admin',
             'activeNav' => 'roles',
             'roles'     => $this->roleRepository()->allRoles(),
         ], $guard);
@@ -91,7 +91,7 @@ class RoleController extends AdminController
             return $this->renderForm($guard, 0, $form, $errors, $permIds, $sources, 422);
         }
         if ($this->roleRepository()->codeExists((string) $data['code'])) {
-            return $this->renderForm($guard, 0, $form, ['code' => 'Ce code de role existe deja.'], $permIds, $sources, 409);
+            return $this->renderForm($guard, 0, $form, ['code' => 'Ce code de rôle existe déjà.'], $permIds, $sources, 409);
         }
 
         [$actor, $errorMsg] = $this->resolvePin($guard, $form, 0);
@@ -112,18 +112,18 @@ class RoleController extends AdminController
                 ]);
                 $repo->replacePermissions($db, $newId, $permIds);
                 $repo->replaceVisibleSources($db, $newId, $sources);
-                $this->writeAudit($db, $actor['id'], $actor['role_id'], $newId, 'Creation role ' . (string) $data['code'], ['added' => $addedCodes, 'removed' => []]);
+                $this->writeAudit($db, $actor['id'], $actor['role_id'], $newId, 'Création rôle ' . (string) $data['code'], ['added' => $addedCodes, 'removed' => []]);
             });
         } catch (PDOException $exception) {
             if ((string) $exception->getCode() === '23000') {
-                return $this->renderForm($guard, 0, $form, ['code' => 'Ce code de role existe deja.'], $permIds, $sources, 409);
+                return $this->renderForm($guard, 0, $form, ['code' => 'Ce code de rôle existe déjà.'], $permIds, $sources, 409);
             }
 
             throw $exception;
         }
 
         $this->pinThrottle()->reset($guard->userId ?? 0);
-        $this->setFlash('Role cree.');
+        $this->setFlash('Rôle créé.');
 
         return $this->redirect('/admin/roles');
     }
@@ -188,7 +188,7 @@ class RoleController extends AdminController
         // Garde-fou anti-lockout : le role admin garde role.manage ET reste actif.
         if ((string) ($current['code'] ?? '') === self::ADMIN_CODE) {
             if (!in_array('role.manage', $newCodes, true) || $isActive === 0) {
-                return $this->renderForm($guard, $id, $form + ['code' => $current['code']], ['permissions' => 'Le role administrateur doit conserver role.manage et rester actif.'], $permIds, $sources, 422);
+                return $this->renderForm($guard, $id, $form + ['code' => $current['code']], ['permissions' => 'Le rôle administrateur doit conserver role.manage et rester actif.'], $permIds, $sources, 422);
             }
         }
 
@@ -213,11 +213,11 @@ class RoleController extends AdminController
             ]);
             $repo->replacePermissions($db, $id, $permIds);
             $repo->replaceVisibleSources($db, $id, $sources);
-            $this->writeAudit($db, $actor['id'], $actor['role_id'], $id, 'Mise a jour RBAC role ' . (string) ($data['code'] ?? ''), ['added' => $added, 'removed' => $removed]);
+            $this->writeAudit($db, $actor['id'], $actor['role_id'], $id, 'Mise à jour RBAC rôle ' . (string) ($data['code'] ?? ''), ['added' => $added, 'removed' => $removed]);
         });
 
         $this->pinThrottle()->reset($guard->userId ?? 0);
-        $this->setFlash('Role mis a jour.');
+        $this->setFlash('Rôle mis à jour.');
 
         return $this->redirect('/admin/roles');
     }
@@ -248,7 +248,7 @@ class RoleController extends AdminController
      * @param array<string, string> $form
      * @return list<int>
      */
-    private function selectedPermissionIds(array $form): array
+    protected function selectedPermissionIds(array $form): array
     {
         $ids = [];
         foreach ($this->roleRepository()->allPermissions() as $p) {
@@ -265,7 +265,7 @@ class RoleController extends AdminController
      * @param array<string, string> $form
      * @return list<string>
      */
-    private function selectedSources(array $form): array
+    protected function selectedSources(array $form): array
     {
         $out = [];
         foreach (self::SOURCES as $source) {
@@ -283,7 +283,7 @@ class RoleController extends AdminController
      * @param list<int> $ids
      * @return list<string>
      */
-    private function codesForIds(array $ids): array
+    protected function codesForIds(array $ids): array
     {
         $map = [];
         foreach ($this->roleRepository()->allPermissions() as $p) {
@@ -336,7 +336,7 @@ class RoleController extends AdminController
      * @param array<string, string> $form
      * @return array{0: array{code: ?string, label: string, description: ?string, default_route: ?string, order_source: ?string}, 1: array<string, string>}
      */
-    private function validate(array $form, bool $isCreate): array
+    protected function validate(array $form, bool $isCreate): array
     {
         $errors = [];
 
@@ -350,12 +350,12 @@ class RoleController extends AdminController
 
         $label = trim($form['label'] ?? '');
         if ($label === '' || mb_strlen($label) > 80) {
-            $errors['label'] = 'Le libelle est requis (80 caracteres max).';
+            $errors['label'] = 'Le libellé est requis (80 caractères max).';
         }
 
         $route = trim($form['default_route'] ?? '');
         if (mb_strlen($route) > 120) {
-            $errors['default_route'] = 'Route par defaut trop longue (120 max).';
+            $errors['default_route'] = 'Route par défaut trop longue (120 max).';
         }
 
         $source = trim($form['order_source'] ?? '');
@@ -387,7 +387,7 @@ class RoleController extends AdminController
                 'code'    => 'pin.failed',
                 'etype'   => self::ENTITY,
                 'eid'     => $entityId > 0 ? $entityId : null,
-                'summary' => 'Echec PIN gestion RBAC (email tente: ' . $email . ')',
+                'summary' => 'Échec PIN gestion RBAC (email tenté: ' . $email . ')',
             ],
         );
     }
@@ -421,11 +421,18 @@ class RoleController extends AdminController
     private function renderForm(GuardResult $guard, int $id, array $values, array $errors, array $selectedPermIds, array $selectedSources, int $status = 200): Response
     {
         return $this->adminView('admin/roles/form', [
-            'title'           => ($id !== 0 ? 'Modifier' : 'Nouveau') . ' role - Wakdo Admin',
+            'title'           => ($id !== 0 ? 'Modifier' : 'Nouveau') . ' rôle - Wakdo Admin',
             'activeNav'       => 'roles',
             'roleId'          => $id,
             'isAdminRole'     => (string) ($values['code'] ?? '') === self::ADMIN_CODE,
-            'permissions'     => $this->roleRepository()->allPermissions(),
+            // 'permissionCatalog', PAS 'permissions' : AdminController::adminView() fait
+            // $data + $context, et $context porte deja 'permissions' (liste des codes
+            // de l'utilisateur courant, consommee par admin/layout.php pour la sidebar).
+            // L'union PHP `+` garde la cle de GAUCHE ($data) en cas de collision : sous
+            // l'ancien nom, ce catalogue (list<array{id,code,label}>) ecrasait la liste
+            // de codes attendue par le layout, qui masquait alors tout le menu sauf
+            // Tableau de bord (regression F40, capture 40).
+            'permissionCatalog' => $this->roleRepository()->allPermissions(),
             'sources'         => self::SOURCES,
             'selectedPerms'   => $selectedPermIds,
             'selectedSources' => $selectedSources,
@@ -454,6 +461,6 @@ class RoleController extends AdminController
 
     private function invalidCsrf(): Response
     {
-        return Response::make('Requete invalide.', 403, ['Content-Type' => 'text/plain; charset=utf-8']);
+        return Response::make('Requête invalide.', 403, ['Content-Type' => 'text/plain; charset=utf-8']);
     }
 }

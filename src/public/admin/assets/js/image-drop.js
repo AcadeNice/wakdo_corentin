@@ -97,7 +97,7 @@
                 transfert.items.add(fichiers[0]);
                 champ.files = transfert.files;
             } catch (erreur) {
-                message.textContent = 'Votre navigateur ne gere pas le depot : utilisez le bouton de choix de fichier.';
+                message.textContent = 'Votre navigateur ne gère pas le dépôt : utilisez le bouton de choix de fichier.';
                 return;
             }
 

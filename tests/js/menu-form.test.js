@@ -20,10 +20,10 @@ const PRODUCTS = [
     { id: 15, name: 'Eau', category: 'boissons' },
     { id: 22, name: 'Moyenne Frite', category: 'frites' },
     { id: 30, name: 'Nuggets x4', category: 'encas' },
-    { id: 40, name: 'Cesar Classic', category: 'salades' },
+    { id: 40, name: 'César Classic', category: 'salades' },
     { id: 47, name: 'Ketchup', category: 'sauces' },
     { id: 50, name: 'Brownie', category: 'desserts' },
-    { id: 60, name: 'MC Wrap Chevre', category: 'wraps' },
+    { id: 60, name: 'MC Wrap Chèvre', category: 'wraps' },
     { id: 70, name: 'Le 280', category: 'burgers' },
 ];
 
@@ -80,6 +80,51 @@ test('productAllowed: extra accepte tout sauf menus et burgers', () => {
     assert.equal(menuForm.productAllowed({ category: 'boissons' }, SLOT_CATEGORIES, 'extra'), true);
 });
 
+/* --- libelle humain du type de slot (F40, capture 32) ---------------------- */
+
+test('slotTypeLabel : traduit les codes techniques en libelle humain', () => {
+    assert.equal(menuForm.slotTypeLabel('drink'), 'Boisson');
+    assert.equal(menuForm.slotTypeLabel('side'), 'Accompagnement');
+    assert.equal(menuForm.slotTypeLabel('sauce'), 'Sauce');
+    assert.equal(menuForm.slotTypeLabel('dessert'), 'Dessert');
+    assert.equal(menuForm.slotTypeLabel('extra'), 'Supplément');
+});
+
+test('le select Type affiche le libelle humain, la valeur soumise reste le code technique', () => {
+    const doc = setup([{ name: 'Boisson', slot_type: 'drink', is_required: 1, options: [] }]);
+    menuForm.init(doc);
+    const options = doc.querySelectorAll('.slot-type option');
+    const bySelected = Array.prototype.find.call(options, (o) => o.value === 'drink');
+    assert.equal(bySelected.textContent, 'Boisson');
+    assert.ok(!Array.prototype.some.call(options, (o) => o.textContent === 'side' || o.textContent === 'sauce'));
+});
+
+/* --- cadre d options : pas de ligne coupee a mi-hauteur (F40, capture 32) -- */
+
+test('le cadre d options a une hauteur maximale multiple exacte de la hauteur d une ligne', () => {
+    const doc = setup([{ name: 'Boisson', slot_type: 'drink', is_required: 1, options: [] }]);
+    menuForm.init(doc);
+    const optWrap = doc.querySelector('.slot-options');
+    const rowHeight = parseInt(doc.querySelector('.slot-options label').style.lineHeight, 10);
+    const maxHeight = parseInt(optWrap.style.maxHeight, 10);
+    assert.ok(rowHeight > 0, 'hauteur de ligne fixee sur chaque option');
+    assert.equal(maxHeight % rowHeight, 0, 'la coupure tombe entre deux lignes, jamais au milieu');
+});
+
+/* --- nom accessible du groupe (audit a11y elargi, 2026-09-26) ------------- */
+
+test('chaque bloc slot porte une legende : le groupe de champs a un nom', () => {
+    const doc = setup([{ name: 'Boisson', slot_type: 'drink', is_required: 1, options: [] }]);
+    menuForm.init(doc);
+    const block = doc.querySelector('.slot-block');
+    const legend = block.querySelector('legend');
+    assert.ok(legend, 'le fieldset du slot porte une legende');
+    assert.ok(legend.textContent.trim().length > 0, 'la legende n est pas vide');
+    // La legende doit etre le PREMIER enfant du fieldset : ailleurs, elle ne nomme
+    // plus le groupe (HTML : seule la premiere legend d un fieldset fait titre).
+    assert.equal(block.firstChild, legend);
+});
+
 /* --- filtrage des options selon le type de slot --------------------------- */
 
 test('slot drink (edition) : n affiche que les boissons', () => {
@@ -94,7 +139,7 @@ test('slot drink (edition) : n affiche que les boissons', () => {
 test('slot side : affiche frites + encas + salades, pas les boissons ni sauces', () => {
     const doc = setup([{ name: 'Accompagnement', slot_type: 'side', is_required: 1, options: [22] }]);
     menuForm.init(doc);
-    assert.deepEqual(optionNames(doc), ['Moyenne Frite', 'Nuggets x4', 'Cesar Classic']);
+    assert.deepEqual(optionNames(doc), ['Moyenne Frite', 'Nuggets x4', 'César Classic']);
 });
 
 test('slot extra : affiche tout sauf burgers (et menus, absent du catalogue de test)', () => {
@@ -102,7 +147,7 @@ test('slot extra : affiche tout sauf burgers (et menus, absent du catalogue de t
     menuForm.init(doc);
     const names = optionNames(doc);
     assert.ok(!names.includes('Le 280')); // burger exclu
-    assert.ok(names.includes('Coca Cola') && names.includes('Ketchup') && names.includes('MC Wrap Chevre'));
+    assert.ok(names.includes('Coca Cola') && names.includes('Ketchup') && names.includes('MC Wrap Chèvre'));
 });
 
 /* --- re-filtrage dynamique au changement de type -------------------------- */

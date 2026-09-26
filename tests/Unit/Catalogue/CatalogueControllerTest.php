@@ -141,7 +141,7 @@ final class CatalogueControllerTest extends TestCase
 
         $product = $payload['data'][0];
         self::assertSame(
-            ['id', 'category_id', 'name', 'description', 'price_cents', 'image_path', 'display_order', 'maxi_variant_name', 'sizes', 'allergens', 'allergens_complete', 'is_orderable'],
+            ['id', 'category_id', 'name', 'description', 'price_cents', 'image_path', 'display_order', 'maxi_variant_name', 'maxi_variant_image_path', 'sizes', 'allergens', 'allergens_complete', 'is_orderable'],
             array_keys($product),
         );
         self::assertSame(12, $product['id']);
@@ -150,6 +150,7 @@ final class CatalogueControllerTest extends TestCase
         self::assertArrayNotHasKey('vat_rate', $product);        // fiscal interne, non expose
         self::assertArrayNotHasKey('is_available', $product);    // toujours dispo ici -> non expose
         self::assertNull($product['maxi_variant_name']);         // pas de variante -> null
+        self::assertNull($product['maxi_variant_image_path']);   // idem, pas de variante -> null
         self::assertSame([], $product['sizes']);                 // produit mono-taille -> sizes vide
         self::assertTrue($product['is_orderable']);              // aucune rupture -> commandable
     }
@@ -207,6 +208,28 @@ final class CatalogueControllerTest extends TestCase
         self::assertSame(200, $response->status());
         $product = $this->decode($response->body())['data'][0];
         self::assertSame('Grande Frite', $product['maxi_variant_name']);
+    }
+
+    public function testProductsListExposesMaxiVariantImagePath(): void
+    {
+        $db = new FakeCatalogueDatabase();
+        // A3 (audit maquette vs front) : mv.image_path AS maxi_variant_image_path est
+        // remonte par le meme LEFT JOIN que maxi_variant_name, expose tel quel.
+        $db->productsRows = [
+            [
+                'id' => '23', 'category_id' => '4', 'name' => 'Moyenne Frite',
+                'description' => null, 'price_cents' => '250',
+                'image_path' => 'frite.png', 'display_order' => '1',
+                'maxi_variant_name' => 'Grande Frite',
+                'maxi_variant_image_path' => 'grande-frite.png',
+            ],
+        ];
+
+        $response = $this->controller($db, '/api/products')->products();
+
+        self::assertSame(200, $response->status());
+        $product = $this->decode($response->body())['data'][0];
+        self::assertSame('grande-frite.png', $product['maxi_variant_image_path']);
     }
 
     public function testProductsListPresentsSizesArrayForDrinkWithVariants(): void

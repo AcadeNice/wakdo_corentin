@@ -41,7 +41,7 @@ $esc = static fn (mixed $v): string => htmlspecialchars((string) $v, ENT_QUOTES,
                 <tr>
                     <th>Nom</th>
                     <th>Email</th>
-                    <th>Role</th>
+                    <th>Rôle</th>
                     <th>Statut</th>
                     <th style="width:280px;"></th>
                 </tr>
@@ -59,12 +59,12 @@ $esc = static fn (mixed $v): string => htmlspecialchars((string) $v, ENT_QUOTES,
                     $name = trim(((string) ($row['first_name'] ?? '')) . ' ' . ((string) ($row['last_name'] ?? '')));
                     ?>
                     <tr>
-                        <td class="fw-600"><?= $esc($name !== '' ? $name : '(anonymise)') ?><?= $isSelf ? ' <span class="muted">(vous)</span>' : '' ?></td>
+                        <td class="fw-600"><?= $esc($name !== '' ? $name : '(anonymisé)') ?><?= $isSelf ? ' <span class="muted">(vous)</span>' : '' ?></td>
                         <td class="muted"><?= $esc($row['email'] ?? '') ?></td>
                         <td class="muted"><?= $esc($row['role_label'] ?? '') ?></td>
                         <td>
                             <?php if ($anon): ?>
-                                <span class="pill pill-neutral">Anonymise</span>
+                                <span class="pill pill-neutral">Anonymisé</span>
                             <?php elseif ($active): ?>
                                 <span class="pill pill-success">Actif</span>
                             <?php else: ?>
@@ -73,16 +73,20 @@ $esc = static fn (mixed $v): string => htmlspecialchars((string) $v, ENT_QUOTES,
                         </td>
                         <td>
                             <?php if (!$anon): ?>
-                                <?php if ($canUpdate): ?>
-                                    <a class="btn btn-secondary" href="/admin/users/<?= $id ?>/edit">Modifier</a>
-                                    <a class="btn btn-secondary" href="/admin/users/<?= $id ?>/reset-pin">Reset PIN</a>
-                                <?php endif; ?>
-                                <?php if ($canDeactiv && $active && !$isSelf): ?>
-                                    <a class="btn btn-secondary" href="/admin/users/<?= $id ?>/deactivate">Desactiver</a>
-                                <?php endif; ?>
-                                <?php if ($canUpdate && !$isSelf): ?>
-                                    <a class="btn btn-secondary" href="/admin/users/<?= $id ?>/erase">Anonymiser</a>
-                                <?php endif; ?>
+                                <span class="row-actions">
+                                    <?php if ($canUpdate): ?>
+                                        <a class="btn btn-secondary" href="/admin/users/<?= $id ?>/edit">Modifier</a>
+                                        <a class="btn btn-secondary" href="/admin/users/<?= $id ?>/reset-pin">Réinitialiser le PIN</a>
+                                    <?php endif; ?>
+                                    <?php if ($canDeactiv && $active && !$isSelf): ?>
+                                        <a class="btn btn-secondary" href="/admin/users/<?= $id ?>/deactivate">Désactiver</a>
+                                    <?php endif; ?>
+                                    <?php if ($canUpdate && !$isSelf): ?>
+                                        <span class="row-actions__danger">
+                                            <a class="btn btn-secondary" href="/admin/users/<?= $id ?>/erase">Anonymiser</a>
+                                        </span>
+                                    <?php endif; ?>
+                                </span>
                             <?php endif; ?>
                         </td>
                     </tr>

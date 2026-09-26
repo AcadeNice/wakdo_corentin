@@ -67,10 +67,12 @@ export function renderGridInto(container, model, emptyEl = null) {
         // qu'une source vide qui declencherait le repli a chaque affichage.
         const img = c.image
             ? `<img class="category-card__image" src="${escHtml(c.image)}" alt="${escHtml(c.label)}"
+                    decoding="async"
                     data-fallback="logo" data-fallback-alt="Image non disponible">`
             : '';
         return `
-        <a class="category-card" href="products.html?category=${c.id}" aria-label="Voir les ${escHtml(c.name)}">
+        <a class="category-card" href="products.html?category=${c.id}" aria-label="Voir les ${escHtml(c.name)}"
+           title="Voir les ${escHtml(c.name)}">
             ${img}
             <span class="category-card__label">${escHtml(c.label)}</span>
         </a>`;
@@ -97,7 +99,7 @@ export async function renderCategoryGrid(els, loader = loadCategories) {
     } catch (e) {
         if (errorEl) {
             errorEl.hidden = false;
-            errorEl.textContent = 'Impossible de charger les categories. Veuillez reessayer.';
+            errorEl.textContent = 'Impossible de charger les catégories. Veuillez réessayer.';
         }
         console.error('renderCategoryGrid error:', e);
     }

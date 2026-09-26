@@ -64,9 +64,11 @@ $navClass = static function (string $code, string $current): string {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex, nofollow">
     <title><?= $pageTitle ?></title>
+    <link rel="icon" type="image/svg+xml" href="/assets/images/favicon.svg">
     <link rel="stylesheet" href="/assets/css/admin.css">
 </head>
 <body data-user-email="<?= htmlspecialchars($currentUserEmail ?? '', ENT_QUOTES, 'UTF-8') ?>">
+<a class="skip-link" href="#main-content">Aller au contenu</a>
 <div class="admin-layout">
     <header class="topbar">
         <div class="topbar-actions">
@@ -80,11 +82,11 @@ $navClass = static function (string $code, string $current): string {
                 </button>
                 <div class="dropdown-menu" id="userMenu">
                     <a href="/admin/profile/pin">Mon PIN d'action sensible</a>
-                    <a href="/admin/privacy">Traitement de mes donnees</a>
+                    <a href="/admin/privacy">Traitement de mes données</a>
                     <div class="divider"></div>
                     <form method="post" action="/logout">
                         <input type="hidden" name="_csrf" value="<?= $csrf ?>">
-                        <button class="danger" type="submit">Se deconnecter</button>
+                        <button class="danger" type="submit">Se déconnecter</button>
                     </form>
                 </div>
             </div>
@@ -105,11 +107,11 @@ $navClass = static function (string $code, string $current): string {
         <div class="sidebar-section">
             <div class="sidebar-section-label">Catalogue</div>
             <?php if ($can('category.manage')): ?>
-                <a href="/admin/categories" class="<?= $navClass('categories', $active) ?>">Categories</a>
+                <a href="/admin/categories" class="<?= $navClass('categories', $active) ?>">Catégories</a>
             <?php endif; ?>
             <?php if ($can('product.read')): ?>
                 <a href="/admin/products" class="<?= $navClass('products', $active) ?>">Produits</a>
-                <a href="/admin/products/by-category" class="<?= $navClass('products-by-category', $active) ?>">Produits par categorie</a>
+                <a href="/admin/products/by-category" class="<?= $navClass('products-by-category', $active) ?>">Produits par catégorie</a>
             <?php endif; ?>
             <?php if ($can('menu.read')): ?>
                 <a href="/admin/menus" class="<?= $navClass('menus', $active) ?>">Menus</a>
@@ -120,7 +122,7 @@ $navClass = static function (string $code, string $current): string {
         <?php if ($can('stock.read')): ?>
         <div class="sidebar-section">
             <div class="sidebar-section-label">Stock</div>
-            <a href="/admin/ingredients" class="<?= $navClass('stock', $active) ?>">Ingredients</a>
+            <a href="/admin/ingredients" class="<?= $navClass('stock', $active) ?>">Ingrédients</a>
         </div>
         <?php endif; ?>
 
@@ -149,7 +151,7 @@ $navClass = static function (string $code, string $current): string {
                 <a href="/admin/users" class="<?= $navClass('users', $active) ?>">Utilisateurs</a>
             <?php endif; ?>
             <?php if ($can('role.manage')): ?>
-                <a href="/admin/roles" class="<?= $navClass('roles', $active) ?>">Roles</a>
+                <a href="/admin/roles" class="<?= $navClass('roles', $active) ?>">Rôles</a>
             <?php endif; ?>
         </div>
         <?php endif; ?>
@@ -160,7 +162,7 @@ $navClass = static function (string $code, string $current): string {
         */ ?>
     </nav>
 
-    <main class="content">
+    <main class="content" id="main-content">
         <?php $flashMessage = isset($flash) && is_string($flash) ? $flash : null; ?>
         <?php if ($flashMessage !== null && $flashMessage !== ''): ?>
             <div class="flash" role="status"><?= htmlspecialchars($flashMessage, ENT_QUOTES, 'UTF-8') ?></div>
@@ -169,7 +171,13 @@ $navClass = static function (string $code, string $current): string {
     </main>
 </div>
 <script src="/assets/js/admin.js"></script>
+<?php /* Controle de saisie en temps reel (Cr 2.b.1) : tous les formulaires du shell. */ ?>
+<script src="/assets/js/form-validation.js"></script>
 <script src="/assets/js/pin-modal.js"></script>
 <script src="/assets/js/stock-thresholds.js"></script>
+<?php /* Bascule de police pour personnes dyslexiques (RGAA Cr 1.c.2), parite avec
+         la borne : meme module, reutilise via assets/js/a11y.js (voir le fichier
+         pour le partage physique entre les deux racines statiques), pas reecrit. */ ?>
+<script type="module" src="/assets/js/a11y.js"></script>
 </body>
 </html>

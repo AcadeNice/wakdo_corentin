@@ -5,18 +5,22 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use PDOException;
+use Throwable;
 use App\Auth\Csrf;
 use App\Auth\GuardResult;
 use App\Auth\PasswordHasher;
 use App\Auth\PinThrottle;
 use App\Auth\PinVerifier;
 use App\Catalogue\CategoryRepository;
+use App\Catalogue\ImportBlockedException;
 use App\Catalogue\IngredientRepository;
 use App\Catalogue\MenuRepository;
+use App\Catalogue\ProductImportService;
 use App\Catalogue\ProductRepository;
 use App\Core\DatabaseInterface;
 use App\Core\ImageUploadException;
 use App\Core\ImageUploader;
+use App\Core\Money;
 use App\Core\Response;
 
 /**
@@ -133,7 +137,7 @@ class ProductController extends AdminController
         }
 
         return $this->adminView('admin/products/by_category', [
-            'title'          => 'Produits par categorie - Wakdo Admin',
+            'title'          => 'Produits par catégorie - Wakdo Admin',
             'activeNav'      => 'products-by-category',
             'categories'     => $categories,
             'articles'       => $articles,
@@ -196,6 +200,15 @@ class ProductController extends AdminController
         }
 
         $form = $this->request->formBody();
+
+        // A verifier AVANT le CSRF : un corps rejete par post_max_size (image trop
+        // lourde) vide _csrf comme tout le reste ; sans cette branche, l'equipier
+        // recevrait le 403 generique "Requete invalide" sans savoir pourquoi.
+        $oversized = $this->oversizedUploadError();
+        if ($oversized !== null) {
+            return $this->renderForm($guard, 0, $form, ['image_file' => $oversized], 422);
+        }
+
         if (!Csrf::validate($this->sessionManager(), $form['_csrf'] ?? null)) {
             return $this->invalidCsrf();
         }
@@ -218,6 +231,15 @@ class ProductController extends AdminController
             }
         }
 
+        // Composition (recette) integree au formulaire produit : champ cache
+        // composition_json, PRESENT ssi la vue l'a rendu (elle le rend toujours).
+        // Absent (ex. appelant plus ancien) -> recette non touchee du tout, aucune
+        // ecriture product_ingredient supplementaire (retro-compatibilite).
+        $canCreateIngredient = $this->may($guard, 'ingredient.manage');
+        $hasComposition = array_key_exists('composition_json', $form);
+        $discardedIngredientCount = 0;
+        $lines = $hasComposition ? $this->parseCompositionLines($form['composition_json'], $errors, $canCreateIngredient, $discardedIngredientCount) : [];
+
         if ($errors !== []) {
             return $this->renderForm($guard, 0, $form, $errors, 422);
         }
@@ -226,8 +248,26 @@ class ProductController extends AdminController
             $data['image_path'] = $uploader->store($imageFile, 'products');
         }
 
-        $this->productRepository()->create($data);
-        $this->setFlash('Produit cree.');
+        if (!$hasComposition) {
+            $this->productRepository()->create($data);
+            $this->setFlash('Produit créé.');
+
+            return $this->redirect('/admin/products');
+        }
+
+        // Produit + ingredients nouveaux + recette : UNE seule transaction
+        // (RG-T08). Un echec a n'importe quelle etape annule tout (rien de
+        // partiel : ni produit, ni ingredient, ni recette).
+        $createdIngredientNames = [];
+        $this->db()->transaction(function (DatabaseInterface $db) use ($data, $lines, &$createdIngredientNames): void {
+            $productRepo = new ProductRepository($db);
+            $productRepo->create($data);
+            $productId = $this->lastInsertId($db);
+            [$finalLines, $createdIngredientNames] = $this->materializeCompositionLines($db, $lines);
+            $productRepo->replaceCompositionWithin($db, $productId, $finalLines);
+        });
+
+        $this->setFlash($this->creationFlashMessage($createdIngredientNames, $discardedIngredientCount));
 
         return $this->redirect('/admin/products');
     }
@@ -248,6 +288,12 @@ class ProductController extends AdminController
             return $this->notFound($guard);
         }
 
+        // La base garde price_cents en centimes ; le champ se relit et se ressaisit
+        // en euros (F40, section "Textes techniques ou en anglais" de
+        // defauts-visibles.md). Sans cette conversion, un formulaire d'edition
+        // reaffiche l'entier brut de centimes.
+        $product['price_cents'] = Money::centsToEuros((int) ($product['price_cents'] ?? 0));
+
         return $this->renderForm($guard, $id, $product, []);
     }
 
@@ -262,11 +308,18 @@ class ProductController extends AdminController
         }
 
         $form = $this->request->formBody();
+
+        $id = (int) ($params['id'] ?? 0);
+
+        $oversized = $this->oversizedUploadError();
+        if ($oversized !== null) {
+            return $this->renderForm($guard, $id, $form, ['image_file' => $oversized], 422);
+        }
+
         if (!Csrf::validate($this->sessionManager(), $form['_csrf'] ?? null)) {
             return $this->invalidCsrf();
         }
 
-        $id = (int) ($params['id'] ?? 0);
         $current = $this->productRepository()->find($id);
         if ($current === null) {
             return $this->notFound($guard);
@@ -288,6 +341,25 @@ class ProductController extends AdminController
             }
         }
 
+        // Composition (recette) integree au formulaire produit : voir store().
+        $canCreateIngredient = $this->may($guard, 'ingredient.manage');
+        $hasComposition = array_key_exists('composition_json', $form);
+        $discardedIngredientCount = 0;
+        $lines = $hasComposition ? $this->parseCompositionLines($form['composition_json'], $errors, $canCreateIngredient, $discardedIngredientCount) : [];
+
+        // RG-T03 (relecture adverse, 2026-09-26) : ce produit EXISTE deja. Si sa
+        // recette changerait REELLEMENT (pas seulement un ingredient nouveau,
+        // deja couvert par $canCreateIngredient ci-dessus), la meme permission
+        // que la page Recette dediee et l'import CSV est exigee ICI aussi --
+        // sinon product.update seul suffisait a vider la recette d'un produit
+        // deja en carte (doctrine : docs/api/import-produits.md section 5,
+        // "le produit existait-il deja", pas "quel ecran est utilise"). Un
+        // resoumis STRICTEMENT identique a la recette enregistree ne declenche
+        // rien : seul un changement REEL est concerne.
+        if ($hasComposition && $errors === [] && !$canCreateIngredient && $this->compositionDiffersFromStored($id, $lines)) {
+            $errors['composition'] = 'Ce produit existe déjà : il faut le droit de gérer les ingrédients pour changer sa recette (demandez à un manager), ou ne modifiez pas la recette.';
+        }
+
         if ($errors !== []) {
             return $this->renderForm($guard, $id, $form, $errors, 422);
         }
@@ -303,15 +375,35 @@ class ProductController extends AdminController
                 $data['image_path'] = $uploader->store($imageFile, 'products');
             }
 
-            $this->productRepository()->update($id, $data);
+            if (!$hasComposition) {
+                $this->productRepository()->update($id, $data);
 
-            // L'ancienne image n'est effacee qu'une fois la base a jour : en cas
-            // d'echec de l'ecriture, le produit garde une photo valide.
+                // L'ancienne image n'est effacee qu'une fois la base a jour : en cas
+                // d'echec de l'ecriture, le produit garde une photo valide.
+                if ($hasImage) {
+                    $uploader->remove($previousImage);
+                }
+
+                $this->setFlash('Produit mis à jour.');
+
+                return $this->redirect('/admin/products');
+            }
+
+            // Meme produit + recette en une seule transaction que store() : voir
+            // ce docblock pour la raison (RG-T08, rien de partiel).
+            $createdIngredientNames = [];
+            $this->db()->transaction(function (DatabaseInterface $db) use ($id, $data, $lines, &$createdIngredientNames): void {
+                $productRepo = new ProductRepository($db);
+                $productRepo->update($id, $data);
+                [$finalLines, $createdIngredientNames] = $this->materializeCompositionLines($db, $lines);
+                $productRepo->replaceCompositionWithin($db, $id, $finalLines);
+            });
+
             if ($hasImage) {
                 $uploader->remove($previousImage);
             }
 
-            $this->setFlash('Produit mis a jour.');
+            $this->setFlash($this->updateFlashMessage($createdIngredientNames, false, $discardedIngredientCount));
 
             return $this->redirect('/admin/products');
         }
@@ -349,9 +441,16 @@ class ProductController extends AdminController
 
         $summary = $this->changeSummary($current, $data, $priceChanged, $vatChanged);
 
-        $this->db()->transaction(function (DatabaseInterface $db) use ($id, $data, $actor, $summary): void {
-            (new ProductRepository($db))->update($id, $data);
+        $createdIngredientNames = [];
+        $this->db()->transaction(function (DatabaseInterface $db) use ($id, $data, $actor, $summary, $hasComposition, $lines, &$createdIngredientNames): void {
+            $productRepo = new ProductRepository($db);
+            $productRepo->update($id, $data);
             $this->writeAudit($db, 'product.update', $actor['id'], $actor['role_id'], $id, $summary);
+
+            if ($hasComposition) {
+                [$finalLines, $createdIngredientNames] = $this->materializeCompositionLines($db, $lines);
+                $productRepo->replaceCompositionWithin($db, $id, $finalLines);
+            }
         });
 
         // PIN valide : reinitialise le compteur de throttle de l'acteur de SESSION
@@ -364,7 +463,7 @@ class ProductController extends AdminController
             $uploader->remove($previousImage);
         }
 
-        $this->setFlash('Produit mis a jour (changement de prix/TVA trace).');
+        $this->setFlash($this->updateFlashMessage($createdIngredientNames, true, $discardedIngredientCount));
 
         return $this->redirect('/admin/products');
     }
@@ -439,7 +538,7 @@ class ProductController extends AdminController
         // aucune perte hors-trace dans le journal append-only.
         $cascaded = $this->productRepository()->compositionCount($id);
         $summary = 'Suppression produit: ' . $name
-            . ' (' . $cascaded . ' ligne(s) de recette cascade-supprimee(s))';
+            . ' (' . $cascaded . ' ligne(s) de recette cascade-supprimée(s))';
 
         // FK RESTRICT (order_item / menu / menu_slot_option / order_item_selection)
         // -> PDOException 23000 -> 409 Conflit (catch ci-dessous). product_ingredient
@@ -454,7 +553,7 @@ class ProductController extends AdminController
             });
         } catch (PDOException $exception) {
             if ((string) $exception->getCode() === '23000') {
-                return $this->renderDelete($guard, $id, $product, 'Produit reference par des commandes ou menus : suppression impossible. Masquez-le plutot.', 409);
+                return $this->renderDelete($guard, $id, $product, 'Produit référencé par des commandes ou menus : suppression impossible. Masquez-le plutôt.', 409);
             }
 
             throw $exception;
@@ -470,7 +569,7 @@ class ProductController extends AdminController
         // FK a bloque (409), ce qui est benin (l'acteur n'est pas un attaquant).
         $this->pinThrottle()->reset($actorId);
 
-        $this->setFlash('Produit supprime.');
+        $this->setFlash('Produit supprimé.');
 
         return $this->redirect('/admin/products');
     }
@@ -520,16 +619,35 @@ class ProductController extends AdminController
             return $this->notFound($guard);
         }
 
+        // guard() a deja exige ingredient.manage pour ATTEINDRE cette action :
+        // $canCreateIngredient est donc toujours vrai ici (meme code que le
+        // formulaire produit, cf. parseCompositionLines()).
         $errors = [];
-        $lines = $this->parseComposition($form['composition_json'] ?? '', $errors);
+        $discardedIngredientCount = 0;
+        $lines = $this->parseCompositionLines($form['composition_json'] ?? '', $errors, true, $discardedIngredientCount);
         if ($errors !== []) {
             return $this->renderRecipe($guard, $id, $product, $errors, 422);
         }
 
         // Composition vide autorisee : un produit peut n'avoir aucune recette
-        // definie (setComposition purge alors la table sans rien reinserer).
-        $this->productRepository()->setComposition($id, $lines);
-        $this->setFlash('Recette mise a jour.');
+        // definie (replaceCompositionWithin purge alors la table sans rien
+        // reinserer). UNE transaction : creation d'un ingredient nouveau +
+        // recette, meme si aucun ingredient nouveau n'est present ici (RG-T08).
+        $createdIngredientNames = [];
+        $this->db()->transaction(function (DatabaseInterface $db) use ($id, $lines, &$createdIngredientNames): void {
+            $productRepo = new ProductRepository($db);
+            [$finalLines, $createdIngredientNames] = $this->materializeCompositionLines($db, $lines);
+            $productRepo->replaceCompositionWithin($db, $id, $finalLines);
+        });
+
+        $message = $createdIngredientNames === []
+            ? 'Recette mise à jour.'
+            : sprintf(
+                'Recette mise à jour. %d nouvel(nouveaux) ingrédient(s) créé(s) à stock 0 (%s) : pensez à les réapprovisionner et à vérifier leurs allergènes.',
+                count($createdIngredientNames),
+                implode(', ', $createdIngredientNames),
+            );
+        $this->setFlash($message . $this->discardedIngredientNotice($discardedIngredientCount));
 
         return $this->redirect('/admin/products');
     }
@@ -564,10 +682,385 @@ class ProductController extends AdminController
         // n'est pas une erreur : l'utilisateur a clique sur une fleche sans
         // effet, on le ramene simplement a sa liste sans message alarmant.
         if ($this->productRepository()->reorderWithinCategory((int) ($params['id'] ?? 0), $direction)) {
-            $this->setFlash('Ordre du catalogue mis a jour.');
+            $this->setFlash('Ordre du catalogue mis à jour.');
         }
 
         return $this->redirect('/admin/products/by-category');
+    }
+
+    /** Cle de session du CSV en attente de confirmation (voir importPreview()/importConfirm()). */
+    private const IMPORT_SESSION_KEY = '_product_import_pending';
+
+    /** Duree de vie maximale d'un apercu non confirme (secondes). */
+    private const IMPORT_TTL_SECONDS = 1800;
+
+    /**
+     * Bouton "Télécharger le modèle CSV" -- gabarit avec 2 exemples reels
+     * (ProductImportService::templateCsv()). Meme permission que l'import
+     * (product.create) : celui qui peut creer un produit peut telecharger le
+     * modele pour en preparer plusieurs.
+     *
+     * @param array<string, string> $params
+     */
+    public function importTemplate(array $params = []): Response
+    {
+        $guard = $this->guard('product.create');
+        if ($guard instanceof Response) {
+            return $guard;
+        }
+
+        return Response::make(ProductImportService::templateCsv(), 200, [
+            'Content-Type'        => 'text/csv; charset=utf-8',
+            'Content-Disposition' => 'attachment; filename="wakdo-import-produits.csv"',
+        ]);
+    }
+
+    /**
+     * @param array<string, string> $params
+     */
+    public function importForm(array $params = []): Response
+    {
+        $guard = $this->guard('product.create');
+        if ($guard instanceof Response) {
+            return $guard;
+        }
+
+        return $this->renderImportUpload($guard, []);
+    }
+
+    /**
+     * Premier temps de l'import (2 temps, RG-T18) : ANALYSE seule, aucune
+     * ecriture. Le CSV recu est garde en SESSION (jamais en champ cache
+     * modifiable par le client) sous un jeton a usage unique, relu et
+     * revalide integralement a la confirmation (importConfirm) -- un apercu
+     * n'est jamais une source de verite, seule une nouvelle analyse l'est.
+     *
+     * @param array<string, string> $params
+     */
+    public function importPreview(array $params = []): Response
+    {
+        $guard = $this->guard('product.create');
+        if ($guard instanceof Response) {
+            return $guard;
+        }
+
+        $form = $this->request->formBody();
+        if (!Csrf::validate($this->sessionManager(), $form['_csrf'] ?? null)) {
+            return $this->invalidCsrf();
+        }
+
+        $file = $this->request->file('csv_file');
+        $uploadError = $this->csvUploadError($file);
+        if ($uploadError !== null || $file === null) {
+            return $this->renderImportUpload($guard, ['fichier' => $uploadError ?? 'Choisissez un fichier CSV.'], 422);
+        }
+
+        $content = (string) file_get_contents((string) $file['tmp_name']);
+
+        $report = $this->importService()->preview($content, $this->db());
+        $this->guardImportAuthorizations($guard, $report);
+
+        $token = bin2hex(random_bytes(16));
+        $this->sessionManager()->set(self::IMPORT_SESSION_KEY, ['token' => $token, 'csv' => $content, 'created_at' => time()]);
+
+        return $this->renderImportPreview($guard, $report, $token, []);
+    }
+
+    /**
+     * Second temps : confirmation. Rejoue integralement l'analyse (defense
+     * contre un etat perime -- un autre equipier a pu creer entre-temps la
+     * categorie/le produit/l'ingredient que le fichier visait) et, seulement si
+     * zero erreur, ecrit tout en UNE transaction (ProductImportService::apply,
+     * tout ou rien). Un changement de prix exige le PIN, comme en HTML
+     * (RG-T13) ; sinon aucun PIN n'est demande.
+     *
+     * @param array<string, string> $params
+     */
+    public function importConfirm(array $params = []): Response
+    {
+        $guard = $this->guard('product.create');
+        if ($guard instanceof Response) {
+            return $guard;
+        }
+
+        $form = $this->request->formBody();
+        if (!Csrf::validate($this->sessionManager(), $form['_csrf'] ?? null)) {
+            return $this->invalidCsrf();
+        }
+
+        $csv = $this->pendingImportCsv((string) ($form['import_token'] ?? ''));
+        if ($csv === null) {
+            $this->setFlash('Aperçu expiré ou introuvable : renvoyez le fichier.');
+
+            return $this->redirect('/admin/products/import');
+        }
+
+        $report = $this->importService()->preview($csv, $this->db());
+        $this->guardImportAuthorizations($guard, $report);
+
+        if ($report['errors'] !== []) {
+            return $this->renderImportPreview($guard, $report, (string) ($form['import_token'] ?? ''), [], 422);
+        }
+
+        $actorId = $guard->userId ?? 0;
+        $actor = ['id' => $guard->userId ?? 0, 'role_id' => $guard->roleId ?? 0];
+
+        if ($report['hasPriceChange']) {
+            if ($actorId > 0 && $this->pinThrottle()->isLocked($actorId)) {
+                $this->pinVerifier()->payTimingDecoy($form['pin'] ?? '');
+
+                return $this->renderImportPreview($guard, $report, (string) ($form['import_token'] ?? ''), ['pin' => 'Email ou PIN invalide (requis : ce fichier modifie au moins un prix).'], 422);
+            }
+
+            $resolved = $this->pinVerifier()->resolveActingUser(trim($form['pin_email'] ?? ''), $form['pin'] ?? '');
+            if ($resolved === null) {
+                $email = trim($form['pin_email'] ?? '');
+                $this->db()->transaction(function (DatabaseInterface $db) use ($email, $actorId): void {
+                    $this->logFailedPin($db, $email, 0);
+                    $this->pinThrottle()->recordFailureWithin($db, $actorId);
+                });
+
+                return $this->renderImportPreview($guard, $report, (string) ($form['import_token'] ?? ''), ['pin' => 'Email ou PIN invalide (requis : ce fichier modifie au moins un prix).'], 422);
+            }
+            $actor = $resolved;
+        }
+
+        try {
+            $result = $this->importService()->apply($csv, $this->db(), $actor['id'], $actor['role_id']);
+        } catch (ImportBlockedException $exception) {
+            $this->sessionManager()->set(self::IMPORT_SESSION_KEY, null);
+            $this->setFlash($exception->getMessage() . ' Renvoyez le fichier corrigé.');
+
+            return $this->redirect('/admin/products/import');
+        } catch (Throwable $exception) {
+            // Filet de securite : apply() n'ecrit que DANS la transaction de
+            // ProductImportService (RG-T08), donc toute exception non prevue ici
+            // a deja ete annulee (rollback) avant de remonter -- rien n'est resté
+            // a moitié écrit. Sans ce filet, une erreur inattendue (ex. une
+            // valeur trop longue pour une colonne, si un controle amont a laissé
+            // passer un cas non prevu) affichait la page d'erreur brute du
+            // gestionnaire generique, illisible pour un equipier.
+            //
+            // Ce filet court-circuite le gestionnaire GLOBAL (src/public/admin/
+            // index.php) qui, lui, trace TOUJOURS avant de repondre ("l'incident
+            // doit rester diagnosticable cote serveur") -- meme trace ICI (meme
+            // format), sinon ce cas precis redeviendrait invisible cote serveur
+            // (releve par relecture adverse, 2026-09-26).
+            error_log(sprintf(
+                '[wakdo] Unhandled %s: %s @ %s:%d',
+                get_class($exception),
+                $exception->getMessage(),
+                $exception->getFile(),
+                $exception->getLine(),
+            ));
+            $this->sessionManager()->set(self::IMPORT_SESSION_KEY, null);
+            $this->setFlash('L\'import a échoué de façon inattendue : rien n\'a été enregistré. Renvoyez le fichier, ou contactez un administrateur si cela persiste.');
+
+            return $this->redirect('/admin/products/import');
+        }
+
+        if ($report['hasPriceChange']) {
+            $this->pinThrottle()->reset($actorId);
+        }
+        $this->sessionManager()->set(self::IMPORT_SESSION_KEY, null);
+
+        $this->setFlash(sprintf(
+            'Import terminé : %d produit(s) créé(s), %d mis à jour (dont %d changement(s) de prix), %d inchangé(s), %d ingrédient(s) créé(s).',
+            $result['created'],
+            $result['updated'],
+            $result['price_changed'],
+            $result['unchanged'],
+            $result['ingredients_created'],
+        ));
+
+        return $this->redirect('/admin/products');
+    }
+
+    protected function importService(): ProductImportService
+    {
+        return new ProductImportService();
+    }
+
+    /**
+     * Point d'extension pour les tests, meme raison et meme convention que
+     * ImageUploader::isUploadedFile() : is_uploaded_file() ne repond vrai qu'a
+     * la suite d'un veritable envoi HTTP traite par PHP, ce qu'un test
+     * unitaire n'a jamais. Les tests sous-classent pour retomber sur
+     * l'equivalent filesystem le plus proche (is_file()).
+     */
+    protected function isUploadedFile(string $path): bool
+    {
+        return is_uploaded_file($path);
+    }
+
+    /**
+     * Relit le CSV en attente de confirmation depuis la session, seulement si
+     * le jeton correspond exactement (hash_equals, comparaison a temps
+     * constant) et que l'apercu n'a pas expire (30 min). Retourne null dans
+     * tout autre cas (jeton absent/faux, session vide, expiration).
+     */
+    private function pendingImportCsv(string $token): ?string
+    {
+        if ($token === '') {
+            return null;
+        }
+
+        $pending = $this->sessionManager()->get(self::IMPORT_SESSION_KEY);
+        if (!is_array($pending)) {
+            return null;
+        }
+
+        $storedToken = (string) ($pending['token'] ?? '');
+        if ($storedToken === '' || !hash_equals($storedToken, $token)) {
+            return null;
+        }
+
+        if (time() - (int) ($pending['created_at'] ?? 0) > self::IMPORT_TTL_SECONDS) {
+            $this->sessionManager()->set(self::IMPORT_SESSION_KEY, null);
+
+            return null;
+        }
+
+        return (string) ($pending['csv'] ?? '');
+    }
+
+    /**
+     * Doctrine d'autorisation de l'import (RG-T03, defense en profondeur -- pas
+     * seulement filtre sur l'ecran) :
+     *
+     *  - `product.create` (deja exige a l'entree des 3 actions, guard() route)
+     *    suffit pour un fichier qui NE FAIT QUE creer des produits neufs, sans
+     *    toucher a un ingredient nouveau.
+     *  - `product.update` est EXIGE EN PLUS des qu'au moins un produit du
+     *    fichier correspond a un produit DEJA EXISTANT (nom + categorie),
+     *    QU'IL SOIT CLASSE "a mettre a jour" OU "inchange" : les deux ecrivent
+     *    reellement la ligne produit (apply() appelle
+     *    ProductRepository::update() dans les deux cas) et "inchange" ne
+     *    protege de rien -- c'est une classification d'affichage, pas une
+     *    garantie qu'aucune ecriture n'aura lieu.
+     *  - `ingredient.manage` est EXIGEE EN PLUS des qu'au moins un ingredient
+     *    SERAIT CREE, **ou** des qu'au moins un produit EXISTANT verrait sa
+     *    recette REMPLACEE -- remplacer irreversiblement la recette d'un
+     *    produit deja en carte (jusqu'a la vider, RG-T21) est exactement le
+     *    geste que la page Recette dediee protege deja par cette permission ;
+     *    l'import ne doit pas ouvrir un chemin plus permissif pour le meme effet.
+     *
+     * Ecart assume avec la page recette dediee (documente aussi dans
+     * docs/api/import-produits.md) : composer la recette d'un produit NEUVE
+     * depuis LE FORMULAIRE produit ne demande que product.create/update (la
+     * recette nait avec un produit qui n'existait pas), alors que remplacer la
+     * recette d'un produit EXISTANT -- que ce soit via la page Recette ou via
+     * l'import -- demande ingredient.manage. La frontiere est "le produit
+     * existait-il deja", pas "quel ecran est utilise".
+     *
+     * @param array<string, mixed> $report
+     */
+    protected function guardImportAuthorizations(GuardResult $guard, array &$report): void
+    {
+        $touchesExistingProduct = $report['productsToUpdate'] !== [] || $report['productsUnchanged'] !== [];
+        $createsIngredient = $report['ingredientsToCreate'] !== [];
+
+        if ($touchesExistingProduct && !$this->may($guard, 'product.update')) {
+            $report['errors'][] = [
+                'line' => 0,
+                'column' => 'produit',
+                'message' => 'Ce fichier modifie au moins un produit déjà existant : il faut le droit de modifier les produits pour cela (demandez à un manager), ou retirez ces lignes du fichier.',
+            ];
+        }
+
+        if (($touchesExistingProduct || $createsIngredient) && !$this->may($guard, 'ingredient.manage')) {
+            $report['errors'][] = [
+                'line' => 0,
+                'column' => 'ingredient',
+                'message' => $touchesExistingProduct
+                    ? 'Ce fichier remplacerait la recette d\'au moins un produit déjà existant (et créerait peut-être aussi de nouveaux ingrédients) : il faut le droit de gérer les ingrédients pour cela (demandez à un manager), ou retirez ces lignes du fichier.'
+                    : 'Ce fichier créerait de nouveaux ingrédients : il faut le droit de gérer les ingrédients pour cela (demandez à un manager), ou retirez ces lignes du fichier.',
+            ];
+        }
+    }
+
+    /**
+     * Verifications d'upload avant toute analyse (RG-T18) : fichier reellement
+     * envoye, taille (post_max_size ET plafond applicatif), extension .csv.
+     * Renvoie le message d'erreur a afficher, ou null si l'envoi est correct.
+     *
+     * @param array<string, mixed>|null $file
+     */
+    private function csvUploadError(?array $file): ?string
+    {
+        $oversized = $this->oversizedUploadError();
+        if ($oversized !== null) {
+            return $oversized;
+        }
+
+        if ($file === null || (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+            return 'Choisissez un fichier CSV.';
+        }
+
+        $error = (int) ($file['error'] ?? UPLOAD_ERR_OK);
+        if ($error !== UPLOAD_ERR_OK) {
+            return match ($error) {
+                UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => sprintf('Le fichier dépasse la taille maximale (%d Mo).', (int) (ProductImportService::MAX_BYTES / (1024 * 1024))),
+                UPLOAD_ERR_PARTIAL => 'L\'envoi a été interrompu, réessayez.',
+                default => 'L\'envoi du fichier a échoué.',
+            };
+        }
+
+        $size = (int) ($file['size'] ?? 0);
+        if ($size <= 0) {
+            return 'Le fichier envoyé est vide.';
+        }
+        if ($size > ProductImportService::MAX_BYTES) {
+            return sprintf('Le fichier dépasse la taille maximale (%d Mo).', (int) (ProductImportService::MAX_BYTES / (1024 * 1024)));
+        }
+
+        $name = (string) ($file['name'] ?? '');
+        if (!preg_match('/\.csv$/i', $name)) {
+            return 'Le fichier doit avoir l\'extension .csv.';
+        }
+
+        $tmp = (string) ($file['tmp_name'] ?? '');
+        if ($tmp === '' || !$this->isUploadedFile($tmp)) {
+            return 'Le fichier reçu n\'est pas un envoi valide.';
+        }
+
+        // Garde-fou binaire simple (defense en profondeur) : un CSV texte ne
+        // contient jamais d'octet NUL. L'analyse elle-meme (en-tete attendu)
+        // refuse deja tout contenu qui ne serait pas un CSV exploitable.
+        $sample = (string) file_get_contents($tmp, false, null, 0, 4096);
+        if (str_contains($sample, "\0")) {
+            return 'Le fichier ne ressemble pas à un CSV texte.';
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string, string> $errors
+     */
+    private function renderImportUpload(GuardResult $guard, array $errors, int $status = 200): Response
+    {
+        return $this->adminView('admin/products/import', [
+            'title'     => 'Importer des produits - Wakdo Admin',
+            'activeNav' => 'products',
+            'columns'   => ProductImportService::COLUMNS,
+            'errors'    => $errors,
+        ], $guard, $status);
+    }
+
+    /**
+     * @param array<string, mixed> $report
+     * @param array<string, string> $errors
+     */
+    private function renderImportPreview(GuardResult $guard, array $report, string $token, array $errors, int $status = 200): Response
+    {
+        return $this->adminView('admin/products/import_preview', [
+            'title'       => 'Aperçu de l\'import - Wakdo Admin',
+            'activeNav'   => 'products',
+            'report'      => $report,
+            'importToken' => $token,
+            'errors'      => $errors,
+        ], $guard, $status);
     }
 
     protected function productRepository(): ProductRepository
@@ -618,25 +1111,30 @@ class ProductController extends AdminController
      * @param array<string, string> $form
      * @return array{0: array{category_id: int, name: string, description: ?string, price_cents: int, size_cl: ?int, base_product_id: ?int, maxi_variant_product_id: ?int, vat_rate: int, image_path: ?string, is_available: int, display_order: int}, 1: array<string, string>}
      */
-    private function validate(array $form, int $currentId): array
+    protected function validate(array $form, int $currentId): array
     {
         $errors = [];
 
         $categoryRaw = trim($form['category_id'] ?? '');
         $categoryId = ctype_digit($categoryRaw) ? (int) $categoryRaw : 0;
         if ($categoryId === 0 || !$this->productRepository()->categoryExists($categoryId)) {
-            $errors['category_id'] = 'Categorie requise et valide.';
+            $errors['category_id'] = 'Catégorie requise et valide.';
         }
 
         $name = trim($form['name'] ?? '');
         if ($name === '' || mb_strlen($name) > 120) {
-            $errors['name'] = 'Le nom est requis (120 caracteres max).';
+            $errors['name'] = 'Le nom est requis (120 caractères max).';
         }
 
+        // Saisie en EUROS (F40, section "Textes techniques ou en anglais" de
+        // defauts-visibles.md) : accepte la virgule ou le point comme separateur
+        // decimal ("1,90" ou "1.90"). La base reste en centimes ; Money est la
+        // source unique de conversion (repli d'edition : voir edit()/renderForm()).
         $priceRaw = trim($form['price_cents'] ?? '');
-        $priceValid = ctype_digit($priceRaw) && (int) $priceRaw > 0 && (int) $priceRaw <= 4294967295;
+        $priceCents = Money::parseEurosToCents($priceRaw);
+        $priceValid = $priceCents !== null;
         if (!$priceValid) {
-            $errors['price_cents'] = 'Le prix (en centimes) doit etre un entier strictement positif.';
+            $errors['price_cents'] = 'Le prix doit être un montant en euros strictement positif (ex. 1,90).';
         }
 
         $vat = ctype_digit(trim($form['vat_rate'] ?? '')) ? (int) trim($form['vat_rate'] ?? '') : 0;
@@ -651,10 +1149,20 @@ class ProductController extends AdminController
 
         $orderRaw = trim($form['display_order'] ?? '0');
         if (!ctype_digit($orderRaw) || (int) $orderRaw > 65535) {
-            $errors['display_order'] = 'L ordre d affichage doit etre un entier entre 0 et 65535.';
+            $errors['display_order'] = 'L\'ordre d\'affichage doit être un entier entre 0 et 65535.';
         }
 
         $description = trim($form['description'] ?? '');
+        // `description` est une colonne TEXT (pas VARCHAR) : sa limite MariaDB
+        // est en OCTETS (65535), pas en caracteres -- strlen() (octets), pas
+        // mb_strlen() (caracteres), a la difference de `image_path` ci-dessus
+        // (VARCHAR, limite en caracteres). Trouve et corrige en meme temps que
+        // le meme defaut sur l'import CSV (relecture adverse, 2026-09-26) :
+        // sans ce controle, une description demesuree passait la validation
+        // puis faisait echouer l'ecriture.
+        if (strlen($description) > 65535) {
+            $errors['description'] = 'La description est trop longue (environ 65 000 caractères maximum, moins si le texte contient beaucoup de caractères spéciaux).';
+        }
 
         // --- Champs de variante (F9-3, R4 / migrations 0006-0007) ---
         // Tous nullables : un champ vide signifie "produit de base / autonome, sans
@@ -666,7 +1174,7 @@ class ProductController extends AdminController
         $sizeCl = null;
         if ($sizeRaw !== '') {
             if (!ctype_digit($sizeRaw) || (int) $sizeRaw > 65535) {
-                $errors['size_cl'] = 'La taille (en cl) doit etre un entier entre 0 et 65535.';
+                $errors['size_cl'] = 'La taille (en cl) doit être un entier entre 0 et 65535.';
             } else {
                 $sizeCl = (int) $sizeRaw;
             }
@@ -680,13 +1188,13 @@ class ProductController extends AdminController
         $baseId = null;
         if ($baseRaw !== '') {
             if (!ctype_digit($baseRaw)) {
-                $errors['base_product_id'] = 'Le produit de base doit etre un produit existant.';
+                $errors['base_product_id'] = 'Le produit de base doit être un produit existant.';
             } elseif ((int) $baseRaw === $currentId) {
-                $errors['base_product_id'] = 'Un produit ne peut pas etre sa propre base.';
+                $errors['base_product_id'] = 'Un produit ne peut pas être sa propre base.';
             } elseif (!$this->productRepository()->productExists((int) $baseRaw)) {
-                $errors['base_product_id'] = 'Le produit de base doit etre un produit existant.';
+                $errors['base_product_id'] = 'Le produit de base doit être un produit existant.';
             } elseif (!$this->productRepository()->productIsBase((int) $baseRaw)) {
-                $errors['base_product_id'] = 'Le produit de base doit lui-meme etre un produit de base (pas une variante).';
+                $errors['base_product_id'] = 'Le produit de base doit lui-même être un produit de base (pas une variante).';
             } else {
                 $baseId = (int) $baseRaw;
             }
@@ -700,11 +1208,11 @@ class ProductController extends AdminController
         $maxiId = null;
         if ($maxiRaw !== '') {
             if (!ctype_digit($maxiRaw)) {
-                $errors['maxi_variant_product_id'] = 'La variante Maxi doit etre un produit existant.';
+                $errors['maxi_variant_product_id'] = 'La variante Maxi doit être un produit existant.';
             } elseif ((int) $maxiRaw === $currentId) {
-                $errors['maxi_variant_product_id'] = 'Un produit ne peut pas etre sa propre variante Maxi.';
+                $errors['maxi_variant_product_id'] = 'Un produit ne peut pas être sa propre variante Maxi.';
             } elseif (!$this->productRepository()->productExists((int) $maxiRaw)) {
-                $errors['maxi_variant_product_id'] = 'La variante Maxi doit etre un produit existant.';
+                $errors['maxi_variant_product_id'] = 'La variante Maxi doit être un produit existant.';
             } else {
                 $maxiId = (int) $maxiRaw;
             }
@@ -714,7 +1222,7 @@ class ProductController extends AdminController
             'category_id'             => $categoryId,
             'name'                    => $name,
             'description'             => $description !== '' ? $description : null,
-            'price_cents'             => $priceValid ? (int) $priceRaw : 0,
+            'price_cents'             => $priceValid ? $priceCents : 0,
             'size_cl'                 => $sizeCl,
             'base_product_id'         => $baseId,
             'maxi_variant_product_id' => $maxiId,
@@ -731,7 +1239,7 @@ class ProductController extends AdminController
      * @param array<string, mixed> $current
      * @param array{price_cents: int, vat_rate: int} $data
      */
-    private function changeSummary(array $current, array $data, bool $priceChanged, bool $vatChanged): string
+    protected function changeSummary(array $current, array $data, bool $priceChanged, bool $vatChanged): string
     {
         $parts = [];
         if ($priceChanged) {
@@ -766,7 +1274,7 @@ class ProductController extends AdminController
                 'code' => 'pin.failed',
                 'etype' => 'product',
                 'eid' => $productId,
-                'summary' => 'Echec PIN action sensible (email tente: ' . $email . ')',
+                'summary' => 'Échec PIN action sensible (email tenté: ' . $email . ')',
             ],
         );
     }
@@ -791,7 +1299,7 @@ class ProductController extends AdminController
      * @param array<string, string> $errors
      * @return list<array{ingredient_id:int, quantity_normal:int, quantity_maxi:int, is_removable:int, is_addable:int, extra_price_cents:int}>
      */
-    private function parseComposition(string $json, array &$errors): array
+    protected function parseComposition(string $json, array &$errors): array
     {
         $json = trim($json);
         if ($json === '' || $json === '[]') {
@@ -826,15 +1334,15 @@ class ProductController extends AdminController
             $extra = is_numeric($raw['extra_price_cents'] ?? null) ? (int) $raw['extra_price_cents'] : -1;
 
             if ($qn < 1 || $qn > 65535) {
-                $errors['composition'] = 'La quantite normale doit etre un entier >= 1.';
+                $errors['composition'] = 'La quantité normale doit être un entier >= 1.';
                 continue;
             }
             if ($qm < $qn || $qm > 65535) {
-                $errors['composition'] = 'La quantite maxi doit etre >= la quantite normale.';
+                $errors['composition'] = 'La quantité maxi doit être >= la quantité normale.';
                 continue;
             }
             if ($extra < 0 || $extra > 4294967295) {
-                $errors['composition'] = 'Le supplement (en centimes) doit etre un entier >= 0.';
+                $errors['composition'] = 'Le supplément (en centimes) doit être un entier >= 0.';
                 continue;
             }
 
@@ -850,6 +1358,355 @@ class ProductController extends AdminController
         }
 
         return $lines;
+    }
+
+    /**
+     * Variante etendue de parseComposition() : en plus d'un ingredient EXISTANT
+     * (ingredient_id, meme allowlist -- ingredient inconnu filtre, dedup par PK
+     * composite), accepte une ligne portant `new_ingredient` (nom + unite
+     * requis, conditionnement/capacite optionnels) pour creer l'ingredient A LA
+     * VOLEE, sans quitter le formulaire produit. Partagee par saveRecipe() (page
+     * recette dediee -- meme code, elle ne diverge pas) et
+     * ProductController::store()/update() (recette integree au formulaire
+     * produit). $canCreateIngredient reflete la permission `ingredient.manage`
+     * (RG-T03, defense en profondeur : meme si l'ecran cache le bouton de
+     * creation a un role qui ne l'a pas, le serveur revalide et refuse la ligne).
+     *
+     * @param array<string, string> $errors
+     * @return list<array{is_new: bool, ingredient_id: ?int, name: ?string, unit: ?string, pack_size: ?int, pack_label: ?string, stock_capacity: ?int, quantity_normal: int, quantity_maxi: int, is_removable: int, is_addable: int, extra_price_cents: int}>
+     */
+    protected function parseCompositionLines(string $json, array &$errors, bool $canCreateIngredient, int &$discardedIngredientCount = 0): array
+    {
+        $discardedIngredientCount = 0;
+        $json = trim($json);
+        if ($json === '' || $json === '[]') {
+            return [];
+        }
+
+        /** @var mixed $decoded */
+        $decoded = json_decode($json, true);
+        if (!is_array($decoded)) {
+            $errors['composition'] = 'Composition invalide.';
+
+            return [];
+        }
+
+        $lines = [];
+        $seenExisting = [];
+        $seenNewNames = [];
+        foreach ($decoded as $raw) {
+            if (!is_array($raw)) {
+                continue;
+            }
+
+            $qn = is_numeric($raw['quantity_normal'] ?? null) ? (int) $raw['quantity_normal'] : 0;
+            $qm = is_numeric($raw['quantity_maxi'] ?? null) ? (int) $raw['quantity_maxi'] : 0;
+            $extra = is_numeric($raw['extra_price_cents'] ?? null) ? (int) $raw['extra_price_cents'] : -1;
+            $removable = empty($raw['is_removable']) ? 0 : 1;
+            $addable = empty($raw['is_addable']) ? 0 : 1;
+
+            $newIngredient = is_array($raw['new_ingredient'] ?? null) ? $raw['new_ingredient'] : null;
+            if ($newIngredient !== null) {
+                if (!$canCreateIngredient) {
+                    $errors['composition'] = 'Vous n\'avez pas la permission de créer un nouvel ingrédient (ingredient.manage requis) : choisissez un ingrédient existant.';
+                    continue;
+                }
+
+                $name = trim((string) ($newIngredient['name'] ?? ''));
+                $unit = trim((string) ($newIngredient['unit'] ?? ''));
+                if ($name === '' || mb_strlen($name) > 120) {
+                    $errors['composition'] = 'Le nom du nouvel ingrédient est requis (120 caractères max).';
+                    continue;
+                }
+                if ($unit === '' || mb_strlen($unit) > 40) {
+                    $errors['composition'] = 'L\'unité du nouvel ingrédient est requise (40 caractères max).';
+                    continue;
+                }
+                if (isset($seenNewNames[mb_strtolower($name)]) || $this->ingredientRepository()->nameExists($name)) {
+                    $errors['composition'] = sprintf('Un ingrédient nommé "%s" existe déjà (ou est déjà proposé à la création juste au-dessus).', $name);
+                    continue;
+                }
+
+                $packRaw = trim((string) ($newIngredient['pack_size'] ?? ''));
+                $packSize = ProductImportService::DEFAULT_PACK_SIZE;
+                if ($packRaw !== '') {
+                    if (!ctype_digit($packRaw) || (int) $packRaw < 1 || (int) $packRaw > 65535) {
+                        $errors['composition'] = 'La taille de conditionnement doit être un entier entre 1 et 65535.';
+                        continue;
+                    }
+                    $packSize = (int) $packRaw;
+                }
+
+                $capRaw = trim((string) ($newIngredient['stock_capacity'] ?? ''));
+                $capacity = ProductImportService::DEFAULT_STOCK_CAPACITY;
+                if ($capRaw !== '') {
+                    if (!ctype_digit($capRaw) || (int) $capRaw < 1 || (int) $capRaw > 2147483647) {
+                        $errors['composition'] = 'La capacité doit être un entier >= 1.';
+                        continue;
+                    }
+                    $capacity = (int) $capRaw;
+                }
+
+                $packLabel = trim((string) ($newIngredient['pack_label'] ?? ''));
+                if (mb_strlen($packLabel) > 80) {
+                    $errors['composition'] = 'Le libellé de conditionnement est trop long (80 caractères max).';
+                    continue;
+                }
+
+                if ($qn < 1 || $qn > 65535) {
+                    $errors['composition'] = 'La quantité normale doit être un entier >= 1.';
+                    continue;
+                }
+                if ($qm < $qn || $qm > 65535) {
+                    $errors['composition'] = 'La quantité maxi doit être >= la quantité normale.';
+                    continue;
+                }
+                if ($extra < 0 || $extra > 4294967295) {
+                    $errors['composition'] = 'Le supplément (en centimes) doit être un entier >= 0.';
+                    continue;
+                }
+
+                $seenNewNames[mb_strtolower($name)] = true;
+                $lines[] = [
+                    'is_new' => true, 'ingredient_id' => null, 'name' => $name, 'unit' => $unit,
+                    'pack_size' => $packSize, 'pack_label' => $packLabel !== '' ? $packLabel : null,
+                    'stock_capacity' => $capacity,
+                    'quantity_normal' => $qn, 'quantity_maxi' => $qm,
+                    'is_removable' => $removable, 'is_addable' => $addable, 'extra_price_cents' => $extra,
+                ];
+                continue;
+            }
+
+            $ingredientId = is_numeric($raw['ingredient_id'] ?? null) ? (int) $raw['ingredient_id'] : 0;
+            if ($ingredientId <= 0 || !$this->productRepository()->ingredientExists($ingredientId)) {
+                // Filtre en silence cote donnees (allowlist RG-T16 : jamais un
+                // raw DB-detail cote equipier), mais COMPTE : un role qui a le
+                // droit ne doit pas perdre une ligne de recette sans le savoir
+                // (formulaire perime -- l'ingredient a ete supprime entre
+                // l'affichage et la soumission). Signale dans le message de
+                // confirmation (relecture adverse n°3, 2026-09-26).
+                ++$discardedIngredientCount;
+                continue;
+            }
+            if (isset($seenExisting[$ingredientId])) {
+                continue; // PK composite (product_id, ingredient_id) : un seul par ingredient
+            }
+
+            if ($qn < 1 || $qn > 65535) {
+                $errors['composition'] = 'La quantité normale doit être un entier >= 1.';
+                continue;
+            }
+            if ($qm < $qn || $qm > 65535) {
+                $errors['composition'] = 'La quantité maxi doit être >= la quantité normale.';
+                continue;
+            }
+            if ($extra < 0 || $extra > 4294967295) {
+                $errors['composition'] = 'Le supplément (en centimes) doit être un entier >= 0.';
+                continue;
+            }
+
+            $seenExisting[$ingredientId] = true;
+            $lines[] = [
+                'is_new' => false, 'ingredient_id' => $ingredientId, 'name' => null, 'unit' => null,
+                'pack_size' => null, 'pack_label' => null, 'stock_capacity' => null,
+                'quantity_normal' => $qn, 'quantity_maxi' => $qm,
+                'is_removable' => $removable, 'is_addable' => $addable, 'extra_price_cents' => $extra,
+            ];
+        }
+
+        return $lines;
+    }
+
+    /**
+     * Cree en base chaque ligne `is_new` (stock 0, seuils par defaut du projet --
+     * memes constantes que ProductImportService, source unique) et renvoie la
+     * liste APLATIE prete pour ProductRepository::replaceCompositionWithin()
+     * (tous les ingredient_id resolus, nouveaux comme existants), ainsi que les
+     * noms crees (pour le message de confirmation : "pensez a reapprovisionner").
+     * A appeler DANS la transaction ouverte par l'appelant (RG-T08).
+     *
+     * @param list<array<string, mixed>> $lines
+     * @return array{0: list<array{ingredient_id:int, quantity_normal:int, quantity_maxi:int, is_removable:int, is_addable:int, extra_price_cents:int}>, 1: list<string>}
+     */
+    private function materializeCompositionLines(DatabaseInterface $db, array $lines): array
+    {
+        $ingredientRepo = new IngredientRepository($db);
+        $final = [];
+        $createdNames = [];
+
+        foreach ($lines as $line) {
+            if ($line['is_new']) {
+                $ingredientRepo->create([
+                    'name'               => $line['name'],
+                    'unit'               => $line['unit'],
+                    'stock_quantity'     => 0,
+                    'stock_capacity'     => $line['stock_capacity'],
+                    'pack_size'          => $line['pack_size'],
+                    'pack_label'         => $line['pack_label'],
+                    'low_stock_pct'      => ProductImportService::DEFAULT_LOW_STOCK_PCT,
+                    'critical_stock_pct' => ProductImportService::DEFAULT_CRITICAL_STOCK_PCT,
+                    'is_active'          => 1,
+                ]);
+                $ingredientId = $this->lastInsertId($db);
+                $createdNames[] = $line['name'];
+            } else {
+                $ingredientId = $line['ingredient_id'];
+            }
+
+            $final[] = [
+                'ingredient_id'     => $ingredientId,
+                'quantity_normal'   => $line['quantity_normal'],
+                'quantity_maxi'     => $line['quantity_maxi'],
+                'is_removable'      => $line['is_removable'],
+                'is_addable'        => $line['is_addable'],
+                'extra_price_cents' => $line['extra_price_cents'],
+            ];
+        }
+
+        return [$final, $createdNames];
+    }
+
+    /**
+     * Le contenu de $lines (deja parse par parseCompositionLines()) DIFFERE-t-il
+     * de la composition ACTUELLEMENT enregistree pour ce produit ? Une ligne
+     * "nouvel ingredient" differe TOUJOURS (il n'existe pas encore dans la
+     * composition actuelle). Comparaison EXACTE (ksort + !==), volontairement
+     * INSENSIBLE A L'ORDRE des lignes : le client les soumet dans l'ordre
+     * d'ajout/affichage, la base les relit triees par nom d'ingredient
+     * (ProductRepository::composition()) -- un simple !== sur les tableaux
+     * tels quels serait sensible a cet ordre et exigerait ingredient.manage
+     * sur un RESOUMIS strictement identique, sans le moindre changement reel.
+     *
+     * @param list<array<string, mixed>> $lines
+     */
+    private function compositionDiffersFromStored(int $productId, array $lines): bool
+    {
+        $current = [];
+        foreach ($this->productRepository()->composition($productId) as $row) {
+            $current[(int) $row['ingredient_id']] = [
+                'quantity_normal'   => (int) $row['quantity_normal'],
+                'quantity_maxi'     => (int) $row['quantity_maxi'],
+                'is_removable'      => (int) $row['is_removable'],
+                'is_addable'        => (int) $row['is_addable'],
+                'extra_price_cents' => (int) $row['extra_price_cents'],
+            ];
+        }
+
+        $submitted = [];
+        foreach ($lines as $line) {
+            if ($line['is_new']) {
+                return true;
+            }
+            $submitted[(int) $line['ingredient_id']] = [
+                'quantity_normal'   => (int) $line['quantity_normal'],
+                'quantity_maxi'     => (int) $line['quantity_maxi'],
+                'is_removable'      => (int) $line['is_removable'],
+                'is_addable'        => (int) $line['is_addable'],
+                'extra_price_cents' => (int) $line['extra_price_cents'],
+            ];
+        }
+
+        ksort($current);
+        ksort($submitted);
+
+        return $current !== $submitted;
+    }
+
+    /**
+     * `SELECT LAST_INSERT_ID()` sur LA CONNEXION DE LA TRANSACTION EN COURS
+     * ($db, pas $this->db()) : indispensable pour recuperer l'id d'un produit ou
+     * d'un ingredient qui vient d'etre insere DANS la meme transaction (product,
+     * puis chaque ingredient nouveau). Meme technique que
+     * Admin\Api\JsonApiTrait::lastInsertId(), dupliquee ici (pas de base commune
+     * entre un controleur HTML et le trait JSON) : ProductRepository/
+     * IngredientRepository::create() ne renvoient pas l'id cree.
+     */
+    private function lastInsertId(DatabaseInterface $db): int
+    {
+        return (int) ($db->fetch('SELECT LAST_INSERT_ID() AS id')['id'] ?? 0);
+    }
+
+    /**
+     * @param list<string> $createdIngredientNames
+     */
+    private function creationFlashMessage(array $createdIngredientNames, int $discardedIngredientCount = 0): string
+    {
+        $message = $createdIngredientNames === []
+            ? 'Produit créé.'
+            : sprintf(
+                'Produit créé. %d nouvel(nouveaux) ingrédient(s) créé(s) à stock 0 (%s) : pensez à les réapprovisionner et à vérifier leurs allergènes (aucune revue n\'existe encore pour eux).',
+                count($createdIngredientNames),
+                implode(', ', $createdIngredientNames),
+            );
+
+        return $message . $this->discardedIngredientNotice($discardedIngredientCount);
+    }
+
+    /**
+     * @param list<string> $createdIngredientNames
+     */
+    private function updateFlashMessage(array $createdIngredientNames, bool $sensitiveChange, int $discardedIngredientCount = 0): string
+    {
+        $base = $sensitiveChange ? 'Produit mis à jour (changement de prix/TVA tracé).' : 'Produit mis à jour.';
+        $message = $createdIngredientNames === []
+            ? $base
+            : $base . sprintf(
+                ' %d nouvel(nouveaux) ingrédient(s) créé(s) à stock 0 (%s) : pensez à les réapprovisionner et à vérifier leurs allergènes (aucune revue n\'existe encore pour eux).',
+                count($createdIngredientNames),
+                implode(', ', $createdIngredientNames),
+            );
+
+        return $message . $this->discardedIngredientNotice($discardedIngredientCount);
+    }
+
+    /**
+     * Un ingredient_id inconnu est filtre en SILENCE dans
+     * parseCompositionLines() (allowlist RG-T16 : jamais un raw DB-detail
+     * cote equipier), mais un role qui A le droit ne doit pas perdre une
+     * ligne de recette sans le savoir -- formulaire perime : l'ingredient a
+     * ete supprime entre l'affichage et la soumission. Signale dans le
+     * message de confirmation (releve par relecture adverse n°3, 2026-09-26).
+     */
+    private function discardedIngredientNotice(int $discardedIngredientCount): string
+    {
+        if ($discardedIngredientCount <= 0) {
+            return '';
+        }
+
+        return sprintf(
+            ' Attention : %d ligne(s) de recette ignorée(s) (ingrédient introuvable, probablement supprimé entre-temps) — vérifiez la recette.',
+            $discardedIngredientCount,
+        );
+    }
+
+    /**
+     * Composition d'un produit (vide a la creation, id = 0), au format
+     * ATTENDU EN ENTREE par le builder JS partage (product-recipe.js) :
+     * `ingredient_id` present, jamais `new_ingredient` (une composition deja en
+     * base ne contient que des ingredients existants). Sert a pre-remplir le
+     * champ cache compositionJson du formulaire produit a l'affichage initial
+     * (GET create/edit) ; un re-rendu apres erreur (POST) echo au contraire le
+     * JSON exactement tel que soumis (voir renderForm()).
+     *
+     * @return list<array{ingredient_id:int, quantity_normal:int, quantity_maxi:int, is_removable:int, is_addable:int, extra_price_cents:int}>
+     */
+    private function slimComposition(int $id): array
+    {
+        if ($id === 0) {
+            return [];
+        }
+
+        return array_map(
+            static fn (array $c): array => [
+                'ingredient_id'     => (int) ($c['ingredient_id'] ?? 0),
+                'quantity_normal'   => (int) ($c['quantity_normal'] ?? 1),
+                'quantity_maxi'     => (int) ($c['quantity_maxi'] ?? 1),
+                'is_removable'      => (int) ($c['is_removable'] ?? 0),
+                'is_addable'        => (int) ($c['is_addable'] ?? 0),
+                'extra_price_cents' => (int) ($c['extra_price_cents'] ?? 0),
+            ],
+            $this->productRepository()->composition($id),
+        );
     }
 
     /**
@@ -887,12 +1744,25 @@ class ProductController extends AdminController
             static fn (array $p): bool => (int) ($p['id'] ?? 0) !== $id,
         ));
 
+        // Composition (recette) integree au formulaire produit : sur un
+        // re-rendu apres erreur (422), $values PORTE le composition_json
+        // exactement tel que soumis (l'utilisateur ne perd pas sa saisie sur une
+        // erreur ailleurs dans le formulaire) ; sinon (affichage initial GET,
+        // creation OU edition), on part de la composition reelle en base (vide
+        // a la creation, id = 0).
+        $compositionJson = array_key_exists('composition_json', $values)
+            ? (string) $values['composition_json']
+            : (string) json_encode($this->slimComposition($id), JSON_UNESCAPED_UNICODE);
+
         return $this->adminView('admin/products/form', [
-            'title'          => ($id !== 0 ? 'Modifier' : 'Nouveau') . ' produit - Wakdo Admin',
-            'activeNav'      => 'products',
-            'productId'      => $id,
-            'categories'     => $this->categoryRepository()->all(),
-            'baseCandidates' => $baseCandidates,
+            'title'                => ($id !== 0 ? 'Modifier' : 'Nouveau') . ' produit - Wakdo Admin',
+            'activeNav'            => 'products',
+            'productId'            => $id,
+            'categories'           => $this->categoryRepository()->all(),
+            'baseCandidates'       => $baseCandidates,
+            'ingredients'          => $this->ingredientRepository()->all(),
+            'compositionJson'      => $compositionJson,
+            'canCreateIngredient'  => $this->may($guard, 'ingredient.manage'),
             'values'     => [
                 'category_id'             => (string) ($values['category_id'] ?? ''),
                 'name'                    => (string) ($values['name'] ?? ''),
@@ -939,6 +1809,6 @@ class ProductController extends AdminController
 
     private function invalidCsrf(): Response
     {
-        return Response::make('Requete invalide.', 403, ['Content-Type' => 'text/plain; charset=utf-8']);
+        return Response::make('Requête invalide.', 403, ['Content-Type' => 'text/plain; charset=utf-8']);
     }
 }

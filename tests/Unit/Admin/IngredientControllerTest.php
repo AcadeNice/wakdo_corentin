@@ -220,7 +220,7 @@ final class IngredientControllerTest extends TestCase
 
         $body = $this->controller($this->get('/admin/ingredients'), $db)->index()->body();
 
-        self::assertStringContainsString('A reapprovisionner', $body);
+        self::assertStringContainsString('À réapprovisionner', $body);
         self::assertStringContainsString('stock-section--restock', $body);
         self::assertStringContainsString('Buns', $body);
         self::assertStringContainsString('Critique', $body);
@@ -266,7 +266,7 @@ final class IngredientControllerTest extends TestCase
 
         $body = $this->controller($this->get('/admin/ingredients'), $db)->index()->body();
 
-        self::assertStringContainsString('Regler les seuils', $body);
+        self::assertStringContainsString('Régler les seuils', $body);
         self::assertStringContainsString('data-threshold-open', $body);
         self::assertStringContainsString('data-capacity="100"', $body);
         self::assertStringContainsString('data-low="12"', $body);
@@ -328,7 +328,7 @@ final class IngredientControllerTest extends TestCase
         $response = $this->controller($this->post($this->validForm(['low_stock_pct' => '5', 'critical_stock_pct' => '5']), '/admin/ingredients'), $db)->store();
 
         self::assertSame(422, $response->status());
-        self::assertStringContainsString('strictement inferieur', $response->body());
+        self::assertStringContainsString('strictement inférieur', $response->body());
     }
 
     public function testStoreRejectsDuplicateName(): void
@@ -470,7 +470,7 @@ final class IngredientControllerTest extends TestCase
         $response = $this->controller($this->post(['_csrf' => $this->csrf], '/admin/ingredients/5/delete'), $db)->destroy(['id' => '5']);
 
         self::assertSame(409, $response->status());
-        self::assertStringContainsString('reference', $response->body());
+        self::assertStringContainsString('référencé', $response->body());
     }
 
     // --- THRESHOLDS (F13, stock.manage, SANS PIN) : reglage rapide capacite + seuils ---
@@ -506,7 +506,7 @@ final class IngredientControllerTest extends TestCase
 
         self::assertSame(422, $response->status());
         self::assertFalse($db->wrote('UPDATE ingredient SET stock_capacity'));
-        self::assertStringContainsString('capacite', $response->body());
+        self::assertStringContainsString('capacité', $response->body());
     }
 
     public function testUpdateThresholdsRejectsPercentageAboveHundred(): void
@@ -529,7 +529,7 @@ final class IngredientControllerTest extends TestCase
 
         self::assertSame(422, $response->status());
         self::assertFalse($db->wrote('UPDATE ingredient SET stock_capacity'));
-        self::assertStringContainsString('strictement inferieur', $response->body());
+        self::assertStringContainsString('strictement inférieur', $response->body());
     }
 
     public function testUpdateThresholdsForbiddenWithoutStockManage(): void
@@ -596,6 +596,30 @@ final class IngredientControllerTest extends TestCase
         self::assertSame(20, $movement['delta']);  // 2 packs x pack_size 10
         self::assertSame(1, $movement['user']);    // acteur de SESSION (RG-4), pas un PIN
         self::assertSame([], $db->auditActions()); // pas d'audit_log (RG-T14)
+        self::assertSame('Réapprovisionnement enregistré.', $this->session->get('_flash'));
+    }
+
+    /**
+     * Bug remonte (2026-09-26) : "je fais un mouvement de stock, il ne se passe
+     * rien". Reproduit ici quand l'ingredient est deja a sa capacite -- le
+     * reappro est PLAFONNE (delta reellement applique = 0), la redirection est
+     * un succes (302), MAIS le message generique ne le disait pas : l'equipier
+     * voyait "enregistre" sans que rien ne bouge a l'ecran. Corrige : le flash
+     * distingue desormais un reappro plafonne d'un reappro plein effet.
+     */
+    public function testRestockAtCapacityIsClampedAndSaysSoInTheFlash(): void
+    {
+        $db = $this->permittedDb();
+        $db->ingredientRow = $this->ingredient(['stock_quantity' => 100, 'stock_capacity' => 100, 'pack_size' => 10]);
+
+        $response = $this->controller($this->post(['_csrf' => $this->csrf, 'packs' => '2'], '/admin/ingredients/5/restock'), $db)->restock(['id' => '5']);
+
+        self::assertSame(302, $response->status());
+        $movement = $this->writeParams($db, 'INSERT INTO stock_movement');
+        self::assertNotNull($movement);
+        self::assertSame(0, $movement['delta']); // plafonne : deja plein, rien n'est reellement ajoute
+        self::assertStringContainsString('plafonné', (string) $this->session->get('_flash'));
+        self::assertStringContainsString('+0', (string) $this->session->get('_flash'));
     }
 
     public function testRestockRejectedWhenInactive(): void
@@ -637,6 +661,32 @@ final class IngredientControllerTest extends TestCase
         self::assertSame(-10, $movement['delta']);  // 30 compte - 40 theorique
         self::assertSame(9, $movement['user']);     // acteur resolu par PIN (RG-4)
         self::assertSame([], $db->auditActions());  // RG-T14 : pas de double-journal
+        self::assertSame('Inventaire enregistré.', $this->session->get('_flash'));
+    }
+
+    /**
+     * Bug remonte (2026-09-26) : un comptage physique superieur a la capacite
+     * configuree est retenu a la capacite, pas au chiffre saisi -- sans message
+     * explicite, l'ecart entre "j'ai saisi 500" et "le stock affiche 100" passe
+     * pour un bug plutot qu'un plafonnement volontaire.
+     */
+    public function testInventoryCountAboveCapacityIsClampedAndSaysSoInTheFlash(): void
+    {
+        $db = $this->permittedDb(); // capacite 100
+        $this->actingPin($db);
+
+        $response = $this->controller($this->post([
+            '_csrf' => $this->csrf, 'actual_quantity' => '500',
+            'pin_email' => 'sam@wakdo.local', 'pin' => '4729',
+        ], '/admin/ingredients/5/inventory'), $db)->inventory(['id' => '5']);
+
+        self::assertSame(302, $response->status());
+        $update = $this->writeParams($db, 'UPDATE ingredient SET stock_quantity');
+        self::assertNotNull($update);
+        self::assertSame(100, $update['q']); // plafonne a la capacite, pas 500
+        self::assertStringContainsString('plafonné', (string) $this->session->get('_flash'));
+        self::assertStringContainsString('100', (string) $this->session->get('_flash'));
+        self::assertStringContainsString('500', (string) $this->session->get('_flash'));
     }
 
     public function testInventoryWithBadPinLogsFailedAndChangesNoStock(): void
@@ -703,6 +753,7 @@ final class IngredientControllerTest extends TestCase
         self::assertSame(10, $movement['delta']);  // 40 + 10 = 50, sous la capacite
         self::assertSame(9, $movement['user']);     // acteur resolu par PIN (RG-4)
         self::assertSame([], $db->auditActions());  // RG-T14 : pas de double-journal
+        self::assertSame('Ajustement de stock enregistré.', $this->session->get('_flash'));
     }
 
     public function testAdjustClampsToCapacityAndRecordsAppliedDelta(): void
@@ -723,6 +774,37 @@ final class IngredientControllerTest extends TestCase
         $update = $this->writeParams($db, 'UPDATE ingredient SET stock_quantity');
         self::assertNotNull($update);
         self::assertSame(100, $update['q']);
+        // Bug remonte (2026-09-26) : le message doit dire le plafonnement, pas
+        // laisser croire que les +100 demandes ont ete integralement appliques.
+        self::assertStringContainsString('plafonné', (string) $this->session->get('_flash'));
+        self::assertStringContainsString('+60', (string) $this->session->get('_flash'));
+        self::assertStringContainsString('+100', (string) $this->session->get('_flash'));
+    }
+
+    /**
+     * Bug remonte (2026-09-26) : "je fais un mouvement, il ne se passe rien".
+     * Cas extreme du plafonnement -- l'ingredient est DEJA a sa capacite : le
+     * delta applique est 0, le mouvement est quand meme trace (RG-3), et la
+     * redirection reste un succes (302), mais le flash doit le dire clairement
+     * plutot que de laisser un message generique faire croire a un bug.
+     */
+    public function testAdjustAtCapacityAppliesZeroAndSaysSoInTheFlash(): void
+    {
+        $db = $this->permittedDb();
+        $db->ingredientRow = $this->ingredient(['stock_quantity' => 100, 'stock_capacity' => 100]);
+        $this->actingPin($db);
+
+        $response = $this->controller($this->post([
+            '_csrf' => $this->csrf, 'delta' => '5',
+            'pin_email' => 'sam@wakdo.local', 'pin' => '4729',
+        ], '/admin/ingredients/5/adjust'), $db)->adjust(['id' => '5']);
+
+        self::assertSame(302, $response->status());
+        $movement = $this->writeParams($db, 'INSERT INTO stock_movement');
+        self::assertNotNull($movement);
+        self::assertSame(0, $movement['delta']); // deja plein : rien n'est reellement applique
+        self::assertStringContainsString('plafonné', (string) $this->session->get('_flash'));
+        self::assertStringContainsString('+0', (string) $this->session->get('_flash'));
     }
 
     public function testAdjustAllowsNegativeDelta(): void
@@ -843,6 +925,21 @@ final class IngredientControllerTest extends TestCase
         self::assertStringNotContainsString('Auteur', $response->body()); // colonne masquee (RG-4)
     }
 
+    public function testMovementsShowsHumanReadableDate(): void
+    {
+        // Regression F40 : la date de mouvement s'affichait au format brut MySQL
+        // ('Y-m-d H:i:s') au lieu d'un format lisible par un equipier.
+        $db = $this->permittedDb();
+        $db->grantedCodes = ['stock.read'];
+        $db->movementsRows = [['id' => 1, 'ingredient_id' => 5, 'movement_type' => 'restock', 'delta' => 20, 'order_id' => null, 'user_id' => 9, 'note' => null, 'created_at' => '2026-06-17 09:00:00']];
+
+        $response = $this->controller($this->get('/admin/ingredients/5/movements'), $db)->movements(['id' => '5']);
+
+        self::assertSame(200, $response->status());
+        self::assertStringContainsString('17/06/2026 09:00', $response->body());
+        self::assertStringNotContainsString('2026-06-17 09:00:00', $response->body());
+    }
+
     // -------------------------------------------------------------------------
     // F11b — revue des allergenes d'un ingredient
     // -------------------------------------------------------------------------
@@ -858,7 +955,7 @@ final class IngredientControllerTest extends TestCase
         return [
             ['id' => 1, 'code' => 'gluten', 'name' => 'Gluten', 'description' => 'Cereales.'],
             ['id' => 7, 'code' => 'milk', 'name' => 'Lait', 'description' => 'Lait.'],
-            ['id' => 11, 'code' => 'sesame', 'name' => 'Graines de sesame', 'description' => 'Sesame.'],
+            ['id' => 11, 'code' => 'sesame', 'name' => 'Graines de sésame', 'description' => 'Sésame.'],
         ];
     }
 
@@ -884,7 +981,7 @@ final class IngredientControllerTest extends TestCase
         // Le rappel dit COMBIEN et POURQUOI : sinon un ingredient ajoute plus tard fait
         // basculer des produits en "information non disponible" sans que ca se voie.
         self::assertStringContainsString('2', $body);
-        self::assertStringContainsString('revue allergenes', $body);
+        self::assertStringContainsString('revue allergènes', $body);
     }
 
     public function testIndexStaysSilentWhenEveryIngredientIsReviewed(): void
@@ -913,7 +1010,19 @@ final class IngredientControllerTest extends TestCase
         // nommees allergens[] seraient perdues en silence.
         self::assertStringContainsString('name="allergen_1"', $response->body());
         self::assertStringContainsString('name="allergen_7"', $response->body());
-        self::assertStringContainsString('Graines de sesame', $response->body());
+        self::assertStringContainsString('Graines de sésame', $response->body());
+    }
+
+    public function testEditWrapsNutritionAndAllergenCardsInCardBody(): void
+    {
+        // Regression F40 (mise en page : meme defaut que la page RGPD) : .card seul ne
+        // porte aucun padding (concu pour .card-header + .card-body internes) ; sans
+        // .card-body, le texte des cartes Nutrition/Allergenes touche le bord du cadre.
+        $db = $this->dbWithAllergenCatalogue();
+
+        $body = $this->controller($this->get('/admin/ingredients/5/edit'), $db)->edit(['id' => '5'])->body();
+
+        self::assertSame(2, substr_count($body, 'class="card-body"'));
     }
 
     public function testEditPreChecksTheAllergensAlreadyDeclared(): void
@@ -1043,7 +1152,7 @@ final class IngredientControllerTest extends TestCase
         // avec la vue interdite -- sans cette assertion le test passerait pour la
         // mauvaise raison.
         self::assertSame(403, $response->status());
-        self::assertSame('Requete invalide.', $response->body());
+        self::assertSame('Requête invalide.', $response->body());
         self::assertSame([], $db->writes);
     }
 
@@ -1085,5 +1194,27 @@ final class IngredientControllerTest extends TestCase
         $params = $this->writeParams($db, 'UPDATE ingredient SET allergens_reviewed_at');
         self::assertNotNull($params);
         self::assertSame(120, mb_strlen((string) $params['src']));
+    }
+
+    // -------------------------------------------------------------------------
+    // Sommaire d'ancres (RGAA Cr 1.e.11) — audit Bloc 1 : la vue la plus longue
+    // du back-office n'avait aucune navigation interne.
+    // -------------------------------------------------------------------------
+
+    public function testIndexRendersTableOfContentsLinkingBothRealSections(): void
+    {
+        // Verifie les deux liens ET que leurs cibles existent reellement dans le
+        // HTML rendu : un sommaire dont les ancres ne resolvent nulle part serait
+        // pire qu'aucun sommaire (fausse promesse de navigation).
+        $db = $this->permittedDb();
+        $db->ingredientsRows = [$this->ingredient()];
+
+        $body = $this->controller($this->get('/admin/ingredients'), $db)->index()->body();
+
+        self::assertStringContainsString('<nav class="toc" aria-label="Sommaire de la page">', $body);
+        self::assertStringContainsString('href="#ingredients-a-reapprovisionner"', $body);
+        self::assertStringContainsString('href="#ingredients-tous"', $body);
+        self::assertStringContainsString('id="ingredients-a-reapprovisionner"', $body);
+        self::assertStringContainsString('id="ingredients-tous"', $body);
     }
 }

@@ -5,7 +5,12 @@ declare(strict_types=1);
 /**
  * Liste des roles (RBAC, role.manage), injectee dans admin/layout.php. Texte echappe.
  * Presentation humanisee : page d'accueil et canal affiches en clair (la base garde
- * les chemins / enums techniques).
+ * les chemins / enums techniques). Le code interne (admin, manager, kitchen...) n'est
+ * PAS affiche ici : la migration 0012_role_labels_fr.sql documente explicitement que
+ * "code, default_route et order_source restent des identifiants techniques, jamais
+ * affiches en clair aux equipiers" -- le nom (colonne "Nom") est le seul identifiant
+ * qui doit apparaitre a l'ecran (balayage 2026-09-26, defaut "texte technique",
+ * roles/index.php:71 avant correction).
  *
  * @var array<int, array<string, mixed>> $roles
  */
@@ -20,9 +25,14 @@ $routeLabels = [
     '/admin/products'    => 'Produits',
     '/admin/menus'       => 'Menus',
     '/admin/ingredients' => 'Stock',
-    '/admin/categories'  => 'Categories',
+    '/admin/categories'  => 'Catégories',
     '/admin/users'       => 'Comptes',
-    '/admin/roles'       => 'Roles',
+    '/admin/roles'       => 'Rôles',
+    // Roles operationnels (kitchen/counter/drive, seed 0001) : sans ces entrees, le
+    // chemin technique brut s'affichait dans la colonne (F40, textes techniques).
+    '/kitchen/display'   => 'Écran cuisine (KDS)',
+    '/counter/orders'    => 'Comptoir',
+    '/drive/orders'      => 'Drive',
 ];
 $canalLabels = ['kiosk' => 'Borne', 'counter' => 'Comptoir', 'drive' => 'Drive'];
 $routeHuman = static fn (string $r): string => $r === '' ? '—' : ($routeLabels[$r] ?? $r);
@@ -30,11 +40,11 @@ $canalHuman = static fn (?string $s): string => ($s === null || $s === '') ? '�
 ?>
 <div class="page-header">
     <div>
-        <h1 class="page-title">Roles et droits d'acces</h1>
-        <p class="page-subtitle">Modifier un role est une action sensible (confirmation par PIN).</p>
+        <h1 class="page-title">Rôles et droits d'accès</h1>
+        <p class="page-subtitle">Modifier un rôle est une action sensible (confirmation par PIN).</p>
     </div>
     <div class="page-actions">
-        <a class="btn btn-primary" href="/admin/roles/new">Nouveau role</a>
+        <a class="btn btn-primary" href="/admin/roles/new">Nouveau rôle</a>
     </div>
 </div>
 
@@ -44,7 +54,6 @@ $canalHuman = static fn (?string $s): string => ($s === null || $s === '') ? '�
             <thead>
                 <tr>
                     <th>Nom</th>
-                    <th>Code interne</th>
                     <th>Page d'accueil</th>
                     <th>Canal</th>
                     <th>Statut</th>
@@ -53,7 +62,7 @@ $canalHuman = static fn (?string $s): string => ($s === null || $s === '') ? '�
             </thead>
             <tbody>
                 <?php if ($rows === []): ?>
-                    <tr><td colspan="6" class="muted">Aucun role.</td></tr>
+                    <tr><td colspan="5" class="muted">Aucun rôle.</td></tr>
                 <?php endif; ?>
                 <?php foreach ($rows as $row): ?>
                     <?php
@@ -63,7 +72,6 @@ $canalHuman = static fn (?string $s): string => ($s === null || $s === '') ? '�
                     ?>
                     <tr>
                         <td class="fw-600"><?= $esc($row['label'] ?? '') ?></td>
-                        <td class="muted"><?= $esc($row['code'] ?? '') ?></td>
                         <td class="muted"><?= $esc($routeHuman((string) ($row['default_route'] ?? ''))) ?></td>
                         <td class="muted"><?= $esc($canalHuman($src)) ?></td>
                         <td>

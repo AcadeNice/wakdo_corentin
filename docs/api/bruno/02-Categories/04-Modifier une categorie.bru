@@ -1,0 +1,22 @@
+meta {
+  name: Modifier une categorie
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{baseUrl}}/admin/api/categories/{{created_category_id}}
+}
+
+headers {
+  Content-Type: application/json
+  X-CSRF-Token: {{csrf}}
+}
+
+body {
+  {
+    "name": "Demo {{run}} v2",
+    "slug": "demo-{{run}}",
+    "display_order": 51
+  }
+}

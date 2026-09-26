@@ -1,0 +1,38 @@
+meta {
+  name: Creer un produit
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/admin/api/products
+}
+
+headers {
+  Content-Type: application/json
+  X-CSRF-Token: {{csrf}}
+}
+
+body {
+  {
+    "category_id": "{{burgersCategoryId}}",
+    "name": "Produit Demo {{run}}",
+    "price_cents": 490,
+    "vat_rate": 100,
+    "is_available": true,
+    "display_order": 99
+  }
+}
+
+docs {
+product.create, pas de PIN. price_cents en CENTIMES, ENTIER STRICT (mlt 8.1) : un decimal (590.9) ou une chaine en euros ("12,50") sont refuses (422), jamais tronques ni relus comme des euros. category_id recupere dynamiquement (categorie 'burgers', dossier Categories ci-dessus).
+}
+
+script:post-response {
+  const body = res.getBody();
+  if (body && body.data && body.data.id) { bru.setEnvVar('created_product_id', body.data.id); }
+}
+
+tests {
+  expect(res.getStatus()).to.equal(201);
+}

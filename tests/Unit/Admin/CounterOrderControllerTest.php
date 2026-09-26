@@ -17,18 +17,32 @@ use App\Tests\Support\FakeDatabase;
 
 /**
  * Stub OrderQueryRepository : liste canned multi-source (rendu de la liste teste sans
- * base). recent() ramene tous canaux ; le controleur filtre par source derivee du chemin.
+ * base). recentVisible() (pas recent()) : CounterOrderController::index() filtre
+ * desormais EN SQL (relecture adverse, 2e tour, point 3) -- ce stub reproduit le
+ * meme contrat (filtre par $sources, ordre deja croissant en anciennete des lignes
+ * canned) plutot que de laisser le controleur filtrer en PHP apres coup, meme
+ * convention que StubRecentOrders dans OrderAdminControllerTest.php.
  * paidQueue() ramene la file "En cours" canned, deja filtree par source par l'appelant.
  */
 final class StubChannelOrders extends OrderQueryRepository
 {
-    public function recent(int $limit = 50): array
+    /** @var list<array<string, mixed>> */
+    private const ROWS = [
+        ['order_number' => 'C100', 'source' => 'counter', 'service_mode' => 'dine_in', 'service_tag' => null, 'status' => 'paid', 'total_ttc_cents' => 890, 'created_at' => '2026-06-22 10:00:00', 'paid_at' => '2026-06-22 10:00:01'],
+        ['order_number' => 'D200', 'source' => 'drive', 'service_mode' => 'drive', 'service_tag' => null, 'status' => 'paid', 'total_ttc_cents' => 990, 'created_at' => '2026-06-22 10:05:00', 'paid_at' => '2026-06-22 10:05:01'],
+        ['order_number' => 'K9', 'source' => 'kiosk', 'service_mode' => 'takeaway', 'service_tag' => null, 'status' => 'paid', 'total_ttc_cents' => 500, 'created_at' => '2026-06-22 10:06:00', 'paid_at' => '2026-06-22 10:06:01'],
+        // Statuts de cuisine (RG-T09/T20) : regression capture 23, le statut brut
+        // 'preparing'/'ready' s'affichait faute de libelle dans admin/counter/index.php.
+        ['order_number' => 'C101', 'source' => 'counter', 'service_mode' => 'dine_in', 'service_tag' => null, 'status' => 'preparing', 'total_ttc_cents' => 700, 'created_at' => '2026-06-22 10:07:00', 'paid_at' => '2026-06-22 10:07:01'],
+        ['order_number' => 'C102', 'source' => 'counter', 'service_mode' => 'dine_in', 'service_tag' => null, 'status' => 'ready', 'total_ttc_cents' => 600, 'created_at' => '2026-06-22 10:08:00', 'paid_at' => '2026-06-22 10:08:01'],
+    ];
+
+    public function recentVisible(array $sources, int $limit = 50): array
     {
-        return [
-            ['order_number' => 'C100', 'source' => 'counter', 'service_mode' => 'dine_in', 'service_tag' => null, 'status' => 'paid', 'total_ttc_cents' => 890, 'created_at' => '2026-06-22 10:00:00', 'paid_at' => '2026-06-22 10:00:01'],
-            ['order_number' => 'D200', 'source' => 'drive', 'service_mode' => 'drive', 'service_tag' => null, 'status' => 'paid', 'total_ttc_cents' => 990, 'created_at' => '2026-06-22 10:05:00', 'paid_at' => '2026-06-22 10:05:01'],
-            ['order_number' => 'K9', 'source' => 'kiosk', 'service_mode' => 'takeaway', 'service_tag' => null, 'status' => 'paid', 'total_ttc_cents' => 500, 'created_at' => '2026-06-22 10:06:00', 'paid_at' => '2026-06-22 10:06:01'],
-        ];
+        return array_values(array_filter(
+            self::ROWS,
+            static fn (array $o): bool => in_array((string) $o['source'], $sources, true),
+        ));
     }
 
     public function paidQueue(array $sources): array
@@ -36,9 +50,10 @@ final class StubChannelOrders extends OrderQueryRepository
         // File "En cours" du canal : ne ramene que des commandes dont la source est
         // dans $sources (le controleur passe la SEULE source du canal courant). C100 est
         // sur place avec un numero de table (12) ; D200 est un drive sans table.
+        // ERG-02 : status distinct (paid vs preparing) pour tester la colonne Statut.
         $all = [
-            ['order_number' => 'C100', 'source' => 'counter', 'service_mode' => 'dine_in', 'service_tag' => '12', 'total_ttc_cents' => 890, 'paid_at' => '2026-06-22 10:00:01'],
-            ['order_number' => 'D200', 'source' => 'drive', 'service_mode' => 'drive', 'service_tag' => null, 'total_ttc_cents' => 990, 'paid_at' => '2026-06-22 10:05:01'],
+            ['order_number' => 'C100', 'source' => 'counter', 'service_mode' => 'dine_in', 'service_tag' => '12', 'status' => 'paid', 'total_ttc_cents' => 890, 'paid_at' => '2026-06-22 10:00:01'],
+            ['order_number' => 'D200', 'source' => 'drive', 'service_mode' => 'drive', 'service_tag' => null, 'status' => 'preparing', 'total_ttc_cents' => 990, 'paid_at' => '2026-06-22 10:05:01'],
         ];
 
         return array_values(array_filter(
@@ -159,6 +174,14 @@ final class CounterOrderControllerTest extends TestCase
         self::assertStringNotContainsString('D200', $body); // canal drive exclu
         self::assertStringNotContainsString('K9', $body);   // kiosk exclu
         self::assertStringContainsString('Nouvelle commande', $body);
+        // Regression capture 23 : statut de cuisine libelle, jamais le code brut.
+        self::assertStringContainsString('En préparation', $body);
+        self::assertStringContainsString('Prête', $body);
+        self::assertStringNotContainsString('>preparing<', $body);
+        self::assertStringNotContainsString('>ready<', $body);
+        // Regression : dates au format brut MySQL (defaut visible) -> format FR lisible.
+        self::assertStringContainsString('22/06/2026', $body);
+        self::assertStringNotContainsString('2026-06-22 10:00:00', $body);
     }
 
     public function testDriveIndexListsOnlyDriveOrders(): void
@@ -172,11 +195,30 @@ final class CounterOrderControllerTest extends TestCase
         self::assertStringNotContainsString('C100', $body);
     }
 
+    public function testCounterIndexIsWiredToRecentVisibleNotRecentPlusPhpFilter(): void
+    {
+        // Relecture adverse (2e tour), point 3 : index() doit filtrer EN SQL
+        // (recentVisible), pas recent() + array_filter en PHP apres coup -- meme
+        // motif que celui corrige pour OrderAdminController::index() au 1er tour
+        // (preuve au niveau SQL reel dans
+        // tests/Integration/OrderQueryRepositoryVisibleDbTest.php). StubChannelOrders
+        // n'implemente plus QUE recentVisible() (plus recent()) : si le controleur
+        // appelait encore recent(), il retomberait sur l'implementation REELLE du
+        // parent OrderQueryRepository contre le FakeDatabase de ce test, qui ne sait
+        // pas repondre a cette requete et renverrait une liste vide -- ce test
+        // (comme testCounterIndexListsOnlyCounterOrders juste au-dessus) virerait
+        // au rouge si quelqu'un revenait au motif filtre-apres-coup.
+        $response = $this->controller($this->get('/counter/orders'), $this->permittedDb())->index();
+
+        self::assertSame(200, $response->status());
+        self::assertStringContainsString('C100', $response->body());
+    }
+
     public function testCreateRendersProductComposer(): void
     {
         $db = $this->permittedDb();
         $db->productsRows = [
-            ['id' => 12, 'category_id' => 1, 'name' => 'Cheeseburger', 'description' => null, 'price_cents' => 890, 'image_path' => null, 'display_order' => 1],
+            ['id' => 12, 'category_id' => 1, 'name' => 'Cheeseburger', 'description' => null, 'price_cents' => 890, 'image_path' => 'assets/images/produits/cheeseburger.png', 'display_order' => 1],
         ];
 
         $response = $this->controller($this->get('/counter/orders/new'), $db)->create();
@@ -190,6 +232,11 @@ final class CounterOrderControllerTest extends TestCase
         self::assertStringContainsString('"id":12', $body);
         self::assertStringContainsString('id="pos-grid"', $body);
         self::assertStringContainsString('service_mode', $body);
+        // Regression F40 (captures 21/22) : le chemin relatif d'origine ('assets/...',
+        // pense pour la borne servie a la racine) resolvait sous /counter/orders/ (404)
+        // une fois interprete par le navigateur sur cette page. Doit sortir absolu.
+        self::assertStringContainsString('\/assets\/images\/produits\/cheeseburger.png', $body);
+        self::assertStringNotContainsString('"image":"assets\/images', $body);
     }
 
     public function testStoreRejectsInvalidCsrf(): void
@@ -227,7 +274,10 @@ final class CounterOrderControllerTest extends TestCase
         $response = $this->controller($request, $db)->store();
 
         self::assertSame(302, $response->status());
-        self::assertSame('/counter/orders', $response->header('Location'));
+        // Ligne mise en evidence (retour apres action) : store() ajoute
+        // ?highlight=<numero> a la redirection pour que counter/index.php signale la
+        // ligne fraichement creee (purement visuel, cf. admin.css .row-highlight).
+        self::assertSame('/counter/orders?highlight=C100', $response->header('Location'));
         self::assertTrue($db->wrote('INSERT INTO customer_order'));
         // Source auto-tagguee counter, acteur = equipier de session (id 7).
         $insert = $this->writeParams($db, 'INSERT INTO customer_order');
@@ -284,7 +334,10 @@ final class CounterOrderControllerTest extends TestCase
         $response = $this->controller($request, $db)->store();
 
         self::assertSame(302, $response->status());
-        self::assertSame('/counter/orders', $response->header('Location'));
+        // Ligne mise en evidence (retour apres action) : store() ajoute
+        // ?highlight=<numero> a la redirection pour que counter/index.php signale la
+        // ligne fraichement creee (purement visuel, cf. admin.css .row-highlight).
+        self::assertSame('/counter/orders?highlight=C100', $response->header('Location'));
         // Ligne menu persistee.
         $itemInsert = $this->writeParams($db, 'INSERT INTO order_item ');
         self::assertSame('menu', $itemInsert['type']);
@@ -434,7 +487,10 @@ final class CounterOrderControllerTest extends TestCase
         $response = $this->controller($request, $db)->store();
 
         self::assertSame(302, $response->status());
-        self::assertSame('/counter/orders', $response->header('Location'));
+        // Ligne mise en evidence (retour apres action) : store() ajoute
+        // ?highlight=<numero> a la redirection pour que counter/index.php signale la
+        // ligne fraichement creee (purement visuel, cf. admin.css .row-highlight).
+        self::assertSame('/counter/orders?highlight=C100', $response->header('Location'));
         // Deux lignes order_item_modifier persistees (remove Oignon + add Bacon).
         self::assertTrue($db->wrote('INSERT INTO order_item_modifier'));
         $modifierWrites = array_values(array_filter(
@@ -523,7 +579,7 @@ final class CounterOrderControllerTest extends TestCase
         self::assertSame(200, $response->status());
         $body = $response->body();
         self::assertStringContainsString('En cours', $body);
-        self::assertStringContainsString('Historique recent', $body);
+        self::assertStringContainsString('Historique récent', $body);
         self::assertStringContainsString('C100', $body);
         self::assertStringNotContainsString('D200', $body);
         // 4 : la file porte une colonne "Table" et affiche le numero de la commande
@@ -556,7 +612,7 @@ final class CounterOrderControllerTest extends TestCase
         $body = $response->body();
         self::assertStringContainsString('<select class="form-input" id="service_mode"', $body);
         self::assertStringContainsString('Sur place', $body);
-        self::assertStringContainsString('A emporter', $body);
+        self::assertStringContainsString('À emporter', $body);
     }
 
     public function testCreateExposesConfigurableProductModifiersInJson(): void
@@ -729,6 +785,172 @@ final class CounterOrderControllerTest extends TestCase
         self::assertSame(302, $response->status());
         $insert = $this->writeParams($db, 'INSERT INTO customer_order');
         self::assertNull($insert['tag']);
+    }
+
+    // --- RG-T12 (canal fixe) : channelGuard(), RBAC par canal de commande ---
+
+    public function testDriveFixedRoleCannotAccessCounterIndex(): void
+    {
+        // Faille corrigee : un compte drive (role.order_source = drive) visitant
+        // /counter/orders (chemin valide, meme permission order.create) doit etre
+        // refuse -- avant ce correctif, la source etait deduite du seul chemin.
+        $db = $this->permittedDb();
+        $db->roleManageRow = ['order_source' => 'drive'];
+
+        self::assertSame(403, $this->controller($this->get('/counter/orders'), $db)->index()->status());
+    }
+
+    public function testDriveFixedRoleCannotAccessCounterCreate(): void
+    {
+        $db = $this->permittedDb();
+        $db->roleManageRow = ['order_source' => 'drive'];
+
+        self::assertSame(403, $this->controller($this->get('/counter/orders/new'), $db)->create()->status());
+    }
+
+    public function testDriveFixedRoleCannotPostCounterStore(): void
+    {
+        $db = $this->permittedDb();
+        $db->roleManageRow = ['order_source' => 'drive'];
+        $request = $this->post(['_csrf' => $this->csrf, 'service_mode' => 'dine_in', 'qty_12' => '1'], '/counter/orders');
+
+        $response = $this->controller($request, $db)->store();
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($db->wrote('INSERT INTO customer_order'));
+    }
+
+    public function testCounterFixedRoleCannotAccessDriveIndex(): void
+    {
+        // Contre-exemple symetrique : un compte comptoir ne peut pas visiter
+        // /drive/orders.
+        $db = $this->permittedDb();
+        $db->roleManageRow = ['order_source' => 'counter'];
+
+        self::assertSame(403, $this->controller($this->get('/drive/orders'), $db)->index()->status());
+    }
+
+    public function testCounterFixedRoleCannotAccessDriveCreate(): void
+    {
+        $db = $this->permittedDb();
+        $db->roleManageRow = ['order_source' => 'counter'];
+
+        self::assertSame(403, $this->controller($this->get('/drive/orders/new'), $db)->create()->status());
+    }
+
+    public function testCounterFixedRoleCannotPostDriveStore(): void
+    {
+        $db = $this->permittedDb();
+        $db->roleManageRow = ['order_source' => 'counter'];
+        $request = $this->post(['_csrf' => $this->csrf, 'service_mode' => 'drive', 'qty_12' => '1'], '/drive/orders');
+
+        $response = $this->controller($request, $db)->store();
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($db->wrote('INSERT INTO customer_order'));
+    }
+
+    public function testDriveFixedRoleCanAccessItsOwnDriveIndex(): void
+    {
+        // Contre-exemple : le role garde l'acces a SON propre canal fixe.
+        $db = $this->permittedDb();
+        $db->roleManageRow = ['order_source' => 'drive'];
+
+        self::assertSame(200, $this->controller($this->get('/drive/orders'), $db)->index()->status());
+    }
+
+    public function testRoleWithoutFixedSourceCanAccessBothCounterAndDriveIndex(): void
+    {
+        // admin/manager (role.order_source NULL) garde l'acces aux deux pages.
+        $db = $this->permittedDb();
+        $db->roleManageRow = ['order_source' => null];
+
+        self::assertSame(200, $this->controller($this->get('/counter/orders'), $db)->index()->status());
+        self::assertSame(200, $this->controller($this->get('/drive/orders'), $db)->index()->status());
+    }
+
+    // --- Relecture adverse (changes) : point 1 -- tout order_source non nul est un
+    // canal fixe, pas seulement 'counter'/'drive'. Le formulaire de role
+    // (RoleController::SOURCES) propose aussi 'kiosk' -- un role personnalise avec
+    // order_source='kiosk' n'a pourtant AUCUNE page HTML dediee (pas de
+    // /kiosk/orders) : il doit rester bloque sur les DEUX pages comptoir/drive,
+    // pas y avoir un acces libre faute d'etre reconnu comme 'canal fixe'.
+
+    public function testKioskFixedRoleCannotAccessCounterIndex(): void
+    {
+        $db = $this->permittedDb();
+        $db->roleManageRow = ['order_source' => 'kiosk'];
+
+        self::assertSame(403, $this->controller($this->get('/counter/orders'), $db)->index()->status());
+    }
+
+    public function testKioskFixedRoleCannotAccessDriveIndex(): void
+    {
+        $db = $this->permittedDb();
+        $db->roleManageRow = ['order_source' => 'kiosk'];
+
+        self::assertSame(403, $this->controller($this->get('/drive/orders'), $db)->index()->status());
+    }
+
+    public function testKioskFixedRoleCannotPostCounterStore(): void
+    {
+        $db = $this->permittedDb();
+        $db->roleManageRow = ['order_source' => 'kiosk'];
+        $request = $this->post(['_csrf' => $this->csrf, 'service_mode' => 'dine_in', 'qty_12' => '1'], '/counter/orders');
+
+        $response = $this->controller($request, $db)->store();
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($db->wrote('INSERT INTO customer_order'));
+    }
+
+    public function testKioskFixedRoleCannotPostDriveStore(): void
+    {
+        $db = $this->permittedDb();
+        $db->roleManageRow = ['order_source' => 'kiosk'];
+        $request = $this->post(['_csrf' => $this->csrf, 'service_mode' => 'drive', 'qty_12' => '1'], '/drive/orders');
+
+        $response = $this->controller($request, $db)->store();
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($db->wrote('INSERT INTO customer_order'));
+    }
+
+    // --- Relecture adverse (changes) : point 2 -- un role SANS canal fixe
+    // (order_source NULL) mais dont role_visible_source restreint le canal doit
+    // aussi etre bloque sur une page hors de ses sources visibles. channelGuard()
+    // ne verifiait jusque-la QUE le canal fixe, jamais la visibilite.
+
+    public function testRoleWithoutFixedSourceButRestrictedToVisibleDriveCannotAccessCounterIndex(): void
+    {
+        $db = $this->permittedDb();
+        $db->roleManageRow = ['order_source' => null];
+        $db->roleSources = [['source' => 'drive']];
+
+        self::assertSame(403, $this->controller($this->get('/counter/orders'), $db)->index()->status());
+    }
+
+    public function testRoleWithoutFixedSourceButRestrictedToVisibleDriveCannotPostCounterStore(): void
+    {
+        $db = $this->permittedDb();
+        $db->roleManageRow = ['order_source' => null];
+        $db->roleSources = [['source' => 'drive']];
+        $request = $this->post(['_csrf' => $this->csrf, 'service_mode' => 'dine_in', 'qty_12' => '1'], '/counter/orders');
+
+        $response = $this->controller($request, $db)->store();
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($db->wrote('INSERT INTO customer_order'));
+    }
+
+    public function testRoleWithoutFixedSourceButRestrictedToVisibleDriveCanAccessDriveIndex(): void
+    {
+        // Contre-exemple : la page DANS la liste des sources visibles reste ouverte.
+        $db = $this->permittedDb();
+        $db->roleManageRow = ['order_source' => null];
+        $db->roleSources = [['source' => 'drive']];
+
+        self::assertSame(200, $this->controller($this->get('/drive/orders'), $db)->index()->status());
     }
 
     public function testNavRoutesDriveRoleToDriveLanding(): void

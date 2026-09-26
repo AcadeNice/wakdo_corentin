@@ -170,6 +170,11 @@ final class CategoryControllerTest extends TestCase
     }
 
     /**
+     * multipart/form-data, PAS urlencoded : le formulaire categorie porte
+     * enctype="multipart/form-data" (upload d'image), meme sans fichier choisi.
+     * Voir le docblock de Request::formBody() -- meme bug/correctif que le
+     * formulaire produit.
+     *
      * @param array<string, string> $form
      * @param array<string, mixed> $file une entree $_FILES sous la cle image_file
      */
@@ -179,10 +184,48 @@ final class CategoryControllerTest extends TestCase
             'POST',
             $path,
             [],
-            ['content-type' => 'application/x-www-form-urlencoded'],
-            http_build_query($form),
+            ['content-type' => 'multipart/form-data; boundary=----wakdoTestBoundary'],
+            '',
             '203.0.113.5',
             ['image_file' => $file],
+            $form,
+        );
+    }
+
+    /**
+     * multipart/form-data SANS fichier choisi (cas le plus courant).
+     *
+     * @param array<string, string> $form
+     */
+    private function postMultipartNoFile(array $form, string $path): Request
+    {
+        return new Request(
+            'POST',
+            $path,
+            [],
+            ['content-type' => 'multipart/form-data; boundary=----wakdoTestBoundary'],
+            '',
+            '203.0.113.5',
+            [],
+            $form,
+        );
+    }
+
+    /** Corps rejete par post_max_size : $_POST et $_FILES tous deux vides. */
+    private function postOversized(string $path): Request
+    {
+        return new Request(
+            'POST',
+            $path,
+            [],
+            [
+                'content-type'   => 'multipart/form-data; boundary=----wakdoTestBoundary',
+                'content-length' => '9000000',
+            ],
+            '',
+            '203.0.113.5',
+            [],
+            [],
         );
     }
 
@@ -238,7 +281,7 @@ final class CategoryControllerTest extends TestCase
         $response = $this->controller($this->get('/admin/categories'), $db)->index();
 
         self::assertSame(403, $response->status());
-        self::assertStringContainsString('Acces refuse', $response->body());
+        self::assertStringContainsString('Accès refusé', $response->body());
     }
 
     public function testIndexListsCategories(): void
@@ -253,10 +296,10 @@ final class CategoryControllerTest extends TestCase
         $body = $response->body();
 
         self::assertSame(200, $response->status());
-        self::assertStringContainsString('Nouvelle categorie', $body);
+        self::assertStringContainsString('Nouvelle catégorie', $body);
         self::assertStringContainsString('Burgers', $body);
         self::assertStringContainsString('Visible', $body);   // is_active = 1
-        self::assertStringContainsString('Masquee', $body);   // is_active = 0
+        self::assertStringContainsString('Masquée', $body);   // is_active = 0
     }
 
     public function testCreateShowsForm(): void
@@ -281,7 +324,7 @@ final class CategoryControllerTest extends TestCase
         self::assertSame(302, $response->status());
         self::assertSame('/admin/categories', $response->header('Location'));
         self::assertTrue($this->wroteContaining($db, 'INSERT INTO category'));
-        self::assertSame('Categorie creee.', $this->session->get('_flash'));
+        self::assertSame('Catégorie créée.', $this->session->get('_flash'));
     }
 
     public function testStoreInvalidRerendersWithErrorsAndNoWrite(): void
@@ -295,8 +338,8 @@ final class CategoryControllerTest extends TestCase
         $response = $this->controller($request, $db)->store();
 
         self::assertSame(422, $response->status());
-        self::assertStringContainsString('Le libelle est requis', $response->body());
-        self::assertStringContainsString('Reference requise', $response->body());
+        self::assertStringContainsString('Le libellé est requis', $response->body());
+        self::assertStringContainsString('Référence requise', $response->body());
         self::assertFalse($this->wroteContaining($db, 'INSERT INTO category'));
     }
 
@@ -312,7 +355,7 @@ final class CategoryControllerTest extends TestCase
         $response = $this->controller($request, $db)->store();
 
         self::assertSame(422, $response->status());
-        self::assertStringContainsString('Ce libelle existe deja', $response->body());
+        self::assertStringContainsString('Ce libellé existe déjà', $response->body());
         self::assertFalse($this->wroteContaining($db, 'INSERT INTO category'));
     }
 
@@ -345,7 +388,7 @@ final class CategoryControllerTest extends TestCase
         $response = $this->controller($request, $db)->store();
 
         self::assertSame(409, $response->status());
-        self::assertStringContainsString('existe deja', $response->body());
+        self::assertStringContainsString('existe déjà', $response->body());
     }
 
     public function testStoreRejectsDuplicateSlug(): void
@@ -360,7 +403,7 @@ final class CategoryControllerTest extends TestCase
         $response = $this->controller($request, $db)->store();
 
         self::assertSame(422, $response->status());
-        self::assertStringContainsString('Cette reference existe deja', $response->body());
+        self::assertStringContainsString('Cette référence existe déjà', $response->body());
         self::assertFalse($this->wroteContaining($db, 'INSERT INTO category'));
     }
 
@@ -376,6 +419,40 @@ final class CategoryControllerTest extends TestCase
 
         self::assertSame(403, $response->status());
         self::assertFalse($this->wroteContaining($db, 'INSERT INTO category'));
+    }
+
+    /**
+     * Bug corrige (2026-09-26) : formulaire categorie TOUJOURS en
+     * multipart/form-data (upload d'image), meme sans fichier choisi. Avant le
+     * correctif, Request::formBody() ne reconnaissait pas ce content-type et
+     * renvoyait [] : _csrf etait donc absent et la creation echouait
+     * systematiquement en 403 "Requête invalide.".
+     */
+    public function testStoreAcceptsRealMultipartFormWithoutAnyImage(): void
+    {
+        $db = $this->permittedDb();
+        $request = $this->postMultipartNoFile(
+            ['_csrf' => $this->csrf, 'name' => 'Desserts', 'slug' => 'desserts', 'display_order' => '7'],
+            '/admin/categories',
+        );
+
+        $response = $this->controller($request, $db)->store();
+
+        self::assertSame(302, $response->status());
+        self::assertTrue($this->wroteContaining($db, 'INSERT INTO category'));
+    }
+
+    /** Corps rejete par post_max_size : message clair plutot que le 403 generique. */
+    public function testStoreShowsFriendlyMessageWhenBodyExceedsPostMaxSize(): void
+    {
+        $db = $this->permittedDb();
+
+        $response = $this->controller($this->postOversized('/admin/categories'), $db)->store();
+
+        self::assertSame(422, $response->status());
+        self::assertFalse($this->wroteContaining($db, 'INSERT INTO category'));
+        self::assertStringContainsString('trop volumineux', $response->body());
+        self::assertStringNotContainsString('Requête invalide', $response->body());
     }
 
     public function testEditNotFoundReturns404(): void
@@ -423,7 +500,7 @@ final class CategoryControllerTest extends TestCase
         }
         self::assertNotNull($write);
         self::assertSame(0, $write['params']['active'] ?? null);
-        self::assertSame('Categorie masquee.', $this->session->get('_flash'));
+        self::assertSame('Catégorie masquée.', $this->session->get('_flash'));
     }
 
     public function testToggleFromMaskedMakesVisible(): void
@@ -443,7 +520,7 @@ final class CategoryControllerTest extends TestCase
         }
         self::assertNotNull($write);
         self::assertSame(1, $write['params']['active'] ?? null);
-        self::assertSame('Categorie affichee.', $this->session->get('_flash'));
+        self::assertSame('Catégorie affichée.', $this->session->get('_flash'));
     }
 
     public function testUpdateNotFoundReturns404(): void
@@ -511,7 +588,7 @@ final class CategoryControllerTest extends TestCase
 
         self::assertSame(422, $response->status());
         self::assertFalse($this->wroteContaining($db, 'INSERT INTO category'));
-        self::assertStringContainsString('Format d image non accepte', $response->body());
+        self::assertStringContainsString('Format d&#039;image non accepté', $response->body());
         self::assertDirectoryDoesNotExist($this->uploadBaseDir . '/categories');
     }
 
@@ -601,7 +678,7 @@ final class CategoryControllerTest extends TestCase
 
         self::assertSame(302, $response->status());
         self::assertSame('/admin/categories', $response->header('Location'));
-        self::assertSame('Ordre des categories mis a jour.', $this->session->get('_flash'));
+        self::assertSame('Ordre des catégories mis à jour.', $this->session->get('_flash'));
         self::assertTrue($this->wroteContaining($db, 'UPDATE category SET display_order'));
     }
 

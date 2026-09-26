@@ -1,0 +1,31 @@
+meta {
+  name: Autorise : order.create accorde (422, PAS 403)
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/admin/api/orders
+}
+
+headers {
+  Content-Type: application/json
+  X-CSRF-Token: {{csrf_comptoir}}
+}
+
+body {
+  {
+    "items": []
+  }
+}
+
+docs {
+Prouve order.create SANS encaisser de commande reelle (une commande reelle decremente le stock et compte dans les statistiques, cf. docs/api/demo-api.md section Effets de bord) : 'items': [] est une erreur de VALIDATION ('Ajoutez au moins un produit ou un menu'), verifiee APRES guardApi('order.create')/CSRF. Le test verifie le code ET error.fields.items (pas seulement 422, qu'un tout autre champ pourrait aussi produire) -- l'atteindre prouve que la permission est accordee, sans creer de ligne 'order'.
+}
+
+tests {
+  const body = res.getBody();
+  expect(res.getStatus()).to.equal(422);
+  expect(body.error.code).to.equal('VALIDATION_ERROR');
+  expect(body.error.fields).to.have.property('items');
+}

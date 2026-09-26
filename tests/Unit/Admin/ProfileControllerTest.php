@@ -171,11 +171,23 @@ final class ProfileControllerTest extends TestCase
         $response = $this->controller($request, $db)->showPin();
         self::assertSame(200, $response->status());
         self::assertStringContainsString('name="pin"', $response->body());
-        self::assertStringContainsString('aucun PIN defini', $response->body());
+        self::assertStringContainsString('aucun PIN défini', $response->body());
 
         $db2 = $this->permittedDb();
         $db2->userPinSet = true;
-        self::assertStringContainsString('un PIN est defini', $this->controller($request, $db2)->showPin()->body());
+        self::assertStringContainsString('un PIN est défini', $this->controller($request, $db2)->showPin()->body());
+    }
+
+    public function testShowPinExposesLengthPolicyForLiveValidation(): void
+    {
+        // Controle pendant la saisie (Cr 2.b.1) : le motif des deux champs reprend la
+        // politique serveur (STAFF_PIN_MIN/MAX_LENGTH, 4 a 12 par defaut) et la
+        // confirmation est liee au PIN, pour signaler l'ecart avant l'envoi.
+        $request = new Request('GET', '/admin/profile/pin', [], [], '', '203.0.113.5');
+        $body = $this->controller($request, $this->permittedDb())->showPin()->body();
+
+        self::assertSame(2, substr_count($body, 'pattern="[0-9]{4,12}"'));
+        self::assertStringContainsString('data-match="pin"', $body);
     }
 
     public function testUpdatePinValidStoresHashAndRedirects(): void
@@ -186,7 +198,7 @@ final class ProfileControllerTest extends TestCase
 
         self::assertSame(302, $response->status());
         self::assertSame('/admin/profile/pin', $response->header('Location'));
-        self::assertSame('PIN enregistre.', $this->session->get('_flash'));
+        self::assertSame('PIN enregistré.', $this->session->get('_flash'));
 
         // Invariant central : la cible est l'utilisateur de la SESSION (1, pose en
         // setUp), jamais un champ de formulaire ; et c'est un hash, pas le PIN clair.
@@ -227,7 +239,7 @@ final class ProfileControllerTest extends TestCase
         // Aucune valeur sensible dans le summary (ni PIN clair, ni hash).
         $summary = (string) ($audit['params']['summary'] ?? '');
         self::assertStringNotContainsString('4729', $summary);
-        self::assertStringContainsString('modifie', $summary);       // userPinSet=true -> "PIN modifie"
+        self::assertStringContainsString('modifié', $summary);       // userPinSet=true -> "PIN modifié"
     }
 
     public function testUpdatePinRejectsWrongCurrentPassword(): void

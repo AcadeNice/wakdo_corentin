@@ -1,0 +1,18 @@
+# Override JETABLE pour la validation W3C niveau 2 : neutralise les container_name fixes
+# du compose afin de monter une pile isolee (`-p wakdow3c`) en parallele d'une pile
+# existante (production, `wakdoe2e` de run.sh, `wakdoa11y` de run-a11y.sh), sans
+# collision de noms ni de port.
+# N'est PAS un compose de deploiement ; sert uniquement a run-w3c.sh.
+services:
+  wakdo-db:
+    container_name: wakdow3c-db
+  wakdo-migrate:
+    container_name: wakdow3c-migrate
+  wakdo-app:
+    container_name: wakdow3c-app
+  wakdo-web:
+    container_name: wakdow3c-web
+    # Pas de port hote : Playwright joint wakdo-web par le reseau interne (--add-host).
+    ports: !reset []
+  wakdo-cron:
+    container_name: wakdow3c-cron

@@ -61,12 +61,16 @@ class OrderRepository
     }
 
     /**
-     * Recherche une commande par son numero (prefixe canal K/C/D + id). Lecture
-     * publique du statut cote borne (suivi apres encaissement). Renvoie null si le
-     * numero est inconnu. Lecture seule : ne sert que des champs non sensibles
-     * (la commande kiosk est anonyme, pas de PII).
+     * Recherche une commande par son numero (prefixe canal K/C/D + id). Utilisee a
+     * la fois par le suivi public borne (`OrderController::show()`, restreint au
+     * canal kiosk par l'appelant) et par l'annulation back-office
+     * (`OrderAdminController::cancel()`/`confirmCancel()`). Renvoie null si le
+     * numero est inconnu. `source` est INCLUS (relecture adverse, point 5b) : sans
+     * elle, l'appelant ne peut pas distinguer une commande kiosk (anonyme par
+     * nature) d'une commande comptoir/drive -- l'ajout est additif, aucun appelant
+     * existant ne lisait ce champ.
      *
-     * @return array{id:int, order_number:string, total_ttc_cents:int, status:string}|null
+     * @return array{id:int, order_number:string, total_ttc_cents:int, status:string, source:string}|null
      */
     public function findByNumber(string $number): ?array
     {
@@ -74,7 +78,7 @@ class OrderRepository
             return null;
         }
         $row = $this->db->fetch(
-            'SELECT id, order_number, total_ttc_cents, status FROM customer_order WHERE order_number = :n',
+            'SELECT id, order_number, total_ttc_cents, status, source FROM customer_order WHERE order_number = :n',
             ['n' => $number],
         );
         if ($row === null) {
@@ -86,6 +90,7 @@ class OrderRepository
             'order_number'    => (string) $row['order_number'],
             'total_ttc_cents' => (int) $row['total_ttc_cents'],
             'status'          => (string) $row['status'],
+            'source'          => (string) ($row['source'] ?? ''),
         ];
     }
 
@@ -492,11 +497,14 @@ class OrderRepository
     }
 
     /**
-     * Encaisse une commande pending_payment : transition -> paid ET decrement de
-     * stock atomique (RG-5 etapes 5-6, RG-T11 / RG-T20) dans UNE transaction.
+     * Encaisse une commande pending_payment : transition -> preparing (part en
+     * cuisine sans geste manuel supplementaire, paid_at ET preparing_at poses
+     * ensemble) ET decrement de stock atomique (RG-5 etapes 5-6, RG-T11 / RG-T20)
+     * dans UNE transaction.
      *
-     * Idempotent : une commande deja `paid` est renvoyee telle quelle sans
-     * re-decrementer ; `delivered` / `cancelled` -> INVALID_TRANSITION ; numero
+     * Idempotent : une commande deja encaissee (`paid` -- etat historique anterieur
+     * a ce comportement, ou `preparing`/`ready`/`delivered`) est renvoyee telle
+     * quelle sans re-decrementer ; `cancelled` -> INVALID_TRANSITION ; numero
      * inconnu -> ORDER_NOT_FOUND. La transition est gardee par `status =
      * 'pending_payment'` dans l'UPDATE : sous une course concurrente, seul le
      * premier appel decremente (l'autre voit 0 ligne affectee et sort idempotent).
@@ -512,8 +520,8 @@ class OrderRepository
      * RG-T20) : le decrement ne se conditionne a aucun plancher.
      *
      * NB : inerte tant que les recettes (product_ingredient) ne sont pas seedees —
-     * la transition `paid` s'applique, mais aucun mouvement de stock n'est produit
-     * faute de composition. La logique s'active des que les recettes existent.
+     * la transition `preparing` s'applique, mais aucun mouvement de stock n'est
+     * produit faute de composition. La logique s'active des que les recettes existent.
      *
      * @param int|null $actingUserId acteur comptoir/drive (stock_movement.user_id +
      *                               customer_order.acting_user_id) ; NULL pour le kiosk.
@@ -816,7 +824,7 @@ class OrderRepository
 
             // RG-6/RG-T14 : trace d'audit immuable dans la meme transaction que l'effet.
             $recredit = $restocked ? $totalTtc : 0;
-            $summary = 'Annulation depuis ' . $preStatus . ', re-credit ' . $recredit . 'c';
+            $summary = 'Annulation depuis ' . $preStatus . ', re-crédit ' . $recredit . 'c';
             $db->execute(
                 'INSERT INTO audit_log (actor_user_id, actor_role_id, action_code, entity_type, entity_id, summary) '
                 . 'VALUES (:uid, :rid, :code, :etype, :eid, :summary)',
@@ -944,10 +952,10 @@ class OrderRepository
      */
     private function expirySummary(string $source, string $createdAt): string
     {
-        $summary = 'Expiration automatique: commande non encaissee';
+        $summary = 'Expiration automatique: commande non encaissée';
         $created = strtotime($createdAt);
         if ($created !== false) {
-            $summary .= ', creee il y a ' . max(0, (int) floor((time() - $created) / 60)) . ' min';
+            $summary .= ', créée il y a ' . max(0, (int) floor((time() - $created) / 60)) . ' min';
         }
         if ($source !== '') {
             $summary .= ', canal ' . $source;

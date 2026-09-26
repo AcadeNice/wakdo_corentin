@@ -14,7 +14,7 @@
 | Centre | Acadenice |
 | Contexte pro | Alternance en tant qu'admin sys + etudiant B2 DevOps |
 | Deadline soutenance | **Septembre 2026** |
-| Budget heures | 10-15 h/semaine — cible ~240 h effectives |
+| Budget heures | 10-15 h/semaine — budget total 272 h (P0-P8, section 11), cible ~264 h effectives apres buffer (correction du 2026-09-24 : ce chiffre etait incoherent avec le budget detaille de la section 11) |
 | Mode de travail | Solo |
 | Date de creation du doc | 2026-04-23 |
 
@@ -232,7 +232,7 @@ Reseaux :
 - **Manager** : catalogue (create/update), stock (reappro + inventaire), statistiques ; utilisateurs en **lecture seule** (`user.read`, pas de creation/modification/desactivation), pas d'acces RBAC
 - **Kitchen** : file des commandes `paid` triee par `paid_at` croissant, en **lecture seule** (KDS visuel) ; inventaire
 - **Counter** / **Drive** : saisir une commande (comptoir / drive-thru via casque/intercom), bouton "declarer livree" (geste unique `paid -> delivered`), annuler ; `source` auto-tague depuis `role.order_source` ; inventaire
-- Upload images produits : **non implemente** ; prevu (validation type MIME + taille + stockage dans volume `wakdo_uploads`)
+- Upload images produits : **implemente et teste** (`App\Core\ImageUploader`, `tests/Unit/Core/ImageUploaderTest.php`) — type reel detecte cote serveur (finfo + getimagesize), sans se fier a l'extension du nom d'origine ni au type annonce par le navigateur, nom de fichier regenere, stockage dans `public/uploads` (voisin des deux racines web, non execute directement) ; taille et formats acceptes regles par l'environnement (`UPLOAD_MAX_SIZE_MB`, `UPLOAD_ALLOWED_MIME`). Correction du 2026-09-24 : cette ligne annoncait a tort l'upload comme non implemente.
 - Historique commandes par statut
 - Stats de base (commandes du jour, CA jour, produits top)
 
@@ -302,7 +302,7 @@ Reseaux :
 | Cr 1.d.1-4 | Classes CSS reutilisables | Convention BEM ou similaire, regroupe par theme, sans repetition |
 | Cr 1.e.1-11 | SEO + meta + semantique | hierarchie titres, schema.org, canonical, alt images, favicon, temps chargement |
 | Cr 2.a.1-5 | JS ES6+ + DOM + animations | Modules ES6, classes, async/await, pas de jQuery |
-| Cr 2.b.1-3 | Validation formulaires | Validation client temps reel (regex) + validation serveur |
+| Cr 2.b.1-3 | Validation formulaires | Controle pendant la saisie (`form-validation.js` : regles HTML alignees sur le serveur + `data-match` / `data-not-zero`) + validation serveur, voir `docs/soutenance/preuves/09-controle-saisie-temps-reel.md` |
 | Cr 2.c.1-4 | Ajax async | `fetch()` avec gestion erreurs, pas d'exposition donnees sensibles |
 | Cr 2.d.1-3 | Librairies externes | Choix de stack assume : **zero lib JS** (vanilla). Cr 2.d.1-3 restent du tronc commun evaluable -> a argumenter a l'oral ; ce n'est pas une dispense du referentiel |
 
@@ -369,7 +369,9 @@ Les branches `main` et `dev` sont **protegees** cote Forgejo (push direct interd
 4. Merge squash
 5. Periodiquement `dev` -> `main` via PR avec tag semver
 
-**Commits** — Conventional Commits, en anglais :
+**Commits** — Conventional Commits, en francais (correction du 2026-09-24 :
+premiers commits en anglais, en francais depuis mi-juin 2026 ; le francais
+fait regle) :
 
 ```
 <type>(<scope>): <description imperative min 5 chars>
@@ -379,13 +381,13 @@ Les branches `main` et `dev` sont **protegees** cote Forgejo (push direct interd
 
 - **Types** : `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `ci`, `db`, `perf`, `style`
 - **Scopes Wakdo** : `front`, `back`, `api`, `admin`, `auth`, `db`, `docker`, `ci`, `docs`
-- **Interdits** : emoji (Mantra IA-23), description en francais, WIP commits
+- **Interdits** : emoji (Mantra IA-23), description en anglais, WIP commits
 - **Exemples :**
-  - `feat(front): add menu composition screen with size options`
-  - `fix(api): correct order total calculation with large size`
-  - `db: add migration 003 orders with fk to users`
-  - `docker: add cron service with daily backup job`
-  - `ci: add phpunit workflow on pull_request`
+  - `feat(front): ajouter l'ecran de composition de menu avec options de taille`
+  - `fix(api): corriger le calcul du total commande pour la grande taille`
+  - `db: ajouter la migration 003 orders avec fk vers users`
+  - `docker: ajouter le service cron avec sauvegarde quotidienne`
+  - `ci: ajouter le workflow phpunit sur pull_request`
 
 ### Code PHP
 

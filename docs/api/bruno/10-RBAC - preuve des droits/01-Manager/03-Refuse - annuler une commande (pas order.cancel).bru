@@ -1,0 +1,29 @@
+meta {
+  name: Refuse : annuler une commande (pas order.cancel)
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/admin/api/orders/K1/cancel
+}
+
+headers {
+  Content-Type: application/json
+  X-CSRF-Token: {{csrf_manager}}
+}
+
+body {
+  {
+    "pin_email": "{{email_manager}}",
+    "pin": "{{pin}}"
+  }
+}
+
+docs {
+Decision D5 : le manager ne recoit AUCUNE permission order.*, y compris order.cancel. 403 FORBIDDEN attendu (separation des pouvoirs), avant meme la verification du PIN. Numero K1 fictif : seul le code retourne compte ici (guardApi() s'execute avant toute lecture de commande).
+}
+
+tests {
+  expect(res.getStatus()).to.equal(403);
+}

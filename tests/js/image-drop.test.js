@@ -243,6 +243,6 @@ test('drop degrade proprement quand le navigateur ne fournit pas DataTransfer', 
     assert.equal(zone.classList.contains('is-dragover'), false);
     assert.match(
         doc.querySelector('[data-image-drop-hint]').textContent,
-        /Votre navigateur ne gere pas le depot/,
+        /Votre navigateur ne gère pas le dépôt/,
     );
 });

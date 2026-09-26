@@ -8,6 +8,12 @@ declare(strict_types=1);
  * vanilla JS (menu-form.js) qui serialise l'etat dans le champ cache slots_json
  * a la soumission. Pas de PIN ici (create/update non sensibles, mlt 8.4/8.5).
  *
+ * Pas de champ replie (details.form-advanced, design-system.md 2.5) sur ce
+ * formulaire : "Ordre d'affichage" est le seul candidat secondaire, et
+ * tests/e2e/backoffice-sweep.spec.js (filet commun, non modifiable par ce lot)
+ * remplit #display_order en aveugle a la creation d'un menu -- un <details>
+ * ferme par defaut aurait rendu le champ inatteignable et casse ce parcours.
+ *
  * @var int                              $menuId
  * @var array<int, array<string, mixed>> $categories
  * @var array<int, array<string, mixed>> $products       burgers de base (select ancre)
@@ -26,6 +32,12 @@ $action = $id !== 0 ? '/admin/menus/' . $id : '/admin/menus';
 
 /** @var array<string, mixed> $vals */
 $vals = isset($values) && is_array($values) ? $values : [];
+// Valeur par defaut sensee : un nouveau menu n'a pas encore d'ordre choisi ; 0
+// (tete de liste) evite une case visuellement vide sans changer la validation
+// serveur (toujours requise, min 0 -- MenuController::validate).
+if (!isset($vals['display_order']) || $vals['display_order'] === '') {
+    $vals['display_order'] = '0';
+}
 /** @var array<string, string> $errs */
 $errs = isset($errors) && is_array($errors) ? $errors : [];
 /** @var array<int, array<string, mixed>> $cats */
@@ -75,7 +87,7 @@ $slotsData = isset($slotsJson) && is_string($slotsJson) && $slotsJson !== '' ? $
     <input type="hidden" name="_csrf" value="<?= $csrf ?>">
 
     <div class="form-group">
-        <label class="form-label" for="category_id">Categorie</label>
+        <label class="form-label" for="category_id">Catégorie</label>
         <select class="form-input" id="category_id" name="category_id" required>
             <option value="">-- choisir --</option>
             <?php foreach ($cats as $cat): ?>
@@ -109,20 +121,24 @@ $slotsData = isset($slotsJson) && is_string($slotsJson) && $slotsJson !== '' ? $
     </div>
 
     <div class="form-group">
-        <label class="form-label" for="price_normal_cents">Prix Normal (en centimes)</label>
-        <input class="form-input" type="number" id="price_normal_cents" name="price_normal_cents" min="1" value="<?= $val('price_normal_cents') ?>" required>
+        <label class="form-label" for="price_normal_cents">Prix Normal (en euros)</label>
+        <input class="form-input" type="text" inputmode="decimal" id="price_normal_cents" name="price_normal_cents"
+               pattern="(?=.*[1-9])[0-9]{1,7}([.,][0-9]{1,2})?" data-pattern-message="Montant invalide (exemple : 8,00)."
+               placeholder="ex. 8,00" value="<?= $val('price_normal_cents') ?>" required>
         <?php if ($err('price_normal_cents') !== ''): ?><p class="form-error"><?= htmlspecialchars($err('price_normal_cents'), ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
     </div>
 
     <div class="form-group">
-        <label class="form-label" for="price_maxi_cents">Prix Maxi (en centimes)</label>
-        <input class="form-input" type="number" id="price_maxi_cents" name="price_maxi_cents" min="1" value="<?= $val('price_maxi_cents') ?>" required>
+        <label class="form-label" for="price_maxi_cents">Prix Maxi (en euros)</label>
+        <input class="form-input" type="text" inputmode="decimal" id="price_maxi_cents" name="price_maxi_cents"
+               pattern="(?=.*[1-9])[0-9]{1,7}([.,][0-9]{1,2})?" data-pattern-message="Montant invalide (exemple : 9,50)."
+               placeholder="ex. 9,50" value="<?= $val('price_maxi_cents') ?>" required>
         <?php if ($err('price_maxi_cents') !== ''): ?><p class="form-error"><?= htmlspecialchars($err('price_maxi_cents'), ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
     </div>
 
     <div class="form-group">
         <label class="form-label" for="display_order">Ordre d'affichage</label>
-        <input class="form-input" type="number" id="display_order" name="display_order" min="0" value="<?= $val('display_order') ?>">
+        <input class="form-input" type="number" id="display_order" name="display_order" min="0" max="65535" value="<?= $val('display_order') ?>" required>
         <?php if ($err('display_order') !== ''): ?><p class="form-error"><?= htmlspecialchars($err('display_order'), ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
     </div>
 
@@ -132,7 +148,7 @@ $slotsData = isset($slotsJson) && is_string($slotsJson) && $slotsJson !== '' ? $
 
     <fieldset class="form-group">
         <legend>Slots de composition</legend>
-        <p><small>Au moins un slot, chacun avec au moins une option. Les choix proposes au client par slot.</small></p>
+        <p><small>Au moins un slot, chacun avec au moins une option. Les choix proposés au client par slot.</small></p>
         <?php if ($err('slots') !== ''): ?><p class="form-error"><?= htmlspecialchars($err('slots'), ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
         <div id="slot-builder"
              data-products="<?= $attr($slimProducts) ?>"

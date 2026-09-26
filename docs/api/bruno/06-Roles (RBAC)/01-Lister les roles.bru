@@ -1,0 +1,20 @@
+meta {
+  name: Lister les roles
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/admin/api/roles
+}
+
+docs {
+Capture firstRoleId (premier role de la liste, quel qu'il soit) pour la requete suivante et pour la creation d'utilisateur (dossier Utilisateurs).
+}
+
+script:post-response {
+  const body = res.getBody();
+  if (body && body.data && body.data.length > 0) {
+      bru.setEnvVar('firstRoleId', body.data[0].id);
+  }
+}

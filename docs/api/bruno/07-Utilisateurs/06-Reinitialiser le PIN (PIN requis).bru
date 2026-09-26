@@ -1,0 +1,25 @@
+meta {
+  name: Reinitialiser le PIN (PIN requis)
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/admin/api/users/{{created_user_id}}/reset-pin
+}
+
+headers {
+  Content-Type: application/json
+  X-CSRF-Token: {{csrf}}
+}
+
+body {
+  {
+    "pin_email": "{{pin_email}}",
+    "pin": "{{pin}}"
+  }
+}
+
+docs {
+Efface le PIN de la cible ; elle le redefinit ensuite en self-service (/admin/profile/pin).
+}

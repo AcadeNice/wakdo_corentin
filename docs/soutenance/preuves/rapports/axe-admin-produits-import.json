@@ -1,0 +1,520 @@
+{
+  "page": "admin-produits-import",
+  "url": "http://admin.wakdo.test/admin/products/import",
+  "date": "2026-09-26T14:24:29.803Z",
+  "moteur": {
+    "axe": {
+      "name": "axe-core",
+      "version": "4.13.0"
+    },
+    "regles": [
+      "wcag2a",
+      "wcag2aa",
+      "wcag21a",
+      "wcag21aa"
+    ]
+  },
+  "navigateur": {
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.6778.33 Safari/537.36",
+    "windowWidth": 1440,
+    "windowHeight": 900,
+    "orientationAngle": 0,
+    "orientationType": "landscape-primary"
+  },
+  "violations": [],
+  "indetermines": [],
+  "contrastes_mesures": [
+    {
+      "compartiment": "conforme",
+      "selecteur": ".topbar-user-avatar",
+      "extrait": "<div class=\"topbar-user-avatar\">WA</div>",
+      "avant_plan": "#ffc72c",
+      "arriere_plan": "#1a1a1a",
+      "ratio": 11.15,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".topbar-user-name",
+      "extrait": "<div class=\"topbar-user-name\">Wakdo Admin</div>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".topbar-user-role",
+      "extrait": "<div class=\"topbar-user-role\">Administrateur</div>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-brand-name",
+      "extrait": "<span class=\"sidebar-brand-name\">Wak<span>do</span></span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "3:1",
+      "taille_px": "15.8pt (21px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-brand-name > span",
+      "extrait": "<span>do</span>",
+      "avant_plan": "#ae7f09",
+      "arriere_plan": "#ffffff",
+      "ratio": 3.59,
+      "seuil_attendu": "3:1",
+      "taille_px": "15.8pt (21px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-section:nth-child(2) > .sidebar-section-label",
+      "extrait": "<div class=\"sidebar-section-label\">Vue d'ensemble</div>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"dashboard\"]",
+      "extrait": "<a href=\"/admin/dashboard\" class=\"sidebar-item\">Tableau de bord</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-section:nth-child(3) > .sidebar-section-label",
+      "extrait": "<div class=\"sidebar-section-label\">Catalogue</div>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"categories\"]",
+      "extrait": "<a href=\"/admin/categories\" class=\"sidebar-item\">Catégories</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".active",
+      "extrait": "<a href=\"/admin/products\" class=\"sidebar-item active\">Produits</a>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#fff3d1",
+      "ratio": 15.74,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"by-category\"]",
+      "extrait": "<a href=\"/admin/products/by-category\" class=\"sidebar-item\">Produits par catégorie</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"menus\"]",
+      "extrait": "<a href=\"/admin/menus\" class=\"sidebar-item\">Menus</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-section:nth-child(4) > .sidebar-section-label",
+      "extrait": "<div class=\"sidebar-section-label\">Stock</div>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"ingredients\"]",
+      "extrait": "<a href=\"/admin/ingredients\" class=\"sidebar-item\">Ingrédients</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-section:nth-child(5) > .sidebar-section-label",
+      "extrait": "<div class=\"sidebar-section-label\">Pilotage</div>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-item[href$=\"orders\"]:nth-child(2)",
+      "extrait": "<a href=\"/counter/orders\" class=\"sidebar-item\">Saisie commande</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"stats\"]",
+      "extrait": "<a href=\"/admin/stats\" class=\"sidebar-item\">Statistiques</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-item[href$=\"orders\"]:nth-child(4)",
+      "extrait": "<a href=\"/admin/orders\" class=\"sidebar-item\">Commandes</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"display\"]",
+      "extrait": "<a href=\"/kitchen/display\" class=\"sidebar-item\">Cuisine (KDS)</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-section:nth-child(6) > .sidebar-section-label",
+      "extrait": "<div class=\"sidebar-section-label\">Administration</div>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"users\"]",
+      "extrait": "<a href=\"/admin/users\" class=\"sidebar-item\">Utilisateurs</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"roles\"]",
+      "extrait": "<a href=\"/admin/roles\" class=\"sidebar-item\">Rôles</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "h1",
+      "extrait": "<h1 class=\"page-title\">Importer des produits</h1>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#f5f5f5",
+      "ratio": 15.96,
+      "seuil_attendu": "3:1",
+      "taille_px": "15.0pt (20px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".page-subtitle",
+      "extrait": "<p class=\"page-subtitle\">Un fichier CSV, plusieurs produits et leurs recettes en une fois</p>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#f5f5f5",
+      "ratio": 4.57,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "p:nth-child(1)",
+      "extrait": "<p>Le fichier contient une ligne par ingrédient d'un produit (une ligne sans ingrédient est autorisé",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#f5f5f5",
+      "ratio": 15.96,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "p:nth-child(2) > .btn-secondary.btn",
+      "extrait": "<a class=\"btn btn-secondary\" href=\"/admin/products/import/template\">Télécharger le modèle CSV</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "summary",
+      "extrait": "<summary>Détail des colonnes attendues</summary>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#f5f5f5",
+      "ratio": 15.96,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "label",
+      "extrait": "<label class=\"form-label\" for=\"csv_file\">Fichier CSV</label>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#f5f5f5",
+      "ratio": 8.12,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "#csv_file",
+      "extrait": "<input class=\"form-input\" type=\"file\" id=\"csv_file\" name=\"csv_file\" accept=\".csv,text/csv\">",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".btn-primary",
+      "extrait": "<button class=\"btn btn-primary\" type=\"submit\">Analyser le fichier (aperçu, aucune écriture)</button>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffc72c",
+      "ratio": 11.15,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".btn-secondary.btn[href$=\"products\"]",
+      "extrait": "<a class=\"btn btn-secondary\" href=\"/admin/products\">Annuler</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".a11y-toggle__icon",
+      "extrait": "<span class=\"a11y-toggle__icon\" aria-hidden=\"true\">Aa</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".a11y-toggle__label",
+      "extrait": "<span class=\"a11y-toggle__label\">Police adaptée</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "bold"
+    }
+  ],
+  "conformes_resume": [
+    {
+      "id": "aria-allowed-attr",
+      "noeuds": 2
+    },
+    {
+      "id": "aria-conditional-attr",
+      "noeuds": 2
+    },
+    {
+      "id": "aria-hidden-body",
+      "noeuds": 1
+    },
+    {
+      "id": "aria-hidden-focus",
+      "noeuds": 1
+    },
+    {
+      "id": "aria-prohibited-attr",
+      "noeuds": 2
+    },
+    {
+      "id": "aria-valid-attr",
+      "noeuds": 2
+    },
+    {
+      "id": "aria-valid-attr-value",
+      "noeuds": 2
+    },
+    {
+      "id": "button-name",
+      "noeuds": 3
+    },
+    {
+      "id": "bypass",
+      "noeuds": 1
+    },
+    {
+      "id": "color-contrast",
+      "noeuds": 33
+    },
+    {
+      "id": "document-title",
+      "noeuds": 1
+    },
+    {
+      "id": "duplicate-id-aria",
+      "noeuds": 1
+    },
+    {
+      "id": "form-field-multiple-labels",
+      "noeuds": 1
+    },
+    {
+      "id": "html-has-lang",
+      "noeuds": 1
+    },
+    {
+      "id": "html-lang-valid",
+      "noeuds": 1
+    },
+    {
+      "id": "image-alt",
+      "noeuds": 1
+    },
+    {
+      "id": "label",
+      "noeuds": 1
+    },
+    {
+      "id": "link-name",
+      "noeuds": 15
+    },
+    {
+      "id": "meta-viewport",
+      "noeuds": 1
+    },
+    {
+      "id": "nested-interactive",
+      "noeuds": 5
+    },
+    {
+      "id": "summary-name",
+      "noeuds": 1
+    }
+  ],
+  "non_applicables": [
+    "area-alt",
+    "aria-braille-equivalent",
+    "aria-command-name",
+    "aria-deprecated-role",
+    "aria-input-field-name",
+    "aria-meter-name",
+    "aria-progressbar-name",
+    "aria-required-attr",
+    "aria-required-children",
+    "aria-required-parent",
+    "aria-roles",
+    "aria-tab-name",
+    "aria-toggle-field-name",
+    "aria-tooltip-name",
+    "autocomplete-valid",
+    "avoid-inline-spacing",
+    "blink",
+    "definition-list",
+    "dlitem",
+    "frame-focusable-content",
+    "frame-title",
+    "frame-title-unique",
+    "html-xml-lang-mismatch",
+    "input-button-name",
+    "input-image-alt",
+    "link-in-text-block",
+    "list",
+    "listitem",
+    "marquee",
+    "meta-refresh",
+    "no-autoplay-audio",
+    "object-alt",
+    "role-img-alt",
+    "scrollable-region-focusable",
+    "select-name",
+    "server-side-image-map",
+    "svg-img-alt",
+    "td-headers-attr",
+    "th-has-data-cells",
+    "valid-lang",
+    "video-caption"
+  ]
+}

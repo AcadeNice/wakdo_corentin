@@ -12,6 +12,7 @@ import { formatPrice, escHtml } from './state.js';
 import { buildAllergenInfoButton, openProductAllergenModal } from './allergens.js';
 import { openMenuComposer } from './page-product-menu.js';
 import { openProductOptions } from './product-options.js';
+import { buildMenuSection, upsertJsonLd, categoryPageTitle } from './seo.js';
 import './img-fallback.js';
 
 const params      = new URLSearchParams(window.location.search);
@@ -20,8 +21,47 @@ const categorySlug = CATEGORY_ID_TO_SLUG[categoryId] ?? 'menus';
 
 const grid       = document.getElementById('products-grid');
 const heading    = document.getElementById('products-heading');
+const subheading = document.getElementById('products-subheading');
 const backBtn    = document.getElementById('back-to-categories');
 const errorBlock = document.getElementById('products-error');
+
+/*
+ * A6 (audit maquette vs front) : phrase descriptive sous le titre, comme la
+ * maquette. Le texte n'existe nulle part en base (`category` n'a pas de colonne
+ * `description`) et la maquette ne couvre que 2 categories sur les 9 du
+ * catalogue (les 7 autres n'apparaissent que comme onglets du bandeau, jamais en
+ * ecran de liste) -- une table de correspondance cote front, plutot qu'une
+ * migration de schema, est la solution la plus simple ici : ajouter une colonne
+ * pour 2 valeurs texte fixes, non gerees par le back-office, serait une
+ * complexite non justifiee (Rasoir d'Ockham). Categories non listees : pas de
+ * sous-titre affiche (rien n'est invente).
+ */
+const CATEGORY_SUBTITLES = {
+    menus: 'Un sandwich, une friture ou une salade et une boisson',
+    boissons: 'Une petite soif, sucrée, légère, rafraîchissante',
+};
+
+/**
+ * Titre client d'une categorie ("Nos menus") a partir du libelle brut de la base
+ * ("Menus", capitalise par la migration 0013 pour le back-office). Pur (cible de
+ * test), A7.
+ * @param {string} rawName
+ * @returns {string}
+ */
+export function customerCategoryTitle(rawName) {
+    return `Nos ${rawName.charAt(0).toLowerCase() + rawName.slice(1)}`;
+}
+
+/**
+ * Sous-titre connu pour un slug de categorie, ou null si la maquette ne le
+ * couvre pas (rien n'est invente pour les 7 autres categories). Pur (cible de
+ * test), A6.
+ * @param {string} slug
+ * @returns {string|null}
+ */
+export function categorySubtitle(slug) {
+    return CATEGORY_SUBTITLES[slug] ?? null;
+}
 
 /* Build back URL preserving mode query param if present */
 const modeParam = params.get('mode');
@@ -43,14 +83,18 @@ async function renderProducts() {
         ]);
 
         if (heading && category) {
-            /* Capitalize first letter of the category title */
-            const title = category.title.charAt(0).toUpperCase() + category.title.slice(1);
-            heading.textContent = `Nos ${title}`;
-            document.title = `Wakdo - ${title}`;
+            heading.textContent = customerCategoryTitle(category.title);
+            document.title = categoryPageTitle(heading.textContent);
+
+            if (subheading) {
+                const sub = categorySubtitle(categorySlug);
+                subheading.textContent = sub ?? '';
+                subheading.hidden = !sub;
+            }
         }
 
         if (!products.length) {
-            grid.innerHTML = '<li class="products-empty">Aucun produit disponible dans cette categorie.</li>';
+            grid.innerHTML = '<li class="products-empty">Aucun produit disponible dans cette catégorie.</li>';
             return;
         }
 
@@ -75,7 +119,10 @@ async function renderProducts() {
             // Le <a> reste pour le focus/clavier (a11y) ; href='#' inerte, le handler
             // click ci-dessous fait foi (preventDefault + ouverture de la modale).
             card.href = '#';
-            card.setAttribute('aria-label', `${product.nom} - ${formatPrice(product.prix)}${orderable ? '' : ' - indisponible'}`);
+            const label = `${product.nom} - ${formatPrice(product.prix)}${orderable ? '' : ' - indisponible'}`;
+            card.setAttribute('aria-label', label);
+            // Cr 1.e.7 : title reprenant l'intitule du lien, comme l'aria-label.
+            card.setAttribute('title', label);
             if (!orderable) card.setAttribute('aria-disabled', 'true');
 
             card.innerHTML = `
@@ -121,10 +168,24 @@ async function renderProducts() {
             grid.appendChild(cell);
         });
 
+        // Donnees structurees de la section affichee (Cr 1.e.3) : remplacent le bloc de
+        // depart de products.html par la categorie reelle et ses produits. Adresses
+        // calculees depuis le lien canonique de la page, comme les @id des blocs fixes :
+        // le graphe reste relie quel que soit l'hote qui sert la page (production, test).
+        // URL sans le mode de consommation : la section est la meme sur place ou a emporter.
+        const canonical = document.querySelector('link[rel="canonical"]');
+        const base = canonical ? canonical.href : document.baseURI;
+        upsertJsonLd(document, 'ld-menu-section', buildMenuSection({
+            name: heading ? heading.textContent : 'Produits de la carte Wakdo',
+            url: new URL(`products.html?category=${categoryId}`, base).href,
+            products,
+            baseUrl: base,
+        }));
+
     } catch (err) {
         if (errorBlock) {
             errorBlock.hidden = false;
-            errorBlock.textContent = 'Impossible de charger les produits. Veuillez reessayer.';
+            errorBlock.textContent = 'Impossible de charger les produits. Veuillez réessayer.';
         }
         console.error('renderProducts error:', err);
     }

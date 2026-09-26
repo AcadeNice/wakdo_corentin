@@ -3,8 +3,11 @@
 # Wakdo - restauration de la BDD depuis un dump produit par backup-db.sh.
 #
 # Operation MANUELLE (pas un job cron) : restaurer ecrase les donnees courantes.
-# A lancer dans le conteneur disposant du client mysql et du reseau de la BDD, p.ex.
-#   docker compose run --rm -v "$PWD/var/backups:/backups" wakdo-cron \
+# A lancer via `exec` dans le service wakdo-cron DEJA demarre (pas `run --rm` :
+# `run` demarre les dependances declarees du service si elles ne tournent pas,
+# et peut recreer wakdo-db si le .env a change depuis son dernier demarrage ;
+# `exec` execute juste la commande dans le conteneur existant, sans y toucher).
+#   docker compose exec -T wakdo-cron \
 #       /scripts/restore-db.sh /backups/wakdo_YYYYMMDD_HHMMSS.sql.gz --force
 #
 # Variables d'env lues (memes que backup-db.sh) :

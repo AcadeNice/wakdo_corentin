@@ -1,0 +1,25 @@
+meta {
+  name: Anonymiser (RGPD, PIN requis) -- nettoyage final
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/admin/api/users/{{created_user_id}}/erase
+}
+
+headers {
+  Content-Type: application/json
+  X-CSRF-Token: {{csrf}}
+}
+
+body {
+  {
+    "pin_email": "{{pin_email}}",
+    "pin": "{{pin}}"
+  }
+}
+
+docs {
+Tombstone (pas de suppression physique, mlt 10.5, ADR-0007). 403 sur son propre compte, 409 si deja anonymise. Etat terminal de nettoyage pour cette ressource.
+}

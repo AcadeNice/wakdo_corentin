@@ -74,6 +74,23 @@ test('renderStripInto: sans mode, pas de &mode dans l href', () => {
     assert.doesNotMatch(el.querySelector('.category-strip__item').getAttribute('href'), /mode=/);
 });
 
+test('renderStripInto: chaque carte porte un title egal a son intitule (Cr 1.e.7)', () => {
+    const el = document.createElement('nav');
+    renderStripInto(el, buildStripModel(cats(), 3), null);
+    for (const item of el.querySelectorAll('.category-strip__item')) {
+        assert.equal(item.getAttribute('title'), item.getAttribute('aria-label'));
+    }
+});
+
+test('renderStripInto: images differees, le bandeau defile hors ecran (Cr 1.e.8)', () => {
+    const el = document.createElement('nav');
+    renderStripInto(el, buildStripModel(cats(), 3), null);
+    for (const img of el.querySelectorAll('.category-strip__img')) {
+        assert.equal(img.getAttribute('loading'), 'lazy');
+        assert.equal(img.getAttribute('decoding'), 'async');
+    }
+});
+
 test('renderStripInto: titre echappe (anti-XSS)', () => {
     const el = document.createElement('nav');
     renderStripInto(el, buildStripModel([{ id: 9, title: '<b>x</b>', slug: 'x', image: 'i.png' }], 9), null);

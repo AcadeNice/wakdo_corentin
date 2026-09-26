@@ -15,6 +15,8 @@ declare(strict_types=1);
  * @var list<array<string, mixed>> $inProgress  file "En cours" (paid non livre, canal)
  * @var string                     $channelTitle
  * @var string                     $newPath
+ * @var string|null                $highlightOrder numero de commande a signaler (creation
+ *      + encaissement, retour de store()) ; absent/vide = aucune ligne signalee
  */
 
 $esc = static fn (mixed $v): string => htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
@@ -22,23 +24,35 @@ $euros = static fn (mixed $cents): string => number_format(((int) $cents) / 100,
 
 $modeLabel = static fn (string $m): string => match ($m) {
     'dine_in'  => 'Sur place',
-    'takeaway' => 'A emporter',
+    'takeaway' => 'À emporter',
     'drive'    => 'Drive',
     default    => $m,
 };
 
 $statusLabel = static fn (string $s): string => match ($s) {
     'pending_payment' => 'En attente',
-    'paid'            => 'Payee',
-    'delivered'       => 'Livree',
-    'cancelled'       => 'Annulee',
+    'paid'            => 'Payée',
+    'preparing'       => 'En préparation',
+    'ready'           => 'Prête',
+    'delivered'       => 'Livrée',
+    'cancelled'       => 'Annulée',
     default           => $s,
 };
 
 $statusPill = static fn (string $s): string => match ($s) {
-    'paid', 'delivered' => 'pill-success',
-    'cancelled'         => 'pill-danger',
-    default             => 'pill-warning',
+    'paid', 'ready', 'delivered' => 'pill-success',
+    'preparing'                  => 'pill-warning',
+    'cancelled'                  => 'pill-danger',
+    default                      => 'pill-warning',
+};
+
+// Date lisible (fr) a partir du format MySQL brut ('Y-m-d H:i:s') ; repli sur la
+// valeur d'origine si le format est inattendu (donnee non vide mais non parsable).
+$dateHuman = static function (mixed $v): string {
+    $s = (string) $v;
+    $d = \DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $s);
+
+    return $d !== false ? $d->format('d/m/Y H:i') : $s;
 };
 
 /** @var list<array<string, mixed>> $rows */
@@ -47,6 +61,12 @@ $rows = isset($orders) && is_array($orders) ? $orders : [];
 $queue = isset($inProgress) && is_array($inProgress) ? $inProgress : [];
 $heading = isset($channelTitle) && is_string($channelTitle) ? $channelTitle : 'Commandes';
 $createPath = isset($newPath) && is_string($newPath) ? $newPath : '/counter/orders/new';
+// Ligne mise en evidence apres une action (creation + encaissement, seul geste de
+// CounterOrderController::store) : le numero vient d'un parametre d'URL pose par le
+// redirect de store() (?highlight=C3), jamais de la base -- purement un signal
+// d'affichage ponctuel, sans etat persiste. Vide = aucune ligne signalee (chargement
+// normal de la page, ou re-visite ulterieure sans parametre).
+$highlight = isset($highlightOrder) && is_string($highlightOrder) ? $highlightOrder : '';
 ?>
 
 <section class="admin-section" aria-labelledby="counter-heading">
@@ -60,14 +80,16 @@ $createPath = isset($newPath) && is_string($newPath) ? $newPath : '/counter/orde
     <?php if ($queue === []): ?>
         <p class="admin-empty">Aucune commande en cours.</p>
     <?php else: ?>
+        <div class="table-wrapper">
         <table class="admin-table">
             <thead>
                 <tr>
-                    <th>Numero</th>
+                    <th>Numéro</th>
                     <th>Mode</th>
                     <th>Table</th>
-                    <th>Total</th>
-                    <th>Payee a</th>
+                    <th>Statut</th>
+                    <th class="table-num">Total</th>
+                    <th>Payée à</th>
                 </tr>
             </thead>
             <tbody>
@@ -78,46 +100,66 @@ $createPath = isset($newPath) && is_string($newPath) ? $newPath : '/counter/orde
                     // l'equipier distingue "pas de table" d'une donnee manquante.
                     $queueMode = (string) ($o['service_mode'] ?? '');
                     $queueTag = $queueMode === 'dine_in' ? (string) ($o['service_tag'] ?? '') : '';
+                    // ERG-02 (audit UX pre-soutenance) : la file "En cours" ne portait aucune
+                    // colonne Statut -- l'equipier ne pouvait pas savoir si une commande etait
+                    // prete sans ouvrir le KDS. paidQueue() ramene deja le statut (paid/
+                    // preparing/ready) ; on le libelle et on le colore comme le fait deja le
+                    // tableau "Historique recent" juste en dessous (memes $statusLabel/$statusPill).
+                    $queueStatus = (string) ($o['status'] ?? '');
+                    // Ligne mise en evidence apres une action reussie (creation + encaissement,
+                    // seul geste possible depuis CounterOrderController::store) : classe
+                    // temporaire, purement visuelle -- $highlight ne vient jamais de la base,
+                    // seulement du parametre d'URL pose par le redirect de store().
+                    $queueHighlight = $highlight !== '' && ($o['order_number'] ?? '') === $highlight;
                     ?>
-                    <tr>
-                        <td><strong><?= $esc($o['order_number'] ?? '') ?></strong></td>
+                    <tr<?= $queueHighlight ? ' class="row-highlight"' : '' ?>>
+                        <td><strong><?= $esc($o['order_number'] ?? '') ?></strong><?= $queueHighlight ? ' <span class="row-highlight__tag">Nouveau</span>' : '' ?></td>
                         <td><?= $esc($modeLabel($queueMode)) ?></td>
                         <td><?= $queueTag !== '' ? $esc($queueTag) : '-' ?></td>
-                        <td><?= $esc($euros($o['total_ttc_cents'] ?? 0)) ?></td>
-                        <td><?= $esc($o['paid_at'] ?? '') ?></td>
+                        <td><span class="pill <?= $esc($statusPill($queueStatus)) ?>"><?= $esc($statusLabel($queueStatus)) ?></span></td>
+                        <td class="table-num"><?= $esc($euros($o['total_ttc_cents'] ?? 0)) ?></td>
+                        <td><?= $esc($dateHuman($o['paid_at'] ?? '')) ?></td>
                     </tr>
                 <?php endforeach; ?>
             </tbody>
         </table>
+        </div>
     <?php endif; ?>
 
-    <h2 class="admin-section__subtitle">Historique recent</h2>
-    <p class="admin-section__sub"><?= count($rows) ?> commande(s) recente(s)</p>
+    <h2 class="admin-section__subtitle">Historique récent</h2>
+    <p class="admin-section__sub"><?= count($rows) ?> commande(s) récente(s)</p>
     <?php if ($rows === []): ?>
         <p class="admin-empty">Aucune commande pour ce canal.</p>
     <?php else: ?>
+        <div class="table-wrapper">
         <table class="admin-table">
             <thead>
                 <tr>
-                    <th>Numero</th>
+                    <th>Numéro</th>
                     <th>Mode</th>
                     <th>Statut</th>
-                    <th>Total</th>
+                    <th class="table-num">Total</th>
                     <th>Date</th>
                 </tr>
             </thead>
             <tbody>
                 <?php foreach ($rows as $o): ?>
-                    <?php $status = (string) ($o['status'] ?? ''); ?>
-                    <tr>
-                        <td><strong><?= $esc($o['order_number'] ?? '') ?></strong></td>
+                    <?php
+                    $status = (string) ($o['status'] ?? '');
+                    // La commande qui vient d'etre creee apparait aussi dans l'historique
+                    // (recentVisible ramene tous les statuts) : meme signal que sur "En cours".
+                    $rowHighlight = $highlight !== '' && ($o['order_number'] ?? '') === $highlight;
+                    ?>
+                    <tr<?= $rowHighlight ? ' class="row-highlight"' : '' ?>>
+                        <td><strong><?= $esc($o['order_number'] ?? '') ?></strong><?= $rowHighlight ? ' <span class="row-highlight__tag">Nouveau</span>' : '' ?></td>
                         <td><?= $esc($modeLabel((string) ($o['service_mode'] ?? ''))) ?></td>
                         <td><span class="pill <?= $esc($statusPill($status)) ?>"><?= $esc($statusLabel($status)) ?></span></td>
-                        <td><?= $esc($euros($o['total_ttc_cents'] ?? 0)) ?></td>
-                        <td><?= $esc($o['created_at'] ?? '') ?></td>
+                        <td class="table-num"><?= $esc($euros($o['total_ttc_cents'] ?? 0)) ?></td>
+                        <td><?= $esc($dateHuman($o['created_at'] ?? '')) ?></td>
                     </tr>
                 <?php endforeach; ?>
             </tbody>
         </table>
+        </div>
     <?php endif; ?>
 </section>

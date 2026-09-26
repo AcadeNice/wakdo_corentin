@@ -1,0 +1,25 @@
+meta {
+  name: Desactiver un utilisateur (DELETE, PIN requis)
+  type: http
+  seq: 7
+}
+
+delete {
+  url: {{baseUrl}}/admin/api/users/{{created_user_id}}
+}
+
+headers {
+  Content-Type: application/json
+  X-CSRF-Token: {{csrf}}
+}
+
+body {
+  {
+    "pin_email": "{{pin_email}}",
+    "pin": "{{pin}}"
+  }
+}
+
+docs {
+user.deactivate. == desactivation (PAS de suppression physique ni d'effacement RGPD, mlt 10.3). Refuse sur son propre compte (403) ou sur le dernier administrateur actif (422) -- non pertinent ici.
+}

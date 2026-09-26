@@ -1,0 +1,1015 @@
+{
+  "page": "admin-produits",
+  "url": "http://admin.wakdo.test/admin/products",
+  "date": "2026-09-26T14:24:27.706Z",
+  "moteur": {
+    "axe": {
+      "name": "axe-core",
+      "version": "4.13.0"
+    },
+    "regles": [
+      "wcag2a",
+      "wcag2aa",
+      "wcag21a",
+      "wcag21aa"
+    ]
+  },
+  "navigateur": {
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.6778.33 Safari/537.36",
+    "windowWidth": 1440,
+    "windowHeight": 900,
+    "orientationAngle": 0,
+    "orientationType": "landscape-primary"
+  },
+  "violations": [],
+  "indetermines": [],
+  "contrastes_mesures": [
+    {
+      "compartiment": "conforme",
+      "selecteur": ".topbar-user-avatar",
+      "extrait": "<div class=\"topbar-user-avatar\">WA</div>",
+      "avant_plan": "#ffc72c",
+      "arriere_plan": "#1a1a1a",
+      "ratio": 11.15,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".topbar-user-name",
+      "extrait": "<div class=\"topbar-user-name\">Wakdo Admin</div>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".topbar-user-role",
+      "extrait": "<div class=\"topbar-user-role\">Administrateur</div>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-brand-name",
+      "extrait": "<span class=\"sidebar-brand-name\">Wak<span>do</span></span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "3:1",
+      "taille_px": "15.8pt (21px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-brand-name > span",
+      "extrait": "<span>do</span>",
+      "avant_plan": "#ae7f09",
+      "arriere_plan": "#ffffff",
+      "ratio": 3.59,
+      "seuil_attendu": "3:1",
+      "taille_px": "15.8pt (21px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-section:nth-child(2) > .sidebar-section-label",
+      "extrait": "<div class=\"sidebar-section-label\">Vue d'ensemble</div>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"dashboard\"]",
+      "extrait": "<a href=\"/admin/dashboard\" class=\"sidebar-item\">Tableau de bord</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-section:nth-child(3) > .sidebar-section-label",
+      "extrait": "<div class=\"sidebar-section-label\">Catalogue</div>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"categories\"]",
+      "extrait": "<a href=\"/admin/categories\" class=\"sidebar-item\">Catégories</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".active",
+      "extrait": "<a href=\"/admin/products\" class=\"sidebar-item active\">Produits</a>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#fff3d1",
+      "ratio": 15.74,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-item[href$=\"by-category\"]",
+      "extrait": "<a href=\"/admin/products/by-category\" class=\"sidebar-item\">Produits par catégorie</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"menus\"]",
+      "extrait": "<a href=\"/admin/menus\" class=\"sidebar-item\">Menus</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-section:nth-child(4) > .sidebar-section-label",
+      "extrait": "<div class=\"sidebar-section-label\">Stock</div>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"ingredients\"]",
+      "extrait": "<a href=\"/admin/ingredients\" class=\"sidebar-item\">Ingrédients</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-section:nth-child(5) > .sidebar-section-label",
+      "extrait": "<div class=\"sidebar-section-label\">Pilotage</div>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-item[href$=\"orders\"]:nth-child(2)",
+      "extrait": "<a href=\"/counter/orders\" class=\"sidebar-item\">Saisie commande</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"stats\"]",
+      "extrait": "<a href=\"/admin/stats\" class=\"sidebar-item\">Statistiques</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-item[href$=\"orders\"]:nth-child(4)",
+      "extrait": "<a href=\"/admin/orders\" class=\"sidebar-item\">Commandes</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"display\"]",
+      "extrait": "<a href=\"/kitchen/display\" class=\"sidebar-item\">Cuisine (KDS)</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-section:nth-child(6) > .sidebar-section-label",
+      "extrait": "<div class=\"sidebar-section-label\">Administration</div>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"users\"]",
+      "extrait": "<a href=\"/admin/users\" class=\"sidebar-item\">Utilisateurs</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"roles\"]",
+      "extrait": "<a href=\"/admin/roles\" class=\"sidebar-item\">Rôles</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "h1",
+      "extrait": "<h1 class=\"page-title\">Produits</h1>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#f5f5f5",
+      "ratio": 15.96,
+      "seuil_attendu": "3:1",
+      "taille_px": "15.0pt (20px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "p",
+      "extrait": "<p class=\"page-subtitle\">Gestion des produits du catalogue</p>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#f5f5f5",
+      "ratio": 4.57,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".btn-secondary.btn[href$=\"by-category\"]",
+      "extrait": "<a class=\"btn btn-secondary\" href=\"/admin/products/by-category\">Vue par catégorie</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".btn-primary",
+      "extrait": "<a class=\"btn btn-primary\" href=\"/admin/products/new\">Nouveau produit</a>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffc72c",
+      "ratio": 11.15,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "th:nth-child(1)",
+      "extrait": "<th>Nom</th>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#f9fafb",
+      "ratio": 4.76,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "th:nth-child(2)",
+      "extrait": "<th>Catégorie</th>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#f9fafb",
+      "ratio": 4.76,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "th:nth-child(3)",
+      "extrait": "<th class=\"table-num\">Prix</th>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#f9fafb",
+      "ratio": 4.76,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "th:nth-child(4)",
+      "extrait": "<th>TVA</th>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#f9fafb",
+      "ratio": 4.76,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "th:nth-child(5)",
+      "extrait": "<th>Statut</th>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#f9fafb",
+      "ratio": 4.76,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "tr[data-row-key=\"product:38\"] > .fw-600",
+      "extrait": "<td class=\"fw-600\"> Brownie </td>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "tr[data-row-key=\"product:38\"] > .muted:nth-child(2)",
+      "extrait": "<td class=\"muted\">Desserts</td>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "tr[data-row-key=\"product:38\"] > .table-num",
+      "extrait": "<td class=\"table-num\">2,60 EUR</td>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "tr[data-row-key=\"product:38\"] > .muted:nth-child(4)",
+      "extrait": "<td class=\"muted\">10%</td>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "tr[data-row-key=\"product:38\"] > td:nth-child(5) > .pill-success.pill",
+      "extrait": "<span class=\"pill pill-success\">Disponible</span>",
+      "avant_plan": "#065f46",
+      "arriere_plan": "#d1fae5",
+      "ratio": 6.77,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "tr[data-row-key=\"product:38\"] > td:nth-child(6) > .row-actions > .btn-secondary.btn[href$=\"edit\"]",
+      "extrait": "<a class=\"btn btn-secondary\" href=\"/admin/products/38/edit\">Modifier</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "tr[data-row-key=\"product:38\"] > td:nth-child(6) > .row-actions > .btn-secondary.btn[href$=\"recipe\"]",
+      "extrait": "<a class=\"btn btn-secondary\" href=\"/admin/products/38/recipe\">Recette</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "tr[data-row-key=\"product:38\"] > td:nth-child(6) > .row-actions > .row-actions__danger > .btn-secondary.btn[href$=\"delete\"]",
+      "extrait": "<a class=\"btn btn-secondary\" href=\"/admin/products/38/delete\">Supprimer</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "tr[data-row-key=\"product:27\"] > .fw-600",
+      "extrait": "<td class=\"fw-600\"> Cheeseburger </td>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "tr[data-row-key=\"product:27\"] > .muted:nth-child(2)",
+      "extrait": "<td class=\"muted\">Encas</td>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "tr[data-row-key=\"product:27\"] > .table-num",
+      "extrait": "<td class=\"table-num\">2,60 EUR</td>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "tr[data-row-key=\"product:27\"] > .muted:nth-child(4)",
+      "extrait": "<td class=\"muted\">10%</td>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "tr[data-row-key=\"product:27\"] > td:nth-child(5) > .pill-success.pill",
+      "extrait": "<span class=\"pill pill-success\">Disponible</span>",
+      "avant_plan": "#065f46",
+      "arriere_plan": "#d1fae5",
+      "ratio": 6.77,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "tr[data-row-key=\"product:27\"] > td:nth-child(6) > .row-actions > .btn-secondary.btn[href$=\"edit\"]",
+      "extrait": "<a class=\"btn btn-secondary\" href=\"/admin/products/27/edit\">Modifier</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "tr[data-row-key=\"product:27\"] > td:nth-child(6) > .row-actions > .btn-secondary.btn[href$=\"recipe\"]",
+      "extrait": "<a class=\"btn btn-secondary\" href=\"/admin/products/27/recipe\">Recette</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "tr[data-row-key=\"product:27\"] > td:nth-child(6) > .row-actions > .row-actions__danger > .btn-secondary.btn[href$=\"delete\"]",
+      "extrait": "<a class=\"btn btn-secondary\" href=\"/admin/products/27/delete\">Supprimer</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "tr[data-row-key=\"product:47\"] > .fw-600",
+      "extrait": "<td class=\"fw-600\"> Classic Barbecue </td>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#f9fafb",
+      "ratio": 16.65,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "tr[data-row-key=\"product:47\"] > .muted:nth-child(2)",
+      "extrait": "<td class=\"muted\">Sauces</td>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#f9fafb",
+      "ratio": 4.76,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "tr[data-row-key=\"product:47\"] > .table-num",
+      "extrait": "<td class=\"table-num\">0,70 EUR</td>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#f9fafb",
+      "ratio": 16.65,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "tr[data-row-key=\"product:47\"] > .muted:nth-child(4)",
+      "extrait": "<td class=\"muted\">10%</td>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#f9fafb",
+      "ratio": 4.76,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "tr[data-row-key=\"product:47\"] > td:nth-child(5) > .pill-success.pill",
+      "extrait": "<span class=\"pill pill-success\">Disponible</span>",
+      "avant_plan": "#065f46",
+      "arriere_plan": "#d1fae5",
+      "ratio": 6.77,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "tr[data-row-key=\"product:47\"] > td:nth-child(6) > .row-actions > .btn-secondary.btn[href$=\"edit\"]",
+      "extrait": "<a class=\"btn btn-secondary\" href=\"/admin/products/47/edit\">Modifier</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "tr[data-row-key=\"product:47\"] > td:nth-child(6) > .row-actions > .btn-secondary.btn[href$=\"recipe\"]",
+      "extrait": "<a class=\"btn btn-secondary\" href=\"/admin/products/47/recipe\">Recette</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "tr[data-row-key=\"product:47\"] > td:nth-child(6) > .row-actions > .row-actions__danger > .btn-secondary.btn[href$=\"delete\"]",
+      "extrait": "<a class=\"btn btn-secondary\" href=\"/admin/products/47/delete\">Supprimer</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "tr[data-row-key=\"product:14\"] > .fw-600",
+      "extrait": "<td class=\"fw-600\"> Coca Cola </td>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "tr[data-row-key=\"product:14\"] > .muted:nth-child(2)",
+      "extrait": "<td class=\"muted\">Boissons</td>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "tr[data-row-key=\"product:14\"] > .table-num",
+      "extrait": "<td class=\"table-num\">1,90 EUR</td>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "tr[data-row-key=\"product:14\"] > .muted:nth-child(4)",
+      "extrait": "<td class=\"muted\">10%</td>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "tr[data-row-key=\"product:14\"] > td:nth-child(5) > .pill-success.pill",
+      "extrait": "<span class=\"pill pill-success\">Disponible</span>",
+      "avant_plan": "#065f46",
+      "arriere_plan": "#d1fae5",
+      "ratio": 6.77,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "tr[data-row-key=\"product:14\"] > td:nth-child(6) > .row-actions > .btn-secondary.btn[href$=\"edit\"]",
+      "extrait": "<a class=\"btn btn-secondary\" href=\"/admin/products/14/edit\">Modifier</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "tr[data-row-key=\"product:14\"] > td:nth-child(6) > .row-actions > .btn-secondary.btn[href$=\"recipe\"]",
+      "extrait": "<a class=\"btn btn-secondary\" href=\"/admin/products/14/recipe\">Recette</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "tr[data-row-key=\"product:14\"] > td:nth-child(6) > .row-actions > .row-actions__danger > .btn-secondary.btn[href$=\"delete\"]",
+      "extrait": "<a class=\"btn btn-secondary\" href=\"/admin/products/14/delete\">Supprimer</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "tr[data-row-key=\"product:54\"] > .fw-600",
+      "extrait": "<td class=\"fw-600\">",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "tr[data-row-key=\"product:54\"] > .fw-600 > .pill-neutral.pill",
+      "extrait": "<span class=\"pill pill-neutral\" title=\"Cette ligne est une variante de taille, pas un produit affich",
+      "avant_plan": "#374151",
+      "arriere_plan": "#f3f4f6",
+      "ratio": 9.36,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "tr[data-row-key=\"product:54\"] > .muted:nth-child(2)",
+      "extrait": "<td class=\"muted\">Boissons</td>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "tr[data-row-key=\"product:54\"] > .table-num",
+      "extrait": "<td class=\"table-num\">2,40 EUR</td>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "tr[data-row-key=\"product:54\"] > .muted:nth-child(4)",
+      "extrait": "<td class=\"muted\">10%</td>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "tr[data-row-key=\"product:54\"] > td:nth-child(5) > .pill-success.pill",
+      "extrait": "<span class=\"pill pill-success\">Disponible</span>",
+      "avant_plan": "#065f46",
+      "arriere_plan": "#d1fae5",
+      "ratio": 6.77,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "tr[data-row-key=\"product:54\"] > td:nth-child(6) > .row-actions > .btn-secondary.btn[href$=\"edit\"]",
+      "extrait": "<a class=\"btn btn-secondary\" href=\"/admin/products/54/edit\">Modifier</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "tr[data-row-key=\"product:54\"] > td:nth-child(6) > .row-actions > .btn-secondary.btn[href$=\"recipe\"]",
+      "extrait": "<a class=\"btn btn-secondary\" href=\"/admin/products/54/recipe\">Recette</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "tr[data-row-key=\"product:54\"] > td:nth-child(6) > .row-actions > .row-actions__danger > .btn-secondary.btn[href$=\"delete\"]",
+      "extrait": "<a class=\"btn btn-secondary\" href=\"/admin/products/54/delete\">Supprimer</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "tr[data-row-key=\"product:1\"] > .fw-600",
+      "extrait": "<td class=\"fw-600\"> Le 280 </td>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "tr[data-row-key=\"product:1\"] > .muted:nth-child(2)",
+      "extrait": "<td class=\"muted\">Burgers</td>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "tr[data-row-key=\"product:1\"] > .table-num",
+      "extrait": "<td class=\"table-num\">6,80 EUR</td>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "tr[data-row-key=\"product:1\"] > .muted:nth-child(4)",
+      "extrait": "<td class=\"muted\">10%</td>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".a11y-toggle__icon",
+      "extrait": "<span class=\"a11y-toggle__icon\" aria-hidden=\"true\">Aa</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".a11y-toggle__label",
+      "extrait": "<span class=\"a11y-toggle__label\">Police adaptée</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "bold"
+    }
+  ],
+  "conformes_resume": [
+    {
+      "id": "aria-allowed-attr",
+      "noeuds": 2
+    },
+    {
+      "id": "aria-conditional-attr",
+      "noeuds": 2
+    },
+    {
+      "id": "aria-hidden-body",
+      "noeuds": 1
+    },
+    {
+      "id": "aria-hidden-focus",
+      "noeuds": 1
+    },
+    {
+      "id": "aria-prohibited-attr",
+      "noeuds": 2
+    },
+    {
+      "id": "aria-valid-attr",
+      "noeuds": 2
+    },
+    {
+      "id": "aria-valid-attr-value",
+      "noeuds": 2
+    },
+    {
+      "id": "avoid-inline-spacing",
+      "noeuds": 1
+    },
+    {
+      "id": "button-name",
+      "noeuds": 2
+    },
+    {
+      "id": "bypass",
+      "noeuds": 1
+    },
+    {
+      "id": "color-contrast",
+      "noeuds": 78
+    },
+    {
+      "id": "document-title",
+      "noeuds": 1
+    },
+    {
+      "id": "html-has-lang",
+      "noeuds": 1
+    },
+    {
+      "id": "html-lang-valid",
+      "noeuds": 1
+    },
+    {
+      "id": "image-alt",
+      "noeuds": 1
+    },
+    {
+      "id": "link-name",
+      "noeuds": 189
+    },
+    {
+      "id": "meta-viewport",
+      "noeuds": 1
+    },
+    {
+      "id": "nested-interactive",
+      "noeuds": 3
+    },
+    {
+      "id": "scrollable-region-focusable",
+      "noeuds": 1
+    },
+    {
+      "id": "td-headers-attr",
+      "noeuds": 1
+    },
+    {
+      "id": "th-has-data-cells",
+      "noeuds": 1
+    }
+  ],
+  "non_applicables": [
+    "area-alt",
+    "aria-braille-equivalent",
+    "aria-command-name",
+    "aria-deprecated-role",
+    "aria-input-field-name",
+    "aria-meter-name",
+    "aria-progressbar-name",
+    "aria-required-attr",
+    "aria-required-children",
+    "aria-required-parent",
+    "aria-roles",
+    "aria-tab-name",
+    "aria-toggle-field-name",
+    "aria-tooltip-name",
+    "autocomplete-valid",
+    "blink",
+    "definition-list",
+    "dlitem",
+    "duplicate-id-aria",
+    "form-field-multiple-labels",
+    "frame-focusable-content",
+    "frame-title",
+    "frame-title-unique",
+    "html-xml-lang-mismatch",
+    "input-button-name",
+    "input-image-alt",
+    "label",
+    "link-in-text-block",
+    "list",
+    "listitem",
+    "marquee",
+    "meta-refresh",
+    "no-autoplay-audio",
+    "object-alt",
+    "role-img-alt",
+    "select-name",
+    "server-side-image-map",
+    "summary-name",
+    "svg-img-alt",
+    "valid-lang",
+    "video-caption"
+  ]
+}

@@ -1,0 +1,245 @@
+{
+  "page": "accueil",
+  "url": "http://kiosk.wakdo.test/index.html",
+  "date": "2026-09-26T14:24:19.739Z",
+  "moteur": {
+    "axe": {
+      "name": "axe-core",
+      "version": "4.13.0"
+    },
+    "regles": [
+      "wcag2a",
+      "wcag2aa",
+      "wcag21a",
+      "wcag21aa"
+    ]
+  },
+  "navigateur": {
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.6778.33 Safari/537.36",
+    "windowWidth": 1080,
+    "windowHeight": 1920,
+    "orientationAngle": 0,
+    "orientationType": "landscape-primary"
+  },
+  "violations": [],
+  "indetermines": [],
+  "contrastes_mesures": [
+    {
+      "compartiment": "conforme",
+      "selecteur": "#welcome-heading",
+      "extrait": "<h1 class=\"welcome__greeting\" id=\"welcome-heading\">Bonjour,</h1>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "3:1",
+      "taille_px": "30.0pt (40px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "p",
+      "extrait": "<p class=\"welcome__question\"> Souhaitez-vous consommer votre menu <strong>sur place</strong><br> ou ",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "3:1",
+      "taille_px": "15.0pt (20px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "strong:nth-child(1)",
+      "extrait": "<strong>sur place</strong>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "3:1",
+      "taille_px": "15.0pt (20px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "strong:nth-child(3)",
+      "extrait": "<strong>l'emporter</strong>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "3:1",
+      "taille_px": "15.0pt (20px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href=\"categories.html?mode=sur-place\"] > .choice-btn__label",
+      "extrait": "<span class=\"choice-btn__label\">Sur Place</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "3:1",
+      "taille_px": "18.0pt (24px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[aria-label=\"Commander à emporter\"] > .choice-btn__label",
+      "extrait": "<span class=\"choice-btn__label\">À Emporter</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "3:1",
+      "taille_px": "18.0pt (24px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".a11y-toggle__icon",
+      "extrait": "<span class=\"a11y-toggle__icon\" aria-hidden=\"true\">Aa</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "3:1",
+      "taille_px": "15.0pt (20px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".a11y-toggle__label",
+      "extrait": "<span class=\"a11y-toggle__label\">Police adaptée</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "bold"
+    }
+  ],
+  "conformes_resume": [
+    {
+      "id": "aria-allowed-attr",
+      "noeuds": 6
+    },
+    {
+      "id": "aria-conditional-attr",
+      "noeuds": 6
+    },
+    {
+      "id": "aria-deprecated-role",
+      "noeuds": 2
+    },
+    {
+      "id": "aria-hidden-body",
+      "noeuds": 1
+    },
+    {
+      "id": "aria-hidden-focus",
+      "noeuds": 2
+    },
+    {
+      "id": "aria-prohibited-attr",
+      "noeuds": 6
+    },
+    {
+      "id": "aria-required-attr",
+      "noeuds": 2
+    },
+    {
+      "id": "aria-roles",
+      "noeuds": 2
+    },
+    {
+      "id": "aria-valid-attr",
+      "noeuds": 6
+    },
+    {
+      "id": "aria-valid-attr-value",
+      "noeuds": 6
+    },
+    {
+      "id": "button-name",
+      "noeuds": 1
+    },
+    {
+      "id": "bypass",
+      "noeuds": 1
+    },
+    {
+      "id": "color-contrast",
+      "noeuds": 8
+    },
+    {
+      "id": "document-title",
+      "noeuds": 1
+    },
+    {
+      "id": "duplicate-id-aria",
+      "noeuds": 1
+    },
+    {
+      "id": "html-has-lang",
+      "noeuds": 1
+    },
+    {
+      "id": "html-lang-valid",
+      "noeuds": 1
+    },
+    {
+      "id": "image-alt",
+      "noeuds": 2
+    },
+    {
+      "id": "link-name",
+      "noeuds": 3
+    },
+    {
+      "id": "meta-viewport",
+      "noeuds": 1
+    },
+    {
+      "id": "nested-interactive",
+      "noeuds": 5
+    }
+  ],
+  "non_applicables": [
+    "area-alt",
+    "aria-braille-equivalent",
+    "aria-command-name",
+    "aria-input-field-name",
+    "aria-meter-name",
+    "aria-progressbar-name",
+    "aria-required-children",
+    "aria-required-parent",
+    "aria-tab-name",
+    "aria-toggle-field-name",
+    "aria-tooltip-name",
+    "autocomplete-valid",
+    "avoid-inline-spacing",
+    "blink",
+    "definition-list",
+    "dlitem",
+    "form-field-multiple-labels",
+    "frame-focusable-content",
+    "frame-title",
+    "frame-title-unique",
+    "html-xml-lang-mismatch",
+    "input-button-name",
+    "input-image-alt",
+    "label",
+    "link-in-text-block",
+    "list",
+    "listitem",
+    "marquee",
+    "meta-refresh",
+    "no-autoplay-audio",
+    "object-alt",
+    "role-img-alt",
+    "scrollable-region-focusable",
+    "select-name",
+    "server-side-image-map",
+    "summary-name",
+    "svg-img-alt",
+    "td-headers-attr",
+    "th-has-data-cells",
+    "valid-lang",
+    "video-caption"
+  ]
+}

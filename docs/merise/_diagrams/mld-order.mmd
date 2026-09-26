@@ -12,6 +12,8 @@ erDiagram
         int total_vat_cents
         int total_ttc_cents
         datetime paid_at
+        datetime preparing_at
+        datetime ready_at
         datetime delivered_at
         datetime cancelled_at
     }
@@ -62,10 +64,10 @@ erDiagram
         varchar name
     }
 
-    user ||--o{ customer_order : "acting_user_id (SET NULL, nullable)"
+    user |o--o{ customer_order : "acting_user_id (SET NULL, nullable)"
     customer_order ||--o{ order_item : "order_id (CASCADE)"
-    product ||--o{ order_item : "product_id (RESTRICT, polymorphic)"
-    menu ||--o{ order_item : "menu_id (RESTRICT, polymorphic)"
+    product |o--o{ order_item : "product_id (RESTRICT, polymorphic)"
+    menu |o--o{ order_item : "menu_id (RESTRICT, polymorphic)"
     order_item ||--o{ order_item_selection : "order_item_id (CASCADE)"
     menu_slot ||--o{ order_item_selection : "menu_slot_id (RESTRICT)"
     product ||--o{ order_item_selection : "product_id (RESTRICT)"

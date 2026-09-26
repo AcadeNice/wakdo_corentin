@@ -1,0 +1,39 @@
+meta {
+  name: Creer un ingredient (pour le stock)
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/admin/api/ingredients
+}
+
+headers {
+  Content-Type: application/json
+  X-CSRF-Token: {{csrf}}
+}
+
+body {
+  {
+    "name": "Ingredient Demo Stock {{run}}",
+    "unit": "unite",
+    "pack_size": 50,
+    "pack_label": "carton de 50",
+    "stock_capacity": 500,
+    "low_stock_pct": 20,
+    "critical_stock_pct": 5
+  }
+}
+
+docs {
+Nom distinct du premier ingredient (suffixe Stock/{{run}}) : celui-ci va recevoir des mouvements de stock.
+}
+
+script:post-response {
+  const body = res.getBody();
+  if (body && body.data && body.data.id) { bru.setEnvVar('created_restock_ingredient_id', body.data.id); }
+}
+
+tests {
+  expect(res.getStatus()).to.equal(201);
+}

@@ -240,7 +240,7 @@ Porte les metadonnees de personnalisation pour le configurateur d'ingredients.
 | `product_id` | INT UNSIGNED | NO | — | FK -> `product(id)`, ON DELETE CASCADE | |
 | `ingredient_id` | INT UNSIGNED | NO | — | FK -> `ingredient(id)`, ON DELETE RESTRICT | RESTRICT : impossible de retirer un ingredient encore reference dans une recette de produit |
 | `quantity_normal` | SMALLINT UNSIGNED | NO | 1 | CHECK > 0 | unites consommees en format Normal (ex. 2 pour double cheese) |
-| `quantity_maxi` | SMALLINT UNSIGNED | NO | 1 | CHECK > 0 | unites consommees en format Maxi. Egale `quantity_normal` pour les ingredients invariants au format (burger, sauce) ; superieure pour les ingredients d'accompagnement et de boisson (le Maxi agrandit uniquement l'accompagnement + la boisson). Voir note 7. |
+| `quantity_maxi` | SMALLINT UNSIGNED | NO | 1 | CHECK (quantity_maxi >= quantity_normal) | unites consommees en format Maxi. Egale `quantity_normal` pour les ingredients invariants au format (burger, sauce) ; superieure pour les ingredients d'accompagnement et de boisson (le Maxi agrandit uniquement l'accompagnement + la boisson). La contrainte est posee en base (`chk_product_ingredient_quantity_maxi`, migration 0001), pas seulement documentee. Voir note 7. |
 | `is_removable` | TINYINT(1) | NO | 1 | — | le client peut retirer cet ingredient sans frais |
 | `is_addable` | TINYINT(1) | NO | 0 | — | le client peut ajouter une unite supplementaire de cet ingredient |
 | `extra_price_cents` | INT UNSIGNED | NO | 0 | CHECK >= 0 | supplement en centimes quand `is_addable=1` et que le client l'ajoute (0 = extra gratuit) |
@@ -259,7 +259,7 @@ Catalogue des 14 allergenes reglementes (Reglement INCO (UE) 1169/2011).
 |---|---|---|---|---|---|
 | `id` | INT UNSIGNED | NO | AUTO_INCREMENT | PK | |
 | `code` | VARCHAR(30) | NO | — | UNIQUE | code lisible par machine, ex. `gluten`, `milk`, `nuts` |
-| `name` | VARCHAR(80) | NO | — | — | nom d'affichage, ex. "Gluten", "Lait", "Fruits a coque" |
+| `name` | VARCHAR(80) | NO | — | — | nom d'affichage, ex. "Gluten", "Lait", "Fruits à coque" |
 | `description` | TEXT | YES | NULL | — | guidance optionnelle pour le personnel |
 
 **Volume** : 14 lignes au seed (fixe par le reglement UE 1169/2011, liste confirmee au moment du seed).
@@ -300,12 +300,12 @@ Transaction client : 1 commande = 1 panier valide a un instant donne.
 | `idempotency_key` | VARCHAR(36) | YES | NULL | UNIQUE | UUID genere par le client pour dedupliquer un `POST /api/orders` reessaye (anti-double-charge). UNIQUE rejette les doublons ; plusieurs NULL autorises. Security-by-design, voir note 13 |
 | `source` | ENUM('kiosk','counter','drive') | NO | — | INDEX | canal de saisie (qui a saisi la commande). Valeurs en anglais, voir note 5. |
 | `acting_user_id` | INT UNSIGNED | YES | NULL | FK -> `user(id)`, ON DELETE SET NULL | personnel back-office (counter/drive) ayant cree la commande, capture sous PIN. NULL pour `kiosk` (anonyme). Imputabilite ciblee sans imposer un login par personne sur la borne. Voir note 13 |
-| `service_mode` | ENUM('dine_in','takeaway','drive') | NO | — | — | mode de consommation, conserve pour les stats/KPI uniquement. Aucun role fiscal (voir note 9). La source `drive` implique le service_mode `drive` (contrainte croisee appliquee au niveau applicatif). |
+| `service_mode` | ENUM('dine_in','takeaway','drive') | NO | — | — | mode de consommation, conserve pour les stats/KPI uniquement. Aucun role fiscal (voir note 9). La source `drive` implique le service_mode `drive` : contrainte croisee posee en base (`chk_customer_order_drive_mode`, migration 0001), pas seulement au niveau applicatif. |
 | `service_tag` | VARCHAR(20) | YES | NULL | — | numero de chevalet pour le service EN SALLE (migration 0003), saisi a la borne quand le client choisit `dine_in` ; permet d'apporter la commande a la bonne table (B4). NULL pour `takeaway` / `drive`. Voir note 14 |
 | `status` | ENUM('pending_payment','paid','preparing','ready','delivered','cancelled') | NO | 'pending_payment' | INDEX | machine a 6 etats (migration `0009_order_prep_states.sql`, retour oral #8) : `pending_payment -> preparing -> ready -> delivered` (+ `cancelled`). `paid` reste dans l'ENUM comme statut historique (aucun chemin de code actuel ne l'ecrit plus ; `ready` est optionnel). Voir note 6. |
 | `total_ht_cents` | INT UNSIGNED | NO | — | CHECK >= 0 | total hors TVA, snapshot a la validation de la commande |
 | `total_vat_cents` | INT UNSIGNED | NO | — | CHECK >= 0 | montant de TVA, snapshot |
-| `total_ttc_cents` | INT UNSIGNED | NO | — | CHECK > 0 | total TTC ; doit egaler total_ht_cents + total_vat_cents (verifie a la couche MLT) |
+| `total_ttc_cents` | INT UNSIGNED | NO | — | CHECK > 0 | total TTC ; doit egaler total_ht_cents + total_vat_cents, contrainte posee en base (`chk_customer_order_total_coherent`, migration 0001), pas seulement verifiee a la couche MLT |
 | `paid_at` | DATETIME | YES | NULL | — | timestamp de la transition vers `paid`/`preparing` (encaissement ; NULL avant paiement) |
 | `preparing_at` | DATETIME | YES | NULL | — | timestamp de la transition vers `preparing` (migration 0009), posee dans la meme transaction que `paid_at`. Voir note 6. |
 | `ready_at` | DATETIME | YES | NULL | — | timestamp de la transition vers `ready` (migration 0009), optionnelle. Voir note 6. |
@@ -746,7 +746,8 @@ Deux dimensions distinctes, gardees separees :
 
 Les deux dimensions sont independantes pour `kiosk` et `counter` (un client borne peut choisir
 `dine_in` ou `takeaway`). `drive` est le seul cas ou les deux dimensions s'alignent :
-`source=drive` implique `service_mode=drive`. Cette contrainte croisee est verifiee au niveau applicatif.
+`source=drive` implique `service_mode=drive`. Cette contrainte croisee est posee en base
+(`chk_customer_order_drive_mode`, migration 0001), pas seulement verifiee au niveau applicatif.
 
 ### Note 6 — Machine a 6 etats (preparing/ready reintroduits par la migration 0009)
 

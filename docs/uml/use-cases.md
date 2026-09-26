@@ -1,7 +1,8 @@
 # Diagramme de cas d'utilisation - Wakdo
 
 **Phase UML** : P1 - Conception, complement UML (apres MCD)
-**Statut** : v0.2 - prod-like, 5 roles RBAC + catalogue de 23 permissions
+**Statut** : v0.3 - prod-like, 5 roles RBAC + catalogue de 23 permissions
+**Historique** : v0.3 (2026-09-24) - mise en coherence avec le code livre (2a09597) : cas "Marquer une commande prete" ajoute (kitchen, counter, drive, admin, permission `order.read`), mention "lecture seule" retiree du role kitchen, "Saisir le numero de retrait" remplace par "Saisir le numero de chevalet (sur place)" en extension, admin relie a la saisie et a la remise, parcours de commande en deux appels (creation puis encaissement), aucun modificateur d'ingredient construit par la borne.
 **Date** : 2026-06-11
 **Branche** : `feat/p1-conception`
 **Auteur methodologie** : BYAN
@@ -13,7 +14,7 @@
 Ce document recense les **cas d'utilisation** de Wakdo, c'est-a-dire les
 fonctionnalites observables du systeme du point de vue de ses acteurs. Il
 complete le MCD (`docs/merise/mcd.md`), le dictionnaire
-(`docs/merise/dictionary.md`) et le MCT (`docs/merise/mct.md`, 26 operations) en
+(`docs/merise/dictionary.md`) et le MCT (`docs/merise/mct.md`, 30 operations) en
 passant de la vue **donnees / traitements** a la vue **usages**.
 
 Le diagramme reste au niveau conceptuel : il identifie qui fait quoi, sans
@@ -41,9 +42,9 @@ multi-canal. Chaque acteur candidat est confronte au perimetre reel.
 |---|---|---|
 | **Client (borne kiosk)** | Retenu (acteur `CUSTOMER`) | Acteur central du Bloc 1. Compose et valide une commande sur la borne tactile autonome (canal `kiosk`). **Non authentifie**. |
 | **Accueil** | **Scinde** en `counter` et `drive` | Le besoin "Accueil" recouvre deux canaux operationnels distincts : le comptoir (`counter`) et le drive (`drive`). Le v0.2 les separe car le tag `source` de la commande et le filtre de dashboard (`role_visible_source`) different. Tous deux saisissent des commandes, les remettent et les annulent. |
-| **Preparation** | Retenu, renomme `kitchen` | Role RBAC `kitchen`. Voit la file des commandes `paid` triees par `paid_at` croissant. **Lecture seule** : ne declenche aucune transition de statut (le KDS est un dispositif visuel ; la remise revient a `counter`/`drive`). |
+| **Preparation** | Retenu, renomme `kitchen` | Role RBAC `kitchen`. Voit la file des commandes `paid`, `preparing` et `ready` triees par `paid_at` croissant et **marque une commande prete** (`preparing -> ready`, permission `order.read`). Ne cree, ne remet ni n'annule de commande (la remise revient a `counter`/`drive`). |
 | **Administration** | **Scinde** en `admin` et `manager` | Le v0.1 fusionnait "Manager/Admin". Le v0.2 distingue : `admin` (gestion des utilisateurs, des roles et permissions, suppressions catalogue) et `manager` (catalogue create/update, stock/reappro, stats), utilisateurs en lecture seule (`user.read`) et sans acces au RBAC. Resout le point ouvert v0.1 "Manager vs Admin". |
-| **Caisse** | Ecarte (recouvert par `counter`/`drive`) | Aucun role `caisse` n'existe. L'encaissement est atomique a la creation de commande (saisie du numero = substitut de paiement) ; il est realise par le Client (kiosk) ou par `counter`/`drive` (back-office). Resout le point ouvert v0.1 "Caisse absente du RBAC". |
+| **Caisse** | Ecarte (recouvert par `counter`/`drive`) | Aucun role `caisse` n'existe. L'encaissement est simule (cadre RNCP) : il suit la creation de la commande, par un second appel de la borne ou dans la meme requete au comptoir et au drive. Resout le point ouvert v0.1 "Caisse absente du RBAC". |
 | **Systeme** | Retenu (acteur `SYS`) | Logique interne (generation du numero, reponse API de confirmation). Apparait dans le MCT (3.4 `DISPLAY_CONFIRMATION`) ; non represente comme acteur humain au diagramme. |
 
 ### Decision sur les acteurs retenus
@@ -53,7 +54,7 @@ Six acteurs sont conserves : un acteur public et cinq roles back-office.
 1. **Customer** (borne kiosk, non authentifie)
 2. **Admin** (role `admin`)
 3. **Manager** (role `manager`)
-4. **Kitchen** (role `kitchen`, ex-"Preparation", lecture seule)
+4. **Kitchen** (role `kitchen`, ex-"Preparation" : consulte la file et marque une commande prete)
 5. **Counter** (role `counter`, ex-"Accueil" comptoir)
 6. **Drive** (role `drive`, ex-"Accueil" drive)
 
@@ -79,7 +80,7 @@ flowchart LR
     Customer(("Customer<br/>borne kiosk<br/>non authentifie"))
     Admin(("Admin<br/>role admin"))
     Manager(("Manager<br/>role manager"))
-    Kitchen(("Kitchen<br/>role kitchen<br/>lecture seule"))
+    Kitchen(("Kitchen<br/>role kitchen"))
     Counter(("Counter<br/>role counter"))
     Drive(("Drive<br/>role drive"))
 
@@ -89,7 +90,7 @@ flowchart LR
         UC2(["Composer le panier"])
         UC3(["Consulter les allergenes"])
         UC4(["Passer une commande"])
-        UC5(["Saisir le numero de retrait"])
+        UC5(["Saisir le numero de chevalet<br/>(sur place)"])
         UC6(["Recevoir la confirmation"])
     end
 
@@ -97,6 +98,7 @@ flowchart LR
     subgraph OPS["Operations commande - back-office"]
         UC10(["Saisir une commande<br/>comptoir / drive"])
         UC11(["Consulter la file de preparation"])
+        UC14(["Marquer une commande prete"])
         UC12(["Remettre la commande"])
         UC13(["Annuler une commande"])
     end
@@ -133,25 +135,31 @@ flowchart LR
     Customer --> UC4
     Customer --> UC6
     UC2 -. include .-> UC1
-    UC2 -. extend .-> UC3
-    UC4 -. include .-> UC5
+    UC3 -. extend .-> UC2
+    UC5 -. extend .-> UC4
     UC4 -. include .-> UC2
 
-    %% Relations Counter / Drive (operations commande + stock)
+    %% Operations commande : order.create, order.read, order.deliver, order.cancel
     Counter --> UC10
     Counter --> UC11
+    Counter --> UC14
     Counter --> UC12
     Counter --> UC13
     Drive --> UC10
     Drive --> UC11
+    Drive --> UC14
     Drive --> UC12
     Drive --> UC13
+    Kitchen --> UC11
+    Kitchen --> UC14
+    Admin --> UC10
+    Admin --> UC11
+    Admin --> UC14
+    Admin --> UC12
+    Admin --> UC13
     UC10 -. include .-> UC1
 
-    %% Kitchen (lecture seule)
-    Kitchen --> UC11
-
-    %% Stock (kitchen / counter / drive / manager / admin)
+    %% Stock : stock.read et stock.count (cinq roles), stock.manage (manager, admin)
     Kitchen --> UC30
     Kitchen --> UC31
     Counter --> UC30
@@ -161,6 +169,9 @@ flowchart LR
     Manager --> UC30
     Manager --> UC31
     Manager --> UC32
+    Admin --> UC30
+    Admin --> UC31
+    Admin --> UC32
 
     %% Catalogue (manager + admin)
     Manager --> UC20
@@ -176,11 +187,6 @@ flowchart LR
     Admin --> UC40
     Admin --> UC41
     Admin --> UC42
-    Admin --> UC30
-    Admin --> UC31
-    Admin --> UC32
-    Admin --> UC11
-    Admin --> UC13
     Manager --> UC42
 
     %% Authentification mutualisee (tout cas back-office)
@@ -200,27 +206,29 @@ flowchart LR
 
 | Cas | Operation MCT | Description | Entites manipulees |
 |---|---|---|---|
-| Consulter le catalogue | 3.1 LOAD_CATALOGUE | Parcourir categories, produits et menus disponibles, charges via `GET /api/categories`, `/api/products`, `/api/menus` (ou JSON fallback). | `category`, `product`, `menu`, `menu_slot`, `menu_slot_option` |
-| Composer le panier | 3.2 COMPOSE_CART | Ajouter produits a la carte ou menus ; remplir les slots d'un menu (`order_item_selection`), choisir le format Normal/Maxi, ajouter/retirer des ingredients (`order_item_modifier`). Panier volatil cote front, aucun ecrit BDD a ce stade. | `product`, `menu`, `menu_slot`, `menu_slot_option`, `ingredient`, `product_ingredient` |
+| Consulter le catalogue | 3.1 LOAD_CATALOGUE | Parcourir categories, produits et menus disponibles, charges via `GET /api/categories`, `/api/products`, `/api/menus` (le repli JSON statique initial a ete retire). | `category`, `product`, `menu`, `menu_slot`, `menu_slot_option` |
+| Composer le panier | 3.2 COMPOSE_CART | Ajouter produits a la carte (quantite, taille s'il y en a plusieurs) ou menus ; remplir les slots d'un menu (`order_item_selection`), choisir le format Normal/Maxi, ajuster ou retirer une ligne dans le panneau de commande. Panier conserve dans le navigateur (`localStorage`), aucune ecriture en base a ce stade. La borne ne construit aucun modificateur d'ingredient. | `product`, `menu`, `menu_slot`, `menu_slot_option` |
 | Consulter les allergenes | (derive de 3.1) | Afficher en modal les allergenes d'un produit, **calcules** par jointure `product_ingredient -> ingredient_allergen -> allergen` (INCO 1169/2011). Etend la composition. | `allergen`, `ingredient_allergen`, `product_ingredient` |
-| Passer une commande | 3.3 CREATE_ORDER | Valider le panier et saisir le numero de retrait. Creation atomique : INSERT `customer_order` (`pending_payment` puis `paid` dans la meme transaction), `order_item` + selections + modifiers snapshotes, decrement du stock + `stock_movement`. | `customer_order`, `order_item`, `order_item_selection`, `order_item_modifier`, `ingredient`, `stock_movement` |
-| Saisir le numero de retrait | (inclus dans 3.3) | Renseigner le numero qui identifie le client. Tient lieu de paiement (cadre RNCP). Cas inclus par "Passer une commande". | `customer_order.order_number` |
-| Recevoir la confirmation | 3.4 DISPLAY_CONFIRMATION | Afficher l'ecran de confirmation avec le numero, apres reponse `201` (statut `paid`). La borne se reinitialise. | `customer_order` |
+| Passer une commande | 3.3 CREATE_ORDER, 3.3ter PAY_ORDER | Toucher « Payer » puis choisir un mode de paiement (simule). Deux appels : `POST /api/orders` cree la commande en `pending_payment` (lignes et selections avec snapshots), puis `POST /api/orders/{number}/pay` la passe en `preparing`, decremente le stock et ecrit les `stock_movement`. | `customer_order`, `order_item`, `order_item_selection`, `ingredient`, `stock_movement` |
+| Saisir le numero de chevalet (sur place) | (extension de 3.3) | En service sur place, renseigner le numero du chevalet pour etre servi a table. Extension de "Passer une commande" : absente en vente a emporter. Le numero de commande, lui, est genere par le serveur (`K<id>`). | `customer_order.service_tag` |
+| Recevoir la confirmation | 3.4 DISPLAY_CONFIRMATION | Afficher l'ecran de confirmation avec le numero et le montant, apres la reponse `200` de l'encaissement (statut `preparing`), sans nouvel appel a l'API. | `customer_order` |
 
 ### 4.2 Acteurs Counter et Drive (roles `counter`, `drive`)
 
 | Cas | Operation MCT | Permission | Description | Entites |
 |---|---|---|---|---|
 | Saisir une commande comptoir/drive | 4.1 CREATE_COUNTER_ORDER | `order.create` | Composer une commande pour un client au comptoir (`counter`) ou au drive (`drive`). Logique identique a CREATE_ORDER ; `source` auto-tague depuis `role.order_source`. Numero prefixe canal + id (`C<id>`/`D<id>`, voir dictionnaire note 4). | `customer_order`, `order_item`, `order_item_selection`, `order_item_modifier`, `ingredient`, `stock_movement` |
-| Consulter la file de preparation | 5.1 LIST_ORDERS_DISPLAY | `order.read` | Voir les commandes `paid` triees par `paid_at` croissant, filtrees par `role_visible_source` (counter voit kiosk+counter ; drive voit drive). Couleur KDS = `now - paid_at`. | `customer_order`, `order_item`, `order_item_selection`, `order_item_modifier`, `role_visible_source` |
-| Remettre la commande | 6.1 DELIVER_ORDER | `order.deliver` | Geste unique `paid -> delivered`, `delivered_at = NOW()`. | `customer_order` |
-| Annuler une commande | 7.1 CANCEL_ORDER | `order.cancel` | Transition vers `cancelled` depuis `pending_payment`/`paid`, `cancelled_at = NOW()`. Re-credit du stock si `paid`. | `customer_order`, `ingredient`, `stock_movement` |
+| Consulter la file de preparation | 5.1 LIST_ORDERS_DISPLAY | `order.read` | Voir les commandes `paid`, `preparing` et `ready` triees par `paid_at` croissant, filtrees par `role_visible_source` (counter voit kiosk+counter ; drive voit drive). Couleur KDS = `now - paid_at`. | `customer_order`, `order_item`, `order_item_selection`, `order_item_modifier`, `role_visible_source` |
+| Marquer une commande prete | MARK_READY (`mct.md` 13) | `order.read` | Depuis la file, passer une commande `paid` ou `preparing` a `ready`, `ready_at = NOW()` (`POST /admin/orders/{number}/ready`). | `customer_order` |
+| Remettre la commande | 6.1 DELIVER_ORDER | `order.deliver` | Geste unique vers `delivered` depuis `paid`, `preparing` ou `ready`, `delivered_at = NOW()`. | `customer_order` |
+| Annuler une commande | 7.1 CANCEL_ORDER | `order.cancel` + PIN | Transition vers `cancelled` depuis `pending_payment`, `paid`, `preparing` ou `ready`, `cancelled_at = NOW()`, apres verification du PIN de l'equipier. Re-credit du stock si des mouvements `sale` existent ; trace `audit_log`. | `customer_order`, `ingredient`, `stock_movement`, `audit_log` |
 
-### 4.3 Acteur Kitchen (role `kitchen`, lecture seule)
+### 4.3 Acteur Kitchen (role `kitchen`)
 
 | Cas | Operation MCT | Permission | Description | Entites |
 |---|---|---|---|---|
-| Consulter la file de preparation | 5.1 LIST_ORDERS_DISPLAY | `order.read` | Voir toutes les sources (kiosk, counter, drive) en lecture seule. **Aucune transition de statut** : le KDS est un affichage visuel. | `customer_order`, `order_item`, `order_item_selection`, `order_item_modifier`, `role_visible_source` |
+| Consulter la file de preparation | 5.1 LIST_ORDERS_DISPLAY | `order.read` | Voir toutes les sources (kiosk, counter, drive). | `customer_order`, `order_item`, `order_item_selection`, `order_item_modifier`, `role_visible_source` |
+| Marquer une commande prete | MARK_READY (`mct.md` 13) | `order.read` | Bouton « Prete » de la file (`KitchenController`, `OrderAdminController::ready`) : seule transition de statut ouverte a la cuisine. | `customer_order` |
 
 ### 4.4 Stock (Kitchen, Counter, Drive, Manager, Admin)
 
@@ -260,10 +268,10 @@ flowchart LR
 
 | Relation | Type | Justification |
 |---|---|---|
-| Passer une commande -> Saisir le numero de retrait | include | La saisie du numero fait partie integrante de toute validation de commande. |
+| Saisir le numero de chevalet -> Passer une commande | extend | La saisie du chevalet ne concerne que le service sur place (`page-payment.js`). |
 | Passer une commande -> Composer le panier | include | Une commande resulte d'un panier compose. |
 | Composer le panier -> Consulter le catalogue | include | Composer suppose de parcourir les produits eligibles (a la carte ou par slot). |
-| Composer le panier -> Consulter les allergenes | extend | La consultation des allergenes est un cas optionnel declenche a la demande du client sur un produit. |
+| Consulter les allergenes -> Composer le panier | extend | La consultation des allergenes est un cas optionnel declenche a la demande du client sur un produit. |
 | Saisir une commande (Counter/Drive) -> Consulter le catalogue | include | L'equipier consulte le catalogue pour saisir au comptoir/drive. |
 | Cas back-office -> S'authentifier | include | Acces conditionne a une session authentifiee detenant la permission requise. |
 
@@ -274,19 +282,18 @@ flowchart LR
 Les incoherences que le v0.1 remontait pour arbitrage sont desormais tranchees
 par le modele v0.2 (`dictionary.md`, `mct.md`).
 
-1. **Acteur "Caisse"** : ecarte. L'encaissement est atomique a la creation
-   (saisie du numero = substitut de paiement, `mct.md` section 13) et realise
-   par le Customer (kiosk) ou par `counter`/`drive` (back-office). Aucun role
-   `caisse` n'est necessaire.
+1. **Acteur "Caisse"** : ecarte. L'encaissement est simule (cadre RNCP) et suit
+   la creation (PAY_ORDER, `mct.md` 3.3ter) ; il est realise par le Customer (kiosk)
+   ou par `counter`/`drive` (back-office). Aucun role `caisse` n'est necessaire.
 2. **"Manager" vs "Admin"** : scindes en deux roles distincts. `manager` gere le
    catalogue (create/update), le stock/reappro et les stats ; `admin` ajoute les
    suppressions catalogue, la gestion des utilisateurs et le RBAC.
 3. **"Accueil" unique** : scinde en `counter` et `drive`, car le tag `source` et
    le filtre `role_visible_source` different selon le canal.
-4. **Machine a etats** : alignee sur les 4 etats du `dictionary.md` 3.10
-   (`pending_payment -> paid -> delivered` + `cancelled`). Plus de `preparing` /
-   `ready` : la cuisine (`kitchen`) est en lecture seule, la remise est un geste
-   unique (`counter`/`drive`).
+4. **Machine a etats** : six valeurs (`docs/uml/state-commande.md`) :
+   `pending_payment -> preparing -> ready -> delivered` + `cancelled`, `paid` conserve
+   pour l'historique. La cuisine (`kitchen`) marque une commande prete ; la remise
+   reste un geste unique (`counter`/`drive`).
 5. **Modele permission-driven** : chaque cas back-office est rattache a sa
    permission (catalogue de 23 codes fige, `dictionary.md` 3.17). Le diagramme
    reflete la matrice seed ; le gardien effectif reste la permission.

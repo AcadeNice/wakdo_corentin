@@ -1,0 +1,3171 @@
+{
+  "info": {
+    "_postman_id": "af595ff2-dcb3-5c54-a5d2-37b23c91b344",
+    "name": "Wakdo - API d'administration JSON",
+    "description": "CRUD JSON de l'API d'administration Wakdo (/admin/api/*, docs/api/conventions.md section 5.3). Demarrer par 0. Connexion > Se connecter : la session (cookie WAKDO_SID) est geree par le pot a cookies de Postman, aucune manipulation manuelle. Prerequis : lire docs/api/demo-api.md. Les ecritures portent l'en-tete X-CSRF-Token (range automatiquement dans 'csrf' par la connexion). Les actions marquees PIN exigent en plus pin_email + pin dans le corps JSON. Toute la collection est REJOUABLE (deux executions consecutives sur la meme base restent 100% vertes) : noms/slugs/codes uniques par execution ({{run}}), aucun id ecrit en dur pour une ressource creee, chaque dossier se termine par la suppression ou la desactivation de ce qu'il a cree.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "0. Connexion",
+      "item": [
+        {
+          "name": "Se connecter",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Ouvre la session JSON : pose le cookie WAKDO_SID (Postman le garde tout seul) et renvoie { user, permissions, csrf_token }. Le script de test range csrf_token dans la variable d'environnement 'csrf' ET pose 'run' (horodatage court, change a chaque execution -- rend toute la collection rejouable sans collision de nom/slug/code, cf. docstring du generateur). Aucun en-tete X-CSRF-Token envoye ICI : aucune session n'existe encore avant cette requete (protection = Content-Type + CORS + SameSite, docs/api/conventions.md section 5.3bis, PAS le jeton synchroniseur).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () { pm.response.to.have.status(200); });",
+                  "pm.environment.set('run', Date.now().toString(36));",
+                  "const body = pm.response.json();",
+                  "if (body && body.data && body.data.csrf_token) {",
+                  "    pm.environment.set('csrf', body.data.csrf_token);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Qui suis-je",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "auth",
+                "me"
+              ]
+            },
+            "description": "Alias JSON de GET /admin/me (meme identite, memes permissions, meme csrf_token courant) : reste sous /admin/api/... pour que toute la demo utilise un seul prefixe. Utile pour rafraichir 'csrf' sans se reconnecter."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "if (body && body.data && body.data.csrf_token) {",
+                  "    pm.environment.set('csrf', body.data.csrf_token);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Categories",
+      "item": [
+        {
+          "name": "Lister les categories",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/categories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "categories"
+              ]
+            },
+            "description": "Capture aussi, pour les dossiers suivants (Produits/Menus), les ids des categories 'burgers'/'boissons'/'menus' par leur SLUG (stable, pas par id -- cf. docs/api/demo-api.md)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "if (body && body.data) {",
+                  "    var findSlug = function (slug) { return body.data.find(function (c) { return c.slug === slug; }); };",
+                  "    var burgers = findSlug('burgers');",
+                  "    var boissons = findSlug('boissons');",
+                  "    var menus = findSlug('menus');",
+                  "    if (burgers) { pm.environment.set('burgersCategoryId', burgers.id); }",
+                  "    if (boissons) { pm.environment.set('boissonsCategoryId', boissons.id); }",
+                  "    if (menus) { pm.environment.set('menusCategoryId', menus.id); }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Creer une categorie",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/categories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "categories"
+              ]
+            },
+            "description": "category.manage, pas de PIN. 201 + Location. Nom/slug uniques par execution ({{run}}).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Demo {{run}}\",\n  \"slug\": \"demo-{{run}}\",\n  \"display_order\": 50\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', function () { pm.response.to.have.status(201); });",
+                  "const body = pm.response.json();",
+                  "if (body && body.data && body.data.id) {",
+                  "    pm.environment.set('created_category_id', body.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Lire une categorie",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/categories/{{created_category_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "categories",
+                "{{created_category_id}}"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Modifier une categorie",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/categories/{{created_category_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "categories",
+                "{{created_category_id}}"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Demo {{run}} v2\",\n  \"slug\": \"demo-{{run}}\",\n  \"display_order\": 51\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Relire apres modification",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/categories/{{created_category_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "categories",
+                "{{created_category_id}}"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Deplacer d'un rang (move)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/categories/{{created_category_id}}/move",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "categories",
+                "{{created_category_id}}",
+                "move"
+              ]
+            },
+            "description": "direction : \"up\" ou \"down\".",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"direction\": \"up\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Basculer visible/masque (toggle)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/categories/{{created_category_id}}/toggle",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "categories",
+                "{{created_category_id}}",
+                "toggle"
+              ]
+            },
+            "description": "Bascule dans les DEUX sens (contrairement a DELETE qui ne masque que)."
+          }
+        },
+        {
+          "name": "Desactiver une categorie (DELETE = is_active=0)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/categories/{{created_category_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "categories",
+                "{{created_category_id}}"
+              ]
+            },
+            "description": "Pas de suppression dure (FK RESTRICT) : bascule is_active=0, meme geste que le bouton Masquer du back-office. Etat terminal de ce dossier pour CETTE ressource (categorie desactivee, pas supprimee)."
+          }
+        },
+        {
+          "name": "Relire apres suppression (is_active=false)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/categories/{{created_category_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "categories",
+                "{{created_category_id}}"
+              ]
+            },
+            "description": "Preuve de nettoyage : la categorie existe toujours (pas de suppression dure) mais est desactivee."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.test('200, is_active=false', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(body.data.is_active).to.eql(false);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Produits",
+      "item": [
+        {
+          "name": "Lister les produits",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/products",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "products"
+              ]
+            },
+            "description": "Capture aussi burgerBaseProductId/drinkBaseProductId (premier produit DE BASE de chaque categorie), pour ce dossier et pour Menus."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "if (body && body.data) {",
+                  "    var burgersCat = Number(pm.environment.get('burgersCategoryId'));",
+                  "    var boissonsCat = Number(pm.environment.get('boissonsCategoryId'));",
+                  "    var burger = body.data.find(function (p) { return p.category_id === burgersCat && !p.base_product_id; });",
+                  "    var drink = body.data.find(function (p) { return p.category_id === boissonsCat && !p.base_product_id; });",
+                  "    if (burger) { pm.environment.set('burgerBaseProductId', burger.id); }",
+                  "    if (drink) { pm.environment.set('drinkBaseProductId', drink.id); }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Creer un produit",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/products",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "products"
+              ]
+            },
+            "description": "product.create, pas de PIN. price_cents en CENTIMES, ENTIER STRICT (mlt 8.1) : un decimal (590.9) ou une chaine en euros (\"12,50\") sont refuses (422), jamais tronques ni relus comme des euros. category_id recupere dynamiquement (categorie 'burgers', dossier Categories ci-dessus).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category_id\": \"{{burgersCategoryId}}\",\n  \"name\": \"Produit Demo {{run}}\",\n  \"price_cents\": 490,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', function () { pm.response.to.have.status(201); });",
+                  "const body = pm.response.json();",
+                  "if (body && body.data && body.data.id) {",
+                  "    pm.environment.set('created_product_id', body.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Lire un produit",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/products/{{created_product_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "products",
+                "{{created_product_id}}"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Modifier un produit (sans changement de prix/TVA)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/products/{{created_product_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "products",
+                "{{created_product_id}}"
+              ]
+            },
+            "description": "Aucun PIN requis tant que price_cents et vat_rate ne changent pas (mlt 8.2 RG-4). price_cents reste un entier de centimes strict (voir la requete de creation).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category_id\": \"{{burgersCategoryId}}\",\n  \"name\": \"Produit Demo {{run}} renomme\",\n  \"price_cents\": 490,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Modifier le prix d'un produit (PIN requis)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/products/{{created_product_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "products",
+                "{{created_product_id}}"
+              ]
+            },
+            "description": "Changer price_cents ou vat_rate est une action sensible (RG-T13) : pin_email + pin obligatoires (modele identifiant equipier + PIN). Definissez d'abord un PIN sur le compte via /admin/profile/pin (cf. docs/api/demo-api.md).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category_id\": \"{{burgersCategoryId}}\",\n  \"name\": \"Produit Demo {{run}} renomme\",\n  \"price_cents\": 590,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99,\n  \"pin_email\": \"{{pin_email}}\",\n  \"pin\": \"{{pin}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Relire apres modification du prix",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/products/{{created_product_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "products",
+                "{{created_product_id}}"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Deplacer d'un rang dans sa categorie (move)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/products/{{created_product_id}}/move",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "products",
+                "{{created_product_id}}",
+                "move"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"direction\": \"up\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Lire la recette (composition)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/products/{{created_product_id}}/recipe",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "products",
+                "{{created_product_id}}",
+                "recipe"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Remplacer la recette",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/products/{{created_product_id}}/recipe",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "products",
+                "{{created_product_id}}",
+                "recipe"
+              ]
+            },
+            "description": "ingredient.manage, pas de PIN. Composition vide autorisee (purge la recette). ingredient_id=1 (\"Pain burger\") : catalogue d'ingredients FIGE au seed (jamais cree/supprime par cette collection), pas un id de ressource creee ici.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"composition\": [\n    {\n      \"ingredient_id\": 1,\n      \"quantity_normal\": 1,\n      \"quantity_maxi\": 2,\n      \"is_removable\": true,\n      \"is_addable\": false,\n      \"extra_price_cents\": 0\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Supprimer un produit (PIN requis)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/products/{{created_product_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "products",
+                "{{created_product_id}}"
+              ]
+            },
+            "description": "409 CONFLICT si le produit est encore reference (commande, menu). La recette part en CASCADE (ADR-0017), donc PAS un blocage ici. Suppression DURE (contrairement aux categories) : etat terminal de ce dossier pour CETTE ressource (suppression dure reelle).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pin_email\": \"{{pin_email}}\",\n  \"pin\": \"{{pin}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Relire apres suppression (404 attendu)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/products/{{created_product_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "products",
+                "{{created_product_id}}"
+              ]
+            },
+            "description": "Preuve de nettoyage : suppression dure, la ressource n'existe plus."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 NOT_FOUND', function () { pm.response.to.have.status(404); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Menus",
+      "item": [
+        {
+          "name": "Lister les menus",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/menus",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "menus"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Creer un menu",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/menus",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "menus"
+              ]
+            },
+            "description": "menu.create, pas de PIN. burger_product_id doit etre un produit DE BASE (pas une variante de taille) ; l'option du slot 'drink' doit appartenir a la categorie 'boissons' (F12) -- les deux sont recuperes dynamiquement (dossier Produits), jamais ecrits en dur. price_normal_cents/price_maxi_cents sont des entiers de centimes stricts (un decimal ou une chaine en euros est refuse, 422).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category_id\": \"{{menusCategoryId}}\",\n  \"burger_product_id\": \"{{burgerBaseProductId}}\",\n  \"name\": \"Menu Demo {{run}}\",\n  \"price_normal_cents\": 890,\n  \"price_maxi_cents\": 990,\n  \"is_available\": true,\n  \"display_order\": 50,\n  \"slots\": [\n    {\n      \"name\": \"Boisson\",\n      \"slot_type\": \"drink\",\n      \"is_required\": true,\n      \"options\": [\n        \"{{drinkBaseProductId}}\"\n      ]\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', function () { pm.response.to.have.status(201); });",
+                  "const body = pm.response.json();",
+                  "if (body && body.data && body.data.id) {",
+                  "    pm.environment.set('created_menu_id', body.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Lire un menu (avec slots)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/menus/{{created_menu_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "menus",
+                "{{created_menu_id}}"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Modifier un menu",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/menus/{{created_menu_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "menus",
+                "{{created_menu_id}}"
+              ]
+            },
+            "description": "Memes regles que la creation : prix en entiers de centimes stricts.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category_id\": \"{{menusCategoryId}}\",\n  \"burger_product_id\": \"{{burgerBaseProductId}}\",\n  \"name\": \"Menu Demo {{run}} v2\",\n  \"price_normal_cents\": 890,\n  \"price_maxi_cents\": 990,\n  \"is_available\": true,\n  \"display_order\": 50,\n  \"slots\": [\n    {\n      \"name\": \"Boisson\",\n      \"slot_type\": \"drink\",\n      \"is_required\": true,\n      \"options\": [\n        \"{{drinkBaseProductId}}\"\n      ]\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Relire apres modification",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/menus/{{created_menu_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "menus",
+                "{{created_menu_id}}"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Basculer la disponibilite (toggle)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/menus/{{created_menu_id}}/toggle",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "menus",
+                "{{created_menu_id}}",
+                "toggle"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Supprimer un menu (PIN requis)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/menus/{{created_menu_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "menus",
+                "{{created_menu_id}}"
+              ]
+            },
+            "description": "409 CONFLICT si le menu est encore reference par des commandes (pas le cas ici, menu jamais commande). Suppression DURE : etat terminal de ce dossier.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pin_email\": \"{{pin_email}}\",\n  \"pin\": \"{{pin}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Relire apres suppression (404 attendu)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/menus/{{created_menu_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "menus",
+                "{{created_menu_id}}"
+              ]
+            },
+            "description": "Preuve de nettoyage."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 NOT_FOUND', function () { pm.response.to.have.status(404); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Ingredients",
+      "item": [
+        {
+          "name": "Lister les ingredients",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/ingredients",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "ingredients"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Creer un ingredient (a supprimer)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/ingredients",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "ingredients"
+              ]
+            },
+            "description": "ingredient.manage, pas de PIN. Nom unique par execution ({{run}} -- \"Cet ingrédient existe déjà\" sinon). stock_quantity pose a 0 cote serveur (RG-CREATE-ING).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ingredient Demo Plain {{run}}\",\n  \"unit\": \"unite\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', function () { pm.response.to.have.status(201); });",
+                  "const body = pm.response.json();",
+                  "if (body && body.data && body.data.id) {",
+                  "    pm.environment.set('created_ingredient_id', body.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Lire un ingredient",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/ingredients/{{created_ingredient_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "ingredients",
+                "{{created_ingredient_id}}"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Modifier un ingredient",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/ingredients/{{created_ingredient_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "ingredients",
+                "{{created_ingredient_id}}"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ingredient Demo Plain {{run}} v2\",\n  \"unit\": \"unite\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Relire apres modification",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/ingredients/{{created_ingredient_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "ingredients",
+                "{{created_ingredient_id}}"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Supprimer un ingredient (pas de mouvement -> suppression reelle)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/ingredients/{{created_ingredient_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "ingredients",
+                "{{created_ingredient_id}}"
+              ]
+            },
+            "description": "AUCUN mouvement de stock sur celui-ci (pas de restock/inventaire/ajustement) : suppression DURE reussie. Etat terminal de ce dossier pour cet ingredient."
+          }
+        },
+        {
+          "name": "Relire apres suppression (404 attendu)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/ingredients/{{created_ingredient_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "ingredients",
+                "{{created_ingredient_id}}"
+              ]
+            },
+            "description": "Preuve de nettoyage."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 NOT_FOUND', function () { pm.response.to.have.status(404); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Creer un ingredient (pour le stock)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/ingredients",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "ingredients"
+              ]
+            },
+            "description": "Nom distinct du premier ingredient (suffixe Stock/{{run}}) : celui-ci va recevoir des mouvements de stock.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ingredient Demo Stock {{run}}\",\n  \"unit\": \"unite\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', function () { pm.response.to.have.status(201); });",
+                  "const body = pm.response.json();",
+                  "if (body && body.data && body.data.id) {",
+                  "    pm.environment.set('created_restock_ingredient_id', body.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reapprovisionner (restock)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/ingredients/{{created_restock_ingredient_id}}/restock",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "ingredients",
+                "{{created_restock_ingredient_id}}",
+                "restock"
+              ]
+            },
+            "description": "stock.manage, pas de PIN (mlt 9.1). L'ingredient doit etre actif. Pose un stock_movement : bloque desormais toute suppression DURE (409), voir plus bas.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"packs\": 5,\n  \"note\": \"reappro demo\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Reglage rapide des seuils",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/ingredients/{{created_restock_ingredient_id}}/thresholds",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "ingredients",
+                "{{created_restock_ingredient_id}}",
+                "thresholds"
+              ]
+            },
+            "description": "stock.manage, pas de PIN (calibrage, pas un comptage).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stock_capacity\": 600,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Inventaire (comptage absolu, PIN requis)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/ingredients/{{created_restock_ingredient_id}}/inventory",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "ingredients",
+                "{{created_restock_ingredient_id}}",
+                "inventory"
+              ]
+            },
+            "description": "stock.count + PIN (mlt 9.2). Pas d'audit_log au succes (stock_movement suffit).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actual_quantity\": 42,\n  \"note\": \"comptage demo\",\n  \"pin_email\": \"{{pin_email}}\",\n  \"pin\": \"{{pin}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Ajustement libre (delta signe, PIN requis)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/ingredients/{{created_restock_ingredient_id}}/adjust",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "ingredients",
+                "{{created_restock_ingredient_id}}",
+                "adjust"
+              ]
+            },
+            "description": "stock.count + PIN. delta entier non nul (+ pour ajouter, - pour retirer).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"delta\": -3,\n  \"note\": \"casse demo\",\n  \"pin_email\": \"{{pin_email}}\",\n  \"pin\": \"{{pin}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Revue des allergenes",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/ingredients/{{created_restock_ingredient_id}}/allergens",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "ingredients",
+                "{{created_restock_ingredient_id}}",
+                "allergens"
+              ]
+            },
+            "description": "ingredient.manage, pas de PIN. source obligatoire (une revue non sourcee est refusee, 422). allergen_ids=[1] : catalogue INCO FIGE (14 allergenes UE), pas un id de ressource creee par cette collection.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"allergen_ids\": [\n    1\n  ],\n  \"source\": \"Fiche fournisseur\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Basculer actif/inactif (toggle) -- nettoyage final",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/ingredients/{{created_restock_ingredient_id}}/toggle",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "ingredients",
+                "{{created_restock_ingredient_id}}",
+                "toggle"
+              ]
+            },
+            "description": "Pas de DELETE possible ici : cet ingredient porte des stock_movement (restock/inventaire/ajustement ci-dessus), donc 409 CONFLICT sur une suppression dure (conventions.md section 5.3, comportement voulu -- une demarque non tracee serait pire). La bascule vers inactif est le nettoyage correct pour CETTE ressource."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Roles (RBAC)",
+      "item": [
+        {
+          "name": "Lister les roles",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/roles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "roles"
+              ]
+            },
+            "description": "Capture firstRoleId (premier role de la liste, quel qu'il soit) pour la requete suivante et pour la creation d'utilisateur (dossier Utilisateurs)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "if (body && body.data && body.data.length > 0) {",
+                  "    pm.environment.set('firstRoleId', body.data[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Lire un role (recupere un id de permission reel)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/roles/{{firstRoleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "roles",
+                "{{firstRoleId}}"
+              ]
+            },
+            "description": "permission_ids n'apparait QUE sur la lecture unitaire (pas la liste, conventions.md section 5.3) : capture examplePermissionId pour la creation ci-dessous."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "if (body && body.data && Array.isArray(body.data.permission_ids) && body.data.permission_ids.length > 0) {",
+                  "    pm.environment.set('examplePermissionId', body.data.permission_ids[0]);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Creer un role (PIN requis)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/roles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "roles"
+              ]
+            },
+            "description": "role.manage, PIN obligatoire (escalade de privileges, mlt 10.4). code : minuscules/chiffres/_ , commence par une lettre -- {{run}} (base36) est compatible. permission_ids : id REEL recupere par GET ci-dessus (jamais suppose).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"demo_role_{{run}}\",\n  \"label\": \"Role Demo {{run}}\",\n  \"permission_ids\": [\n    \"{{examplePermissionId}}\"\n  ],\n  \"visible_sources\": [\n    \"counter\"\n  ],\n  \"pin_email\": \"{{pin_email}}\",\n  \"pin\": \"{{pin}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', function () { pm.response.to.have.status(201); });",
+                  "const body = pm.response.json();",
+                  "if (body && body.data && body.data.id) {",
+                  "    pm.environment.set('created_role_id', body.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Lire un role (avec permissions)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/roles/{{created_role_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "roles",
+                "{{created_role_id}}"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Modifier un role (PIN requis)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/roles/{{created_role_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "roles",
+                "{{created_role_id}}"
+              ]
+            },
+            "description": "Garde-fou anti-lockout (422) : le role 'admin' doit garder role.manage et rester actif -- non pertinent ici (role fraichement cree, pas 'admin').",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"label\": \"Role Demo {{run}} v2\",\n  \"permission_ids\": [\n    \"{{examplePermissionId}}\"\n  ],\n  \"visible_sources\": [\n    \"counter\",\n    \"drive\"\n  ],\n  \"pin_email\": \"{{pin_email}}\",\n  \"pin\": \"{{pin}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Relire apres modification",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/roles/{{created_role_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "roles",
+                "{{created_role_id}}"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Desactiver (PUT is_active=false) -- nettoyage final",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/roles/{{created_role_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "roles",
+                "{{created_role_id}}"
+              ]
+            },
+            "description": "Aucun endpoint DELETE pour les roles (limite documentee, conventions.md section 5.3 -- un role est rattache a des comptes). Le nettoyage correct est la desactivation, PUT PARTIEL comme pour les utilisateurs.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"label\": \"Role Demo {{run}} v2\",\n  \"permission_ids\": [\n    \"{{examplePermissionId}}\"\n  ],\n  \"visible_sources\": [\n    \"counter\",\n    \"drive\"\n  ],\n  \"is_active\": false,\n  \"pin_email\": \"{{pin_email}}\",\n  \"pin\": \"{{pin}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Relire le role apres desactivation (is_active=false)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/roles/{{created_role_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "roles",
+                "{{created_role_id}}"
+              ]
+            },
+            "description": "Preuve de nettoyage."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.test('200, is_active=false', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(body.data.is_active).to.eql(false);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Utilisateurs",
+      "item": [
+        {
+          "name": "Lister les utilisateurs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "users"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Creer un utilisateur (PIN requis)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "users"
+              ]
+            },
+            "description": "user.create, PIN obligatoire (mlt 10.1). Email unique par execution ({{run}}). role_id recupere dynamiquement (dossier Roles). Mot de passe 'Demo-{{run}}!' : la partie fixe seule ferait moins de 8 caracteres et, surtout, serait un LITTERAL constant commis en clair -- {{run}} (horodatage pose par 'Se connecter', change a chaque execution) rend ce mot de passe different a chaque passage de la collection, pas un secret reutilisable.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"equipier-{{run}}@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier {{run}}\",\n  \"role_id\": \"{{firstRoleId}}\",\n  \"password\": \"Demo-{{run}}!\",\n  \"pin_email\": \"{{pin_email}}\",\n  \"pin\": \"{{pin}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', function () { pm.response.to.have.status(201); });",
+                  "const body = pm.response.json();",
+                  "if (body && body.data && body.data.id) {",
+                  "    pm.environment.set('created_user_id', body.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Lire un utilisateur",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/users/{{created_user_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "users",
+                "{{created_user_id}}"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Modifier un utilisateur (PIN requis)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/users/{{created_user_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "users",
+                "{{created_user_id}}"
+              ]
+            },
+            "description": "user.update, PIN obligatoire (mlt 10.2). PUT PARTIEL sur is_active : omis, il conserve la valeur actuelle (ne desactive jamais par omission) ; envoye ici a true pour l'illustrer explicitement.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"equipier-{{run}}@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier {{run}} v2\",\n  \"role_id\": \"{{firstRoleId}}\",\n  \"is_active\": true,\n  \"pin_email\": \"{{pin_email}}\",\n  \"pin\": \"{{pin}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Relire apres modification",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/users/{{created_user_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "users",
+                "{{created_user_id}}"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Reinitialiser le PIN (PIN requis)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/users/{{created_user_id}}/reset-pin",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "users",
+                "{{created_user_id}}",
+                "reset-pin"
+              ]
+            },
+            "description": "Efface le PIN de la cible ; elle le redefinit ensuite en self-service (/admin/profile/pin).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pin_email\": \"{{pin_email}}\",\n  \"pin\": \"{{pin}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Desactiver un utilisateur (DELETE, PIN requis)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/users/{{created_user_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "users",
+                "{{created_user_id}}"
+              ]
+            },
+            "description": "user.deactivate. == desactivation (PAS de suppression physique ni d'effacement RGPD, mlt 10.3). Refuse sur son propre compte (403) ou sur le dernier administrateur actif (422) -- non pertinent ici.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pin_email\": \"{{pin_email}}\",\n  \"pin\": \"{{pin}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Relire l'utilisateur apres desactivation (is_active=false)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/users/{{created_user_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "users",
+                "{{created_user_id}}"
+              ]
+            },
+            "description": "Preuve de nettoyage intermediaire (avant l'anonymisation RGPD ci-dessous)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.test('200, is_active=false', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(body.data.is_active).to.eql(false);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Anonymiser (RGPD, PIN requis) -- nettoyage final",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/users/{{created_user_id}}/erase",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "users",
+                "{{created_user_id}}",
+                "erase"
+              ]
+            },
+            "description": "Tombstone (pas de suppression physique, mlt 10.5, ADR-0007). 403 sur son propre compte, 409 si deja anonymise. Etat terminal de nettoyage pour cette ressource.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pin_email\": \"{{pin_email}}\",\n  \"pin\": \"{{pin}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Commandes",
+      "item": [
+        {
+          "name": "Lister les commandes (filtre par canaux visibles)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "orders"
+              ]
+            },
+            "description": "order.read. Filtre par role_visible_source (RG-T12), meme regle que la file cuisine."
+          }
+        },
+        {
+          "name": "Choisir un produit disponible",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/products",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "products"
+              ]
+            },
+            "description": "Capture orderProductId (premier produit disponible) : ce dossier ne depend pas du dossier Produits (dont la ressource creee est deja supprimee a ce stade)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "if (body && body.data) {",
+                  "    var avail = body.data.find(function (p) { return p.is_available; });",
+                  "    if (avail) { pm.environment.set('orderProductId', avail.id); }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Saisir la commande A (comptoir/drive)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "orders"
+              ]
+            },
+            "description": "order.create, pas de PIN, encaissee immediatement (comme le HTML). Un seul endpoint JSON pour les deux canaux (le HTML a deux pages, /counter/orders et /drive/orders) : un role a canal FIXE (role.order_source) impose sa source et IGNORE ce champ 'source' s'il est fourni ; un role SANS canal fixe (admin/manager) doit le renseigner ('counter' ou 'drive'), sinon 422.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"service_mode\": \"dine_in\",\n  \"source\": \"counter\",\n  \"items\": [\n    {\n      \"type\": \"product\",\n      \"product_id\": \"{{orderProductId}}\",\n      \"quantity\": 1\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "if (body && body.data && body.data.order_number) {",
+                  "    pm.environment.set('created_order_number', body.data.order_number);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Lire la commande A",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/orders/{{created_order_number}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "orders",
+                "{{created_order_number}}"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Marquer prete (cuisine)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/orders/{{created_order_number}}/ready",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "orders",
+                "{{created_order_number}}",
+                "ready"
+              ]
+            },
+            "description": "order.read, pas de PIN. Meme garde de visibilite de source (PRE-3) que le HTML."
+          }
+        },
+        {
+          "name": "Remettre au client (deliver) -- etat terminal de la commande A",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/orders/{{created_order_number}}/deliver",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "orders",
+                "{{created_order_number}}",
+                "deliver"
+              ]
+            },
+            "description": "order.deliver, pas de PIN. \"delivered\" est un etat terminal NORMAL (pas une pollution a nettoyer) : une commande livree fait partie de l'historique reel du restaurant."
+          }
+        },
+        {
+          "name": "Saisir la commande B (pour l'annulation)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "orders"
+              ]
+            },
+            "description": "Numero DISTINCT de la commande A (created_order_number_cancel) : annuler la MEME commande qu'on vient de livrer echouerait toujours (422 CANNOT_CANCEL_IN_STATE) -- bug corrige par ce chantier.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"service_mode\": \"dine_in\",\n  \"source\": \"counter\",\n  \"items\": [\n    {\n      \"type\": \"product\",\n      \"product_id\": \"{{orderProductId}}\",\n      \"quantity\": 1\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "if (body && body.data && body.data.order_number) {",
+                  "    pm.environment.set('created_order_number_cancel', body.data.order_number);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Annuler la commande B (PIN requis) -- etat terminal de nettoyage",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/orders/{{created_order_number_cancel}}/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "orders",
+                "{{created_order_number_cancel}}",
+                "cancel"
+              ]
+            },
+            "description": "order.cancel + PIN (RG-T13). Restocke automatiquement les ingredients consommes (RG-T20) : \"cancelled\" est aussi un etat terminal normal.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pin_email\": \"{{pin_email}}\",\n  \"pin\": \"{{pin}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Statistiques",
+      "item": [
+        {
+          "name": "Tableau de bord (compteurs + stock + ventes)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/stats",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "stats"
+              ]
+            },
+            "description": "stats.read, lecture seule."
+          }
+        }
+      ]
+    },
+    {
+      "name": "RBAC : preuve des droits",
+      "item": [
+        {
+          "name": "Manager",
+          "item": [
+            {
+              "name": "Se connecter en tant que manager",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/api/auth/login",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "api",
+                    "auth",
+                    "login"
+                  ]
+                },
+                "description": "Identifiants VIDES par defaut (email_manager/password_manager) : a completer depuis docs/demo/comptes-demo.md (compte de demo par poste), jamais commis en clair dans cette collection. Droits attendus (stats.read oui, order.* non (D5)) : db/seeds/0001_rbac_and_reference.sql, section role_permission.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{email_manager}}\",\n  \"password\": \"{{password_manager}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200 OK (connexion)', function () { pm.response.to.have.status(200); });",
+                      "const body = pm.response.json();",
+                      "if (body && body.data && body.data.csrf_token) { pm.environment.set('csrf_manager', body.data.csrf_token); }"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Autorise : tableau de bord (stats.read)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/api/stats",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "api",
+                    "stats"
+                  ]
+                },
+                "description": "Le manager a stats.read (seed) : 200 attendu."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200 stats.read accorde', function () { pm.response.to.have.status(200); });"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Refuse : annuler une commande (pas order.cancel)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "X-CSRF-Token",
+                    "value": "{{csrf_manager}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/api/orders/K1/cancel",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "api",
+                    "orders",
+                    "K1",
+                    "cancel"
+                  ]
+                },
+                "description": "Decision D5 : le manager ne recoit AUCUNE permission order.*, y compris order.cancel. 403 FORBIDDEN attendu (separation des pouvoirs), avant meme la verification du PIN. Numero K1 fictif : seul le code retourne compte ici (guardApi() s'execute avant toute lecture de commande).",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"pin_email\": \"{{email_manager}}\",\n  \"pin\": \"{{pin}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('403 FORBIDDEN (order.cancel absent)', function () { pm.response.to.have.status(403); });"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Cuisine",
+          "item": [
+            {
+              "name": "Se connecter en tant que cuisine",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/api/auth/login",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "api",
+                    "auth",
+                    "login"
+                  ]
+                },
+                "description": "Identifiants VIDES par defaut (email_cuisine/password_cuisine) : a completer depuis docs/demo/comptes-demo.md (compte de demo par poste), jamais commis en clair dans cette collection. Droits attendus (order.read oui, user.read non) : db/seeds/0001_rbac_and_reference.sql, section role_permission.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{email_cuisine}}\",\n  \"password\": \"{{password_cuisine}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200 OK (connexion)', function () { pm.response.to.have.status(200); });",
+                      "const body = pm.response.json();",
+                      "if (body && body.data && body.data.csrf_token) { pm.environment.set('csrf_cuisine', body.data.csrf_token); }"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Autorise : lister les commandes (order.read)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/api/orders",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "api",
+                    "orders"
+                  ]
+                },
+                "description": "La cuisine a order.read (seed, KDS) : 200 attendu."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200 order.read accorde', function () { pm.response.to.have.status(200); });"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Refuse : lister les utilisateurs (pas user.read)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/api/users",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "api",
+                    "users"
+                  ]
+                },
+                "description": "La cuisine n'a AUCUNE permission user.*. 403 FORBIDDEN attendu."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('403 FORBIDDEN (user.read absent)', function () { pm.response.to.have.status(403); });"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Comptoir",
+          "item": [
+            {
+              "name": "Se connecter en tant que comptoir",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/api/auth/login",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "api",
+                    "auth",
+                    "login"
+                  ]
+                },
+                "description": "Identifiants VIDES par defaut (email_comptoir/password_comptoir) : a completer depuis docs/demo/comptes-demo.md (compte de demo par poste), jamais commis en clair dans cette collection. Droits attendus (order.create oui, product.delete non) : db/seeds/0001_rbac_and_reference.sql, section role_permission.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{email_comptoir}}\",\n  \"password\": \"{{password_comptoir}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200 OK (connexion)', function () { pm.response.to.have.status(200); });",
+                      "const body = pm.response.json();",
+                      "if (body && body.data && body.data.csrf_token) { pm.environment.set('csrf_comptoir', body.data.csrf_token); }"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Autorise : order.create accorde (422, PAS 403)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "X-CSRF-Token",
+                    "value": "{{csrf_comptoir}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/api/orders",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "api",
+                    "orders"
+                  ]
+                },
+                "description": "Prouve order.create SANS encaisser de commande reelle (une commande reelle decremente le stock et compte dans les statistiques, cf. docs/api/demo-api.md section Effets de bord) : 'items': [] est une erreur de VALIDATION ('Ajoutez au moins un produit ou un menu'), verifiee APRES guardApi('order.create')/CSRF. Le test verifie le code ET error.fields.items (pas seulement 422, qu'un tout autre champ pourrait aussi produire) -- l'atteindre prouve que la permission est accordee, sans creer de ligne 'order'.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"items\": []\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const body = pm.response.json();",
+                      "pm.test('422 VALIDATION_ERROR sur items (permission order.create accordee, aucune commande creee)', function () {",
+                      "    pm.response.to.have.status(422);",
+                      "    pm.expect(body.error.code).to.eql('VALIDATION_ERROR');",
+                      "    pm.expect(body.error.fields).to.have.property('items');",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Refuse : supprimer un produit (pas product.delete)",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "X-CSRF-Token",
+                    "value": "{{csrf_comptoir}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/api/products/1",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "api",
+                    "products",
+                    "1"
+                  ]
+                },
+                "description": "Le comptoir n'a que product.read sur le catalogue. 403 FORBIDDEN attendu (verifie AVANT toute lecture de la ressource)."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('403 FORBIDDEN (product.delete absent)', function () { pm.response.to.have.status(403); });"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Drive",
+          "item": [
+            {
+              "name": "Se connecter en tant que drive",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/api/auth/login",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "api",
+                    "auth",
+                    "login"
+                  ]
+                },
+                "description": "Identifiants VIDES par defaut (email_drive/password_drive) : a completer depuis docs/demo/comptes-demo.md (compte de demo par poste), jamais commis en clair dans cette collection. Droits attendus (memes droits que Comptoir (seed) : order.create oui, product.delete non) : db/seeds/0001_rbac_and_reference.sql, section role_permission.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{email_drive}}\",\n  \"password\": \"{{password_drive}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200 OK (connexion)', function () { pm.response.to.have.status(200); });",
+                      "const body = pm.response.json();",
+                      "if (body && body.data && body.data.csrf_token) { pm.environment.set('csrf_drive', body.data.csrf_token); }"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Autorise (Drive) : order.create accorde (422, PAS 403)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "X-CSRF-Token",
+                    "value": "{{csrf_drive}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/api/orders",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "api",
+                    "orders"
+                  ]
+                },
+                "description": "Meme preuve NON encaissee que Comptoir : 'items': [] declenche une erreur de VALIDATION (422, avec error.fields.items) apres guardApi('order.create'), pas un 403 -- prouve la permission sans creer de commande reelle.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"items\": []\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const body = pm.response.json();",
+                      "pm.test('422 VALIDATION_ERROR sur items (permission order.create accordee, aucune commande creee)', function () {",
+                      "    pm.response.to.have.status(422);",
+                      "    pm.expect(body.error.code).to.eql('VALIDATION_ERROR');",
+                      "    pm.expect(body.error.fields).to.have.property('items');",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Refuse : supprimer un produit (pas product.delete)",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "X-CSRF-Token",
+                    "value": "{{csrf_drive}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/api/products/1",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "api",
+                    "products",
+                    "1"
+                  ]
+                },
+                "description": "Meme ensemble de droits que Comptoir (seed) : 403 FORBIDDEN attendu."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('403 FORBIDDEN (product.delete absent)', function () { pm.response.to.have.status(403); });"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "9. Fin de demo",
+      "item": [
+        {
+          "name": "Se reconnecter (pour la demo de deconnexion)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Reprend une session admin fraiche (independante de RBAC ci-dessus) avant de la detruire.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () { pm.response.to.have.status(200); });",
+                  "pm.environment.set('run', Date.now().toString(36));",
+                  "const body = pm.response.json();",
+                  "if (body && body.data && body.data.csrf_token) {",
+                  "    pm.environment.set('csrf', body.data.csrf_token);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Se deconnecter",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Detruit la session serveur (204, sans corps). Toute requete /admin/api/* suivante, tant qu'on ne s'est pas reconnecte, renvoie 401 AUTH_REQUIRED."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', function () { pm.response.to.have.status(204); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Verifier la deconnexion (401 attendu)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "auth",
+                "me"
+              ]
+            },
+            "description": "Preuve directe : la meme requete qui renvoyait 200 juste avant renvoie desormais 401 AUTH_REQUIRED, en JSON (jamais une redirection HTML vers /login)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 AUTH_REQUIRED apres deconnexion', function () { pm.response.to.have.status(401); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

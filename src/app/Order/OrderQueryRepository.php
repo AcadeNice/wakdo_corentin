@@ -47,6 +47,44 @@ class OrderQueryRepository
     }
 
     /**
+     * Commandes les plus recentes, filtrees par $sources -- EN SQL, avant le LIMIT
+     * (relecture adverse, point 6) : `recent()` puis un filtre PHP APRES coup (l'un
+     * et l'autre etaient encore combines dans `OrderAdminController::index()` avant
+     * ce correctif) peut faire disparaitre des commandes bien reelles d'un canal a
+     * faible volume -- les N commandes les plus recentes TOUS canaux confondus
+     * peuvent ne contenir AUCUNE commande du canal restreint, alors que ce canal a
+     * des commandes plus anciennes, encore a l'interieur d'un LIMIT interroge
+     * directement sur ce sous-ensemble. Filtrer AVANT le LIMIT (WHERE ... IN (...)
+     * puis LIMIT) evite cette liste vide trompeuse pour un role a visibilite
+     * restreinte. $sources vide (aucun canal visible) -> liste vide, sans requete.
+     *
+     * @param list<string> $sources
+     * @return list<array<string, mixed>>
+     */
+    public function recentVisible(array $sources, int $limit = 50): array
+    {
+        $limit = max(1, min(200, $limit));
+        if ($sources === []) {
+            return [];
+        }
+
+        $placeholders = [];
+        $params = [];
+        foreach (array_values($sources) as $i => $source) {
+            $key = 's' . $i;
+            $placeholders[] = ':' . $key;
+            $params[$key] = $source;
+        }
+
+        return $this->db->fetchAll(
+            'SELECT order_number, source, service_mode, service_tag, status, total_ttc_cents, created_at, paid_at '
+            . 'FROM customer_order WHERE source IN (' . implode(', ', $placeholders) . ') '
+            . 'ORDER BY created_at DESC, id DESC LIMIT ' . $limit,
+            $params,
+        );
+    }
+
+    /**
      * Sources de commande visibles par un role (role_visible_source, dictionary 3.16).
      * Liste vide en base = vue globale (admin / manager voient tout) : on renvoie alors
      * les trois sources. Sert a filtrer la file de preparation par canal.

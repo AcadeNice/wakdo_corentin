@@ -71,8 +71,11 @@ final class MenuRepository
      */
     public function availableForCatalogue(): array
     {
+        // c.name AS category_name : sans elle, CounterOrderController::catNameOf()
+        // (admin/counter/new.php) range tous les menus sous l'onglet de repli "Autres"
+        // faute de nom de categorie (regression F40, captures 21/22).
         return $this->db->fetchAll(
-            'SELECT m.id, m.category_id, m.burger_product_id, m.name, m.description, '
+            'SELECT m.id, m.category_id, c.name AS category_name, m.burger_product_id, m.name, m.description, '
             . 'm.price_normal_cents, m.price_maxi_cents, m.image_path, m.display_order '
             . 'FROM menu m JOIN category c ON c.id = m.category_id '
             . 'WHERE m.is_available = 1 AND c.is_active = 1 '

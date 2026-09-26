@@ -11,6 +11,15 @@ declare(strict_types=1);
  */
 
 use App\Auth\SessionManager;
+use App\Controllers\Admin\Api\AuthApiController;
+use App\Controllers\Admin\Api\CategoryApiController;
+use App\Controllers\Admin\Api\IngredientApiController;
+use App\Controllers\Admin\Api\MenuApiController;
+use App\Controllers\Admin\Api\OrderApiController;
+use App\Controllers\Admin\Api\ProductApiController;
+use App\Controllers\Admin\Api\RoleApiController;
+use App\Controllers\Admin\Api\StatsApiController;
+use App\Controllers\Admin\Api\UserApiController;
 use App\Controllers\AuthController;
 use App\Controllers\CatalogueController;
 use App\Controllers\CategoryController;
@@ -35,6 +44,7 @@ use App\Core\Autoloader;
 use App\Core\Config;
 use App\Core\Cors;
 use App\Core\Database;
+use App\Core\ErrorDisplay;
 use App\Core\Request;
 use App\Core\Response;
 use App\Core\Router;
@@ -49,6 +59,13 @@ header('X-Content-Type-Options: nosniff');
 header('X-Robots-Tag: noindex, nofollow');
 
 $config = new Config();
+
+// Destination des erreurs PHP, posee AVANT tout code susceptible d'echouer : au
+// journal seul quand APP_DEBUG est faux, a l'ecran en plus quand il est vrai. Le
+// reglage vient du code, pas d'une surcharge de fichier de composition qu'un
+// deploiement pourrait oublier (voir App\Core\ErrorDisplay).
+ErrorDisplay::apply($config);
+
 date_default_timezone_set($config->timezone());
 
 // Requete + middleware CORS construits AVANT le try : ils ne dependent que de la
@@ -207,6 +224,16 @@ try {
     $router->add('GET', '/admin/products/{id}/recipe', [ProductController::class, 'recipeForm']);
     $router->add('POST', '/admin/products/{id}/recipe', [ProductController::class, 'saveRecipe']);
 
+    // Import CSV de produits + recettes (product.create ; ingredient.manage EN
+    // PLUS pour les lignes qui creeraient un ingredient). Deux temps (RG-T18) :
+    // preview() n'ecrit rien, confirm() rejoue l'analyse et ecrit tout en une
+    // transaction (ProductImportService). Chemins litteraux a 3-4 segments :
+    // aucune collision avec /admin/products/{id}/... (dernier segment different).
+    $router->add('GET', '/admin/products/import', [ProductController::class, 'importForm']);
+    $router->add('GET', '/admin/products/import/template', [ProductController::class, 'importTemplate']);
+    $router->add('POST', '/admin/products/import/preview', [ProductController::class, 'importPreview']);
+    $router->add('POST', '/admin/products/import/confirm', [ProductController::class, 'importConfirm']);
+
     // CRUD Menus (menu.read/create/update/delete). Menu compose = burger de base +
     // slots (menu_slot / menu_slot_option). PIN equipier + audit sur suppression
     // (mlt 8.6) ; create/update sans PIN. {id} = un seul segment, pas de collision
@@ -255,6 +282,102 @@ try {
     // mapping"), POST + CSRF, SANS PIN (ni argent ni stock, hors ensemble sensible RG-T13).
     // La source est obligatoire, et le geste est trace (audit_log ingredient.allergens).
     $router->add('POST', '/admin/ingredients/{id}/allergens', [IngredientController::class, 'allergens']);
+
+    // API d'administration JSON (docs/api/conventions.md section 5.3, PR wakdo#151).
+    // Prefixe /admin/api/... et NON /api/... : le vhost kiosk (docker/apache/vhost.conf)
+    // relaie tout /api/* a ce meme front controller pour la borne PUBLIQUE (ProxyPassMatch
+    // "^/api(/.*)?$") ; /admin/api ne matche pas ce prefixe et reste donc invisible de
+    // l'origine borne (surface d'attaque reduite), meme raisonnement que /admin/me.
+    // Chaque action reutilise la session/CSRF/PIN/permissions du back-office HTML
+    // (App\Controllers\Admin\Api\JsonApiTrait) mais repond en JSON, jamais en redirection.
+    //
+    // Connexion JSON (docs/api/conventions.md section 5.3bis, ADR-0017) : login SANS
+    // session prealable (pas de guardApi()) ni CSRF synchroniseur (protection = le
+    // Content-Type impose, qui force un preflight CORS ferme sur ce prefixe -- SameSite
+    // protege une phase differente, cf. docblock d'AuthApiController) ; logout/me exigent
+    // la session comme le reste de /admin/api/*. Volontairement EXCLUES de la matrice
+    // CSRF/permission de RouteMatrixTest (regex documentee dans ce fichier de test) :
+    // testees a part dans AuthApiControllerTest.
+    $router->add('POST', '/admin/api/auth/login', [AuthApiController::class, 'apiLogin']);
+    $router->add('POST', '/admin/api/auth/logout', [AuthApiController::class, 'apiLogout']);
+    $router->add('GET', '/admin/api/auth/me', [AuthApiController::class, 'apiMe']);
+
+    $router->add('GET', '/admin/api/categories', [CategoryApiController::class, 'apiIndex']);
+    $router->add('GET', '/admin/api/categories/{id}', [CategoryApiController::class, 'apiShow']);
+    $router->add('POST', '/admin/api/categories', [CategoryApiController::class, 'apiStore']);
+    $router->add('PUT', '/admin/api/categories/{id}', [CategoryApiController::class, 'apiUpdate']);
+    $router->add('DELETE', '/admin/api/categories/{id}', [CategoryApiController::class, 'apiDestroy']);
+    $router->add('POST', '/admin/api/categories/{id}/toggle', [CategoryApiController::class, 'apiToggle']);
+    $router->add('POST', '/admin/api/categories/{id}/move', [CategoryApiController::class, 'apiMove']);
+
+    $router->add('GET', '/admin/api/products', [ProductApiController::class, 'apiIndex']);
+    $router->add('GET', '/admin/api/products/{id}', [ProductApiController::class, 'apiShow']);
+    $router->add('POST', '/admin/api/products', [ProductApiController::class, 'apiStore']);
+    $router->add('PUT', '/admin/api/products/{id}', [ProductApiController::class, 'apiUpdate']);
+    $router->add('DELETE', '/admin/api/products/{id}', [ProductApiController::class, 'apiDestroy']);
+    $router->add('POST', '/admin/api/products/{id}/move', [ProductApiController::class, 'apiMove']);
+    $router->add('GET', '/admin/api/products/{id}/recipe', [ProductApiController::class, 'apiRecipeShow']);
+    $router->add('PUT', '/admin/api/products/{id}/recipe', [ProductApiController::class, 'apiRecipeSave']);
+    // Import CSV (docs/api/import-produits.md) : le CSV voyage en JSON (champ
+    // "csv", une chaine), pas en multipart -- ce point d'entree reste sur le
+    // meme contrat JSON que le reste de l'API admin. ?dry_run=1 -> apercu seul
+    // (aucune ecriture) ; absent -> applique (PIN dans le corps si un prix change).
+    $router->add('GET', '/admin/api/products/import/template', [ProductApiController::class, 'apiImportTemplate']);
+    $router->add('POST', '/admin/api/products/import', [ProductApiController::class, 'apiImportRun']);
+
+    $router->add('GET', '/admin/api/menus', [MenuApiController::class, 'apiIndex']);
+    $router->add('GET', '/admin/api/menus/{id}', [MenuApiController::class, 'apiShow']);
+    $router->add('POST', '/admin/api/menus', [MenuApiController::class, 'apiStore']);
+    $router->add('PUT', '/admin/api/menus/{id}', [MenuApiController::class, 'apiUpdate']);
+    $router->add('DELETE', '/admin/api/menus/{id}', [MenuApiController::class, 'apiDestroy']);
+    $router->add('POST', '/admin/api/menus/{id}/toggle', [MenuApiController::class, 'apiToggle']);
+
+    $router->add('GET', '/admin/api/ingredients', [IngredientApiController::class, 'apiIndex']);
+    $router->add('GET', '/admin/api/ingredients/{id}', [IngredientApiController::class, 'apiShow']);
+    $router->add('POST', '/admin/api/ingredients', [IngredientApiController::class, 'apiStore']);
+    $router->add('PUT', '/admin/api/ingredients/{id}', [IngredientApiController::class, 'apiUpdate']);
+    $router->add('DELETE', '/admin/api/ingredients/{id}', [IngredientApiController::class, 'apiDestroy']);
+    $router->add('POST', '/admin/api/ingredients/{id}/restock', [IngredientApiController::class, 'apiRestock']);
+    $router->add('POST', '/admin/api/ingredients/{id}/toggle', [IngredientApiController::class, 'apiToggle']);
+    $router->add('PUT', '/admin/api/ingredients/{id}/thresholds', [IngredientApiController::class, 'apiThresholds']);
+    $router->add('POST', '/admin/api/ingredients/{id}/inventory', [IngredientApiController::class, 'apiInventory']);
+    $router->add('POST', '/admin/api/ingredients/{id}/adjust', [IngredientApiController::class, 'apiAdjust']);
+    $router->add('PUT', '/admin/api/ingredients/{id}/allergens', [IngredientApiController::class, 'apiAllergens']);
+
+    $router->add('GET', '/admin/api/users', [UserApiController::class, 'apiIndex']);
+    $router->add('GET', '/admin/api/users/{id}', [UserApiController::class, 'apiShow']);
+    $router->add('POST', '/admin/api/users', [UserApiController::class, 'apiStore']);
+    $router->add('PUT', '/admin/api/users/{id}', [UserApiController::class, 'apiUpdate']);
+    // DELETE == desactivation (pas de suppression physique ni d'effacement RGPD),
+    // meme semantique que le bouton "Désactiver" du back-office (cf. docblock du
+    // controleur). L'anonymisation RGPD et la reinitialisation de PIN ont leur
+    // propre sous-chemin (comme le HTML), toutes deux PIN-gated.
+    $router->add('DELETE', '/admin/api/users/{id}', [UserApiController::class, 'apiDestroy']);
+    $router->add('POST', '/admin/api/users/{id}/reset-pin', [UserApiController::class, 'apiResetPin']);
+    $router->add('POST', '/admin/api/users/{id}/erase', [UserApiController::class, 'apiErase']);
+
+    // Pas de DELETE /admin/api/roles : RoleController (HTML) n'expose aucune
+    // suppression de role (rattache a des comptes) ; l'API JSON ne l'invente pas.
+    $router->add('GET', '/admin/api/roles', [RoleApiController::class, 'apiIndex']);
+    $router->add('GET', '/admin/api/roles/{id}', [RoleApiController::class, 'apiShow']);
+    $router->add('POST', '/admin/api/roles', [RoleApiController::class, 'apiStore']);
+    $router->add('PUT', '/admin/api/roles/{id}', [RoleApiController::class, 'apiUpdate']);
+
+    // Domaine commande (mlt 4.1/6.1/7.1, section 5.3). Un seul endpoint de creation
+    // (contrairement au HTML qui a une page par canal /counter/orders et /drive/orders) :
+    // la source est deduite du role agissant (AdminController::roleFixedSource(),
+    // heritee par OrderApiController) quand il a un canal fixe, choisie dans le corps
+    // sinon -- dans les deux cas verifiee contre les sources visibles du role
+    // (OrderQueryRepository::visibleSources()).
+    $router->add('GET', '/admin/api/orders', [OrderApiController::class, 'apiIndex']);
+    $router->add('GET', '/admin/api/orders/{number}', [OrderApiController::class, 'apiShow']);
+    $router->add('POST', '/admin/api/orders', [OrderApiController::class, 'apiStore']);
+    $router->add('POST', '/admin/api/orders/{number}/ready', [OrderApiController::class, 'apiReady']);
+    $router->add('POST', '/admin/api/orders/{number}/deliver', [OrderApiController::class, 'apiDeliver']);
+    $router->add('POST', '/admin/api/orders/{number}/cancel', [OrderApiController::class, 'apiCancel']);
+
+    // Tableau de bord statistiques (mlt domaine 11, stats.read), lecture seule.
+    $router->add('GET', '/admin/api/stats', [StatsApiController::class, 'apiIndex']);
 
     // CORS (docs/api/conventions.md section 10) : preflight OPTIONS traite AVANT le
     // routeur (pas de route OPTIONS) ; sinon dispatch puis decoration de la reponse.

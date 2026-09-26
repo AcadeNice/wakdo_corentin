@@ -1,8 +1,13 @@
 # Diagramme de sequence - Passer une commande (borne client)
 
 **Phase UML** : P1 - Conception, complement UML (apres MCD)
-**Statut** : v0.2 - prod-like, creation atomique (create + pay)
-**Date** : 2026-06-11
+**Statut** : v0.3 - realigne sur le code livre : creation puis encaissement (deux appels)
+**Date** : 2026-06-11 (v0.2), 2026-09-24 (v0.3)
+**Historique** : v0.3 (2026-09-24) - mise en coherence avec le code livre (2a09597) : la creation atomique
+(un seul `POST /api/orders` qui cree, encaisse et decremente le stock) est remplacee par les deux appels
+reels (creation en `pending_payment`, puis encaissement vers `preparing`) ; aucun modificateur d'ingredient
+n'est construit par la borne ; panier conserve dans le navigateur ; repli JSON retire ; garde-fous
+d'idempotence et de verrou decrits tels qu'ils sont livres.
 **Branche** : `feat/p1-conception`
 **Auteur methodologie** : BYAN
 
@@ -11,25 +16,32 @@
 ## 1. Objet du document
 
 Ce document decrit le **flux temporel** du parcours "passer une commande" cote
-**Client sur la borne kiosk** : navigation dans les categories, selection d'un
-produit ou composition d'un menu (slots + format Normal/Maxi + modifiers
-d'ingredients), gestion du panier, validation avec saisie du numero de retrait,
-et confirmation. Dans le modele v0.2, la **creation et le paiement sont
-atomiques** : un seul appel `POST /api/orders` cree la commande, la fait passer a
-`paid`, decremente le stock et journalise les mouvements, dans une meme
-transaction.
+**Client sur la borne kiosk** : choix du mode de consommation, navigation dans les
+categories, selection d'un produit ou composition d'un menu (slots + format
+Normal/Maxi), gestion du panier, paiement et confirmation.
 
-Le diagramme reste au niveau conceptuel / logique. Il nomme les echanges entre
-participants sans detailler l'implementation PHP ni le SQL exact. Il complete le
-cas d'utilisation "Passer une commande" de `docs/uml/use-cases.md` (4.1), la
-machine a etats de `docs/uml/state-commande.md` (T1/T2) et l'operation
-`CREATE_ORDER` du `docs/merise/mct.md` (3.3).
+La commande est persistee en **deux appels HTTP successifs**, orchestres par
+`submitOrder()` (`src/public/borne/assets/js/checkout.js`) :
+
+1. `POST /api/orders` cree la commande au statut `pending_payment` (lignes et
+   selections avec leurs snapshots), sans effet sur le stock ;
+2. `POST /api/orders/{number}/pay` l'encaisse : statut `preparing`, `paid_at` et
+   `preparing_at` poses, stock decremente et journalise dans la meme transaction.
+
+Le diagramme reste au niveau conceptuel / logique. Il complete le cas d'utilisation
+"Passer une commande" de `docs/uml/use-cases.md` (4.1), la machine a etats de
+`docs/uml/state-commande.md` (T1, T2, M1) et les operations `CREATE_ORDER`,
+`MODIFY_PENDING_ORDER` et `PAY_ORDER` du `docs/merise/mlt.md` (3.3, 3.3bis, 3.3ter).
+Le trace du code ligne a ligne pour un produit a la carte est dans
+`docs/architecture/flux-borne-selection-vers-commande.md`.
 
 **Sources** :
-- `docs/PROJECT_CONTEXT.md` section 2 (processus metier), section 7 (endpoints API)
-- `docs/merise/dictionary.md` 3.10-3.13 (`customer_order`, `order_item`, `order_item_selection`, `order_item_modifier`)
-- `docs/merise/mct.md` 3.3 CREATE_ORDER (transaction, snapshots, decrement stock)
-- `docs/uml/state-commande.md` (transitions T1/T2, atomicite `pending_payment -> paid`)
+- `src/public/borne/assets/js/` : `data.js` (lectures), `product-options.js` et `page-product-menu.js`
+  (selection), `state.js` et `order-panel.js` (panier), `checkout.js` et `page-payment.js` (paiement),
+  `page-confirmation.js`
+- `src/app/Controllers/OrderController.php` (`create`, `pay`, `orderError`)
+- `src/app/Order/OrderRepository.php` (`createPending`, `persist`, `replaceItems`, `pay`)
+- `docs/merise/mlt.md` 3.3, 3.3bis, 3.3ter ; `docs/uml/state-commande.md`
 
 ---
 
@@ -42,9 +54,9 @@ machine a etats de `docs/uml/state-commande.md` (T1/T2) et l'operation
 | **API** | Back-end REST sous `/api/*` (Bloc 2) | Application |
 | **BDD** | Base de donnees MariaDB | Persistance |
 
-Le panier est gere **cote Borne** (etat local du front) jusqu'a la validation.
-Aucune commande n'est creee en base avant la validation finale, pour eviter les
-commandes fantomes abandonnees.
+Le panier est gere **cote Borne** jusqu'au paiement : il est conserve dans le
+`localStorage` du navigateur (cle `wakdo_cart`, `state.js`) et survit donc a un
+changement de page. Aucune commande n'est creee en base avant le paiement.
 
 ---
 
@@ -57,81 +69,100 @@ sequenceDiagram
     participant API
     participant BDD
 
-    Note over Client,BDD: Phase 1 - Navigation du catalogue
+    Note over Client,BDD: Phase 1 - Choix du mode et navigation du catalogue
 
-    Client->>Borne: ouvrir la borne
-    Borne->>API: GET /api/categories
-    API->>BDD: lire les categories actives
+    Client->>Borne: choisir sur place<br/>ou a emporter (index.html)
+    Borne->>Borne: memoriser le mode<br/>(localStorage wakdo_mode)
+    Borne->>API: GET /api/categories<br/>(categories.html)
+    API->>BDD: lire les categories<br/>actives
     BDD-->>API: liste des categories
     API-->>Borne: categories (JSON)
     Borne-->>Client: afficher les categories
 
-    Client->>Borne: choisir une categorie
-    Borne->>API: GET /api/products (filtre categorie)
-    API->>BDD: lire les produits disponibles
-    BDD-->>API: liste des produits
-    API-->>Borne: produits (JSON)
-    Borne-->>Client: afficher les produits
+    Client->>Borne: choisir une categorie<br/>(products.html?category=id)
+    Borne->>API: GET /api/categories,<br/>/api/products, /api/menus<br/>(en parallele)
+    API->>BDD: lire le catalogue<br/>commandable
+    BDD-->>API: categories, produits,<br/>menus
+    API-->>Borne: collections (JSON)
+    Borne->>Borne: regrouper par categorie<br/>(data.js)
+    Borne-->>Client: afficher les produits<br/>de la categorie
 
     Note over Client,BDD: Phase 2 - Selection produit ou composition menu
 
     alt Produit a la carte
-        Client->>Borne: selectionner un produit
-        opt Personnaliser les ingredients
-            Client->>Borne: retirer / ajouter un ingredient
-        end
-        Borne->>Borne: ajouter la ligne au panier local
+        Client->>Borne: toucher un produit
+        Borne-->>Client: modale : quantite, et taille<br/>si le produit en a plusieurs
+        Client->>Borne: ajouter a ma commande
+        Borne->>Borne: ajouter la ligne au panier<br/>(localStorage, aucun appel reseau)
     else Composition d'un menu
-        Client->>Borne: selectionner un menu
-        Borne->>API: GET /api/menus (slots + options eligibles)
-        API->>BDD: lire menu, menu_slot, menu_slot_option
+        Client->>Borne: toucher un menu
+        Borne->>API: GET /api/menus/{id}
+        API->>BDD: lire menu, slots, options
         BDD-->>API: menu + slots + options
         API-->>Borne: composition (JSON)
-        Borne-->>Client: afficher les slots (boisson, accompagnement, sauce) + format Normal/Maxi
-        Client->>Borne: choisir chaque slot + format + modifiers du burger
-        Borne->>Borne: ajouter la ligne menu au panier local
+        Borne-->>Client: format Normal / Maxi (burger<br/>impose), puis un choix par slot
+        Client->>Borne: choisir le format et chaque slot
+        Borne->>Borne: ajouter la ligne menu<br/>au panier (localStorage)
     end
 
-    Note over Client,BDD: Phase 3 - Gestion du panier
+    Note over Client,BDD: Phase 3 - Panneau de commande persistant (products.html), total calcule cote borne
 
-    Client->>Borne: consulter le panier
-    Borne-->>Client: recapitulatif + total provisoire
     opt Modifier le panier
-        Client->>Borne: ajuster quantite / supprimer une ligne
-        Borne->>Borne: recalculer le total local
-        Borne-->>Client: panier mis a jour
+        Client->>Borne: + / - ou retirer une ligne
+        Borne->>Borne: mettre a jour le panier,<br/>recalculer le total affiche
+    end
+    opt Abandonner la commande
+        Client->>Borne: Abandon, puis confirmer
+        Borne->>Borne: vider le panier,<br/>retour accueil
     end
 
-    Note over Client,BDD: Phase 4 - Validation, saisie du numero, creation atomique (create + pay)
+    Note over Client,BDD: Phase 4 - Paiement : creation puis encaissement (deux appels)
 
-    Client->>Borne: valider la commande
-    Client->>Borne: saisir le numero de retrait
-    Borne->>Borne: valider le panier (au moins 1 ligne, numero non vide)
-    Borne->>API: POST /api/orders (lignes + selections + modifiers + service_mode + numero)
+    Client->>Borne: Payer (payment.html),<br/>puis carte ou especes<br/>(paiement simule)
+    opt Sur place
+        Borne-->>Client: modale chevalet
+        Client->>Borne: numero du chevalet
+    end
+    opt Panier contenant un menu
+        Borne->>API: GET /api/menus/{id}<br/>(slots de chaque menu)
+    end
+    Borne->>API: POST /api/orders<br/>(idempotency_key, service_mode,<br/>service_tag si sur place, items)
+    API->>BDD: lire prix, TVA<br/>et disponibilite
+    API->>API: createPending : cle inconnue,<br/>totaux recalcules,<br/>rupture refusee (RG-T21)
+    API->>BDD: transaction : INSERT<br/>customer_order (pending_payment,<br/>source kiosk), order_number<br/>= K + id, INSERT order_item<br/>(+ order_item_selection), COMMIT
+    API-->>Borne: 201 {id, order_number,<br/>status: pending_payment,<br/>total_ttc_cents}
 
-    API->>API: recalculer les totaux cote serveur (HT / TVA / TTC, taux par produit)
-    API->>BDD: BEGIN transaction
-    API->>BDD: INSERT customer_order (status pending_payment, source kiosk)
-    API->>BDD: INSERT order_item (snapshot libelle + prix + vat_rate)
-    API->>BDD: INSERT order_item_selection (par slot de menu rempli)
-    API->>BDD: INSERT order_item_modifier (par modification d'ingredient)
-    API->>BDD: UPDATE ingredient.stock_quantity (decrement, ajuste par modifiers)
-    API->>BDD: INSERT stock_movement (type sale, par unite consommee)
-    API->>BDD: UPDATE customer_order status -> paid, paid_at = NOW()
-    API->>BDD: COMMIT
-    BDD-->>API: commande persistee {id, order_number, status: paid}
+    Borne->>API: POST /api/orders/{number}/pay
+    API->>BDD: lire la commande (statut)
+    API->>BDD: transaction : SELECT ...<br/>FOR UPDATE, UPDATE status<br/>= preparing, paid_at,<br/>preparing_at WHERE status<br/>= pending_payment
+    API->>BDD: meme transaction : par<br/>ingredient, UPDATE stock<br/>et INSERT stock_movement<br/>(sale), puis COMMIT
+    API-->>Borne: 200 {order_number,<br/>status: preparing,<br/>total_ttc_cents}
 
     Note over Client,BDD: Phase 5 - Confirmation
 
-    API-->>Borne: 201 Created {id, order_number, status: paid, total_ttc}
-    Borne-->>Client: ecran de confirmation avec le numero de retrait
+    Borne->>Borne: sessionStorage wakdo_last_order,<br/>panier vide, cle liberee
+    Borne-->>Client: confirmation.html : numero<br/>et montant (sans appel API)
 
-    Note over Client,BDD: Cas d'erreur
+    Note over Client,BDD: POST /api/orders avec une cle d'idempotence deja connue
 
-    alt Panier vide, produit indisponible ou donnees invalides
-        API->>BDD: ROLLBACK (si transaction entamee)
-        API-->>Borne: 4xx {error: {code, message}}
-        Borne-->>Client: message d'erreur, retour au panier
+    alt Commande en attente (panier modifie)
+        API->>BDD: replaceItems : lignes remplacees,<br/>totaux recalcules, meme numero
+        API-->>Borne: 201 (status: pending_payment)
+    else Commande annulee ou expiree
+        API-->>Borne: 409 ORDER_CANCELLED
+        Borne->>API: nouvelle cle, un seul<br/>renvoi de POST /api/orders
+    else Commande deja encaissee
+        API-->>Borne: 201 avec le statut reel<br/>(aucune ecriture)
+    end
+
+    Note over Client,BDD: Refus (controles avant toute ecriture)
+
+    alt Panier vide, article indisponible,<br/>mode de service invalide
+        API-->>Borne: 422 {data: null,<br/>error: {code, message}}
+        Borne-->>Client: message sur la page<br/>de paiement, qui reste affichee
+    else Encaissement d'une commande annulee
+        API-->>Borne: 409 INVALID_TRANSITION
+        Borne-->>Client: message generique,<br/>nouvel essai possible
     end
 ```
 
@@ -141,56 +172,56 @@ sequenceDiagram
 
 ### 4.1 Recalcul des totaux cote serveur (controle de securite)
 
-La Borne affiche un total **provisoire** calcule localement pour l'experience
-utilisateur. L'API recalcule les totaux a la reception du `POST /api/orders` a
-partir des prix en base (HT, TVA ligne par ligne via `vat_rate`, TTC), puis fige
-les snapshots (`unit_price_cents_snapshot`, `vat_rate_snapshot`,
-`label_snapshot` sur `order_item`, voir `dictionary.md` 3.11). Le total affiche
-par le client n'est pas considere comme la source de verite : ceci limite la
-falsification du prix cote client.
+La Borne affiche un total **provisoire** calcule localement (`order-panel.js`).
+L'API ne lit aucun prix envoye par le client : la charge ne porte que des
+identifiants et des quantites (`checkout.js`, `buildOrderItem`). Les prix, la TVA
+et la disponibilite sont relus en base (`OrderRepository::resolveAndTotal`, RG-T16,
+RG-T21), puis figes dans les snapshots de `order_item` (`label_snapshot`,
+`unit_price_cents_snapshot`, `vat_rate_snapshot`). Le total affiche par la borne
+n'est pas la source de verite.
 
-### 4.2 Creation atomique (create + pay)
+### 4.2 Creation puis encaissement
 
-Le parcours materialise les transitions T1 et T2 de
-`docs/uml/state-commande.md` dans **un seul appel et une seule transaction** :
+- La creation committe dans sa propre transaction : `pending_payment` est un etat
+  **observable**. Un abandon entre les deux appels laisse une commande inerte, que
+  le planificateur expire la nuit (`mlt.md` 13.6, transition T6).
+- L'encaissement prend un verrou sur la ligne de commande (`SELECT ... FOR UPDATE`),
+  relit le total, pose `preparing` avec `paid_at` et `preparing_at`, puis decremente
+  le stock et insere un `stock_movement` de type `sale` par ingredient, dans la meme
+  transaction. La commande part en cuisine sans geste intermediaire.
+- Le paiement est simule (cadre RNCP) : le choix carte ou especes ne change pas la
+  charge envoyee.
 
-- `POST /api/orders` cree la commande en `pending_payment` (T1) puis la fait
-  passer a `paid` (T2) avant le `COMMIT`. `paid_at` est renseigne.
-- La saisie du numero de retrait tient lieu de paiement (cadre RNCP) ; il n'y a
-  pas d'appel `POST /api/orders/{id}/pay` separe (supprime par rapport au v0.1).
-- Le decrement du stock (`ingredient.stock_quantity`) et la journalisation
-  (`stock_movement` type `sale`) sont inclus dans la meme transaction que
-  l'insert de la commande : soit tout reussit, soit tout est annule (`ROLLBACK`).
+### 4.3 Panier cote navigateur
 
-Le statut `pending_payment` n'est donc pas observable en dehors de la
-transaction (coherent avec `mct.md` section 13).
+Aucun appel d'ecriture vers la BDD n'a lieu pendant les phases 1 a 3. Le panier est
+conserve dans le `localStorage` : il survit a un rechargement de page et n'est vide
+qu'au succes du paiement ou par le bouton « Abandon » du panneau de commande.
 
-### 4.3 Panier local jusqu'a la validation
+### 4.4 Lectures : API seule
 
-Aucun appel ecriture vers la BDD n'a lieu pendant les phases 1 a 3. Le panier
-vit dans l'etat du front (JavaScript). Ce choix evite de creer en base des
-commandes abandonnees et reduit le nombre d'ecritures. Inconvenient connu : un
-rafraichissement de la borne peut vider le panier ; un stockage local cote
-navigateur peut etre envisage plus tard.
+La borne lit le catalogue par l'API (`data.js`). Le repli sur des fichiers JSON
+statiques prevu a l'origine a ete retire (`docs/ARCHITECTURE.md` section 1) : sans
+API, ni la lecture ni la commande ne sont possibles.
 
-### 4.4 Fallback JSON (hors flux nominal)
+### 4.5 Garde-fous livres
 
-`PROJECT_CONTEXT.md` section 4 prevoit un mode de repli ou la Borne lit des
-fichiers JSON statiques si l'API est indisponible. Ce mode concerne uniquement
-les lectures (phases 1 a 2). La validation et la creation (phase 4) requierent
-l'API ; sans elle, la commande n'est ni persistee ni payee. Ce cas degrade
-n'est pas detaille dans le diagramme nominal ci-dessus.
+- **Idempotence** : la borne envoie une `idempotency_key` stable pour la session de
+  paiement (`checkout.js`, `checkoutKey`), colonne UNIQUE en base. Une cle deja
+  connue remplace les lignes d'une commande encore en attente (panier modifie,
+  `mlt.md` 3.3bis), renvoie l'etat reel d'une commande deja encaissee, ou repond
+  409 `ORDER_CANCELLED` pour une commande annulee ou expiree ; la borne repart
+  alors d'une cle neuve, une seule fois.
+- **Concurrence** : la transition d'encaissement est gardee par
+  `WHERE status = 'pending_payment'` et par le verrou de ligne pris aussi par la
+  modification du panier (ADR-0016) ; le decrement de stock est une instruction
+  atomique par ingredient, dans un ordre stable (RG-T20).
 
-### 4.5 Garde-fous securite a venir (passe security-by-design)
+### 4.6 Modificateurs d'ingredient
 
-Le flux ci-dessus est la cible **fonctionnelle** v0.2. La passe security-by-design
-ajoutera, en complement (append, sans reecrire ce flux), des garde-fous sur le
-`POST /api/orders` anonyme : cle d'idempotence (`idempotency_key` UNIQUE pour
-dedupliquer les POST rejoues), limitation de debit / anti-spam, et verrou
-pessimiste `SELECT ... FOR UPDATE` sur les ingredients pendant le decrement
-(anti-oversell multi-bornes). Ces ajouts dependent de decisions encore a
-trancher (oversell/idempotence, throttling) et seront documentes dans un artefact
-`docs/uml/security-sequence.md` dedie.
+Le contrat de l'API accepte des modificateurs (`OrderRepository::resolveModifiers`),
+mais la borne livree n'en construit pas : la modale produit ne gere que la quantite
+et la taille (`product-options.js`), le composeur de menu que le format et les slots.
 
 ---
 
@@ -198,21 +229,18 @@ trancher (oversell/idempotence, throttling) et seront documentes dans un artefac
 
 | Verification | Resultat |
 |---|---|
-| Endpoints utilises existent dans `PROJECT_CONTEXT.md` section 7 | `GET /api/categories`, `GET /api/products`, `GET /api/menus`, `POST /api/orders` ; l'appel `POST /api/orders/{id}/pay` du v0.1 est supprime (creation atomique) |
-| Entites manipulees presentes au MCD / dictionnaire | Oui : `category`, `product`, `menu`, `menu_slot`, `menu_slot_option`, `ingredient`, `customer_order`, `order_item`, `order_item_selection`, `order_item_modifier`, `stock_movement` |
-| Statuts utilises coherents avec `state-commande.md` | Oui : `pending_payment` puis `paid` (T1, T2), atomiques |
-| Operation MCT correspondante | `mct.md` 3.3 CREATE_ORDER (transaction unique, snapshots, decrement stock, transition atomique) |
-| Format de reponse JSON | Coherent avec `PROJECT_CONTEXT.md` section 7 (`{data, error}`) et la reponse `{id, order_number, status, total_ttc}` du POST orders |
+| Endpoints utilises existent (`src/public/admin/index.php`) | `GET /api/categories`, `GET /api/products`, `GET /api/menus`, `GET /api/menus/{id}`, `POST /api/orders`, `POST /api/orders/{number}/pay` |
+| Entites manipulees presentes au MCD | `category`, `product`, `menu`, `menu_slot`, `menu_slot_option`, `ingredient`, `customer_order`, `order_item`, `order_item_selection`, `stock_movement` |
+| Statuts coherents avec `state-commande.md` | `pending_payment` (T1), puis `preparing` (T2) ; modification du panier en attente (M1) |
+| Operations MLT correspondantes | `mlt.md` 3.3 CREATE_ORDER, 3.3bis MODIFY_PENDING_ORDER, 3.3ter PAY_ORDER |
+| Format de reponse JSON | `{data}` en succes, `{data: null, error: {code, message}}` en echec ; 201 a la creation, 200 a l'encaissement, 404 / 409 / 422 selon le code metier (`OrderController::orderError`) |
 
 ---
 
 ## 6. Arbitrage tranche
 
-La phase de paiement separee du v0.1 (`POST /api/orders/{id}/pay`) est supprimee :
-la creation et le passage a `paid` sont atomiques dans `POST /api/orders`,
-conformement au MCT v0.2 (3.3) et a la regle metier (saisie du numero = substitut
-de paiement). Le decrement de stock et la journalisation `stock_movement` sont
-inclus dans la meme transaction, garantissant la coherence stock/commande. Les
-valeurs ENUM sont en anglais (`pending_payment`, `paid`). Les garde-fous de
-securite (idempotence, rate-limit, verrou pessimiste) relevent de la passe
-security-by-design et seront ajoutes en complement (section 4.5).
+La creation et l'encaissement sont **deux appels distincts** : c'est ce que le code
+livre execute, et c'est ce qui rend possible la modification d'une commande en
+attente avant paiement (F18, ADR-0016). La version v0.2 de ce document decrivait un
+appel unique et atomique ; elle a ete remplacee le 2026-09-24. Les valeurs ENUM
+restent en anglais (`pending_payment`, `preparing`).

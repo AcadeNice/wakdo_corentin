@@ -1,0 +1,26 @@
+meta {
+  name: Modifier un ingredient
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{baseUrl}}/admin/api/ingredients/{{created_ingredient_id}}
+}
+
+headers {
+  Content-Type: application/json
+  X-CSRF-Token: {{csrf}}
+}
+
+body {
+  {
+    "name": "Ingredient Demo Plain {{run}} v2",
+    "unit": "unite",
+    "pack_size": 50,
+    "pack_label": "carton de 50",
+    "stock_capacity": 500,
+    "low_stock_pct": 20,
+    "critical_stock_pct": 5
+  }
+}

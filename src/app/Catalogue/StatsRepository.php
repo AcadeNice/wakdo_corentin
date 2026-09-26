@@ -31,7 +31,23 @@ class StatsRepository
     public function counts(): array
     {
         return [
-            'products'    => $this->pair('SELECT COUNT(*) AS total, COALESCE(SUM(is_available = 1), 0) AS n FROM product', 'available'),
+            // 'available' exclut la rupture automatique (RG-T21) en plus du flag
+            // is_available brut : sous-requete calquee sur le predicat de
+            // ProductRepository::autoUnavailableIds() (source unique de la derivation),
+            // pour concorder avec la vue Produits par categorie (regression F40,
+            // defauts-visibles.md point 6 "Statistiques", capture 36 : "58 produits,
+            // 58 disponibles" ignorait la rupture calculee sur des ingredients requis
+            // en bande critique).
+            'products'    => $this->pair(
+                'SELECT COUNT(*) AS total, COALESCE(SUM('
+                . 'p.is_available = 1 AND NOT EXISTS ('
+                . 'SELECT 1 FROM product_ingredient pi JOIN ingredient i ON i.id = pi.ingredient_id '
+                . 'WHERE pi.product_id = p.id AND pi.is_removable = 0 '
+                . 'AND i.stock_quantity * 100 <= i.stock_capacity * i.critical_stock_pct'
+                . ')'
+                . '), 0) AS n FROM product p',
+                'available',
+            ),
             'categories'  => $this->pair('SELECT COUNT(*) AS total, COALESCE(SUM(is_active = 1), 0) AS n FROM category', 'active'),
             'menus'       => $this->pair('SELECT COUNT(*) AS total, COALESCE(SUM(is_available = 1), 0) AS n FROM menu', 'available'),
             'ingredients' => $this->pair('SELECT COUNT(*) AS total, COALESCE(SUM(is_active = 1), 0) AS n FROM ingredient', 'active'),
