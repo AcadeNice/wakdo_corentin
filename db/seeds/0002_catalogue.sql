@@ -153,16 +153,20 @@ INSERT INTO menu (category_id, burger_product_id, name, price_normal_cents, pric
 
 -- -----------------------------------------------------------------------------
 -- 4. menu_slot — three standard slots per menu:
---      drink (required), side (required), sauce (optional).
+--      side (required), drink (required), sauce (optional).
 --    One INSERT per slot_type, fanning out over all 13 menus via SELECT.
+--    Ordre Accompagnement -> Boisson -> Sauce : suit la maquette de l'ecole
+--    (Format -> Accompagnement -> Boisson, cf. migration 0015 / audit A10).
+--    MenuRepository::slotsWithOptions() trie par display_order, s.id : c'est
+--    cette colonne, et elle seule, qui pilote l'ordre affiche par la borne.
 -- -----------------------------------------------------------------------------
 INSERT INTO menu_slot (menu_id, name, slot_type, is_required, display_order)
-SELECT m.id, 'Boisson', 'drink', 1, 1
+SELECT m.id, 'Accompagnement', 'side', 1, 1
 FROM menu m
 JOIN category c ON c.id = m.category_id AND c.slug = 'menus';
 
 INSERT INTO menu_slot (menu_id, name, slot_type, is_required, display_order)
-SELECT m.id, 'Accompagnement', 'side', 1, 2
+SELECT m.id, 'Boisson', 'drink', 1, 2
 FROM menu m
 JOIN category c ON c.id = m.category_id AND c.slug = 'menus';
 

@@ -14,7 +14,7 @@ use App\Core\Database;
  * donnees de reference montrees aux equipiers sont en francais, capitalisees, et
  * factuellement a jour -- corrections F40 (section "Textes techniques ou en anglais"
  * de defauts-visibles.md) + E14 + E15 (audit schemas 6.3). Verifie aussi que les
- * migrations 0012/0013/0014 sont reellement idempotentes : rejouees, elles ne
+ * migrations 0012/0013/0014/0015 sont reellement idempotentes : rejouees, elles ne
  * touchent aucune ligne et ne peuvent pas ecraser une personnalisation faite en
  * production (relecture independante du 24/09, garde par la valeur ANGLAISE
  * D'ORIGINE sur chaque UPDATE).
@@ -114,6 +114,21 @@ final class ReferenceDataFrenchDbTest extends TestCase
         self::assertStringNotContainsString('Cancel a pending or paid order (restocks', $description);
     }
 
+    public function testMenuSlotOrderMatchesTheMaquette(): void
+    {
+        // A10 (audit maquette vs front) : la maquette enchaine Format -> Accompagnement
+        // -> Boisson -> (Sauce). "Menu Le 280" est le tout premier menu du seed 0002 ;
+        // ses slots doivent suivre cet ordre une fois le seed + la migration 0015 joues.
+        $menuId = $this->db->fetch("SELECT id FROM menu WHERE name = 'Menu Le 280'")['id'] ?? null;
+        self::assertNotNull($menuId, 'seed 0002 doit avoir pose le menu "Menu Le 280"');
+
+        $slots = $this->db->fetchAll(
+            'SELECT slot_type, display_order FROM menu_slot WHERE menu_id = :id ORDER BY display_order, id',
+            ['id' => $menuId],
+        );
+        self::assertSame(['side', 'drink', 'sauce'], array_column($slots, 'slot_type'));
+    }
+
     public function testMigration0012ReplayIsANoOpOnceRolesAreFrench(): void
     {
         $affected = $this->executeSqlStatements($this->readMigrationSql('0012_role_labels_fr.sql'));
@@ -133,6 +148,13 @@ final class ReferenceDataFrenchDbTest extends TestCase
         $affected = $this->executeSqlStatements($this->readMigrationSql('0014_permission_cancel_description_fix.sql'));
 
         self::assertSame(0, $affected, 'rejouee sur une description deja a jour, la migration ne doit toucher aucune ligne');
+    }
+
+    public function testMigration0015ReplayIsANoOpOnceSlotsAreInMaquetteOrder(): void
+    {
+        $affected = $this->executeSqlStatements($this->readMigrationSql('0015_menu_slot_order_maquette.sql'));
+
+        self::assertSame(0, $affected, 'rejouee sur des slots deja dans l ordre maquette, la migration ne doit toucher aucune ligne');
     }
 
     public function testMigration0012DoesNotOverwriteALabelCustomizedInProduction(): void
