@@ -75,6 +75,28 @@
     --color-yellow-ink:  #AE7F09;
     --shadow-card:       0 1px 3px rgba(26,26,26,0.04), 0 6px 20px rgba(26,26,26,0.06);
     --shadow-card-hover: 0 2px 6px rgba(26,26,26,0.06), 0 12px 30px rgba(26,26,26,0.10);
+
+    /* Systeme de design (lot 0) — jetons d'espacement et de typographie.
+       Nomment des valeurs deja utilisees partout dans ce fichier ; les regles
+       EXISTANTES gardent leurs valeurs litterales (migrer serait un chantier a
+       part, hors du gel du 30/09 — voir design-system.md section 2.1/2.2). A
+       utiliser dans toute regle NEUVE, ici ou dans un lot qui ecrit du CSS. */
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 20px;
+    --space-6: 24px;
+    --space-7: 32px;
+
+    --text-xs: 11px;
+    --text-sm: 12px;
+    --text-base: 14px;
+    --text-md: 15px;
+    --text-lg: 17px;
+    --text-xl: 20px;
+    --text-2xl: 24px;
+    --text-display: 40px;
 }
 
 html, body {
@@ -436,15 +458,24 @@ button {
        (hauteur ~40px + son decalage bottom:16px + un espace confortable) pour
        qu'aucun contenu ne finisse jamais dessous. */
     padding-bottom: 80px;
+    /* Lot 0 (balayage 2026-09-26, categorie clavier "focus visible", 59 echecs) :
+       la tabulation amenait l'element focalise au ras bas de la zone de defilement,
+       sous .a11y-toggle — le padding-bottom ci-dessus ne protege que la FIN du
+       defilement, pas ce que scrollIntoView() (declenche par le focus du navigateur)
+       considere comme "visible". scroll-padding-bottom force ce calcul a reserver la
+       meme marge, quel que soit l'element focalise. */
+    scroll-padding-bottom: 80px;
 }
 
 /* --- Ossature sur petit ecran (Cr 1.b.1) ---
-   Sous 640px, la colonne de 264px du menu lateral ne laisse presque plus de place au
-   contenu. Le menu devient une bande horizontale defilante, sous la barre du haut, et
-   le contenu prend toute la largeur. Sans JavaScript : tous les liens restent dans la
-   page, dans le meme ordre de tabulation ; seuls les intitules de rubrique, redondants
-   avec les liens, sont retires de l'affichage. */
-@media (max-width: 640px) {
+   Sous 900px (ERG-03, lot 0 : seuil remonte de 640 a 900 — la colonne fixe de 264px
+   ne laissait que 2-3 tuiles par ligne a la caisse en tablette portrait, 768px), la
+   colonne du menu lateral ne laisse presque plus de place au contenu. Le menu devient
+   une bande horizontale defilante, sous la barre du haut, et le contenu prend toute la
+   largeur. Sans JavaScript : tous les liens restent dans la page, dans le meme ordre
+   de tabulation ; seuls les intitules de rubrique, redondants avec les liens, sont
+   retires de l'affichage. */
+@media (max-width: 900px) {
     .admin-layout {
         grid-template-columns: 1fr;
         grid-template-rows: var(--topbar-height) auto 1fr;
@@ -507,8 +538,13 @@ button {
         padding-left: 12px;
     }
 
+    /* Lot 0 (balayage 2026-09-26, categorie chevauchement "masquage fixe") : le
+       padding en raccourci remplacait les 4 cotes, effacant le padding-bottom: 80px
+       de la regle de base qui protege du bouton fixe .a11y-toggle — regression sur
+       telephone de la correction F40 ("Enregistrer la revue des allergenes" restait
+       recouvert). Cotes ecrits explicitement pour garder la marge basse partout. */
     .content {
-        padding: 16px;
+        padding: 16px 16px 80px;
     }
 
 }
@@ -1544,6 +1580,19 @@ tbody td.mono {
 
 .tile-label { font-size: 15px; font-weight: 600; color: var(--color-text-sec); margin-top: 8px; }
 
+/* Lot 0 (balayage 2026-09-26, categorie debordement "defilement horizontal", 5 echecs
+   a 768px) : repeat(4, 1fr) n'a pas de palier entre le breakpoint telephone (640px,
+   ci-dessous) et le plein desktop — a 768px, meme une fois la sidebar basculee en
+   bande (seuil 900px, plus haut dans ce fichier), les 4 tuiles ne tiennent pas sur une
+   tablette portrait. Palier intermediaire : 2 colonnes des que la largeur devient
+   inconfortable pour 4, avant meme le seuil telephone. */
+@media (max-width: 1024px) {
+    .dash-tiles {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+    }
+}
+
 /* Tableau de bord et en-tetes de page sur petit ecran (Cr 1.b.1). Mesure du 2026-09-23
    dans la zone de contenu : les 4 tuiles debordaient de 382 px a 360 px de large, les
    boutons d'en-tete de la liste des produits de 19 px. Tuiles sur 2 colonnes, boutons
@@ -1562,6 +1611,14 @@ tbody td.mono {
     .page-header,
     .page-actions {
         flex-wrap: wrap;
+    }
+}
+
+/* Lot 0 : dernier palier, 1 colonne sur telephone etroit — 4 tuiles KPI pleine largeur
+   se lisent mieux que 2 colonnes de ~170px sur les gabarits testes (390px). */
+@media (max-width: 400px) {
+    .dash-tiles {
+        grid-template-columns: 1fr;
     }
 }
 
@@ -1752,6 +1809,17 @@ tbody td.mono {
     border-color: var(--color-yellow);
     background: var(--color-yellow);
     color: var(--color-text);
+}
+/* Lot 0 (balayage 2026-09-26, categorie clavier "focus visible", 9 echecs) : l'onglet
+   actif porte deja la bordure et le fond jaunes que :focus-visible applique ci-dessus
+   — meme couleur, aucun changement percu au focus. Anneau exterieur sombre, dessine
+   hors de la boite (outline, pas box-shadow) donc visible sur le fond de la barre
+   d'onglets quelle que soit la couleur du bouton lui-meme. Contraste mesure :
+   --color-text (#1A1A1A) sur --color-page (#F5F5F5, fond de la barre) = 15,96:1,
+   tres au-dessus du seuil non-texte 3:1 (WCAG 1.4.11). */
+.pos__tab.is-active:focus-visible {
+    outline: 3px solid var(--color-text);
+    outline-offset: 2px;
 }
 
 /* Grille de tuiles produits/menus : auto-fit, grandes cibles tactiles. */
@@ -2007,7 +2075,17 @@ tbody td.mono {
 
 /* Tablette etroite / portrait : le panneau passe sous le catalogue. */
 @media (max-width: 860px) {
-    .pos__main { flex-direction: column; }
+    /* Lot 0 (balayage 2026-09-26, categories debordement "sortie de conteneur" et
+       "defilement horizontal", 768/390px) : align-items: flex-start (regle de base,
+       pensee pour la disposition en ligne desktop, pour ne pas etirer catalogue et
+       panneau a la meme hauteur) devient l'axe TRANSVERSAL une fois flex-direction en
+       colonne — un flex-item en colonne avec flex-start ne se contraint plus a la
+       largeur du parent, il prend sa largeur de contenu. .pos__tabs (bandeau
+       d'onglets, nowrap + defilement horizontal interne voulu) poussait alors tout
+       .pos__catalogue, et la page, plus large que l'ecran. stretch restaure la
+       largeur pleine (comportement par defaut de align-items), le defilement
+       horizontal des onglets reste interne a .pos__tabs. */
+    .pos__main { flex-direction: column; align-items: stretch; }
     .pos__panel {
         flex-basis: auto;
         width: 100%;
@@ -2644,7 +2722,18 @@ tbody td.mono {
     display: inline;
 }
 
+/* Lot 0 (balayage 2026-09-26, categorie "cible trop petite", 2 echecs a 390px) :
+   ~26x20px mesures (padding + police seuls) ne tenaient pas le minimum 24x24px
+   (WCAG 2.2, 2.5.8) et les deux fleches (Monter/Descendre, deux <form> voisins sans
+   espace) se touchaient. min-width/min-height forcent le plancher quel que soit le
+   contenu, margin separe les deux cibles voisines. */
 .btn-order {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    min-height: 24px;
+    margin: 2px;
     padding: 0.2rem 0.5rem;
     border: 1px solid #ccd3dc;
     border-radius: 4px;
@@ -2739,3 +2828,108 @@ html.dys-font {
     outline: 3px solid var(--color-yellow-dark);
     outline-offset: 2px;
 }
+
+/* =============================================================================
+   SYSTEME DE DESIGN — LOT 0 (design-system.md, section 2)
+   Contrat pour les lots 1-10 : ajouts uniquement, aucune regle existante
+   renommee ni supprimee (les deux corrections ponctuelles du balayage sont en
+   place, pas ici — .content, .dash-tiles, .pos__main, .pos__tab, .btn-order,
+   voir les commentaires "Lot 0" a chaque emplacement). Les jetons d'espacement
+   et de typographie sont dans :root, en tete de fichier.
+   ============================================================================= */
+
+/* --- Alignement numerique dans les tableaux (design-system.md 2.3) ---
+   Aucune couleur neuve : herite de la couleur de texte de la cellule qui la
+   porte (pas de contraste a mesurer ici). */
+.table-num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* --- Actions de ligne regroupees, danger separe (design-system.md 2.4) ---
+   Reutilise --color-border (deja mesure, cf. section 1.1 de design-system.md) :
+   aucune couleur neuve. */
+.row-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+}
+.row-actions__danger {
+    margin-left: var(--space-3);
+    padding-left: var(--space-3);
+    border-left: 1px solid var(--color-border);
+}
+
+/* --- Champs avances replies (design-system.md 2.5) ---
+   Le contour est une bordure pleine (pas un texte) et le triangle ::before
+   herite de la couleur du texte du resume (color-text sur blanc, 17,40:1,
+   script de mesure ci-dessous). Ecart documente vis-a-vis du brouillon de
+   design-system.md, section 2.5 : l'anneau de focus y etait propose en
+   --color-yellow-dark (repris de .form-input:focus-visible), mesure ici a
+   2,99:1 sur blanc — sous le seuil non-texte 3:1 (WCAG 1.4.11), de justesse
+   mais reellement sous. Remplace par --color-text (17,40:1 sur blanc). */
+details.form-advanced {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-3) var(--space-4);
+    margin-bottom: var(--space-4);
+}
+details.form-advanced > summary {
+    cursor: pointer;
+    font-weight: 700;
+    font-size: var(--text-base);
+    color: var(--color-text);
+    list-style: none;
+}
+details.form-advanced > summary::-webkit-details-marker { display: none; }
+details.form-advanced > summary::before {
+    content: '\25b8';
+    display: inline-block;
+    margin-right: var(--space-2);
+    transition: transform 0.12s ease;
+}
+details.form-advanced[open] > summary::before { transform: rotate(90deg); }
+details.form-advanced > summary:focus-visible {
+    outline: 2px solid var(--color-text);
+    outline-offset: 2px;
+}
+
+/* --- Tuile selectionnee, composeur de menu en tuiles (design-system.md 2.6) ---
+   Ecart documente vis-a-vis du brouillon de design-system.md : la version
+   d'origine proposait un anneau box-shadow inset en --color-yellow. Mesure :
+   --color-yellow-dark (bordure) sur --color-yellow-bg (fond de la tuile
+   selectionnee) = 2,88:1, et --color-yellow (anneau d'origine) sur ce meme fond
+   = 1,50:1 — tous deux SOUS le seuil non-texte 3:1 (WCAG 1.4.11). Remplace par
+   --color-text (#1A1A1A) : 16,78:1 sur --color-yellow-bg (#FFFBEB). La bordure
+   --color-yellow-dark est gardee (identite jaune de la marque, cf. direction
+   A+C) mais n'est plus le seul indicateur : l'anneau sombre, tres contraste,
+   porte a lui seul la conformite. */
+.pos-tile.is-selected {
+    border-color: var(--color-yellow-dark);
+    background: var(--color-yellow-bg);
+    box-shadow: 0 0 0 2px var(--color-text) inset;
+}
+/* Sans cette regle, une tuile a la fois selectionnee ET focalisee ne montrerait
+   aucun changement au focus : .pos-tile.is-selected et .pos-tile:focus-visible
+   ont la meme specificite (deux classes) et se disputent border-color/box-shadow ;
+   :focus-visible ne fixe pas outline sur ce cas, donc rien ne le distinguerait
+   (meme defaut que .pos__tab.is-active corrige plus haut). */
+.pos-tile.is-selected:focus-visible {
+    outline: 3px solid var(--color-text);
+    outline-offset: 2px;
+}
+
+/* --- Regle d'usage des boutons (design-system.md section 3) — documentation,
+   aucun CSS neuf : .btn-primary/.btn-secondary/.btn-ghost/.btn-danger existent
+   deja (lignes ~638-690).
+   1. .btn-primary  : action principale et positive, une seule par ecran
+      (Enregistrer, Encaisser, Nouvelle commande).
+   2. .btn-secondary: action alternative ou reversible (Modifier, Annuler une
+      fenetre, Desactiver un compte, Masquer une categorie).
+   3. .btn-ghost    : action secondaire discrete, navigation contextuelle
+      (Mouvements, Recette).
+   4. .btn-danger   : reserve aux actions IRREVERSIBLES (Supprimer, Anonymiser,
+      Annuler une commande). Pas de 5e variante "warning" : une action sensible
+      mais reversible reste .btn-secondary, le texte porte deja la nuance. */
