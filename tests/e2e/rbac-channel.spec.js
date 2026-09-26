@@ -1,17 +1,23 @@
 // RG-T12 (canal fixe) : verifie en conditions reelles (navigateur, session HTTP)
 // le cloisonnement par canal de commande corrige sur ce chantier :
-//  1. un role a canal FIXE (role.order_source) n'accede qu'a la page de son propre
-//     canal (/counter/orders ou /drive/orders), l'autre rend 403 ;
-//  2. un role SANS canal fixe (admin) garde l'acces aux deux ;
+//  1. un role a canal FIXE non nul (role.order_source, PAS seulement 'counter'/
+//     'drive' -- voir tests/Unit/Admin/CounterOrderControllerTest.php pour le cas
+//     'kiosk', couvert unitairement plutot qu'ici) n'accede qu'a la page de son
+//     propre canal (/counter/orders ou /drive/orders), l'autre rend 403 ;
+//  2. un role SANS canal fixe reste borne par ses sources VISIBLES
+//     (role_visible_source) -- admin garde l'acces aux deux ICI parce que sa
+//     visibilite est globale (role_visible_source vide au seed 0001), pas par un
+//     acces inconditionnel (le cas restreint est, lui aussi, couvert unitairement) ;
 //  3. l'annulation d'une commande d'un canal non visible est refusee AVANT le PIN.
 //
-// Separe de tests/e2e/rbac-demo.spec.js (prevu par la PR #152, feat/demo-accounts,
-// non presente sur cette branche) : ce fichier ne suppose PAS le seed 0009 (comptes
-// de demo par role) -- il PROVISIONNE lui-meme, via le formulaire reel
-// /admin/users/new (pas d'acces direct a la base), un compte comptoir et un compte
-// drive dedies a ce test, avant de les utiliser. Si le seed venait a exister sous
-// les memes emails, la creation echouerait proprement (email deja pris) ; ce cas
-// n'est pas gere ici (fichier pense pour une pile fraiche, comme demande).
+// tests/e2e/rbac-demo.spec.js (arrive avec la PR #152, feat/demo-accounts, et le
+// seed 0009) couvre desormais les comptes de demo par role : ce fichier reste
+// separe et ne suppose PAS ce seed -- il PROVISIONNE lui-meme, via le formulaire
+// reel /admin/users/new (pas d'acces direct a la base), un compte comptoir et un
+// compte drive dedies a ce test, avant de les utiliser. Si un compte de meme email
+// existe deja (seed 0009 ou une execution precedente non nettoyee), la creation
+// echoue proprement (email deja pris) ; ce cas n'est pas gere ici (fichier pense
+// pour une pile fraiche).
 const { test, expect } = require('@playwright/test');
 
 const ADMIN = 'http://admin.wakdo.test';

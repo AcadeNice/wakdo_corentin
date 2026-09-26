@@ -98,9 +98,18 @@ permission `order.create`, et y creer une commande taguee `counter`). Corrige :
 contrat, `protected`) ; `CounterOrderController::channelGuard()` (HTML, appele par
 `index()`/`create()`/`store()`) et `OrderApiController::apiStore()` (JSON)
 appliquent desormais la meme regle depuis cette source unique -- ce qui n'etait pas
-partage devient partage. Un role a canal fixe n'accede plus qu'a la page de son
-propre canal (403 sur l'autre) ; un role sans canal fixe (admin/manager) garde
-l'acces aux deux, inchange.
+partage devient partage. Un role a canal fixe n'accede QU'A la page de son propre
+canal quand celle-ci existe (`counter`/`drive`, 403 sur l'autre) ; un canal fixe SANS
+page HTML dediee (ex. `kiosk`, propose par `RoleController::SOURCES` mais sans route
+`/kiosk/orders`) reste ferme sur LES DEUX (relecture adverse, point 1 : bloquer par
+defaut, pas seulement reconnaitre `counter`/`drive`). Un role SANS canal fixe reste,
+lui, borne par ses sources VISIBLES (`role_visible_source`, point 2) plutot que par un
+acces inconditionnel aux deux pages -- `admin` (seul role du seed 0001 a la fois sans
+canal fixe et titulaire d'`order.create`) garde l'acces aux deux parce que sa
+visibilite est globale (role_visible_source vide), pas parce que `order_source` NULL
+suffirait a lui seul ; `manager`, lui aussi sans canal fixe, n'a de toute facon PAS
+`order.create` (decision D5) et une garde de permission en amont l'arrete avant cette
+resolution de canal.
 
 Un trait (`JsonApiTrait`) porte ce qui est propre au transport JSON (garde 401/403, CSRF
 par en-tete `X-CSRF-Token`, enveloppe `{data}`/`{error}`, rejet nomme d'un champ non
@@ -143,8 +152,11 @@ parent et que ce parent est deja pris par le controleur HTML.
   - le HTML sert la saisie comptoir/drive par DEUX pages (`/counter/orders`,
     `/drive/orders`), la source etant deduite du CHEMIN. L'API JSON n'a qu'un seul endpoint
     (`POST /admin/api/orders`) : un role a canal FIXE (`role.order_source`) l'impose, un
-    role SANS canal fixe (admin/manager) doit le CHOISIR dans le corps (`source`) -- une
-    regle que le HTML n'a pas a exprimer puisque son choix se fait par l'URL visitee ;
+    role SANS canal fixe (`admin` au seed 0001 -- `manager`, lui aussi sans canal fixe,
+    n'a pas `order.create` et n'atteint pas cet endpoint) doit le CHOISIR dans le corps
+    (`source`), et ce choix doit en outre rester dans ses sources VISIBLES
+    (`role_visible_source`, relecture adverse point 2) -- une regle que le HTML n'a pas
+    a exprimer puisque son choix se fait par l'URL visitee ;
   - la lecture unitaire, les transitions (ready/deliver) ET l'annulation (`cancel`,
     corrige lors de la seconde relecture adverse) renvoient toutes `403` (pas `404`) pour
     un numero INCONNU comme pour un canal non visible, VERIFIE AVANT le PIN sur `cancel`

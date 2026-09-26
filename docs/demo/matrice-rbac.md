@@ -59,10 +59,14 @@ et de **visibilité** (`role_visible_source`, colonne suivante).
 | drive | `drive` |
 
 Ce filtrage (RG-T12, `docs/merise/mlt.md`) s'applique à `/kitchen/display`
-(`OrderQueryRepository::paidQueue()`), PAS à `/admin/orders`
-(`OrderQueryRepository::recent()`, qui retourne toutes les commandes tous
-canaux confondus dès lors que le rôle détient `order.read`). Voir la note de
-`docs/demo/comptes-demo.md`, section « Vérification ».
+(`OrderQueryRepository::paidQueue()`) ET, depuis la relecture adverse qui a suivi
+la première version de cette matrice, à `/admin/orders`
+(`OrderQueryRepository::recentVisible()`, filtrée par `role_visible_source` EN
+SQL — avant le `LIMIT`, pas par un filtre PHP après coup, pour qu'un rôle à
+canal restreint ne tombe pas sur une liste vide si ses commandes sont plus
+anciennes que les N plus récentes tous canaux confondus). Voir la note de
+`docs/demo/comptes-demo.md`, section « Vérification », mise à jour en
+conséquence.
 
 ## 2. Scénarios de démonstration par rôle
 
@@ -95,7 +99,7 @@ de la session connectée.
 | # | Scénario | Attendu |
 |---|---|---|
 | K1 | Navigateur : `GET /kitchen/display` | 200 — `order.read` détenu ; file filtrée sur les 3 sources (kitchen voit tout). |
-| K2 | Navigateur : `GET /admin/orders` | 200 — même permission `order.read` ; liste NON filtrée par source (voir note ci-dessus). |
+| K2 | Navigateur : `GET /admin/orders` | 200 — même permission `order.read` ; liste désormais filtrée par `role_visible_source` (RG-T12, corrigé) comme l'écran cuisine — kitchen voyant les 3 sources (seed 0001), le contenu affiché ne change pas pour ce rôle précis, mais la garde s'applique désormais uniformément. |
 | K3 | API : `POST /admin/api/orders/{number}/deliver` | 403 — pas de `order.deliver`. |
 | K4 | API : `POST /admin/api/orders/{number}/cancel` | 403 — pas de `order.cancel`. |
 | K5 | Navigateur : `GET /admin/users` | 403 — pas de `user.read`. |
@@ -109,32 +113,55 @@ de la session connectée.
 | C3 | Navigateur : `GET /admin/users` | 403 — pas de `user.read` (exemple donné dans la commande). |
 | C4 | API : `DELETE /admin/api/products/{id}` | 403 — pas de `product.delete` (exemple donné dans la commande). |
 | C5 | API : `POST /admin/api/ingredients/{id}/restock` | 403 — pas de `stock.manage` (contrairement à `stock.count`, détenu). |
+| C6 | Navigateur : `GET /drive/orders` (canal FIXE `counter`, RG-T12) | **403** — `channelGuard()` refuse la page de l'AUTRE canal, même avec `order.create` détenu (section 3). |
 
 ### Équipier drive (`drive@wakdo.local`)
 
 | # | Scénario | Attendu |
 |---|---|---|
 | D1 | Navigateur : `GET /drive/orders` puis création d'une commande | 200/302 — `order.create` détenu ; commande créée avec `source = 'drive'` (chemin `/drive/...`). |
-| D2 | Navigateur : `GET /kitchen/display` | 200, mais file limitée aux commandes `source = 'drive'` (RG-T12) : le drive ne voit dans cet écran QUE les commandes drive, alors que la même permission `order.read` donne à `/admin/orders` une liste non filtrée (limite documentée plus haut). |
+| D2 | Navigateur : `GET /kitchen/display` | 200, mais file limitée aux commandes `source = 'drive'` (RG-T12) : le drive ne voit dans cet écran QUE les commandes drive — même filtre désormais appliqué à `/admin/orders` (K2 ci-dessus, section 3). |
 | D3 | API : `POST /admin/api/orders/{number}/cancel` avec PIN | 200 — `order.cancel` détenu. |
 | D4 | Navigateur : `GET /admin/ingredients/new` (créer un ingrédient) | 403 — pas de `ingredient.manage`. |
 | D5 | Navigateur : `GET /admin/stats` | 403 — pas de `stats.read`. |
+| D6 | Navigateur : `GET /counter/orders` (canal FIXE `drive`, RG-T12) | **403** — symétrique de C6 : `channelGuard()` refuse l'AUTRE canal. |
 
-## 3. Limite constatée, hors périmètre de correction de ce lot
+## 3. Cloisonnement par canal (RG-T12) — faille corrigée après une relecture adverse
 
-`CounterOrderController` dérive la source de commande du CHEMIN de la requête
-(`/drive/...` → `drive`, sinon → `counter`), pas du rôle de l'utilisateur
-connecté. Les deux chemins (`/counter/orders`, `/drive/orders`) sont gardés par
-la même permission `order.create`, détenue à l'identique par `counter` et
-`drive`. Un compte du rôle `drive` qui navigue directement vers
-`/counter/orders` peut donc y créer une commande taguée `source = 'counter'`,
-et réciproquement — la garantie documentée dans le code
-(« un équipier drive ne peut pas créer une commande comptoir en falsifiant un
-champ ») porte sur l'impossibilité de mentir sur le champ `source` DANS la
-requête, pas sur une restriction de rôle empêchant l'usage de l'autre chemin.
-Ce lot ne modifie pas ce comportement (hors périmètre de la demande : créer des
-comptes de démonstration, pas corriger le contrôleur) ; il est documenté ici
-pour que la preuve reste honnête.
+La première version de cette matrice documentait ici une limite CONNUE et
+NON corrigée : `CounterOrderController` dérivait la source de commande du seul
+CHEMIN de la requête (`/drive/...` → `drive`, sinon → `counter`), sans
+vérifier que le rôle connecté avait le droit d'être sur cette page. Un compte
+`drive` naviguant directement vers `/counter/orders` pouvait donc y créer une
+commande taguée `source = 'counter'`, et réciproquement (vérifié en direct lors
+d'une relecture de sécurité pré-soutenance).
+
+**Corrigé** : `CounterOrderController::channelGuard()` (appelé par
+`index()`/`create()`/`store()`) applique désormais deux gardes, l'une
+n'excusant pas l'absence de l'autre :
+
+- un rôle dont `order_source` est FIXE et non nul (`counter`/`drive` pour les
+  cinq rôles du seed 0001 ; le formulaire de rôle propose aussi `kiosk`, qui
+  n'a AUCUNE page HTML dédiée et reste donc fermé sur les deux — bloquer par
+  défaut plutôt que ne reconnaître que `counter`/`drive`) n'accède QU'À la page
+  de son propre canal, l'autre rend `403` (scénarios C6/D6 ci-dessus) ;
+- même un rôle SANS canal fixe reste borné par ses sources VISIBLES
+  (`role_visible_source`) : `admin` garde l'accès aux deux pages parce que sa
+  visibilité est globale (aucune ligne en base), pas parce qu'un canal fixe
+  NULL suffirait à lui seul à autoriser l'accès inconditionnel.
+
+Même règle côté API JSON (`OrderApiController::apiStore()`) : le canal retenu
+(imposé par le rôle ou choisi dans le corps) doit lui aussi être dans les
+sources visibles du rôle, sinon `422 VALIDATION_ERROR` — un rôle sans canal
+fixe mais à visibilité restreinte ne peut plus choisir un canal qu'il ne voit
+pas ailleurs.
+
+`channelGuard()` et `roleFixedSource()` sont couverts unitairement dans
+`tests/Unit/Admin/CounterOrderControllerTest.php` (rôles `counter`/`drive`
+seedés ET rôle personnalisé `order_source='kiosk'`) et
+`tests/Unit/Admin/Api/OrderApiControllerTest.php` ; les scénarios C6/D6
+ci-dessus, eux, sont vérifiés avec les comptes de démonstration réels sur une
+pile jetable (traçabilité en section 4 ci-dessous).
 
 ## 4. Traçabilité des tests
 
