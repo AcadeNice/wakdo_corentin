@@ -6,6 +6,14 @@ declare(strict_types=1);
  * Formulaire de creation/edition d'une categorie, injecte dans admin/layout.php.
  * Reaffiche les valeurs soumises et les erreurs de validation (RG-T18). CSRF cache.
  *
+ * Formulaire raccourci : le chemin d'image de secours (champ secondaire, rarement
+ * modifie) est replie dans un <details class="form-advanced"> (design-system.md
+ * 2.5) -- replie a la creation, ouvert a l'edition si le champ porte deja une
+ * valeur. "Ordre d'affichage" reste volontairement visible (PAS replie) :
+ * tests/e2e/backoffice-sweep.spec.js (filet commun, non modifiable par ce lot)
+ * remplit #display_order en aveugle a la creation d'une categorie -- un <details>
+ * ferme par defaut aurait rendu le champ inatteignable et casse ce parcours.
+ *
  * @var int                  $categoryId  0 = creation, sinon edition
  * @var array<string, mixed> $values
  * @var array<string, string> $errors
@@ -18,11 +26,20 @@ $action = $id !== 0 ? '/admin/categories/' . $id : '/admin/categories';
 
 /** @var array<string, mixed> $vals */
 $vals = isset($values) && is_array($values) ? $values : [];
+// Valeur par defaut sensee : une nouvelle categorie n'a pas encore d'ordre choisi ;
+// 0 (tete de liste) evite une case visuellement vide sans changer la validation
+// serveur (toujours requise, min 0 -- CategoryController::validate).
+if (!isset($vals['display_order']) || $vals['display_order'] === '') {
+    $vals['display_order'] = '0';
+}
 /** @var array<string, string> $errs */
 $errs = isset($errors) && is_array($errors) ? $errors : [];
 
 $val = static fn (string $k): string => htmlspecialchars((string) ($vals[$k] ?? ''), ENT_QUOTES, 'UTF-8');
 $err = static fn (string $k): string => isset($errs[$k]) && is_string($errs[$k]) ? $errs[$k] : '';
+// Replie par defaut a la creation ; ouvert par defaut a l'edition si le champ
+// porte deja une valeur (meme regle que le formulaire produit, design-system.md 2.5).
+$openIfSet = static fn (string $k): string => ($id !== 0 && ($vals[$k] ?? '') !== '') ? ' open' : '';
 ?>
 <div class="page-header">
     <div>
@@ -52,7 +69,11 @@ $err = static fn (string $k): string => isset($errs[$k]) && is_string($errs[$k])
     </div>
 
     <div class="form-group">
-        <span class="form-label">Image de la catégorie</span>
+        <!-- Mesure axe-core (regle "label") : cette legende etait un <span>, sans
+             association programmatique avec le champ fichier -- un lecteur d'ecran
+             annoncait le champ sans nom. <label for="image_file"> le corrige ;
+             aucun changement visuel (meme classe form-label). -->
+        <label class="form-label" for="image_file">Image de la catégorie</label>
 
         <!-- Le champ fichier reste visible et atteignable au clavier : la zone de
              depot l'entoure sans le remplacer, donc le formulaire marche aussi
@@ -66,10 +87,13 @@ $err = static fn (string $k): string => isset($errs[$k]) && is_string($errs[$k])
         </div>
         <?php if ($err('image_file') !== ''): ?><p class="form-error"><?= htmlspecialchars($err('image_file'), ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
 
-        <label class="form-label" for="image_path">Ou chemin d'une image déjà présente sur le serveur (optionnel)</label>
-        <input class="form-input" type="text" id="image_path" name="image_path" maxlength="255" value="<?= $val('image_path') ?>">
-        <p class="image-drop-note">Une image déposée ci-dessus remplace ce chemin après enregistrement.</p>
-        <?php if ($err('image_path') !== ''): ?><p class="form-error"><?= htmlspecialchars($err('image_path'), ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
+        <details class="form-advanced"<?= $openIfSet('image_path') ?>>
+            <summary>Ou : chemin d'une image déjà présente sur le serveur (optionnel)</summary>
+            <label class="form-label" for="image_path">Chemin de l'image</label>
+            <input class="form-input" type="text" id="image_path" name="image_path" maxlength="255" value="<?= $val('image_path') ?>">
+            <p class="image-drop-note">Une image déposée ci-dessus remplace ce chemin après enregistrement.</p>
+            <?php if ($err('image_path') !== ''): ?><p class="form-error"><?= htmlspecialchars($err('image_path'), ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
+        </details>
     </div>
 
     <div class="form-actions">

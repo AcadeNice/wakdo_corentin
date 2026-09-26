@@ -8,6 +8,10 @@ declare(strict_types=1);
  * menu_slot_option ; bloquee (409) si reference par une commande historique.
  * Injecte dans admin/layout.php.
  *
+ * Bouton de soumission en btn-danger (design-system.md section 3, regle
+ * d'usage des boutons) : action irreversible, ne doit pas porter la meme
+ * couleur que "Enregistrer" (btn-primary).
+ *
  * @var int          $menuId
  * @var string       $name
  * @var string|null  $error
@@ -47,7 +51,7 @@ $errorMessage = isset($error) && is_string($error) ? $error : null;
         </div>
 
         <div class="form-actions">
-            <button class="btn btn-primary" type="submit">Supprimer définitivement</button>
+            <button class="btn btn-danger" type="submit">Supprimer définitivement</button>
             <a class="btn btn-secondary" href="/admin/menus">Annuler</a>
         </div>
     </form>

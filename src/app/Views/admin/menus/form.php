@@ -8,6 +8,12 @@ declare(strict_types=1);
  * vanilla JS (menu-form.js) qui serialise l'etat dans le champ cache slots_json
  * a la soumission. Pas de PIN ici (create/update non sensibles, mlt 8.4/8.5).
  *
+ * Pas de champ replie (details.form-advanced, design-system.md 2.5) sur ce
+ * formulaire : "Ordre d'affichage" est le seul candidat secondaire, et
+ * tests/e2e/backoffice-sweep.spec.js (filet commun, non modifiable par ce lot)
+ * remplit #display_order en aveugle a la creation d'un menu -- un <details>
+ * ferme par defaut aurait rendu le champ inatteignable et casse ce parcours.
+ *
  * @var int                              $menuId
  * @var array<int, array<string, mixed>> $categories
  * @var array<int, array<string, mixed>> $products       burgers de base (select ancre)
@@ -26,6 +32,12 @@ $action = $id !== 0 ? '/admin/menus/' . $id : '/admin/menus';
 
 /** @var array<string, mixed> $vals */
 $vals = isset($values) && is_array($values) ? $values : [];
+// Valeur par defaut sensee : un nouveau menu n'a pas encore d'ordre choisi ; 0
+// (tete de liste) evite une case visuellement vide sans changer la validation
+// serveur (toujours requise, min 0 -- MenuController::validate).
+if (!isset($vals['display_order']) || $vals['display_order'] === '') {
+    $vals['display_order'] = '0';
+}
 /** @var array<string, string> $errs */
 $errs = isset($errors) && is_array($errors) ? $errors : [];
 /** @var array<int, array<string, mixed>> $cats */
