@@ -163,20 +163,20 @@ JOIN (
 --    dictionary.md 3.8. code = machine code (en), name = French display label.
 -- -----------------------------------------------------------------------------
 INSERT INTO allergen (code, name, description) VALUES
-    ('gluten',      'Gluten',                    'Cereales contenant du gluten (ble, seigle, orge, avoine, epeautre, kamut) et produits a base de ces cereales.'),
-    ('crustaceans', 'Crustaces',                 'Crustaces et produits a base de crustaces.'),
-    ('eggs',        'Oeufs',                      'Oeufs et produits a base d''oeufs.'),
-    ('fish',        'Poisson',                   'Poissons et produits a base de poissons.'),
-    ('peanuts',     'Arachides',                 'Arachides et produits a base d''arachides.'),
-    ('soybeans',    'Soja',                      'Soja et produits a base de soja.'),
-    ('milk',        'Lait',                      'Lait et produits a base de lait (y compris le lactose).'),
-    ('nuts',        'Fruits a coque',            'Fruits a coque : amandes, noisettes, noix, noix de cajou, de pecan, du Bresil, pistaches, noix de Macadamia.'),
-    ('celery',      'Celeri',                    'Celeri et produits a base de celeri.'),
-    ('mustard',     'Moutarde',                  'Moutarde et produits a base de moutarde.'),
-    ('sesame',      'Graines de sesame',         'Graines de sesame et produits a base de graines de sesame.'),
-    ('sulphites',   'Anhydride sulfureux et sulfites', 'Anhydride sulfureux et sulfites en concentration superieure a 10 mg/kg ou 10 mg/l (exprimes en SO2).'),
-    ('lupin',       'Lupin',                     'Lupin et produits a base de lupin.'),
-    ('molluscs',    'Mollusques',                'Mollusques et produits a base de mollusques.');
+    ('gluten',      'Gluten',                    'Céréales contenant du gluten (blé, seigle, orge, avoine, épeautre, kamut) et produits à base de ces céréales.'),
+    ('crustaceans', 'Crustacés',                 'Crustacés et produits à base de crustacés.'),
+    ('eggs',        'Œufs',                      'Œufs et produits à base d''œufs.'),
+    ('fish',        'Poisson',                   'Poissons et produits à base de poissons.'),
+    ('peanuts',     'Arachides',                 'Arachides et produits à base d''arachides.'),
+    ('soybeans',    'Soja',                      'Soja et produits à base de soja.'),
+    ('milk',        'Lait',                      'Lait et produits à base de lait (y compris le lactose).'),
+    ('nuts',        'Fruits à coque',            'Fruits à coque : amandes, noisettes, noix, noix de cajou, de pécan, du Brésil, pistaches, noix de Macadamia.'),
+    ('celery',      'Céleri',                    'Céleri et produits à base de céleri.'),
+    ('mustard',     'Moutarde',                  'Moutarde et produits à base de moutarde.'),
+    ('sesame',      'Graines de sésame',         'Graines de sésame et produits à base de graines de sésame.'),
+    ('sulphites',   'Anhydride sulfureux et sulfites', 'Anhydride sulfureux et sulfites en concentration supérieure à 10 mg/kg ou 10 mg/l (exprimés en SO2).'),
+    ('lupin',       'Lupin',                     'Lupin et produits à base de lupin.'),
+    ('molluscs',    'Mollusques',                'Mollusques et produits à base de mollusques.');
 
 -- -----------------------------------------------------------------------------
 -- 6. user (1) — bootstrap administrator. dictionary.md 3.14.

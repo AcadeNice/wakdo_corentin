@@ -16,7 +16,7 @@ const MANAGER_PASSWORD = 'WakdoManager2026!';
 const CUISINE_EMAIL = 'cuisine@wakdo.local';
 const CUISINE_PASSWORD = 'WakdoCuisine2026!';
 
-// "Pain sesame", seede a 100% de capacite (voir admin-stock-movement.spec.js) : un
+// "Pain sésame", seede a 100% de capacite (voir admin-stock-movement.spec.js) : un
 // reappro dessus est un mouvement reel et sans risque pour les autres specs.
 const RESTOCK_INGREDIENT_ID = 2;
 

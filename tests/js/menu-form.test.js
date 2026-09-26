@@ -20,10 +20,10 @@ const PRODUCTS = [
     { id: 15, name: 'Eau', category: 'boissons' },
     { id: 22, name: 'Moyenne Frite', category: 'frites' },
     { id: 30, name: 'Nuggets x4', category: 'encas' },
-    { id: 40, name: 'Cesar Classic', category: 'salades' },
+    { id: 40, name: 'César Classic', category: 'salades' },
     { id: 47, name: 'Ketchup', category: 'sauces' },
     { id: 50, name: 'Brownie', category: 'desserts' },
-    { id: 60, name: 'MC Wrap Chevre', category: 'wraps' },
+    { id: 60, name: 'MC Wrap Chèvre', category: 'wraps' },
     { id: 70, name: 'Le 280', category: 'burgers' },
 ];
 
@@ -125,7 +125,7 @@ test('slot drink (edition) : n affiche que les boissons', () => {
 test('slot side : affiche frites + encas + salades, pas les boissons ni sauces', () => {
     const doc = setup([{ name: 'Accompagnement', slot_type: 'side', is_required: 1, options: [22] }]);
     menuForm.init(doc);
-    assert.deepEqual(optionNames(doc), ['Moyenne Frite', 'Nuggets x4', 'Cesar Classic']);
+    assert.deepEqual(optionNames(doc), ['Moyenne Frite', 'Nuggets x4', 'César Classic']);
 });
 
 test('slot extra : affiche tout sauf burgers (et menus, absent du catalogue de test)', () => {
@@ -133,7 +133,7 @@ test('slot extra : affiche tout sauf burgers (et menus, absent du catalogue de t
     menuForm.init(doc);
     const names = optionNames(doc);
     assert.ok(!names.includes('Le 280')); // burger exclu
-    assert.ok(names.includes('Coca Cola') && names.includes('Ketchup') && names.includes('MC Wrap Chevre'));
+    assert.ok(names.includes('Coca Cola') && names.includes('Ketchup') && names.includes('MC Wrap Chèvre'));
 });
 
 /* --- re-filtrage dynamique au changement de type -------------------------- */

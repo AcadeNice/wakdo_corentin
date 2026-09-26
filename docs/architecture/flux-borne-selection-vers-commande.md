@@ -13,7 +13,7 @@ commande, puis valide et paie. On suit ce chemin de bout en bout, dans le code
 reel.
 
 Note sur le produit : la borne n'a pas de produit nomme exactement **"Salade
-Cesar"** au seed. Le produit le plus proche est **"Cesar Classic"** (categorie
+Cesar"** au seed. Le produit le plus proche est **"César Classic"** (categorie
 `salades`, 880 centimes soit 8,80 EUR), insere dans
 `db/seeds/0002_catalogue.sql:104` et dote d'une recette dans
 `db/seeds/0003_ingredients_recipes.sql:208-212`. Le document utilise ce produit
@@ -37,7 +37,7 @@ sequenceDiagram
     A-->>B: { data: [...], total } (enveloppe)
     Note over B: data.js deballe + traduit en forme borne
 
-    C->>B: Tap sur la tuile "Cesar Classic"
+    C->>B: Tap sur la tuile "César Classic"
     Note over B: produit sans option -> modale product-options.js
     C->>B: Ajouter a ma commande
     Note over B,B: state.addToCart -> localStorage (AUCUN appel reseau)
@@ -99,7 +99,7 @@ Forme de la reponse (enveloppe standard de l'API) :
     {
       "id": 24,
       "category_id": 7,
-      "name": "Cesar Classic",
+      "name": "César Classic",
       "description": null,
       "price_cents": 880,
       "image_path": "assets/images/produits/salades/salade-classic-caesar.png",
@@ -161,7 +161,7 @@ Comportement REEL selon le type :
 
 - **Menu** (`type === 'menu'`) : ouvre le composeur de menu
   (`openMenuComposer`, `src/public/borne/assets/js/page-product-menu.js`).
-- **Produit a la carte** (`type === 'produit'`, cas "Cesar Classic") : ouvre la
+- **Produit a la carte** (`type === 'produit'`, cas "César Classic") : ouvre la
   modale d'options `openProductOptions`
   (`src/public/borne/assets/js/product-options.js:71`).
 
@@ -207,7 +207,7 @@ L'item panier d'un produit a la carte est construit par `productCartItem()`
     id: product.id,            // (ou size.product_id si taille choisie)
     type: 'produit',
     categorie: 'salades',
-    libelle: 'Cesar Classic',  // (ou "<nom> - <label taille>")
+    libelle: 'César Classic',  // (ou "<nom> - <label taille>")
     prix_cents: 880,           // (ou size.price_cents)
     quantite: 1,
     image: 'assets/images/produits/salades/salade-classic-caesar.png'
@@ -466,7 +466,7 @@ foreach ($this->consumption($db, $orderId) as $ingredientId => $units) {
   sort idempotent).
 - `consumption()` (`src/app/Order/OrderRepository.php:981-1055`) agrege les unites
   par `ingredient_id` (cle triee : ordre de verrou stable, anti-deadlock) en
-  lisant les recettes (`ProductRepository::composition`). Pour "Cesar Classic",
+  lisant les recettes (`ProductRepository::composition`). Pour "César Classic",
   la recette est seedee (`db/seeds/0003_ingredients_recipes.sql:208-212`) : le
   decrement s'applique.
 - Chaque mouvement est trace dans `stock_movement` (`movement_type='sale'`,
@@ -476,7 +476,7 @@ foreach ($this->consumption($db, $orderId) as $ingredientId => $units) {
 > Nuance documentee dans le code (`src/app/Order/OrderRepository.php:514-516`) :
 > le decrement est inerte tant qu'un produit n'a pas de recette
 > (`product_ingredient`). La transition vers `preparing` s'applique de toute facon ; le
-> mouvement de stock n'est produit que si la composition existe. "Cesar Classic"
+> mouvement de stock n'est produit que si la composition existe. "César Classic"
 > en ayant une, le decrement a lieu.
 
 ---
@@ -579,5 +579,5 @@ dans `#order-number` et `#order-total` de `confirmation.html`
   ne les construit pas pour un produit a la carte. Signale comme observation, non
   comme regle definitive.
 - **Produit exemple** : pas de "Salade Cesar" exacte au seed ; substitue par
-  "Cesar Classic" (`db/seeds/0002_catalogue.sql:104`). Le chemin trace reste
+  "César Classic" (`db/seeds/0002_catalogue.sql:104`). Le chemin trace reste
   generique pour tout produit a la carte.

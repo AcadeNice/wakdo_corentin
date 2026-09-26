@@ -74,7 +74,7 @@ INSERT INTO product (category_id, name, price_cents, vat_rate, image_path, is_av
   ((SELECT id FROM category WHERE slug='boissons'), 'Coca Sans Sucres',   190, 100, 'assets/images/produits/boissons/coca-sans-sucres.png',            1, 2),
   ((SELECT id FROM category WHERE slug='boissons'), 'Eau',                100,  55, 'assets/images/produits/boissons/eau.png',                         1, 3),
   ((SELECT id FROM category WHERE slug='boissons'), 'Fanta Orange',       190, 100, 'assets/images/produits/boissons/fanta.png',                       1, 4),
-  ((SELECT id FROM category WHERE slug='boissons'), 'Ice Tea Peche',      190, 100, 'assets/images/produits/boissons/ice-tea-peche.png',               1, 5),
+  ((SELECT id FROM category WHERE slug='boissons'), 'Ice Tea Pêche',      190, 100, 'assets/images/produits/boissons/ice-tea-peche.png',               1, 5),
   ((SELECT id FROM category WHERE slug='boissons'), 'Ice Tea Citron',     190, 100, 'assets/images/produits/boissons/the-vert-citron-sans-sucres.png', 1, 6),
   ((SELECT id FROM category WHERE slug='boissons'), 'Jus d''Orange',      210,  55, 'assets/images/produits/boissons/jus-orange.png',                  1, 7),
   ((SELECT id FROM category WHERE slug='boissons'), 'Jus de Pommes Bio',  230,  55, 'assets/images/produits/boissons/jus-pomme-bio.png',               1, 8);
@@ -96,15 +96,15 @@ INSERT INTO product (category_id, name, price_cents, vat_rate, image_path, is_av
 
 -- 2.e wraps
 INSERT INTO product (category_id, name, price_cents, vat_rate, image_path, is_available, display_order) VALUES
-  ((SELECT id FROM category WHERE slug='wraps'), 'MC Wrap Chevre',       310, 100, 'assets/images/produits/wraps/mcwrap-chevre.png',       1, 1),
+  ((SELECT id FROM category WHERE slug='wraps'), 'MC Wrap Chèvre',       310, 100, 'assets/images/produits/wraps/mcwrap-chevre.png',       1, 1),
   ((SELECT id FROM category WHERE slug='wraps'), 'MC Wrap Poulet Bacon', 330, 100, 'assets/images/produits/wraps/mcwrap-poulet-bacon.png', 1, 2),
-  ((SELECT id FROM category WHERE slug='wraps'), 'Ptit Wrap Chevre',     260, 100, 'assets/images/produits/wraps/ptit-wrap-chevre.png',    1, 3),
+  ((SELECT id FROM category WHERE slug='wraps'), 'Ptit Wrap Chèvre',     260, 100, 'assets/images/produits/wraps/ptit-wrap-chevre.png',    1, 3),
   ((SELECT id FROM category WHERE slug='wraps'), 'Ptit Wrap Ranch',      260, 100, 'assets/images/produits/wraps/ptit-wrap-ranch.png',     1, 4);
 
 -- 2.f salades
 INSERT INTO product (category_id, name, price_cents, vat_rate, image_path, is_available, display_order) VALUES
   ((SELECT id FROM category WHERE slug='salades'), 'Petite Salade',   330, 100, 'assets/images/produits/salades/petite-salade.png',         1, 1),
-  ((SELECT id FROM category WHERE slug='salades'), 'Cesar Classic',   880, 100, 'assets/images/produits/salades/salade-classic-caesar.png', 1, 2),
+  ((SELECT id FROM category WHERE slug='salades'), 'César Classic',   880, 100, 'assets/images/produits/salades/salade-classic-caesar.png', 1, 2),
   ((SELECT id FROM category WHERE slug='salades'), 'Italienne Mozza', 880, 100, 'assets/images/produits/salades/salade-italian-mozza.png',  1, 3);
 
 -- 2.g desserts

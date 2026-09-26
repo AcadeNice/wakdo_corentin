@@ -78,11 +78,11 @@ INSERT IGNORE INTO ingredient_allergen (ingredient_id, allergen_id) VALUES
   -- certaines chaines ajoute farine de soja et graines de sesame : a revalider sur la
   -- fiche du pain reellement achete.
   ((SELECT id FROM ingredient WHERE name='Pain burger'), (SELECT id FROM allergen WHERE code='gluten')),
-  -- Pain sesame : graines de sesame en surface (2,8% sur l'etiquette lue). Le sesame
+  -- Pain sésame : graines de sesame en surface (2,8% sur l'etiquette lue). Le sesame
   -- de surface se transfere par contact au grille-pain commun : risque de
   -- contamination croisee reel vers les autres pains.
-  ((SELECT id FROM ingredient WHERE name='Pain sesame'), (SELECT id FROM allergen WHERE code='gluten')),
-  ((SELECT id FROM ingredient WHERE name='Pain sesame'), (SELECT id FROM allergen WHERE code='sesame')),
+  ((SELECT id FROM ingredient WHERE name='Pain sésame'), (SELECT id FROM allergen WHERE code='gluten')),
+  ((SELECT id FROM ingredient WHERE name='Pain sésame'), (SELECT id FROM allergen WHERE code='sesame')),
   -- Pain signature : reference = pain burger BRIOCHE au beurre et poudre de lait
   -- (type Carrefour / La Boulangere). Gluten et oeufs sur les 5 etiquettes lues ; lait
   -- sur 4 des 5. Une brioche sans lait existe (Harrys nature, lait en traces) : c'est
@@ -95,15 +95,15 @@ INSERT IGNORE INTO ingredient_allergen (ingredient_id, allergen_id) VALUES
   ((SELECT id FROM ingredient WHERE name='Tortilla'), (SELECT id FROM allergen WHERE code='gluten')),
 
   -- PROTEINES -----------------------------------------------------------------
-  -- Steak hache : AUCUNE liaison. Reference = steak hache PUR BOEUF ("viande de boeuf,
+  -- Steak haché : AUCUNE liaison. Reference = steak hache PUR BOEUF ("viande de boeuf,
   -- sel iode, poivre" au document officiel, aucune colonne allergene cochee). Une
   -- preparation facon burger (chapelure, oignon, moutarde, oeuf) porterait, elle, des
   -- allergenes : la revue est a refaire si le fournisseur passe a une viande assaisonnee.
-  -- Filet de poulet pane : gluten STRUCTUREL (panure de ble). Le celeri n'est PAS
+  -- Filet de poulet pané : gluten STRUCTUREL (panure de ble). Le celeri n'est PAS
   -- ajoute : le document officiel le declare sur le nugget et pas sur ce filet. Une
   -- fiche de filet MARINE (type Tenders) declare en plus celeri, lait, soja et
   -- sulfites -- a revalider si le fournisseur retenu est un pane assaisonne.
-  ((SELECT id FROM ingredient WHERE name='Filet de poulet pane'), (SELECT id FROM allergen WHERE code='gluten')),
+  ((SELECT id FROM ingredient WHERE name='Filet de poulet pané'), (SELECT id FROM allergen WHERE code='gluten')),
   -- Galette de poisson : colin d'Alaska + panure de ble. Le code INCO reste "fish"
   -- quelle que soit l'espece, mais l'espece merite d'etre dite en salle : un client
   -- peut etre sensibilise a une espece precise. Des versions panees sans gluten
@@ -129,7 +129,7 @@ INSERT IGNORE INTO ingredient_allergen (ingredient_id, allergen_id) VALUES
   -- fabricant concordantes, coagulant microbien (donc pas de presure animale a
   -- signaler), aucune autre categorie declaree.
   ((SELECT id FROM ingredient WHERE name='Cheddar'), (SELECT id FROM allergen WHERE code='milk')),
-  ((SELECT id FROM ingredient WHERE name='Fromage de chevre'), (SELECT id FROM allergen WHERE code='milk')),
+  ((SELECT id FROM ingredient WHERE name='Fromage de chèvre'), (SELECT id FROM allergen WHERE code='milk')),
   ((SELECT id FROM ingredient WHERE name='Mozzarella'), (SELECT id FROM allergen WHERE code='milk')),
   ((SELECT id FROM ingredient WHERE name='Emmental'), (SELECT id FROM allergen WHERE code='milk')),
 
@@ -259,7 +259,7 @@ INSERT IGNORE INTO ingredient_allergen (ingredient_id, allergen_id) VALUES
 UPDATE ingredient SET allergens_reviewed_at = '2026-07-31 09:00:00', allergens_source = 'Liste ingredients KFC (dec. 2023) + etiquette Harrys burger nature'
   WHERE name = 'Pain burger' AND allergens_reviewed_at IS NULL;
 UPDATE ingredient SET allergens_reviewed_at = '2026-07-31 09:00:00', allergens_source = 'Liste ingredients KFC (dec. 2023) + etiquette Harrys burger sesame'
-  WHERE name = 'Pain sesame' AND allergens_reviewed_at IS NULL;
+  WHERE name = 'Pain sésame' AND allergens_reviewed_at IS NULL;
 UPDATE ingredient SET allergens_reviewed_at = '2026-07-31 09:00:00', allergens_source = 'Etiquettes pains burger brioches (Carrefour, La Boulangere) - L4'
   WHERE name = 'Pain signature' AND allergens_reviewed_at IS NULL;
 UPDATE ingredient SET allergens_reviewed_at = '2026-07-31 09:00:00', allergens_source = 'Fiche technique Santa Maria Tortilla Wraps ble + tableau Quesada'
@@ -267,9 +267,9 @@ UPDATE ingredient SET allergens_reviewed_at = '2026-07-31 09:00:00', allergens_s
 
 -- Proteines
 UPDATE ingredient SET allergens_reviewed_at = '2026-07-31 09:00:00', allergens_source = 'Liste ingredients et allergenes McDonald''s (PDF officiel) - steak pur boeuf'
-  WHERE name = 'Steak hache' AND allergens_reviewed_at IS NULL;
+  WHERE name = 'Steak haché' AND allergens_reviewed_at IS NULL;
 UPDATE ingredient SET allergens_reviewed_at = '2026-07-31 09:00:00', allergens_source = 'PDF officiels McDonald''s + KFC - filet pane non marine'
-  WHERE name = 'Filet de poulet pane' AND allergens_reviewed_at IS NULL;
+  WHERE name = 'Filet de poulet pané' AND allergens_reviewed_at IS NULL;
 UPDATE ingredient SET allergens_reviewed_at = '2026-07-31 09:00:00', allergens_source = 'PDF officiel McDonald''s + fiche Findus colin d''Alaska pane'
   WHERE name = 'Galette de poisson' AND allergens_reviewed_at IS NULL;
 UPDATE ingredient SET allergens_reviewed_at = '2026-07-31 09:00:00', allergens_source = 'PDF officiels McDonald''s + KFC - bacon de porc fume'
@@ -283,7 +283,7 @@ UPDATE ingredient SET allergens_reviewed_at = '2026-07-31 09:00:00', allergens_s
 UPDATE ingredient SET allergens_reviewed_at = '2026-07-31 09:00:00', allergens_source = 'Fiches techniques cheddar bloc et tranches (Boni Selection)'
   WHERE name = 'Cheddar' AND allergens_reviewed_at IS NULL;
 UPDATE ingredient SET allergens_reviewed_at = '2026-07-31 09:00:00', allergens_source = 'Fiche technique Chavroux fromage de chevre tranches'
-  WHERE name = 'Fromage de chevre' AND allergens_reviewed_at IS NULL;
+  WHERE name = 'Fromage de chèvre' AND allergens_reviewed_at IS NULL;
 UPDATE ingredient SET allergens_reviewed_at = '2026-07-31 09:00:00', allergens_source = 'Fiches techniques Galbani et Bonta di Lilli mozzarella'
   WHERE name = 'Mozzarella' AND allergens_reviewed_at IS NULL;
 UPDATE ingredient SET allergens_reviewed_at = '2026-07-31 09:00:00', allergens_source = 'Fiche technique Domalait emmental + liste ingredients McDonald''s'
@@ -325,11 +325,11 @@ UPDATE ingredient SET allergens_reviewed_at = '2026-07-31 09:00:00', allergens_s
 UPDATE ingredient SET allergens_reviewed_at = '2026-07-31 09:00:00', allergens_source = 'Coca-Cola France, fiche Fanta Orange'
   WHERE name = 'Dose Fanta' AND allergens_reviewed_at IS NULL;
 UPDATE ingredient SET allergens_reviewed_at = '2026-07-31 09:00:00', allergens_source = 'Lipton Ice Tea France, fiche saveur peche'
-  WHERE name = 'Dose Ice Tea Peche' AND allergens_reviewed_at IS NULL;
+  WHERE name = 'Dose Ice Tea Pêche' AND allergens_reviewed_at IS NULL;
 UPDATE ingredient SET allergens_reviewed_at = '2026-07-31 09:00:00', allergens_source = 'Lipton Ice Tea France, fiche saveur citron'
   WHERE name = 'Dose Ice Tea Citron' AND allergens_reviewed_at IS NULL;
 UPDATE ingredient SET allergens_reviewed_at = '2026-07-31 09:00:00', allergens_source = 'Fiche technique Minute Maid orange (14 categories negatives)'
-  WHERE name = 'Dose Jus d Orange' AND allergens_reviewed_at IS NULL;
+  WHERE name = 'Dose Jus d''Orange' AND allergens_reviewed_at IS NULL;
 UPDATE ingredient SET allergens_reviewed_at = '2026-07-31 09:00:00', allergens_source = 'Fiche technique Minute Maid pomme (14 categories negatives)'
   WHERE name = 'Dose Jus de Pomme' AND allergens_reviewed_at IS NULL;
 -- Gobelet : la SOURCE porte la raison. Un gobelet n'est pas un aliment mais un

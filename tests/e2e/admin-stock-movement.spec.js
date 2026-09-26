@@ -24,7 +24,7 @@ const ADMIN = 'http://admin.wakdo.test';
 const EMAIL = 'admin@wakdo.local';
 const PASSWORD = 'WakdoAdmin2026!';
 const PIN = '3141';
-const INGREDIENT_ID = 2; // "Pain sesame", seede a 300/300 (100% de capacite)
+const INGREDIENT_ID = 2; // "Pain sésame", seede a 300/300 (100% de capacite)
 
 async function login(page) {
   await page.goto(`${ADMIN}/login`);

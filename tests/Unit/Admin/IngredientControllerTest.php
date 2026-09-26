@@ -955,7 +955,7 @@ final class IngredientControllerTest extends TestCase
         return [
             ['id' => 1, 'code' => 'gluten', 'name' => 'Gluten', 'description' => 'Cereales.'],
             ['id' => 7, 'code' => 'milk', 'name' => 'Lait', 'description' => 'Lait.'],
-            ['id' => 11, 'code' => 'sesame', 'name' => 'Graines de sesame', 'description' => 'Sesame.'],
+            ['id' => 11, 'code' => 'sesame', 'name' => 'Graines de sésame', 'description' => 'Sésame.'],
         ];
     }
 
@@ -1010,7 +1010,7 @@ final class IngredientControllerTest extends TestCase
         // nommees allergens[] seraient perdues en silence.
         self::assertStringContainsString('name="allergen_1"', $response->body());
         self::assertStringContainsString('name="allergen_7"', $response->body());
-        self::assertStringContainsString('Graines de sesame', $response->body());
+        self::assertStringContainsString('Graines de sésame', $response->body());
     }
 
     public function testEditWrapsNutritionAndAllergenCardsInCardBody(): void
