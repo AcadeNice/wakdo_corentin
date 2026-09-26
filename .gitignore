@@ -33,6 +33,10 @@ vendor/
 composer.lock
 composer.phar
 
+# === Python (generateurs scripts/gen_postman.py, scripts/gen_bruno.py) ===
+__pycache__/
+*.pyc
+
 # === Tests / Analyse statique (tooling via .phar autonome, sans Composer) ===
 .phpunit.result.cache
 .phpunit.cache/
@@ -84,7 +88,14 @@ Thumbs.db
 /public/build/
 
 # === Node (au cas ou) ===
+# Deux lignes deliberees, pas une redondance : "node_modules/" (barre finale)
+# ne matche qu'un VRAI repertoire ; ce depot le monte parfois en LIEN
+# SYMBOLIQUE (scratchpad de travail partage), que "node_modules/" ne reconnait
+# pas de facon fiable -- verifie par un `git status` qui le proposait encore en
+# "??" malgre cette ligne. "node_modules" (sans barre) matche le NOM quel que
+# soit son type (repertoire ou lien), donc ferme ce cas.
 node_modules/
+node_modules
 npm-debug.log
 yarn-error.log
 

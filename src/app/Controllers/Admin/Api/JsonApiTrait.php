@@ -77,7 +77,13 @@ trait JsonApiTrait
      * 1. Content-Type : un corps non vide DOIT s'annoncer `application/json` ;
      *    un autre type (ou aucun) sur un corps non vide -> `415
      *    UNSUPPORTED_MEDIA_TYPE` (RFC 9110 §15.5.16), documente en section 5.3 de
-     *    docs/api/conventions.md.
+     *    docs/api/conventions.md. Comparaison STRICTE du type de media (la partie
+     *    avant un eventuel `;` de parametres, ex. `; charset=utf-8`), PAS un
+     *    prefixe : `str_starts_with` acceptait a tort `application/jsonp`,
+     *    puisque cette chaine COMMENCE PAR `application/json`.
+     *    `application/json-patch+json` ou tout autre type
+     *    structure `+json` seraient rejetes par la meme logique -- assume : cette
+     *    API n'accepte qu'`application/json` exact, pas ses variantes structurees.
      * 2. Syntaxe JSON : un corps illisible -> `400 INVALID_JSON`, plutot que de
      *    laisser la validation champ-par-champ produire un 422 trompeur (un champ
      *    "manquant" alors que le vrai probleme est un JSON illisible).
@@ -98,7 +104,8 @@ trait JsonApiTrait
         }
 
         $contentType = strtolower((string) ($this->request->header('Content-Type') ?? ''));
-        if (!str_starts_with($contentType, 'application/json')) {
+        $mediaType = trim(explode(';', $contentType, 2)[0]);
+        if ($mediaType !== 'application/json') {
             return $this->errorResponse(415, 'UNSUPPORTED_MEDIA_TYPE', 'Content-Type doit être application/json pour un corps non vide');
         }
 

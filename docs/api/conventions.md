@@ -307,6 +307,138 @@ Statistiques (`stats.read`) :
 > uniquement — l'API JSON accepte `image_path` deja heberge (chaine), pas de transfert
 > binaire.
 
+### 5.3bis Connexion JSON (`/admin/api/auth/*`, livre)
+
+Avant ce chantier, toute la collection Postman (section 5.3) supposait une session deja
+ouverte : le seul moyen d'en obtenir une etait de se connecter dans un NAVIGATEUR
+(`POST /login`, formulaire HTML) puis de copier le cookie `WAKDO_SID` a la main depuis les
+outils de developpement (l'attribut `HttpOnly` empeche toute lecture par
+`document.cookie`, voir section 9) — fragile en demonstration (oral, jury). `/admin/api/auth/*`
+ferme ce cas SANS changer le modele de securite (ADR-0017) : meme session serveur en cookie
+`HttpOnly` + `SameSite=Strict`, meme jeton CSRF synchroniseur (`App\Auth\Csrf`). Aucun jeton
+en `localStorage`, aucune cryptographie maison.
+
+| Methode | Chemin | Session prealable | CSRF (`X-CSRF-Token`) | Note |
+|---|---|---|---|---|
+| POST | `/admin/api/auth/login` | non | non (protection differente, voir plus bas) | Reutilise `AuthService::authenticate()` a l'identique du formulaire HTML (`AuthController::login`) : meme limitation par compte ET par IP (RG-8), meme ralentissement degressif, meme regeneration de session (RG-3), meme controle de compte actif. Succes : `200 { data: { user: {id, email, display_name, role}, permissions: [...], csrf_token } }`, pose le cookie de session. Echecs : `401 INVALID_CREDENTIALS` (identifiants faux, compte inactif/inconnu, OU verrou de COMPTE — anti-enumeration, voir plus bas) ; `429 TOO_MANY_ATTEMPTS` (verrou IP UNIQUEMENT, en-tete `Retry-After` en secondes) ; `400 INVALID_JSON` ; `415 UNSUPPORTED_MEDIA_TYPE` ; `422 VALIDATION_ERROR` (champ manquant, vide, trop long, ou non scalaire) |
+| POST | `/admin/api/auth/logout` | oui | oui | `204` sans corps, detruit la session (`AuthService::logout()`, inchange). Session absente -> `401 AUTH_REQUIRED` (a la difference du formulaire HTML, qui ne verifie que le CSRF) |
+| GET | `/admin/api/auth/me` | oui | non | Alias STRICT de `GET /admin/me` (meme controleur sous-jacent, `AuthApiController::apiMe()` delegue a `MeController::show()`) — pour que toute la demonstration reste sous le seul prefixe `/admin/api/...`. `/admin/me` reste servi (compatibilite). |
+
+**Pourquoi `401 INVALID_CREDENTIALS` et pas `429 TOO_MANY_ATTEMPTS` sur un verrou de COMPTE.**
+`AuthService` distingue deux dimensions de throttling (RG-8) : par COMPTE (email precis) et
+par IP source. Exposer un code HTTP different pour "compte verrouille" reviendrait a
+REVELER, par le code HTTP seul, qu'un email precis existe et a echoue plusieurs fois — la
+meme fuite que le message d'erreur unique evite deja cote formulaire HTML (anti-enumeration,
+`mlt.md` RG-2/ERR-3). Le verrou IP, lui, ne depend d'aucun email tente : l'exposer via `429` +
+`Retry-After` ne revele rien sur un compte precis — A CONDITION que le chemin "compte
+verrouille" fasse par ailleurs EXACTEMENT le meme travail observable que le chemin "email
+inconnu" (meme appel a `verifyDecoy()`, meme increment du compteur IP, compteur COMPTE laisse
+inchange dans les deux cas). Un premier code de ce chantier ne le faisait pas (le compteur IP
+arretait d'avancer sur un compte deja verrouille, RG-8) : un compte verrouille et un email
+inconnu redevenaient distinguables — par le nombre de requetes avant le premier `429`
+(vingt, le seuil `IP_THROTTLE_MAX_ATTEMPTS`, pour un email inconnu ; pour un compte
+verrouille, le compteur IP restait gele, donc ce seuil ne pouvait pas etre atteint par
+cette voie), et par le temps de reponse (quelques ms sans le leurre, contre 500+ ms avec).
+Voir `AuthService::authenticate()`, bloc `if ($accountLocked)`, et `AuthServiceTest` pour
+la preuve testee. Ce paragraphe documente donc une garantie qui depend de ce comportement
+precis, pas d'une propriete acquise du seul choix
+d'un code HTTP (`App\Auth\AuthResult::throttled()`, `AuthService::authenticate()`).
+
+**Le leurre de timing est calibre sur un hash STOCKE, pas sur la configuration.**
+`AuthService` calibre `verifyDecoy()` (le leurre anti-enumeration ci-dessus) sur un hash
+argon2id REELLEMENT STOCKE (celui du compte cible s'il existe mais est verrouille, sinon
+un compte quelconque de la base) plutot que sur `ARGON2_MEMORY_COST`/`TIME_COST`/`THREADS`
+(la configuration courante). C'est le hash stocke qui dicte le cout REEL d'un
+`password_verify()` (les parametres argon2id sont encodes DANS le hash lui-meme), pas la
+configuration : calibrer sur la configuration seule reste correct tant que rien n'a change
+depuis la creation des hashes existants, mais diverge des qu'un deploiement AUGMENTE (ou
+diminue) ces parametres pour durcir son installation SANS rehacher l'existant — un exploitant
+qui durcit son installation de cette facon rouvrirait alors precisement la fuite que ce
+mecanisme sert a fermer (mesure relecture adverse, parametres personnalises 32768/3/1, cache
+par ailleurs PARFAITEMENT SAIN, aucune panne : 256 ms pour un mot de passe faux sur un compte
+existant, 99 ms pour un leurre calibre sur la configuration — 157 ms d'ecart). **Toute
+modification de `ARGON2_MEMORY_COST`/`ARGON2_TIME_COST`/`ARGON2_THREADS` sur un deploiement
+existant doit donc s'accompagner d'un rehachage des mots de passe stockes**, sans quoi les deux
+couts (celui des hashes existants, celui de la nouvelle configuration) divergent durablement.
+`AuthService::authenticate()` amorce cette convergence tout seul, a chaque connexion reussie :
+si le hash stocke ne porte plus les parametres courants (`PasswordHasherInterface::
+needsRehash()`, enveloppe de `password_needs_rehash()`), il est rehache avec le mot de passe
+qui vient d'etre verifie en clair — seuls les comptes qui se REconnectent apres le changement
+en beneficient ainsi ; un compte qui ne se reconnecte pas reste a l'ancien cout de son cote
+(residu assume, pas un chemin de migration en masse).
+
+**Compromis assume : le verrou IP se partage derriere un NAT de restaurant.** Le seuil
+`IP_THROTTLE_MAX_ATTEMPTS` (`.env.example`, defaut 20 tentatives par fenetre de
+`IP_THROTTLE_WINDOW_SECONDS`, defaut 900 s soit 15 min — `ThrottlePolicy::fromConfig()`,
+dimension `'ip'`) est compte par ADRESSE IP SOURCE, pas par compte ni par poste de travail.
+Plusieurs equipiers d'un meme restaurant, derriere le meme routeur (NAT), partagent en
+pratique une seule adresse IP source cote serveur : les echecs de connexion d'un equipier
+(mot de passe oublie, fautes de frappe repetees) avancent le MEME compteur que celui des
+autres postes du meme restaurant, et peuvent, cumules, atteindre le seuil de verrou IP
+(`429` + `Retry-After` degressif, RG-8) — ce qui ralentit alors aussi la connexion de
+collegues dont les tentatives, elles, etaient correctes. Ce n'est pas un angle mort non vu :
+sans ce compteur par IP, un seul poste pourrait essayer un volume non borne de mots de passe
+contre un compte non verrouille (`mlt.md` RG-8) ; avec lui, un reseau local partage degrade
+l'experience de plusieurs postes legitimes en cas d'echecs repetes sur un seul poste. C'est
+pour ajuster ce compromis site par site (un restaurant avec plus de postes derriere le meme
+NAT peut relever ce seuil) que `IP_THROTTLE_MAX_ATTEMPTS` est une variable d'environnement et
+non une constante — sans necessiter de changement de code pour le recalibrer.
+
+**Pourquoi pas de jeton CSRF classique sur `POST /admin/api/auth/login`.** Le jeton
+synchroniseur (section 9) suppose une session PREALABLE pour le porter — hors de portee ici
+puisque le but de cette requete est justement de CREER cette session.
+
+**Le mecanisme reel : le Content-Type impose force un PREFLIGHT CORS, ferme sur ce prefixe
+[CLAIM L1, WHATWG Fetch Standard §"CORS-preflight fetch" + HTML Living Standard §"form
+submission algorithm" pour les valeurs d'enctype].** `JsonApiTrait::requireJsonBody()`
+(verifie dans le code) exige `application/json` pour tout corps non vide (`415` sinon). Un
+`<form>` HTML ne connait que trois valeurs d'`enctype` — `application/x-www-form-urlencoded`,
+`multipart/form-data`, `text/plain` — aucune n'est `application/json` : un `<form>` cross-site
+ne peut donc pas, par lui-meme, produire un corps que le serveur accepterait ici. Une page
+attaquante devrait alors passer par `fetch()`/`XHR` avec `Content-Type: application/json`, ce
+qui declenche un PREFLIGHT `OPTIONS` (Fetch Standard) AVANT que le navigateur n'envoie la
+requete reelle. `App\Core\Cors::isAllowed()` (`src/app/Core/Cors.php`, verifie dans le code)
+ne pose l'en-tete `Access-Control-Allow-Origin` que sur les chemins commencant par `/api/`
+(le prefixe PUBLIC kiosk), pas sur `/admin/api/` : ce preflight echoue donc pour ce prefixe,
+et la specification demande au navigateur de ne pas envoyer la requete reelle dans ce cas.
+C'est le SEUL mecanisme, parmi ceux discutes ici, qui empeche reellement l'ENVOI de la
+requete forgee depuis un navigateur.
+
+**Ce que `SameSite=Strict` fait — et ne fait PAS — ici [CLAIM L3, IETF Internet-Draft
+`draft-ietf-httpbis-rfc6265bis-22` (revision -22, la plus recente disponible au moment de
+cette consultation le 2026-09-26 ; une revision -23 n'existe pas a cette date) — PAS une RFC
+ratifiee, le brouillon dit lui-meme qu'il est "inappropriate to use Internet-Drafts as
+reference material or to cite them other than as 'work in progress'" — section 5.6.7.1
+"'Strict' and 'Lax' enforcement" et section 5.7 (modele de stockage, etape 18.2.3),
+verifiees par lecture directe du texte].** `SessionManager::start()` (verifie dans le code) pose le cookie de
+session avec `samesite: 'Strict'`. Cet attribut regit l'ENVOI d'un cookie EXISTANT sur une
+requete ulterieure de site croise — PAS la reception ni la pose d'un cookie neuf : le
+brouillon precise qu'une navigation de premier niveau peut CREER un cookie avec n'importe
+quelle valeur de `SameSite`, "even if the new cookie wouldn't have been sent along with the
+request had it already existed prior to the navigation" (section 5.7). Autrement dit,
+`SameSite=Strict` ne bloque PAS l'acceptation du `Set-Cookie` renvoye par un
+`POST /admin/api/auth/login` qui reussirait a s'executer, force ou non — une version
+anterieure de ce document affirmait le contraire ("meme un formulaire cross-site qui
+parviendrait a poster ne porterait pas la session a fixer"), corrige ici. Ce que
+`SameSite=Strict` protege reellement, c'est la
+SUITE : une fois la session ouverte, le cookie `WAKDO_SID` n'est plus ENVOYE par le
+navigateur sur les requetes ulterieures initiees depuis un autre site — la raison pour
+laquelle chaque ecriture authentifiee de `/admin/api/*` (et `POST /admin/api/auth/logout`)
+garde, elle, le jeton CSRF synchroniseur classique.
+
+**Ce que le blocage CORS ne dit pas.** CORS est un mecanisme applique par le NAVIGATEUR sur
+du code de PAGE WEB (`fetch`/`XHR`) — pas un pare-feu serveur. Il ne rend pas `/admin/api/*`
+injoignable pour un client HTTP quelconque (un `curl`, un script, un autre serveur) : un tel
+client n'est pas soumis a la politique CORS et peut envoyer la requete et lire la reponse
+sans restriction de ce cote (sous reserve du routage reseau reel, une question distincte de
+CORS). Ce que ferme le preflight CORS ci-dessus, c'est UNIQUEMENT le scenario "une page
+chargee dans le navigateur de la victime, sur un autre site, force ce navigateur a emettre la
+requete" — le scenario CSRF classique — pas un acces direct au serveur par un client qui n'est
+pas un navigateur.
+
+`POST /admin/api/auth/logout`, lui, garde le jeton CSRF classique (une session existe deja a
+ce moment).
+
 ---
 
 ## 6. Methodes HTTP
@@ -389,12 +521,14 @@ stable).
 | `VALIDATION_ERROR` | 422 | entree invalide (champ, longueur, enum) ; `error.fields` porte le detail par champ sur `/admin/api/*` |
 | `CONFLICT` | 409 | conflit d'etat (ex. transition de commande concurrente) ; suppression dure bloquee par une reference (FK RESTRICT) ; unicite slug/name/code/email deja prise (remontee par la base). La validation simple en amont (champ/format/bornes) reste `VALIDATION_ERROR` 422 |
 | `AUTH_REQUIRED` | 401 | authentification requise (session absente/expiree, `/admin/me` et `/admin/api/*`) |
+| `INVALID_CREDENTIALS` | 401 | `POST /admin/api/auth/login` : email/mot de passe faux, compte inconnu/inactif, OU verrou de COMPTE (anti-enumeration, section 5.3bis) |
+| `TOO_MANY_ATTEMPTS` | 429 | `POST /admin/api/auth/login` : verrou de throttling IP (RG-8, section 5.3bis) ; en-tete `Retry-After` en secondes |
 | `FORBIDDEN` | 403 | permission insuffisante |
 | `CSRF_INVALID` | 403 | jeton CSRF absent ou invalide (formulaire `_csrf` ou en-tete `X-CSRF-Token` sur `/admin/api/*`) |
 | `PIN_INVALID` | 422 | PIN d'action sensible absent, invalide, ou acteur verrouille (RG-T13/RG-T22, `/admin/api/*`) |
 | `INVALID_JSON` | 400 | corps de requete JSON malforme, OU dont la racine n'est pas un objet (une liste/un scalaire) (`/admin/api/*`) |
 | `UNSUPPORTED_MEDIA_TYPE` | 415 | corps non vide envoye sans en-tete `Content-Type: application/json` (`/admin/api/*`) |
-| `RATE_LIMITED` | 429 | throttling (prevu) |
+| `RATE_LIMITED` | 429 | throttling generique (prevu, hors connexion — voir `TOO_MANY_ATTEMPTS` pour la connexion, seul cas realise a ce jour) |
 | `INTERNAL_ERROR` | 500 | erreur interne, message generique (pas de divulgation) |
 
 Codes specifiques nommes par le MLT, en surcharge du socle : `CANNOT_CANCEL_IN_STATE` (422) et
@@ -473,6 +607,10 @@ Voir [ADR-0015](../adr/0015-allergenes-calcules-par-produit.md).
   de permission via `role_permission` + jeton CSRF en en-tete `X-CSRF-Token` (le meme jeton
   synchroniseur que le HTML, transporte differemment faute de formulaire) ; actions sensibles
   avec re-autorisation PIN (`mlt.md` RG-T13) dans le corps JSON.
+- **Connexion JSON (`/admin/api/auth/*`, section 5.3bis)** : `POST .../login` OUVRE la
+  session JSON (pose le cookie, sans jeton CSRF prealable — protection Content-Type/CORS/
+  SameSite, detaillee en 5.3bis) ; `.../logout` et `.../me` suivent ensuite la meme regle que
+  le reste de `/admin/api/*` ci-dessus.
 
 Le schema `ApiKey` / `Bearer` de l'API plateforme BYAN (`docs/api/byan-api.md`) ne s'applique pas
 ici.
@@ -510,10 +648,14 @@ introduit a ce moment-la, en gardant `/api/...` pour la v1 tant que des clients 
 | Lecture de la requete (chemin, query, corps, IP) | `src/app/Core/Request.php` |
 | Controleurs (HTML) | `src/app/Controllers/` |
 | Controleurs (API d'administration JSON, section 5.3) | `src/app/Controllers/Admin/Api/` (etendent leur homologue HTML) |
+| Connexion JSON (section 5.3bis) | `src/app/Controllers/Admin/Api/AuthApiController.php` (etend `MeController`) |
+| Regles de securite de l'authentification (throttling, anti-enumeration) | `src/app/Auth/AuthService.php`, `src/app/Auth/AuthResult.php` |
 | Garde JSON commune (401/403/CSRF/PIN/enveloppe) | `src/app/Controllers/Admin/Api/JsonApiTrait.php` |
 | Porte du PIN d'action sensible pour l'API JSON | `src/app/Auth/PinGate.php` |
 | Acces base (requetes preparees, transaction) | `src/app/Core/Database.php` |
 | Noms de champs (source de verite) | `docs/merise/dictionary.md` |
 | Operations metier et permissions | `docs/merise/mct.md`, `mlt.md`, `db/seeds/0001_rbac_and_reference.sql` |
-| Collection Postman + guide | `docs/api/wakdo-admin.postman_collection.json`, `docs/api/postman.md` |
+| Collection Postman + environnement | `docs/api/wakdo-admin.postman_collection.json`, `docs/api/wakdo.postman_environment.json` (generees par `scripts/gen_postman.py`) |
+| Collection Bruno + environnement | `docs/api/bruno/` (generee par `scripts/gen_bruno.py`) |
+| Guide de demo (5 minutes, Postman ET Bruno) | `docs/api/demo-api.md` |
 | Decision d'architecture | [ADR-0017](../adr/0017-api-admin-json.md) |

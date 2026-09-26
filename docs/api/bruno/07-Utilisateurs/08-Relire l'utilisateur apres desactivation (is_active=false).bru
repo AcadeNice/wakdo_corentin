@@ -1,0 +1,19 @@
+meta {
+  name: Relire l'utilisateur apres desactivation (is_active=false)
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{baseUrl}}/admin/api/users/{{created_user_id}}
+}
+
+docs {
+Preuve de nettoyage intermediaire (avant l'anonymisation RGPD ci-dessous).
+}
+
+tests {
+  const body = res.getBody();
+  expect(res.getStatus()).to.equal(200);
+  expect(body.data.is_active).to.equal(false);
+}

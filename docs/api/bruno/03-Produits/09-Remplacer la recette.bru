@@ -1,0 +1,33 @@
+meta {
+  name: Remplacer la recette
+  type: http
+  seq: 9
+}
+
+put {
+  url: {{baseUrl}}/admin/api/products/{{created_product_id}}/recipe
+}
+
+headers {
+  Content-Type: application/json
+  X-CSRF-Token: {{csrf}}
+}
+
+body {
+  {
+    "composition": [
+      {
+        "ingredient_id": 1,
+        "quantity_normal": 1,
+        "quantity_maxi": 2,
+        "is_removable": true,
+        "is_addable": false,
+        "extra_price_cents": 0
+      }
+    ]
+  }
+}
+
+docs {
+ingredient.manage, pas de PIN. Composition vide autorisee (purge la recette). ingredient_id=1 ("Pain burger") : catalogue d'ingredients FIGE au seed (jamais cree/supprime par cette collection), pas un id de ressource creee ici.
+}

@@ -1,0 +1,25 @@
+meta {
+  name: Annuler la commande B (PIN requis) -- etat terminal de nettoyage
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/admin/api/orders/{{created_order_number_cancel}}/cancel
+}
+
+headers {
+  Content-Type: application/json
+  X-CSRF-Token: {{csrf}}
+}
+
+body {
+  {
+    "pin_email": "{{pin_email}}",
+    "pin": "{{pin}}"
+  }
+}
+
+docs {
+order.cancel + PIN (RG-T13). Restocke automatiquement les ingredients consommes (RG-T20) : "cancelled" est aussi un etat terminal normal.
+}

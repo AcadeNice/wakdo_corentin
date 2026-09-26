@@ -1,0 +1,33 @@
+meta {
+  name: Modifier un role (PIN requis)
+  type: http
+  seq: 5
+}
+
+put {
+  url: {{baseUrl}}/admin/api/roles/{{created_role_id}}
+}
+
+headers {
+  Content-Type: application/json
+  X-CSRF-Token: {{csrf}}
+}
+
+body {
+  {
+    "label": "Role Demo {{run}} v2",
+    "permission_ids": [
+      "{{examplePermissionId}}"
+    ],
+    "visible_sources": [
+      "counter",
+      "drive"
+    ],
+    "pin_email": "{{pin_email}}",
+    "pin": "{{pin}}"
+  }
+}
+
+docs {
+Garde-fou anti-lockout (422) : le role 'admin' doit garder role.manage et rester actif -- non pertinent ici (role fraichement cree, pas 'admin').
+}

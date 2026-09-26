@@ -1,0 +1,26 @@
+meta {
+  name: Lister les categories
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/admin/api/categories
+}
+
+docs {
+Capture aussi, pour les dossiers suivants (Produits/Menus), les ids des categories 'burgers'/'boissons'/'menus' par leur SLUG (stable, pas par id -- cf. docs/api/demo-api.md).
+}
+
+script:post-response {
+  const body = res.getBody();
+  if (body && body.data) {
+      var findSlug = function (slug) { return body.data.find(function (c) { return c.slug === slug; }); };
+      var burgers = findSlug('burgers');
+      var boissons = findSlug('boissons');
+      var menus = findSlug('menus');
+      if (burgers) { bru.setEnvVar('burgersCategoryId', burgers.id); }
+      if (boissons) { bru.setEnvVar('boissonsCategoryId', boissons.id); }
+      if (menus) { bru.setEnvVar('menusCategoryId', menus.id); }
+  }
+}

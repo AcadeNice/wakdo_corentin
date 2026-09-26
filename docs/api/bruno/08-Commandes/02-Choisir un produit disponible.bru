@@ -1,0 +1,21 @@
+meta {
+  name: Choisir un produit disponible
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/admin/api/products
+}
+
+docs {
+Capture orderProductId (premier produit disponible) : ce dossier ne depend pas du dossier Produits (dont la ressource creee est deja supprimee a ce stade).
+}
+
+script:post-response {
+  const body = res.getBody();
+  if (body && body.data) {
+      var avail = body.data.find(function (p) { return p.is_available; });
+      if (avail) { bru.setEnvVar('orderProductId', avail.id); }
+  }
+}

@@ -1,0 +1,18 @@
+meta {
+  name: Desactiver une categorie (DELETE = is_active=0)
+  type: http
+  seq: 8
+}
+
+delete {
+  url: {{baseUrl}}/admin/api/categories/{{created_category_id}}
+}
+
+headers {
+  Content-Type: application/json
+  X-CSRF-Token: {{csrf}}
+}
+
+docs {
+Pas de suppression dure (FK RESTRICT) : bascule is_active=0, meme geste que le bouton Masquer du back-office. Etat terminal de ce dossier pour CETTE ressource (categorie desactivee, pas supprimee).
+}

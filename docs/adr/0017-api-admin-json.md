@@ -175,3 +175,111 @@ parent et que ce parent est deja pris par le controleur HTML.
   `StatsApiController`, ajoutes au second chantier), `src/app/Auth/PinGate.php`,
   `src/public/admin/index.php` (routes), `docs/api/conventions.md` (section 5.3),
   `docs/api/wakdo-admin.postman_collection.json`.
+
+## Addendum (2026-09-26) — Connexion JSON (`/admin/api/auth/*`)
+
+### Contexte de l'addendum
+
+L'API JSON decrite ci-dessus supposait une session DEJA ouverte (obtenue via le formulaire
+HTML `POST /login`) : le seul chemin pour l'obtenir en dehors d'un navigateur etait de copier
+a la main le cookie de session depuis les outils de developpement — releve en pratique comme
+trop fragile pour une demonstration devant jury. Cet addendum AJOUTE trois routes
+(`POST /admin/api/auth/login`, `POST /admin/api/auth/logout`, `GET /admin/api/auth/me`,
+`App\Controllers\Admin\Api\AuthApiController`) sans remettre en cause la decision ci-dessus :
+memes principes (prefixe `/admin/api/`, trait `JsonApiTrait`, enveloppe `{data}`/`{error}`).
+
+### Pourquoi un cookie de session plutot qu'un jeton en local storage
+
+Alternative envisagee et ecartee : repondre au login par un jeton (JWT ou opaque) que le
+client stocke lui-meme (`localStorage`/`sessionStorage`) et renvoie dans un en-tete
+`Authorization`. Ecartee pour deux raisons, la premiere sourcee, la seconde un compromis
+assume plutot qu'une garantie :
+
+1. **Surface d'exposition XSS [CLAIM L2, OWASP Cheat Sheet Series — "HTML5 Security
+   Cheat Sheet" / "Session Management Cheat Sheet" -- documentation produit d'un organisme
+   reconnu, pas une specification ratifiee (RFC/W3C/ECMA) : niveau L2, pas L1].** Un jeton
+   stocke en `localStorage` (ou lu par un script) est
+   accessible a TOUT script JavaScript qui s'execute dans la page — y compris un script
+   injecte par une faille XSS non liee a l'authentification elle-meme (ex. un champ de
+   catalogue mal echappe). Un cookie marque `HttpOnly` (`SessionManager::start()`, deja en
+   place depuis ADR-0002) n'est pas lisible par `document.cookie` ni par un script quelconque
+   — c'est un MECANISME (une restriction posee par le navigateur sur CE canal de lecture),
+   pas une garantie absolue contre toute exploitation : un attaquant qui execute du JavaScript
+   dans la page peut encore agir AU NOM de la victime en forcant le navigateur a emettre des
+   requetes (le cookie part avec, automatiquement), sans avoir besoin de lire sa valeur. La
+   difference reelle est : voler la VALEUR du cookie pour la rejouer ailleurs (hors du
+   navigateur, plus tard) n'est pas possible PAR CE CANAL PRECIS (`document.cookie` en
+   JavaScript) avec `HttpOnly`, alors que c'est trivial avec un jeton lisible en JS -- ce
+   n'est pas une garantie absolue contre toute exfiltration (un autre canal, ex. une fuite
+   serveur ou une interception reseau sans HTTPS, resterait un risque distinct), seulement
+   la fermeture de CE canal-la.
+2. **Le compromis : il faut le CSRF, ferme differemment selon la requete.** Un cookie envoye
+   AUTOMATIQUEMENT par le navigateur (contrairement a un jeton que le CLIENT doit
+   explicitement ajouter a l'en-tete) ouvre la porte inverse (CSRF). Pour toute ecriture APRES
+   connexion (y compris `POST /admin/api/auth/logout`), ce risque est ferme par le jeton CSRF
+   synchroniseur en en-tete `X-CSRF-Token` (`App\Auth\Csrf`, illisible sans avoir deja une
+   session legitime) ; `SameSite=Strict` y contribue aussi, mais pour une raison PRECISE :
+   il empeche le navigateur d'ENVOYER le cookie de session sur une requete ulterieure
+   initiee depuis un autre site -- pas d'empecher la CREATION du cookie (cf.
+   `docs/api/conventions.md` section 5.3bis pour la source exacte et la distinction).
+   Correction : le cookie de session existe DEJA a ce stade, contrairement a ce qu'une
+   premiere version de ce paragraphe affirmait. `src/public/admin/index.php` (ligne 77)
+   appelle `(new SessionManager($config))->start()` de facon INCONDITIONNELLE, avant le
+   routage, sur CHAQUE requete du vhost admin -- `POST /admin/api/auth/login` y compris.
+   Une session anonyme (aucun `user_id`) existe donc deja, et son cookie part deja dans la
+   reponse HTTP, avant meme que les identifiants soumis ne soient verifies. Ce qui reste vrai
+   dans le paragraphe d'origine : cette session anonyme ne porte, sauf appel prealable a
+   `Csrf::token()` sur CETTE session precise, aucun jeton CSRF ; `POST /admin/api/auth/login`
+   n'a donc PAS de jeton CSRF a verifier a ce stade (rien a valider avant authentification),
+   ce qui est different de "pas de cookie". SameSite=Strict s'applique bien a ce cookie
+   anonyme des sa creation (il gouverne l'envoi, pas la creation, cf. plus haut) mais ce
+   cookie ne porte alors aucun etat sensible a proteger : la fermeture CSRF de
+   `POST /admin/api/auth/login` repose sur un mecanisme DIFFERENT (le Content-Type impose,
+   qui force un preflight CORS ferme sur `/admin/api/`), detaille et source dans
+   `docs/api/conventions.md` section 5.3bis.
+
+Un jeton en local storage aurait supprime le second probleme (rien n'est envoye
+automatiquement) au prix du premier (lisible par tout script) ; le choix retenu ici accepte
+l'inverse et ferme le second probleme par des mecanismes deja en production (SameSite +
+CSRF), plutot que d'echanger un risque contre un autre sans filet.
+
+### Consequences de l'addendum
+
+- (+/-) `AuthService`, `SessionManager` et `PasswordHasher` sont REUTILISES par la connexion
+  JSON (aucune duplication de la logique de throttling/anti-enumeration/regeneration de
+  session), mais PAS "sans changement" : les trois ont ete modifies EN PLACE au fil de ce
+  chantier, pour tout consommateur (HTML compris, pas seulement JSON) :
+  - `AuthService::authenticate()` — le chemin "compte verrouille" fait desormais le meme
+    travail que "email inconnu" (appel a `verifyDecoy()`, increment du compteur IP) : avant
+    ce changement, un compte verrouille ne faisait PLUS progresser le compteur IP, ce qui le
+    distinguait d'un email inconnu (enumeration de comptes, corrige dans ce chantier) ;
+  - `PasswordHasher::decoyHash()` — le leurre etait mis en cache dans une propriete `static`,
+    qui NE SURVIT PAS a la requete suivante sous PHP-FPM classique (chaque requete redeclare
+    les classes depuis zero) : le leurre etait donc RECALCULE (`password_hash()` + `verify()`)
+    a chaque tentative sur un email inconnu ou un compte verrouille, plus cher qu'une
+    verification reelle (`verify()` seul) et distinguable par le temps de reponse. Remplace
+    par un cache sur DISQUE (fichier, cle par empreinte des parametres argon2id), qui survit
+    entre requetes et entre workers ;
+  - `SessionManager::regenerate()` — ajout d'un compteur d'appels (`regenerateCallCount()`),
+    sans effet sur le comportement de production, pour que les tests puissent verifier que
+    RG-3 (anti-fixation) est reellement declenchee.
+- (-) Compromis herite, non introduit par cet addendum mais qui s'applique a cette route
+  comme au formulaire HTML : le verrou IP (`IP_THROTTLE_MAX_ATTEMPTS`, RG-8) est compte par
+  adresse source, donc partage entre tous les postes d'un meme restaurant derriere un NAT --
+  le detail du compromis et le levier de reglage (variable d'environnement, pas une constante)
+  sont dans `docs/api/conventions.md`, paragraphe "Compromis assume : le verrou IP se partage
+  derriere un NAT de restaurant".
+- (+) `AuthApiController extends MeController` (et non `AuthenticatedController`
+  directement) : `apiMe()` appelle `MeController::show()` sans le reimplementer (heritage
+  reel, meme raisonnement que le reste de cet ADR).
+- (-) `AuthApiController::authService()` DUPLIQUE le hook prive equivalent
+  d'`App\Controllers\AuthController` (meme construction exacte) : les deux controleurs
+  n'ont pas de parent commun compatible (`AuthController extends Controller`,
+  `AuthApiController extends MeController extends AuthenticatedController`), donc ce hook de
+  quatre lignes n'a pas pu etre factorise sans reintroduire une dependance croisee entre les
+  deux hierarchies. Nomme ici explicitement (meme discipline que la section Decision
+  ci-dessus).
+- (-) `/admin/api/auth/*` reste volontairement HORS de la matrice CSRF/permission generique
+  de `RouteMatrixTest` (modele structurellement different : pas de permission, pas de jeton
+  CSRF synchroniseur pour `login`) — teste a part dans `AuthApiControllerTest`, documente
+  dans `RouteMatrixTest` lui-meme.

@@ -1,0 +1,34 @@
+meta {
+  name: Se connecter
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/admin/api/auth/login
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body {
+  {
+    "email": "{{email}}",
+    "password": "{{password}}"
+  }
+}
+
+docs {
+Ouvre la session JSON : pose le cookie WAKDO_SID (Postman le garde tout seul) et renvoie { user, permissions, csrf_token }. Le script de test range csrf_token dans la variable d'environnement 'csrf' ET pose 'run' (horodatage court, change a chaque execution -- rend toute la collection rejouable sans collision de nom/slug/code, cf. docstring du generateur). Aucun en-tete X-CSRF-Token envoye ICI : aucune session n'existe encore avant cette requete (protection = Content-Type + CORS + SameSite, docs/api/conventions.md section 5.3bis, PAS le jeton synchroniseur).
+}
+
+script:post-response {
+  const body = res.getBody();
+  bru.setEnvVar('run', Date.now().toString(36));
+  if (body && body.data && body.data.csrf_token) { bru.setEnvVar('csrf', body.data.csrf_token); }
+}
+
+tests {
+  expect(res.getStatus()).to.equal(200);
+}

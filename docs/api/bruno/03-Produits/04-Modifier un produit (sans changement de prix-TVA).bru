@@ -1,0 +1,29 @@
+meta {
+  name: Modifier un produit (sans changement de prix/TVA)
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{baseUrl}}/admin/api/products/{{created_product_id}}
+}
+
+headers {
+  Content-Type: application/json
+  X-CSRF-Token: {{csrf}}
+}
+
+body {
+  {
+    "category_id": "{{burgersCategoryId}}",
+    "name": "Produit Demo {{run}} renomme",
+    "price_cents": 490,
+    "vat_rate": 100,
+    "is_available": true,
+    "display_order": 99
+  }
+}
+
+docs {
+Aucun PIN requis tant que price_cents et vat_rate ne changent pas (mlt 8.2 RG-4). price_cents reste un entier de centimes strict (voir la requete de creation).
+}

@@ -1,0 +1,31 @@
+meta {
+  name: Autorise (Drive) : order.create accorde (422, PAS 403)
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/admin/api/orders
+}
+
+headers {
+  Content-Type: application/json
+  X-CSRF-Token: {{csrf_drive}}
+}
+
+body {
+  {
+    "items": []
+  }
+}
+
+docs {
+Meme preuve NON encaissee que Comptoir : 'items': [] declenche une erreur de VALIDATION (422, avec error.fields.items) apres guardApi('order.create'), pas un 403 -- prouve la permission sans creer de commande reelle.
+}
+
+tests {
+  const body = res.getBody();
+  expect(res.getStatus()).to.equal(422);
+  expect(body.error.code).to.equal('VALIDATION_ERROR');
+  expect(body.error.fields).to.have.property('items');
+}

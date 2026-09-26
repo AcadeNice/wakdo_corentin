@@ -23,6 +23,13 @@ final class FakeDatabase implements DatabaseInterface
      */
     public ?array $userRow = null;
 
+    /**
+     * Hash STOCKE de reference renvoye par 'SELECT password_hash FROM user
+     * LIMIT 1' (AuthService::referenceHashForDecoy(), calibrage du leurre sur
+     * email inconnu) ; null = aucun utilisateur en base (borne de demarrage).
+     */
+    public ?string $referenceUserPasswordHash = null;
+
     /** lockout_until renvoye pour la porte de throttling IP ; null = pas de verrou. */
     public ?string $ipLockoutUntil = null;
 
@@ -507,6 +514,13 @@ final class FakeDatabase implements DatabaseInterface
         // retirer ce filtre en production ferait virer au rouge le test du compte inactif.
         if (str_contains($sql, 'SELECT password_hash FROM user WHERE id') && str_contains($sql, 'is_active = 1')) {
             return $this->currentPasswordRow;
+        }
+
+        // AuthService::referenceHashForDecoy() : un hash STOCKE quelconque
+        // (LIMIT 1 sans WHERE, distinct des routes ci-dessus qui filtrent
+        // toutes par id/email) pour calibrer le leurre sur email inconnu.
+        if (str_contains($sql, 'SELECT password_hash FROM user LIMIT 1')) {
+            return $this->referenceUserPasswordHash !== null ? ['password_hash' => $this->referenceUserPasswordHash] : null;
         }
 
         // Exige is_active = 1 (garde RG-T13) : retirer le predicat en production

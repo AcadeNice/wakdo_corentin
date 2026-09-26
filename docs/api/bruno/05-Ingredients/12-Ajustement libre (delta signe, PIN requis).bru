@@ -1,0 +1,27 @@
+meta {
+  name: Ajustement libre (delta signe, PIN requis)
+  type: http
+  seq: 12
+}
+
+post {
+  url: {{baseUrl}}/admin/api/ingredients/{{created_restock_ingredient_id}}/adjust
+}
+
+headers {
+  Content-Type: application/json
+  X-CSRF-Token: {{csrf}}
+}
+
+body {
+  {
+    "delta": -3,
+    "note": "casse demo",
+    "pin_email": "{{pin_email}}",
+    "pin": "{{pin}}"
+  }
+}
+
+docs {
+stock.count + PIN. delta entier non nul (+ pour ajouter, - pour retirer).
+}

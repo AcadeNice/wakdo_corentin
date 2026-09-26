@@ -21,6 +21,8 @@ final class SessionManager
     /** @var array<string, mixed> */
     private array $bag = [];
 
+    private int $regenerateCalls = 0;
+
     public function __construct(
         private readonly Config $config,
         private readonly bool $testMode = false,
@@ -67,6 +69,15 @@ final class SessionManager
      */
     public function regenerate(): void
     {
+        // Compteur d'appels, tenu QUEL QUE SOIT le mode (test compris) : en mode
+        // test, aucun effet de bord observable n'existe (pas de session PHP
+        // reelle) pour prouver qu'AuthController::login()/AuthService::authenticate()
+        // appelle bien regenerate() sur un succes (RG-3, anti-fixation) --
+        // regenerateCallCount() est le seul espion possible sans sous-classer
+        // cette classe `final`. Ne change rien au comportement de production :
+        // la valeur n'y est jamais lue.
+        $this->regenerateCalls++;
+
         if ($this->testMode) {
             return;
         }
@@ -74,6 +85,16 @@ final class SessionManager
         if (session_status() === PHP_SESSION_ACTIVE) {
             session_regenerate_id(true);
         }
+    }
+
+    /**
+     * Nombre d'appels a regenerate() depuis la construction de cette instance.
+     * Espion de test (docblock de regenerate() ci-dessus) ; sans effet sur le
+     * comportement de production.
+     */
+    public function regenerateCallCount(): int
+    {
+        return $this->regenerateCalls;
     }
 
     public function get(string $key): mixed

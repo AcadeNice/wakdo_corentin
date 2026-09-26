@@ -1,0 +1,20 @@
+meta {
+  name: Deplacer d'un rang dans sa categorie (move)
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/admin/api/products/{{created_product_id}}/move
+}
+
+headers {
+  Content-Type: application/json
+  X-CSRF-Token: {{csrf}}
+}
+
+body {
+  {
+    "direction": "up"
+  }
+}

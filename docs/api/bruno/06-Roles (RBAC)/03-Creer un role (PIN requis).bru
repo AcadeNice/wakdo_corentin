@@ -1,0 +1,42 @@
+meta {
+  name: Creer un role (PIN requis)
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/admin/api/roles
+}
+
+headers {
+  Content-Type: application/json
+  X-CSRF-Token: {{csrf}}
+}
+
+body {
+  {
+    "code": "demo_role_{{run}}",
+    "label": "Role Demo {{run}}",
+    "permission_ids": [
+      "{{examplePermissionId}}"
+    ],
+    "visible_sources": [
+      "counter"
+    ],
+    "pin_email": "{{pin_email}}",
+    "pin": "{{pin}}"
+  }
+}
+
+docs {
+role.manage, PIN obligatoire (escalade de privileges, mlt 10.4). code : minuscules/chiffres/_ , commence par une lettre -- {{run}} (base36) est compatible. permission_ids : id REEL recupere par GET ci-dessus (jamais suppose).
+}
+
+script:post-response {
+  const body = res.getBody();
+  if (body && body.data && body.data.id) { bru.setEnvVar('created_role_id', body.data.id); }
+}
+
+tests {
+  expect(res.getStatus()).to.equal(201);
+}

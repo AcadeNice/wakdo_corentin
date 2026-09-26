@@ -1,0 +1,20 @@
+meta {
+  name: Lire un role (recupere un id de permission reel)
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/admin/api/roles/{{firstRoleId}}
+}
+
+docs {
+permission_ids n'apparait QUE sur la lecture unitaire (pas la liste, conventions.md section 5.3) : capture examplePermissionId pour la creation ci-dessous.
+}
+
+script:post-response {
+  const body = res.getBody();
+  if (body && body.data && Array.isArray(body.data.permission_ids) && body.data.permission_ids.length > 0) {
+      bru.setEnvVar('examplePermissionId', body.data.permission_ids[0]);
+  }
+}

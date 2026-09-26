@@ -156,8 +156,21 @@ final class RouteMatrixTest extends TestCase
     public function testRouteTableCoversEveryRegisteredRoute(): void
     {
         $source = (string) file_get_contents(self::INDEX_PHP);
+        // `(?!auth/)` : exclut expressement `/admin/api/auth/*` (login/logout/me,
+        // AuthApiController) de cette matrice CSRF/permission. Ces trois routes ne
+        // partagent PAS son modele : `apiLogin` n'a ni permission (accessible SANS
+        // session) ni jeton CSRF synchroniseur a comparer (aucune session avant
+        // authentification reussie -- sa protection est le Content-Type impose (force un
+        // preflight CORS ferme sur ce prefixe), documentee dans le docblock
+        // d'AuthApiController et docs/adr/0017-api-admin-json.md).
+        // Les inclure ici forcerait soit un `TestAuthApiController` factice pour un modele
+        // de securite qui ne s'applique pas, soit des lignes ROUTES trompeuses (une
+        // "permission exacte" qui n'existe pas pour un login public). Testees a part,
+        // au comportement reel, dans AuthApiControllerTest (+ la garde 401-sans-session
+        // ci-dessous, testRouteRejectsNoSessionWithJsonAuthRequired, qui elle NE les
+        // exclut PAS : logout/me restent proteges par la meme garde que tout /admin/api/*).
         preg_match_all(
-            '/\$router->add\(\'([A-Z]+)\',\s*\'(\/admin\/api\/[^\']*)\',\s*\[(\w+)ApiController::class,\s*\'(\w+)\'\]\)/',
+            '/\$router->add\(\'([A-Z]+)\',\s*\'(\/admin\/api\/(?!auth\/)[^\']*)\',\s*\[(\w+)ApiController::class,\s*\'(\w+)\'\]\)/',
             $source,
             $matches,
             PREG_SET_ORDER,
@@ -378,14 +391,46 @@ final class RouteMatrixTest extends TestCase
     /**
      * @param array<string, string> $params
      */
-    private function invoke(string $resource, string $action, Request $request, FakeDatabase $db, array $params): Response
+    private function invoke(string $resource, string $action, Request $request, FakeDatabase $db, array $params, ?SessionManager $session = null): Response
     {
         $class = __NAMESPACE__ . '\\Test' . $resource . 'ApiController';
-        $controller = new $class($request, new Config(), new Database(new Config()), $this->session, $db);
+        $controller = new $class($request, new Config(), new Database(new Config()), $session ?? $this->session, $db);
 
         /** @var Response $response */
         $response = $controller->$action($params);
 
         return $response;
+    }
+
+    /**
+     * Point 4 du chantier login JSON (docs/api/conventions.md section 5.3bis) :
+     * TOUTE route `/admin/api/*` protegee, sans session (absente -- pas juste
+     * expiree ni compte desactive, deja couverts par les tests unitaires de
+     * SessionGuard), renvoie du JSON `401 AUTH_REQUIRED` -- JAMAIS une redirection
+     * HTML vers `/login` -- avant meme d'atteindre la verification CSRF/permission.
+     * Couvre les 49 routes de self::ROUTES ; les 3 routes `/admin/api/auth/*`
+     * (hors de cette table, cf. testRouteTableCoversEveryRegisteredRoute) sont
+     * couvertes a part dans AuthApiControllerTest (logout/me exigent une session,
+     * login n'en exige aucune par construction).
+     */
+    #[DataProvider('allRoutesProvider')]
+    public function testRouteRejectsNoSessionWithJsonAuthRequired(string $method, string $path, string $resource, string $action, string $permission, bool $isWrite): void
+    {
+        // Session VIDE (aucune cle posee), distincte de $this->session (deja
+        // authentifiee dans setUp()) : simule un appel Postman sans cookie de
+        // session, pas une session expiree ou un compte desactive (deja testes
+        // ailleurs, SessionGuardTest).
+        $blankSession = new SessionManager(new Config(), true);
+        $db = $this->grantedDb([$permission]);
+        $this->primeForSuccess($db, $resource);
+        // CSRF/PIN non pertinents ici : guardApi() renvoie 401 avant de les lire.
+        $request = $this->buildRequest($method, $path, null);
+
+        $response = $this->invoke($resource, $action, $request, $db, $this->routeParams($path, $resource), $blankSession);
+        $body = json_decode($response->body(), true);
+
+        self::assertSame(401, $response->status(), "$method $path sans session devrait renvoyer 401, pas une redirection HTML");
+        self::assertSame('AUTH_REQUIRED', $body['error']['code'] ?? null, "$method $path sans session devrait porter le code AUTH_REQUIRED");
+        self::assertSame('application/json; charset=utf-8', $response->header('Content-Type'), "$method $path sans session devrait rester du JSON, jamais du HTML");
     }
 }

@@ -1,0 +1,35 @@
+meta {
+  name: Creer une categorie
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/admin/api/categories
+}
+
+headers {
+  Content-Type: application/json
+  X-CSRF-Token: {{csrf}}
+}
+
+body {
+  {
+    "name": "Demo {{run}}",
+    "slug": "demo-{{run}}",
+    "display_order": 50
+  }
+}
+
+docs {
+category.manage, pas de PIN. 201 + Location. Nom/slug uniques par execution ({{run}}).
+}
+
+script:post-response {
+  const body = res.getBody();
+  if (body && body.data && body.data.id) { bru.setEnvVar('created_category_id', body.data.id); }
+}
+
+tests {
+  expect(res.getStatus()).to.equal(201);
+}

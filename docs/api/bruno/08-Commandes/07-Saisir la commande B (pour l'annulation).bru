@@ -1,0 +1,39 @@
+meta {
+  name: Saisir la commande B (pour l'annulation)
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/admin/api/orders
+}
+
+headers {
+  Content-Type: application/json
+  X-CSRF-Token: {{csrf}}
+}
+
+body {
+  {
+    "service_mode": "dine_in",
+    "source": "counter",
+    "items": [
+      {
+        "type": "product",
+        "product_id": "{{orderProductId}}",
+        "quantity": 1
+      }
+    ]
+  }
+}
+
+docs {
+Numero DISTINCT de la commande A (created_order_number_cancel) : annuler la MEME commande qu'on vient de livrer echouerait toujours (422 CANNOT_CANCEL_IN_STATE) -- bug corrige par ce chantier.
+}
+
+script:post-response {
+  const body = res.getBody();
+  if (body && body.data && body.data.order_number) {
+      bru.setEnvVar('created_order_number_cancel', body.data.order_number);
+  }
+}

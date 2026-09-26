@@ -1,0 +1,25 @@
+meta {
+  name: Lister les produits
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/admin/api/products
+}
+
+docs {
+Capture aussi burgerBaseProductId/drinkBaseProductId (premier produit DE BASE de chaque categorie), pour ce dossier et pour Menus.
+}
+
+script:post-response {
+  const body = res.getBody();
+  if (body && body.data) {
+      var burgersCat = Number(bru.getEnvVar('burgersCategoryId'));
+      var boissonsCat = Number(bru.getEnvVar('boissonsCategoryId'));
+      var burger = body.data.find(function (p) { return p.category_id === burgersCat && !p.base_product_id; });
+      var drink = body.data.find(function (p) { return p.category_id === boissonsCat && !p.base_product_id; });
+      if (burger) { bru.setEnvVar('burgerBaseProductId', burger.id); }
+      if (drink) { bru.setEnvVar('drinkBaseProductId', drink.id); }
+  }
+}

@@ -1,0 +1,33 @@
+meta {
+  name: Se connecter en tant que manager
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/admin/api/auth/login
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body {
+  {
+    "email": "{{email_manager}}",
+    "password": "{{password_manager}}"
+  }
+}
+
+docs {
+Identifiants VIDES par defaut (email_manager/password_manager) : a completer depuis docs/demo/comptes-demo.md (compte de demo par poste), jamais commis en clair dans cette collection. Droits attendus (stats.read oui, order.* non (D5)) : db/seeds/0001_rbac_and_reference.sql, section role_permission.
+}
+
+script:post-response {
+  const body = res.getBody();
+  if (body && body.data && body.data.csrf_token) { bru.setEnvVar('csrf_manager', body.data.csrf_token); }
+}
+
+tests {
+  expect(res.getStatus()).to.equal(200);
+}

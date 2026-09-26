@@ -11,6 +11,7 @@ declare(strict_types=1);
  */
 
 use App\Auth\SessionManager;
+use App\Controllers\Admin\Api\AuthApiController;
 use App\Controllers\Admin\Api\CategoryApiController;
 use App\Controllers\Admin\Api\IngredientApiController;
 use App\Controllers\Admin\Api\MenuApiController;
@@ -271,6 +272,18 @@ try {
     // l'origine borne (surface d'attaque reduite), meme raisonnement que /admin/me.
     // Chaque action reutilise la session/CSRF/PIN/permissions du back-office HTML
     // (App\Controllers\Admin\Api\JsonApiTrait) mais repond en JSON, jamais en redirection.
+    //
+    // Connexion JSON (docs/api/conventions.md section 5.3bis, ADR-0017) : login SANS
+    // session prealable (pas de guardApi()) ni CSRF synchroniseur (protection = le
+    // Content-Type impose, qui force un preflight CORS ferme sur ce prefixe -- SameSite
+    // protege une phase differente, cf. docblock d'AuthApiController) ; logout/me exigent
+    // la session comme le reste de /admin/api/*. Volontairement EXCLUES de la matrice
+    // CSRF/permission de RouteMatrixTest (regex documentee dans ce fichier de test) :
+    // testees a part dans AuthApiControllerTest.
+    $router->add('POST', '/admin/api/auth/login', [AuthApiController::class, 'apiLogin']);
+    $router->add('POST', '/admin/api/auth/logout', [AuthApiController::class, 'apiLogout']);
+    $router->add('GET', '/admin/api/auth/me', [AuthApiController::class, 'apiMe']);
+
     $router->add('GET', '/admin/api/categories', [CategoryApiController::class, 'apiIndex']);
     $router->add('GET', '/admin/api/categories/{id}', [CategoryApiController::class, 'apiShow']);
     $router->add('POST', '/admin/api/categories', [CategoryApiController::class, 'apiStore']);

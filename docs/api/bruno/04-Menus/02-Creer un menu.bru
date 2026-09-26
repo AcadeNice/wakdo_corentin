@@ -1,0 +1,49 @@
+meta {
+  name: Creer un menu
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/admin/api/menus
+}
+
+headers {
+  Content-Type: application/json
+  X-CSRF-Token: {{csrf}}
+}
+
+body {
+  {
+    "category_id": "{{menusCategoryId}}",
+    "burger_product_id": "{{burgerBaseProductId}}",
+    "name": "Menu Demo {{run}}",
+    "price_normal_cents": 890,
+    "price_maxi_cents": 990,
+    "is_available": true,
+    "display_order": 50,
+    "slots": [
+      {
+        "name": "Boisson",
+        "slot_type": "drink",
+        "is_required": true,
+        "options": [
+          "{{drinkBaseProductId}}"
+        ]
+      }
+    ]
+  }
+}
+
+docs {
+menu.create, pas de PIN. burger_product_id doit etre un produit DE BASE (pas une variante de taille) ; l'option du slot 'drink' doit appartenir a la categorie 'boissons' (F12) -- les deux sont recuperes dynamiquement (dossier Produits), jamais ecrits en dur. price_normal_cents/price_maxi_cents sont des entiers de centimes stricts (un decimal ou une chaine en euros est refuse, 422).
+}
+
+script:post-response {
+  const body = res.getBody();
+  if (body && body.data && body.data.id) { bru.setEnvVar('created_menu_id', body.data.id); }
+}
+
+tests {
+  expect(res.getStatus()).to.equal(201);
+}
