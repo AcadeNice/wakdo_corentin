@@ -104,4 +104,24 @@ abstract class AdminController extends AuthenticatedController
 
         return is_string($flash) ? $flash : null;
     }
+
+    /**
+     * Message a afficher quand le corps de la requete a ete rejete par la limite
+     * post_max_size de PHP (typiquement une image jointe trop volumineuse) --
+     * plutot que le 403 generique invalidCsrf(), qui ne dit rien a l'equipier sur
+     * la vraie cause (bug releve 2026-09-26 sur la creation de produit : "Requete
+     * invalide" sans aucune indication). Partage par tout formulaire multipart
+     * (produit, categorie) : un seul point de verite pour ce message.
+     *
+     * A appeler AVANT Csrf::validate() : le corps etant vide dans ce cas, le
+     * jeton CSRF l'est aussi, et le 403 generique arriverait en premier sinon.
+     */
+    protected function oversizedUploadError(): ?string
+    {
+        if (!$this->request->bodyExceededPostMaxSize()) {
+            return null;
+        }
+
+        return 'Le fichier envoyé est trop volumineux. Réduisez la taille de l\'image (5 Mo maximum) et réessayez.';
+    }
 }

@@ -233,6 +233,33 @@ final class ProductApiControllerTest extends TestCase
         self::assertFalse($db->wrote('INSERT INTO product'));
     }
 
+    /**
+     * L'API JSON (/admin/api) reste JSON quel que soit ce qui a change sur le
+     * formulaire HTML (Request::formBody(), corrige pour lire le multipart) :
+     * requireJsonBody() (JsonApiTrait) refuse tout Content-Type autre que
+     * application/json des que le corps n'est pas vide, multipart/form-data
+     * inclus -- ce n'est PAS un chemin de contournement du formulaire produit.
+     */
+    public function testStoreRejectsMultipartContentType(): void
+    {
+        $db = $this->permittedDb();
+        $request = new Request(
+            'POST',
+            '/admin/api/products',
+            [],
+            ['content-type' => 'multipart/form-data; boundary=----wakdoTestBoundary', 'x-csrf-token' => $this->csrf],
+            (string) json_encode($this->validBody()),
+            '203.0.113.5',
+        );
+
+        $response = $this->controller($request, $db)->apiStore();
+        $body = json_decode($response->body(), true);
+
+        self::assertSame(415, $response->status());
+        self::assertSame('UNSUPPORTED_MEDIA_TYPE', $body['error']['code'] ?? null);
+        self::assertFalse($db->wrote('INSERT INTO product'));
+    }
+
     public function testStoreValidCreatesWithoutPin(): void
     {
         $db = $this->permittedDb();

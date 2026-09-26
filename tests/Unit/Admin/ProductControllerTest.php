@@ -166,16 +166,70 @@ final class ProductControllerTest extends TestCase
      * @param array<string, string> $form
      * @param array<string, mixed> $file une entree $_FILES sous la cle image_file
      */
+    /**
+     * multipart/form-data, PAS urlencoded : c'est le CONTENU REEL envoye par le
+     * formulaire produit (enctype="multipart/form-data", pour l'upload d'image),
+     * y compris quand aucun fichier n'est choisi. $post simule $_POST tel que PHP
+     * l'a nativement parse (voir le docblock de Request::formBody()) ; le corps
+     * brut n'a pas besoin d'etre un vrai multipart encode ici, seul $post compte.
+     *
+     * @param array<string, string> $form
+     * @param array<string, mixed> $file une entree $_FILES sous la cle image_file
+     */
     private function postWithFile(array $form, string $path, array $file): Request
     {
         return new Request(
             'POST',
             $path,
             [],
-            ['content-type' => 'application/x-www-form-urlencoded'],
-            http_build_query($form),
+            ['content-type' => 'multipart/form-data; boundary=----wakdoTestBoundary'],
+            '',
             '203.0.113.5',
             ['image_file' => $file],
+            $form,
+        );
+    }
+
+    /**
+     * multipart/form-data SANS fichier choisi : le cas le plus courant en
+     * pratique (ex-bug #3, "Requête invalide" systematique sur la creation de
+     * produit, image ou non -- voir Request::formBody()).
+     *
+     * @param array<string, string> $form
+     */
+    private function postMultipartNoFile(array $form, string $path): Request
+    {
+        return new Request(
+            'POST',
+            $path,
+            [],
+            ['content-type' => 'multipart/form-data; boundary=----wakdoTestBoundary'],
+            '',
+            '203.0.113.5',
+            [],
+            $form,
+        );
+    }
+
+    /**
+     * Simule un corps rejete par la limite post_max_size de PHP : $_POST et
+     * $_FILES sont TOUS DEUX vides (comme le fait reellement PHP dans ce cas),
+     * avec un Content-Length annonce non nul.
+     */
+    private function postOversized(string $path): Request
+    {
+        return new Request(
+            'POST',
+            $path,
+            [],
+            [
+                'content-type'   => 'multipart/form-data; boundary=----wakdoTestBoundary',
+                'content-length' => '9000000',
+            ],
+            '',
+            '203.0.113.5',
+            [],
+            [],
         );
     }
 
@@ -620,6 +674,54 @@ final class ProductControllerTest extends TestCase
 
         self::assertSame(403, $response->status());
         self::assertFalse($db->wrote('INSERT INTO product'));
+    }
+
+    /**
+     * Bug corrige (2026-09-26) : le formulaire produit est TOUJOURS en
+     * multipart/form-data (enctype impose par l'upload d'image), meme quand
+     * aucune image n'est choisie. Avant le correctif, Request::formBody() ne
+     * reconnaissait que l'urlencode et renvoyait [] pour tout multipart : _csrf
+     * etait donc TOUJOURS absent et Csrf::validate() echouait systematiquement,
+     * "Requête invalide." (403) sur CHAQUE creation de produit, image ou non.
+     */
+    public function testStoreAcceptsRealMultipartFormWithoutAnyImage(): void
+    {
+        $db = $this->permittedDb();
+
+        $response = $this->controller($this->postMultipartNoFile($this->validForm(), '/admin/products'), $db)->store();
+
+        self::assertSame(302, $response->status());
+        self::assertNotNull($this->findWrite($db, 'INSERT INTO product'));
+    }
+
+    /** Meme bug, chemin edition (formulaire identique, meme enctype). */
+    public function testUpdateAcceptsRealMultipartFormWithoutAnyImage(): void
+    {
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 5, 'category_id' => 3, 'name' => 'Big Mac', 'description' => null, 'price_cents' => 590, 'vat_rate' => 100, 'image_path' => null, 'is_available' => 1, 'display_order' => 1];
+
+        $response = $this->controller($this->postMultipartNoFile($this->validForm(), '/admin/products/5'), $db)->update(['id' => '5']);
+
+        self::assertSame(302, $response->status());
+    }
+
+    /**
+     * Quand le corps DEPASSE post_max_size (image trop lourde), PHP vide $_POST
+     * ET $_FILES sans exception applicative : sans detection explicite, ce cas se
+     * confond avec un CSRF invalide et remonte le 403 generique, qui ne dit rien
+     * a l'equipier sur la vraie cause. Le formulaire doit plutot etre re-affiche
+     * avec un message clair, en francais, sans jargon technique.
+     */
+    public function testStoreShowsFriendlyMessageWhenBodyExceedsPostMaxSize(): void
+    {
+        $db = $this->permittedDb();
+
+        $response = $this->controller($this->postOversized('/admin/products'), $db)->store();
+
+        self::assertSame(422, $response->status());
+        self::assertFalse($db->wrote('INSERT INTO product'));
+        self::assertStringContainsString('trop volumineux', $response->body());
+        self::assertStringNotContainsString('Requête invalide', $response->body());
     }
 
     public function testUpdateLockedActorReturnsGeneric422WithoutVerifyingOrAuditing(): void
