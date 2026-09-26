@@ -19,25 +19,36 @@ use App\Tests\Support\FakeDatabase;
 /**
  * Stub d'OrderQueryRepository : liste canned (rendu de la table teste sans base ;
  * les requetes sont couvertes par OrderQueryRepositoryDbTest).
+ *
+ * recentVisible() (pas recent()) : OrderAdminController::index() filtre desormais
+ * EN SQL (relecture adverse, point 6) -- ce stub reproduit le meme contrat (filtre
+ * par $sources, ordre deja croissant en anciennete des lignes canned) plutot que de
+ * laisser le controleur filtrer en PHP apres coup.
  */
 final class StubRecentOrders extends OrderQueryRepository
 {
-    public function recent(int $limit = 50): array
+    /** @var list<array<string, mixed>> */
+    private const ROWS = [
+        ['order_number' => 'K42', 'source' => 'counter', 'service_mode' => 'dine_in', 'service_tag' => '261', 'status' => 'paid', 'total_ttc_cents' => 1990, 'created_at' => '2026-06-19 12:00:00', 'paid_at' => '2026-06-19 12:01:00'],
+        ['order_number' => 'K43', 'source' => 'counter', 'service_mode' => 'takeaway', 'service_tag' => null, 'status' => 'pending_payment', 'total_ttc_cents' => 800, 'created_at' => '2026-06-19 12:05:00', 'paid_at' => null],
+        // E15 (audit schemas 6.3) : le domaine (OrderRepository::cancel) accepte
+        // aussi les etats de cuisine ; le lien Annuler doit suivre, pas seulement
+        // pending_payment/paid.
+        ['order_number' => 'K44', 'source' => 'kiosk', 'service_mode' => 'dine_in', 'service_tag' => '10', 'status' => 'preparing', 'total_ttc_cents' => 700, 'created_at' => '2026-06-19 12:06:00', 'paid_at' => '2026-06-19 12:06:01'],
+        // RG-T12 : source 'drive', utilisee par testIndexFiltersOrdersByRoleVisibleSource
+        // pour verifier qu'un role dont role_visible_source exclut le drive ne voit
+        // pas cette ligne, alors que recentVisible() sans filtre la ramenerait.
+        ['order_number' => 'K45', 'source' => 'drive', 'service_mode' => 'dine_in', 'service_tag' => '11', 'status' => 'ready', 'total_ttc_cents' => 600, 'created_at' => '2026-06-19 12:07:00', 'paid_at' => '2026-06-19 12:07:01'],
+        ['order_number' => 'K46', 'source' => 'counter', 'service_mode' => 'dine_in', 'service_tag' => '12', 'status' => 'delivered', 'total_ttc_cents' => 500, 'created_at' => '2026-06-19 12:08:00', 'paid_at' => '2026-06-19 12:08:01'],
+        ['order_number' => 'K47', 'source' => 'counter', 'service_mode' => 'dine_in', 'service_tag' => '13', 'status' => 'cancelled', 'total_ttc_cents' => 400, 'created_at' => '2026-06-19 12:09:00', 'paid_at' => null],
+    ];
+
+    public function recentVisible(array $sources, int $limit = 50): array
     {
-        return [
-            ['order_number' => 'K42', 'source' => 'counter', 'service_mode' => 'dine_in', 'service_tag' => '261', 'status' => 'paid', 'total_ttc_cents' => 1990, 'created_at' => '2026-06-19 12:00:00', 'paid_at' => '2026-06-19 12:01:00'],
-            ['order_number' => 'K43', 'source' => 'counter', 'service_mode' => 'takeaway', 'service_tag' => null, 'status' => 'pending_payment', 'total_ttc_cents' => 800, 'created_at' => '2026-06-19 12:05:00', 'paid_at' => null],
-            // E15 (audit schemas 6.3) : le domaine (OrderRepository::cancel) accepte
-            // aussi les etats de cuisine ; le lien Annuler doit suivre, pas seulement
-            // pending_payment/paid.
-            ['order_number' => 'K44', 'source' => 'kiosk', 'service_mode' => 'dine_in', 'service_tag' => '10', 'status' => 'preparing', 'total_ttc_cents' => 700, 'created_at' => '2026-06-19 12:06:00', 'paid_at' => '2026-06-19 12:06:01'],
-            // RG-T12 : source 'drive', utilisee par testIndexFiltersOrdersByRoleVisibleSource
-            // pour verifier qu'un role dont role_visible_source exclut le drive ne
-            // voit pas cette ligne, alors que recent() (non filtre) la ramene.
-            ['order_number' => 'K45', 'source' => 'drive', 'service_mode' => 'dine_in', 'service_tag' => '11', 'status' => 'ready', 'total_ttc_cents' => 600, 'created_at' => '2026-06-19 12:07:00', 'paid_at' => '2026-06-19 12:07:01'],
-            ['order_number' => 'K46', 'source' => 'counter', 'service_mode' => 'dine_in', 'service_tag' => '12', 'status' => 'delivered', 'total_ttc_cents' => 500, 'created_at' => '2026-06-19 12:08:00', 'paid_at' => '2026-06-19 12:08:01'],
-            ['order_number' => 'K47', 'source' => 'counter', 'service_mode' => 'dine_in', 'service_tag' => '13', 'status' => 'cancelled', 'total_ttc_cents' => 400, 'created_at' => '2026-06-19 12:09:00', 'paid_at' => null],
-        ];
+        return array_values(array_filter(
+            self::ROWS,
+            static fn (array $o): bool => in_array((string) $o['source'], $sources, true),
+        ));
     }
 }
 

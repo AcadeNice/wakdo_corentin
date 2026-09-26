@@ -43,14 +43,18 @@ class OrderAdminController extends AdminController
         // MEME regle que la file KDS (KitchenController) et la file comptoir/drive
         // (CounterOrderController::index()) -- avant ce correctif, cette liste
         // ramenait TOUTES les sources sans filtre : un role a canal restreint (ex.
-        // cuisine, qui ne voit que kiosk+counter+drive... la KDS filtre deja) y
-        // voyait des commandes hors de ses canaux alors que l'ecran cuisine les lui
-        // masque. Liste vide en base = vue globale (admin/manager voient tout).
+        // le canal 'drive', qui ne voit QUE 'drive' -- seed 0001) y voyait des
+        // commandes hors de ses canaux alors que l'ecran cuisine (kitchen, qui voit
+        // les trois sources) les lui masque deja. Liste vide en base = vue globale
+        // (admin/manager voient tout).
+        //
+        // Filtre EN SQL (recentVisible), pas apres coup sur recent(50) (relecture
+        // adverse, point 6) : un filtre PHP APRES le LIMIT peut faire disparaitre
+        // des commandes reelles d'un canal a faible volume -- les 50 plus recentes
+        // TOUS canaux confondus peuvent ne contenir AUCUNE commande du canal
+        // restreint, meme quand ce canal a des commandes plus anciennes.
         $visible = $this->orderQuery()->visibleSources($guard->roleId ?? 0);
-        $orders = array_values(array_filter(
-            $this->orderQuery()->recent(50),
-            static fn (array $o): bool => in_array((string) ($o['source'] ?? ''), $visible, true),
-        ));
+        $orders = $this->orderQuery()->recentVisible($visible, 50);
 
         return $this->adminView('admin/orders/index', [
             'title'      => 'Commandes - Wakdo Admin',
@@ -195,9 +199,13 @@ class OrderAdminController extends AdminController
      * (limite jusque-la documentee dans ADR-0017 et `conventions.md` section 5.3,
      * l'API JSON `OrderApiController::apiCancel()` la fermait deja) : un numero
      * INCONNU et un numero d'un canal NON VISIBLE par le role rendent la MEME reponse
-     * (403, anti-enumeration), verifiee AVANT tout PIN, pour qu'un acteur ne puisse
-     * jamais distinguer "n'existe pas" de "existe, hors de mes canaux" via le PIN.
-     * Puis flux PIN equipier IDENTIQUE a IngredientController::inventory (RG-T13/T22) :
+     * (403, anti-enumeration) SUR CETTE ACTION, verifiee AVANT tout PIN, pour qu'un
+     * acteur ne puisse pas distinguer "n'existe pas" de "existe, hors de mes canaux"
+     * en passant par cancel()/confirmCancel(). Portee volontairement bornee au
+     * back-office HTML de ce controleur : ne garantit rien sur un AUTRE point d'entree
+     * qui lirait la meme table sans la meme garde (cf. le correctif separe sur le
+     * suivi public anonyme, `OrderController::show()`, relecture point 5b). Puis flux
+     * PIN equipier IDENTIQUE a IngredientController::inventory (RG-T13/T22) :
      * verrou throttle par utilisateur AGISSANT evalue AVANT la verification (leurre de
      * timing, message generique) ; sur echec PIN -> pin.failed + increment throttle dans
      * UNE transaction. Sur PIN OK -> OrderRepository::cancel (transition + restock
