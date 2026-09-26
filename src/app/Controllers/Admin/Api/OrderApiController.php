@@ -124,6 +124,21 @@ class OrderApiController extends CounterOrderController
         $roleId = $guard->roleId ?? 0;
         $fixedSource = $this->roleFixedSource($roleId);
         if ($fixedSource !== null) {
+            // Relecture adverse (2e tour), point 5 : un canal fixe qui n'est NI
+            // 'counter' NI 'drive' (ex. 'kiosk', que le point 1 du 1er tour a
+            // rendu reconnaissable comme canal fixe) n'a aucune saisie equipier
+            // associee -- createStaffOrder() ne sert que ces deux canaux. Message
+            // EXPLICITE ici, avant meme d'atteindre service_mode/items : sans ce
+            // renvoi anticipe, la requete tombait plus loin sur un rejet generique
+            // de service_mode ("Mode de service invalide"), qui ne dit pas a
+            // l'equipier POURQUOI sa saisie, pourtant bien formee, echoue.
+            if ($fixedSource !== 'counter' && $fixedSource !== 'drive') {
+                return $this->errorResponse(
+                    403,
+                    'FORBIDDEN',
+                    'Votre rôle est associé au canal "' . $fixedSource . '", qui ne permet pas la création de commande par un équipier.',
+                );
+            }
             $source = $fixedSource;
         } else {
             $requested = $this->fieldString($body, 'source');
@@ -136,16 +151,19 @@ class OrderApiController extends CounterOrderController
             $source = $requested;
         }
 
-        // Relecture adverse (changes), point 2 : la forme ('counter'|'drive', ou le
+        // Relecture adverse (1er tour, point 2) : la forme ('counter'|'drive', ou le
         // canal fixe du role) ne suffit pas -- le canal doit AUSSI etre dans les
         // sources visibles du role (role_visible_source, RG-T12). Un role sans canal
         // fixe mais restreint (ex. visible=['drive']) pouvait jusque-la choisir
         // "source":"counter" dans le corps et l'API l'acceptait (201) sans jamais
         // consulter visibleSources() -- seule la forme etait validee, pas le droit
         // reel. Meme verification qu'apiShow()/transition() (sourceVisible()), mais
-        // AVANT creation plutot qu'apres lecture.
+        // AVANT creation plutot qu'apres lecture. 403 FORBIDDEN (relecture adverse,
+        // 2e tour, point 4), pas 422 : c'est un droit absent (le role n'a pas ce
+        // canal dans sa visibilite), pas une saisie mal formee -- meme famille de
+        // reponse que sourceVisible()/apiShow() plus haut dans ce fichier.
         if (!in_array($source, $this->orderQuery()->visibleSources($roleId), true)) {
-            return $this->validationErrorResponse(['source' => 'Votre rôle ne peut pas créer de commande pour ce canal.']);
+            return $this->errorResponse(403, 'FORBIDDEN', 'Votre rôle ne peut pas créer de commande pour ce canal.');
         }
 
         $serviceMode = $this->fieldString($body, 'service_mode');
