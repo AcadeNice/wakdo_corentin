@@ -282,10 +282,18 @@ final class IngredientRepository
      * est l'acteur de session (capture par la permission stock.manage, RG-4), pas un
      * acteur resolu par PIN. Les bornes d'entree (packs >= 1, mlt 9.1 PRE-3) sont
      * validees par l'appelant (controleur, RG-T18), pas ici.
+     *
+     * Renvoie le delta REELLEMENT applique (apres plafonnement) : si l'ingredient
+     * est deja a (ou pres de) sa capacite, il peut etre INFERIEUR a ce que
+     * `packs * pack_size` demandait, y compris nul. Sans ce retour, le controleur
+     * ne peut pas distinguer un reappro reussi d'un reappro sans aucun effet
+     * visible -- le bug remonte (2026-09-26) : "je fais un mouvement, il ne se
+     * passe rien" quand l'ingredient est deja plein.
      */
-    public function restock(int $id, int $packs, ?int $userId, ?string $note = null): void
+    public function restock(int $id, int $packs, ?int $userId, ?string $note = null): int
     {
-        $this->db->transaction(function (DatabaseInterface $db) use ($id, $packs, $userId, $note): void {
+        $applied = 0;
+        $this->db->transaction(function (DatabaseInterface $db) use ($id, $packs, $userId, $note, &$applied): void {
             $row = $db->fetch('SELECT stock_quantity, stock_capacity, pack_size FROM ingredient WHERE id = :id', ['id' => $id]);
             $current = (int) ($row['stock_quantity'] ?? 0);
             $capacity = (int) ($row['stock_capacity'] ?? 0);
@@ -297,7 +305,10 @@ final class IngredientRepository
                 ['q' => $newQuantity, 'id' => $id],
             );
             $this->insertMovement($db, $id, 'restock', $delta, $userId, $note);
+            $applied = $delta;
         });
+
+        return $applied;
     }
 
     /**
@@ -308,10 +319,15 @@ final class IngredientRepository
      * reste une preuve de controle a tracer). $userId est l'acteur resolu par le PIN
      * (RG-T13). La borne d'entree (compte >= 0, mlt 9.2 PRE-3) est validee par
      * l'appelant (controleur, RG-T18), pas ici.
+     *
+     * Renvoie le compte REELLEMENT retenu (apres plafonnement a la capacite) :
+     * peut differer du compte physique saisi si celui-ci depasse la capacite
+     * configuree. Meme raison de retour que restock()/adjust().
      */
-    public function inventoryCount(int $id, int $countedQuantity, ?int $userId, ?string $note = null): void
+    public function inventoryCount(int $id, int $countedQuantity, ?int $userId, ?string $note = null): int
     {
-        $this->db->transaction(function (DatabaseInterface $db) use ($id, $countedQuantity, $userId, $note): void {
+        $recorded = 0;
+        $this->db->transaction(function (DatabaseInterface $db) use ($id, $countedQuantity, $userId, $note, &$recorded): void {
             $row = $db->fetch('SELECT stock_quantity, stock_capacity FROM ingredient WHERE id = :id', ['id' => $id]);
             $current = (int) ($row['stock_quantity'] ?? 0);
             $capacity = (int) ($row['stock_capacity'] ?? 0);
@@ -322,7 +338,10 @@ final class IngredientRepository
                 ['q' => $newQuantity, 'id' => $id],
             );
             $this->insertMovement($db, $id, 'inventory_correction', $delta, $userId, $note);
+            $recorded = $newQuantity;
         });
+
+        return $recorded;
     }
 
     /**
@@ -334,21 +353,28 @@ final class IngredientRepository
      * resolu par PIN : l'ajustement libre est PIN-garde (RG-T13, comme l'inventaire), car
      * une baisse non attribuee masquerait de la demarque (R9). La borne d'entree (delta
      * non nul, borne) est validee par l'appelant (controleur, RG-T18), pas ici.
+     *
+     * Renvoie le delta REELLEMENT applique (apres plafonnement), qui peut differer
+     * du delta demande -- voir restock() pour la raison de ce retour.
      */
-    public function adjust(int $id, int $delta, ?int $userId, ?string $note = null): void
+    public function adjust(int $id, int $delta, ?int $userId, ?string $note = null): int
     {
-        $this->db->transaction(function (DatabaseInterface $db) use ($id, $delta, $userId, $note): void {
+        $applied = 0;
+        $this->db->transaction(function (DatabaseInterface $db) use ($id, $delta, $userId, $note, &$applied): void {
             $row = $db->fetch('SELECT stock_quantity, stock_capacity FROM ingredient WHERE id = :id', ['id' => $id]);
             $current = (int) ($row['stock_quantity'] ?? 0);
             $capacity = (int) ($row['stock_capacity'] ?? 0);
             $newQuantity = self::clampToCapacity($current + $delta, $capacity);
-            $applied = $newQuantity - $current;
+            $appliedDelta = $newQuantity - $current;
             $db->execute(
                 'UPDATE ingredient SET stock_quantity = :q WHERE id = :id',
                 ['q' => $newQuantity, 'id' => $id],
             );
-            $this->insertMovement($db, $id, 'adjustment', $applied, $userId, $note);
+            $this->insertMovement($db, $id, 'adjustment', $appliedDelta, $userId, $note);
+            $applied = $appliedDelta;
         });
+
+        return $applied;
     }
 
     /**

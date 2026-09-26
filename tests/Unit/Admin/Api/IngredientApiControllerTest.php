@@ -257,9 +257,36 @@ final class IngredientApiControllerTest extends TestCase
         $request = $this->jsonRequest('POST', '/admin/api/ingredients/3/restock', ['packs' => 5, 'note' => 'reappro']);
 
         $response = $this->controller($request, $db)->apiRestock(['id' => '3']);
+        $body = json_decode($response->body(), true);
 
         self::assertSame(200, $response->status());
         self::assertTrue($db->wrote('INSERT INTO stock_movement'));
+        // 5 packs x 50 = +250, sous la capacite (500) : applique integralement.
+        self::assertSame(250, $body['data']['applied_delta'] ?? null);
+        self::assertSame(250, $body['data']['requested_delta'] ?? null);
+        self::assertFalse($body['data']['clamped'] ?? null);
+    }
+
+    /**
+     * Traitement symetrique de l'API JSON (meme bug que le formulaire HTML,
+     * 2026-09-26) : le depot plafonne deja le stock a la capacite
+     * (IngredientRepository::restock()), mais sans ces champs le client API ne
+     * pouvait pas distinguer un reappro a plein effet d'un reappro qui n'a
+     * strictement rien change (ingredient deja plein).
+     */
+    public function testRestockClampedToCapacityReportsClampedTrue(): void
+    {
+        $db = $this->permittedDb();
+        $db->ingredientRow = ['id' => 3, 'name' => 'Pain burger', 'is_active' => 1, 'stock_quantity' => 500, 'stock_capacity' => 500, 'unit' => 'unite', 'pack_size' => 10, 'pack_label' => null, 'low_stock_pct' => 20, 'critical_stock_pct' => 5];
+        $request = $this->jsonRequest('POST', '/admin/api/ingredients/3/restock', ['packs' => 2]);
+
+        $response = $this->controller($request, $db)->apiRestock(['id' => '3']);
+        $body = json_decode($response->body(), true);
+
+        self::assertSame(200, $response->status());
+        self::assertSame(0, $body['data']['applied_delta'] ?? null);
+        self::assertSame(20, $body['data']['requested_delta'] ?? null); // 2 packs x 10
+        self::assertTrue($body['data']['clamped'] ?? null);
     }
 
     public function testIndexWithoutPermissionReturns403(): void
@@ -355,16 +382,39 @@ final class IngredientApiControllerTest extends TestCase
     public function testInventoryWithValidPinWritesMovement(): void
     {
         $db = $this->permittedDb();
-        $db->ingredientRow = ['id' => 3, 'name' => 'Pain burger', 'stock_capacity' => 500];
+        $db->ingredientRow = ['id' => 3, 'name' => 'Pain burger', 'stock_quantity' => 0, 'stock_capacity' => 500];
         $this->actingPin($db);
         $request = $this->jsonRequest('POST', '/admin/api/ingredients/3/inventory', ['actual_quantity' => 42, 'pin_email' => 'e@e.fr', 'pin' => '4729']);
 
         $response = $this->controller($request, $db)->apiInventory(['id' => '3']);
+        $body = json_decode($response->body(), true);
 
         self::assertSame(200, $response->status());
         self::assertTrue($db->wrote('INSERT INTO stock_movement'));
         // RG-T14 : pas d'audit_log au succes de l'inventaire (stock_movement suffit).
         self::assertSame([], $db->auditActions());
+        // Compte sous la capacite : retenu integralement.
+        self::assertSame(42, $body['data']['applied_delta'] ?? null);
+        self::assertSame(42, $body['data']['requested_delta'] ?? null);
+        self::assertFalse($body['data']['clamped'] ?? null);
+    }
+
+    /** Traitement symetrique de l'API JSON (meme bug que le formulaire HTML). */
+    public function testInventoryAboveCapacityReportsClampedTrue(): void
+    {
+        $db = $this->permittedDb();
+        $db->ingredientRow = ['id' => 3, 'name' => 'Pain burger', 'stock_quantity' => 100, 'stock_capacity' => 500];
+        $this->actingPin($db);
+        $request = $this->jsonRequest('POST', '/admin/api/ingredients/3/inventory', ['actual_quantity' => 5000, 'pin_email' => 'e@e.fr', 'pin' => '4729']);
+
+        $response = $this->controller($request, $db)->apiInventory(['id' => '3']);
+        $body = json_decode($response->body(), true);
+
+        self::assertSame(200, $response->status());
+        // Compte plafonne a la capacite (500) : retenu = 500, pas 5000.
+        self::assertSame(400, $body['data']['applied_delta'] ?? null);   // 500 - 100
+        self::assertSame(4900, $body['data']['requested_delta'] ?? null); // 5000 - 100
+        self::assertTrue($body['data']['clamped'] ?? null);
     }
 
     // --- adjust (stock.count + PIN) ---
@@ -383,14 +433,35 @@ final class IngredientApiControllerTest extends TestCase
     public function testAdjustWithValidPinWritesMovement(): void
     {
         $db = $this->permittedDb();
-        $db->ingredientRow = ['id' => 3, 'name' => 'Pain burger', 'stock_capacity' => 500];
+        $db->ingredientRow = ['id' => 3, 'name' => 'Pain burger', 'stock_quantity' => 50, 'stock_capacity' => 500];
         $this->actingPin($db);
         $request = $this->jsonRequest('POST', '/admin/api/ingredients/3/adjust', ['delta' => -5, 'pin_email' => 'e@e.fr', 'pin' => '4729']);
 
         $response = $this->controller($request, $db)->apiAdjust(['id' => '3']);
+        $body = json_decode($response->body(), true);
 
         self::assertSame(200, $response->status());
         self::assertTrue($db->wrote('INSERT INTO stock_movement'));
+        self::assertSame(-5, $body['data']['applied_delta'] ?? null);
+        self::assertSame(-5, $body['data']['requested_delta'] ?? null);
+        self::assertFalse($body['data']['clamped'] ?? null);
+    }
+
+    /** Traitement symetrique de l'API JSON (meme bug que le formulaire HTML). */
+    public function testAdjustClampedToCapacityReportsClampedTrue(): void
+    {
+        $db = $this->permittedDb();
+        $db->ingredientRow = ['id' => 3, 'name' => 'Pain burger', 'stock_quantity' => 495, 'stock_capacity' => 500];
+        $this->actingPin($db);
+        $request = $this->jsonRequest('POST', '/admin/api/ingredients/3/adjust', ['delta' => 50, 'pin_email' => 'e@e.fr', 'pin' => '4729']);
+
+        $response = $this->controller($request, $db)->apiAdjust(['id' => '3']);
+        $body = json_decode($response->body(), true);
+
+        self::assertSame(200, $response->status());
+        self::assertSame(5, $body['data']['applied_delta'] ?? null);   // 495 -> 500, plafonne
+        self::assertSame(50, $body['data']['requested_delta'] ?? null);
+        self::assertTrue($body['data']['clamped'] ?? null);
     }
 
     // --- allergens ---
