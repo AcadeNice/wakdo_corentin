@@ -274,7 +274,10 @@ final class CounterOrderControllerTest extends TestCase
         $response = $this->controller($request, $db)->store();
 
         self::assertSame(302, $response->status());
-        self::assertSame('/counter/orders', $response->header('Location'));
+        // Ligne mise en evidence (retour apres action) : store() ajoute
+        // ?highlight=<numero> a la redirection pour que counter/index.php signale la
+        // ligne fraichement creee (purement visuel, cf. admin.css .row-highlight).
+        self::assertSame('/counter/orders?highlight=C100', $response->header('Location'));
         self::assertTrue($db->wrote('INSERT INTO customer_order'));
         // Source auto-tagguee counter, acteur = equipier de session (id 7).
         $insert = $this->writeParams($db, 'INSERT INTO customer_order');
@@ -331,7 +334,10 @@ final class CounterOrderControllerTest extends TestCase
         $response = $this->controller($request, $db)->store();
 
         self::assertSame(302, $response->status());
-        self::assertSame('/counter/orders', $response->header('Location'));
+        // Ligne mise en evidence (retour apres action) : store() ajoute
+        // ?highlight=<numero> a la redirection pour que counter/index.php signale la
+        // ligne fraichement creee (purement visuel, cf. admin.css .row-highlight).
+        self::assertSame('/counter/orders?highlight=C100', $response->header('Location'));
         // Ligne menu persistee.
         $itemInsert = $this->writeParams($db, 'INSERT INTO order_item ');
         self::assertSame('menu', $itemInsert['type']);
@@ -481,7 +487,10 @@ final class CounterOrderControllerTest extends TestCase
         $response = $this->controller($request, $db)->store();
 
         self::assertSame(302, $response->status());
-        self::assertSame('/counter/orders', $response->header('Location'));
+        // Ligne mise en evidence (retour apres action) : store() ajoute
+        // ?highlight=<numero> a la redirection pour que counter/index.php signale la
+        // ligne fraichement creee (purement visuel, cf. admin.css .row-highlight).
+        self::assertSame('/counter/orders?highlight=C100', $response->header('Location'));
         // Deux lignes order_item_modifier persistees (remove Oignon + add Bacon).
         self::assertTrue($db->wrote('INSERT INTO order_item_modifier'));
         $modifierWrites = array_values(array_filter(
