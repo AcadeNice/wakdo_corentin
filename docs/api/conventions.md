@@ -346,8 +346,12 @@ d'un code HTTP (`App\Auth\AuthResult::throttled()`, `AuthService::authenticate()
 
 **Le leurre de timing est calibre sur un hash STOCKE, pas sur la configuration.**
 `AuthService` calibre `verifyDecoy()` (le leurre anti-enumeration ci-dessus) sur un hash
-argon2id REELLEMENT STOCKE (celui du compte cible s'il existe mais est verrouille, sinon
-un compte quelconque de la base) plutot que sur `ARGON2_MEMORY_COST`/`TIME_COST`/`THREADS`
+argon2id REELLEMENT STOCKE (celui du compte cible s'il existe mais est verrouille, sinon le
+premier compte NON ANONYMISE de la base -- `AuthService::referenceHashForDecoy()`, requete
+triee par cle primaire et filtree sur `password_hash <> ''` : l'anonymisation RGPD garde la
+ligne `user` en y ecrivant un `password_hash` vide (mlt 10.5), et une chaine vide n'est pas
+un hash argon2id, donc servir un tel tombstone comme reference rouvrirait exactement l'ecart
+decrit ci-dessous) plutot que sur `ARGON2_MEMORY_COST`/`TIME_COST`/`THREADS`
 (la configuration courante). C'est le hash stocke qui dicte le cout REEL d'un
 `password_verify()` (les parametres argon2id sont encodes DANS le hash lui-meme), pas la
 configuration : calibrer sur la configuration seule reste correct tant que rien n'a change

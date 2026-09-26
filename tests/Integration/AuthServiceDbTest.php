@@ -11,6 +11,7 @@ use App\Auth\PasswordHasher;
 use App\Auth\SessionManager;
 use App\Core\Config;
 use App\Core\Database;
+use App\Tests\Support\SpyPasswordHasher;
 
 /**
  * Test d'integration de AUTHENTICATE_USER contre une vraie MariaDB (schema migre
@@ -162,6 +163,54 @@ final class AuthServiceDbTest extends TestCase
         // soit polluer la base partagee de tests d'integration, soit supprimer des
         // lignes NULL potentiellement ecrites par un autre test concurrent. Le
         // compteur IP ci-dessus suffit a prouver le comportement.
+    }
+
+    /**
+     * Preuve de BOUT EN BOUT, contre une vraie MariaDB, que le hash de
+     * reference du leurre (AuthService::referenceHashForDecoy(), chemin "email
+     * inconnu") ne peut pas etre un tombstone RGPD. L'anonymisation
+     * (UserRepository::anonymise(), mlt 10.5) GARDE la ligne user et y ecrit
+     * `password_hash = ''` -- une chaine vide n'est pas un hash argon2id, donc
+     * PasswordHasher::verifyDecoy() la rejetterait et retomberait sur son repli
+     * calibre sur la CONFIGURATION, rouvrant l'ecart de temps que ce mecanisme
+     * sert a fermer. Ce test place un vrai tombstone dans la table puis verifie
+     * que le hash reellement passe a verifyDecoy() est un argon2id verifiable.
+     *
+     * Portee honnete : ce test prouve la PROPRIETE contre le vrai moteur SQL ;
+     * c'est AuthServiceTest::testReferenceHashQueryExcludesAnonymisedTombstones
+     * qui vire au rouge si le predicat `password_hash <> ''` ou le tri explicite
+     * disparaissent de la requete.
+     */
+    public function testUnknownEmailNeverCalibratesDecoyOnAnAnonymisedTombstone(): void
+    {
+        // Tombstone reel : meme ecriture que UserRepository::anonymise().
+        $this->db->execute(
+            "UPDATE user SET email = CONCAT('anon-', id, '@wakdo.invalid'), first_name = '', "
+            . "last_name = '', password_hash = '', pin_hash = NULL, is_active = 0, "
+            . 'anonymized_at = NOW() WHERE id = :id',
+            ['id' => $this->userId],
+        );
+
+        $empty = $this->db->fetch(
+            "SELECT COUNT(*) AS n FROM user WHERE password_hash = ''",
+            [],
+        );
+        self::assertGreaterThan(0, (int) ($empty['n'] ?? 0), 'precondition : au moins un tombstone en base');
+
+        $spy = new SpyPasswordHasher($this->config);
+        $service = new AuthService($this->db, $this->config, new SessionManager($this->config, true), $spy);
+
+        $service->authenticate('ghost-' . $this->userId . '@wakdo.invalid', 'whatever', self::TEST_IP);
+
+        self::assertSame(1, $spy->verifyDecoyCalls, 'le chemin email inconnu doit appeler le leurre une fois');
+        $reference = $spy->verifyDecoyReferenceHashes[0] ?? null;
+        self::assertIsString($reference, 'un hash STOCKE doit etre trouve malgre le tombstone');
+        self::assertNotSame('', $reference, "le hash de reference ne doit jamais etre la chaine vide d'un tombstone");
+        self::assertSame(
+            'argon2id',
+            password_get_info($reference)['algoName'] ?? null,
+            'le hash de reference doit etre un argon2id reellement verifiable',
+        );
     }
 
     public function testThrottleGateRejectsWhenAccountLocked(): void

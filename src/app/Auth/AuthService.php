@@ -188,16 +188,34 @@ final class AuthService
      * des qu'un deploiement change ARGON2_MEMORY_COST/TIME_COST/THREADS sans
      * rehacher l'existant (mesure relecture adverse : 256 ms reel contre 99 ms
      * leurre, cache par ailleurs parfaitement sain, aucune panne necessaire).
-     * `LIMIT 1` sans ORDER BY : n'importe quel compte convient, on ne cherche
-     * pas LE compte le plus representatif, seulement UN hash reellement
-     * stocke. Renvoie null sur une base fraiche sans aucun utilisateur (borne
-     * de demarrage, pas un cas operationnel normal -- ce depot seede toujours
-     * un compte admin, db/seeds/0001) : PasswordHasher::verifyDecoy() se rabat
-     * alors sur son propre mecanisme calibre sur options().
+     * On ne cherche pas LE compte le plus representatif, seulement UN hash
+     * reellement stocke -- mais deux precautions sont necessaires pour que
+     * cette ligne en soit vraiment un :
+     *
+     * 1. `WHERE password_hash <> ''` EXCLUT les tombstones RGPD. L'anonymisation
+     *    (UserRepository::anonymise(), mlt 10.5) GARDE la ligne user et y met
+     *    `password_hash = ''` : une chaine vide n'est pas un hash argon2id, donc
+     *    PasswordHasher::verifyDecoy() la rejetterait (looksLikeArgon2idHash())
+     *    et retomberait sur son repli calibre sur options() -- precisement
+     *    l'ecart de temps que cette methode existe pour fermer. Ce n'est pas un
+     *    cas theorique : la collection Postman/Bruno livree anonymise elle-meme
+     *    un utilisateur en fin de section "Utilisateurs".
+     * 2. `ORDER BY id` rend la ligne DETERMINISTE. Sans clause de tri, SQL ne
+     *    garantit AUCUN ordre : la ligne rendue depend du plan choisi par le
+     *    moteur (parcours de cle primaire ou parcours d'un index secondaire),
+     *    donc "le premier compte" pouvait tomber sur un tombstone selon le plan.
+     *    Le tri par cle primaire coute le parcours deja fait et supprime cette
+     *    dependance a un detail non specifie.
+     *
+     * Renvoie null quand AUCUNE ligne ne convient : base fraiche sans aucun
+     * utilisateur (borne de demarrage -- ce depot seede toujours un compte
+     * admin, db/seeds/0001), ou parc entierement anonymise. PasswordHasher::
+     * verifyDecoy() se rabat alors sur son propre mecanisme calibre sur
+     * options() (repli de dernier recours, documente la-bas).
      */
     private function referenceHashForDecoy(): ?string
     {
-        $row = $this->db->fetch('SELECT password_hash FROM user LIMIT 1');
+        $row = $this->db->fetch("SELECT password_hash FROM user WHERE password_hash <> '' ORDER BY id LIMIT 1");
 
         return $this->stringOrNull($row['password_hash'] ?? null);
     }

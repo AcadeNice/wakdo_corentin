@@ -123,6 +123,51 @@ final class AuthServiceTest extends TestCase
     }
 
     /**
+     * Le hash de reference doit venir d'un compte REEL, jamais d'un tombstone
+     * RGPD : UserRepository::anonymise() GARDE la ligne user et y ecrit
+     * `password_hash = ''`. Une chaine vide n'est pas un hash argon2id, donc
+     * PasswordHasher::verifyDecoy() la rejetterait et retomberait sur son
+     * repli calibre sur la CONFIGURATION -- l'ecart de temps que
+     * referenceHashForDecoy() existe justement pour fermer. La collection
+     * Postman/Bruno livree anonymise elle-meme un utilisateur, donc un parc
+     * reel en contient.
+     *
+     * Ce test est le filet de NON-REGRESSION sur la requete : il vire au rouge
+     * si le predicat `password_hash <> ''` disparait, ou si le tri explicite
+     * par cle primaire est retire (sans tri, SQL ne garantit aucun ordre : la
+     * ligne rendue depend du plan choisi par le moteur, donc un tombstone
+     * pouvait etre servi selon le plan). La preuve de bout en bout contre une
+     * vraie MariaDB est dans AuthServiceDbTest::
+     * testUnknownEmailNeverCalibratesDecoyOnAnAnonymisedTombstone().
+     */
+    public function testReferenceHashQueryExcludesAnonymisedTombstones(): void
+    {
+        $this->db->userRow = null;
+        $this->db->referenceUserPasswordHash = $this->hasher->hash('some other account password');
+
+        $this->service()->authenticate('ghost@wakdo.local', 'whatever', '203.0.113.1', self::NOW);
+
+        $referenceReads = array_values(array_filter(
+            $this->db->reads,
+            static fn (array $read): bool => str_contains($read['sql'], 'SELECT password_hash FROM user')
+                && !str_contains($read['sql'], 'WHERE id')
+                && !str_contains($read['sql'], 'WHERE email'),
+        ));
+
+        self::assertCount(1, $referenceReads, 'le chemin email inconnu doit lire UN hash de reference');
+        self::assertStringContainsString(
+            "password_hash <> ''",
+            $referenceReads[0]['sql'],
+            "la requete doit exclure les tombstones RGPD (password_hash = '' apres anonymisation)",
+        );
+        self::assertStringContainsString(
+            'ORDER BY id',
+            $referenceReads[0]['sql'],
+            'la requete doit trier explicitement : sans tri, la ligne rendue depend du plan du moteur',
+        );
+    }
+
+    /**
      * Base fraiche sans aucun utilisateur (borne de demarrage, pas un cas
      * operationnel normal) : aucun hash de reference disponible ->
      * verifyDecoy() recoit explicitement null, et se rabat alors sur son

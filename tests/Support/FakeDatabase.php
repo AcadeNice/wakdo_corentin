@@ -517,9 +517,13 @@ final class FakeDatabase implements DatabaseInterface
         }
 
         // AuthService::referenceHashForDecoy() : un hash STOCKE quelconque
-        // (LIMIT 1 sans WHERE, distinct des routes ci-dessus qui filtrent
-        // toutes par id/email) pour calibrer le leurre sur email inconnu.
-        if (str_contains($sql, 'SELECT password_hash FROM user LIMIT 1')) {
+        // (distinct des routes ci-dessus qui filtrent toutes par id/email) pour
+        // calibrer le leurre sur email inconnu. Le predicat `password_hash <> ''`
+        // est exige ICI aussi : il exclut les tombstones RGPD (dont le hash est
+        // vide), et le retirer en production rouvrirait l'ecart de temps --
+        // AuthServiceTest::testReferenceHashQueryExcludesAnonymisedTombstones
+        // vire au rouge si la requete perd ce predicat ou son tri.
+        if (str_contains($sql, 'SELECT password_hash FROM user') && str_contains($sql, "password_hash <> ''")) {
             return $this->referenceUserPasswordHash !== null ? ['password_hash' => $this->referenceUserPasswordHash] : null;
         }
 
