@@ -177,7 +177,7 @@ class CounterOrderController extends AdminController
      *
      * @return list<array<string, mixed>>
      */
-    private function decodeItems(string $json): array
+    protected function decodeItems(string $json): array
     {
         /** @var mixed $decoded */
         $decoded = json_decode($json, true);
@@ -478,7 +478,7 @@ class CounterOrderController extends AdminController
     /**
      * Message lisible pour un code d'erreur metier (re-rendu de formulaire).
      */
-    private function messageFor(string $code): string
+    protected function messageFor(string $code): string
     {
         return match ($code) {
             'EMPTY_ORDER'             => 'La commande est vide : ajoutez au moins un produit ou un menu.',

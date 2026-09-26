@@ -15,6 +15,7 @@ use App\Catalogue\IngredientRepository;
 use App\Catalogue\NutritionGateway;
 use App\Catalogue\OpenFoodFactsGateway;
 use App\Core\DatabaseInterface;
+use App\Core\NumericInput;
 use App\Core\Response;
 
 /**
@@ -490,9 +491,10 @@ class IngredientController extends AdminController
         }
 
         // PRE-3 (9.1) : N >= 1 (borne haute pour eviter un debordement de stock_quantity).
-        $packsRaw = trim($form['packs'] ?? '');
-        $packsValid = ctype_digit($packsRaw) && (int) $packsRaw >= 1 && (int) $packsRaw <= 65535;
-        if (!$packsValid && !isset($errors['packs'])) {
+        // NumericInput::digits() : source unique partagee avec IngredientApiController
+        // (meme regle sur une chaine de formulaire ou un entier JSON natif).
+        $packs = NumericInput::digits(trim($form['packs'] ?? ''), 1, 65535);
+        if ($packs === null && !isset($errors['packs'])) {
             $errors['packs'] = 'Le nombre de packs doit être un entier entre 1 et 65535.';
         }
 
@@ -505,7 +507,7 @@ class IngredientController extends AdminController
             return $this->renderRestock($guard, $id, $ingredient, $form, $errors, 422);
         }
 
-        $this->ingredientRepository()->restock($id, (int) $packsRaw, $guard->userId, $note !== '' ? $note : null);
+        $this->ingredientRepository()->restock($id, (int) $packs, $guard->userId, $note !== '' ? $note : null);
         $this->setFlash('Réapprovisionnement enregistré.');
 
         return $this->redirect('/admin/ingredients');
@@ -553,10 +555,10 @@ class IngredientController extends AdminController
 
         $errors = [];
 
-        // PRE-3 (9.2) : comptage physique non negatif. ctype_digit borne deja >= 0.
-        $actualRaw = trim($form['actual_quantity'] ?? '');
-        $actualValid = ctype_digit($actualRaw) && (int) $actualRaw <= 2147483647;
-        if (!$actualValid) {
+        // PRE-3 (9.2) : comptage physique non negatif. NumericInput::digits() borne
+        // deja >= 0 (source unique partagee avec IngredientApiController).
+        $actual = NumericInput::digits(trim($form['actual_quantity'] ?? ''), 0, 2147483647);
+        if ($actual === null) {
             $errors['actual_quantity'] = 'Le comptage doit être un entier >= 0.';
         }
 
@@ -597,7 +599,7 @@ class IngredientController extends AdminController
         // Succes : la correction ecrit stock_movement.user_id (acteur resolu par PIN).
         // PAS de ligne audit_log (RG-T14 : la trace stock_movement suffit, pas de
         // double-journal). inventoryCount ouvre sa propre transaction (UPDATE+INSERT).
-        $this->ingredientRepository()->inventoryCount($id, (int) $actualRaw, $actor['id'], $note !== '' ? $note : null);
+        $this->ingredientRepository()->inventoryCount($id, (int) $actual, $actor['id'], $note !== '' ? $note : null);
         $this->pinThrottle()->reset($actorId);
 
         $this->setFlash('Inventaire enregistré.');
@@ -655,12 +657,11 @@ class IngredientController extends AdminController
         $errors = [];
 
         // Delta signe NON NUL : une correction de 0 n'a pas de sens (l'inventaire, lui,
-        // trace meme un delta 0 comme preuve de comptage). Borne a l'entier signe.
-        $deltaRaw = trim($form['delta'] ?? '');
-        $deltaValid = preg_match('/^-?\d+$/', $deltaRaw) === 1
-            && (int) $deltaRaw !== 0
-            && (int) $deltaRaw >= -2147483647 && (int) $deltaRaw <= 2147483647;
-        if (!$deltaValid) {
+        // trace meme un delta 0 comme preuve de comptage). NumericInput::signedDigits()
+        // borne l'entier signe (source unique partagee avec IngredientApiController) ;
+        // le rejet de la valeur 0 reste ici (specifique a l'ajustement, pas a l'inventaire).
+        $delta = NumericInput::signedDigits(trim($form['delta'] ?? ''), -2147483647, 2147483647);
+        if ($delta === null || $delta === 0) {
             $errors['delta'] = 'L\'ajustement doit être un entier non nul (ex. 5 pour ajouter, -3 pour retirer).';
         }
 
@@ -693,7 +694,7 @@ class IngredientController extends AdminController
             return $this->renderAdjust($guard, $id, $ingredient, $form, ['pin' => 'Email ou PIN invalide (requis pour l\'ajustement).'], 422);
         }
 
-        $this->ingredientRepository()->adjust($id, (int) $deltaRaw, $actor['id'], $note !== '' ? $note : null);
+        $this->ingredientRepository()->adjust($id, (int) $delta, $actor['id'], $note !== '' ? $note : null);
         $this->pinThrottle()->reset($actorId);
 
         $this->setFlash('Ajustement de stock enregistré.');
@@ -781,7 +782,7 @@ class IngredientController extends AdminController
      * @param array<string, string> $form
      * @return array{0: array{name: string, unit: string, stock_capacity: int, pack_size: int, pack_label: ?string, low_stock_pct: int, critical_stock_pct: int}, 1: array<string, string>}
      */
-    private function validate(array $form, int $exceptId, ?int $currentStock = null): array
+    protected function validate(array $form, int $exceptId, ?int $currentStock = null): array
     {
         $errors = [];
 
@@ -841,7 +842,7 @@ class IngredientController extends AdminController
      * @param int|null $currentStock stock_quantity courant pour la garde de plafond (null = creation, stock pose a 0).
      * @return array{0: array{stock_capacity: int, low_stock_pct: int, critical_stock_pct: int}, 1: array<string, string>}
      */
-    private function validateThresholds(array $form, ?int $currentStock = null): array
+    protected function validateThresholds(array $form, ?int $currentStock = null): array
     {
         $errors = [];
 

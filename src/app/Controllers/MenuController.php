@@ -332,7 +332,7 @@ class MenuController extends AdminController
      * @param array<string, string> $form
      * @return array{0: array{category_id:int, burger_product_id:int, name:string, price_normal_cents:int, price_maxi_cents:int, is_available:int, display_order:int}, 1: list<array{name:string, slot_type:string, is_required:int, display_order:int, options:list<int>}>, 2: array<string, string>}
      */
-    private function validate(array $form): array
+    protected function validate(array $form): array
     {
         $errors = [];
 

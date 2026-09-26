@@ -11,6 +11,14 @@ declare(strict_types=1);
  */
 
 use App\Auth\SessionManager;
+use App\Controllers\Admin\Api\CategoryApiController;
+use App\Controllers\Admin\Api\IngredientApiController;
+use App\Controllers\Admin\Api\MenuApiController;
+use App\Controllers\Admin\Api\OrderApiController;
+use App\Controllers\Admin\Api\ProductApiController;
+use App\Controllers\Admin\Api\RoleApiController;
+use App\Controllers\Admin\Api\StatsApiController;
+use App\Controllers\Admin\Api\UserApiController;
 use App\Controllers\AuthController;
 use App\Controllers\CatalogueController;
 use App\Controllers\CategoryController;
@@ -255,6 +263,81 @@ try {
     // mapping"), POST + CSRF, SANS PIN (ni argent ni stock, hors ensemble sensible RG-T13).
     // La source est obligatoire, et le geste est trace (audit_log ingredient.allergens).
     $router->add('POST', '/admin/ingredients/{id}/allergens', [IngredientController::class, 'allergens']);
+
+    // API d'administration JSON (docs/api/conventions.md section 5.3, PR wakdo#151).
+    // Prefixe /admin/api/... et NON /api/... : le vhost kiosk (docker/apache/vhost.conf)
+    // relaie tout /api/* a ce meme front controller pour la borne PUBLIQUE (ProxyPassMatch
+    // "^/api(/.*)?$") ; /admin/api ne matche pas ce prefixe et reste donc invisible de
+    // l'origine borne (surface d'attaque reduite), meme raisonnement que /admin/me.
+    // Chaque action reutilise la session/CSRF/PIN/permissions du back-office HTML
+    // (App\Controllers\Admin\Api\JsonApiTrait) mais repond en JSON, jamais en redirection.
+    $router->add('GET', '/admin/api/categories', [CategoryApiController::class, 'apiIndex']);
+    $router->add('GET', '/admin/api/categories/{id}', [CategoryApiController::class, 'apiShow']);
+    $router->add('POST', '/admin/api/categories', [CategoryApiController::class, 'apiStore']);
+    $router->add('PUT', '/admin/api/categories/{id}', [CategoryApiController::class, 'apiUpdate']);
+    $router->add('DELETE', '/admin/api/categories/{id}', [CategoryApiController::class, 'apiDestroy']);
+    $router->add('POST', '/admin/api/categories/{id}/toggle', [CategoryApiController::class, 'apiToggle']);
+    $router->add('POST', '/admin/api/categories/{id}/move', [CategoryApiController::class, 'apiMove']);
+
+    $router->add('GET', '/admin/api/products', [ProductApiController::class, 'apiIndex']);
+    $router->add('GET', '/admin/api/products/{id}', [ProductApiController::class, 'apiShow']);
+    $router->add('POST', '/admin/api/products', [ProductApiController::class, 'apiStore']);
+    $router->add('PUT', '/admin/api/products/{id}', [ProductApiController::class, 'apiUpdate']);
+    $router->add('DELETE', '/admin/api/products/{id}', [ProductApiController::class, 'apiDestroy']);
+    $router->add('POST', '/admin/api/products/{id}/move', [ProductApiController::class, 'apiMove']);
+    $router->add('GET', '/admin/api/products/{id}/recipe', [ProductApiController::class, 'apiRecipeShow']);
+    $router->add('PUT', '/admin/api/products/{id}/recipe', [ProductApiController::class, 'apiRecipeSave']);
+
+    $router->add('GET', '/admin/api/menus', [MenuApiController::class, 'apiIndex']);
+    $router->add('GET', '/admin/api/menus/{id}', [MenuApiController::class, 'apiShow']);
+    $router->add('POST', '/admin/api/menus', [MenuApiController::class, 'apiStore']);
+    $router->add('PUT', '/admin/api/menus/{id}', [MenuApiController::class, 'apiUpdate']);
+    $router->add('DELETE', '/admin/api/menus/{id}', [MenuApiController::class, 'apiDestroy']);
+    $router->add('POST', '/admin/api/menus/{id}/toggle', [MenuApiController::class, 'apiToggle']);
+
+    $router->add('GET', '/admin/api/ingredients', [IngredientApiController::class, 'apiIndex']);
+    $router->add('GET', '/admin/api/ingredients/{id}', [IngredientApiController::class, 'apiShow']);
+    $router->add('POST', '/admin/api/ingredients', [IngredientApiController::class, 'apiStore']);
+    $router->add('PUT', '/admin/api/ingredients/{id}', [IngredientApiController::class, 'apiUpdate']);
+    $router->add('DELETE', '/admin/api/ingredients/{id}', [IngredientApiController::class, 'apiDestroy']);
+    $router->add('POST', '/admin/api/ingredients/{id}/restock', [IngredientApiController::class, 'apiRestock']);
+    $router->add('POST', '/admin/api/ingredients/{id}/toggle', [IngredientApiController::class, 'apiToggle']);
+    $router->add('PUT', '/admin/api/ingredients/{id}/thresholds', [IngredientApiController::class, 'apiThresholds']);
+    $router->add('POST', '/admin/api/ingredients/{id}/inventory', [IngredientApiController::class, 'apiInventory']);
+    $router->add('POST', '/admin/api/ingredients/{id}/adjust', [IngredientApiController::class, 'apiAdjust']);
+    $router->add('PUT', '/admin/api/ingredients/{id}/allergens', [IngredientApiController::class, 'apiAllergens']);
+
+    $router->add('GET', '/admin/api/users', [UserApiController::class, 'apiIndex']);
+    $router->add('GET', '/admin/api/users/{id}', [UserApiController::class, 'apiShow']);
+    $router->add('POST', '/admin/api/users', [UserApiController::class, 'apiStore']);
+    $router->add('PUT', '/admin/api/users/{id}', [UserApiController::class, 'apiUpdate']);
+    // DELETE == desactivation (pas de suppression physique ni d'effacement RGPD),
+    // meme semantique que le bouton "Désactiver" du back-office (cf. docblock du
+    // controleur). L'anonymisation RGPD et la reinitialisation de PIN ont leur
+    // propre sous-chemin (comme le HTML), toutes deux PIN-gated.
+    $router->add('DELETE', '/admin/api/users/{id}', [UserApiController::class, 'apiDestroy']);
+    $router->add('POST', '/admin/api/users/{id}/reset-pin', [UserApiController::class, 'apiResetPin']);
+    $router->add('POST', '/admin/api/users/{id}/erase', [UserApiController::class, 'apiErase']);
+
+    // Pas de DELETE /admin/api/roles : RoleController (HTML) n'expose aucune
+    // suppression de role (rattache a des comptes) ; l'API JSON ne l'invente pas.
+    $router->add('GET', '/admin/api/roles', [RoleApiController::class, 'apiIndex']);
+    $router->add('GET', '/admin/api/roles/{id}', [RoleApiController::class, 'apiShow']);
+    $router->add('POST', '/admin/api/roles', [RoleApiController::class, 'apiStore']);
+    $router->add('PUT', '/admin/api/roles/{id}', [RoleApiController::class, 'apiUpdate']);
+
+    // Domaine commande (mlt 4.1/6.1/7.1, section 5.3). Un seul endpoint de creation
+    // (contrairement au HTML qui a une page par canal /counter/orders et /drive/orders) :
+    // la source est deduite du role agissant (OrderApiController::roleOrderSource()).
+    $router->add('GET', '/admin/api/orders', [OrderApiController::class, 'apiIndex']);
+    $router->add('GET', '/admin/api/orders/{number}', [OrderApiController::class, 'apiShow']);
+    $router->add('POST', '/admin/api/orders', [OrderApiController::class, 'apiStore']);
+    $router->add('POST', '/admin/api/orders/{number}/ready', [OrderApiController::class, 'apiReady']);
+    $router->add('POST', '/admin/api/orders/{number}/deliver', [OrderApiController::class, 'apiDeliver']);
+    $router->add('POST', '/admin/api/orders/{number}/cancel', [OrderApiController::class, 'apiCancel']);
+
+    // Tableau de bord statistiques (mlt domaine 11, stats.read), lecture seule.
+    $router->add('GET', '/admin/api/stats', [StatsApiController::class, 'apiIndex']);
 
     // CORS (docs/api/conventions.md section 10) : preflight OPTIONS traite AVANT le
     // routeur (pas de route OPTIONS) ; sinon dispatch puis decoration de la reponse.
