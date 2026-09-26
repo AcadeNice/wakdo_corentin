@@ -34,13 +34,14 @@ use App\Order\OrderValidationException;
  *    unitaire/ready/deliver (403 anti-enumeration, verifiee AVANT le PIN --
  *    corrige lors de la 2e relecture adverse, cf. `apiCancel()`), PUIS PIN
  *    equipier + audit (RG-T13/T14), audit ecrit par `OrderRepository::cancel()`
- *    lui-meme (pas de double-ecriture ici).
- *    LIMITE CONNUE (documentee en section 5.3 de conventions.md), COTE HTML
- *    UNIQUEMENT desormais : `OrderAdminController::cancel()` (HTML) ne verifie
- *    toujours pas cette visibilite de canal -- seule la permission
- *    `order.cancel` y est exigee. Non corrige cote HTML sur ce chantier pour ne
- *    pas introduire un comportement de securite nouveau et non revu sur un
- *    chemin de production existant ; cette API JSON, elle, ferme deja ce cas.
+ *    lui-meme (pas de double-ecriture ici). `OrderAdminController::cancel()`
+ *    (HTML) applique desormais la MEME garde de visibilite (limite fermee ;
+ *    voir ADR-0017 et `conventions.md` section 5.3, mis a jour).
+ *
+ * `roleFixedSource()` (canal FIXE du role agissant) est herite d'`AdminController`
+ * : factorise avec `CounterOrderController::channelGuard()` (HTML) pour que les
+ * deux appliquent EXACTEMENT la meme regle a partir d'une seule lecture (etait
+ * duplique ici avant ce chantier).
  *
  * Non `final` : les tests sous-classent pour injecter des doubles, meme convention
  * que le reste des controleurs admin.
@@ -318,27 +319,9 @@ class OrderApiController extends CounterOrderController
         return is_string($source) && $source !== '' && in_array($source, $this->orderQuery()->visibleSources($roleId), true);
     }
 
-    /**
-     * Canal FIXE du role agissant (`role.order_source`, meme champ que
-     * `orderChannel` dans `AdminController::adminView()`) : `'counter'`/`'drive'`
-     * pour un role de saisie dedie, `null` pour un role sans canal fixe
-     * (admin/manager, cf. `db/seeds/0001_rbac_and_reference.sql` : "admin/manager
-     * NULL"). `null` signifie que l'appelant doit RESOUDRE la source autrement
-     * (corps JSON, section 5.3 de conventions.md) plutot que la deduire seule.
-     * Meme projection de colonnes que `RoleRepository::findRole()` (pas un
-     * nouveau contrat de lecture, juste la colonne utile de ce contrat existant).
-     */
-    private function roleFixedSource(int $roleId): ?string
-    {
-        $row = $this->db()->fetch(
-            'SELECT id, code, label, description, default_route, order_source, is_active FROM role WHERE id = :id',
-            ['id' => $roleId],
-        );
-
-        $source = $row['order_source'] ?? null;
-
-        return ($source === 'counter' || $source === 'drive') ? $source : null;
-    }
+    // roleFixedSource() : desormais herite d'AdminController (factorise avec le
+    // HTML de CounterOrderController::channelGuard() -- la meme regle de canal
+    // fixe, une seule lecture, plus de duplication ; voir ADR-0017 mis a jour).
 
     /**
      * @param array<string, mixed> $row

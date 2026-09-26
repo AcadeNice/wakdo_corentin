@@ -40,9 +40,10 @@ final class StubChannelOrders extends OrderQueryRepository
         // File "En cours" du canal : ne ramene que des commandes dont la source est
         // dans $sources (le controleur passe la SEULE source du canal courant). C100 est
         // sur place avec un numero de table (12) ; D200 est un drive sans table.
+        // ERG-02 : status distinct (paid vs preparing) pour tester la colonne Statut.
         $all = [
-            ['order_number' => 'C100', 'source' => 'counter', 'service_mode' => 'dine_in', 'service_tag' => '12', 'total_ttc_cents' => 890, 'paid_at' => '2026-06-22 10:00:01'],
-            ['order_number' => 'D200', 'source' => 'drive', 'service_mode' => 'drive', 'service_tag' => null, 'total_ttc_cents' => 990, 'paid_at' => '2026-06-22 10:05:01'],
+            ['order_number' => 'C100', 'source' => 'counter', 'service_mode' => 'dine_in', 'service_tag' => '12', 'status' => 'paid', 'total_ttc_cents' => 890, 'paid_at' => '2026-06-22 10:00:01'],
+            ['order_number' => 'D200', 'source' => 'drive', 'service_mode' => 'drive', 'service_tag' => null, 'status' => 'preparing', 'total_ttc_cents' => 990, 'paid_at' => '2026-06-22 10:05:01'],
         ];
 
         return array_values(array_filter(
@@ -746,6 +747,88 @@ final class CounterOrderControllerTest extends TestCase
         self::assertSame(302, $response->status());
         $insert = $this->writeParams($db, 'INSERT INTO customer_order');
         self::assertNull($insert['tag']);
+    }
+
+    // --- RG-T12 (canal fixe) : channelGuard(), RBAC par canal de commande ---
+
+    public function testDriveFixedRoleCannotAccessCounterIndex(): void
+    {
+        // Faille corrigee : un compte drive (role.order_source = drive) visitant
+        // /counter/orders (chemin valide, meme permission order.create) doit etre
+        // refuse -- avant ce correctif, la source etait deduite du seul chemin.
+        $db = $this->permittedDb();
+        $db->roleManageRow = ['order_source' => 'drive'];
+
+        self::assertSame(403, $this->controller($this->get('/counter/orders'), $db)->index()->status());
+    }
+
+    public function testDriveFixedRoleCannotAccessCounterCreate(): void
+    {
+        $db = $this->permittedDb();
+        $db->roleManageRow = ['order_source' => 'drive'];
+
+        self::assertSame(403, $this->controller($this->get('/counter/orders/new'), $db)->create()->status());
+    }
+
+    public function testDriveFixedRoleCannotPostCounterStore(): void
+    {
+        $db = $this->permittedDb();
+        $db->roleManageRow = ['order_source' => 'drive'];
+        $request = $this->post(['_csrf' => $this->csrf, 'service_mode' => 'dine_in', 'qty_12' => '1'], '/counter/orders');
+
+        $response = $this->controller($request, $db)->store();
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($db->wrote('INSERT INTO customer_order'));
+    }
+
+    public function testCounterFixedRoleCannotAccessDriveIndex(): void
+    {
+        // Contre-exemple symetrique : un compte comptoir ne peut pas visiter
+        // /drive/orders.
+        $db = $this->permittedDb();
+        $db->roleManageRow = ['order_source' => 'counter'];
+
+        self::assertSame(403, $this->controller($this->get('/drive/orders'), $db)->index()->status());
+    }
+
+    public function testCounterFixedRoleCannotAccessDriveCreate(): void
+    {
+        $db = $this->permittedDb();
+        $db->roleManageRow = ['order_source' => 'counter'];
+
+        self::assertSame(403, $this->controller($this->get('/drive/orders/new'), $db)->create()->status());
+    }
+
+    public function testCounterFixedRoleCannotPostDriveStore(): void
+    {
+        $db = $this->permittedDb();
+        $db->roleManageRow = ['order_source' => 'counter'];
+        $request = $this->post(['_csrf' => $this->csrf, 'service_mode' => 'drive', 'qty_12' => '1'], '/drive/orders');
+
+        $response = $this->controller($request, $db)->store();
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($db->wrote('INSERT INTO customer_order'));
+    }
+
+    public function testDriveFixedRoleCanAccessItsOwnDriveIndex(): void
+    {
+        // Contre-exemple : le role garde l'acces a SON propre canal fixe.
+        $db = $this->permittedDb();
+        $db->roleManageRow = ['order_source' => 'drive'];
+
+        self::assertSame(200, $this->controller($this->get('/drive/orders'), $db)->index()->status());
+    }
+
+    public function testRoleWithoutFixedSourceCanAccessBothCounterAndDriveIndex(): void
+    {
+        // admin/manager (role.order_source NULL) garde l'acces aux deux pages.
+        $db = $this->permittedDb();
+        $db->roleManageRow = ['order_source' => null];
+
+        self::assertSame(200, $this->controller($this->get('/counter/orders'), $db)->index()->status());
+        self::assertSame(200, $this->controller($this->get('/drive/orders'), $db)->index()->status());
     }
 
     public function testNavRoutesDriveRoleToDriveLanding(): void

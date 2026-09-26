@@ -85,6 +85,29 @@ abstract class AdminController extends AuthenticatedController
     }
 
     /**
+     * Canal FIXE du role agissant (`role.order_source`, RG-T12) : `'counter'` ou
+     * `'drive'` pour un role de saisie dedie a un canal (l'equipier comptoir/drive
+     * du seed 0001), `null` pour un role SANS canal fixe (admin/manager, dont
+     * `order_source` est NULL -- ils peuvent saisir pour n'importe quel canal).
+     * Factorise ici (etait duplique uniquement dans `OrderApiController`) pour que
+     * le HTML (`CounterOrderController`) et le JSON (`OrderApiController`)
+     * appliquent EXACTEMENT la meme regle a partir d'une seule lecture -- plus de
+     * lecture ciblee que `RoleRepository::findRole()` (memes colonnes), mais pas
+     * un nouveau contrat : meme requete que celle deja utilisee par ce dernier.
+     */
+    protected function roleFixedSource(int $roleId): ?string
+    {
+        $row = $this->db()->fetch(
+            'SELECT id, code, label, description, default_route, order_source, is_active FROM role WHERE id = :id',
+            ['id' => $roleId],
+        );
+
+        $source = $row['order_source'] ?? null;
+
+        return ($source === 'counter' || $source === 'drive') ? $source : null;
+    }
+
+    /**
      * Message de confirmation a afficher apres une redirection (pose avant le 302,
      * consomme au rendu suivant). Stocke en session pour survivre a la redirection.
      */

@@ -39,10 +39,23 @@ class OrderAdminController extends AdminController
             return $guard;
         }
 
+        // RG-T12 : filtree par les sources visibles du role (role_visible_source),
+        // MEME regle que la file KDS (KitchenController) et la file comptoir/drive
+        // (CounterOrderController::index()) -- avant ce correctif, cette liste
+        // ramenait TOUTES les sources sans filtre : un role a canal restreint (ex.
+        // cuisine, qui ne voit que kiosk+counter+drive... la KDS filtre deja) y
+        // voyait des commandes hors de ses canaux alors que l'ecran cuisine les lui
+        // masque. Liste vide en base = vue globale (admin/manager voient tout).
+        $visible = $this->orderQuery()->visibleSources($guard->roleId ?? 0);
+        $orders = array_values(array_filter(
+            $this->orderQuery()->recent(50),
+            static fn (array $o): bool => in_array((string) ($o['source'] ?? ''), $visible, true),
+        ));
+
         return $this->adminView('admin/orders/index', [
             'title'      => 'Commandes - Wakdo Admin',
             'activeNav'  => 'orders',
-            'orders'     => $this->orderQuery()->recent(50),
+            'orders'     => $orders,
             // RG-T03 : adapte l'affichage (bouton Annuler) sans remplacer la garde
             // par-action de cancel(). manager n'a PAS order.cancel (decision D5).
             'canCancel'  => $this->may($guard, 'order.cancel'),
@@ -79,14 +92,11 @@ class OrderAdminController extends AdminController
         $number = (string) ($params['number'] ?? '');
 
         // PRE-3 (6.1) : refuse la remise d'une commande dont la source n'est pas dans
-        // les sources visibles du role agissant. visibleSources reutilise
-        // role_visible_source (memes donnees que KitchenController) : liste vide en base
-        // = vue globale (admin/manager voient les trois sources). Le numero inconnu
-        // (source null) retombe sur le chemin "non visible" -> 403 ; la branche
-        // ORDER_NOT_FOUND ci-dessous reste atteignable pour une course (commande
-        // supprimee entre la lecture et la transition).
-        $source = $this->orderSource($number);
-        if ($source === null || !in_array($source, $this->orderQuery()->visibleSources($guard->roleId ?? 0), true)) {
+        // les sources visibles du role agissant. Le numero inconnu (source null)
+        // retombe sur le chemin "non visible" -> 403 ; la branche ORDER_NOT_FOUND
+        // ci-dessous reste atteignable pour une course (commande supprimee entre la
+        // lecture et la transition).
+        if (!$this->sourceVisibleToRole($number, $guard->roleId ?? 0)) {
             return $this->forbidden($guard);
         }
 
@@ -128,8 +138,7 @@ class OrderAdminController extends AdminController
 
         $number = (string) ($params['number'] ?? '');
 
-        $source = $this->orderSource($number);
-        if ($source === null || !in_array($source, $this->orderQuery()->visibleSources($guard->roleId ?? 0), true)) {
+        if (!$this->sourceVisibleToRole($number, $guard->roleId ?? 0)) {
             return $this->forbidden($guard);
         }
 
@@ -148,10 +157,15 @@ class OrderAdminController extends AdminController
     }
 
     /**
-     * Page de confirmation d'annulation (CANCEL_ORDER, mlt 7.1). Garde order.cancel.
-     * Affiche numero/statut/total + le formulaire PIN equipier (modele RG-T13). La
-     * commande est chargee en lecture seule (OrderRepository::findByNumber) ; statut
-     * terminal (delivered/cancelled) -> message bloquant, pas de formulaire.
+     * Page de confirmation d'annulation (CANCEL_ORDER, mlt 7.1). Garde order.cancel,
+     * PUIS la meme garde de visibilite de canal PRE-3 (RG-T12) que `cancel()` : un
+     * numero hors des sources visibles du role ne doit pas etre distinguable d'un
+     * numero inconnu, meme sur cette page de confirmation en LECTURE SEULE -- sinon
+     * elle revelerait numero/statut/total d'une commande d'un canal invisible avant
+     * meme que le PIN de `cancel()` (POST) ne bloque la mutation. Affiche
+     * numero/statut/total + le formulaire PIN equipier (modele RG-T13). La commande
+     * est chargee en lecture seule (OrderRepository::findByNumber) ; statut terminal
+     * (delivered/cancelled) -> message bloquant, pas de formulaire.
      *
      * @param array<string, string> $params
      */
@@ -162,7 +176,12 @@ class OrderAdminController extends AdminController
             return $guard;
         }
 
-        $order = $this->orders()->findByNumber((string) ($params['number'] ?? ''));
+        $number = (string) ($params['number'] ?? '');
+        if (!$this->sourceVisibleToRole($number, $guard->roleId ?? 0)) {
+            return $this->forbidden($guard);
+        }
+
+        $order = $this->orders()->findByNumber($number);
         if ($order === null) {
             return $this->notFound($guard);
         }
@@ -172,7 +191,13 @@ class OrderAdminController extends AdminController
 
     /**
      * Annulation effective (CANCEL_ORDER, mlt 7.1). POST + CSRF + garde order.cancel,
-     * puis flux PIN equipier IDENTIQUE a IngredientController::inventory (RG-T13/T22) :
+     * PUIS la garde de visibilite de canal PRE-3 (RG-T12) -- fermee sur ce chantier
+     * (limite jusque-la documentee dans ADR-0017 et `conventions.md` section 5.3,
+     * l'API JSON `OrderApiController::apiCancel()` la fermait deja) : un numero
+     * INCONNU et un numero d'un canal NON VISIBLE par le role rendent la MEME reponse
+     * (403, anti-enumeration), verifiee AVANT tout PIN, pour qu'un acteur ne puisse
+     * jamais distinguer "n'existe pas" de "existe, hors de mes canaux" via le PIN.
+     * Puis flux PIN equipier IDENTIQUE a IngredientController::inventory (RG-T13/T22) :
      * verrou throttle par utilisateur AGISSANT evalue AVANT la verification (leurre de
      * timing, message generique) ; sur echec PIN -> pin.failed + increment throttle dans
      * UNE transaction. Sur PIN OK -> OrderRepository::cancel (transition + restock
@@ -193,6 +218,10 @@ class OrderAdminController extends AdminController
         }
 
         $number = (string) ($params['number'] ?? '');
+        if (!$this->sourceVisibleToRole($number, $guard->roleId ?? 0)) {
+            return $this->forbidden($guard);
+        }
+
         $order = $this->orders()->findByNumber($number);
         if ($order === null) {
             return $this->notFound($guard);
@@ -264,6 +293,20 @@ class OrderAdminController extends AdminController
         $source = is_string($row['source'] ?? null) ? (string) $row['source'] : '';
 
         return $source === '' ? null : $source;
+    }
+
+    /**
+     * PRE-3 (RG-T12) : le numero existe-t-il ET sa source est-elle dans les sources
+     * visibles du role agissant ? Factorise ce que `deliver()`, `ready()`,
+     * `confirmCancel()` et `cancel()` verifiaient chacun en double (numero inconnu
+     * comme canal non visible retombent tous deux sur `false`, indistingables pour
+     * l'appelant -- anti-enumeration).
+     */
+    private function sourceVisibleToRole(string $number, int $roleId): bool
+    {
+        $source = $this->orderSource($number);
+
+        return $source !== null && in_array($source, $this->orderQuery()->visibleSources($roleId), true);
     }
 
     protected function orders(): OrderRepository

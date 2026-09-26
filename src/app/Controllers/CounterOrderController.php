@@ -19,10 +19,18 @@ use App\Order\OrderValidationException;
  * UN seul controleur sert les DEUX canaux : la `source` est derivee du CHEMIN de la
  * requete (un chemin commencant par '/drive' -> 'drive', sinon 'counter'). Ce choix
  * evite un controleur par canal alors que la logique est identique ; seules la source
- * auto-tagguee, le titre et les liens d'action changent. Le decoupage par chemin (et
- * non par parametre de route) garantit que counter et drive restent etanches : un
- * equipier drive ne peut pas creer une commande comptoir en falsifiant un champ.
+ * auto-tagguee, le titre et les liens d'action changent.
  *
+ * RG-T12 (canal fixe, `role.order_source`) : le decoupage par CHEMIN ne suffit pas a
+ * lui seul a garantir l'etancheite -- rien n'empechait un compte drive de visiter
+ * `/counter/orders` (chemin valide, route existante) et d'y creer une commande taguee
+ * `counter`. `channelGuard()` ferme ce trou : un role dont `order_source` est FIXE
+ * (`counter`/`drive`) n'accede QU'A la page de son propre canal (GET et POST), l'autre
+ * page rend `403` ; un role SANS canal fixe (admin/manager, `order_source` NULL) garde
+ * l'acces aux deux. Meme regle que `OrderApiController::apiStore()` (canal impose par
+ * le role), desormais factorisee dans `AdminController::roleFixedSource()`.
+ *
+
  * Composeur (sous-lot 3c) : produits ET menus composes (slots accompagnement/
  * boisson/sauce + format Normal/Maxi) ET modificateurs d'ingredients (retrait/ajout).
  * La composition PROPOSABLE de chaque produit a la carte et du burger de chaque menu
@@ -55,6 +63,9 @@ class CounterOrderController extends AdminController
         $guard = $this->guard('order.create');
         if ($guard instanceof Response) {
             return $guard;
+        }
+        if (($forbidden = $this->channelGuard($guard)) !== null) {
+            return $forbidden;
         }
 
         $source = $this->source();
@@ -93,6 +104,9 @@ class CounterOrderController extends AdminController
         if ($guard instanceof Response) {
             return $guard;
         }
+        if (($forbidden = $this->channelGuard($guard)) !== null) {
+            return $forbidden;
+        }
 
         $source = $this->source();
 
@@ -114,6 +128,9 @@ class CounterOrderController extends AdminController
         $guard = $this->guard('order.create');
         if ($guard instanceof Response) {
             return $guard;
+        }
+        if (($forbidden = $this->channelGuard($guard)) !== null) {
+            return $forbidden;
         }
 
         $form = $this->request->formBody();
@@ -339,6 +356,27 @@ class CounterOrderController extends AdminController
     private function source(): string
     {
         return str_starts_with($this->request->path(), '/drive') ? 'drive' : 'counter';
+    }
+
+    /**
+     * RG-T12 (canal fixe) : refuse l'acces a la page de l'AUTRE canal quand le role
+     * agissant a un `order_source` FIXE. Un role comptoir visitant `/drive/orders`
+     * (ou l'inverse) ne doit jamais atteindre `index()`/`create()`/`store()` de ce
+     * canal, quel que soit le chemin valide emprunte -- sinon le decoupage par
+     * chemin (voir le docblock de la classe) ne protege rien. Un role SANS canal
+     * fixe (admin/manager) n'est jamais bloque ici : `roleFixedSource()` renvoie
+     * `null` et les deux pages restent ouvertes. Meme reponse (403, vue
+     * `admin/forbidden`) que la garde de permission d'`AdminController::guard()`,
+     * pour une convention de refus homogene.
+     */
+    private function channelGuard(GuardResult $guard): ?Response
+    {
+        $roleSource = $this->roleFixedSource($guard->roleId ?? 0);
+        if ($roleSource !== null && $roleSource !== $this->source()) {
+            return $this->adminView('admin/forbidden', ['title' => 'Accès refusé', 'activeNav' => ''], $guard, 403);
+        }
+
+        return null;
     }
 
     private function landing(string $source): string
