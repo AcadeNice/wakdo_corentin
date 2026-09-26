@@ -21,8 +21,47 @@ const categorySlug = CATEGORY_ID_TO_SLUG[categoryId] ?? 'menus';
 
 const grid       = document.getElementById('products-grid');
 const heading    = document.getElementById('products-heading');
+const subheading = document.getElementById('products-subheading');
 const backBtn    = document.getElementById('back-to-categories');
 const errorBlock = document.getElementById('products-error');
+
+/*
+ * A6 (audit maquette vs front) : phrase descriptive sous le titre, comme la
+ * maquette. Le texte n'existe nulle part en base (`category` n'a pas de colonne
+ * `description`) et la maquette ne couvre que 2 categories sur les 9 du
+ * catalogue (les 7 autres n'apparaissent que comme onglets du bandeau, jamais en
+ * ecran de liste) -- une table de correspondance cote front, plutot qu'une
+ * migration de schema, est la solution la plus simple ici : ajouter une colonne
+ * pour 2 valeurs texte fixes, non gerees par le back-office, serait une
+ * complexite non justifiee (Rasoir d'Ockham). Categories non listees : pas de
+ * sous-titre affiche (rien n'est invente).
+ */
+const CATEGORY_SUBTITLES = {
+    menus: 'Un sandwich, une friture ou une salade et une boisson',
+    boissons: 'Une petite soif, sucrée, légère, rafraîchissante',
+};
+
+/**
+ * Titre client d'une categorie ("Nos menus") a partir du libelle brut de la base
+ * ("Menus", capitalise par la migration 0013 pour le back-office). Pur (cible de
+ * test), A7.
+ * @param {string} rawName
+ * @returns {string}
+ */
+export function customerCategoryTitle(rawName) {
+    return `Nos ${rawName.charAt(0).toLowerCase() + rawName.slice(1)}`;
+}
+
+/**
+ * Sous-titre connu pour un slug de categorie, ou null si la maquette ne le
+ * couvre pas (rien n'est invente pour les 7 autres categories). Pur (cible de
+ * test), A6.
+ * @param {string} slug
+ * @returns {string|null}
+ */
+export function categorySubtitle(slug) {
+    return CATEGORY_SUBTITLES[slug] ?? null;
+}
 
 /* Build back URL preserving mode query param if present */
 const modeParam = params.get('mode');
@@ -44,10 +83,14 @@ async function renderProducts() {
         ]);
 
         if (heading && category) {
-            /* Capitalize first letter of the category title */
-            const title = category.title.charAt(0).toUpperCase() + category.title.slice(1);
-            heading.textContent = `Nos ${title}`;
+            heading.textContent = customerCategoryTitle(category.title);
             document.title = categoryPageTitle(heading.textContent);
+
+            if (subheading) {
+                const sub = categorySubtitle(categorySlug);
+                subheading.textContent = sub ?? '';
+                subheading.hidden = !sub;
+            }
         }
 
         if (!products.length) {

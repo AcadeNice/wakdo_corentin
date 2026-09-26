@@ -83,6 +83,9 @@ playwright-report/
 test-results/
 /blob-report/
 .last-run.json
+# Captures brutes deposees par un script Playwright jetable (ex. e2e.sh
+# CAPTURES_DIR) : outil de mise au point, jamais un artefact a versionner.
+/.captures/
 
 # === Docker volumes locaux ===
 /docker-data/

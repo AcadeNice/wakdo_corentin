@@ -148,6 +148,22 @@ test('openProductOptions: ajout avec la taille choisie -> item porte le product_
     assert.equal(cart[0].libelle, 'Coca - 50 cl');
 });
 
+test('openProductOptions: le picker de taille porte une image (carte, A3) et la question/aide (A2)', () => {
+    openProductOptions(soda, 'boissons');
+    const btns = document.querySelectorAll('.product-options__sizes .size-btn');
+    const img = btns[0].querySelector('.size-btn__image');
+    assert.ok(img, 'chaque taille doit porter une image, comme la maquette');
+    assert.equal(img.getAttribute('src'), 'c.png');
+    assert.equal(btns[0].textContent, '30 cl'); // l image ne doit rien ajouter au texte du bouton
+    assert.match(document.querySelector('.composer-step__subtitle').textContent, /petite soif/i);
+    assert.match(document.querySelector('.composer-step__hint').textContent, /0,50/); // 240 - 190 = 50 cts
+});
+
+test('openProductOptions: sans plusieurs tailles, pas de question "Une petite soif ?" (pas de picker)', () => {
+    openProductOptions(product, 'boissons');
+    assert.equal(document.querySelector('.composer-step__subtitle'), null);
+});
+
 test('openProductOptions: produit sans taille -> aucun picker, ajout direct (product_id de base)', () => {
     openProductOptions(product, 'boissons');                // product sans sizes
     assert.equal(document.querySelectorAll('.product-options__sizes .size-btn').length, 0);

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 200">
+  <!--
+    Wakdo - illustration sobre du chevalet de table (A8, audit maquette vs front).
+    Dessin maison en couleurs de la charte Wakdo, sans logo ni photo de marque tierce
+    (remplace la photo extraite de la maquette de l'ecole, qui portait le logo
+    McDonald's, incoherent devant un jury sur un projet rebaptise Wakdo).
+    Un pliage simple pose sur une table, portant un numero, juste assez pour
+    rappeler la forme de l'objet reel, sans etre une photo.
+  -->
+  <rect x="20" y="176" width="120" height="10" rx="5" fill="#D1D1D1"/>
+  <path d="M40 176 L40 60 Q40 44 56 40 L80 32 L104 40 Q120 44 120 60 L120 176 Z"
+        fill="#FFFFFF" stroke="#1A1A1A" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M80 32 L80 176" stroke="#D1D1D1" stroke-width="3"/>
+  <circle cx="80" cy="104" r="36" fill="#FFF8E6" stroke="#FFC72C" stroke-width="6"/>
+  <text x="80" y="117" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', Arial, sans-serif"
+        font-size="34" font-weight="700" fill="#1A1A1A">24</text>
+</svg>

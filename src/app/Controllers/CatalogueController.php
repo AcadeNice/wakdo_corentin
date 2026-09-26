@@ -264,7 +264,7 @@ class CatalogueController extends Controller
      *        CALCULES depuis la recette (F11b), deja dedupliques par le depot.
      * @param bool $allergensComplete false des qu'un ingredient de la recette n'a pas
      *        ete revu : la liste n'est alors pas affirmable.
-     * @return array{id: int, category_id: int, name: string, description: ?string, price_cents: int, image_path: ?string, display_order: int, maxi_variant_name: ?string, sizes: list<array{product_id: int, size_cl: int, price_cents: int, label: string}>, allergens: list<array{id: int, code: string, name: string}>, allergens_complete: bool, is_orderable: bool}
+     * @return array{id: int, category_id: int, name: string, description: ?string, price_cents: int, image_path: ?string, display_order: int, maxi_variant_name: ?string, maxi_variant_image_path: ?string, sizes: list<array{product_id: int, size_cl: int, price_cents: int, label: string}>, allergens: list<array{id: int, code: string, name: string}>, allergens_complete: bool, is_orderable: bool}
      */
     private function presentProduct(
         array $row,
@@ -285,6 +285,9 @@ class CatalogueController extends Controller
             // le produit n'a pas de variante. La borne l'affiche en format Maxi pour ne
             // pas montrer "Moyenne Frite" sur un menu agrandi.
             'maxi_variant_name' => $this->nullableString($row['maxi_variant_name'] ?? null),
+            // Photo REELLE de cette variante Grande (A3, audit maquette vs front) : NULL
+            // si le produit n'a pas de variante Maxi, comme maxi_variant_name ci-dessus.
+            'maxi_variant_image_path' => $this->nullableString($row['maxi_variant_image_path'] ?? null),
             'sizes'         => array_map(
                 static function (array $size): array {
                     $cl = (int) ($size['size_cl'] ?? 0);

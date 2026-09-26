@@ -87,6 +87,9 @@ export function loadProducts() {
                 // maxiNom : nom de la variante Maxi (ex. "Grande Frite") quand le produit
                 // en a une, sinon null. Le composeur de menu l'affiche en format Maxi.
                 maxiNom: p.maxi_variant_name ?? null,
+                // maxiImage : photo REELLE de cette variante (A3, audit maquette vs front)
+                // -- le visuel du format Maxi montre la Grande Frite, pas la Moyenne.
+                maxiImage: p.maxi_variant_image_path ?? null,
                 sizes: Array.isArray(p.sizes) ? p.sizes : [],
                 // allergenes (F11b) : calcules serveur depuis la recette, deja
                 // dedupliques. allergenesComplets = false des qu'un ingredient n'a pas
