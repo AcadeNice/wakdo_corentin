@@ -44,6 +44,7 @@ use App\Core\Autoloader;
 use App\Core\Config;
 use App\Core\Cors;
 use App\Core\Database;
+use App\Core\ErrorDisplay;
 use App\Core\Request;
 use App\Core\Response;
 use App\Core\Router;
@@ -58,6 +59,13 @@ header('X-Content-Type-Options: nosniff');
 header('X-Robots-Tag: noindex, nofollow');
 
 $config = new Config();
+
+// Destination des erreurs PHP, posee AVANT tout code susceptible d'echouer : au
+// journal seul quand APP_DEBUG est faux, a l'ecran en plus quand il est vrai. Le
+// reglage vient du code, pas d'une surcharge de fichier de composition qu'un
+// deploiement pourrait oublier (voir App\Core\ErrorDisplay).
+ErrorDisplay::apply($config);
+
 date_default_timezone_set($config->timezone());
 
 // Requete + middleware CORS construits AVANT le try : ils ne dependent que de la
