@@ -22,6 +22,16 @@ final class RequestFormBodyTest extends TestCase
         return new Request($method, '/login', [], $headers, $rawBody, $remoteAddr);
     }
 
+    /**
+     * @param array<string, string> $headers
+     * @param array<string, mixed> $post
+     * @param array<string, mixed> $files
+     */
+    private function requestWithPost(array $headers, array $post, array $files = []): Request
+    {
+        return new Request('POST', '/admin/products', [], $headers, '', '203.0.113.5', $files, $post);
+    }
+
     public function testFormBodyParsesUrlencodedBody(): void
     {
         $request = $this->request(
@@ -124,5 +134,130 @@ final class RequestFormBodyTest extends TestCase
         $request = $this->request('POST', '', [], '');
 
         self::assertSame('0.0.0.0', $request->clientIp());
+    }
+
+    /* --- formBody() : multipart/form-data (bug corrige 2026-09-26) ------------
+     *
+     * AVANT le correctif, formBody() ne reconnaissait QUE l'urlencode et
+     * renvoyait [] pour tout multipart/form-data -- soit CHAQUE formulaire
+     * produit/categorie (enctype impose par l'upload d'image, meme sans fichier
+     * choisi). _csrf etait donc TOUJOURS absent : Csrf::validate() echouait
+     * systematiquement, "Requête invalide." (403) sur la creation/modification de
+     * produit ou de categorie, quelle que soit la taille de l'image.
+     */
+
+    public function testFormBodyReadsPostForMultipartContentType(): void
+    {
+        $request = $this->requestWithPost(
+            ['content-type' => 'multipart/form-data; boundary=----abc123'],
+            ['_csrf' => 'tok', 'name' => 'Big Mac'],
+        );
+
+        self::assertSame(['_csrf' => 'tok', 'name' => 'Big Mac'], $request->formBody());
+    }
+
+    public function testFormBodyReadsPostForMultipartEvenWithoutAnyFileChosen(): void
+    {
+        // Le cas le plus courant : le formulaire porte multipart/form-data pour
+        // l'upload d'image, mais l'equipier n'en choisit pas -- $_FILES est vide,
+        // $_POST ne l'est pas.
+        $request = $this->requestWithPost(
+            ['content-type' => 'multipart/form-data; boundary=----abc123'],
+            ['_csrf' => 'tok'],
+            [],
+        );
+
+        self::assertSame(['_csrf' => 'tok'], $request->formBody());
+    }
+
+    public function testFormBodyDropsArrayShapedValuesForMultipartToo(): void
+    {
+        $request = $this->requestWithPost(
+            ['content-type' => 'multipart/form-data; boundary=----abc123'],
+            ['name' => 'ok', 'tags' => ['a', 'b']],
+        );
+
+        self::assertSame(['name' => 'ok'], $request->formBody());
+    }
+
+    public function testFormBodyStillReturnsEmptyForJsonEvenWithPostPopulated(): void
+    {
+        // $post ne doit pas fuiter en dehors des deux content-types de formulaire.
+        $request = $this->requestWithPost(['content-type' => 'application/json'], ['a' => '1']);
+
+        self::assertSame([], $request->formBody());
+    }
+
+    /* --- bodyExceededPostMaxSize() -------------------------------------------- */
+
+    public function testBodyExceededPostMaxSizeDetectsEmptyPostAndFilesWithNonZeroContentLength(): void
+    {
+        $request = $this->requestWithPost(
+            ['content-type' => 'multipart/form-data; boundary=----abc123', 'content-length' => '9000000'],
+            [],
+            [],
+        );
+
+        self::assertTrue($request->bodyExceededPostMaxSize());
+    }
+
+    public function testBodyExceededPostMaxSizeIsFalseWhenPostIsPopulated(): void
+    {
+        $request = $this->requestWithPost(
+            ['content-type' => 'multipart/form-data; boundary=----abc123', 'content-length' => '9000000'],
+            ['_csrf' => 'tok'],
+            [],
+        );
+
+        self::assertFalse($request->bodyExceededPostMaxSize());
+    }
+
+    public function testBodyExceededPostMaxSizeIsFalseWhenFilesArePopulated(): void
+    {
+        $request = $this->requestWithPost(
+            ['content-type' => 'multipart/form-data; boundary=----abc123', 'content-length' => '9000000'],
+            [],
+            ['image_file' => ['error' => UPLOAD_ERR_NO_FILE]],
+        );
+
+        self::assertFalse($request->bodyExceededPostMaxSize());
+    }
+
+    public function testBodyExceededPostMaxSizeIsFalseWithoutContentLength(): void
+    {
+        $request = $this->requestWithPost(
+            ['content-type' => 'multipart/form-data; boundary=----abc123'],
+            [],
+            [],
+        );
+
+        self::assertFalse($request->bodyExceededPostMaxSize());
+    }
+
+    public function testBodyExceededPostMaxSizeIsFalseForNonFormContentType(): void
+    {
+        $request = $this->requestWithPost(
+            ['content-type' => 'application/json', 'content-length' => '9000000'],
+            [],
+            [],
+        );
+
+        self::assertFalse($request->bodyExceededPostMaxSize());
+    }
+
+    public function testBodyExceededPostMaxSizeIsFalseOnGet(): void
+    {
+        $request = new Request(
+            'GET',
+            '/admin/products',
+            [],
+            ['content-type' => 'multipart/form-data; boundary=----abc123', 'content-length' => '9000000'],
+            '',
+            '203.0.113.5',
+            [],
+            [],
+        );
+
+        self::assertFalse($request->bodyExceededPostMaxSize());
     }
 }

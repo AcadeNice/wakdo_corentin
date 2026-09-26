@@ -507,8 +507,21 @@ class IngredientController extends AdminController
             return $this->renderRestock($guard, $id, $ingredient, $form, $errors, 422);
         }
 
-        $this->ingredientRepository()->restock($id, (int) $packs, $guard->userId, $note !== '' ? $note : null);
-        $this->setFlash('Réapprovisionnement enregistré.');
+        $applied = $this->ingredientRepository()->restock($id, (int) $packs, $guard->userId, $note !== '' ? $note : null);
+
+        // Le stock est PLAFONNE a la capacite : si l'ingredient est deja plein (ou
+        // pres de l'etre), l'augmentation reellement appliquee peut etre plus
+        // petite que demandee, voire nulle. Sans ce controle, l'equipier voit un
+        // message de succes generique alors que le stock affiche n'a pas bouge --
+        // le bug remonte (2026-09-26) : "je fais un mouvement, il ne se passe rien".
+        $requested = (int) $packs * (int) ($ingredient['pack_size'] ?? 0);
+        $this->setFlash($applied < $requested
+            ? sprintf(
+                'Réapprovisionnement enregistré, mais plafonné à la capacité maximale : +%d au lieu de +%d demandé(s).',
+                $applied,
+                $requested,
+            )
+            : 'Réapprovisionnement enregistré.');
 
         return $this->redirect('/admin/ingredients');
     }
@@ -599,10 +612,20 @@ class IngredientController extends AdminController
         // Succes : la correction ecrit stock_movement.user_id (acteur resolu par PIN).
         // PAS de ligne audit_log (RG-T14 : la trace stock_movement suffit, pas de
         // double-journal). inventoryCount ouvre sa propre transaction (UPDATE+INSERT).
-        $this->ingredientRepository()->inventoryCount($id, (int) $actual, $actor['id'], $note !== '' ? $note : null);
+        $recorded = $this->ingredientRepository()->inventoryCount($id, (int) $actual, $actor['id'], $note !== '' ? $note : null);
         $this->pinThrottle()->reset($actorId);
 
-        $this->setFlash('Inventaire enregistré.');
+        // Le compte est PLAFONNE a la capacite (meme raison que restock()/adjust()) :
+        // un comptage physique superieur a la capacite configuree est retenu a la
+        // capacite, pas au chiffre saisi. Le dire, sinon l'ecart entre le compte
+        // saisi et le stock affiche ensuite passerait pour un bug.
+        $this->setFlash($recorded !== (int) $actual
+            ? sprintf(
+                'Inventaire enregistré, mais plafonné à la capacité maximale : %d retenu au lieu de %d compté.',
+                $recorded,
+                (int) $actual,
+            )
+            : 'Inventaire enregistré.');
 
         return $this->redirect('/admin/ingredients');
     }
@@ -694,10 +717,20 @@ class IngredientController extends AdminController
             return $this->renderAdjust($guard, $id, $ingredient, $form, ['pin' => 'Email ou PIN invalide (requis pour l\'ajustement).'], 422);
         }
 
-        $this->ingredientRepository()->adjust($id, (int) $delta, $actor['id'], $note !== '' ? $note : null);
+        $applied = $this->ingredientRepository()->adjust($id, (int) $delta, $actor['id'], $note !== '' ? $note : null);
         $this->pinThrottle()->reset($actorId);
 
-        $this->setFlash('Ajustement de stock enregistré.');
+        // Plafonnement a la capacite (meme raison que restock()) : un ajustement
+        // positif sur un ingredient deja plein s'applique a 0 -- rien ne bouge a
+        // l'ecran. Le dire explicitement plutot que de laisser un message de
+        // succes generique faire croire a un bug ("il ne se passe rien").
+        $this->setFlash($applied !== (int) $delta
+            ? sprintf(
+                'Ajustement enregistré, mais plafonné à la capacité maximale : %+d appliqué au lieu de %+d demandé.',
+                $applied,
+                (int) $delta,
+            )
+            : 'Ajustement de stock enregistré.');
 
         return $this->redirect('/admin/ingredients');
     }

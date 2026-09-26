@@ -262,6 +262,32 @@ final class CategoryApiControllerTest extends TestCase
         self::assertFalse($db->wrote('INSERT INTO category'));
     }
 
+    /**
+     * Meme garde, Content-Type multipart/form-data specifiquement : c'est le
+     * type reel du formulaire HTML categorie (upload d'image), corrige cote
+     * Request::formBody() pour CE formulaire -- l'API JSON ne doit PAS suivre le
+     * meme assouplissement, elle reste strictement JSON.
+     */
+    public function testStoreRejectsMultipartContentType(): void
+    {
+        $db = $this->permittedDb();
+        $request = new Request(
+            'POST',
+            '/admin/api/categories',
+            [],
+            ['x-csrf-token' => $this->csrf, 'content-type' => 'multipart/form-data; boundary=----wakdoTestBoundary'],
+            '{"name":"Boissons","slug":"boissons"}',
+            '203.0.113.5',
+        );
+
+        $response = $this->controller($request, $db)->apiStore();
+
+        self::assertSame(415, $response->status());
+        $body = json_decode($response->body(), true);
+        self::assertSame('UNSUPPORTED_MEDIA_TYPE', $body['error']['code'] ?? null);
+        self::assertFalse($db->wrote('INSERT INTO category'));
+    }
+
     public function testStoreRejectsJsonListAsRootReturns400(): void
     {
         $db = $this->permittedDb();

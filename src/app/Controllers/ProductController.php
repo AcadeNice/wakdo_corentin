@@ -197,6 +197,15 @@ class ProductController extends AdminController
         }
 
         $form = $this->request->formBody();
+
+        // A verifier AVANT le CSRF : un corps rejete par post_max_size (image trop
+        // lourde) vide _csrf comme tout le reste ; sans cette branche, l'equipier
+        // recevrait le 403 generique "Requete invalide" sans savoir pourquoi.
+        $oversized = $this->oversizedUploadError();
+        if ($oversized !== null) {
+            return $this->renderForm($guard, 0, $form, ['image_file' => $oversized], 422);
+        }
+
         if (!Csrf::validate($this->sessionManager(), $form['_csrf'] ?? null)) {
             return $this->invalidCsrf();
         }
@@ -269,11 +278,18 @@ class ProductController extends AdminController
         }
 
         $form = $this->request->formBody();
+
+        $id = (int) ($params['id'] ?? 0);
+
+        $oversized = $this->oversizedUploadError();
+        if ($oversized !== null) {
+            return $this->renderForm($guard, $id, $form, ['image_file' => $oversized], 422);
+        }
+
         if (!Csrf::validate($this->sessionManager(), $form['_csrf'] ?? null)) {
             return $this->invalidCsrf();
         }
 
-        $id = (int) ($params['id'] ?? 0);
         $current = $this->productRepository()->find($id);
         if ($current === null) {
             return $this->notFound($guard);

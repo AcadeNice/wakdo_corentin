@@ -67,6 +67,15 @@ test('le bouton Police adaptee ne recouvre aucun bouton d action une fois le con
 // Regression F40 (mise en page) : les cases Retirable et Ajoutable, ajoutees comme
 // deux <label> DOM distincts sans le moindre espace entre elles (product-recipe.js),
 // se touchaient. Une marge sur le premier label les separe desormais.
+//
+// Cible le produit d'id 1 ("Le 280", 6 ingredients de recette dans le seed
+// db/seeds/0003_ingredients_recipes.sql) DIRECTEMENT par id, plutot que "le premier
+// produit avec un lien Recette" par POSITION dans la liste : ce dernier depend de
+// l'ORDRE d'execution des tests -- un test qui cree un nouveau produit AVANT celui-ci
+// (meme dans un AUTRE fichier de spec, meme pile) le fait remonter en tete de
+// /admin/products et decale silencieusement quel produit est teste ici, jusqu'a
+// tomber sur un produit sans recette (le test echoue alors sans rapport avec la
+// regression F40 qu'il verifie). Naviguer par id rend le test independant de l'ordre.
 test('les cases Retirable et Ajoutable de la recette ne sont pas collees', async ({ page }) => {
   await page.goto('http://admin.wakdo.test/login');
   await page.fill('#email', EMAIL);
@@ -74,9 +83,8 @@ test('les cases Retirable et Ajoutable de la recette ne sont pas collees', async
   await page.locator('form[action="/login"] button[type="submit"]').click();
   await expect(page.locator('#userMenuBtn')).toBeVisible();
 
-  await page.goto('http://admin.wakdo.test/admin/products');
-  await page.locator('a.btn:has-text("Recette")').first().click();
-  await expect(page).toHaveURL(/\/admin\/products\/\d+\/recipe/);
+  await page.goto('http://admin.wakdo.test/admin/products/1/recipe');
+  await expect(page).toHaveURL(/\/admin\/products\/1\/recipe/);
 
   const removableLabel = page.locator('.recipe-removable').first().locator('xpath=..');
   const addableLabel = page.locator('.recipe-addable').first().locator('xpath=..');

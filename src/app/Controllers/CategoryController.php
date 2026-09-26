@@ -66,6 +66,14 @@ class CategoryController extends AdminController
         }
 
         $form = $this->request->formBody();
+
+        // A verifier AVANT le CSRF : un corps rejete par post_max_size (image trop
+        // lourde) vide _csrf comme tout le reste (voir Request::formBody()).
+        $oversized = $this->oversizedUploadError();
+        if ($oversized !== null) {
+            return $this->renderForm($guard, 0, $form, ['image_file' => $oversized], 422);
+        }
+
         if (!Csrf::validate($this->sessionManager(), $form['_csrf'] ?? null)) {
             return $this->invalidCsrf();
         }
@@ -134,11 +142,18 @@ class CategoryController extends AdminController
         }
 
         $form = $this->request->formBody();
+
+        $id = (int) ($params['id'] ?? 0);
+
+        $oversized = $this->oversizedUploadError();
+        if ($oversized !== null) {
+            return $this->renderForm($guard, $id, $form, ['image_file' => $oversized], 422);
+        }
+
         if (!Csrf::validate($this->sessionManager(), $form['_csrf'] ?? null)) {
             return $this->invalidCsrf();
         }
 
-        $id = (int) ($params['id'] ?? 0);
         $repo = $this->categoryRepository();
         $current = $repo->find($id);
         if ($current === null) {

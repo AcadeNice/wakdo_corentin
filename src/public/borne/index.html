@@ -147,6 +147,11 @@
 
     </main>
 
+    <!-- welcome-reset.js : repart d'une session propre (panier/mode residuels effaces
+         silencieusement). Doit charger AVANT toute lecture de panier sur cet ecran ;
+         l'accueil n'en affiche pas mais garantit ainsi qu'aucune commande "fantome"
+         ne survit a un rechargement ou une coupure. -->
+    <script type="module" src="assets/js/welcome-reset.js"></script>
     <script type="module" src="assets/js/a11y.js"></script>
 </body>
 </html>

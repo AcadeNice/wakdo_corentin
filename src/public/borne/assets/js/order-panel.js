@@ -15,6 +15,7 @@ import {
     updateQuantity,
     computeMenuLineCents,
     clearCart,
+    clearMode,
     formatPrice,
     escHtml,
     getMode,
@@ -255,6 +256,10 @@ export function renderOrderPanel(container) {
                 cancelLabel: 'Continuer ma commande',
                 onConfirm: () => {
                     clearCart();
+                    // Le mode de consommation choisi ne doit pas survivre a un abandon :
+                    // sinon la commande suivante herite silencieusement d'un "Sur place"
+                    // ou "A emporter" que personne n'a choisi pour elle.
+                    clearMode();
                     // La cle d'idempotence vit le temps du PANIER, pas le temps de
                     // l'onglet (F18). Sans cette ligne, un client qui abandonne le panier
                     // d'un precedent laisse la cle en place : sa propre commande serait

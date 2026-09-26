@@ -34,6 +34,15 @@ export function setMode(mode) {
     localStorage.setItem(STORAGE_KEY_MODE, mode);
 }
 
+/**
+ * Efface le mode de consommation memorise. Utilise a la sortie du parcours
+ * (abandon confirme, retour a un accueil propre) : sans cela, un mode choisi lors
+ * d'une commande abandonnee resterait mémorisé pour la suivante.
+ */
+export function clearMode() {
+    localStorage.removeItem(STORAGE_KEY_MODE);
+}
+
 /* --- Cart state ---------------------------------------------------------- */
 
 /**

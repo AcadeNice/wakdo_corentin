@@ -226,9 +226,20 @@ class IngredientApiController extends IngredientController
             return $this->validationErrorResponse(['note' => 'Note trop longue (255 caractères max).']);
         }
 
-        $repo->restock($id, $packs, $guard->userId, $note !== '' ? $note : null);
+        // Le depot PLAFONNE a la capacite (clampToCapacity) : sur un ingredient deja
+        // plein (ou pres de l'etre), le delta REELLEMENT applique peut etre inferieur
+        // a ce que "packs * pack_size" demandait, y compris nul. Le renvoyer permet au
+        // client API de le distinguer d'un reappro a plein effet plutot que de lire
+        // silencieusement un succes qui n'a rien change (meme raison que le flash
+        // HTML, voir IngredientController::restock()).
+        $requestedDelta = $packs * (int) ($ingredient['pack_size'] ?? 0);
+        $appliedDelta = $repo->restock($id, $packs, $guard->userId, $note !== '' ? $note : null);
 
-        return $this->okResponse($this->present((array) $repo->find($id)));
+        return $this->okResponse($this->present((array) $repo->find($id)) + [
+            'applied_delta'   => $appliedDelta,
+            'requested_delta' => $requestedDelta,
+            'clamped'         => $appliedDelta !== $requestedDelta,
+        ]);
     }
 
     /**
@@ -342,9 +353,13 @@ class IngredientApiController extends IngredientController
 
         $id = (int) ($params['id'] ?? 0);
         $repo = $this->ingredientRepository();
-        if ($repo->find($id) === null) {
+        $ingredient = $repo->find($id);
+        if ($ingredient === null) {
             return $this->notFoundResponse();
         }
+        // Stock AVANT ecriture : necessaire pour calculer le delta demande/applique
+        // ci-dessous (inventoryCount() renvoie le compte RETENU, pas un delta).
+        $currentStock = (int) ($ingredient['stock_quantity'] ?? 0);
 
         // fieldInt() delegue a NumericInput::digits() : source unique partagee avec
         // IngredientController (HTML). Un flottant (2.9), "1e3" ou un booleen sont
@@ -369,10 +384,20 @@ class IngredientApiController extends IngredientController
             return $this->pinErrorResponse('Email ou PIN invalide (requis pour l\'inventaire).');
         }
 
-        $repo->inventoryCount($id, (int) $actual, $actor['id'], $note !== '' ? $note : null);
+        // inventoryCount() renvoie le compte RETENU (apres plafonnement a la
+        // capacite), pas un delta : les deux deltas se calculent ici, contre le
+        // stock d'AVANT capture plus haut (meme raison que restock()).
+        $recorded = $repo->inventoryCount($id, (int) $actual, $actor['id'], $note !== '' ? $note : null);
         $this->pinGate()->reset($actorSessionId);
 
-        return $this->okResponse($this->present((array) $repo->find($id)));
+        $requestedDelta = (int) $actual - $currentStock;
+        $appliedDelta = $recorded - $currentStock;
+
+        return $this->okResponse($this->present((array) $repo->find($id)) + [
+            'applied_delta'   => $appliedDelta,
+            'requested_delta' => $requestedDelta,
+            'clamped'         => $appliedDelta !== $requestedDelta,
+        ]);
     }
 
     /**
@@ -428,10 +453,17 @@ class IngredientApiController extends IngredientController
             return $this->pinErrorResponse('Email ou PIN invalide (requis pour l\'ajustement).');
         }
 
-        $repo->adjust($id, $delta, $actor['id'], $note !== '' ? $note : null);
+        // adjust() renvoie le delta REELLEMENT applique (apres plafonnement a la
+        // capacite), a comparer directement au delta demande (meme raison que
+        // restock()/inventoryCount() ci-dessus).
+        $appliedDelta = $repo->adjust($id, $delta, $actor['id'], $note !== '' ? $note : null);
         $this->pinGate()->reset($actorSessionId);
 
-        return $this->okResponse($this->present((array) $repo->find($id)));
+        return $this->okResponse($this->present((array) $repo->find($id)) + [
+            'applied_delta'   => $appliedDelta,
+            'requested_delta' => $delta,
+            'clamped'         => $appliedDelta !== $delta,
+        ]);
     }
 
     /**

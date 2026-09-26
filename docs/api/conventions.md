@@ -216,6 +216,37 @@ Stock et ingredients (`stock.read` / `ingredient.manage` / `stock.manage` / `sto
 | POST | `/admin/api/ingredients/{id}/adjust` | oui | delta signe non nul, meme garde que l'inventaire (R9, `stock.count`) |
 | PUT | `/admin/api/ingredients/{id}/allergens` | non | `{ "allergen_ids": [int], "source": "..." }` (`ingredient.manage`) ; `source` obligatoire |
 
+> **Plafonnement a la capacite (`restock`/`inventory`/`adjust`)** -- le stock d'un
+> ingredient ne depasse JAMAIS sa capacite configuree (`stock_capacity`,
+> `IngredientRepository::clampToCapacity()`). Ces trois endpoints repondent donc
+> avec, en plus de la fiche ingredient a jour :
+>
+> ```json
+> {
+>   "data": {
+>     "id": 3, "name": "Pain sesame", "stock_quantity": 300, "stock_capacity": 300,
+>     "applied_delta": 0,
+>     "requested_delta": 20,
+>     "clamped": true
+>   }
+> }
+> ```
+>
+> - `requested_delta` -- ce que la demande impliquait : `packs * pack_size` pour
+>   `restock`, `delta` tel quel pour `adjust`, `actual_quantity - stock_quantity
+>   (avant ecriture)` pour `inventory`.
+> - `applied_delta` -- le changement REELLEMENT applique au stock, apres
+>   plafonnement. Peut etre inferieur a `requested_delta` (voire `0`) si
+>   l'ingredient est deja a sa capacite ou proche.
+> - `clamped` -- `true` des que `applied_delta != requested_delta` : le client
+>   API DOIT le distinguer d'un succes a plein effet plutot que de lire
+>   silencieusement `200 OK` comme "tout s'est passe comme demande" (bug releve
+>   2026-09-26 : le jeu de donnees de demonstration seede tous les ingredients a
+>   100 % de leur capacite, rendant le tout premier reappro/ajustement toujours
+>   plafonne). Le mouvement `stock_movement` ecrit, lui, TOUJOURS le delta
+>   applique (jamais le delta demande) — ce champ ne fait qu'exposer la meme
+>   valeur au client API, `RG-T08` inchangee.
+
 Utilisateurs et RBAC (`user.read` / `user.create` / `user.update` / `user.deactivate` /
 `role.manage`) :
 
