@@ -17,22 +17,32 @@ use App\Tests\Support\FakeDatabase;
 
 /**
  * Stub OrderQueryRepository : liste canned multi-source (rendu de la liste teste sans
- * base). recent() ramene tous canaux ; le controleur filtre par source derivee du chemin.
+ * base). recentVisible() (pas recent()) : CounterOrderController::index() filtre
+ * desormais EN SQL (relecture adverse, 2e tour, point 3) -- ce stub reproduit le
+ * meme contrat (filtre par $sources, ordre deja croissant en anciennete des lignes
+ * canned) plutot que de laisser le controleur filtrer en PHP apres coup, meme
+ * convention que StubRecentOrders dans OrderAdminControllerTest.php.
  * paidQueue() ramene la file "En cours" canned, deja filtree par source par l'appelant.
  */
 final class StubChannelOrders extends OrderQueryRepository
 {
-    public function recent(int $limit = 50): array
+    /** @var list<array<string, mixed>> */
+    private const ROWS = [
+        ['order_number' => 'C100', 'source' => 'counter', 'service_mode' => 'dine_in', 'service_tag' => null, 'status' => 'paid', 'total_ttc_cents' => 890, 'created_at' => '2026-06-22 10:00:00', 'paid_at' => '2026-06-22 10:00:01'],
+        ['order_number' => 'D200', 'source' => 'drive', 'service_mode' => 'drive', 'service_tag' => null, 'status' => 'paid', 'total_ttc_cents' => 990, 'created_at' => '2026-06-22 10:05:00', 'paid_at' => '2026-06-22 10:05:01'],
+        ['order_number' => 'K9', 'source' => 'kiosk', 'service_mode' => 'takeaway', 'service_tag' => null, 'status' => 'paid', 'total_ttc_cents' => 500, 'created_at' => '2026-06-22 10:06:00', 'paid_at' => '2026-06-22 10:06:01'],
+        // Statuts de cuisine (RG-T09/T20) : regression capture 23, le statut brut
+        // 'preparing'/'ready' s'affichait faute de libelle dans admin/counter/index.php.
+        ['order_number' => 'C101', 'source' => 'counter', 'service_mode' => 'dine_in', 'service_tag' => null, 'status' => 'preparing', 'total_ttc_cents' => 700, 'created_at' => '2026-06-22 10:07:00', 'paid_at' => '2026-06-22 10:07:01'],
+        ['order_number' => 'C102', 'source' => 'counter', 'service_mode' => 'dine_in', 'service_tag' => null, 'status' => 'ready', 'total_ttc_cents' => 600, 'created_at' => '2026-06-22 10:08:00', 'paid_at' => '2026-06-22 10:08:01'],
+    ];
+
+    public function recentVisible(array $sources, int $limit = 50): array
     {
-        return [
-            ['order_number' => 'C100', 'source' => 'counter', 'service_mode' => 'dine_in', 'service_tag' => null, 'status' => 'paid', 'total_ttc_cents' => 890, 'created_at' => '2026-06-22 10:00:00', 'paid_at' => '2026-06-22 10:00:01'],
-            ['order_number' => 'D200', 'source' => 'drive', 'service_mode' => 'drive', 'service_tag' => null, 'status' => 'paid', 'total_ttc_cents' => 990, 'created_at' => '2026-06-22 10:05:00', 'paid_at' => '2026-06-22 10:05:01'],
-            ['order_number' => 'K9', 'source' => 'kiosk', 'service_mode' => 'takeaway', 'service_tag' => null, 'status' => 'paid', 'total_ttc_cents' => 500, 'created_at' => '2026-06-22 10:06:00', 'paid_at' => '2026-06-22 10:06:01'],
-            // Statuts de cuisine (RG-T09/T20) : regression capture 23, le statut brut
-            // 'preparing'/'ready' s'affichait faute de libelle dans admin/counter/index.php.
-            ['order_number' => 'C101', 'source' => 'counter', 'service_mode' => 'dine_in', 'service_tag' => null, 'status' => 'preparing', 'total_ttc_cents' => 700, 'created_at' => '2026-06-22 10:07:00', 'paid_at' => '2026-06-22 10:07:01'],
-            ['order_number' => 'C102', 'source' => 'counter', 'service_mode' => 'dine_in', 'service_tag' => null, 'status' => 'ready', 'total_ttc_cents' => 600, 'created_at' => '2026-06-22 10:08:00', 'paid_at' => '2026-06-22 10:08:01'],
-        ];
+        return array_values(array_filter(
+            self::ROWS,
+            static fn (array $o): bool => in_array((string) $o['source'], $sources, true),
+        ));
     }
 
     public function paidQueue(array $sources): array
@@ -183,6 +193,25 @@ final class CounterOrderControllerTest extends TestCase
         self::assertStringContainsString('Commandes drive', $body);
         self::assertStringContainsString('D200', $body);
         self::assertStringNotContainsString('C100', $body);
+    }
+
+    public function testCounterIndexIsWiredToRecentVisibleNotRecentPlusPhpFilter(): void
+    {
+        // Relecture adverse (2e tour), point 3 : index() doit filtrer EN SQL
+        // (recentVisible), pas recent() + array_filter en PHP apres coup -- meme
+        // motif que celui corrige pour OrderAdminController::index() au 1er tour
+        // (preuve au niveau SQL reel dans
+        // tests/Integration/OrderQueryRepositoryVisibleDbTest.php). StubChannelOrders
+        // n'implemente plus QUE recentVisible() (plus recent()) : si le controleur
+        // appelait encore recent(), il retomberait sur l'implementation REELLE du
+        // parent OrderQueryRepository contre le FakeDatabase de ce test, qui ne sait
+        // pas repondre a cette requete et renverrait une liste vide -- ce test
+        // (comme testCounterIndexListsOnlyCounterOrders juste au-dessus) virerait
+        // au rouge si quelqu'un revenait au motif filtre-apres-coup.
+        $response = $this->controller($this->get('/counter/orders'), $this->permittedDb())->index();
+
+        self::assertSame(200, $response->status());
+        self::assertStringContainsString('C100', $response->body());
     }
 
     public function testCreateRendersProductComposer(): void

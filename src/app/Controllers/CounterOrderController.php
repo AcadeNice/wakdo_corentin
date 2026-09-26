@@ -82,13 +82,13 @@ class CounterOrderController extends AdminController
         $source = $this->source();
         $orderQuery = $this->orderQuery();
 
-        // RG-1 (5.1, source filter) : ne lister que les commandes du canal. recent()
-        // ramene les plus recentes tous canaux ; on filtre sur la source derivee du
-        // chemin pour que le comptoir ne voie pas le drive et inversement.
-        $orders = array_values(array_filter(
-            $orderQuery->recent(50),
-            static fn (array $o): bool => (string) ($o['source'] ?? '') === $source,
-        ));
+        // RG-1 (5.1, source filter) : ne lister que les commandes du canal, filtree
+        // EN SQL (recentVisible), pas apres coup sur recent(50) (relecture adverse,
+        // point 3 du 2e tour) : un filtre PHP APRES le LIMIT peut faire disparaitre
+        // des commandes reelles de ce canal si elles sont plus anciennes que les 50
+        // plus recentes TOUS canaux confondus -- meme motif corrige pour
+        // OrderAdminController::index() (relecture adverse, 1er tour, point 6).
+        $orders = $orderQuery->recentVisible([$source], 50);
 
         // File "En cours" (RG-T12) : commandes du canal au statut paid non livrees,
         // la plus ancienne d'abord (tri paid_at croissant fait par paidQueue). Filtree
