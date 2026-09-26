@@ -11,7 +11,7 @@
 --                aussi la 50 cl.
 --
 -- Perimetre : seules les boissons fontaine ont deux tailles (Coca Cola, Coca Sans
--- Sucres, Fanta Orange, Ice Tea Peche, Ice Tea Citron). Les boissons en bouteille
+-- Sucres, Fanta Orange, Ice Tea Pêche, Ice Tea Citron). Les boissons en bouteille
 -- (Eau, Jus d'Orange, Jus de Pommes Bio) restent mono-taille (size_cl laisse NULL,
 -- aucune variante).
 --
@@ -38,7 +38,7 @@ SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;
 UPDATE product
 SET size_cl = 30
 WHERE base_product_id IS NULL
-  AND name IN ('Coca Cola', 'Coca Sans Sucres', 'Fanta Orange', 'Ice Tea Peche', 'Ice Tea Citron');
+  AND name IN ('Coca Cola', 'Coca Sans Sucres', 'Fanta Orange', 'Ice Tea Pêche', 'Ice Tea Citron');
 
 -- -----------------------------------------------------------------------------
 -- 2. Inserer la VARIANTE 50 cl de chaque soda. category_id / vat_rate / image
@@ -54,7 +54,7 @@ FROM (
     SELECT id, category_id, CONCAT(name, ' 50cl') AS name_50, price_cents, vat_rate, image_path, display_order
     FROM product
     WHERE base_product_id IS NULL
-      AND name IN ('Coca Cola', 'Coca Sans Sucres', 'Fanta Orange', 'Ice Tea Peche', 'Ice Tea Citron')
+      AND name IN ('Coca Cola', 'Coca Sans Sucres', 'Fanta Orange', 'Ice Tea Pêche', 'Ice Tea Citron')
 ) b
 WHERE NOT EXISTS (
     SELECT 1 FROM (SELECT base_product_id FROM product WHERE base_product_id IS NOT NULL) v

@@ -14,7 +14,7 @@
 --           de libelle reflechira "<soda> 50cl".
 --
 -- Perimetre : seules les boissons fontaine ont une variante 50 cl (Coca Cola, Coca
--- Sans Sucres, Fanta Orange, Ice Tea Peche, Ice Tea Citron). Les boissons en
+-- Sans Sucres, Fanta Orange, Ice Tea Pêche, Ice Tea Citron). Les boissons en
 -- bouteille (Eau, Jus d'Orange, Jus de Pommes Bio) n'ont pas de variante : elles
 -- restent en taille standard meme en Maxi (degradation gracieuse, modele fast-food
 -- usuel). Le surcout Maxi est porte par le menu (price_maxi_cents), pas par la

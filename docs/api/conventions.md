@@ -226,7 +226,7 @@ Stock et ingredients (`stock.read` / `ingredient.manage` / `stock.manage` / `sto
 > ```json
 > {
 >   "data": {
->     "id": 3, "name": "Pain sesame", "stock_quantity": 300, "stock_capacity": 300,
+>     "id": 3, "name": "Pain sésame", "stock_quantity": 300, "stock_capacity": 300,
 >     "applied_delta": 0,
 >     "requested_delta": 20,
 >     "clamped": true

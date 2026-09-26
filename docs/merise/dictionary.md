@@ -259,7 +259,7 @@ Catalogue des 14 allergenes reglementes (Reglement INCO (UE) 1169/2011).
 |---|---|---|---|---|---|
 | `id` | INT UNSIGNED | NO | AUTO_INCREMENT | PK | |
 | `code` | VARCHAR(30) | NO | — | UNIQUE | code lisible par machine, ex. `gluten`, `milk`, `nuts` |
-| `name` | VARCHAR(80) | NO | — | — | nom d'affichage, ex. "Gluten", "Lait", "Fruits a coque" |
+| `name` | VARCHAR(80) | NO | — | — | nom d'affichage, ex. "Gluten", "Lait", "Fruits à coque" |
 | `description` | TEXT | YES | NULL | — | guidance optionnelle pour le personnel |
 
 **Volume** : 14 lignes au seed (fixe par le reglement UE 1169/2011, liste confirmee au moment du seed).
