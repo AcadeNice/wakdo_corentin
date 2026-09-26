@@ -114,3 +114,119 @@ test('init sans modale (role sans stock.manage) ne plante pas', () => {
     const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>');
     assert.doesNotThrow(() => stockThresholds.init(dom.window.document));
 });
+
+/*
+ * Repere visuel "ligne modifiee" (lot 3, design-system.md §2.6). Deux moitiees testees
+ * separement : la pose de la cle (soumission d'un formulaire porteur de data-row-key,
+ * ou imbrique dans une ligne qui en porte une) et sa lecture (chargement suivant,
+ * consommation a usage unique, application de la classe .row-highlight).
+ */
+// sessionStorage n'est expose par jsdom que sur une origine non-opaque : chaque JSDOM
+// ci-dessous recoit donc une url (comme le navigateur reel, jamais about:blank).
+const ORIGIN = { url: 'http://admin.wakdo.test/' };
+
+test.describe('initRowHighlight - pose de la cle en sessionStorage a la soumission', () => {
+    test('un formulaire portant data-row-key depose la cle avant de naviguer', () => {
+        const dom = new JSDOM(
+            '<!DOCTYPE html><html><body>' +
+            '<form data-row-key="ingredient:42"><button type="submit">Go</button></form>' +
+            '</body></html>',
+            ORIGIN,
+        );
+        const doc = dom.window.document;
+        stockThresholds.initRowHighlight(doc);
+
+        const evt = new dom.window.Event('submit', { cancelable: true, bubbles: true });
+        doc.querySelector('form').dispatchEvent(evt);
+
+        assert.equal(dom.window.sessionStorage.getItem('wakdo-row-highlight'), 'ingredient:42');
+    });
+
+    test('un formulaire IMBRIQUE dans une ligne porteuse de data-row-key depose la cle de la ligne (cas du bouton Desactiver/Reactiver, imbrique dans .stock-list__row)', () => {
+        const dom = new JSDOM(
+            '<!DOCTYPE html><html><body>' +
+            '<li data-row-key="ingredient:7">' +
+            '  <form class="stock-list__inline-form"><button type="submit">Désactiver</button></form>' +
+            '</li>' +
+            '</body></html>',
+            ORIGIN,
+        );
+        const doc = dom.window.document;
+        stockThresholds.initRowHighlight(doc);
+
+        const evt = new dom.window.Event('submit', { cancelable: true, bubbles: true });
+        doc.querySelector('form').dispatchEvent(evt);
+
+        assert.equal(dom.window.sessionStorage.getItem('wakdo-row-highlight'), 'ingredient:7');
+    });
+
+    test('un formulaire hors de toute ligne ne depose rien (pas de plantage)', () => {
+        const dom = new JSDOM(
+            '<!DOCTYPE html><html><body><form><button type="submit">Go</button></form></body></html>',
+            ORIGIN,
+        );
+        const doc = dom.window.document;
+        stockThresholds.initRowHighlight(doc);
+
+        assert.doesNotThrow(() => {
+            doc.querySelector('form').dispatchEvent(new dom.window.Event('submit', { cancelable: true, bubbles: true }));
+        });
+        assert.equal(dom.window.sessionStorage.getItem('wakdo-row-highlight'), null);
+    });
+});
+
+test.describe('initRowHighlight - lecture au chargement suivant', () => {
+    test('une cle valide en attente met .row-highlight sur CHAQUE ligne correspondante, puis est consommee (usage unique)', () => {
+        const dom = new JSDOM(
+            '<!DOCTYPE html><html><body>' +
+            '<div data-row-key="ingredient:42" class="stock-card"></div>' +
+            '<li data-row-key="ingredient:42" class="stock-list__row"></li>' +
+            '<li data-row-key="ingredient:99" class="stock-list__row"></li>' +
+            '</body></html>',
+            ORIGIN,
+        );
+        const doc = dom.window.document;
+        dom.window.sessionStorage.setItem('wakdo-row-highlight', 'ingredient:42');
+
+        stockThresholds.initRowHighlight(doc);
+
+        const matched = doc.querySelectorAll('[data-row-key="ingredient:42"]');
+        assert.equal(matched.length, 2);
+        matched.forEach((el) => assert.equal(el.classList.contains('row-highlight'), true));
+        assert.equal(doc.querySelector('[data-row-key="ingredient:99"]').classList.contains('row-highlight'), false);
+        // Usage unique : la cle est effacee, un rechargement ulterieur ne re-applique rien.
+        assert.equal(dom.window.sessionStorage.getItem('wakdo-row-highlight'), null);
+    });
+
+    test('aucune cle en attente : aucune ligne marquee, ne plante pas', () => {
+        // <tr> reel, dans un <table> (une balise de ligne isolee du <body> serait
+        // deplacee par l'algorithme de construction d'arbre HTML5 - pas un cas reel).
+        const dom = new JSDOM(
+            '<!DOCTYPE html><html><body><table><tbody><tr data-row-key="product:5"></tr></tbody></table></body></html>',
+            ORIGIN,
+        );
+        const doc = dom.window.document;
+        assert.doesNotThrow(() => stockThresholds.initRowHighlight(doc));
+        assert.equal(doc.querySelector('[data-row-key="product:5"]').classList.contains('row-highlight'), false);
+    });
+
+    test('cle presente mais aucune ligne ne correspond (ex. produit supprime) : aucun plantage', () => {
+        const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>', ORIGIN);
+        dom.window.sessionStorage.setItem('wakdo-row-highlight', 'product:404');
+        assert.doesNotThrow(() => stockThresholds.initRowHighlight(dom.window.document));
+    });
+
+    test('cle malformee (injection de selecteur CSS) : rejetee sans etre utilisee comme selecteur', () => {
+        const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>', ORIGIN);
+        dom.window.sessionStorage.setItem('wakdo-row-highlight', 'ingredient:1"][data-x="y');
+        assert.doesNotThrow(() => stockThresholds.initRowHighlight(dom.window.document));
+    });
+
+    test('sessionStorage indisponible (navigation privee) : ne plante pas', () => {
+        const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>');
+        Object.defineProperty(dom.window, 'sessionStorage', {
+            get() { throw new Error('SecurityError'); },
+        });
+        assert.doesNotThrow(() => stockThresholds.initRowHighlight(dom.window.document));
+    });
+});

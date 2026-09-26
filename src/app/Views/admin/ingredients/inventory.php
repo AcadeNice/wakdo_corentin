@@ -35,7 +35,7 @@ $err = static fn (string $k): string => isset($errs[$k]) && is_string($errs[$k])
     </div>
 </div>
 
-<form method="post" action="/admin/ingredients/<?= $id ?>/inventory" class="form-card">
+<form method="post" action="/admin/ingredients/<?= $id ?>/inventory" class="form-card" data-row-key="ingredient:<?= $id ?>">
     <input type="hidden" name="_csrf" value="<?= $csrf ?>">
 
     <p><small>Saisissez le comptage physique réel. L'écart avec le théorique est enregistré et imputé à l'équipier (action tracée).</small></p>

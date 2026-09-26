@@ -36,7 +36,7 @@ $err = static fn (string $k): string => isset($errs[$k]) && is_string($errs[$k])
     </div>
 </div>
 
-<form method="post" action="/admin/ingredients/<?= $id ?>/adjust" class="form-card">
+<form method="post" action="/admin/ingredients/<?= $id ?>/adjust" class="form-card" data-row-key="ingredient:<?= $id ?>">
     <input type="hidden" name="_csrf" value="<?= $csrf ?>">
 
     <p><small>Correction libre : un nombre positif ajoute au stock, un nombre négatif en retire (ex. 5 ou -3). Le résultat est plafonné à la capacité et imputé à l'équipier (action tracée).</small></p>
