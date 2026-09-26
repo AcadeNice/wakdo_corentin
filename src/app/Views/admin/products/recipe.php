@@ -63,19 +63,35 @@ $attr = static fn (mixed $data): string => htmlspecialchars(
         <h1 class="page-title">Recette - <?= $name ?></h1>
         <p class="page-subtitle">Composition en ingrédients : la disponibilité du produit en découle</p>
     </div>
+    <?php /* Meme emplacement que les autres ecrans du back-office (page-actions,
+             lot 0) : les deux pages ou l'on rebondit depuis une recette sont la
+             fiche du produit et le stock des ingredients qu'elle consomme. */ ?>
+    <div class="page-actions">
+        <a class="btn btn-secondary" href="/admin/products/<?= $id ?>/edit">Fiche du produit</a>
+        <a class="btn btn-secondary" href="/admin/ingredients">Stock des ingrédients</a>
+    </div>
 </div>
 
-<form method="post" action="<?= htmlspecialchars($action, ENT_QUOTES, 'UTF-8') ?>" class="form-card" id="recipe-form">
+<?php /* data-row-key : apres enregistrement, le controleur redirige vers
+         /admin/products ; stock-thresholds.js met alors la ligne de ce produit en
+         evidence quelques secondes, pour qu'on retrouve d'un coup d'oeil celui
+         qu'on vient de modifier. */ ?>
+<form method="post" action="<?= htmlspecialchars($action, ENT_QUOTES, 'UTF-8') ?>" class="form-card" id="recipe-form" data-row-key="product:<?= $id ?>">
     <input type="hidden" name="_csrf" value="<?= $csrf ?>">
 
     <fieldset class="form-group">
         <legend>Ingrédients</legend>
-        <p><small>Un ingrédient NON RETIRABLE en rupture critique met le produit en rupture automatique. Un ingrédient retirable/optionnel ne bloque pas le produit.</small></p>
-        <?php if ($compError !== ''): ?><p class="form-error"><?= htmlspecialchars($compError, ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
+        <p><small>Un ingrédient que le client ne peut pas retirer bloque la vente du produit dès que son stock est critique. Un ingrédient retirable ou proposé en supplément ne bloque jamais le produit.</small></p>
+        <?php if ($compError !== ''): ?><p class="form-error" id="composition-error"><?= htmlspecialchars($compError, ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
         <div id="recipe-builder"
              data-ingredients="<?= $attr($slimIngredients) ?>"
-             data-composition="<?= $attr($slimComposition) ?>"></div>
-        <button class="btn btn-secondary" type="button" id="add-ingredient">Ajouter un ingrédient</button>
+             data-composition="<?= $attr($slimComposition) ?>"
+             data-can-create-ingredient="1"
+             <?= $compError !== '' ? 'aria-describedby="composition-error"' : '' ?>></div>
+        <div class="form-actions">
+            <button class="btn btn-secondary" type="button" id="add-ingredient">Ajouter un ingrédient</button>
+            <button class="btn btn-secondary" type="button" id="add-new-ingredient">Créer un nouvel ingrédient</button>
+        </div>
     </fieldset>
 
     <input type="hidden" name="composition_json" id="composition_json" value="">

@@ -188,6 +188,8 @@ Produits (`product.read` / `product.create` / `product.update` / `product.delete
 | POST | `/admin/api/products/{id}/move` | non | `{ "direction": "up"\|"down" }`, dans sa categorie |
 | GET | `/admin/api/products/{id}/recipe` | non | composition (`product_ingredient`) |
 | PUT | `/admin/api/products/{id}/recipe` | non | remplace la composition ; `composition: []` autorise (purge la recette) |
+| GET | `/admin/api/products/import/template` | non | `{ "csv": "...", "filename": "..." }` -- meme gabarit que le bouton HTML |
+| POST | `/admin/api/products/import` | UNIQUEMENT si le fichier change au moins un prix | `{ "csv": "...", "pin_email"?, "pin"? }` ; `?dry_run=1` -> aperçu seul (aucune ecriture) ; absent -> applique (tout ou rien). Detail complet : `docs/api/import-produits.md` |
 
 Menus composes (`menu.read` / `menu.create` / `menu.update` / `menu.delete`) :
 
@@ -513,6 +515,7 @@ introduit a ce moment-la, en gardant `/api/...` pour la v1 tant que des clients 
 | Garde JSON commune (401/403/CSRF/PIN/enveloppe) | `src/app/Controllers/Admin/Api/JsonApiTrait.php` |
 | Porte du PIN d'action sensible pour l'API JSON | `src/app/Auth/PinGate.php` |
 | Acces base (requetes preparees, transaction) | `src/app/Core/Database.php` |
+| Import CSV de produits + recettes (analyse, validation, application) | `src/app/Catalogue/ProductImportService.php`, detail : `docs/api/import-produits.md` |
 | Noms de champs (source de verite) | `docs/merise/dictionary.md` |
 | Operations metier et permissions | `docs/merise/mct.md`, `mlt.md`, `db/seeds/0001_rbac_and_reference.sql` |
 | Collection Postman + guide | `docs/api/wakdo-admin.postman_collection.json`, `docs/api/postman.md` |

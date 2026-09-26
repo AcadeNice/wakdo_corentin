@@ -589,6 +589,52 @@ final class ProductControllerTest extends TestCase
         self::assertStringNotContainsString('value="590"', $body);
     }
 
+    /**
+     * Finitions du systeme de design du back-office (lots 0 a 5) appliquees au
+     * formulaire produit, qui etait passe a cote de la refonte.
+     */
+    public function testEditFormAppliesTheBackOfficeDesignSystem(): void
+    {
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 5, 'category_id' => 3, 'name' => 'Big Mac', 'description' => null, 'price_cents' => 590, 'vat_rate' => 100, 'image_path' => null, 'is_available' => 1, 'display_order' => 1];
+
+        $body = $this->controller($this->get('/admin/products/5/edit'), $db)->edit(['id' => '5'])->body();
+
+        // Les champs secondaires sont replies comme ailleurs (design-system.md 2.5).
+        self::assertStringContainsString('<details class="form-advanced"', $body);
+        self::assertStringContainsString('Tailles et format Maxi', $body);
+        self::assertStringNotContainsString('<legend>Variantes (optionnel)</legend>', $body);
+        // La ligne du produit est reperable au retour sur la liste.
+        self::assertStringContainsString('data-row-key="product:5"', $body);
+        // La confirmation par code personnel ne se declenche que sur prix/TVA.
+        self::assertStringContainsString('data-pin-when-changed="price_cents,vat_rate"', $body);
+        // Cible de 24x24px sur la case a cocher isolee (WCAG 2.2, 2.5.8).
+        self::assertStringContainsString('class="form-label form-check"', $body);
+        // La legende du champ image est reliee a son champ (regle axe-core "label").
+        self::assertStringContainsString('<label class="form-label" for="image_file">', $body);
+    }
+
+    public function testCreateFormCarriesNoRowKeyBecauseTheProductHasNoIdYet(): void
+    {
+        $body = $this->controller($this->get('/admin/products/new'), $this->permittedDb())->create()->body();
+
+        self::assertStringNotContainsString('data-row-key', $body);
+        self::assertStringNotContainsString('data-pin-when-changed', $body); // pas de PIN a la creation
+        self::assertStringContainsString('<details class="form-advanced"', $body);
+    }
+
+    public function testRecipePageLinksBackToTheProductAndToTheStock(): void
+    {
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 5, 'name' => 'Big Mac'];
+
+        $body = $this->controller($this->get('/admin/products/5/recipe'), $db)->recipeForm(['id' => '5'])->body();
+
+        self::assertStringContainsString('href="/admin/products/5/edit"', $body);
+        self::assertStringContainsString('href="/admin/ingredients"', $body);
+        self::assertStringContainsString('data-row-key="product:5"', $body);
+    }
+
     public function testStoreAcceptsDotDecimalSeparatorAndStoresCents(): void
     {
         // « 1,90 » ou « 1.90 » : les deux doivent etre acceptes en saisie (F40).
@@ -610,6 +656,22 @@ final class ProductControllerTest extends TestCase
 
         self::assertSame(422, $response->status());
         self::assertStringContainsString('Le prix doit être un montant en euros', $response->body());
+        self::assertFalse($db->wrote('INSERT INTO product'));
+    }
+
+    /**
+     * Relecture adverse n°2 (2026-09-26) : `description` (colonne TEXT, limite
+     * MariaDB 65535 OCTETS) n'etait bornee nulle part cote formulaire -- meme
+     * defaut que celui corrige sur l'import CSV, trouve en meme temps ici.
+     */
+    public function testStoreRejectsDescriptionLongerThan65535Bytes(): void
+    {
+        $db = $this->permittedDb();
+
+        $response = $this->controller($this->post($this->validForm(['description' => str_repeat('a', 70000)]), '/admin/products'), $db)->store();
+
+        self::assertSame(422, $response->status());
+        self::assertStringContainsString('environ 65 000 caractères maximum', $response->body());
         self::assertFalse($db->wrote('INSERT INTO product'));
     }
 
@@ -906,6 +968,10 @@ final class ProductControllerTest extends TestCase
         self::assertSame(302, $response->status());
         self::assertTrue($db->wrote('DELETE FROM product_ingredient'));
         self::assertFalse($db->wrote('INSERT INTO product_ingredient')); // l'ingredient inconnu est filtre
+        // Filtre en silence cote donnees, mais SIGNALE cote message (relecture
+        // adverse n°3, 2026-09-26) : un role qui a le droit ne doit pas perdre
+        // une ligne sans le savoir.
+        self::assertStringContainsString('1 ligne(s) de recette ignorée(s)', (string) $this->session->get('_flash'));
     }
 
     public function testSaveRecipeRejectsInvalidCsrf(): void
@@ -1360,5 +1426,338 @@ final class ProductControllerTest extends TestCase
         self::assertSame('/admin/products/by-category', $response->header('Location'));
         self::assertNull($this->session->get('_flash'));
         self::assertFalse($db->wrote('UPDATE product SET display_order'));
+    }
+
+    // --- Recette integree au formulaire produit (chantier CSV/recette, F41) ---
+
+    /**
+     * @param list<array<string, mixed>> $lines
+     * @return array<string, string>
+     */
+    private function withComposition(array $lines): array
+    {
+        return ['composition_json' => (string) json_encode($lines)];
+    }
+
+    public function testStoreWithoutCompositionFieldNeverTouchesRecipe(): void
+    {
+        // Retro-compatibilite : un client qui ne connait pas encore la
+        // composition (champ absent, pas juste vide) ne doit provoquer AUCUNE
+        // ecriture product_ingredient supplementaire, ni transaction.
+        $db = $this->permittedDb();
+
+        $response = $this->controller($this->post($this->validForm(), '/admin/products'), $db)->store();
+
+        self::assertSame(302, $response->status());
+        self::assertTrue($db->wrote('INSERT INTO product'));
+        self::assertFalse($db->wrote('product_ingredient'));
+        self::assertSame('Produit créé.', $this->session->get('_flash'));
+    }
+
+    public function testStoreWithEmptyCompositionCreatesProductWithoutRecipeInOneTransaction(): void
+    {
+        $db = $this->permittedDb();
+
+        $response = $this->controller($this->post($this->validForm($this->withComposition([])), '/admin/products'), $db)->store();
+
+        self::assertSame(302, $response->status());
+        self::assertSame(['begin', 'commit'], $db->transactionEvents);
+        self::assertTrue($db->wrote('INSERT INTO product'));
+        self::assertTrue($db->wrote('DELETE FROM product_ingredient'));
+        self::assertFalse($db->wrote('INSERT INTO product_ingredient'));
+        self::assertSame('Produit créé.', $this->session->get('_flash'));
+    }
+
+    public function testStoreCreatesProductWithExistingIngredientAndNewIngredientInOneTransaction(): void
+    {
+        $db = $this->permittedDb(); // canResult=true : ingredient.manage aussi accorde
+        $db->ingredientRow = ['id' => 7, 'name' => 'Cheddar']; // ingredientExists(7) -> true
+        $db->ingredientNameTaken = false; // nameExists('Sauce maison') -> false : creable
+
+        $composition = $this->withComposition([
+            ['ingredient_id' => 7, 'quantity_normal' => 1, 'quantity_maxi' => 1, 'is_removable' => 0, 'is_addable' => 0, 'extra_price_cents' => 0],
+            ['new_ingredient' => ['name' => 'Sauce maison', 'unit' => 'g'], 'quantity_normal' => 20, 'quantity_maxi' => 20, 'is_removable' => 1, 'is_addable' => 0, 'extra_price_cents' => 0],
+        ]);
+
+        $response = $this->controller($this->post($this->validForm($composition), '/admin/products'), $db)->store();
+
+        self::assertSame(302, $response->status());
+        self::assertSame(['begin', 'commit'], $db->transactionEvents);
+        self::assertTrue($db->wrote('INSERT INTO product'));
+        self::assertTrue($db->wrote('INSERT INTO ingredient'));
+        $ingredientWrite = $this->findWrite($db, 'INSERT INTO ingredient');
+        self::assertNotNull($ingredientWrite);
+        self::assertSame('Sauce maison', $ingredientWrite['params']['name'] ?? null);
+        self::assertSame('g', $ingredientWrite['params']['unit'] ?? null);
+        self::assertSame(0, $ingredientWrite['params']['qty'] ?? null); // RG-CREATE-ING : stock 0
+        self::assertSame(100, $ingredientWrite['params']['cap'] ?? null); // defaut du projet
+
+        $compositionInserts = array_values(array_filter(
+            $db->writes,
+            static fn (array $w): bool => str_contains($w['sql'], 'INSERT INTO product_ingredient'),
+        ));
+        self::assertCount(2, $compositionInserts, 'une ligne par ingredient (existant + nouveau)');
+
+        self::assertStringContainsString('Sauce maison', (string) $this->session->get('_flash'));
+        self::assertStringContainsString('réapprovisionner', (string) $this->session->get('_flash'));
+    }
+
+    public function testStoreRejectsNewIngredientLineWithoutIngredientManagePermission(): void
+    {
+        $db = $this->permittedDb();
+        $db->grantedCodes = ['product.create']; // PAS ingredient.manage
+
+        $composition = $this->withComposition([
+            ['new_ingredient' => ['name' => 'Sauce maison', 'unit' => 'g'], 'quantity_normal' => 20, 'quantity_maxi' => 20, 'is_removable' => 0, 'is_addable' => 0, 'extra_price_cents' => 0],
+        ]);
+
+        $response = $this->controller($this->post($this->validForm($composition), '/admin/products'), $db)->store();
+
+        self::assertSame(422, $response->status());
+        self::assertStringContainsString('ingredient.manage', $response->body());
+        self::assertFalse($db->wrote('INSERT INTO product'));
+        self::assertFalse($db->wrote('INSERT INTO ingredient'));
+    }
+
+    public function testStoreRejectsNewIngredientMissingUnit(): void
+    {
+        $db = $this->permittedDb();
+        $composition = $this->withComposition([
+            ['new_ingredient' => ['name' => 'Sauce maison', 'unit' => ''], 'quantity_normal' => 1, 'quantity_maxi' => 1, 'is_removable' => 0, 'is_addable' => 0, 'extra_price_cents' => 0],
+        ]);
+
+        $response = $this->controller($this->post($this->validForm($composition), '/admin/products'), $db)->store();
+
+        self::assertSame(422, $response->status());
+        self::assertFalse($db->wrote('INSERT INTO product'));
+    }
+
+    public function testStoreRollsBackEverythingWhenIngredientCreationFails(): void
+    {
+        $db = $this->permittedDb();
+        $db->ingredientNameTaken = false;
+        $db->failOnExecute = new \RuntimeException('panne simulée');
+
+        $composition = $this->withComposition([
+            ['new_ingredient' => ['name' => 'Sauce maison', 'unit' => 'g'], 'quantity_normal' => 1, 'quantity_maxi' => 1, 'is_removable' => 0, 'is_addable' => 0, 'extra_price_cents' => 0],
+        ]);
+
+        try {
+            $this->controller($this->post($this->validForm($composition), '/admin/products'), $db)->store();
+            self::fail('Une exception aurait dû être propagée (panne simulée).');
+        } catch (\RuntimeException $exception) {
+            self::assertSame('panne simulée', $exception->getMessage());
+        }
+
+        self::assertSame(['begin', 'rollback'], $db->transactionEvents);
+        self::assertSame([], $db->writes, 'Rien ne doit rester ecrit apres un rollback (produit + ingredient + recette, tout ou rien)');
+    }
+
+    public function testUpdateWithoutPriceChangeAndWithCompositionWrapsInOneTransaction(): void
+    {
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 5, 'category_id' => 3, 'name' => 'Old', 'description' => null, 'price_cents' => 590, 'vat_rate' => 100, 'image_path' => null, 'is_available' => 1, 'display_order' => 1];
+        $db->ingredientRow = ['id' => 7, 'name' => 'Cheddar'];
+
+        $composition = $this->withComposition([
+            ['ingredient_id' => 7, 'quantity_normal' => 2, 'quantity_maxi' => 2, 'is_removable' => 0, 'is_addable' => 0, 'extra_price_cents' => 0],
+        ]);
+        $response = $this->controller($this->post($this->validForm($composition + ['name' => 'Renamed']), '/admin/products/5'), $db)->update(['id' => '5']);
+
+        self::assertSame(302, $response->status());
+        // Sans changement de prix/TVA MAIS avec composition presente : UNE
+        // transaction s'ouvre desormais (produit + recette), contrairement au
+        // cas sans composition (testUpdateWithoutPriceChangeNeedsNoPin, []).
+        self::assertSame(['begin', 'commit'], $db->transactionEvents);
+        self::assertTrue($db->wrote('UPDATE product SET'));
+        self::assertTrue($db->wrote('DELETE FROM product_ingredient'));
+        self::assertFalse($db->wrote('INSERT INTO audit_log'));
+    }
+
+    public function testUpdatePriceChangeWithCompositionCreatesIngredientAndAuditsInSameTransaction(): void
+    {
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 5, 'category_id' => 3, 'name' => 'Big Mac', 'description' => null, 'price_cents' => 590, 'vat_rate' => 100, 'image_path' => null, 'is_available' => 1, 'display_order' => 1];
+        $db->ingredientNameTaken = false;
+        $this->actingPin($db);
+
+        $composition = $this->withComposition([
+            ['new_ingredient' => ['name' => 'Sauce maison', 'unit' => 'g'], 'quantity_normal' => 10, 'quantity_maxi' => 10, 'is_removable' => 0, 'is_addable' => 0, 'extra_price_cents' => 0],
+        ]);
+        $form = $this->validForm($composition + ['price_cents' => '6,20', 'pin_email' => 'staff@wakdo.local', 'pin' => '4729']);
+
+        $response = $this->controller($this->post($form, '/admin/products/5'), $db)->update(['id' => '5']);
+
+        self::assertSame(302, $response->status());
+        self::assertSame(['begin', 'commit'], $db->transactionEvents);
+        self::assertTrue($db->wrote('UPDATE product SET'));
+        self::assertTrue($db->wrote('INSERT INTO audit_log'));
+        self::assertTrue($db->wrote('INSERT INTO ingredient'));
+        self::assertTrue($db->wrote('INSERT INTO product_ingredient'));
+        self::assertStringContainsString('Sauce maison', (string) $this->session->get('_flash'));
+    }
+
+    public function testSaveRecipeCanCreateNewIngredientInSameTransaction(): void
+    {
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 5, 'name' => 'Big Mac'];
+        $db->ingredientNameTaken = false;
+
+        $json = (string) json_encode([
+            ['new_ingredient' => ['name' => 'Sauce maison', 'unit' => 'g', 'pack_size' => '1000'], 'quantity_normal' => 20, 'quantity_maxi' => 20, 'is_removable' => 1, 'is_addable' => 0, 'extra_price_cents' => 0],
+        ]);
+
+        $response = $this->controller($this->post(['_csrf' => $this->csrf, 'composition_json' => $json], '/admin/products/5/recipe'), $db)->saveRecipe(['id' => '5']);
+
+        self::assertSame(302, $response->status());
+        self::assertSame(['begin', 'commit'], $db->transactionEvents);
+        $ingredientWrite = $this->findWrite($db, 'INSERT INTO ingredient');
+        self::assertNotNull($ingredientWrite);
+        self::assertSame(1000, $ingredientWrite['params']['pack'] ?? null);
+        self::assertTrue($db->wrote('INSERT INTO product_ingredient'));
+        self::assertStringContainsString('Sauce maison', (string) $this->session->get('_flash'));
+    }
+
+    // --- Relecture adverse n°2 (2026-09-26) : la section Composition du
+    //     formulaire produit contournait ingredient.manage sur un produit
+    //     EXISTANT (product.update seul suffisait a vider sa recette). ---
+
+    /**
+     * @return list<array{ingredient_id:int, quantity_normal:int, quantity_maxi:int, is_removable:int, is_addable:int, extra_price_cents:int}>
+     */
+    private function storedCompositionOfTwoIngredients(): array
+    {
+        return [
+            ['ingredient_id' => 7, 'quantity_normal' => 1, 'quantity_maxi' => 1, 'is_removable' => 0, 'is_addable' => 0, 'extra_price_cents' => 0],
+            ['ingredient_id' => 8, 'quantity_normal' => 2, 'quantity_maxi' => 2, 'is_removable' => 1, 'is_addable' => 0, 'extra_price_cents' => 0],
+        ];
+    }
+
+    public function testUpdateBlocksRecipeChangeOfExistingProductWithoutIngredientManage(): void
+    {
+        $db = $this->permittedDb();
+        $db->grantedCodes = ['product.create', 'product.read', 'product.update']; // PAS ingredient.manage
+        $db->productRow = ['id' => 5, 'category_id' => 3, 'name' => 'Big Tasty', 'description' => null, 'price_cents' => 590, 'vat_rate' => 100, 'image_path' => null, 'is_available' => 1, 'display_order' => 1];
+        $db->compositionRows = $this->storedCompositionOfTwoIngredients(); // recette actuelle : 2 lignes
+        $db->ingredientRow = ['id' => 7, 'name' => 'Cheddar']; // ingredientExists(7) -> true
+
+        // Le formulaire ne soumet plus qu'une seule ligne (7) : la recette
+        // changerait REELLEMENT (2 lignes -> 1), pas un resoumis a l'identique.
+        $composition = $this->withComposition([
+            ['ingredient_id' => 7, 'quantity_normal' => 1, 'quantity_maxi' => 1, 'is_removable' => 0, 'is_addable' => 0, 'extra_price_cents' => 0],
+        ]);
+        $response = $this->controller($this->post($this->validForm($composition), '/admin/products/5'), $db)->update(['id' => '5']);
+
+        self::assertSame(422, $response->status());
+        self::assertStringContainsString('droit de gérer les ingrédients', $response->body());
+        self::assertFalse($db->wrote('UPDATE product SET'));
+        self::assertFalse($db->wrote('DELETE FROM product_ingredient'));
+    }
+
+    public function testUpdateAllowsResubmittingTheIdenticalRecipeWithoutIngredientManage(): void
+    {
+        $db = $this->permittedDb();
+        $db->grantedCodes = ['product.create', 'product.read', 'product.update']; // PAS ingredient.manage
+        $db->productRow = ['id' => 5, 'category_id' => 3, 'name' => 'Big Tasty', 'description' => null, 'price_cents' => 590, 'vat_rate' => 100, 'image_path' => null, 'is_available' => 1, 'display_order' => 1];
+        $db->compositionRows = $this->storedCompositionOfTwoIngredients();
+        $db->ingredientRow = ['id' => 7, 'name' => 'Cheddar'];
+        $db->existingIngredientIds = [7, 8]; // les DEUX lignes de la recette stockee existent
+
+        // Exactement la meme recette que celle enregistree (memes ingredients,
+        // memes quantites/drapeaux), soumise dans un ORDRE DIFFERENT (8 avant 7) :
+        // aucun changement REEL -> product.update seul doit suffire.
+        $composition = $this->withComposition([
+            ['ingredient_id' => 8, 'quantity_normal' => 2, 'quantity_maxi' => 2, 'is_removable' => 1, 'is_addable' => 0, 'extra_price_cents' => 0],
+            ['ingredient_id' => 7, 'quantity_normal' => 1, 'quantity_maxi' => 1, 'is_removable' => 0, 'is_addable' => 0, 'extra_price_cents' => 0],
+        ]);
+        $response = $this->controller($this->post($this->validForm($composition), '/admin/products/5'), $db)->update(['id' => '5']);
+
+        self::assertSame(302, $response->status());
+        self::assertTrue($db->wrote('UPDATE product SET'));
+    }
+
+    public function testUpdateReplacesRecipeOfExistingProductWithIngredientManage(): void
+    {
+        $db = $this->permittedDb(); // canResult=true : ingredient.manage aussi accorde
+        $db->productRow = ['id' => 5, 'category_id' => 3, 'name' => 'Big Tasty', 'description' => null, 'price_cents' => 590, 'vat_rate' => 100, 'image_path' => null, 'is_available' => 1, 'display_order' => 1];
+        $db->compositionRows = $this->storedCompositionOfTwoIngredients();
+        $db->ingredientRow = ['id' => 7, 'name' => 'Cheddar'];
+
+        $composition = $this->withComposition([
+            ['ingredient_id' => 7, 'quantity_normal' => 1, 'quantity_maxi' => 1, 'is_removable' => 0, 'is_addable' => 0, 'extra_price_cents' => 0],
+        ]);
+        $response = $this->controller($this->post($this->validForm($composition), '/admin/products/5'), $db)->update(['id' => '5']);
+
+        self::assertSame(302, $response->status());
+        self::assertTrue($db->wrote('UPDATE product SET'));
+        self::assertTrue($db->wrote('DELETE FROM product_ingredient'));
+    }
+
+    /**
+     * Scenario de la relecture adverse n°3 (2026-09-26) : un ingredient
+     * referencee par le formulaire a ete supprime ENTRE l'affichage et la
+     * soumission (formulaire perime). parseCompositionLines() la filtre
+     * toujours en silence cote DONNEES (allowlist RG-T16), mais update() doit
+     * desormais le SIGNALER dans le message de confirmation -- sinon un role
+     * qui a pourtant le droit croit que "Produit mis à jour." veut dire que
+     * tout s'est passe comme demande, alors qu'une ligne a disparu.
+     */
+    public function testUpdateReportsDiscardedUnknownIngredientLineInFlashMessage(): void
+    {
+        $db = $this->permittedDb(); // a le droit ; le point teste est le signalement, pas la permission
+        $db->productRow = ['id' => 5, 'category_id' => 3, 'name' => 'Big Tasty', 'description' => null, 'price_cents' => 590, 'vat_rate' => 100, 'image_path' => null, 'is_available' => 1, 'display_order' => 1];
+        $db->compositionRows = $this->storedCompositionOfTwoIngredients();
+        $db->ingredientRow = ['id' => 7, 'name' => 'Cheddar']; // ingredientExists(999) -> false
+
+        $composition = $this->withComposition([
+            ['ingredient_id' => 7, 'quantity_normal' => 1, 'quantity_maxi' => 1, 'is_removable' => 0, 'is_addable' => 0, 'extra_price_cents' => 0],
+            ['ingredient_id' => 999, 'quantity_normal' => 1, 'quantity_maxi' => 1, 'is_removable' => 0, 'is_addable' => 0, 'extra_price_cents' => 0],
+        ]);
+        $response = $this->controller($this->post($this->validForm($composition), '/admin/products/5'), $db)->update(['id' => '5']);
+
+        self::assertSame(302, $response->status());
+        self::assertTrue($db->wrote('UPDATE product SET'));
+        self::assertStringContainsString('Produit mis à jour.', (string) $this->session->get('_flash'));
+        self::assertStringContainsString('1 ligne(s) de recette ignorée(s)', (string) $this->session->get('_flash'));
+    }
+
+    public function testStoreOfNewProductDoesNotRequireIngredientManageForExistingIngredientLines(): void
+    {
+        // Doctrine : un produit NEUF reste sous product.create -- composer sa
+        // recette avec des ingredients EXISTANTS ne demande pas ingredient.manage
+        // (rien n'est "remplace", la recette nait avec le produit).
+        $db = $this->permittedDb();
+        $db->grantedCodes = ['product.create', 'product.read']; // PAS product.update, PAS ingredient.manage
+        $db->ingredientRow = ['id' => 7, 'name' => 'Cheddar'];
+
+        $composition = $this->withComposition([
+            ['ingredient_id' => 7, 'quantity_normal' => 1, 'quantity_maxi' => 1, 'is_removable' => 0, 'is_addable' => 0, 'extra_price_cents' => 0],
+        ]);
+        $response = $this->controller($this->post($this->validForm($composition), '/admin/products'), $db)->store();
+
+        self::assertSame(302, $response->status());
+        self::assertTrue($db->wrote('INSERT INTO product'));
+    }
+
+    /**
+     * Meme signalement qu'en update() (relecture adverse n°3, 2026-09-26),
+     * cote creation : un ingredient_id inconnu dans la composition soumise
+     * (faute de frappe, id copie d'un autre produit...) est filtre en silence
+     * cote donnees mais signale dans le message de confirmation.
+     */
+    public function testStoreReportsDiscardedUnknownIngredientLineInFlashMessage(): void
+    {
+        $db = $this->permittedDb();
+        $db->ingredientRow = ['id' => 7, 'name' => 'Cheddar']; // ingredientExists(999) -> false
+
+        $composition = $this->withComposition([
+            ['ingredient_id' => 7, 'quantity_normal' => 1, 'quantity_maxi' => 1, 'is_removable' => 0, 'is_addable' => 0, 'extra_price_cents' => 0],
+            ['ingredient_id' => 999, 'quantity_normal' => 1, 'quantity_maxi' => 1, 'is_removable' => 0, 'is_addable' => 0, 'extra_price_cents' => 0],
+        ]);
+        $response = $this->controller($this->post($this->validForm($composition), '/admin/products'), $db)->store();
+
+        self::assertSame(302, $response->status());
+        self::assertTrue($db->wrote('INSERT INTO product'));
+        self::assertStringContainsString('1 ligne(s) de recette ignorée(s)', (string) $this->session->get('_flash'));
     }
 }

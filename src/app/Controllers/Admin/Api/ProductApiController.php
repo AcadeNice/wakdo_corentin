@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Controllers\Admin\Api;
 
 use PDOException;
+use Throwable;
+use App\Catalogue\ImportBlockedException;
+use App\Catalogue\ProductImportService;
 use App\Catalogue\ProductRepository;
 use App\Controllers\ProductController;
 use App\Core\DatabaseInterface;
@@ -325,6 +328,124 @@ class ProductApiController extends ProductController
         $repo->setComposition($id, $lines);
 
         return $this->okResponse(['id' => $id, 'composition' => $repo->composition($id)]);
+    }
+
+    /**
+     * Gabarit CSV telechargeable, meme contenu que la route HTML equivalente
+     * (`GET /admin/products/import/template`) -- mais enveloppe en JSON
+     * (`{"data": {"csv": "...", "filename": "..."}}`) plutot qu'en piece jointe
+     * `text/csv` : ce point d'entree reste sur le meme contrat que le reste de
+     * l'API admin (demo Postman/Bruno, docs/api/import-produits.md).
+     *
+     * @param array<string, string> $params
+     */
+    public function apiImportTemplate(array $params = []): Response
+    {
+        $guard = $this->guardApi('product.create');
+        if ($guard instanceof Response) {
+            return $guard;
+        }
+
+        return $this->okResponse(['csv' => ProductImportService::templateCsv(), 'filename' => 'wakdo-import-produits.csv']);
+    }
+
+    /**
+     * Aperçu (`?dry_run=1`) ou application d'un import CSV, meme service que la
+     * route HTML (`ProductImportService`). Le CSV voyage dans le corps JSON
+     * (`csv`, une chaîne) -- pas en multipart, pour rester sur le contrat JSON
+     * de l'API admin. Si le rapport signale un changement de prix, `pin_email`/
+     * `pin` (memes champs que le reste de l'API, `pinFields()`) sont exigés pour
+     * APPLIQUER (jamais pour l'aperçu). Autorisation : `guardImportAuthorizations()`
+     * (herite de ProductController, meme methode que la route HTML -- product.update
+     * des qu'un produit existant est touche, ingredient.manage des qu'une recette
+     * existante est remplacee ou qu'un ingredient serait cree) ; sinon 422 nommé,
+     * comme toute violation RG-T03 de ce trait.
+     *
+     * @param array<string, string> $params
+     */
+    public function apiImportRun(array $params = []): Response
+    {
+        $guard = $this->guardApi('product.create');
+        if ($guard instanceof Response) {
+            return $guard;
+        }
+        if (($csrf = $this->requireCsrf()) !== null) {
+            return $csrf;
+        }
+
+        $body = $this->requireJsonBody();
+        if ($body instanceof Response) {
+            return $body;
+        }
+
+        $csv = $this->fieldString($body, 'csv');
+        if ($csv instanceof Response) {
+            return $csv;
+        }
+        if (trim($csv) === '') {
+            return $this->validationErrorResponse(['csv' => 'Le champ "csv" (contenu du fichier) est requis.']);
+        }
+
+        $service = new ProductImportService();
+        $report = $service->preview($csv, $this->db());
+        $this->guardImportAuthorizations($guard, $report);
+
+        $dryRun = $this->request->query('dry_run') === '1';
+        if ($dryRun) {
+            return $this->okResponse($report);
+        }
+
+        if ($report['errors'] !== []) {
+            return $this->validationErrorResponse(['csv' => 'Le fichier contient des erreurs : voir le détail.', 'details' => $report['errors']]);
+        }
+
+        $actorSessionId = (int) ($guard->userId ?? 0);
+        $actorId = $actorSessionId;
+        $actorRoleId = (int) ($guard->roleId ?? 0);
+
+        if ($report['hasPriceChange']) {
+            [$email, $pin] = $this->pinFields($body);
+            $actor = $this->pinGate()->resolve($actorSessionId, $email, $pin, 'product', 0);
+            if ($actor === null) {
+                return $this->pinErrorResponse('Email ou PIN invalide (requis : ce fichier modifie au moins un prix).');
+            }
+            $actorId = (int) $actor['id'];
+            $actorRoleId = (int) $actor['role_id'];
+        }
+
+        try {
+            $result = $service->apply($csv, $this->db(), $actorId, $actorRoleId);
+        } catch (ImportBlockedException $exception) {
+            return $this->conflictResponse($exception->getMessage());
+        } catch (Throwable $exception) {
+            // Filet de securite : apply() n'ecrit que DANS la transaction de
+            // ProductImportService (RG-T08), donc toute exception non prevue
+            // ici a deja ete annulee (rollback) avant de remonter -- rien n'est
+            // resté a moitié écrit. Sans ce filet, une erreur inattendue (ex. une
+            // valeur trop longue pour une colonne, si un controle amont a laissé
+            // passer un cas non prevu) remontait en 500 brut jusqu'au client.
+            //
+            // Ce filet court-circuite le gestionnaire GLOBAL (src/public/admin/
+            // index.php) qui, lui, trace TOUJOURS avant de repondre ("l'incident
+            // doit rester diagnosticable cote serveur") -- meme trace ICI (meme
+            // format), sinon ce cas precis redeviendrait invisible cote serveur
+            // (releve par relecture adverse, 2026-09-26).
+            error_log(sprintf(
+                '[wakdo] Unhandled %s: %s @ %s:%d',
+                get_class($exception),
+                $exception->getMessage(),
+                $exception->getFile(),
+                $exception->getLine(),
+            ));
+
+            return $this->errorResponse(500, 'IMPORT_FAILED', 'L\'import a échoué de façon inattendue : rien n\'a été enregistré. Réessayez, ou contactez un administrateur si cela persiste.');
+        }
+
+        if ($report['hasPriceChange']) {
+            $this->pinGate()->reset($actorSessionId);
+        }
+
+        return $this->okResponse($result);
     }
 
     /**
