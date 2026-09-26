@@ -96,9 +96,15 @@ class CounterOrderController extends AdminController
         $inProgress = $orderQuery->paidQueue([$source]);
 
         return $this->channelView('admin/counter/index', $source, [
-            'title'      => $this->channelTitle($source) . ' - Wakdo Admin',
-            'orders'     => $orders,
-            'inProgress' => $inProgress,
+            'title'          => $this->channelTitle($source) . ' - Wakdo Admin',
+            'orders'         => $orders,
+            'inProgress'     => $inProgress,
+            // Ligne mise en evidence apres une action (creation + encaissement) : le
+            // parametre vient du redirect de store() (?highlight=<numero>), jamais de
+            // la base -- un visiteur peut aussi le forger dans l'URL, sans consequence
+            // puisque la vue ne fait qu'une comparaison d'affichage (aucune requete,
+            // aucune action declenchee par sa valeur).
+            'highlightOrder' => (string) $this->request->query('highlight', ''),
         ], $guard);
     }
 
@@ -186,7 +192,13 @@ class CounterOrderController extends AdminController
 
         $this->setFlash('Commande ' . $order['order_number'] . ' enregistrée et encaissée.');
 
-        return $this->redirect($this->landing($source));
+        // Ligne mise en evidence (retour apres action) : le numero de la commande qui
+        // vient d'etre creee ET encaissee (un seul geste, RG-5/POST-1) voyage par l'URL
+        // de redirection jusqu'a la liste, qui la lit et signale la ligne (purement
+        // visuel, aucun etat persiste cote serveur au-dela du flash existant).
+        $highlight = '?highlight=' . rawurlencode((string) $order['order_number']);
+
+        return $this->redirect($this->landing($source) . $highlight);
     }
 
     /**

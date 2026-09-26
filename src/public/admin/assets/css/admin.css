@@ -2092,8 +2092,6 @@ tbody td.mono {
         position: static;
         max-height: none;
     }
-    .order-cart { max-height: 320px; }
-
     /* ERG-03 (audit UX pre-soutenance) : a cette largeur, le panneau commande
        passe en flux normal SOUS la grille de produits (position: static ci-dessus).
        .content est une grille de hauteur FIXE (100vh - topbar, overflow-y: auto) :
@@ -2111,6 +2109,42 @@ tbody td.mono {
     .pos__panel-foot {
         position: sticky;
         bottom: 80px;
+    }
+
+    /* Croisement avec la PR #156 (champ Table #service_tag_group, ajoute dans
+       .pos__panel-head) : au repos (scrollTop=0), le pied collant ci-dessus remonte
+       de TOUJOURS EXACTEMENT 80px au-dessus de sa position naturelle -- verifie par
+       calcul de zones (tests/e2e/lot-1-comptoir-drive.spec.js, avant/apres). Panier
+       vide ("Panier vide." seul, ~53px) : ce meme ecart de 80px, choisi pour degager
+       .a11y-toggle, grignote alors .pos__panel-head. Le chevauchement mesure = 80 -
+       (hauteur du panier) : garantir au panier au moins 80px absorbe l'ecart cote
+       tete de panneau, quelle que soit la hauteur de celle-ci (verifie : raccourcir
+       .pos__panel-head SEUL, sans toucher au panier, ne change rien au
+       chevauchement -- les deux remontent de la meme quantite). +4px de marge pour
+       ne pas courir apres l'egalite stricte (arrondis sous-pixel). */
+    .order-cart {
+        max-height: 320px;
+        min-height: 84px;
+    }
+
+    /* Meme croisement, second effet : agrandir le panier ci-dessus repousse aussi le
+       pied VERS LE BAS d'autant (l'ecart de 80px etant fixe, tout ce qui precede le
+       pied dans le flux l'entraine avec lui) -- ce qui ronge la marge, deja reduite,
+       entre le pied et .a11y-toggle (tests/e2e/counter-pos.spec.js, chevauchement
+       confirme a la mesure si .pos__panel-head garde sa hauteur pleine). Les DEUX
+       lignes de .pos__panel-head (Mode ; Table, uniquement en sur place comptoir)
+       sont empilees en colonne par defaut (regle desktop, ligne ~1966) : cote a cote
+       il y a largement la largeur (panneau pleine largeur a cette hauteur d'ecran,
+       ~700px utiles) pour les deux controles, ce qui redonne la hauteur d'UNE seule
+       rangee a .pos__panel-head -- assez pour compenser l'agrandissement du panier
+       ci-dessus ET dispenser de replier le titre "Commande" (tente puis ecarte :
+       inutile une fois les deux rangees mises cote a cote, verifie a la mesure). */
+    .pos__panel-head {
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+    .pos__service {
+        flex: 1 1 220px;
     }
 }
 
@@ -2919,6 +2953,74 @@ details.form-advanced > summary:focus-visible {
 .pos-tile.is-selected:focus-visible {
     outline: 3px solid var(--color-text);
     outline-offset: 2px;
+}
+
+/* --- Groupe de tuiles a choix unique (ERG-01, composeur de menu en tuiles) ---
+   Le composeur de menu (counter-order.js, openComposer) remplace les <select> de
+   format/slot par une grille de tuiles .pos-tile compactes (sans media : juste le
+   nom). Sans cette regle, .pos-tile (display:flex en bloc) empilerait une tuile par
+   ligne au lieu d'une rangee qui retourne a la ligne -- lisible mais pas le geste
+   "carte a plat" attendu d'une caisse tactile. */
+.pos-tile-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+}
+.pos-tile-group .pos-tile {
+    flex: 0 0 auto;
+    min-width: 84px;
+    min-height: 44px;
+}
+.pos-tile-group .pos-tile__body {
+    padding: 10px 16px;
+    align-items: center;
+    text-align: center;
+}
+
+/* --- Ligne mise en evidence apres une action (design-system.md 2.6) ---
+   design-system.md recommandait d'exclure ce point du gel (risque multi-lots si mal
+   cadre) ; retenu ici a perimetre REDUIT et cadre : une seule vue (counter/index.php),
+   pilotee par CounterOrderController::store() seul (creation + encaissement, un seul
+   geste dans ce controleur, RG-5/POST-1). Discrete et TEMPORAIRE : s'estompe seule
+   (fondu CSS, sans JavaScript ni etat persiste cote serveur au-dela du parametre
+   d'URL). Pas seulement la couleur (WCAG 1.4.1) : .row-highlight__tag porte le mot
+   "Nouveau" en texte, la teinte de fond n'est qu'un renfort. Fond reutilise
+   --color-yellow-bg, deja mesure a 16,78:1 avec --color-text (commentaire de
+   .pos-tile.is-selected plus haut) : aucune nouvelle combinaison de couleur a mesurer. */
+.row-highlight {
+    animation: row-highlight-fade 4s ease-out forwards;
+}
+@keyframes row-highlight-fade {
+    from { background-color: var(--color-yellow-bg); }
+    to   { background-color: transparent; }
+}
+.row-highlight__tag {
+    display: inline-block;
+    margin-left: var(--space-2);
+    padding: 1px 8px;
+    border-radius: var(--radius-sm);
+    background: var(--color-yellow);
+    color: var(--color-text);
+    font-size: var(--text-xs);
+    font-weight: 700;
+    vertical-align: middle;
+}
+
+/* Respecte prefers-reduced-motion (meme principe que style.css borne, section 21) :
+   admin.css n'avait jusqu'ici aucune animation CSS -- row-highlight-fade ci-dessus est
+   la premiere, donc la premiere regle universelle necessaire ici. Duree quasi nulle
+   (0.01ms) plutot que 0 : declenche quand meme un eventuel evenement de fin
+   d'animation, sans mouvement percu. */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
 }
 
 /* --- Regle d'usage des boutons (design-system.md section 3) — documentation,

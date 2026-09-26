@@ -700,6 +700,101 @@
             openModal(panel);
         }
 
+        // ERG-01 (audit UX pre-soutenance) : groupe de tuiles a choix unique (role
+        // radiogroup), reutilise pour le format (Normal/Maxi) et chaque slot du
+        // composeur de menu -- remplace les <select> et le bouton radio d'origine par
+        // le MEME geste tactile que le choix du produit (.pos-tile), demande par
+        // l'ADR-0011 (POS calque sur la borne). onChange(value) est appele a chaque
+        // changement de selection ('' = tuile "Sans"). tileClassName distingue les
+        // tuiles de format des tuiles de slot dans le DOM (utile aux tests).
+        // Navigation clavier calquee sur onTabsKeydown (barre d'onglets categories,
+        // plus haut dans ce fichier) : fleches cycliques, le focus suit la selection.
+        function buildTileGroup(groupLabel, entries, initialValue, onChange, tileClassName) {
+            var group = el('div', 'pos-tile-group' + (tileClassName ? ' ' + tileClassName + 's' : ''));
+            group.setAttribute('role', 'radiogroup');
+            group.setAttribute('aria-label', groupLabel);
+
+            var buttons = [];
+            var current = initialValue;
+
+            function applySelection() {
+                var anyTabbable = false;
+                buttons.forEach(function (btn) {
+                    var selected = btn.dataset.value === String(current);
+                    btn.classList.toggle('is-selected', selected);
+                    btn.setAttribute('aria-checked', selected ? 'true' : 'false');
+                    btn.tabIndex = selected ? 0 : -1;
+                    anyTabbable = anyTabbable || selected;
+                });
+                // Roving tabindex : si aucune tuile n'est selectionnee (slot optionnel
+                // laisse a "Sans"), la premiere reste atteignable au clavier.
+                if (!anyTabbable && buttons[0]) {
+                    buttons[0].tabIndex = 0;
+                }
+            }
+
+            function select(value, moveFocus) {
+                current = value;
+                applySelection();
+                onChange(value);
+                if (moveFocus) {
+                    var target = buttons.filter(function (btn) { return btn.dataset.value === value; })[0];
+                    if (target) {
+                        target.focus();
+                    }
+                }
+            }
+
+            entries.forEach(function (entry) {
+                var tile = el('button', 'pos-tile' + (tileClassName ? ' ' + tileClassName : ''));
+                tile.type = 'button';
+                tile.dataset.value = entry.value;
+                tile.setAttribute('role', 'radio');
+                var body = el('span', 'pos-tile__body');
+                var nameEl = el('span', 'pos-tile__name');
+                nameEl.textContent = entry.label;
+                body.appendChild(nameEl);
+                tile.appendChild(body);
+                tile.addEventListener('click', function () { select(entry.value, false); });
+                buttons.push(tile);
+                group.appendChild(tile);
+            });
+
+            group.addEventListener('keydown', function (event) {
+                var idx = buttons.indexOf(event.target);
+                if (idx < 0 || !buttons.length) {
+                    return;
+                }
+                var next = null;
+                if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+                    next = (idx + 1) % buttons.length;
+                } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+                    next = (idx - 1 + buttons.length) % buttons.length;
+                }
+                if (next === null) {
+                    return;
+                }
+                event.preventDefault();
+                select(buttons[next].dataset.value, true);
+            });
+
+            applySelection();
+
+            return {
+                container: group,
+                // Re-libelle une tuile sans changer sa valeur ni sa selection (bascule
+                // Normal <-> Maxi : le texte affiche d'une option de slot change, pas
+                // l'id produit soumis).
+                setLabel: function (value, label) {
+                    var btn = buttons.filter(function (b) { return b.dataset.value === value; })[0];
+                    var nameNode = btn ? btn.querySelector('.pos-tile__name') : null;
+                    if (nameNode) {
+                        nameNode.textContent = label;
+                    }
+                },
+            };
+        }
+
         // Ouvre la modale d'un menu : choix du format, une selection par slot, puis les
         // modificateurs du burger. Pre-selectionne le 1er choix de chaque slot requis.
         function openComposer(menu) {
@@ -713,90 +808,70 @@
             });
 
             var panel = el('div', 'menu-composer');
-
-            // Re-libelle les <option> deja rendues des selects de slot quand le format
-            // change (Normal <-> Maxi) : la valeur soumise (opt.value = product id) ne
-            // bouge pas, seul le TEXTE affiche suit le format courant (displayProductName).
-            function relabelSlotOptions() {
-                steps.forEach(function (step) {
-                    var select = panel.querySelector('.menu-composer__slot-select[data-slot-id="' + step.id + '"]');
-                    if (!select) {
-                        return;
-                    }
-                    Array.prototype.forEach.call(select.options, function (o) {
-                        if (o.value === '') {
-                            return; // "Sans" : pas un produit
-                        }
-                        o.textContent = displayProductName(productById[Number(o.value)], state.format);
-                    });
-                });
-            }
+            // Groupes de tuiles de slot indexes par id, pour les re-libeller au
+            // changement de format (relabelSlotTiles ci-dessous).
+            var slotGroups = {};
 
             var title = el('h2', 'menu-composer__title');
             title.textContent = menu.name;
             panel.appendChild(title);
 
-            // Format Normal / Maxi
+            // Re-libelle les tuiles de slot deja rendues quand le format change (Normal
+            // <-> Maxi) : la valeur choisie (id produit) ne bouge pas, seul le TEXTE
+            // affiche suit le format courant (displayProductName) -- meme role que
+            // l'ancien relabelSlotOptions, applique a des tuiles plutot qu'a des <option>.
+            function relabelSlotTiles() {
+                steps.forEach(function (step) {
+                    var group = slotGroups[step.id];
+                    if (!group) {
+                        return;
+                    }
+                    step.options.forEach(function (opt) {
+                        group.setLabel(String(opt.id), displayProductName(opt, state.format));
+                    });
+                });
+            }
+
+            // Format Normal / Maxi -- tuiles (ERG-01), meme geste que le reste du POS.
             var formatGroup = el('div', 'menu-composer__format');
             var formatLegend = el('p', 'menu-composer__legend');
             formatLegend.textContent = 'Format';
             formatGroup.appendChild(formatLegend);
-            [
+            var formatTiles = buildTileGroup('Format', [
                 { value: 'normal', label: 'Normal' },
                 { value: 'maxi', label: 'Maxi' },
-            ].forEach(function (fmt) {
-                var lab = el('label', 'menu-composer__radio');
-                var radio = el('input');
-                radio.type = 'radio';
-                radio.name = 'composer-format';
-                radio.value = fmt.value;
-                radio.className = 'menu-composer__format-input';
-                if (state.format === fmt.value) {
-                    radio.checked = true;
-                }
-                radio.addEventListener('change', function () {
-                    state.format = fmt.value;
-                    relabelSlotOptions();
-                });
-                lab.appendChild(radio);
-                lab.appendChild(doc.createTextNode(' ' + fmt.label));
-                formatGroup.appendChild(lab);
-            });
+            ], state.format, function (value) {
+                state.format = value;
+                relabelSlotTiles();
+            }, 'menu-composer__format-tile');
+            formatGroup.appendChild(formatTiles.container);
             panel.appendChild(formatGroup);
 
-            // Un bloc par slot : select des options (+ "Sans" si optionnel).
+            // Un bloc par slot : grille de tuiles a choix unique (+ tuile "Sans" si
+            // optionnel), a la place du <select> d'origine.
             steps.forEach(function (step) {
                 var block = el('div', 'menu-composer__slot');
-                var lab = el('label', 'menu-composer__legend');
+                var lab = el('p', 'menu-composer__legend');
                 lab.textContent = step.name + (step.isRequired ? '' : ' (optionnel)');
                 block.appendChild(lab);
 
-                var select = el('select', 'form-input menu-composer__slot-select');
-                select.dataset.slotId = String(step.id);
-                if (!step.isRequired) {
-                    var none = el('option');
-                    none.value = '';
-                    none.textContent = 'Sans';
-                    select.appendChild(none);
-                }
-                step.options.forEach(function (opt) {
-                    var o = el('option');
-                    o.value = String(opt.id);
-                    o.textContent = displayProductName(opt, state.format);
-                    if (state.selections[step.id] === opt.id) {
-                        o.selected = true;
-                    }
-                    select.appendChild(o);
+                var entries = step.options.map(function (opt) {
+                    return { value: String(opt.id), label: displayProductName(opt, state.format) };
                 });
-                select.addEventListener('change', function () {
-                    var raw = select.value;
-                    if (raw === '') {
+                if (!step.isRequired) {
+                    entries.unshift({ value: '', label: 'Sans' });
+                }
+                var initial = state.selections[step.id] != null ? String(state.selections[step.id]) : '';
+                var tiles = buildTileGroup(step.name, entries, initial, function (value) {
+                    if (value === '') {
                         delete state.selections[step.id];
                     } else {
-                        state.selections[step.id] = parseInt(raw, 10);
+                        state.selections[step.id] = parseInt(value, 10);
                     }
-                });
-                block.appendChild(select);
+                }, 'menu-composer__slot-tile');
+                tiles.container.dataset.slotId = String(step.id);
+                slotGroups[step.id] = tiles;
+                block.appendChild(tiles.container);
                 panel.appendChild(block);
             });
 

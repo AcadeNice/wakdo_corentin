@@ -140,6 +140,19 @@ function tileByName(dom, name) {
     );
 }
 
+// ERG-01 : tuile d'un groupe a choix unique du composeur de menu (format ou slot),
+// par valeur (id produit en chaine, ou '' pour la tuile "Sans"). groupSelector cible
+// le conteneur du groupe : '.menu-composer__format-tiles' pour le format,
+// '.menu-composer__slot-tiles[data-slot-id="N"]' pour un slot.
+function groupTile(modal, groupSelector, value) {
+    const group = modal.querySelector(groupSelector);
+    assert.ok(group, 'groupe "' + groupSelector + '" present');
+    return Array.prototype.find.call(
+        group.querySelectorAll('.pos-tile'),
+        t => t.dataset.value === value,
+    );
+}
+
 test('onglets categories : un onglet par categorie distincte (produits + menus)', () => {
     const dom = setup();
     counterOrder.init(dom.window.document);
@@ -271,21 +284,12 @@ test('configuration menu (format Maxi + slots) -> items_json contient {type:menu
     const modal = doc.getElementById('menu-composer-modal');
     assert.equal(modal.hasAttribute('hidden'), false);
 
-    // Passe en Maxi.
-    const maxiRadio = Array.prototype.find.call(
-        modal.querySelectorAll('.menu-composer__format-input'),
-        r => r.value === 'maxi',
-    );
-    maxiRadio.checked = true;
-    maxiRadio.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+    // Passe en Maxi (ERG-01 : tuile a la place du bouton radio).
+    click(dom, groupTile(modal, '.menu-composer__format-tiles', 'maxi'));
 
-    // Slots requis (side/drink) sont pre-selectionnes (1er choix) ; on ajoute la sauce.
-    const sauceSelect = Array.prototype.find.call(
-        modal.querySelectorAll('.menu-composer__slot-select'),
-        s => s.dataset.slotId === '31',
-    );
-    sauceSelect.value = '47';
-    sauceSelect.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+    // Slots requis (side/drink) sont pre-selectionnes (1er choix) ; on ajoute la sauce
+    // (tuile a la place du <select>).
+    click(dom, groupTile(modal, '.menu-composer__slot-tiles[data-slot-id="31"]', '47'));
 
     click(dom, modal.querySelector('.menu-composer__add'));
 
@@ -308,7 +312,7 @@ test('configuration menu (format Maxi + slots) -> items_json contient {type:menu
     ]);
 });
 
-test('menu Maxi : le select de slot ET la ligne du panier affichent la variante Maxi, pas le nom de base', () => {
+test('menu Maxi : la tuile de slot ET la ligne du panier affichent la variante Maxi, pas le nom de base', () => {
     // Regression F40 (capture 21/22) : "Coca Cola - Moyenne Frite" s'affichait alors
     // que le serveur enregistre "Grande Frite" (RG-T16, resolveModifiers cote serveur).
     const dom = setup();
@@ -319,23 +323,15 @@ test('menu Maxi : le select de slot ET la ligne du panier affichent la variante 
     click(dom, tileByName(dom, 'Menu Cheeseburger'));
     const modal = doc.getElementById('menu-composer-modal');
 
-    const sideSelect = Array.prototype.find.call(
-        modal.querySelectorAll('.menu-composer__slot-select'),
-        s => s.dataset.slotId === '16',
-    );
-    const sideOption = Array.prototype.find.call(sideSelect.options, o => o.value === '22');
-    assert.equal(sideOption.textContent, 'Frites'); // format normal par defaut
+    const sideTile = groupTile(modal, '.menu-composer__slot-tiles[data-slot-id="16"]', '22');
+    assert.equal(sideTile.querySelector('.pos-tile__name').textContent, 'Frites'); // format normal par defaut
+    assert.equal(sideTile.getAttribute('aria-checked'), 'true'); // pre-selectionnee (slot requis, 1 seule option)
 
-    const maxiRadio = Array.prototype.find.call(
-        modal.querySelectorAll('.menu-composer__format-input'),
-        r => r.value === 'maxi',
-    );
-    maxiRadio.checked = true;
-    maxiRadio.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+    click(dom, groupTile(modal, '.menu-composer__format-tiles', 'maxi'));
 
-    // Bascule Normal -> Maxi : le <option> deja rendu se relibelle sans changer sa valeur.
-    assert.equal(sideOption.textContent, 'Grande Frite');
-    assert.equal(sideOption.value, '22');
+    // Bascule Normal -> Maxi : la tuile deja rendue se relibelle sans changer sa valeur.
+    assert.equal(sideTile.querySelector('.pos-tile__name').textContent, 'Grande Frite');
+    assert.equal(sideTile.dataset.value, '22');
 
     click(dom, modal.querySelector('.menu-composer__add'));
 
@@ -395,12 +391,7 @@ test('total : menu Maxi (11,90) x2 -> 23,80 EUR (quantite multipliee)', () => {
     activateCategory(dom, 'Menus');
     click(dom, tileByName(dom, 'Menu Cheeseburger'));
     const modal = doc.getElementById('menu-composer-modal');
-    const maxiRadio = Array.prototype.find.call(
-        modal.querySelectorAll('.menu-composer__format-input'),
-        r => r.value === 'maxi',
-    );
-    maxiRadio.checked = true;
-    maxiRadio.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+    click(dom, groupTile(modal, '.menu-composer__format-tiles', 'maxi'));
     click(dom, modal.querySelector('.menu-composer__add'));
 
     click(dom, doc.querySelector('.order-cart__qty-btn[aria-label^="Augmenter"]')); // x2
@@ -418,13 +409,9 @@ test('menu Normal sans la sauce optionnelle -> selections ne contient que les re
     click(dom, tileByName(dom, 'Menu Cheeseburger'));
     const modal = doc.getElementById('menu-composer-modal');
 
-    // Laisse la sauce a "Sans" (valeur vide) ; ajoute directement.
-    const sauceSelect = Array.prototype.find.call(
-        modal.querySelectorAll('.menu-composer__slot-select'),
-        s => s.dataset.slotId === '31',
-    );
-    sauceSelect.value = '';
-    sauceSelect.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+    // Laisse la sauce a "Sans" (tuile deja selectionnee par defaut sur un slot
+    // optionnel) ; le tap explicite verifie aussi que la tuile "Sans" est cliquable.
+    click(dom, groupTile(modal, '.menu-composer__slot-tiles[data-slot-id="31"]', ''));
 
     click(dom, modal.querySelector('.menu-composer__add'));
     fireSubmit(dom);
@@ -520,12 +507,7 @@ test('total : menu Maxi (11,90) inclus dans le total de ligne', () => {
     activateCategory(dom, 'Menus');
     click(dom, tileByName(dom, 'Menu Cheeseburger'));
     const modal = doc.getElementById('menu-composer-modal');
-    const maxiRadio = Array.prototype.find.call(
-        modal.querySelectorAll('.menu-composer__format-input'),
-        r => r.value === 'maxi',
-    );
-    maxiRadio.checked = true;
-    maxiRadio.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+    click(dom, groupTile(modal, '.menu-composer__format-tiles', 'maxi'));
     click(dom, modal.querySelector('.menu-composer__add'));
 
     assert.equal(doc.querySelector('.order-cart__price').textContent, '11,90 EUR');
@@ -552,7 +534,13 @@ test('numero de table : masque hors sur place, visible en sur place (toggle serv
     assert.equal(group.hasAttribute('hidden'), false);
 });
 
-test('modale menu : slot requis non choisi -> message inline, pas d ajout muet', () => {
+test('modale menu : le <p role=alert> est present des l ouverture, vide avant toute erreur (a11y)', () => {
+    // Avec les tuiles (ERG-01), un slot requis n'offre plus de tuile "Sans" : la
+    // pre-selection du 1er choix rend la desactivation d'un slot requis injoignable
+    // par un vrai tap (contrairement a l'ancien <select>, ou jsdom seul permettait de
+    // forcer une value vide). Ce test ne verifie donc plus que l'element d'erreur est
+    // present et silencieux a l'ouverture ; le cas "menu non composable" reel (slot
+    // requis SANS AUCUNE option resoluble) est couvert par le test suivant.
     const dom = setup();
     const doc = dom.window.document;
     counterOrder.init(doc);
@@ -561,27 +549,51 @@ test('modale menu : slot requis non choisi -> message inline, pas d ajout muet',
     click(dom, tileByName(dom, 'Menu Cheeseburger'));
     const modal = doc.getElementById('menu-composer-modal');
 
-    // Vide un slot requis (drink, slot 1) : un slot requis n'a pas d'option Sans, mais
-    // jsdom autorise l'affectation d'une value vide -> change supprime la selection.
-    const drinkSelect = Array.prototype.find.call(
-        modal.querySelectorAll('.menu-composer__slot-select'),
-        s => s.dataset.slotId === '1',
-    );
-    drinkSelect.value = '';
-    drinkSelect.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
-
-    // Le <p role=alert> est present des l'ouverture (vide), avant toute erreur.
     const errAtOpen = modal.querySelector('.menu-composer__error');
     assert.ok(errAtOpen);
     assert.equal(errAtOpen.getAttribute('role'), 'alert');
     assert.equal(errAtOpen.textContent, '');
     assert.equal(errAtOpen.hasAttribute('hidden'), false); // present en permanence (a11y)
+});
 
-    click(dom, modal.querySelector('.menu-composer__add'));
+test('modale menu : slot requis sans aucune option resoluble -> impasse, ajout desactive, message clair', () => {
+    // Menu non composable (7c) : un slot requis dont option_product_ids ne resout
+    // AUCUN produit connu (ex. produit retire du catalogue depuis) laisse le slot
+    // sans tuile. deadEnd desactive "Ajouter au panier" et affiche le message des
+    // l'ouverture, plutot qu'un panier construit sur une selection manquante.
+    const menuImpasse = [{
+        id: 6,
+        name: 'Menu Impasse',
+        price_normal: 990,
+        price_maxi: 1190,
+        image: '',
+        category_id: 4,
+        category_name: 'Menus',
+        burger_modifiers: [],
+        slots: [
+            { id: 1, name: 'Boisson', slot_type: 'drink', is_required: 1, display_order: 1, option_product_ids: [999] }, // 999 inconnu
+        ],
+    }];
+    const dom = setup(PRODUCTS, menuImpasse);
+    const doc = dom.window.document;
+    counterOrder.init(doc);
 
-    // Modale encore ouverte, message inline renseigne (textContent), aucune ligne.
+    activateCategory(dom, 'Menus');
+    click(dom, tileByName(dom, 'Menu Impasse'));
+    const modal = doc.getElementById('menu-composer-modal');
     assert.equal(modal.hasAttribute('hidden'), false);
-    assert.notEqual(errAtOpen.textContent, '');
+
+    // Le slot requis ne rend aucune tuile (aucune option resoluble).
+    const drinkGroup = modal.querySelector('.menu-composer__slot-tiles[data-slot-id="1"]');
+    assert.ok(drinkGroup);
+    assert.equal(drinkGroup.querySelectorAll('.pos-tile').length, 0);
+
+    const addBtn = modal.querySelector('.menu-composer__add');
+    assert.equal(addBtn.disabled, true);
+    assert.match(modal.querySelector('.menu-composer__error').textContent, /pas composable/);
+
+    click(dom, addBtn); // desactive : aucun effet, meme si le clic est force
+    assert.equal(modal.hasAttribute('hidden'), false);
     assert.equal(doc.querySelector('.order-cart__line'), null);
 });
 
