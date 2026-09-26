@@ -117,7 +117,7 @@ $euros = static fn (mixed $cents): string => number_format(((int) $cents) / 100,
             <thead>
                 <tr>
                     <th>Ingrédient</th>
-                    <th>Stock</th>
+                    <th class="table-num">Stock</th>
                     <th>État</th>
                 </tr>
             </thead>
@@ -129,7 +129,7 @@ $euros = static fn (mixed $cents): string => number_format(((int) $cents) / 100,
                     <?php $band = (string) ($a['stock_band'] ?? 'normal'); ?>
                     <tr>
                         <td class="fw-600"><?= $esc($a['name'] ?? '') ?></td>
-                        <td><?= $esc((int) ($a['stock_pct'] ?? 0)) ?>%</td>
+                        <td class="table-num"><?= $esc((int) ($a['stock_pct'] ?? 0)) ?>%</td>
                         <td>
                             <span class="pill <?= $esc($bandPill($band)) ?>" data-band="<?= $esc($band) ?>"><?= $esc($bandLabel($band)) ?></span>
                         </td>

@@ -5,7 +5,12 @@ declare(strict_types=1);
 /**
  * Liste des roles (RBAC, role.manage), injectee dans admin/layout.php. Texte echappe.
  * Presentation humanisee : page d'accueil et canal affiches en clair (la base garde
- * les chemins / enums techniques).
+ * les chemins / enums techniques). Le code interne (admin, manager, kitchen...) n'est
+ * PAS affiche ici : la migration 0012_role_labels_fr.sql documente explicitement que
+ * "code, default_route et order_source restent des identifiants techniques, jamais
+ * affiches en clair aux equipiers" -- le nom (colonne "Nom") est le seul identifiant
+ * qui doit apparaitre a l'ecran (balayage 2026-09-26, defaut "texte technique",
+ * roles/index.php:71 avant correction).
  *
  * @var array<int, array<string, mixed>> $roles
  */
@@ -49,7 +54,6 @@ $canalHuman = static fn (?string $s): string => ($s === null || $s === '') ? '‚Ä
             <thead>
                 <tr>
                     <th>Nom</th>
-                    <th>Code interne</th>
                     <th>Page d'accueil</th>
                     <th>Canal</th>
                     <th>Statut</th>
@@ -58,7 +62,7 @@ $canalHuman = static fn (?string $s): string => ($s === null || $s === '') ? '‚Ä
             </thead>
             <tbody>
                 <?php if ($rows === []): ?>
-                    <tr><td colspan="6" class="muted">Aucun r√¥le.</td></tr>
+                    <tr><td colspan="5" class="muted">Aucun r√¥le.</td></tr>
                 <?php endif; ?>
                 <?php foreach ($rows as $row): ?>
                     <?php
@@ -68,7 +72,6 @@ $canalHuman = static fn (?string $s): string => ($s === null || $s === '') ? '‚Ä
                     ?>
                     <tr>
                         <td class="fw-600"><?= $esc($row['label'] ?? '') ?></td>
-                        <td class="muted"><?= $esc($row['code'] ?? '') ?></td>
                         <td class="muted"><?= $esc($routeHuman((string) ($row['default_route'] ?? ''))) ?></td>
                         <td class="muted"><?= $esc($canalHuman($src)) ?></td>
                         <td>
