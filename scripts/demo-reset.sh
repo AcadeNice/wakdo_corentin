@@ -13,11 +13,11 @@
 #
 # Protocole, dans l'ordre REEL d'execution (identique en mode normal et en
 # --dry-run, memes libelles [n/6]) :
-#   [1/6] verification de compatibilite : instantane bien forme (y compris son
-#         archive uploads, verifiee ICI, avant toute destruction), CIBLE
-#         (projet/conteneurs compose resolus) et SCHEMA (schema_migrations de
-#         la base courante vs migrations.txt de l'instantane) - REFUS si l'un
-#         ou l'autre diverge ;
+#   [1/6] verification de compatibilite : instantane bien forme (y compris
+#         l'integrite de son dump db.sql.gz ET de son archive uploads, verifiees
+#         ICI, avant toute destruction), CIBLE (projet/conteneurs compose
+#         resolus) et SCHEMA (schema_migrations de la base courante vs
+#         migrations.txt de l'instantane) - REFUS si l'un ou l'autre diverge ;
 #   [2/6] confirmation tapee "RESET" (sautee avec --yes) ;
 #   [3/6] sauvegarde de securite de l'etat COURANT (avant tout ecrasement), au
 #         meme format qu'un instantane, sous demo-backups/ - abandon total si
@@ -69,8 +69,8 @@
 #   0 - reset effectue et verifie (ou dry-run sans anomalie)
 #   1 - usage / compose manquant / pile injoignable / confirmation refusee /
 #       verrou deja pris
-#   2 - instantane cible introuvable ou invalide (y compris archive uploads
-#       corrompue - detecte avant toute destruction)
+#   2 - instantane cible introuvable ou invalide (y compris dump db.sql.gz ou
+#       archive uploads corrompu - detecte avant toute destruction)
 #   3 - schema incompatible (migration appliquee depuis l'instantane, ou inverse)
 #   4 - la sauvegarde de securite a echoue - RIEN n'a ete touche
 #   5 - la restauration a echoue en cours de route (donnees, uploads, invalidation
@@ -235,9 +235,10 @@ if [ ! -e "$SNAPSHOT_DIR" ]; then
     echo "         Lancer d'abord : scripts/demo-snapshot.sh -f $COMPOSE_FILE" >&2
     exit 2
 fi
-# Verifie aussi l'archive uploads (taille, lisibilite) quand l'instantane est
-# cense en contenir une : AVANT toute destruction, dry-run compris (la fonction
-# est appelee ici, avant l'etape [1/6] et avant la branche --dry-run).
+# Verifie aussi l'integrite du dump db.sql.gz, et celle de l'archive uploads
+# quand l'instantane est cense en contenir une : AVANT toute destruction,
+# dry-run compris (la fonction est appelee ici, avant l'etape [1/6] et avant la
+# branche --dry-run).
 if ! validate_snapshot_dir "$SNAPSHOT_DIR"; then
     exit 2
 fi

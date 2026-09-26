@@ -175,11 +175,19 @@ apparaissent a l'identique en mode normal et dans la sortie de `--dry-run`
 1. **`[1/6]` Verification de compatibilite : instantane + cible + schema.**
    Lecture seule integralement, executee dans les deux modes (dry-run compris),
    AVANT toute destruction :
-   - l'instantane est bien forme (les 4 fichiers attendus sont presents) ET son
-     archive uploads, si l'instantane est cense en contenir une, est verifiee
-     ICI (taille non nulle, lisible par `tar tzf`) - pas plus tard, pas
-     seulement au moment ou on s'en sert : une archive vide ou illisible doit
-     etre detectee avant que la base n'ait ete ecrasee, pas apres ;
+   - l'instantane est bien forme (les 4 fichiers attendus sont presents) ET ses
+     deux archives sont verifiees ICI — pas plus tard, pas seulement au moment
+     ou on s'en sert : une archive vide ou illisible doit etre detectee avant
+     que la base n'ait ete ecrasee, pas apres.
+     - le **dump** `db.sql.gz` : taille non nulle, flux gzip intact (`gzip -t`),
+       et derniere ligne `-- Dump completed` (un dump tronque puis recompresse
+       passerait `gzip -t`). C'est l'artefact critique : sans ce controle, un
+       `db.sql.gz` tronque — copie ou transfert interrompu, disque plein —
+       traversait l'etape 1 (`--dry-run` annoncait meme « compatible »), puis
+       cassait en plein milieu de l'etape 4, `DROP`/`CREATE` deja joues et base
+       laissee dans un etat intermediaire incoherent ;
+     - l'**archive uploads** `uploads.tar.gz`, si l'instantane est cense en
+       contenir une : taille non nulle, lisible par `tar tzf` ;
    - l'identite de cible (voir plus haut) - refus (code 7) si divergente, ou si
      la cible actuelle n'a pas pu etre resolue alors que l'instantane porte une
      identite ;
@@ -286,9 +294,10 @@ souvenir de ces variables.
   `-f`/`--compose-file` et `COMPOSE_PROJECT` — l'instantane vise n'a pas ete
   pris sur la pile actuellement ciblee (ou la pile actuelle n'a pas pu etre
   identifiee).
-- **Instantane invalide, notamment archive uploads vide/illisible** (etape 1,
-  code 2) : detecte avant toute destruction (y compris en `--dry-run`) ;
-  reprendre un instantane valide ou relancer `demo-snapshot.sh`.
+- **Instantane invalide : fichier manquant, dump `db.sql.gz` tronque/corrompu,
+  ou archive uploads vide/illisible** (etape 1, code 2) : detecte avant toute
+  destruction (y compris en `--dry-run`) ; reprendre un instantane valide ou
+  relancer `demo-snapshot.sh`.
 - **Schema incompatible** (etape 1, code 3) : relancer `scripts/demo-snapshot.sh
   -f docker-compose.prod.yml` pour figer un instantane a jour (sur un etat
   sain, voir "Quand figer l'instantane"), puis reset.
