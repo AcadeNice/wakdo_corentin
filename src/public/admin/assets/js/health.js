@@ -97,6 +97,134 @@
     }
 
     /* ============================================================
+     * Utilitaires partagés de rendu de réponse (addendum : réponse JSON
+     * complète, console d'appels, connexion) — communs aux blocs 2, 2bis et 5.
+     *
+     * Un corps de réponse HTTP est une donnée INCONNUE (l'API répond ce que son
+     * code produit ; un test la fait volontairement contenir du HTML) : chaque
+     * fonction ci-dessous écrit dans le DOM par `textContent` ou par des noeuds
+     * créés un par un (`createElement` + `textContent`), JAMAIS par `innerHTML`
+     * sur une chaîne dérivée de la réponse. C'est la garantie demandée : une
+     * réponse ne peut jamais devenir un élément actif de la page.
+     * ============================================================ */
+
+    /**
+     * En-têtes jugés probants pour la pédagogie de la page, jamais la totalité
+     * (un en-tête interne au serveur n'a rien à faire ici). Seuls ceux
+     * effectivement présents et non vides sont retenus par pickHeaders().
+     */
+    var SAFE_HEADER_NAMES = [
+        'Content-Type', 'Cache-Control', 'X-Content-Type-Options',
+        'Content-Security-Policy', 'X-Frame-Options', 'Retry-After',
+    ];
+
+    /**
+     * @param {{get: function(string): ?string}} headers un objet Headers (ou un
+     *   double de test qui en imite la seule méthode utilisée ici).
+     * @returns {Object<string,string>} uniquement les en-têtes de la liste
+     *   blanche réellement présents (non null, non vide).
+     */
+    function pickHeaders(headers) {
+        var out = {};
+        if (!headers || typeof headers.get !== 'function') {
+            return out;
+        }
+        SAFE_HEADER_NAMES.forEach(function (name) {
+            var v = headers.get(name);
+            if (v !== null && v !== undefined && v !== '') {
+                out[name] = v;
+            }
+        });
+        return out;
+    }
+
+    var BODY_TEXT_MAX = 4000;
+
+    /**
+     * Décrit un corps de réponse brut (texte lu une seule fois, jamais
+     * res.json() ET res.text() sur le même Response — impossible sur un vrai
+     * Response, "body stream already read"). Un corps JSON est indenté
+     * (JSON.stringify(..., null, 2)) ; un corps non JSON est rendu tel quel,
+     * tronqué avec une mention explicite au-delà de BODY_TEXT_MAX caractères
+     * (jamais silencieusement coupé sans le dire).
+     *
+     * @param {string} text
+     * @returns {{isJson: boolean, json: ?object, pretty: string, truncated: boolean}}
+     */
+    function describeBody(text) {
+        var raw = text || '';
+        try {
+            var json = JSON.parse(raw);
+            return { isJson: true, json: json, pretty: JSON.stringify(json, null, 2), truncated: false };
+        } catch (e) {
+            var truncated = raw.length > BODY_TEXT_MAX;
+            var pretty = truncated ? (raw.slice(0, BODY_TEXT_MAX) + '\n… (tronqué, réponse trop longue)') : raw;
+            return { isJson: false, json: null, pretty: pretty, truncated: truncated };
+        }
+    }
+
+    function statusPillClass(status) {
+        if (status === null || status === undefined) {
+            return 'pill-danger';
+        }
+        var c = String(status).charAt(0);
+        if (c === '2') return 'pill-success';
+        if (c === '3') return 'pill-info';
+        if (c === '4') return 'pill-warning';
+        return 'pill-danger';
+    }
+
+    /** Écrit le statut (pastille) et un texte annexe (temps écoulé). */
+    function writeStatusMeta(statusEl, metaEl, status, elapsedMs) {
+        if (statusEl) {
+            statusEl.textContent = (status === null || status === undefined) ? 'échec réseau' : String(status);
+            statusEl.className = 'pill ' + statusPillClass(status);
+        }
+        if (metaEl) {
+            metaEl.textContent = (elapsedMs === null || elapsedMs === undefined) ? '' : (Math.round(elapsedMs) + ' ms');
+        }
+    }
+
+    /**
+     * Remplit `container` (un noeud vide, jamais le corps de réponse lui-même)
+     * avec une liste de définitions des en-têtes retenus. Reconstruit
+     * systématiquement à partir de zéro : aucune trace d'un appel précédent ne
+     * peut rester affichée par erreur.
+     */
+    function writeHeaders(doc, container, headers) {
+        if (!container) {
+            return;
+        }
+        container.textContent = '';
+        var names = Object.keys(headers || {});
+        if (names.length === 0) {
+            var none = doc.createElement('p');
+            none.className = 'health-headers-empty';
+            none.textContent = 'Aucun en-tête retenu.';
+            container.appendChild(none);
+            return;
+        }
+        var dl = doc.createElement('dl');
+        dl.className = 'health-headers';
+        names.forEach(function (name) {
+            var dt = doc.createElement('dt');
+            dt.textContent = name;
+            var dd = doc.createElement('dd');
+            dd.textContent = headers[name];
+            dl.appendChild(dt);
+            dl.appendChild(dd);
+        });
+        container.appendChild(dl);
+    }
+
+    /** Écrit le corps décrit par describeBody() dans un <pre>, par textContent uniquement. */
+    function writeBody(bodyEl, bodyText) {
+        if (bodyEl) {
+            bodyEl.textContent = bodyText || '';
+        }
+    }
+
+    /* ============================================================
      * Bloc 1 — État en direct (rapport, section 3 du contrat)
      * ============================================================ */
 
@@ -371,10 +499,34 @@
     }
 
     /**
+     * Écrit la réponse complète d'une sonde (en-têtes retenus + corps décrit)
+     * dans son panneau de détail (`#health-probe-detail-<id>`, replié par défaut
+     * — cf. wireProbes()). Reconstruit à chaque appel : jamais de mélange entre
+     * deux lancements successifs.
+     */
+    function renderProbeDetail(doc, probeId, outcome) {
+        var container = byId(doc, 'health-probe-detail-' + probeId);
+        if (!container) {
+            return;
+        }
+        container.textContent = '';
+        var headersBox = doc.createElement('div');
+        headersBox.className = 'health-headers-box';
+        container.appendChild(headersBox);
+        writeHeaders(doc, headersBox, outcome.headers);
+        var pre = doc.createElement('pre');
+        pre.className = 'health-body health-probe-body';
+        container.appendChild(pre);
+        writeBody(pre, outcome.networkError ? '' : outcome.bodyText);
+    }
+
+    /**
      * Lance une sonde : vrai fetch, mesure du temps (performance.now()), lecture
-     * du code d'erreur dans l'enveloppe JSON, comparaison au statut/code attendus.
-     * Un résultat inattendu est rendu de façon visible (jamais masqué) via
-     * `renderProbeOutcome`.
+     * du corps UNE SEULE FOIS en texte (jamais res.json() ET res.text() sur le
+     * même Response), dont le code d'erreur est extrait pour la comparaison au
+     * statut/code attendus. Un résultat inattendu est rendu de façon visible
+     * (jamais masqué) via `renderProbeOutcome` ; la réponse complète (en-têtes +
+     * corps) est écrite dans le panneau de détail, replié par défaut.
      *
      * @returns {Promise<object>} le résultat (utile à l'agrégat "Tout lancer")
      */
@@ -390,18 +542,22 @@
         try {
             var res = await fetch(req.url, req.init);
             var elapsed = nowMs() - start;
-            var json = await res.json().catch(function () { return null; });
-            var code = (json && json.error && json.error.code) ? json.error.code : null;
+            var text = await res.text().catch(function () { return ''; });
+            var desc = describeBody(text);
+            var code = (desc.isJson && desc.json && desc.json.error && desc.json.error.code) ? desc.json.error.code : null;
             outcome = {
                 status: res.status,
                 code: code,
                 elapsedMs: elapsed,
                 conforme: probeMatches(probe, res.status, code),
+                headers: pickHeaders(res.headers),
+                bodyText: desc.pretty,
             };
         } catch (e) {
-            outcome = { status: null, code: null, elapsedMs: nowMs() - start, conforme: false, networkError: true };
+            outcome = { status: null, code: null, elapsedMs: nowMs() - start, conforme: false, networkError: true, headers: {}, bodyText: '' };
         }
         renderProbeOutcome(doc, probe, outcome);
+        renderProbeDetail(doc, probe.id, outcome);
         return outcome;
     }
 
@@ -430,6 +586,21 @@
             return;
         }
         list.addEventListener('click', function (e) {
+            // Bascule "Détails" : replié par défaut (index.php), déplié au clic.
+            // Le contenu est déjà à jour (renderProbeDetail écrit à chaque
+            // lancement, que le panneau soit visible ou non) : ce bouton ne fait
+            // qu'afficher/masquer, jamais relancer un appel.
+            var toggle = e.target.closest('[data-probe-detail-toggle]');
+            if (toggle) {
+                var pid = toggle.getAttribute('data-probe-detail-toggle');
+                var panel = byId(doc, 'health-probe-detail-' + pid);
+                var expanded = toggle.getAttribute('aria-expanded') === 'true';
+                toggle.setAttribute('aria-expanded', String(!expanded));
+                if (panel) {
+                    panel.hidden = expanded;
+                }
+                return;
+            }
             var btn = e.target.closest('[data-probe-run]');
             if (!btn) {
                 return;
@@ -447,6 +618,194 @@
                 runAllProbes(doc, probes, csrfToken);
             });
         }
+    }
+
+    /* ============================================================
+     * Bloc 2bis — Console d'appels (lecture seule, GET uniquement)
+     *
+     * Contrairement aux sept sondes (bloc 2, requêtes figées) ou au trajet
+     * (bloc 3, simulation), la console lance un VRAI GET vers n'importe quelle
+     * route GET de la carte (bloc 4), avec la session courante. Le "GET
+     * uniquement" n'est pas qu'une contrainte d'interface : buildConsolePath()
+     * et buildConsoleRequest() REFUSENT (exception) toute route dont la méthode
+     * n'est pas GET, et le sélecteur (wireConsole) ne propose jamais que les
+     * routes GET au départ — double verrou, testé aux deux niveaux.
+     * ============================================================ */
+
+    /** Extrait, dans l'ordre, les noms des segments {param} d'un chemin de route. */
+    function routeParamNames(path) {
+        var out = [];
+        var re = /\{(\w+)\}/g;
+        var m;
+        while ((m = re.exec(path))) {
+            out.push(m[1]);
+        }
+        return out;
+    }
+
+    /**
+     * Remplace chaque {param} du chemin par sa valeur ENCODÉE
+     * (encodeURIComponent) : jamais un chemin libre construit par
+     * concaténation, qui permettrait d'appeler autre chose que la route
+     * choisie. Refuse (exception) toute route qui n'est pas GET.
+     *
+     * @param {object} route une entrée de RouteMap::rows() (data-routes)
+     * @param {Object<string,string>} values valeurs saisies par paramètre
+     * @returns {string} le chemin final, relatif à l'origine courante
+     */
+    function buildConsolePath(route, values) {
+        if (!route || route.m !== 'GET') {
+            throw new Error("La console n'appelle que des routes GET.");
+        }
+        return route.p.replace(/\{(\w+)\}/g, function (_, name) {
+            return encodeURIComponent((values && values[name]) || '');
+        });
+    }
+
+    /**
+     * Construit la requête fetch de la console : méthode GET figée en dur
+     * (jamais lue depuis un paramètre), session courante (`credentials:
+     * 'same-origin'`), aucune clé `body`.
+     */
+    function buildConsoleRequest(route, values) {
+        var path = buildConsolePath(route, values);
+        return { url: path, init: { method: 'GET', credentials: 'same-origin' } };
+    }
+
+    /** Les seules options proposées par le sélecteur : les routes GET, avec leur index réel dans `routes`. */
+    function consoleRouteOptions(routes) {
+        var out = [];
+        routes.forEach(function (r, i) {
+            if (r.m === 'GET') {
+                out.push({ ri: i, label: 'GET ' + r.p + ' — ' + r.g });
+            }
+        });
+        return out;
+    }
+
+    /**
+     * Câble la console : sélecteur (routes GET uniquement), un champ par
+     * paramètre du chemin choisi, validation (aucun appel si un paramètre est
+     * vide), exécution réelle, rendu XSS-safe de la réponse (statut, en-têtes
+     * retenus, corps décrit). `openRoute(ri)` est appelée par la carte des
+     * routes (bouton "Ouvrir dans la console", bloc 4) pour pré-remplir la
+     * sélection depuis l'extérieur.
+     *
+     * @returns {?{openRoute: function(number): void, send: function(): Promise<void>}}
+     */
+    function wireConsole(doc, routes) {
+        var sel = byId(doc, 'health-console-route');
+        var paramsEl = byId(doc, 'health-console-params');
+        var sendBtn = byId(doc, 'health-console-send');
+        var statusEl = byId(doc, 'health-console-status');
+        var resultEl = byId(doc, 'health-console-result');
+        var statusPill = byId(doc, 'health-console-resp-status');
+        var respTime = byId(doc, 'health-console-resp-time');
+        var headersEl = byId(doc, 'health-console-headers');
+        var bodyEl = byId(doc, 'health-console-body');
+        if (!sel || !paramsEl || !sendBtn) {
+            return null;
+        }
+
+        var options = consoleRouteOptions(routes);
+        sel.innerHTML = options.map(function (o) {
+            return '<option value="' + o.ri + '">' + esc(o.label) + '</option>';
+        }).join('');
+
+        function currentRoute() {
+            var ri = sel.value === '' ? NaN : +sel.value;
+            return { ri: ri, route: routes[ri] };
+        }
+
+        function rebuildFields() {
+            paramsEl.textContent = '';
+            var cur = currentRoute();
+            if (!cur.route) {
+                return;
+            }
+            routeParamNames(cur.route.p).forEach(function (name) {
+                var group = doc.createElement('div');
+                group.className = 'form-group health-console-field';
+                var inputId = 'health-console-param-' + name;
+                var label = doc.createElement('label');
+                label.className = 'form-label';
+                label.setAttribute('for', inputId);
+                label.textContent = name;
+                var input = doc.createElement('input');
+                input.className = 'form-input';
+                input.type = 'text';
+                input.id = inputId;
+                input.setAttribute('data-console-param', name);
+                group.appendChild(label);
+                group.appendChild(input);
+                paramsEl.appendChild(group);
+            });
+        }
+
+        function readValues() {
+            var values = {};
+            paramsEl.querySelectorAll('[data-console-param]').forEach(function (input) {
+                values[input.getAttribute('data-console-param')] = input.value.trim();
+            });
+            return values;
+        }
+
+        function paramsMissing(route, values) {
+            return routeParamNames(route.p).some(function (name) { return !values[name]; });
+        }
+
+        async function send() {
+            var cur = currentRoute();
+            if (!cur.route) {
+                return;
+            }
+            var values = readValues();
+            if (paramsMissing(cur.route, values)) {
+                statusEl.textContent = 'Renseigne tous les paramètres avant d’envoyer.';
+                return;
+            }
+            var req = buildConsoleRequest(cur.route, values);
+            statusEl.textContent = 'Appel en cours…';
+            if (resultEl) {
+                resultEl.hidden = true;
+            }
+            var start = nowMs();
+            try {
+                var res = await fetch(req.url, req.init);
+                var elapsed = nowMs() - start;
+                var text = await res.text().catch(function () { return ''; });
+                var desc = describeBody(text);
+                writeStatusMeta(statusPill, respTime, res.status, elapsed);
+                writeHeaders(doc, headersEl, pickHeaders(res.headers));
+                writeBody(bodyEl, desc.pretty);
+                if (resultEl) {
+                    resultEl.hidden = false;
+                }
+                statusEl.textContent = 'Réponse reçue en ' + Math.round(elapsed) + ' ms.';
+            } catch (e) {
+                statusEl.textContent = 'Échec réseau : la requête n’a pas abouti.';
+            }
+        }
+
+        sel.addEventListener('change', rebuildFields);
+        sendBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            send();
+        });
+        rebuildFields();
+
+        return {
+            openRoute: function (ri) {
+                sel.value = String(ri);
+                rebuildFields();
+                if (routes[ri]) {
+                    statusEl.textContent = 'Route chargée : ' + routes[ri].m + ' ' + routes[ri].p + '.';
+                }
+                var firstInput = paramsEl.querySelector('input');
+                (firstInput || sendBtn).focus();
+            },
+            send: send,
+        };
     }
 
     /* ============================================================
@@ -973,7 +1332,7 @@
         rows.forEach(function (b) { b.setAttribute('aria-current', String(+b.getAttribute('data-ri') === ri)); });
     };
 
-    function wireRoutesMap(doc, routes, onPick) {
+    function wireRoutesMap(doc, routes, onPick, onOpenConsole) {
         var groupsEl = byId(doc, 'health-routes-groups');
         if (!groupsEl) {
             return;
@@ -1006,11 +1365,23 @@
                 html += '<div class="health-group"><h3 class="health-group__title">' + esc(g) + ' <span class="mono">' + list.length + '</span></h3>';
                 list.forEach(function (i) {
                     var r = routes[i];
+                    // Un <button> ne peut pas en contenir un autre : le bouton "Ouvrir
+                    // dans la console" (GET uniquement) est un FRÈRE de .health-route
+                    // dans une enveloppe, jamais imbriqué dedans.
+                    html += '<div class="health-route-row">';
                     html += '<button type="button" class="health-route" data-ri="' + i + '" aria-current="' + (i === currentRi) + '">'
                         + '<span class="health-meth health-meth--' + r.m + '">' + r.m + '</span>'
                         + '<span class="health-route__path">' + pathHtml(r.p) + '</span>'
                         + '<span class="health-badges">' + '<span class="pill ' + surfPillClass(r.s) + '">' + SURF[r.s] + '</span>' + badgesHtml(r) + '</span>'
                         + '<span class="health-route__handler">' + esc(r.c) + 'Controller::' + esc(r.a) + '()</span></button>';
+                    if (r.m === 'GET') {
+                        // aria-label distinct par ligne (pas juste "Ouvrir dans la
+                        // console" répété) : au clavier/lecteur d'écran, la carte peut
+                        // afficher des dizaines de lignes GET, toutes avec le même texte
+                        // visible.
+                        html += '<button type="button" class="btn btn-ghost btn-sm health-route-console-btn" data-console-ri="' + i + '" aria-label="Ouvrir ' + esc(r.m + ' ' + r.p) + ' dans la console">Ouvrir dans la console</button>';
+                    }
+                    html += '</div>';
                 });
                 html += '</div>';
             });
@@ -1027,6 +1398,14 @@
         }
 
         groupsEl.addEventListener('click', function (e) {
+            var openBtn = e.target.closest('[data-console-ri]');
+            if (openBtn) {
+                // Volontairement SANS setCurrent/onPick : ouvrir la console ne
+                // sélectionne pas la route pour le trajet (bloc 3), qui reste un
+                // choix séparé.
+                if (onOpenConsole) onOpenConsole(+openBtn.getAttribute('data-console-ri'));
+                return;
+            }
             var b = e.target.closest('[data-ri]'); if (!b) return;
             var ri = +b.getAttribute('data-ri');
             setCurrent(ri);
@@ -1048,6 +1427,163 @@
     }
 
     /* ============================================================
+     * Bloc 5 — Connexion JSON (démonstration), sans perte de session
+     *
+     * `credentials: 'omit'` est le coeur du contrat : d'après la spécification
+     * Fetch (section "http network or cache fetch"), l'étape qui écrit un
+     * cookie depuis un en-tête Set-Cookie ne s'exécute QUE si le mode
+     * credentials de la requête n'est PAS "omit". Avec 'omit', le navigateur
+     * envoie la requête sans le cookie de session courant ET ignore tout
+     * Set-Cookie de la réponse : le cookie WAKDO_SID de qui regarde cette page
+     * n'est donc jamais remplacé, quelle que soit la réussite de l'appel.
+     * ============================================================ */
+
+    /**
+     * @returns {{url: string, init: object}} POST JSON, credentials 'omit'
+     *   (cf. note ci-dessus) : jamais 'include' ni 'same-origin' ici.
+     */
+    function buildLoginRequest(email, password) {
+        return {
+            url: '/admin/api/auth/login',
+            init: {
+                method: 'POST',
+                credentials: 'omit',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email, password: password }),
+            },
+        };
+    }
+
+    /**
+     * Séquence curl reproductible (contrat), avec l'hôte RÉEL de la page
+     * courante et des marqueurs à la place des identifiants — jamais ceux
+     * effectivement saisis dans le formulaire, pour ne pas afficher un mot de
+     * passe réel dans un bloc de code.
+     */
+    function curlSnippet(origin) {
+        return "curl -c cookies.txt -H 'Content-Type: application/json' -d '{\"email\":\"<email>\",\"password\":\"<mot de passe>\"}' "
+            + origin + '/admin/api/auth/login\n'
+            + 'curl -b cookies.txt ' + origin + '/admin/api/auth/me';
+    }
+
+    /**
+     * Copie `token` dans le presse-papiers si l'API est disponible, sinon le
+     * dit clairement (jamais un échec silencieux). Retourne la promesse pour
+     * que l'appelant (et les tests) puisse l'attendre.
+     */
+    function copyToken(win, token, statusEl) {
+        if (win && win.navigator && win.navigator.clipboard && typeof win.navigator.clipboard.writeText === 'function') {
+            return win.navigator.clipboard.writeText(token).then(function () {
+                if (statusEl) { statusEl.textContent = 'Jeton copié.'; }
+            }).catch(function () {
+                if (statusEl) { statusEl.textContent = 'Échec de la copie : copie-le manuellement.'; }
+            });
+        }
+        if (statusEl) {
+            statusEl.textContent = 'Copie indisponible dans ce navigateur : copie-le manuellement.';
+        }
+        return Promise.resolve();
+    }
+
+    /**
+     * Câble le formulaire de connexion : soumission -> buildLoginRequest()
+     * (credentials 'omit'), rendu XSS-safe du statut/corps, jeton csrf_token
+     * affiché avec un bouton de copie s'il est présent. Le mot de passe n'est
+     * JAMAIS journalisé, stocké, ni réaffiché : le champ est vidé après
+     * l'appel, réussite ou échec.
+     *
+     * @returns {?{submit: function(?Event): Promise<void>}}
+     */
+    function wireLogin(doc) {
+        var form = byId(doc, 'health-login-form');
+        var emailInput = byId(doc, 'health-login-email');
+        var passwordInput = byId(doc, 'health-login-password');
+        var statusEl = byId(doc, 'health-login-status');
+        var resultEl = byId(doc, 'health-login-result');
+        var statusPill = byId(doc, 'health-login-resp-status');
+        var respTime = byId(doc, 'health-login-resp-time');
+        var bodyEl = byId(doc, 'health-login-body');
+        var tokenRow = byId(doc, 'health-login-token-row');
+        var copyBtn = byId(doc, 'health-login-copy-token');
+        var copyStatus = byId(doc, 'health-login-copy-status');
+        var curlEl = byId(doc, 'health-login-curl');
+        if (!form || !emailInput || !passwordInput) {
+            return null;
+        }
+
+        var win = doc.defaultView || (typeof window !== 'undefined' ? window : null);
+        if (curlEl) {
+            var origin = (win && win.location && win.location.origin) ? win.location.origin : '';
+            curlEl.textContent = curlSnippet(origin);
+        }
+
+        var lastToken = null;
+
+        async function submit(e) {
+            if (e) {
+                e.preventDefault();
+            }
+            var email = emailInput.value.trim();
+            var password = passwordInput.value;
+            lastToken = null;
+            if (tokenRow) {
+                tokenRow.hidden = true;
+            }
+            if (statusEl) {
+                statusEl.textContent = 'Connexion en cours…';
+            }
+            if (resultEl) {
+                resultEl.hidden = true;
+            }
+            var req = buildLoginRequest(email, password);
+            var start = nowMs();
+            try {
+                var res = await fetch(req.url, req.init);
+                var elapsed = nowMs() - start;
+                var text = await res.text().catch(function () { return ''; });
+                var desc = describeBody(text);
+                writeStatusMeta(statusPill, respTime, res.status, elapsed);
+                writeBody(bodyEl, desc.pretty);
+                if (resultEl) {
+                    resultEl.hidden = false;
+                }
+                if (desc.isJson && desc.json && desc.json.data && desc.json.data.csrf_token) {
+                    lastToken = desc.json.data.csrf_token;
+                    if (tokenRow) {
+                        tokenRow.hidden = false;
+                    }
+                }
+                if (statusEl) {
+                    statusEl.textContent = res.ok
+                        ? ('Connexion démonstrative réussie (' + res.status + ').')
+                        : ('Échec (' + res.status + ') — voir la réponse ci-dessous.');
+                }
+            } catch (err) {
+                if (statusEl) {
+                    statusEl.textContent = 'Échec réseau : la requête n’a pas abouti.';
+                }
+            } finally {
+                // Jamais réaffiché, jamais conservé : le champ est vidé après
+                // l'appel, réussite ou échec (STRICT-3 : pas de coupure silencieuse
+                // de cette garantie, elle s'applique aussi bien à un succès qu'à un
+                // rejet).
+                passwordInput.value = '';
+            }
+        }
+
+        form.addEventListener('submit', submit);
+        if (copyBtn) {
+            copyBtn.addEventListener('click', function () {
+                if (lastToken) {
+                    copyToken(win, lastToken, copyStatus);
+                }
+            });
+        }
+
+        return { submit: submit };
+    }
+
+    /* ============================================================
      * Point d'entrée
      * ============================================================ */
 
@@ -1062,6 +1598,8 @@
 
         wireStatePolling(doc);
         wireProbes(doc, probes, csrfToken);
+        var consoleApi = wireConsole(doc, routes);
+        wireLogin(doc);
 
         // Reference croisee trajet <-> carte des routes : un clic sur une route de
         // la carte charge le trajet (onPick), et tout chargement du trajet (preset,
@@ -1069,11 +1607,17 @@
         // carte (onLoad). `routesMap` est construit en premier avec une reference
         // encore vide vers `trajet` (assignee juste apres) : au moment ou onPick/
         // onLoad s'executent reellement (au clic, ou au premier chargement), les
-        // deux existent deja.
+        // deux existent deja. Le bouton "Ouvrir dans la console" (GET uniquement)
+        // delegue directement a consoleApi.openRoute, sans passer par onPick : il
+        // ne selectionne pas la route pour le trajet (choix independant).
         var trajet;
         var routesMap = wireRoutesMap(doc, routes, function (ri) {
             if (trajet) {
                 trajet.loadRoute(ri, { animate: true });
+            }
+        }, function (ri) {
+            if (consoleApi) {
+                consoleApi.openRoute(ri);
             }
         });
         trajet = wireTrajet(doc, routes, function (ri) {
@@ -1102,6 +1646,17 @@
         wireTrajet: wireTrajet,
         wireRoutesMap: wireRoutesMap,
         wireProbes: wireProbes,
+        // Addendum : réponse complète des sondes, console d'appels (lecture), connexion JSON.
+        pickHeaders: pickHeaders,
+        describeBody: describeBody,
+        routeParamNames: routeParamNames,
+        buildConsolePath: buildConsolePath,
+        buildConsoleRequest: buildConsoleRequest,
+        wireConsole: wireConsole,
+        buildLoginRequest: buildLoginRequest,
+        curlSnippet: curlSnippet,
+        copyToken: copyToken,
+        wireLogin: wireLogin,
     };
 
     if (typeof module !== 'undefined' && module.exports) {

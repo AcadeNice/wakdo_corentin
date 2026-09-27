@@ -1,7 +1,7 @@
 {
   "page": "admin-sante-api",
   "url": "http://admin.wakdo.test/admin/health",
-  "date": "2026-09-27T13:40:30.216Z",
+  "date": "2026-09-27T16:20:48.291Z",
   "moteur": {
     "axe": {
       "name": "axe-core",
@@ -345,6 +345,17 @@
     },
     {
       "compartiment": "conforme",
+      "selecteur": "a[href$=\"#health-console\"]",
+      "extrait": "<a href=\"#health-console\">Console d'appels</a>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#f9fafb",
+      "ratio": 16.65,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
       "selecteur": "a[href$=\"#health-trajet\"]",
       "extrait": "<a href=\"#health-trajet\">Le trajet d'un appel</a>",
       "avant_plan": "#1a1a1a",
@@ -367,6 +378,17 @@
     },
     {
       "compartiment": "conforme",
+      "selecteur": "a[href$=\"#health-login\"]",
+      "extrait": "<a href=\"#health-login\">Connexion (démonstration API)</a>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#f9fafb",
+      "ratio": 16.65,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
       "selecteur": "#h-health-etat",
       "extrait": "<h2 id=\"h-health-etat\">État en direct</h2>",
       "avant_plan": "#1a1a1a",
@@ -379,7 +401,7 @@
     {
       "compartiment": "conforme",
       "selecteur": "#health-etat > .health-section-lede",
-      "extrait": "<p class=\"health-section-lede\">Généré le 27/09/2026 15:40:28, puis relu automatiquement toutes les 1",
+      "extrait": "<p class=\"health-section-lede\">Généré le 27/09/2026 18:20:45, puis relu automatiquement toutes les 1",
       "avant_plan": "#69707d",
       "arriere_plan": "#f5f5f5",
       "ratio": 4.57,
@@ -489,7 +511,7 @@
     {
       "compartiment": "conforme",
       "selecteur": "#health-migrations",
-      "extrait": "<p class=\"kpi-value\" id=\"health-migrations\">16 (nombre de fichiers inconnu)</p>",
+      "extrait": "<p class=\"kpi-value\" id=\"health-migrations\">17 (nombre de fichiers inconnu)</p>",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#ffffff",
       "ratio": 17.4,
@@ -500,7 +522,7 @@
     {
       "compartiment": "conforme",
       "selecteur": "#health-migrations-last",
-      "extrait": "<p class=\"health-kpi-detail\" id=\"health-migrations-last\">dernière : 0017_ingredient_family.sql</p>",
+      "extrait": "<p class=\"health-kpi-detail\" id=\"health-migrations-last\">dernière : 0018_manager_order_cancel.sql</p",
       "avant_plan": "#69707d",
       "arriere_plan": "#ffffff",
       "ratio": 4.98,
@@ -588,7 +610,7 @@
     {
       "compartiment": "conforme",
       "selecteur": "#health-refresh-time",
-      "extrait": "<time id=\"health-refresh-time\">27/09/2026 15:40:28</time>",
+      "extrait": "<time id=\"health-refresh-time\">27/09/2026 18:20:45</time>",
       "avant_plan": "#69707d",
       "arriere_plan": "#f5f5f5",
       "ratio": 4.57,
@@ -631,7 +653,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": "li[data-probe-id=\"sante\"] > .health-probe-head > code",
+      "selecteur": "li[data-probe-id=\"sante\"] > .health-probe-head > .health-probe-url",
       "extrait": "<code class=\"mono health-probe-url\">/api/health</code>",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#ffffff",
@@ -642,7 +664,18 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": "li[data-probe-id=\"sante\"] > .health-probe-head > .btn-sm.btn-secondary[data-probe-run=\"\"]",
+      "selecteur": "button[data-probe-detail-toggle=\"sante\"]",
+      "extrait": "<button class=\"btn btn-ghost btn-sm\" type=\"button\" data-probe-detail-toggle=\"sante\" aria-expanded=\"f",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "li[data-probe-id=\"sante\"] > .health-probe-head > .btn-secondary.btn-sm[data-probe-run=\"\"]",
       "extrait": "<button class=\"btn btn-secondary btn-sm\" type=\"button\" data-probe-run=\"\">Lancer</button>",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",
@@ -710,15 +743,15 @@
   "conformes_resume": [
     {
       "id": "aria-allowed-attr",
-      "noeuds": 193
+      "noeuds": 280
     },
     {
       "id": "aria-conditional-attr",
-      "noeuds": 193
+      "noeuds": 280
     },
     {
       "id": "aria-deprecated-role",
-      "noeuds": 10
+      "noeuds": 12
     },
     {
       "id": "aria-hidden-body",
@@ -730,27 +763,31 @@
     },
     {
       "id": "aria-prohibited-attr",
-      "noeuds": 193
+      "noeuds": 280
     },
     {
       "id": "aria-required-attr",
-      "noeuds": 10
+      "noeuds": 12
     },
     {
       "id": "aria-roles",
-      "noeuds": 10
+      "noeuds": 12
     },
     {
       "id": "aria-valid-attr",
-      "noeuds": 193
+      "noeuds": 280
     },
     {
       "id": "aria-valid-attr-value",
-      "noeuds": 193
+      "noeuds": 280
+    },
+    {
+      "id": "autocomplete-valid",
+      "noeuds": 1
     },
     {
       "id": "button-name",
-      "noeuds": 184
+      "noeuds": 269
     },
     {
       "id": "bypass",
@@ -758,7 +795,7 @@
     },
     {
       "id": "color-contrast",
-      "noeuds": 63
+      "noeuds": 69
     },
     {
       "id": "document-title",
@@ -766,11 +803,11 @@
     },
     {
       "id": "duplicate-id-aria",
-      "noeuds": 4
+      "noeuds": 16
     },
     {
       "id": "form-field-multiple-labels",
-      "noeuds": 10
+      "noeuds": 13
     },
     {
       "id": "html-has-lang",
@@ -786,11 +823,11 @@
     },
     {
       "id": "label",
-      "noeuds": 10
+      "noeuds": 12
     },
     {
       "id": "link-name",
-      "noeuds": 23
+      "noeuds": 25
     },
     {
       "id": "list",
@@ -798,7 +835,7 @@
     },
     {
       "id": "listitem",
-      "noeuds": 27
+      "noeuds": 29
     },
     {
       "id": "meta-viewport",
@@ -806,10 +843,14 @@
     },
     {
       "id": "nested-interactive",
-      "noeuds": 194
+      "noeuds": 355
     },
     {
       "id": "scrollable-region-focusable",
+      "noeuds": 1
+    },
+    {
+      "id": "select-name",
       "noeuds": 1
     }
   ],
@@ -825,7 +866,6 @@
     "aria-tab-name",
     "aria-toggle-field-name",
     "aria-tooltip-name",
-    "autocomplete-valid",
     "avoid-inline-spacing",
     "blink",
     "definition-list",
@@ -842,7 +882,6 @@
     "no-autoplay-audio",
     "object-alt",
     "role-img-alt",
-    "select-name",
     "server-side-image-map",
     "summary-name",
     "svg-img-alt",

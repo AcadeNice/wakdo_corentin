@@ -3190,9 +3190,12 @@ details.form-advanced > summary:focus-visible {
     margin-bottom: var(--space-4);
 }
 
-/* Focus visible, unifie pour tous les controles interactifs de la page (RGAA Cr 10.7). */
+/* Focus visible, unifie pour tous les controles interactifs de la page (RGAA Cr 10.7).
+   .health-page select:focus-visible ajoute ici la console d'appels (bloc 2bis,
+   addendum) : le selecteur de route n'existait pas dans la premiere version. */
 .health-page button:focus-visible,
 .health-page input:focus-visible,
+.health-page select:focus-visible,
 .health-page a:focus-visible,
 .health-route:focus-visible,
 .health-failbtn:focus-visible {
@@ -3351,4 +3354,67 @@ details.form-advanced > summary:focus-visible {
    regle CSS est une ceinture de securite supplementaire. */
 @media (prefers-reduced-motion: reduce) {
     .health-packet, .health-step__node, .health-step__body { transition: none; }
+}
+
+/* ============================================================
+ * Addendum — réponse complète des sondes, console d'appels (lecture),
+ * connexion JSON de démonstration. Aucun nouveau jeton de couleur : les
+ * mêmes variables --h-* et les mêmes paires .pill-*/.card déjà mesurées AA
+ * (docs/soutenance/preuves/06-audit-accessibilite-mesure.md) sont réutilisées.
+ * ============================================================ */
+
+/* Bloc 2, addendum : panneau de détail d'une sonde (replié par défaut, hidden natif). */
+.health-probe-detail {
+    margin-top: var(--space-3);
+    padding-top: var(--space-3);
+    border-top: 1px dashed var(--h-line);
+    display: grid;
+    gap: var(--space-2);
+}
+
+/* En-têtes retenus : un <dl> simple, réutilisé par la console (bloc 2bis) — le
+   conteneur (.health-headers-box / #health-console-headers) est reconstruit à
+   chaque appel par writeHeaders() (health.js), jamais par innerHTML. */
+.health-headers { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 2px var(--space-3); font-size: var(--text-sm); }
+.health-headers dt { font-family: var(--h-mono); color: var(--h-muted); }
+.health-headers dd { margin: 0; color: var(--h-ink-2); overflow-wrap: anywhere; }
+.health-headers-empty { margin: 0; color: var(--h-muted); font-size: var(--text-sm); }
+
+/* Bloc 2bis : console d'appels (lecture seule, GET uniquement). */
+.health-console-card { padding: var(--space-4); display: grid; gap: var(--space-4); }
+.health-console-form { display: grid; gap: var(--space-3); max-width: 60ch; }
+.health-console-params { display: grid; gap: var(--space-3); }
+.health-console-field .form-input { font-family: var(--h-mono); }
+.health-console-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+.health-console-status { margin: 0; font-size: var(--text-sm); color: var(--h-muted); }
+.health-console-result { border-top: 1px solid var(--h-line); padding-top: var(--space-3); display: grid; gap: var(--space-2); }
+.health-console-result .health-resp-head { padding: 0 0 var(--space-2); border-bottom: 0; }
+.health-console-result .health-body { border-bottom: 0; border-radius: var(--radius-md); }
+
+/* Bloc 4, addendum : bouton "Ouvrir dans la console" sur chaque route GET —
+   FRÈRE de .health-route (jamais imbriqué, un <button> ne peut pas en
+   contenir un autre), à côté de celui-ci dans la même rangée. */
+.health-route-row { display: flex; align-items: stretch; border-top: 1px solid var(--h-line); }
+.health-route-row .health-route { border-top: 0; flex: 1; min-width: 0; }
+.health-route-console-btn { align-self: center; margin: 0 var(--space-3); flex-shrink: 0; white-space: nowrap; }
+
+/* Bloc 5 : connexion JSON de démonstration. */
+.health-login-card { padding: var(--space-4); display: grid; gap: var(--space-4); }
+.health-login-card form { display: grid; gap: var(--space-1); max-width: 48ch; }
+.health-login-card .btn { justify-self: start; margin-top: var(--space-2); }
+/* Ces panneaux posent un display (grid/flex) qui l'emporterait sur l'attribut hidden
+   (feuille de style de l'agent utilisateur) : sans cette regle, ils s'affichaient vides
+   avant tout appel. Constate par tests/e2e/admin-health-console.spec.js. */
+.health-probe-detail[hidden],
+.health-console-result[hidden],
+.health-login-token[hidden] { display: none; }
+.health-login-token { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+.health-login-copy-status { font-size: var(--text-sm); color: var(--h-muted); }
+.health-login-explain { border-top: 1px solid var(--h-line); padding-top: var(--space-3); display: grid; gap: var(--space-2); font-size: var(--text-sm); color: var(--h-ink-2); }
+.health-login-explain p { margin: 0; }
+.health-curl { border-radius: var(--radius-md); border-bottom: 0; }
+
+@media (max-width: 900px) {
+    .health-route-row { flex-wrap: wrap; }
+    .health-route-console-btn { margin: 6px var(--space-3) var(--space-2); }
 }

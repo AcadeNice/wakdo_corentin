@@ -6,7 +6,7 @@ Titre professionnel RNCP 37805 — Bloc 1 (developpement front-end)
 Cr 1.c.3 par une reserve explicite : « les ratios de contraste exacts n'ont pas ete
 mesures avec un outil dedie ([UNVERIFIED], section 8) ». Le meme aveu revient en
 section 8, reserve n° 2, et dans les reserves consolidees du `README.md` du dossier.
-Ce document remplace cette reserve par **943 ratios de contraste mesures** sur 19 ecrans
+Ce document remplace cette reserve par **946 ratios de contraste mesures** sur 19 ecrans
 reels, et par le detail des 10 elements qui passaient sous le seuil au premier passage.
 
 **Avertissement de lecture.** Ce rapport documente **quatre campagnes**, pas une seule :
@@ -622,12 +622,12 @@ conteneurs vides, exactement le trou decrit en 5 ter.1.
 |---|---|---|
 | Ecrans mesures | 18 | **19** |
 | dont back-office | 12 | **13** |
-| Ratios de contraste mesures | 858 | **943** |
+| Ratios de contraste mesures | 858 | **946** |
 | Combinaisons couleur/fond distinctes | 83 | **85** |
 | Noeuds de contraste non calculables | 41 | **41** |
 | Violations WCAG AA, toutes gravites | 0 | **0** |
 
-Pour la page elle-meme (`rapports/axe-admin-sante-api.json`) : **62 ratios mesures, 26 regles
+Pour la page elle-meme (`rapports/axe-admin-sante-api.json`) : **65 ratios mesures, 28 regles
 conformes, 0 violation, 0 cas indetermine**. Son contraste le plus serre est **3,59:1**, pour
 un seuil de 3:1 : c'est le « do » du nom de marque dans la barre laterale, commun a toutes les
 pages du back-office, deja documente en 5 ter.4.
@@ -663,14 +663,23 @@ Mesures ecran par ecran, relues dans `rapports/resume.json` :
 | admin-produits | 80 | 3,59:1 |
 | admin-produits-import | 35 | 3,59:1 |
 | admin-produits-import-apercu | 75 | 3,59:1 |
-| admin-sante-api | 62 | 3,59:1 |
+| admin-sante-api | 65 | 3,59:1 |
 | admin-tableau-de-bord | 52 | 3,59:1 |
 | categories | 15 | 8,12:1 |
 | confirmation | 12 | 4,67:1 |
 | paiement | 11 | 5,09:1 |
 | produits | 51 | 8,12:1 |
 | produits-modale-options | 61 | 8,12:1 |
-| **Total** | **943** | — |
+| **Total** | **946** | — |
+
+**Remesure du meme jour : la console d'appels.** La page a recu ensuite trois ajouts : le
+detail repliable de la reponse de chaque sonde, une console d'appels en lecture (routes `GET`
+de la carte) et un formulaire de connexion de demonstration. La campagne a ete rejouee sur
+cette version (`tests/e2e/run-a11y.sh`) : **19 ecrans, 946 mesures, 85 combinaisons, 0
+violation**. Seule la page Sante change (62 -> 65 mesures, 26 -> 28 regles conformes) ; aucune
+combinaison couleur/fond nouvelle, les ajouts reutilisant les pastilles, boutons et champs
+deja mesures. Les panneaux de resultat, masques tant qu'aucun appel n'est lance, ne sont pas
+rendus au moment de la mesure : ils portent les memes classes que les blocs mesures.
 
 **Limite de cette campagne.** Elle n'a ete jouee qu'une fois. Le double passage identique
 decrit en section 2 concerne la campagne du 2026-09-26, pas celle-ci.
@@ -846,8 +855,9 @@ Les limites sont structurelles, pas des oublis.
    ne la leve pas, elle ne portait pas sur ce point.
 3. **Un seul moteur de rendu.** Chromium 131. Les couleurs calculees peuvent differer a
    la marge sur un autre moteur, notamment sur les fonds composites.
-4. **Dix-huit ecrans, pas toute l'application.** Le back-office compte 34 vues ; douze
-   sont auditees depuis la campagne du 2026-09-26 (elles etaient cinq). Restent hors
+4. **Dix-neuf ecrans, pas toute l'application.** Le back-office compte 36 vues (hors les
+   gabarits de page et les 3 vues d'authentification) ; treize ecrans sont audites depuis la
+   campagne du 2026-09-27 (ils etaient cinq avant le 2026-09-26). Restent hors
    mesure : l'ecran cuisine, les modales de confirmation du back-office, les formulaires
    d'edition (distincts de la creation), les ecrans d'administration des roles et des
    utilisateurs, et l'ecran de statistiques.

@@ -1,5 +1,5 @@
 {
-  "date": "2026-09-27T13:40:34.495Z",
+  "date": "2026-09-27T16:20:52.606Z",
   "outil": {
     "axe": {
       "name": "axe-core",
@@ -249,7 +249,7 @@
       },
       "regles": [],
       "regles_indeterminees": [],
-      "contrastes_mesures": 62,
+      "contrastes_mesures": 65,
       "contrastes_non_calculables": 0,
       "contraste_minimum_mesure": 3.59,
       "contrastes_sous_le_seuil": 0
