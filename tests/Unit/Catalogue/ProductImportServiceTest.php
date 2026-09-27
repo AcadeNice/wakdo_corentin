@@ -604,4 +604,48 @@ final class ProductImportServiceTest extends TestCase
         // lignes produit_ingredient) + une boisson (1 ligne) = 5 lignes de donnees.
         self::assertGreaterThanOrEqual(3, count($lines) - 1);
     }
+
+    /**
+     * Audit du 2026-09-27 : la base compare les noms en utf8mb4_unicode_ci,
+     * insensible aux accents ; l'analyse PHP, elle, les distinguait. Une meme
+     * unite ecrite "pièce" puis "PIECE" dans le fichier etait declaree
+     * incoherente alors que la base y voit la meme valeur.
+     */
+    public function testSameUnitWrittenWithAndWithoutAccentIsConsistent(): void
+    {
+        $db = $this->db();
+        $csv = $this->header()
+            . "\r\n3;Cheeseburger;;6,90;10;;oui;Pain;pièce;1;non;non"
+            . "\r\n3;Double cheese;;7,90;10;;oui;Pain;PIECE;1;non;non\r\n";
+
+        $report = $this->service->preview($csv, $db);
+
+        self::assertSame([], $report['errors']);
+        self::assertCount(1, $report['ingredientsToCreate']);
+    }
+
+    public function testSameIngredientWrittenWithAndWithoutAccentIsOneIngredient(): void
+    {
+        $db = $this->db();
+        $csv = $this->header()
+            . "\r\n3;Cheeseburger;;6,90;10;;oui;Steak haché;pièce;1;non;non"
+            . "\r\n3;Double cheese;;7,90;10;;oui;Steak hache;piece;2;non;non\r\n";
+
+        $report = $this->service->preview($csv, $db);
+
+        self::assertSame([], $report['errors']);
+        self::assertCount(1, $report['ingredientsToCreate']);
+    }
+
+    public function testIngredientRepeatedWithOnlyAnAccentDifferenceIsADuplicate(): void
+    {
+        $db = $this->db();
+        $csv = $this->header()
+            . "\r\n3;Cheeseburger;;6,90;10;;oui;Steak haché;pièce;1;non;non"
+            . "\r\n3;Cheeseburger;;6,90;10;;oui;Steak hache;pièce;2;non;non\r\n";
+
+        $report = $this->service->preview($csv, $db);
+
+        self::assertStringContainsString('doublon', implode(' ', array_column($report['errors'], 'message')));
+    }
 }

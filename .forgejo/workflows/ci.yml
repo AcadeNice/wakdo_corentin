@@ -117,8 +117,9 @@ jobs:
           fi
           echo "phpunit.xml + tests/ detected - running PHPUnit ${PHPUNIT_VERSION} via .phar"
           # php-mysql = pilote pdo_mysql requis par les *DbTest ; mariadb-client
-          # pour appliquer schema + seed au service mariadb.
-          apt-get update -qq && apt-get install -y -qq php-cli php-xml php-mbstring php-mysql mariadb-client curl ca-certificates >/dev/null
+          # pour appliquer schema + seed au service mariadb ; php-intl comme
+          # l'image de production (Normalizer, comparaison sans accents de l'import).
+          apt-get update -qq && apt-get install -y -qq php-cli php-xml php-mbstring php-mysql php-intl mariadb-client curl ca-certificates >/dev/null
           # Attente active que le service MariaDB reponde (en plus du lien de service).
           echo "Attente du service MariaDB ${DB_HOST}:${DB_PORT} ..."
           ready=0

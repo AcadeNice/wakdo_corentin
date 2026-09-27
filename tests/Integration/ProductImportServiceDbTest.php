@@ -323,4 +323,37 @@ final class ProductImportServiceDbTest extends TestCase
         self::assertNotNull($audit);
         self::assertStringContainsString('1 créé', (string) $audit['summary']);
     }
+
+    /**
+     * Audit du 2026-09-27 : le modele telecharge ("piece", "Steak hache") puis
+     * reimporte tel quel etait bloque contre les donnees de demonstration
+     * ("pièce", "Steak haché", accents poses par la migration 0016). Lecture
+     * seule : preview() n'ecrit rien.
+     */
+    public function testDownloadedTemplateReimportedUnchangedHasNoError(): void
+    {
+        $report = $this->service->preview(ProductImportService::templateCsv(), $this->db);
+
+        self::assertSame([], $report['errors']);
+    }
+
+    public function testExistingUnitMatchesWhateverTheAccents(): void
+    {
+        $existingIngredient = 'it-imp-ing-accent-' . bin2hex(random_bytes(3));
+        $this->ingredientNames[] = $existingIngredient;
+        $this->db->execute(
+            'INSERT INTO ingredient (name, unit, stock_quantity, stock_capacity, pack_size, low_stock_pct, critical_stock_pct, is_active) '
+            . 'VALUES (:n, :u, 50, 100, 1, 10, 5, 1)',
+            ['n' => $existingIngredient, 'u' => 'pièce'],
+        );
+        $productName = 'it-imp-prod-accent-' . bin2hex(random_bytes(3));
+        $this->productNames[] = $productName;
+
+        $csv = $this->header() . "\r\n" . $this->csvLine($productName, '6,90', $existingIngredient, 'Piece', '1') . "\r\n";
+        $report = $this->service->preview($csv, $this->db);
+
+        self::assertSame([], $report['errors']);
+        self::assertCount(1, $report['ingredientsExisting']);
+        self::assertSame([], $report['ingredientsToCreate']);
+    }
 }
