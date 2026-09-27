@@ -1,0 +1,357 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Core;
+
+use App\Controllers\Admin\Api\AuthApiController;
+use App\Controllers\Admin\Api\CategoryApiController;
+use App\Controllers\Admin\Api\HealthApiController;
+use App\Controllers\Admin\Api\IngredientApiController;
+use App\Controllers\Admin\Api\MenuApiController;
+use App\Controllers\Admin\Api\OrderApiController;
+use App\Controllers\Admin\Api\ProductApiController;
+use App\Controllers\Admin\Api\RoleApiController;
+use App\Controllers\Admin\Api\StatsApiController;
+use App\Controllers\Admin\Api\UserApiController;
+use App\Controllers\AuthController;
+use App\Controllers\CatalogueController;
+use App\Controllers\CategoryController;
+use App\Controllers\CounterOrderController;
+use App\Controllers\DashboardController;
+use App\Controllers\HealthController;
+use App\Controllers\HealthPageController;
+use App\Controllers\HomeController;
+use App\Controllers\IngredientController;
+use App\Controllers\KitchenController;
+use App\Controllers\MeController;
+use App\Controllers\MenuController;
+use App\Controllers\OrderAdminController;
+use App\Controllers\OrderController;
+use App\Controllers\PasswordResetController;
+use App\Controllers\PrivacyController;
+use App\Controllers\ProductController;
+use App\Controllers\ProfileController;
+use App\Controllers\StatsController;
+use App\Controllers\RoleController;
+use App\Controllers\UserController;
+
+/**
+ * Table des routes du vhost admin (back-office + API sous /admin/api + API
+ * publique kiosk sous /api), extraite de src/public/admin/index.php pour que le
+ * routeur puisse etre reconstruit HORS requete HTTP (App\Health\RouteMap, page
+ * "Sante de l'API"). Chaque ligne, chaque commentaire, reste identique mot pour
+ * mot a l'original ; seul le contenant change (une fonction plutot qu'un bloc de
+ * script), donc le comportement de production est strictement inchange :
+ * index.php appelle (require ...)($router) au meme endroit qu'avant.
+ *
+ * @return callable(Router): void
+ */
+return static function (Router $router): void {
+    $router->add('GET', '/', [HomeController::class, 'index']);
+    $router->add('GET', '/api/health', [HealthController::class, 'index']);
+
+    // Page "Sante de l'API" (back-office) : rendu serveur + son propre releve
+    // JSON, tous deux gardes par role.manage (aucune permission nouvelle).
+    // Volontairement sous /admin (comme /admin/me) : le vhost kiosk ne relaie
+    // que /api/* (docker/apache/vhost.conf), donc ces deux routes restent
+    // invisibles de l'origine borne. `GET /api/health` ci-dessus NE CHANGE PAS :
+    // ni son chemin, ni sa reponse -- c'est la sonde HTTP du deploiement continu
+    // (.forgejo/workflows/deploy.yml), qui ne doit jamais dependre d'une session
+    // admin. Les deux nouvelles routes lisent ce meme routeur EN DIRECT
+    // (App\Health\RouteMap) pour construire leur carte des routes ; elles ne le
+    // modifient jamais.
+    $router->add('GET', '/admin/health', [HealthPageController::class, 'index']);
+    $router->add('GET', '/admin/api/health', [HealthApiController::class, 'apiIndex']);
+
+    // Authentification back-office (mlt.md section 12). Le docroot du vhost admin
+    // etant src/public/admin, le Router voit "/login" (pas de prefixe "/admin").
+    $router->add('GET', '/login', [AuthController::class, 'showLogin']);
+    $router->add('POST', '/login', [AuthController::class, 'login']);
+    $router->add('POST', '/logout', [AuthController::class, 'logout']);
+    $router->add('GET', '/forgot_password', [PasswordResetController::class, 'showRequest']);
+    $router->add('POST', '/forgot_password', [PasswordResetController::class, 'submitRequest']);
+    $router->add('GET', '/reset_password', [PasswordResetController::class, 'showConfirm']);
+    $router->add('POST', '/reset_password', [PasswordResetController::class, 'submitConfirm']);
+
+    // Commandes borne (P4, domaine 7). API publique kiosk, ANONYME (pas de session) :
+    // creation en pending_payment puis encaissement (paid + decrement stock RG-T20).
+    // Idempotente sur idempotency_key (anti double-clic / retry reseau). {number} =
+    // un seul segment (numero K+id), pas de collision avec un sous-chemin.
+    $router->add('POST', '/api/orders', [OrderController::class, 'create']);
+    $router->add('POST', '/api/orders/{number}/pay', [OrderController::class, 'pay']);
+    // Suivi public du statut d'une commande par son numero (lecture seule, anonyme).
+    $router->add('GET', '/api/orders/{number}', [OrderController::class, 'show']);
+
+    // Lecture catalogue borne (P4, docs/api/conventions.md section 5.2). API publique
+    // kiosk, ANONYME : la borne consulte sans session. Lecture seule ; ne sert que le
+    // commandable (categories actives, produits disponibles en categorie active).
+    // {id} = un seul segment ; /api/products (collection) et /api/products/{id}
+    // (unitaire) ne se chevauchent pas.
+    $router->add('GET', '/api/categories', [CatalogueController::class, 'categories']);
+    $router->add('GET', '/api/products', [CatalogueController::class, 'products']);
+    $router->add('GET', '/api/products/{id}', [CatalogueController::class, 'product']);
+    // Menus composes : liste legere + detail avec slots (B1 burger impose, B2 Normal/Maxi).
+    $router->add('GET', '/api/menus', [CatalogueController::class, 'menus']);
+    $router->add('GET', '/api/menus/{id}', [CatalogueController::class, 'menu']);
+    // Allergenes INCO (info generale, 14 categories). La borne garde son JSON statique
+    // (descriptions riches) ; l'endpoint sert d'autres consommateurs eventuels.
+    $router->add('GET', '/api/allergens', [CatalogueController::class, 'allergens']);
+
+    // RBAC : identite + permissions de la session courante (JSON). Gardee dans le
+    // controleur par SessionGuard. Sous /admin (et non /api) pour sortir cet endpoint
+    // authentifie du namespace borne public proxifie -> reduction de surface d'attaque.
+    $router->add('GET', '/admin/me', [MeController::class, 'show']);
+
+    // Back-office (P3) : pages rendues serveur sous /admin, gardees par SessionGuard.
+    $router->add('GET', '/admin/dashboard', [DashboardController::class, 'index']);
+    // Tableau de bord statistiques (stats.read) : landing du role manager. KPIs
+    // catalogue + sante stock (RG-T21) ; KPIs de vente avec les commandes (P4).
+    $router->add('GET', '/admin/stats', [StatsController::class, 'index']);
+
+    // Commandes (P4, order.read) : liste lecture seule du domaine commande.
+    $router->add('GET', '/admin/orders', [OrderAdminController::class, 'index']);
+    // Remise au client : paid -> delivered (order.deliver, geste unique, POST + CSRF).
+    $router->add('POST', '/admin/orders/{number}/deliver', [OrderAdminController::class, 'deliver']);
+    // Etat de cuisine (retour oral #8) : marquer une commande prete. Le passage en
+    // preparation est automatique au paiement (pay()), il n'y a plus de geste manuel.
+    // Segment {number}/ready, pas de collision avec /deliver, /cancel ni la liste.
+    $router->add('POST', '/admin/orders/{number}/ready', [OrderAdminController::class, 'ready']);
+    // Annulation : pending_payment|paid -> cancelled (CANCEL_ORDER mlt 7.1, order.cancel).
+    // PIN equipier + audit + restock conditionnel (RG-T13/T14). {number} = un seul
+    // segment (numero K/C/D + id) ; /cancel ne chevauche ni /deliver ni la liste.
+    $router->add('GET', '/admin/orders/{number}/cancel', [OrderAdminController::class, 'confirmCancel']);
+    $router->add('POST', '/admin/orders/{number}/cancel', [OrderAdminController::class, 'cancel']);
+    // Affichage cuisine (KDS) : file des commandes payees (order.read). Landing du role
+    // kitchen (seed role.default_route = /kitchen/display) ; corrige le 404 d'apres-login.
+    $router->add('GET', '/kitchen/display', [KitchenController::class, 'display']);
+
+    // Saisie de commande comptoir / drive (CREATE_COUNTER_ORDER, mlt 4.1, order.create).
+    // UN controleur, deux canaux : la source est derivee du chemin (/drive -> drive,
+    // sinon counter). Landings des roles counter/drive (seed role.default_route =
+    // /counter/orders + /drive/orders) ; corrige le 404 d'apres-login. Sans PIN
+    // (la permission order.create suffit) ; la commande est encaissee directement.
+    // {new}/{POST liste} = segments distincts, pas de collision avec /kitchen ni /admin.
+    $router->add('GET', '/counter/orders', [CounterOrderController::class, 'index']);
+    $router->add('GET', '/counter/orders/new', [CounterOrderController::class, 'create']);
+    $router->add('POST', '/counter/orders', [CounterOrderController::class, 'store']);
+    $router->add('GET', '/drive/orders', [CounterOrderController::class, 'index']);
+    $router->add('GET', '/drive/orders/new', [CounterOrderController::class, 'create']);
+    $router->add('POST', '/drive/orders', [CounterOrderController::class, 'store']);
+
+    // Gestion des comptes (mlt domaine 10). user.read (liste) ; user.create/update/
+    // deactivate. TOUTES les mutations = PIN equipier + audit (RG-T13/14). {id} = un
+    // seul segment (pas de collision avec /edit, /deactivate, /reset-pin, /erase).
+    $router->add('GET', '/admin/users', [UserController::class, 'index']);
+    $router->add('GET', '/admin/users/new', [UserController::class, 'create']);
+    $router->add('POST', '/admin/users', [UserController::class, 'store']);
+    $router->add('GET', '/admin/users/{id}/edit', [UserController::class, 'edit']);
+    $router->add('POST', '/admin/users/{id}', [UserController::class, 'update']);
+    $router->add('GET', '/admin/users/{id}/deactivate', [UserController::class, 'confirmDeactivate']);
+    $router->add('POST', '/admin/users/{id}/deactivate', [UserController::class, 'deactivate']);
+    $router->add('GET', '/admin/users/{id}/reset-pin', [UserController::class, 'confirmResetPin']);
+    $router->add('POST', '/admin/users/{id}/reset-pin', [UserController::class, 'resetPin']);
+    $router->add('GET', '/admin/users/{id}/erase', [UserController::class, 'confirmErase']);
+    $router->add('POST', '/admin/users/{id}/erase', [UserController::class, 'erase']);
+
+    // RBAC (mlt 10.4, role.manage) : matrice roles x permissions + roles custom.
+    // Toute mutation = PIN equipier + audit (details = diff de permissions, RG-6).
+    $router->add('GET', '/admin/roles', [RoleController::class, 'index']);
+    $router->add('GET', '/admin/roles/new', [RoleController::class, 'create']);
+    $router->add('POST', '/admin/roles', [RoleController::class, 'store']);
+    $router->add('GET', '/admin/roles/{id}/edit', [RoleController::class, 'edit']);
+    $router->add('POST', '/admin/roles/{id}', [RoleController::class, 'update']);
+
+    // CRUD Categories (permission category.manage). Pas de suppression dure : toggle is_active.
+    $router->add('GET', '/admin/categories', [CategoryController::class, 'index']);
+    $router->add('GET', '/admin/categories/new', [CategoryController::class, 'create']);
+    $router->add('POST', '/admin/categories', [CategoryController::class, 'store']);
+    $router->add('GET', '/admin/categories/{id}/edit', [CategoryController::class, 'edit']);
+    $router->add('POST', '/admin/categories/{id}', [CategoryController::class, 'update']);
+    $router->add('POST', '/admin/categories/{id}/toggle', [CategoryController::class, 'toggle']);
+    $router->add('POST', '/admin/categories/{id}/move', [CategoryController::class, 'move']);
+
+    // Profil self-service : definition du PIN d'action sensible (RG-T13).
+    $router->add('GET', '/admin/profile/pin', [ProfileController::class, 'showPin']);
+    $router->add('POST', '/admin/profile/pin', [ProfileController::class, 'updatePin']);
+
+    // Mention d'information RGPD (Cr 3.d.2) : traitement des donnees personnelles du
+    // personnel. Accessible a tout utilisateur authentifie (aucune permission requise).
+    $router->add('GET', '/admin/privacy', [PrivacyController::class, 'index']);
+
+    // CRUD Produits (product.read/create/update/delete). PIN equipier + audit sur
+    // changement prix/TVA (update) et suppression (delete).
+    $router->add('GET', '/admin/products', [ProductController::class, 'index']);
+    // F20 : seconde LECTURE de la meme ressource, rangee par categorie comme la borne
+    // l'affiche (variantes de taille repliees sur leur base, menus inclus). Meme
+    // permission product.read que la liste plate. Chemin litteral a 3 segments : aucune
+    // collision avec /admin/products/{id}/edit (4 segments) ni /admin/products/new.
+    $router->add('GET', '/admin/products/by-category', [ProductController::class, 'byCategory']);
+    $router->add('GET', '/admin/products/new', [ProductController::class, 'create']);
+    $router->add('POST', '/admin/products', [ProductController::class, 'store']);
+    $router->add('GET', '/admin/products/{id}/edit', [ProductController::class, 'edit']);
+    $router->add('POST', '/admin/products/{id}', [ProductController::class, 'update']);
+    $router->add('GET', '/admin/products/{id}/delete', [ProductController::class, 'confirmDelete']);
+    $router->add('POST', '/admin/products/{id}/delete', [ProductController::class, 'destroy']);
+    $router->add('POST', '/admin/products/{id}/move', [ProductController::class, 'move']);
+    // Editeur de recette (composition product_ingredient). Permission ingredient.manage
+    // (composition), distincte du CRUD produit ; sans PIN. Debloque la dispo calculee
+    // RG-T21 et ferme la dette #27 (trace cascade a la suppression).
+    $router->add('GET', '/admin/products/{id}/recipe', [ProductController::class, 'recipeForm']);
+    $router->add('POST', '/admin/products/{id}/recipe', [ProductController::class, 'saveRecipe']);
+
+    // Import CSV de produits + recettes (product.create ; ingredient.manage EN
+    // PLUS pour les lignes qui creeraient un ingredient). Deux temps (RG-T18) :
+    // preview() n'ecrit rien, confirm() rejoue l'analyse et ecrit tout en une
+    // transaction (ProductImportService). Chemins litteraux a 3-4 segments :
+    // aucune collision avec /admin/products/{id}/... (dernier segment different).
+    $router->add('GET', '/admin/products/import', [ProductController::class, 'importForm']);
+    $router->add('GET', '/admin/products/import/template', [ProductController::class, 'importTemplate']);
+    $router->add('POST', '/admin/products/import/preview', [ProductController::class, 'importPreview']);
+    $router->add('POST', '/admin/products/import/confirm', [ProductController::class, 'importConfirm']);
+
+    // CRUD Menus (menu.read/create/update/delete). Menu compose = burger de base +
+    // slots (menu_slot / menu_slot_option). PIN equipier + audit sur suppression
+    // (mlt 8.6) ; create/update sans PIN. {id} = un seul segment, pas de collision
+    // avec /toggle ni /delete.
+    $router->add('GET', '/admin/menus', [MenuController::class, 'index']);
+    $router->add('GET', '/admin/menus/new', [MenuController::class, 'create']);
+    $router->add('POST', '/admin/menus', [MenuController::class, 'store']);
+    $router->add('GET', '/admin/menus/{id}/edit', [MenuController::class, 'edit']);
+    $router->add('POST', '/admin/menus/{id}', [MenuController::class, 'update']);
+    $router->add('POST', '/admin/menus/{id}/toggle', [MenuController::class, 'toggle']);
+    $router->add('GET', '/admin/menus/{id}/delete', [MenuController::class, 'confirmDelete']);
+    $router->add('POST', '/admin/menus/{id}/delete', [MenuController::class, 'destroy']);
+
+    // Stock / Ingredients (P3, mlt 8.8 + domaine 9). Permissions par operation :
+    // stock.read (liste/mouvements, tous roles) ; ingredient.manage (CRUD, sans PIN) ;
+    // stock.manage (reappro, sans PIN) ; stock.count (inventaire, + PIN). Pas d'audit_log
+    // (RG-T14) : l'attribution passe par stock_movement.user_id.
+    $router->add('GET', '/admin/ingredients', [IngredientController::class, 'index']);
+    $router->add('GET', '/admin/ingredients/new', [IngredientController::class, 'create']);
+    $router->add('POST', '/admin/ingredients', [IngredientController::class, 'store']);
+    $router->add('GET', '/admin/ingredients/{id}/edit', [IngredientController::class, 'edit']);
+    $router->add('POST', '/admin/ingredients/{id}', [IngredientController::class, 'update']);
+    $router->add('POST', '/admin/ingredients/{id}/toggle', [IngredientController::class, 'toggle']);
+    $router->add('GET', '/admin/ingredients/{id}/delete', [IngredientController::class, 'confirmDelete']);
+    $router->add('POST', '/admin/ingredients/{id}/delete', [IngredientController::class, 'destroy']);
+    $router->add('GET', '/admin/ingredients/{id}/restock', [IngredientController::class, 'restockForm']);
+    $router->add('POST', '/admin/ingredients/{id}/restock', [IngredientController::class, 'restock']);
+    // Reglage rapide des seuils (F13) : capacite/alerte/critique edites depuis la page
+    // Stock via une modale, sans passer par le formulaire complet. stock.manage (calibrage
+    // du stock), CSRF, SANS PIN (config, pas un comptage d'inventaire). {id} = un seul
+    // segment ; /thresholds ne chevauche ni /restock ni /inventory.
+    $router->add('POST', '/admin/ingredients/{id}/thresholds', [IngredientController::class, 'updateThresholds']);
+    $router->add('GET', '/admin/ingredients/{id}/inventory', [IngredientController::class, 'inventoryForm']);
+    $router->add('POST', '/admin/ingredients/{id}/inventory', [IngredientController::class, 'inventory']);
+    // Ajustement libre (F16, retour oral #6) : correction delta signee, stock.count + PIN
+    // (RG-T13, comme l'inventaire : une baisse non attribuee masquerait de la demarque, R9).
+    // {id}/adjust = segment distinct, ne chevauche ni /restock ni /inventory ni /movements.
+    $router->add('GET', '/admin/ingredients/{id}/adjust', [IngredientController::class, 'adjustForm']);
+    $router->add('POST', '/admin/ingredients/{id}/adjust', [IngredientController::class, 'adjust']);
+    $router->add('GET', '/admin/ingredients/{id}/movements', [IngredientController::class, 'movements']);
+    // Enrichissement nutritionnel depuis une API externe (OpenFoodFacts, Cr 3.a.3) :
+    // action explicite ingredient.manage, POST + CSRF, opt-in (pas d'egress automatique).
+    $router->add('POST', '/admin/ingredients/{id}/enrich', [IngredientController::class, 'enrich']);
+    // Revue des allergenes (F11b) : declare les allergenes INCO reellement portes par
+    // l'ingredient. ingredient.manage (le libelle de la permission couvre deja "allergen
+    // mapping"), POST + CSRF, SANS PIN (ni argent ni stock, hors ensemble sensible RG-T13).
+    // La source est obligatoire, et le geste est trace (audit_log ingredient.allergens).
+    $router->add('POST', '/admin/ingredients/{id}/allergens', [IngredientController::class, 'allergens']);
+
+    // API d'administration JSON (docs/api/conventions.md section 5.3, PR wakdo#151).
+    // Prefixe /admin/api/... et NON /api/... : le vhost kiosk (docker/apache/vhost.conf)
+    // relaie tout /api/* a ce meme front controller pour la borne PUBLIQUE (ProxyPassMatch
+    // "^/api(/.*)?$") ; /admin/api ne matche pas ce prefixe et reste donc invisible de
+    // l'origine borne (surface d'attaque reduite), meme raisonnement que /admin/me.
+    // Chaque action reutilise la session/CSRF/PIN/permissions du back-office HTML
+    // (App\Controllers\Admin\Api\JsonApiTrait) mais repond en JSON, jamais en redirection.
+    //
+    // Connexion JSON (docs/api/conventions.md section 5.3bis, ADR-0017) : login SANS
+    // session prealable (pas de guardApi()) ni CSRF synchroniseur (protection = le
+    // Content-Type impose, qui force un preflight CORS ferme sur ce prefixe -- SameSite
+    // protege une phase differente, cf. docblock d'AuthApiController) ; logout/me exigent
+    // la session comme le reste de /admin/api/*. Volontairement EXCLUES de la matrice
+    // CSRF/permission de RouteMatrixTest (regex documentee dans ce fichier de test) :
+    // testees a part dans AuthApiControllerTest.
+    $router->add('POST', '/admin/api/auth/login', [AuthApiController::class, 'apiLogin']);
+    $router->add('POST', '/admin/api/auth/logout', [AuthApiController::class, 'apiLogout']);
+    $router->add('GET', '/admin/api/auth/me', [AuthApiController::class, 'apiMe']);
+
+    $router->add('GET', '/admin/api/categories', [CategoryApiController::class, 'apiIndex']);
+    $router->add('GET', '/admin/api/categories/{id}', [CategoryApiController::class, 'apiShow']);
+    $router->add('POST', '/admin/api/categories', [CategoryApiController::class, 'apiStore']);
+    $router->add('PUT', '/admin/api/categories/{id}', [CategoryApiController::class, 'apiUpdate']);
+    $router->add('DELETE', '/admin/api/categories/{id}', [CategoryApiController::class, 'apiDestroy']);
+    $router->add('POST', '/admin/api/categories/{id}/toggle', [CategoryApiController::class, 'apiToggle']);
+    $router->add('POST', '/admin/api/categories/{id}/move', [CategoryApiController::class, 'apiMove']);
+
+    $router->add('GET', '/admin/api/products', [ProductApiController::class, 'apiIndex']);
+    $router->add('GET', '/admin/api/products/{id}', [ProductApiController::class, 'apiShow']);
+    $router->add('POST', '/admin/api/products', [ProductApiController::class, 'apiStore']);
+    $router->add('PUT', '/admin/api/products/{id}', [ProductApiController::class, 'apiUpdate']);
+    $router->add('DELETE', '/admin/api/products/{id}', [ProductApiController::class, 'apiDestroy']);
+    $router->add('POST', '/admin/api/products/{id}/move', [ProductApiController::class, 'apiMove']);
+    $router->add('GET', '/admin/api/products/{id}/recipe', [ProductApiController::class, 'apiRecipeShow']);
+    $router->add('PUT', '/admin/api/products/{id}/recipe', [ProductApiController::class, 'apiRecipeSave']);
+    // Import CSV (docs/api/import-produits.md) : le CSV voyage en JSON (champ
+    // "csv", une chaine), pas en multipart -- ce point d'entree reste sur le
+    // meme contrat JSON que le reste de l'API admin. ?dry_run=1 -> apercu seul
+    // (aucune ecriture) ; absent -> applique (PIN dans le corps si un prix change).
+    $router->add('GET', '/admin/api/products/import/template', [ProductApiController::class, 'apiImportTemplate']);
+    $router->add('POST', '/admin/api/products/import', [ProductApiController::class, 'apiImportRun']);
+
+    $router->add('GET', '/admin/api/menus', [MenuApiController::class, 'apiIndex']);
+    $router->add('GET', '/admin/api/menus/{id}', [MenuApiController::class, 'apiShow']);
+    $router->add('POST', '/admin/api/menus', [MenuApiController::class, 'apiStore']);
+    $router->add('PUT', '/admin/api/menus/{id}', [MenuApiController::class, 'apiUpdate']);
+    $router->add('DELETE', '/admin/api/menus/{id}', [MenuApiController::class, 'apiDestroy']);
+    $router->add('POST', '/admin/api/menus/{id}/toggle', [MenuApiController::class, 'apiToggle']);
+
+    $router->add('GET', '/admin/api/ingredients', [IngredientApiController::class, 'apiIndex']);
+    $router->add('GET', '/admin/api/ingredients/{id}', [IngredientApiController::class, 'apiShow']);
+    $router->add('POST', '/admin/api/ingredients', [IngredientApiController::class, 'apiStore']);
+    $router->add('PUT', '/admin/api/ingredients/{id}', [IngredientApiController::class, 'apiUpdate']);
+    $router->add('DELETE', '/admin/api/ingredients/{id}', [IngredientApiController::class, 'apiDestroy']);
+    $router->add('POST', '/admin/api/ingredients/{id}/restock', [IngredientApiController::class, 'apiRestock']);
+    $router->add('POST', '/admin/api/ingredients/{id}/toggle', [IngredientApiController::class, 'apiToggle']);
+    $router->add('PUT', '/admin/api/ingredients/{id}/thresholds', [IngredientApiController::class, 'apiThresholds']);
+    $router->add('POST', '/admin/api/ingredients/{id}/inventory', [IngredientApiController::class, 'apiInventory']);
+    $router->add('POST', '/admin/api/ingredients/{id}/adjust', [IngredientApiController::class, 'apiAdjust']);
+    $router->add('PUT', '/admin/api/ingredients/{id}/allergens', [IngredientApiController::class, 'apiAllergens']);
+
+    $router->add('GET', '/admin/api/users', [UserApiController::class, 'apiIndex']);
+    $router->add('GET', '/admin/api/users/{id}', [UserApiController::class, 'apiShow']);
+    $router->add('POST', '/admin/api/users', [UserApiController::class, 'apiStore']);
+    $router->add('PUT', '/admin/api/users/{id}', [UserApiController::class, 'apiUpdate']);
+    // DELETE == desactivation (pas de suppression physique ni d'effacement RGPD),
+    // meme semantique que le bouton "Désactiver" du back-office (cf. docblock du
+    // controleur). L'anonymisation RGPD et la reinitialisation de PIN ont leur
+    // propre sous-chemin (comme le HTML), toutes deux PIN-gated.
+    $router->add('DELETE', '/admin/api/users/{id}', [UserApiController::class, 'apiDestroy']);
+    $router->add('POST', '/admin/api/users/{id}/reset-pin', [UserApiController::class, 'apiResetPin']);
+    $router->add('POST', '/admin/api/users/{id}/erase', [UserApiController::class, 'apiErase']);
+
+    // Pas de DELETE /admin/api/roles : RoleController (HTML) n'expose aucune
+    // suppression de role (rattache a des comptes) ; l'API JSON ne l'invente pas.
+    $router->add('GET', '/admin/api/roles', [RoleApiController::class, 'apiIndex']);
+    $router->add('GET', '/admin/api/roles/{id}', [RoleApiController::class, 'apiShow']);
+    $router->add('POST', '/admin/api/roles', [RoleApiController::class, 'apiStore']);
+    $router->add('PUT', '/admin/api/roles/{id}', [RoleApiController::class, 'apiUpdate']);
+
+    // Domaine commande (mlt 4.1/6.1/7.1, section 5.3). Un seul endpoint de creation
+    // (contrairement au HTML qui a une page par canal /counter/orders et /drive/orders) :
+    // la source est deduite du role agissant (AdminController::roleFixedSource(),
+    // heritee par OrderApiController) quand il a un canal fixe, choisie dans le corps
+    // sinon -- dans les deux cas verifiee contre les sources visibles du role
+    // (OrderQueryRepository::visibleSources()).
+    $router->add('GET', '/admin/api/orders', [OrderApiController::class, 'apiIndex']);
+    $router->add('GET', '/admin/api/orders/{number}', [OrderApiController::class, 'apiShow']);
+    $router->add('POST', '/admin/api/orders', [OrderApiController::class, 'apiStore']);
+    $router->add('POST', '/admin/api/orders/{number}/ready', [OrderApiController::class, 'apiReady']);
+    $router->add('POST', '/admin/api/orders/{number}/deliver', [OrderApiController::class, 'apiDeliver']);
+    $router->add('POST', '/admin/api/orders/{number}/cancel', [OrderApiController::class, 'apiCancel']);
+
+    // Tableau de bord statistiques (mlt domaine 11, stats.read), lecture seule.
+    $router->add('GET', '/admin/api/stats', [StatsApiController::class, 'apiIndex']);
+};

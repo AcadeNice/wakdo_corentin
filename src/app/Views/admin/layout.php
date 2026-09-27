@@ -157,6 +157,17 @@ $navClass = static function (string $code, string $current): string {
         </div>
         <?php endif; ?>
 
+        <?php /* Meme garde que "Roles" juste au-dessus : la page /admin/health
+                 expose le rapport de sante, les sondes reelles et la carte des
+                 routes de TOUTE l'application, une surface au moins aussi
+                 sensible qu'une page de gestion des roles. */ ?>
+        <?php if ($can('role.manage')): ?>
+        <div class="sidebar-section">
+            <div class="sidebar-section-label">Système</div>
+            <a href="/admin/health" class="<?= $navClass('health', $active) ?>">Santé de l'API</a>
+        </div>
+        <?php endif; ?>
+
         <?php /*
             Items de nav volontairement absents tant que leur page n'existe pas
             (un lien vers une route non enregistree renvoie un 404).

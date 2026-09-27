@@ -72,7 +72,22 @@ class HealthController extends Controller
      */
     private function readVersion(): array
     {
-        $path = $this->versionFilePath();
+        return self::readVersionFile($this->versionFilePath());
+    }
+
+    /**
+     * Partie PURE (aucun effet de bord, aucune dependance a $this) de la lecture du
+     * marqueur de version : factorisee ici pour que `App\Health\HealthReport`
+     * (page de sante, meme information) la reutilise sans dupliquer le format
+     * "SHA<espace>date", plutot que de le reimplementer une seconde fois avec le
+     * risque de deriver du premier (ex. un jour ou l'un des deux tolere une valeur
+     * que l'autre rejette). Chemin toujours fourni par l'appelant : c'est lui qui
+     * sait ou son propre fichier VERSION doit se trouver.
+     *
+     * @return array{version: ?string, deployed_at: ?string}
+     */
+    public static function readVersionFile(string $path): array
+    {
         if (!is_file($path) || !is_readable($path)) {
             return ['version' => null, 'deployed_at' => null];
         }

@@ -114,6 +114,10 @@ const ACCEPTE = {
     'admin-caisse-comptoir': [],
     'admin-caisse-composeur-menu': [],
     'admin-caisse-drive': [],
+    // Chantier "page Sante de l'API" (2026-09-27) : le trajet anime et la carte des
+    // routes sont entierement batis par health.js (comme le constructeur de recette) --
+    // mesures ici pour la premiere fois, apres que le JavaScript a rendu son contenu.
+    'admin-sante-api': [],
 };
 
 const GRAVITES = ['critical', 'serious', 'moderate', 'minor'];
@@ -475,10 +479,21 @@ test.describe('audit d\'accessibilite mesure (axe-core, regles WCAG AA)', () => 
         await expect(page.locator('main.content')).toBeVisible();
         await auditer(page, 'admin-commandes');
 
+        // Sante de l'API : le trajet anime et la carte des routes sont entierement
+        // construits par health.js (comme le constructeur de recette/slots) -- le
+        // balisage n'existe pas a froid. On attend une route reelle de la carte ET
+        // une etape reelle du trajet avant de mesurer, sinon l'audit ne verrait que
+        // les conteneurs vides du bloc "Etat en direct" rendu cote serveur.
+        await page.goto(`${ADMIN}/admin/health`);
+        await expect(page.locator('#health-routes-groups .health-route').first()).toBeVisible();
+        await expect(page.locator('#health-rail .health-step').first()).toBeVisible();
+        await auditer(page, 'admin-sante-api');
+
         verifierBarriere([
             'admin-connexion', 'admin-tableau-de-bord', 'admin-ingredients', 'admin-produits', 'admin-commandes',
             'admin-produit-formulaire', 'admin-menu-formulaire',
             'admin-produits-import', 'admin-produits-import-apercu',
+            'admin-sante-api',
         ]);
     });
 

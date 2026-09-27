@@ -309,6 +309,21 @@ Statistiques (`stats.read`) :
 > uniquement — l'API JSON accepte `image_path` deja heberge (chaine), pas de transfert
 > binaire.
 
+Sante (`role.manage`, meme permission que la gestion RBAC — aucune permission ajoutee au catalogue) :
+
+| Methode | Chemin | PIN | Note |
+|---|---|---|---|
+| GET | `/admin/api/health` | non | rapport d'etat (`App\Health\HealthReport::build()`) : version deployee, configuration effective, sante de la base (latence chronometree, version du serveur), migrations/seeds appliques, activite des 24 dernieres heures (des comptes, aucune ligne nominative). Relu toutes les 15 s par le bloc "Etat en direct" de `/admin/health` (page HTML, meme permission, meme rapport reutilise par heritage) |
+
+> **Base injoignable** : `db.ok` passe a `false`, `latency_ms`/`server_version` et
+> tous les compteurs derives d'une requete (migrations/seeds appliques + leur
+> dernier fichier, `activity_24h`) retombent a `null` — sans exception ni detail
+> d'erreur expose. Le nombre de fichiers `.sql` de `db/migrations`/`db/seeds`
+> reste renseigne independamment (verification de systeme de fichiers, pas de
+> requete DB) : `null` uniquement si `db/` n'est pas monte dans le conteneur
+> applicatif (c'est le cas en production — seul `./src` est monte dans
+> `wakdo-app`, `docker-compose.yml`).
+
 ### 5.3bis Connexion JSON (`/admin/api/auth/*`, livre)
 
 Avant ce chantier, toute la collection Postman (section 5.3) supposait une session deja

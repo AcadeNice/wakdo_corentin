@@ -1,7 +1,7 @@
 {
   "page": "admin-tableau-de-bord",
   "url": "http://admin.wakdo.test/admin/dashboard",
-  "date": "2026-09-26T14:24:25.107Z",
+  "date": "2026-09-27T13:40:22.264Z",
   "moteur": {
     "axe": {
       "name": "axe-core",
@@ -68,7 +68,7 @@
           "all": [],
           "none": [],
           "impact": "serious",
-          "html": "<text class=\"dash-label\" x=\"60.3\" y=\"180\" text-anchor=\"middle\">20/09</text>",
+          "html": "<text class=\"dash-label\" x=\"60.3\" y=\"180\" text-anchor=\"middle\">21/09</text>",
           "target": [
             "text[x=\"60.3\"]"
           ],
@@ -100,7 +100,7 @@
           "all": [],
           "none": [],
           "impact": "serious",
-          "html": "<text class=\"dash-label\" x=\"156.9\" y=\"180\" text-anchor=\"middle\">21/09</text>",
+          "html": "<text class=\"dash-label\" x=\"156.9\" y=\"180\" text-anchor=\"middle\">22/09</text>",
           "target": [
             "text[x=\"156.9\"]"
           ],
@@ -132,7 +132,7 @@
           "all": [],
           "none": [],
           "impact": "serious",
-          "html": "<text class=\"dash-label\" x=\"253.4\" y=\"180\" text-anchor=\"middle\">22/09</text>",
+          "html": "<text class=\"dash-label\" x=\"253.4\" y=\"180\" text-anchor=\"middle\">23/09</text>",
           "target": [
             "text[x=\"253.4\"]"
           ],
@@ -164,7 +164,7 @@
           "all": [],
           "none": [],
           "impact": "serious",
-          "html": "<text class=\"dash-label\" x=\"350\" y=\"180\" text-anchor=\"middle\">23/09</text>",
+          "html": "<text class=\"dash-label\" x=\"350\" y=\"180\" text-anchor=\"middle\">24/09</text>",
           "target": [
             "text[x=\"350\"]"
           ],
@@ -196,7 +196,7 @@
           "all": [],
           "none": [],
           "impact": "serious",
-          "html": "<text class=\"dash-label\" x=\"446.6\" y=\"180\" text-anchor=\"middle\">24/09</text>",
+          "html": "<text class=\"dash-label\" x=\"446.6\" y=\"180\" text-anchor=\"middle\">25/09</text>",
           "target": [
             "text[x=\"446.6\"]"
           ],
@@ -228,7 +228,7 @@
           "all": [],
           "none": [],
           "impact": "serious",
-          "html": "<text class=\"dash-label\" x=\"543.1\" y=\"180\" text-anchor=\"middle\">25/09</text>",
+          "html": "<text class=\"dash-label\" x=\"543.1\" y=\"180\" text-anchor=\"middle\">26/09</text>",
           "target": [
             "text[x=\"543.1\"]"
           ],
@@ -260,7 +260,7 @@
           "all": [],
           "none": [],
           "impact": "serious",
-          "html": "<text class=\"dash-label\" x=\"639.7\" y=\"180\" text-anchor=\"middle\">26/09</text>",
+          "html": "<text class=\"dash-label\" x=\"639.7\" y=\"180\" text-anchor=\"middle\">27/09</text>",
           "target": [
             "text[x=\"639.7\"]"
           ],
@@ -505,6 +505,28 @@
       "compartiment": "conforme",
       "selecteur": "a[href$=\"roles\"]",
       "extrait": "<a href=\"/admin/roles\" class=\"sidebar-item\">Rôles</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-section:nth-child(7) > .sidebar-section-label",
+      "extrait": "<div class=\"sidebar-section-label\">Système</div>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"health\"]",
+      "extrait": "<a href=\"/admin/health\" class=\"sidebar-item\">Santé de l'API</a>",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",
       "ratio": 8.86,
@@ -872,7 +894,7 @@
     },
     {
       "id": "color-contrast",
-      "noeuds": 50
+      "noeuds": 52
     },
     {
       "id": "document-title",
@@ -892,7 +914,7 @@
     },
     {
       "id": "link-name",
-      "noeuds": 13
+      "noeuds": 14
     },
     {
       "id": "meta-viewport",

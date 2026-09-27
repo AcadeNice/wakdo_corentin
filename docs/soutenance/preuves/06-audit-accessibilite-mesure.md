@@ -6,10 +6,10 @@ Titre professionnel RNCP 37805 — Bloc 1 (developpement front-end)
 Cr 1.c.3 par une reserve explicite : « les ratios de contraste exacts n'ont pas ete
 mesures avec un outil dedie ([UNVERIFIED], section 8) ». Le meme aveu revient en
 section 8, reserve n° 2, et dans les reserves consolidees du `README.md` du dossier.
-Ce document remplace cette reserve par **858 ratios de contraste mesures** sur 18 ecrans
+Ce document remplace cette reserve par **943 ratios de contraste mesures** sur 19 ecrans
 reels, et par le detail des 10 elements qui passaient sous le seuil au premier passage.
 
-**Avertissement de lecture.** Ce rapport documente **trois campagnes**, pas une seule :
+**Avertissement de lecture.** Ce rapport documente **quatre campagnes**, pas une seule :
 
 1. **Campagne AVANT correction** (sections 4 a 6, telles qu'ecrites au premier passage) :
    11 ecrans, 10 noeuds de texte sous le seuil WCAG AA, dont 9 dans le back-office. C'est
@@ -26,12 +26,14 @@ reels, et par le detail des 10 elements qui passaient sous le seuil au premier p
    echappaient**, dont la caisse tactile comptoir et drive. Cette section explique ce que
    l'audit mesure de plus qu'avant, pourquoi il ne le mesurait pas, et ce que la mesure
    elargie a trouve.
+4. **Campagne du 2026-09-27** (section 5 quater) : une page nouvelle, « Santé de l'API »,
+   entre au perimetre le jour de sa creation. 19 ecrans, 0 violation.
 
-Les trois campagnes sont conservees telles quelles, l'une a la suite de l'autre : un
+Les quatre campagnes sont conservees telles quelles, l'une a la suite de l'autre : un
 dossier qui montre « 10 violations trouvees, voici les corrections, voici la remesure a
 0 » a plus de valeur devant un jury qu'un dossier qui n'aurait rien trouve des le premier
 passage, ou qu'un dossier qui aurait efface la trace du probleme initial. Les chiffres
-courants, ceux que portent les artefacts sur disque, sont ceux de la section 5 ter.
+courants, ceux que portent les artefacts sur disque, sont ceux de la section 5 quater.
 
 ---
 
@@ -43,8 +45,8 @@ courants, ceux que portent les artefacts sur disque, sont ceux de la section 5 t
 | Liaison navigateur | `@axe-core/playwright` **4.13.0** (version exacte epinglee, pas une plage) |
 | Navigateur | Chromium 131.0.6778.33, image officielle `mcr.microsoft.com/playwright:v1.49.1-jammy` |
 | Familles de regles | `wcag2a`, `wcag2aa`, `wcag21a`, `wcag21aa` |
-| Date de la campagne courante | 2026-09-26 (campagnes precedentes : 2026-09-22, puis 2026-09-26 au matin) |
-| Ecrans analyses | 18 (6 borne, 12 back-office) — ils etaient 11 aux deux campagnes precedentes |
+| Date de la campagne courante | 2026-09-27 (campagnes precedentes : 2026-09-22, 2026-09-26 au matin, puis 2026-09-26) |
+| Ecrans analyses | 19 (6 borne, 13 back-office) — 18 a la campagne du 2026-09-26, 11 aux deux premieres |
 
 ### Pourquoi exactement ces quatre familles de regles
 
@@ -76,7 +78,7 @@ chiffres ci-dessous.
 ## 2. Reproductibilite
 
 ```bash
-# Monte une pile jetable isolee, lance axe sur les 18 ecrans, depose les artefacts,
+# Monte une pile jetable isolee, lance axe sur les 19 ecrans, depose les artefacts,
 # puis demonte tout. Aucune dependance Node/Playwright sur l'hote.
 tests/e2e/run-a11y.sh
 ```
@@ -93,7 +95,7 @@ tests/e2e/run-a11y.sh
 - **Double passage identique.** La campagne d'origine a ete jouee deux fois de suite. Les
   deux fichiers `contrastes-mesures.csv` etaient **identiques octet pour octet**
   (407 lignes de mesure a ce moment-la), et les verdicts des 11 ecrans inchanges. Le
-  controle a ete refait pour la campagne courante, sur le perimetre elargi : deux
+  controle a ete refait pour la campagne du 2026-09-26, sur le perimetre elargi : deux
   executions successives de `run-a11y.sh`, deux piles jetables distinctes, et le meme
   resultat — **18 ecrans, 858 mesures, 41 noeuds non calculables, 83 combinaisons
   couleur/fond, 0 violation**, avec le meme compte de mesures ecran par ecran. Seul
@@ -127,9 +129,10 @@ fichiers invalide les chiffres, et il faut relancer `tests/e2e/run-a11y.sh`.
 
 ## 3. Perimetre analyse
 
-**Dix-huit** ecrans depuis la campagne du 2026-09-26 (ils etaient onze avant), chacun
-dans un etat **representatif** et non a vide. Les sept dernieres lignes sont les ecrans
-ajoutes par cette campagne ; la section 5 ter explique pourquoi ils manquaient.
+**Dix-neuf** ecrans depuis la campagne du 2026-09-27 (dix-huit la veille, onze avant), chacun
+dans un etat **representatif** et non a vide. Les sept avant-dernieres lignes sont les ecrans
+ajoutes le 2026-09-26 (la section 5 ter explique pourquoi ils manquaient) ; la derniere,
+le 2026-09-27 (section 5 quater).
 
 | Ecran | Adresse | Etat impose |
 |---|---|---|
@@ -148,6 +151,7 @@ ajoutes par cette campagne ; la section 5 ter explique pourquoi ils manquaient.
 | admin-menu-formulaire | `/admin/menus/new` | bloc de slot rendu par le navigateur (nom, type, cases d'options filtrees) |
 | admin-produits-import | `/admin/products/import` | ecran de depot du fichier CSV |
 | admin-produits-import-apercu | `/admin/products/import/preview` | rapport d'apercu, genere apres un depot reel du modele telechargeable |
+| admin-sante-api | `/admin/health` | carte des routes et trajet **rendus par le navigateur**, etat en direct rendu cote serveur (section 5 quater) |
 | admin-caisse-comptoir | `/counter/orders/new` | **onglets, grille de tuiles et panier peuple** par un tap sur une tuile a ajout direct |
 | admin-caisse-composeur-menu | idem, modale ouverte | composeur de menu ouvert (format, un groupe de choix par slot, modificateurs du burger) |
 | admin-caisse-drive | `/drive/orders/new` | meme caisse, canal drive : mode de service fige, pas de numero de table |
@@ -531,7 +535,7 @@ Deux precisions d'honnetete sur ce tableau :
   de chiffrer, pas des noeuds qu'il trouve fautifs. Les mesurer, c'est savoir qu'ils
   existent ; ne pas auditer l'ecran, c'etait les ignorer.
 
-### 5 ter.4 Contraste minimum par ecran (campagne courante)
+### 5 ter.4 Contraste minimum par ecran (campagne du 2026-09-26)
 
 | Ecran | Mesures | Minimum mesure | Element portant ce minimum |
 |---|---|---|---|
@@ -601,6 +605,75 @@ qu'elle est le **premier** enfant du `fieldset` (en HTML, seule la premiere `leg
 Ce point vaut d'etre raconte a l'oral : **un ecran qu'on n'audite pas ne rend aucun
 defaut**, et un moteur automatique ne remplace pas la lecture du balisage. Les deux ont
 ete necessaires ici — le premier pour elargir, le second pour trouver.
+
+---
+
+## 5 quater. Campagne du 2026-09-27 — la page « Santé de l'API »
+
+La page `/admin/health` (fiche de decision `docs/adr/0019-page-sante-api-carte-vivante.md`)
+entre au perimetre le jour de sa creation, avant sa fusion. Comme les ecrans ajoutes la
+veille, elle est batie par le navigateur : l'etat en direct est rendu cote serveur, mais la
+carte des 157 routes, le trajet anime et les sondes sont construits par `health.js`.
+`tests/e2e/a11y.spec.js` attend donc qu'une route reelle de la carte et une etape reelle du
+trajet soient rendues avant de mesurer ; sans cette attente, `axe` n'aurait vu que des
+conteneurs vides, exactement le trou decrit en 5 ter.1.
+
+| Indicateur | Campagne du 2026-09-26 | Campagne du 2026-09-27 |
+|---|---|---|
+| Ecrans mesures | 18 | **19** |
+| dont back-office | 12 | **13** |
+| Ratios de contraste mesures | 858 | **943** |
+| Combinaisons couleur/fond distinctes | 83 | **85** |
+| Noeuds de contraste non calculables | 41 | **41** |
+| Violations WCAG AA, toutes gravites | 0 | **0** |
+
+Pour la page elle-meme (`rapports/axe-admin-sante-api.json`) : **62 ratios mesures, 26 regles
+conformes, 0 violation, 0 cas indetermine**. Son contraste le plus serre est **3,59:1**, pour
+un seuil de 3:1 : c'est le « do » du nom de marque dans la barre laterale, commun a toutes les
+pages du back-office, deja documente en 5 ter.4.
+
+Les deux combinaisons nouvelles viennent de la page, et sont conformes :
+
+| Ratio mesure | Texte | Fond | Ou |
+|---|---|---|---|
+| 7,14:1 | `#1e40af` | `#dbeafe` | badge de methode `GET` d'une sonde |
+| 6,80:1 | `#991b1b` | `#fee2e2` | pastille d'etat de l'affichage des erreurs |
+
+**Un ecart evite avant la mesure.** La premiere version de la page, publiee hors de
+l'application, affichait la surface de chaque route en texte colore sur fond transparent.
+Transposee sur les couleurs du back-office, la variante jaune serait tombee a environ
+2,99:1 sur blanc, sous le seuil de 4,5:1. Elle a ete remplacee, avant toute mesure, par les
+pastilles du back-office deja mesurees conformes. La mesure ci-dessus porte sur la version
+corrigee ; l'ecart n'a donc pas ete mesure par l'outil, il a ete calcule a la main a partir
+des jetons de couleur.
+
+Mesures ecran par ecran, relues dans `rapports/resume.json` :
+
+| Ecran | Mesures | Minimum mesure |
+|---|---|---|
+| accueil | 8 | 17,4:1 |
+| admin-caisse-composeur-menu | 110 | 3,59:1 |
+| admin-caisse-comptoir | 65 | 3,59:1 |
+| admin-caisse-drive | 59 | 3,59:1 |
+| admin-commandes | 29 | 3,59:1 |
+| admin-connexion | 8 | 4,98:1 |
+| admin-ingredients | 92 | 3,59:1 |
+| admin-menu-formulaire | 51 | 3,59:1 |
+| admin-produit-formulaire | 67 | 3,59:1 |
+| admin-produits | 80 | 3,59:1 |
+| admin-produits-import | 35 | 3,59:1 |
+| admin-produits-import-apercu | 75 | 3,59:1 |
+| admin-sante-api | 62 | 3,59:1 |
+| admin-tableau-de-bord | 52 | 3,59:1 |
+| categories | 15 | 8,12:1 |
+| confirmation | 12 | 4,67:1 |
+| paiement | 11 | 5,09:1 |
+| produits | 51 | 8,12:1 |
+| produits-modale-options | 61 | 8,12:1 |
+| **Total** | **943** | — |
+
+**Limite de cette campagne.** Elle n'a ete jouee qu'une fois. Le double passage identique
+decrit en section 2 concerne la campagne du 2026-09-26, pas celle-ci.
 
 ---
 

@@ -1,0 +1,124 @@
+# ADR-0019 — Page « Santé de l'API » : une carte des routes qui ne peut pas diverger du code
+
+- Statut : Accepte
+- Date : 2026-09-27
+
+## Contexte
+
+Une page de visualisation de l'API a d'abord ete publiee hors de l'application : la liste des
+routes, et pour chacune le trajet d'un appel a travers les couches, avec chaque refus possible.
+Ses donnees avaient ete extraites du code par un programme, puis recoupees a la main. Cette page
+a deux defauts de fond.
+
+- **Elle vieillit en silence.** C'est une photographie d'un commit. La prochaine route ajoutee au
+  routeur n'y figurera pas, et rien ne le signalera.
+- **Elle ne montre pas l'API vivante.** Une page hebergee ailleurs ne peut pas interroger le
+  serveur de production : elle decrit ce que l'API ferait, elle ne montre pas ce qu'elle fait.
+
+La demande est de la ramener dans le back-office. Deux contraintes en decoulent.
+
+- `/api/health` existe et doit rester tel quel : c'est la sonde que le deploiement continu
+  interroge pour verifier le commit servi. Le transformer en page lui ferait perdre ce role.
+- La politique de securite de contenu du back-office interdit tout script en ligne et toute
+  ressource externe.
+
+## Decision
+
+### (a) Une page `/admin/health`, sous la permission `role.manage`
+
+La page vit dans la convention des pages d'administration, a cote de la sonde `/api/health` qui
+reste inchangee. Sa permission est `role.manage` : la page est la carte des routes et des
+permissions qu'elles exigent, ce qui releve du domaine de cette permission. Aucune permission
+n'est ajoutee : le catalogue reste a 23.
+
+Le site de la borne ne relaie que `/api` vers PHP ; `/admin/health` n'est donc pas joignable
+depuis l'origine de la borne, par construction.
+
+### (b) Les routes sont lues dans le routeur, pas recopiees
+
+Les declarations de routes quittent le controleur frontal pour un fichier chargeable
+(`src/app/Core/routes.php`) qui retourne une fonction. Le controleur frontal l'appelle au meme
+endroit ; la page, elle, le charge sur un routeur neuf pour lister ce qui est reellement
+declare. Une route ajoutee au code apparait donc sur la page sans aucune autre modification.
+
+### (c) Les exigences de chaque route ont une seule source, que les tests utilisent aussi
+
+La permission, le jeton anti-rejeu, le code personnel et l'absence de compte d'une route ne se
+lisent pas dans le routeur : ils sont appliques dans le code de chaque action. Ils sont donc
+declares dans une table unique, `App\Health\RouteSecurity`.
+
+Le risque d'une telle table est evident : elle peut mentir. Il est traite par trois mecanismes.
+
+- **Couverture dans les deux sens.** Un test echoue si une route du routeur n'a pas sa ligne, ou
+  si une ligne ne correspond a aucune route.
+- **La table n'est plus dupliquee dans les tests.** Le test de matrice de l'API d'administration
+  portait jusqu'ici sa propre copie des routes et de leurs permissions. Il lit desormais la table.
+  Afficher une exigence et la tester reviennent a lire la meme ligne.
+- **Chaque badge est verifie par un test de comportement.** Pour chaque route, la permission
+  annoncee est verifiee dans les deux sens (toutes les permissions sauf celle-la : refus ; celle-la
+  seule : pas de refus), le jeton annonce est exige, le code personnel annonce est exige, et une
+  route qui n'annonce pas de code n'en exige pas.
+
+La consequence est la propriete qui justifie la page : **quand elle affiche qu'une route exige
+une chose, un test verifie que la route l'exige.**
+
+### (d) L'etat en direct, en comptes seulement
+
+La page affiche la version servie, l'environnement, l'etat reel de l'affichage des erreurs, la
+joignabilite de la base avec un temps de reponse mesure, les migrations et jeux de donnees
+appliques, et l'activite des dernieres 24 heures. Elle relit ces valeurs toutes les 15 secondes
+par `GET /admin/api/health`.
+
+Seuls des comptes sont exposes, aucune ligne nominative. Une base injoignable produit un etat
+degrade sans detail d'erreur, pour la meme raison que la sonde du deploiement.
+
+### (e) Des appels reels, tous refuses avant toute ecriture
+
+La page lance de vrais appels vers l'API et affiche le statut et le temps reellement obtenus :
+catalogue servi, appel sans session, ecriture sans jeton, ecriture au mauvais type de contenu,
+route inconnue, methode refusee.
+
+Declencher de vraies requetes depuis une page d'administration n'est acceptable que si aucune ne
+peut modifier une donnee. La propriete est obtenue par l'ordre des controles : les ecritures
+visees sont refusees au jeton ou au type de contenu, qui sont examines avant la validation et
+avant toute requete d'ecriture. Elle est verifiee par un test qui fait passer chaque sonde par le
+vrai routeur et les vrais controleurs, et constate a la fois le statut attendu et l'absence de
+toute requete d'ecriture.
+
+La cible des deux sondes d'ecriture est une route gardee par `role.manage`, la permission meme de
+la page : quiconque voit la page franchit la permission, et le refus observe est bien celui qu'on
+veut montrer.
+
+## Alternatives ecartees
+
+**Transformer `/api/health` en page.** Ecarte : le deploiement continu lit ce point pour verifier
+le commit servi. Une page HTML a sa place le priverait de sa verification.
+
+**Deduire les exigences en analysant le code des controleurs au moment de l'affichage.** C'est ce
+qu'avait fait le programme d'extraction de la premiere page, et il s'est trompe deux fois (un
+code personnel annonce sur le telechargement du modele d'import, un autre sur la definition de
+son propre code, qui demande en fait le mot de passe). Une analyse de texte au moment de
+l'affichage garderait ces erreurs, sans test pour les attraper.
+
+**Une permission dediee.** Ecarte : elle ajouterait une 24e permission pour une page de
+consultation, contre le principe d'un catalogue stable deja defendu en ADR-0015.
+
+**Laisser la page publique, sans compte.** Ecarte. Le depot est public et la carte des routes y
+figure deja, mais l'etat de la base et l'activite recente n'ont pas a etre servis a un visiteur
+anonyme.
+
+## Consequences
+
+- (+) La page ne peut pas diverger du code : les routes sont lues dans le routeur, et chaque
+  exigence affichee est la ligne meme que les tests verifient.
+- (+) Le test de matrice perd sa copie de la table : une source de moins a tenir alignee.
+- (+) Le controleur frontal redevient court ; les routes vivent dans un fichier qui se charge et
+  se teste seul.
+- (+) La sonde du deploiement continu reste strictement inchangee.
+- (-) La table des exigences est une declaration : ce sont les tests qui la rendent vraie. Une
+  exigence ajoutee dans une action sans mise a jour de la table ferait echouer les tests de
+  comportement, pas le test de couverture ; c'est le comportement voulu, mais il faut le savoir.
+- (-) Les appels reels ajoutent un peu de trafic et des lignes au journal d'acces a chaque
+  lancement. Ils ne sont declenches que par un clic.
+- (-) La page relit l'etat toutes les 15 secondes tant qu'elle est ouverte et visible ; la
+  relecture est suspendue quand l'onglet est masque.

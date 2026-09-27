@@ -29,6 +29,8 @@ admin-caisse-composeur-menu;conforme;a[href$="display"];#4a4a4a;#ffffff;8,86;4.5
 admin-caisse-composeur-menu;conforme;.sidebar-section:nth-child(6) > .sidebar-section-label;#69707d;#ffffff;4,98;4.5:1;8.3pt (11px);bold;<div class="sidebar-section-label">Administration</div>
 admin-caisse-composeur-menu;conforme;a[href$="users"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/users" class="sidebar-item">Utilisateurs</a>
 admin-caisse-composeur-menu;conforme;a[href$="roles"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/roles" class="sidebar-item">Rôles</a>
+admin-caisse-composeur-menu;conforme;.sidebar-section:nth-child(7) > .sidebar-section-label;#69707d;#ffffff;4,98;4.5:1;8.3pt (11px);bold;<div class="sidebar-section-label">Système</div>
+admin-caisse-composeur-menu;conforme;a[href$="health"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/health" class="sidebar-item">Santé de l'API</a>
 admin-caisse-composeur-menu;conforme;h1;#1a1a1a;#f5f5f5;15,96;3:1;15.0pt (20px);bold;<h1 class="page-title">Nouvelle commande comptoir</h1>
 admin-caisse-composeur-menu;conforme;.btn-secondary.btn[href$="orders"];#4a4a4a;#ffffff;8,86;4.5:1;9.8pt (13px);normal;<a class="btn btn-secondary" href="/counter/orders">Annuler</a>
 admin-caisse-composeur-menu;conforme;#pos-tab-2;#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);bold;<button class="pos__tab" type="button" id="pos-tab-2" data-category-id="2" role="tab" aria-selected=
@@ -137,6 +139,8 @@ admin-caisse-comptoir;conforme;a[href$="display"];#4a4a4a;#ffffff;8,86;4.5:1;11.
 admin-caisse-comptoir;conforme;.sidebar-section:nth-child(6) > .sidebar-section-label;#69707d;#ffffff;4,98;4.5:1;8.3pt (11px);bold;<div class="sidebar-section-label">Administration</div>
 admin-caisse-comptoir;conforme;a[href$="users"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/users" class="sidebar-item">Utilisateurs</a>
 admin-caisse-comptoir;conforme;a[href$="roles"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/roles" class="sidebar-item">Rôles</a>
+admin-caisse-comptoir;conforme;.sidebar-section:nth-child(7) > .sidebar-section-label;#69707d;#ffffff;4,98;4.5:1;8.3pt (11px);bold;<div class="sidebar-section-label">Système</div>
+admin-caisse-comptoir;conforme;a[href$="health"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/health" class="sidebar-item">Santé de l'API</a>
 admin-caisse-comptoir;conforme;h1;#1a1a1a;#f5f5f5;15,96;3:1;15.0pt (20px);bold;<h1 class="page-title">Nouvelle commande comptoir</h1>
 admin-caisse-comptoir;conforme;.btn-secondary.btn[href$="orders"];#4a4a4a;#ffffff;8,86;4.5:1;9.8pt (13px);normal;<a class="btn btn-secondary" href="/counter/orders">Annuler</a>
 admin-caisse-comptoir;conforme;#pos-tab-2;#1a1a1a;#ffc72c;11,15;4.5:1;11.3pt (15px);bold;<button class="pos__tab is-active" type="button" id="pos-tab-2" data-category-id="2" role="tab" aria
@@ -200,6 +204,8 @@ admin-caisse-drive;conforme;a[href$="display"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt
 admin-caisse-drive;conforme;.sidebar-section:nth-child(6) > .sidebar-section-label;#69707d;#ffffff;4,98;4.5:1;8.3pt (11px);bold;<div class="sidebar-section-label">Administration</div>
 admin-caisse-drive;conforme;a[href$="users"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/users" class="sidebar-item">Utilisateurs</a>
 admin-caisse-drive;conforme;a[href$="roles"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/roles" class="sidebar-item">Rôles</a>
+admin-caisse-drive;conforme;.sidebar-section:nth-child(7) > .sidebar-section-label;#69707d;#ffffff;4,98;4.5:1;8.3pt (11px);bold;<div class="sidebar-section-label">Système</div>
+admin-caisse-drive;conforme;a[href$="health"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/health" class="sidebar-item">Santé de l'API</a>
 admin-caisse-drive;conforme;h1;#1a1a1a;#f5f5f5;15,96;3:1;15.0pt (20px);bold;<h1 class="page-title">Nouvelle commande drive</h1>
 admin-caisse-drive;conforme;.btn-secondary;#4a4a4a;#ffffff;8,86;4.5:1;9.8pt (13px);normal;<a class="btn btn-secondary" href="/drive/orders">Annuler</a>
 admin-caisse-drive;conforme;#pos-tab-2;#1a1a1a;#ffc72c;11,15;4.5:1;11.3pt (15px);bold;<button class="pos__tab is-active" type="button" id="pos-tab-2" data-category-id="2" role="tab" aria
@@ -257,6 +263,8 @@ admin-commandes;conforme;a[href$="display"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (1
 admin-commandes;conforme;.sidebar-section:nth-child(6) > .sidebar-section-label;#69707d;#ffffff;4,98;4.5:1;8.3pt (11px);bold;<div class="sidebar-section-label">Administration</div>
 admin-commandes;conforme;a[href$="users"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/users" class="sidebar-item">Utilisateurs</a>
 admin-commandes;conforme;a[href$="roles"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/roles" class="sidebar-item">Rôles</a>
+admin-commandes;conforme;.sidebar-section:nth-child(7) > .sidebar-section-label;#69707d;#ffffff;4,98;4.5:1;8.3pt (11px);bold;<div class="sidebar-section-label">Système</div>
+admin-commandes;conforme;a[href$="health"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/health" class="sidebar-item">Santé de l'API</a>
 admin-commandes;conforme;#orders-heading;#1a1a1a;#f5f5f5;15,96;3:1;15.8pt (21px);bold;<h1 id="orders-heading" class="admin-section__title">Commandes</h1>
 admin-commandes;conforme;.admin-section__sub;#1a1a1a;#f5f5f5;15,96;4.5:1;10.5pt (14px);normal;<p class="admin-section__sub">0 commande(s) récente(s)</p>
 admin-commandes;conforme;.admin-empty;#69707d;#f5f5f5;4,57;4.5:1;10.5pt (14px);normal;<p class="admin-empty">Aucune commande pour le moment.</p>
@@ -292,6 +300,8 @@ admin-ingredients;conforme;a[href$="display"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt 
 admin-ingredients;conforme;.sidebar-section:nth-child(6) > .sidebar-section-label;#69707d;#ffffff;4,98;4.5:1;8.3pt (11px);bold;<div class="sidebar-section-label">Administration</div>
 admin-ingredients;conforme;a[href$="users"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/users" class="sidebar-item">Utilisateurs</a>
 admin-ingredients;conforme;a[href$="roles"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/roles" class="sidebar-item">Rôles</a>
+admin-ingredients;conforme;.sidebar-section:nth-child(7) > .sidebar-section-label;#69707d;#ffffff;4,98;4.5:1;8.3pt (11px);bold;<div class="sidebar-section-label">Système</div>
+admin-ingredients;conforme;a[href$="health"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/health" class="sidebar-item">Santé de l'API</a>
 admin-ingredients;conforme;h1;#1a1a1a;#f5f5f5;15,96;3:1;15.0pt (20px);bold;<h1 class="page-title">Stock des ingrédients</h1>
 admin-ingredients;conforme;.page-subtitle;#69707d;#f5f5f5;4,57;4.5:1;9.8pt (13px);normal;<p class="page-subtitle">Ce qui est bas à réapprovisionner, en un coup d'œil</p>
 admin-ingredients;conforme;a[href$="new"];#4a4a4a;#ffffff;8,86;4.5:1;9.8pt (13px);normal;<a class="btn btn-secondary" href="/admin/ingredients/new">Nouvel ingrédient</a>
@@ -382,6 +392,8 @@ admin-menu-formulaire;conforme;a[href$="display"];#4a4a4a;#ffffff;8,86;4.5:1;11.
 admin-menu-formulaire;conforme;.sidebar-section:nth-child(6) > .sidebar-section-label;#69707d;#ffffff;4,98;4.5:1;8.3pt (11px);bold;<div class="sidebar-section-label">Administration</div>
 admin-menu-formulaire;conforme;a[href$="users"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/users" class="sidebar-item">Utilisateurs</a>
 admin-menu-formulaire;conforme;a[href$="roles"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/roles" class="sidebar-item">Rôles</a>
+admin-menu-formulaire;conforme;.sidebar-section:nth-child(7) > .sidebar-section-label;#69707d;#ffffff;4,98;4.5:1;8.3pt (11px);bold;<div class="sidebar-section-label">Système</div>
+admin-menu-formulaire;conforme;a[href$="health"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/health" class="sidebar-item">Santé de l'API</a>
 admin-menu-formulaire;conforme;h1;#1a1a1a;#f5f5f5;15,96;3:1;15.0pt (20px);bold;<h1 class="page-title">Nouveau menu</h1>
 admin-menu-formulaire;conforme;label[for="category_id"];#4a4a4a;#f5f5f5;8,12;4.5:1;9.0pt (12px);normal;<label class="form-label" for="category_id">Catégorie</label>
 admin-menu-formulaire;conforme;#category_id;#1a1a1a;#ffffff;17,4;4.5:1;9.8pt (13px);normal;<select class="form-input" id="category_id" name="category_id" required="" aria-describedby="categor
@@ -431,7 +443,8 @@ admin-produit-formulaire;conforme;a[href$="display"];#4a4a4a;#ffffff;8,86;4.5:1;
 admin-produit-formulaire;conforme;.sidebar-section:nth-child(6) > .sidebar-section-label;#69707d;#ffffff;4,98;4.5:1;8.3pt (11px);bold;<div class="sidebar-section-label">Administration</div>
 admin-produit-formulaire;conforme;a[href$="users"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/users" class="sidebar-item">Utilisateurs</a>
 admin-produit-formulaire;conforme;a[href$="roles"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/roles" class="sidebar-item">Rôles</a>
-admin-produit-formulaire;conforme;label[for="description"];#4a4a4a;#f5f5f5;8,12;4.5:1;9.0pt (12px);normal;<label class="form-label" for="description">Description</label>
+admin-produit-formulaire;conforme;.sidebar-section:nth-child(7) > .sidebar-section-label;#69707d;#ffffff;4,98;4.5:1;8.3pt (11px);bold;<div class="sidebar-section-label">Système</div>
+admin-produit-formulaire;conforme;a[href$="health"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/health" class="sidebar-item">Santé de l'API</a>
 admin-produit-formulaire;conforme;#description;#1a1a1a;#ffffff;17,4;4.5:1;9.8pt (13px);normal;<textarea class="form-input" id="description" name="description"></textarea>
 admin-produit-formulaire;conforme;label[for="price_cents"];#4a4a4a;#f5f5f5;8,12;4.5:1;9.0pt (12px);normal;<label class="form-label" for="price_cents">Prix (en euros)</label>
 admin-produit-formulaire;conforme;#price_cents;#1a1a1a;#ffffff;17,4;4.5:1;9.8pt (13px);normal;<input class="form-input" type="text" inputmode="decimal" id="price_cents" name="price_cents" patter
@@ -447,9 +460,11 @@ admin-produit-formulaire;conforme;.form-check > span;#1a1a1a;#f5f5f5;15,96;4.5:1
 admin-produit-formulaire;conforme;.form-card > details > summary;#1a1a1a;#f5f5f5;15,96;4.5:1;10.5pt (14px);bold;<summary>Tailles et format Maxi (optionnel)</summary>
 admin-produit-formulaire;conforme;.form-card > fieldset > legend;#1a1a1a;#f5f5f5;15,96;4.5:1;11.3pt (15px);bold;<legend>Composition du produit (sa recette)</legend>
 admin-produit-formulaire;conforme;fieldset > p > small;#1a1a1a;#f5f5f5;15,96;4.5:1;8.8pt (11.6667px);normal;<small>Les ingrédients qui composent ce produit. Un ingrédient non retirable dont le stock tombe à 0
+admin-produit-formulaire;conforme;.recipe-filter__toggle > span;#1a1a1a;#f5f5f5;15,96;4.5:1;10.5pt (14px);normal;<span>Afficher tous les ingrédients</span>
+admin-produit-formulaire;conforme;#recipe-filter-count;#69707d;#f5f5f5;4,57;4.5:1;9.0pt (12px);normal;<p class="recipe-filter__count" id="recipe-filter-count" role="status" aria-live="polite">50 ingrédi
 admin-produit-formulaire;conforme;.recipe-line-existing > legend;#4a4a4a;#f5f5f5;8,12;4.5:1;9.0pt (12px);bold;<legend>Ingrédient du catalogue</legend>
 admin-produit-formulaire;conforme;.recipe-field--wide > .recipe-field__label;#4a4a4a;#f5f5f5;8,12;4.5:1;9.0pt (12px);normal;<span class="recipe-field__label">Ingrédient</span>
-admin-produit-formulaire;conforme;.recipe-ingredient;#1a1a1a;#ffffff;17,4;4.5:1;9.8pt (13px);normal;<select class="form-input recipe-ingredient">
+admin-produit-formulaire;conforme;.recipe-ingredient;#1a1a1a;#ffffff;17,4;4.5:1;9.8pt (13px);normal;<select class="form-input recipe-ingredient" data-user-set="0">
 admin-produit-formulaire;conforme;.recipe-line-existing > .recipe-line__fields > .recipe-field--num.recipe-field:nth-child(2) > .recipe-field__label;#4a4a4a;#f5f5f5;8,12;4.5:1;9.0pt (12px);normal;<span class="recipe-field__label">Qté normale</span>
 admin-produit-formulaire;conforme;.recipe-field--num.recipe-field:nth-child(2) > .recipe-qn[min="1"][type="number"];#1a1a1a;#ffffff;17,4;4.5:1;9.8pt (13px);normal;<input class="form-input recipe-qn" type="number" min="1">
 admin-produit-formulaire;conforme;.recipe-line-existing > .recipe-line__fields > .recipe-field--num.recipe-field:nth-child(3) > .recipe-field__label;#4a4a4a;#f5f5f5;8,12;4.5:1;9.0pt (12px);normal;<span class="recipe-field__label">Qté maxi</span>
@@ -495,6 +510,8 @@ admin-produits;conforme;a[href$="display"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15
 admin-produits;conforme;.sidebar-section:nth-child(6) > .sidebar-section-label;#69707d;#ffffff;4,98;4.5:1;8.3pt (11px);bold;<div class="sidebar-section-label">Administration</div>
 admin-produits;conforme;a[href$="users"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/users" class="sidebar-item">Utilisateurs</a>
 admin-produits;conforme;a[href$="roles"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/roles" class="sidebar-item">Rôles</a>
+admin-produits;conforme;.sidebar-section:nth-child(7) > .sidebar-section-label;#69707d;#ffffff;4,98;4.5:1;8.3pt (11px);bold;<div class="sidebar-section-label">Système</div>
+admin-produits;conforme;a[href$="health"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/health" class="sidebar-item">Santé de l'API</a>
 admin-produits;conforme;h1;#1a1a1a;#f5f5f5;15,96;3:1;15.0pt (20px);bold;<h1 class="page-title">Produits</h1>
 admin-produits;conforme;p;#69707d;#f5f5f5;4,57;4.5:1;9.8pt (13px);normal;<p class="page-subtitle">Gestion des produits du catalogue</p>
 admin-produits;conforme;.btn-secondary.btn[href$="by-category"];#4a4a4a;#ffffff;8,86;4.5:1;9.8pt (13px);normal;<a class="btn btn-secondary" href="/admin/products/by-category">Vue par catégorie</a>
@@ -573,6 +590,8 @@ admin-produits-import;conforme;a[href$="display"];#4a4a4a;#ffffff;8,86;4.5:1;11.
 admin-produits-import;conforme;.sidebar-section:nth-child(6) > .sidebar-section-label;#69707d;#ffffff;4,98;4.5:1;8.3pt (11px);bold;<div class="sidebar-section-label">Administration</div>
 admin-produits-import;conforme;a[href$="users"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/users" class="sidebar-item">Utilisateurs</a>
 admin-produits-import;conforme;a[href$="roles"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/roles" class="sidebar-item">Rôles</a>
+admin-produits-import;conforme;.sidebar-section:nth-child(7) > .sidebar-section-label;#69707d;#ffffff;4,98;4.5:1;8.3pt (11px);bold;<div class="sidebar-section-label">Système</div>
+admin-produits-import;conforme;a[href$="health"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/health" class="sidebar-item">Santé de l'API</a>
 admin-produits-import;conforme;h1;#1a1a1a;#f5f5f5;15,96;3:1;15.0pt (20px);bold;<h1 class="page-title">Importer des produits</h1>
 admin-produits-import;conforme;.page-subtitle;#69707d;#f5f5f5;4,57;4.5:1;9.8pt (13px);normal;<p class="page-subtitle">Un fichier CSV, plusieurs produits et leurs recettes en une fois</p>
 admin-produits-import;conforme;p:nth-child(1);#1a1a1a;#f5f5f5;15,96;4.5:1;10.5pt (14px);normal;<p>Le fichier contient une ligne par ingrédient d'un produit (une ligne sans ingrédient est autorisé
@@ -606,6 +625,8 @@ admin-produits-import-apercu;conforme;a[href$="display"];#4a4a4a;#ffffff;8,86;4.
 admin-produits-import-apercu;conforme;.sidebar-section:nth-child(6) > .sidebar-section-label;#69707d;#ffffff;4,98;4.5:1;8.3pt (11px);bold;<div class="sidebar-section-label">Administration</div>
 admin-produits-import-apercu;conforme;a[href$="users"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/users" class="sidebar-item">Utilisateurs</a>
 admin-produits-import-apercu;conforme;a[href$="roles"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/roles" class="sidebar-item">Rôles</a>
+admin-produits-import-apercu;conforme;.sidebar-section:nth-child(7) > .sidebar-section-label;#69707d;#ffffff;4,98;4.5:1;8.3pt (11px);bold;<div class="sidebar-section-label">Système</div>
+admin-produits-import-apercu;conforme;a[href$="health"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/health" class="sidebar-item">Santé de l'API</a>
 admin-produits-import-apercu;conforme;h1;#1a1a1a;#f5f5f5;15,96;3:1;15.0pt (20px);bold;<h1 class="page-title">Aperçu de l'import</h1>
 admin-produits-import-apercu;conforme;.page-subtitle;#69707d;#f5f5f5;4,57;4.5:1;9.8pt (13px);normal;<p class="page-subtitle">4 ligne(s) de données analysée(s) — aucune écriture n'a encore eu lieu</p>
 admin-produits-import-apercu;conforme;div[role="alert"] > h2;#1a1a1a;#f5f5f5;15,96;3:1;15.8pt (21px);bold;<h2>Le fichier contient 2 erreur(s) : l'import est bloqué</h2>
@@ -657,6 +678,68 @@ admin-produits-import-apercu;conforme;.form-card:nth-child(6) > p:nth-child(2);#
 admin-produits-import-apercu;conforme;.btn;#4a4a4a;#ffffff;8,86;4.5:1;9.8pt (13px);normal;<a class="btn btn-secondary" href="/admin/products/import">Renvoyer un fichier</a>
 admin-produits-import-apercu;conforme;.a11y-toggle__icon;#1a1a1a;#ffffff;17,4;4.5:1;11.3pt (15px);bold;<span class="a11y-toggle__icon" aria-hidden="true">Aa</span>
 admin-produits-import-apercu;conforme;.a11y-toggle__label;#1a1a1a;#ffffff;17,4;4.5:1;9.8pt (13px);bold;<span class="a11y-toggle__label">Police adaptée</span>
+admin-sante-api;conforme;.topbar-user-avatar;#ffc72c;#1a1a1a;11,15;4.5:1;9.8pt (13px);bold;<div class="topbar-user-avatar">WA</div>
+admin-sante-api;conforme;.topbar-user-name;#1a1a1a;#ffffff;17,4;4.5:1;10.5pt (14px);bold;<div class="topbar-user-name">Wakdo Admin</div>
+admin-sante-api;conforme;.topbar-user-role;#69707d;#ffffff;4,98;4.5:1;8.3pt (11px);normal;<div class="topbar-user-role">Administrateur</div>
+admin-sante-api;conforme;.sidebar-brand-name;#1a1a1a;#ffffff;17,4;3:1;15.8pt (21px);bold;<span class="sidebar-brand-name">Wak<span>do</span></span>
+admin-sante-api;conforme;.sidebar-brand-name > span;#ae7f09;#ffffff;3,59;3:1;15.8pt (21px);bold;<span>do</span>
+admin-sante-api;conforme;.sidebar-section:nth-child(2) > .sidebar-section-label;#69707d;#ffffff;4,98;4.5:1;8.3pt (11px);bold;<div class="sidebar-section-label">Vue d'ensemble</div>
+admin-sante-api;conforme;a[href$="dashboard"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/dashboard" class="sidebar-item">Tableau de bord</a>
+admin-sante-api;conforme;.sidebar-section:nth-child(3) > .sidebar-section-label;#69707d;#ffffff;4,98;4.5:1;8.3pt (11px);bold;<div class="sidebar-section-label">Catalogue</div>
+admin-sante-api;conforme;a[href$="categories"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/categories" class="sidebar-item">Catégories</a>
+admin-sante-api;conforme;a[href$="products"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/products" class="sidebar-item">Produits</a>
+admin-sante-api;conforme;a[href$="by-category"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/products/by-category" class="sidebar-item">Produits par catégorie</a>
+admin-sante-api;conforme;a[href$="menus"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/menus" class="sidebar-item">Menus</a>
+admin-sante-api;conforme;.sidebar-section:nth-child(4) > .sidebar-section-label;#69707d;#ffffff;4,98;4.5:1;8.3pt (11px);bold;<div class="sidebar-section-label">Stock</div>
+admin-sante-api;conforme;a[href$="ingredients"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/ingredients" class="sidebar-item">Ingrédients</a>
+admin-sante-api;conforme;.sidebar-section:nth-child(5) > .sidebar-section-label;#69707d;#ffffff;4,98;4.5:1;8.3pt (11px);bold;<div class="sidebar-section-label">Pilotage</div>
+admin-sante-api;conforme;.sidebar-item[href$="orders"]:nth-child(2);#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/counter/orders" class="sidebar-item">Saisie commande</a>
+admin-sante-api;conforme;a[href$="stats"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/stats" class="sidebar-item">Statistiques</a>
+admin-sante-api;conforme;.sidebar-item[href$="orders"]:nth-child(4);#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/orders" class="sidebar-item">Commandes</a>
+admin-sante-api;conforme;a[href$="display"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/kitchen/display" class="sidebar-item">Cuisine (KDS)</a>
+admin-sante-api;conforme;.sidebar-section:nth-child(6) > .sidebar-section-label;#69707d;#ffffff;4,98;4.5:1;8.3pt (11px);bold;<div class="sidebar-section-label">Administration</div>
+admin-sante-api;conforme;a[href$="users"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/users" class="sidebar-item">Utilisateurs</a>
+admin-sante-api;conforme;a[href$="roles"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/roles" class="sidebar-item">Rôles</a>
+admin-sante-api;conforme;.sidebar-section:nth-child(7) > .sidebar-section-label;#69707d;#ffffff;4,98;4.5:1;8.3pt (11px);bold;<div class="sidebar-section-label">Système</div>
+admin-sante-api;conforme;.active;#1a1a1a;#fff3d1;15,74;4.5:1;11.3pt (15px);normal;<a href="/admin/health" class="sidebar-item active">Santé de l'API</a>
+admin-sante-api;conforme;h1;#1a1a1a;#f5f5f5;15,96;3:1;15.0pt (20px);bold;<h1 class="page-title">Santé de l'API</h1>
+admin-sante-api;conforme;.page-subtitle;#69707d;#f5f5f5;4,57;4.5:1;9.8pt (13px);normal;<p class="page-subtitle">Ce que le serveur voit de lui-même, les appels réels qu'on peut lui envoyer
+admin-sante-api;conforme;.toc__label;#69707d;#f9fafb;4,76;4.5:1;9.8pt (13px);normal;<p class="toc__label">Aller à la section :</p>
+admin-sante-api;conforme;a[href$="#health-etat"];#1a1a1a;#f9fafb;16,65;4.5:1;9.8pt (13px);normal;<a href="#health-etat">État en direct</a>
+admin-sante-api;conforme;a[href$="#health-sondes"];#1a1a1a;#f9fafb;16,65;4.5:1;9.8pt (13px);normal;<a href="#health-sondes">Appels réels</a>
+admin-sante-api;conforme;a[href$="#health-trajet"];#1a1a1a;#f9fafb;16,65;4.5:1;9.8pt (13px);normal;<a href="#health-trajet">Le trajet d'un appel</a>
+admin-sante-api;conforme;a[href$="#health-routes"];#1a1a1a;#f9fafb;16,65;4.5:1;9.8pt (13px);normal;<a href="#health-routes">La carte des routes</a>
+admin-sante-api;conforme;#h-health-etat;#1a1a1a;#f5f5f5;15,96;3:1;15.0pt (20px);bold;<h2 id="h-health-etat">État en direct</h2>
+admin-sante-api;conforme;#health-etat > .health-section-lede;#69707d;#f5f5f5;4,57;4.5:1;10.5pt (14px);normal;<p class="health-section-lede">Généré le 27/09/2026 15:40:28, puis relu automatiquement toutes les 1
+admin-sante-api;conforme;.kpi-card:nth-child(1) > .kpi-label;#69707d;#ffffff;4,98;4.5:1;9.0pt (12px);normal;<p class="kpi-label">Base de données</p>
+admin-sante-api;conforme;#health-db-pill;#065f46;#d1fae5;6,77;4.5:1;9.0pt (12px);normal;<span class="pill pill-success" id="health-db-pill">Joignable</span>
+admin-sante-api;conforme;#health-db-detail;#69707d;#ffffff;4,98;4.5:1;9.0pt (12px);normal;<p class="health-kpi-detail" id="health-db-detail">0.1 ms · 11.4.10-MariaDB-ubu2404</p>
+admin-sante-api;conforme;.kpi-card:nth-child(2) > .kpi-label;#69707d;#ffffff;4,98;4.5:1;9.0pt (12px);normal;<p class="kpi-label">Affichage des erreurs</p>
+admin-sante-api;conforme;#health-debug-pill;#991b1b;#fee2e2;6,8;4.5:1;9.0pt (12px);normal;<span class="pill pill-danger" id="health-debug-pill">Actif</span>
+admin-sante-api;conforme;#health-debug-detail;#69707d;#ffffff;4,98;4.5:1;9.0pt (12px);normal;<p class="health-kpi-detail" id="health-debug-detail">Environnement dev · débogage activé · PHP 8.3.
+admin-sante-api;conforme;.kpi-card:nth-child(3) > .kpi-label;#69707d;#ffffff;4,98;4.5:1;9.0pt (12px);normal;<p class="kpi-label">Version servie</p>
+admin-sante-api;conforme;#health-deployed-at;#69707d;#ffffff;4,98;4.5:1;9.0pt (12px);normal;<p class="health-kpi-detail" id="health-deployed-at">date de déploiement inconnue</p>
+admin-sante-api;conforme;.kpi-card:nth-child(4) > .kpi-label;#69707d;#ffffff;4,98;4.5:1;9.0pt (12px);normal;<p class="kpi-label">Migrations</p>
+admin-sante-api;conforme;#health-migrations;#1a1a1a;#ffffff;17,4;3:1;18.0pt (24px);bold;<p class="kpi-value" id="health-migrations">16 (nombre de fichiers inconnu)</p>
+admin-sante-api;conforme;#health-migrations-last;#69707d;#ffffff;4,98;4.5:1;9.0pt (12px);normal;<p class="health-kpi-detail" id="health-migrations-last">dernière : 0017_ingredient_family.sql</p>
+admin-sante-api;conforme;.kpi-card:nth-child(5) > .kpi-label;#69707d;#ffffff;4,98;4.5:1;9.0pt (12px);normal;<p class="kpi-label">Seeds</p>
+admin-sante-api;conforme;#health-seeds;#1a1a1a;#ffffff;17,4;3:1;18.0pt (24px);bold;<p class="kpi-value" id="health-seeds">10 (nombre de fichiers inconnu)</p>
+admin-sante-api;conforme;#health-seeds-last;#69707d;#ffffff;4,98;4.5:1;9.0pt (12px);normal;<p class="health-kpi-detail" id="health-seeds-last">dernier : 0010_ingredient_families.sql</p>
+admin-sante-api;conforme;.kpi-card:nth-child(6) > .kpi-label;#69707d;#ffffff;4,98;4.5:1;9.0pt (12px);normal;<p class="kpi-label">Activité (24 h)</p>
+admin-sante-api;conforme;#health-activity;#1a1a1a;#ffffff;17,4;3:1;18.0pt (24px);bold;<p class="kpi-value" id="health-activity">0 créées</p>
+admin-sante-api;conforme;#health-activity-detail;#69707d;#ffffff;4,98;4.5:1;9.0pt (12px);normal;<p class="health-kpi-detail" id="health-activity-detail">0 payées · 1 ligne d'audit · 0 échecs de co
+admin-sante-api;conforme;#health-refresh-status;#69707d;#f5f5f5;4,57;4.5:1;9.0pt (12px);normal;<p class="health-refresh-status" id="health-refresh-status" role="status" aria-live="polite"> Derniè
+admin-sante-api;conforme;#health-refresh-time;#69707d;#f5f5f5;4,57;4.5:1;9.0pt (12px);normal;<time id="health-refresh-time">27/09/2026 15:40:28</time>
+admin-sante-api;conforme;#h-health-sondes;#1a1a1a;#f5f5f5;15,96;3:1;15.0pt (20px);bold;<h2 id="h-health-sondes">Appels réels</h2>
+admin-sante-api;conforme;#health-sondes > .health-section-lede;#69707d;#f5f5f5;4,57;4.5:1;10.5pt (14px);normal;<p class="health-section-lede">Sept appels réels, envoyés à l'API depuis ce navigateur. Aucun n'écri
+admin-sante-api;conforme;li[data-probe-id="sante"] > .health-probe-head > .health-meth--GET.health-meth;#1e40af;#dbeafe;7,14;4.5:1;8.6pt (11.5px);normal;<span class="health-meth health-meth--GET">GET</span>
+admin-sante-api;conforme;li[data-probe-id="sante"] > .health-probe-head > code;#1a1a1a;#ffffff;17,4;4.5:1;9.0pt (12px);normal;<code class="mono health-probe-url">/api/health</code>
+admin-sante-api;conforme;li[data-probe-id="sante"] > .health-probe-head > .btn-sm.btn-secondary[data-probe-run=""];#4a4a4a;#ffffff;8,86;4.5:1;9.0pt (12px);normal;<button class="btn btn-secondary btn-sm" type="button" data-probe-run="">Lancer</button>
+admin-sante-api;conforme;li[data-probe-id="sante"] > .health-probe-label;#1a1a1a;#ffffff;17,4;4.5:1;10.5pt (14px);normal;<p class="health-probe-label">Santé de l'API (sonde de déploiement continu)</p>
+admin-sante-api;conforme;li[data-probe-id="sante"] > .health-probe-why;#69707d;#ffffff;4,98;4.5:1;9.0pt (12px);normal;<p class="health-probe-why">Prouve que la chaîne complète (routeur, contrôleur, connexion à la base)
+admin-sante-api;conforme;li[data-probe-id="sante"] > .health-probe-result[data-probe-result=""][role="status"];#69707d;#ffffff;4,98;4.5:1;9.0pt (12px);normal;<p class="health-probe-result" data-probe-result="" role="status" aria-live="polite">Pas encore lanc
+admin-sante-api;conforme;.a11y-toggle__icon;#1a1a1a;#ffffff;17,4;4.5:1;11.3pt (15px);bold;<span class="a11y-toggle__icon" aria-hidden="true">Aa</span>
+admin-sante-api;conforme;.a11y-toggle__label;#1a1a1a;#ffffff;17,4;4.5:1;9.8pt (13px);bold;<span class="a11y-toggle__label">Police adaptée</span>
 admin-tableau-de-bord;conforme;.topbar-user-avatar;#ffc72c;#1a1a1a;11,15;4.5:1;9.8pt (13px);bold;<div class="topbar-user-avatar">WA</div>
 admin-tableau-de-bord;conforme;.topbar-user-name;#1a1a1a;#ffffff;17,4;4.5:1;10.5pt (14px);bold;<div class="topbar-user-name">Wakdo Admin</div>
 admin-tableau-de-bord;conforme;.topbar-user-role;#69707d;#ffffff;4,98;4.5:1;8.3pt (11px);normal;<div class="topbar-user-role">Administrateur</div>
@@ -679,6 +762,8 @@ admin-tableau-de-bord;conforme;a[href$="display"];#4a4a4a;#ffffff;8,86;4.5:1;11.
 admin-tableau-de-bord;conforme;.sidebar-section:nth-child(6) > .sidebar-section-label;#69707d;#ffffff;4,98;4.5:1;8.3pt (11px);bold;<div class="sidebar-section-label">Administration</div>
 admin-tableau-de-bord;conforme;a[href$="users"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/users" class="sidebar-item">Utilisateurs</a>
 admin-tableau-de-bord;conforme;a[href$="roles"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/roles" class="sidebar-item">Rôles</a>
+admin-tableau-de-bord;conforme;.sidebar-section:nth-child(7) > .sidebar-section-label;#69707d;#ffffff;4,98;4.5:1;8.3pt (11px);bold;<div class="sidebar-section-label">Système</div>
+admin-tableau-de-bord;conforme;a[href$="health"];#4a4a4a;#ffffff;8,86;4.5:1;11.3pt (15px);normal;<a href="/admin/health" class="sidebar-item">Santé de l'API</a>
 admin-tableau-de-bord;conforme;h1;#1a1a1a;#f5f5f5;15,96;3:1;15.0pt (20px);bold;<h1 class="page-title">Tableau de bord</h1>
 admin-tableau-de-bord;conforme;.page-header:nth-child(1) > div > p;#69707d;#f5f5f5;4,57;4.5:1;9.8pt (13px);normal;<p class="page-subtitle">Bienvenue, Wakdo Admin — voici l'essentiel de votre restaurant aujourd'hui.
 admin-tableau-de-bord;conforme;article:nth-child(1) > .tile-top > .tile-tag;#065f46;#d1fae5;6,77;4.5:1;9.0pt (12px);bold;<span class="tile-tag">En vente</span>
