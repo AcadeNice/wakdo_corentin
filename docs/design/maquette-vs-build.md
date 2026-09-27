@@ -125,6 +125,7 @@ note n'est donc pas le rebrand mais la **structure** des ecrans.
 
 Le re-alignement du kiosk sur la maquette (panneau persistant + bandeau categories
 + composeur en modale + chevalet en modale) est livre. La borne lit le catalogue
-via l'API REST (`/api/categories|products|menus|allergens`). Reste a faire : la
-generation dynamique de l'ecran categories depuis `GET /api/categories` (section 3,
-ecran categories) et le polissage visuel du rebrand Wakdo.
+via l'API REST (`/api/categories|products|menus|allergens`), y compris l'ecran
+categories lui-meme, alimente dynamiquement depuis `GET /api/categories` (section 3,
+ecran categories) depuis le commit `03896ac` (31/07/2026). Reste a faire : le
+polissage visuel du rebrand Wakdo.

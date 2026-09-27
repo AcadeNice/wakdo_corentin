@@ -27,25 +27,27 @@ async function expectForbidden(page, path) {
 }
 
 test.describe('RBAC - comptes de demonstration', () => {
-  test('manager : atterrit sur /admin/stats, voit catalogue+stock+comptes, PAS commandes ni roles', async ({ page }) => {
+  test('manager : atterrit sur /admin/stats, voit catalogue+stock+comptes+commandes, PAS roles ni creation de compte', async ({ page }) => {
     await login(page, 'manager@wakdo.local', 'WakdoManager2026!');
     await expect(page).toHaveURL(/\/admin\/stats/);
 
-    // Navigation visible : category.manage, product.read, stock.read, user.read, stats.read.
+    // Navigation visible : category.manage, product.read, stock.read, user.read, stats.read,
+    // et order.read depuis l'ADR-0020 (lecture + annulation des commandes) : order.read
+    // ouvre les deux liens Commandes et Cuisine (admin/layout.php).
     await expect(page.locator('a[href="/admin/categories"]')).toBeVisible();
     await expect(page.locator('a[href="/admin/ingredients"]')).toBeVisible();
     await expect(page.locator('a[href="/admin/users"]')).toBeVisible();
     await expect(page.locator('a[href="/admin/stats"]')).toBeVisible();
+    await expect(page.locator('a[href="/admin/orders"]')).toBeVisible();
+    await expect(page.locator('a[href="/kitchen/display"]')).toBeVisible();
 
-    // Navigation absente : aucun order.*, pas role.manage.
-    await expect(page.locator('a[href="/admin/orders"]')).toHaveCount(0);
-    await expect(page.locator('a[href="/kitchen/display"]')).toHaveCount(0);
+    // Navigation absente : pas role.manage.
     await expect(page.locator('a[href="/admin/roles"]')).toHaveCount(0);
 
-    // Refus : manager ne detient pas role.manage (separation des pouvoirs, D5 -
-    // pas order.cancel non plus, mais cette route exige un numero de commande
-    // existant ; /admin/roles suffit a prouver le refus sans fixture supplementaire).
+    // Refus : le responsable n'administre ni les roles ni la creation de comptes
+    // (docs/demo/matrice-rbac.md, geste M5 : pas de user.create).
     await expectForbidden(page, '/admin/roles');
+    await expectForbidden(page, '/admin/users/new');
   });
 
   test('cuisine : atterrit sur /kitchen/display, voit Commandes+Cuisine, PAS de saisie ni stats', async ({ page }) => {

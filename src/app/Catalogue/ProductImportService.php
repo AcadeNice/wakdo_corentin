@@ -80,9 +80,9 @@ final class ProductImportService
     {
         $rows = [
             self::COLUMNS,
-            ['Burgers', 'Cheeseburger Wakdo', 'Steak hache, cheddar, sauce maison', '6,90', '10', '', 'oui', 'Pain burger', 'piece', '1', 'non', 'non'],
-            ['Burgers', 'Cheeseburger Wakdo', 'Steak hache, cheddar, sauce maison', '6,90', '10', '', 'oui', 'Steak hache', 'piece', '1', 'non', 'non'],
-            ['Burgers', 'Cheeseburger Wakdo', 'Steak hache, cheddar, sauce maison', '6,90', '10', '', 'oui', 'Cheddar', 'tranche', '1', 'oui', 'oui'],
+            ['Burgers', 'Cheeseburger Wakdo', 'Steak haché, cheddar, sauce maison', '6,90', '10', '', 'oui', 'Pain burger', 'pièce', '1', 'non', 'non'],
+            ['Burgers', 'Cheeseburger Wakdo', 'Steak haché, cheddar, sauce maison', '6,90', '10', '', 'oui', 'Steak haché', 'pièce', '1', 'non', 'non'],
+            ['Burgers', 'Cheeseburger Wakdo', 'Steak haché, cheddar, sauce maison', '6,90', '10', '', 'oui', 'Cheddar', 'tranche', '1', 'oui', 'oui'],
             ['Boissons', 'Coca-Cola', '', '2,50', '5,5', '33', 'oui', 'Coca-Cola', 'canette', '1', 'non', 'non'],
         ];
 
@@ -787,9 +787,21 @@ final class ProductImportService
         return $message;
     }
 
+    /**
+     * Cle de comparaison insensible a la casse ET aux accents, comme la
+     * collation utf8mb4_unicode_ci de la base : "piece" et "pièce" y sont la
+     * meme valeur, l'analyse PHP doit donc les confondre aussi (sinon le
+     * modele telecharge, sans accents, est refuse contre les donnees reelles).
+     */
     private static function normalize(string $value): string
     {
-        return mb_strtolower(trim($value));
+        $lower = mb_strtolower(trim($value));
+        $decomposed = \Normalizer::normalize($lower, \Normalizer::FORM_D);
+        if ($decomposed === false) {
+            return $lower;
+        }
+
+        return (string) preg_replace('/\p{Mn}/u', '', $decomposed);
     }
 
     private function lastInsertId(DatabaseInterface $db): int

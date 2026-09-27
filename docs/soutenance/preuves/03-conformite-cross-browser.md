@@ -12,8 +12,8 @@ Criteres couverts :
 
 Fichiers examines (code reel) :
 
-- `src/public/borne/assets/css/style.css` (2153 lignes) — front borne de commande.
-- `src/public/admin/assets/css/admin.css` (2714 lignes) — back-office.
+- `src/public/borne/assets/css/style.css` (2322 lignes) — front borne de commande.
+- `src/public/admin/assets/css/admin.css` (3354 lignes) — back-office.
 
 Perimetre honnete de cette preuve : elle documente le *choix* et le *fallback*
 des proprietes CSS a partir de la lecture du code source et de la matrice de
@@ -56,9 +56,9 @@ ce repere plutot qu'un numero de ligne.
 
 | Fonctionnalite CSS | Usage (selecteur, section) | Support navigateurs `[UNVERIFIED]` | Strategie |
 |---|---|---|---|
-| Custom properties `var()` | borne bloc `:root` (style.css, section 1), 540 occurrences de `var(--` (`grep -o`) ; admin bloc `:root` (admin.css, section « Reset & Base »), 440 occurrences | Chrome/Edge/Firefox/Safari modernes ; non supporte IE11 | OK sur cibles retenues. Choix structurant : un seul point de verite pour la charte. IE11 hors perimetre (kiosk + postes recents). |
+| Custom properties `var()` | borne bloc `:root` (style.css, section 1), 535 occurrences de `var(--` (`grep -o -- 'var(--' style.css \| wc -l`) ; admin bloc `:root` (admin.css, section « Reset & Base »), 683 occurrences | Chrome/Edge/Firefox/Safari modernes ; non supporte IE11 | OK sur cibles retenues. Choix structurant : un seul point de verite pour la charte. IE11 hors perimetre (kiosk + postes recents). |
 | `var()` avec valeur de repli (2e argument) | admin `.pos__tab` (`var(--radius-pill, 9999px)`), `.pos-tile__pastille`, `.pos-tile__badge--unavailable` — section « POS tactile a tuiles comptoir/drive » | idem `var()` | Degradation : si la variable est absente, la 2e valeur s'applique. Repli defensif documente (Cr 1.b.3). |
-| Flexbox (`display: flex`) | borne `.welcome` (section 4) et 52 occurrences ; admin `.topbar` (section « Topbar ») et 69 occurrences | tres large ; supporte Safari >= 9, IE11 partiel/bogue | OK. Fondation de mise en page, support de reference. |
+| Flexbox (`display: flex`) | borne `.welcome` (section 4) et 52 occurrences ; admin `.topbar` (section « Topbar ») et 88 occurrences | tres large ; supporte Safari >= 9, IE11 partiel/bogue | OK. Fondation de mise en page, support de reference. |
 | `gap` sur conteneur flex | borne `.welcome__choices` (section 4), `.composer-footer__row` (sous-bloc Footer de la section 14 — le composeur est range en section 13 au sommaire) ; admin `.topbar` (section « Topbar »), etc. | Grid : large ; **flex-gap** : Safari **< 14.1** ne le gere pas `[UNVERIFIED]` | **Fallback explicite** via `@supports not (gap: 1rem)` — voir section 3. |
 | CSS Grid (`display: grid`) | borne `.site-header` (section 5), `.products-grid` (section 8), `.composer-grid` (section 13) ; admin `.admin-layout` (shell `grid-template-areas`, section « Layout Shell »), `.kpi-grid` (section « KPI Cards »), `.stats-cards` (section « Statistiques — cartes KPI (tableau de bord stats.read) ») | large ; Safari >= 10.1, pas IE11 (ancienne syntaxe -ms-) | OK sur cibles. `grid-template-areas` pour le shell. |
 | `grid-template-columns: repeat(auto-fill, minmax(...))` | borne `.composer-grid` (section 13) ; admin `.kitchen-grid` (section « Kitchen Cards »), `.pos__grid` (section « POS tactile a tuiles comptoir/drive ») | suit le support Grid | OK. Grilles fluides sans media query. |
@@ -67,7 +67,7 @@ ce repere plutot qu'un numero de ligne.
 | `inset: 0` (raccourci) | borne `.welcome__bg` (section 4), `.composer-overlay`/`.confirm-overlay` (section 13), `.allergen-modal-overlay` (section 14) ; admin `.pin-modal-overlay` (section « Modal PIN »), `.pos-tile__image` (section « POS tactile a tuiles comptoir/drive »), `.menu-composer__overlay` (meme section) | recent ; equivaut a top/right/bottom/left | OK. Alternative equivalente `top/right/bottom/left: 0` disponible si besoin (degradation triviale). |
 | `aspect-ratio` | borne `.product-card__image-wrap` (section 8), `.composer-card__image` (section 13) ; admin `.pos-tile__media` (section « POS tactile a tuiles comptoir/drive ») | recent : Chrome >= 88, Safari >= 15 `[UNVERIFIED]` | Degradation acceptable : les conteneurs concernes ont aussi une taille (largeur 100% + `object-fit`) ; l'absence d'`aspect-ratio` degrade la proportion sans casser la mise en page. |
 | `object-fit` / `object-position` | borne `.welcome__bg` (section 4), `.product-card__image`/`.composer-card__image` (sections 8/13) — 8 occurrences ; admin `.thumb`/`.pos-tile__image` (sections « Product thumbnail »/« POS tactile a tuiles comptoir/drive ») | large hors IE ; IE ne gere pas `object-fit` | OK. Sur les cibles retenues, supporte. |
-| `:focus-visible` | borne `.skip-link` (section 3) et 20 occurrences ; admin `.skip-link` et 13 occurrences (sections « Reset & Base », « Topbar », « Toolbar / Filters », « Form Components », « POS tactile a tuiles comptoir/drive », etc.) | recent : Chrome >= 86, Safari >= 15.4 `[UNVERIFIED]` | **Degradation geree par co-selecteur** : chaque regle associe `:hover, :focus-visible` (ex. `.choice-btn`, section 4). Sur un moteur sans `:focus-visible`, le selecteur invalide est ignore mais `:hover` reste ; le focus clavier reste par ailleurs signale par les regles `outline` dediees (`.order-panel__abandon`/`.order-panel__pay`, section 16). |
+| `:focus-visible` | borne `.skip-link` (section 3) et 22 occurrences ; admin `.skip-link` et 26 occurrences (sections « Reset & Base », « Topbar », « Toolbar / Filters », « Form Components », « POS tactile a tuiles comptoir/drive », etc.) | recent : Chrome >= 86, Safari >= 15.4 `[UNVERIFIED]` | **Degradation geree par co-selecteur** : chaque regle associe `:hover, :focus-visible` (ex. `.choice-btn`, section 4). Sur un moteur sans `:focus-visible`, le selecteur invalide est ignore mais `:hover` reste ; le focus clavier reste par ailleurs signale par les regles `outline` dediees (`.order-panel__abandon`/`.order-panel__pay`, section 16). |
 | `accent-color` | borne `.composer-option-label input[type="checkbox"]` (case a cocher, section 14) | recent : Chrome >= 93, Safari >= 15.4 `[UNVERIFIED]` | Degradation cosmetique : sur un moteur ancien la case garde sa couleur native ; la fonction (cocher/decocher) est intacte. |
 | `filter: grayscale()` | borne `.product-card--unavailable` (section 8) ; admin `.pos-tile--unavailable` (tuile en rupture, section « POS tactile a tuiles comptoir/drive ») | large ; historiquement `-webkit-filter` sur vieux WebKit `[UNVERIFIED]` | Degradation : la rupture reste signalee par `opacity` + le badge « Indisponible », donc le sens ne repose pas sur le seul filtre (aussi une exigence a11y). |
 | `appearance: none` + fleche SVG en `data:` URI | admin `.filter-select` (section « Toolbar / Filters »), `.form-select` (section « Form Components ») | `appearance` standard recent ; historiquement `-webkit-/-moz-appearance` `[UNVERIFIED]` | **Point d'attention** : pas de prefixe `-webkit-appearance` ecrit ; sur un vieux moteur le select garde sa fleche native, sans perte de fonction (voir section 5). |
@@ -304,3 +304,23 @@ corrections d'interface deplacent des lignes ailleurs dans le fichier. A cette
 occasion, plusieurs decomptes d'occurrences cites dans le tableau de la section
 2 (`var(--`, `display: flex`, `:focus-visible`) ont egalement ete rafraichis :
 le code a grossi depuis la redaction initiale.
+
+**Recompte du 2026-09-27.** Les deux feuilles de style ont continue d'evoluer
+(refonte du systeme de design du back-office du 26/09) ; les chiffres cites
+dans ce document (lignes et occurrences) etaient a nouveau perimes. Recompte
+sur le commit `11271f7`, avec les commandes suivantes (rejouables a l'identique) :
+
+```bash
+wc -l < src/public/borne/assets/css/style.css   # 2322 (etait 2153)
+wc -l < src/public/admin/assets/css/admin.css   # 3354 (etait 2714)
+grep -o -- 'var(--' src/public/borne/assets/css/style.css | wc -l        # 535 (etait 540)
+grep -o -- 'var(--' src/public/admin/assets/css/admin.css | wc -l       # 683 (etait 440)
+grep -oE 'display:\s*flex' src/public/borne/assets/css/style.css | wc -l # 52 (inchange)
+grep -oE 'display:\s*flex' src/public/admin/assets/css/admin.css | wc -l # 88 (etait 69)
+grep -o -- ':focus-visible' src/public/borne/assets/css/style.css | wc -l # 22 (etait 20)
+grep -o -- ':focus-visible' src/public/admin/assets/css/admin.css | wc -l # 26 (etait 13)
+```
+
+Le mecanisme decrit dans ce document (le fallback `@supports not (gap: 1rem)`,
+les patterns defensifs de la section 4) n'a pas change ; seuls ces chiffres
+etaient a mettre a jour.

@@ -707,10 +707,12 @@ admin-sante-api;conforme;.page-subtitle;#69707d;#f5f5f5;4,57;4.5:1;9.8pt (13px);
 admin-sante-api;conforme;.toc__label;#69707d;#f9fafb;4,76;4.5:1;9.8pt (13px);normal;<p class="toc__label">Aller à la section :</p>
 admin-sante-api;conforme;a[href$="#health-etat"];#1a1a1a;#f9fafb;16,65;4.5:1;9.8pt (13px);normal;<a href="#health-etat">État en direct</a>
 admin-sante-api;conforme;a[href$="#health-sondes"];#1a1a1a;#f9fafb;16,65;4.5:1;9.8pt (13px);normal;<a href="#health-sondes">Appels réels</a>
+admin-sante-api;conforme;a[href$="#health-console"];#1a1a1a;#f9fafb;16,65;4.5:1;9.8pt (13px);normal;<a href="#health-console">Console d'appels</a>
 admin-sante-api;conforme;a[href$="#health-trajet"];#1a1a1a;#f9fafb;16,65;4.5:1;9.8pt (13px);normal;<a href="#health-trajet">Le trajet d'un appel</a>
 admin-sante-api;conforme;a[href$="#health-routes"];#1a1a1a;#f9fafb;16,65;4.5:1;9.8pt (13px);normal;<a href="#health-routes">La carte des routes</a>
+admin-sante-api;conforme;a[href$="#health-login"];#1a1a1a;#f9fafb;16,65;4.5:1;9.8pt (13px);normal;<a href="#health-login">Connexion (démonstration API)</a>
 admin-sante-api;conforme;#h-health-etat;#1a1a1a;#f5f5f5;15,96;3:1;15.0pt (20px);bold;<h2 id="h-health-etat">État en direct</h2>
-admin-sante-api;conforme;#health-etat > .health-section-lede;#69707d;#f5f5f5;4,57;4.5:1;10.5pt (14px);normal;<p class="health-section-lede">Généré le 27/09/2026 15:40:28, puis relu automatiquement toutes les 1
+admin-sante-api;conforme;#health-etat > .health-section-lede;#69707d;#f5f5f5;4,57;4.5:1;10.5pt (14px);normal;<p class="health-section-lede">Généré le 27/09/2026 18:20:45, puis relu automatiquement toutes les 1
 admin-sante-api;conforme;.kpi-card:nth-child(1) > .kpi-label;#69707d;#ffffff;4,98;4.5:1;9.0pt (12px);normal;<p class="kpi-label">Base de données</p>
 admin-sante-api;conforme;#health-db-pill;#065f46;#d1fae5;6,77;4.5:1;9.0pt (12px);normal;<span class="pill pill-success" id="health-db-pill">Joignable</span>
 admin-sante-api;conforme;#health-db-detail;#69707d;#ffffff;4,98;4.5:1;9.0pt (12px);normal;<p class="health-kpi-detail" id="health-db-detail">0.1 ms · 11.4.10-MariaDB-ubu2404</p>
@@ -720,8 +722,8 @@ admin-sante-api;conforme;#health-debug-detail;#69707d;#ffffff;4,98;4.5:1;9.0pt (
 admin-sante-api;conforme;.kpi-card:nth-child(3) > .kpi-label;#69707d;#ffffff;4,98;4.5:1;9.0pt (12px);normal;<p class="kpi-label">Version servie</p>
 admin-sante-api;conforme;#health-deployed-at;#69707d;#ffffff;4,98;4.5:1;9.0pt (12px);normal;<p class="health-kpi-detail" id="health-deployed-at">date de déploiement inconnue</p>
 admin-sante-api;conforme;.kpi-card:nth-child(4) > .kpi-label;#69707d;#ffffff;4,98;4.5:1;9.0pt (12px);normal;<p class="kpi-label">Migrations</p>
-admin-sante-api;conforme;#health-migrations;#1a1a1a;#ffffff;17,4;3:1;18.0pt (24px);bold;<p class="kpi-value" id="health-migrations">16 (nombre de fichiers inconnu)</p>
-admin-sante-api;conforme;#health-migrations-last;#69707d;#ffffff;4,98;4.5:1;9.0pt (12px);normal;<p class="health-kpi-detail" id="health-migrations-last">dernière : 0017_ingredient_family.sql</p>
+admin-sante-api;conforme;#health-migrations;#1a1a1a;#ffffff;17,4;3:1;18.0pt (24px);bold;<p class="kpi-value" id="health-migrations">17 (nombre de fichiers inconnu)</p>
+admin-sante-api;conforme;#health-migrations-last;#69707d;#ffffff;4,98;4.5:1;9.0pt (12px);normal;<p class="health-kpi-detail" id="health-migrations-last">dernière : 0018_manager_order_cancel.sql</p
 admin-sante-api;conforme;.kpi-card:nth-child(5) > .kpi-label;#69707d;#ffffff;4,98;4.5:1;9.0pt (12px);normal;<p class="kpi-label">Seeds</p>
 admin-sante-api;conforme;#health-seeds;#1a1a1a;#ffffff;17,4;3:1;18.0pt (24px);bold;<p class="kpi-value" id="health-seeds">10 (nombre de fichiers inconnu)</p>
 admin-sante-api;conforme;#health-seeds-last;#69707d;#ffffff;4,98;4.5:1;9.0pt (12px);normal;<p class="health-kpi-detail" id="health-seeds-last">dernier : 0010_ingredient_families.sql</p>
@@ -729,12 +731,13 @@ admin-sante-api;conforme;.kpi-card:nth-child(6) > .kpi-label;#69707d;#ffffff;4,9
 admin-sante-api;conforme;#health-activity;#1a1a1a;#ffffff;17,4;3:1;18.0pt (24px);bold;<p class="kpi-value" id="health-activity">0 créées</p>
 admin-sante-api;conforme;#health-activity-detail;#69707d;#ffffff;4,98;4.5:1;9.0pt (12px);normal;<p class="health-kpi-detail" id="health-activity-detail">0 payées · 1 ligne d'audit · 0 échecs de co
 admin-sante-api;conforme;#health-refresh-status;#69707d;#f5f5f5;4,57;4.5:1;9.0pt (12px);normal;<p class="health-refresh-status" id="health-refresh-status" role="status" aria-live="polite"> Derniè
-admin-sante-api;conforme;#health-refresh-time;#69707d;#f5f5f5;4,57;4.5:1;9.0pt (12px);normal;<time id="health-refresh-time">27/09/2026 15:40:28</time>
+admin-sante-api;conforme;#health-refresh-time;#69707d;#f5f5f5;4,57;4.5:1;9.0pt (12px);normal;<time id="health-refresh-time">27/09/2026 18:20:45</time>
 admin-sante-api;conforme;#h-health-sondes;#1a1a1a;#f5f5f5;15,96;3:1;15.0pt (20px);bold;<h2 id="h-health-sondes">Appels réels</h2>
 admin-sante-api;conforme;#health-sondes > .health-section-lede;#69707d;#f5f5f5;4,57;4.5:1;10.5pt (14px);normal;<p class="health-section-lede">Sept appels réels, envoyés à l'API depuis ce navigateur. Aucun n'écri
 admin-sante-api;conforme;li[data-probe-id="sante"] > .health-probe-head > .health-meth--GET.health-meth;#1e40af;#dbeafe;7,14;4.5:1;8.6pt (11.5px);normal;<span class="health-meth health-meth--GET">GET</span>
-admin-sante-api;conforme;li[data-probe-id="sante"] > .health-probe-head > code;#1a1a1a;#ffffff;17,4;4.5:1;9.0pt (12px);normal;<code class="mono health-probe-url">/api/health</code>
-admin-sante-api;conforme;li[data-probe-id="sante"] > .health-probe-head > .btn-sm.btn-secondary[data-probe-run=""];#4a4a4a;#ffffff;8,86;4.5:1;9.0pt (12px);normal;<button class="btn btn-secondary btn-sm" type="button" data-probe-run="">Lancer</button>
+admin-sante-api;conforme;li[data-probe-id="sante"] > .health-probe-head > .health-probe-url;#1a1a1a;#ffffff;17,4;4.5:1;9.0pt (12px);normal;<code class="mono health-probe-url">/api/health</code>
+admin-sante-api;conforme;button[data-probe-detail-toggle="sante"];#4a4a4a;#ffffff;8,86;4.5:1;9.0pt (12px);normal;<button class="btn btn-ghost btn-sm" type="button" data-probe-detail-toggle="sante" aria-expanded="f
+admin-sante-api;conforme;li[data-probe-id="sante"] > .health-probe-head > .btn-secondary.btn-sm[data-probe-run=""];#4a4a4a;#ffffff;8,86;4.5:1;9.0pt (12px);normal;<button class="btn btn-secondary btn-sm" type="button" data-probe-run="">Lancer</button>
 admin-sante-api;conforme;li[data-probe-id="sante"] > .health-probe-label;#1a1a1a;#ffffff;17,4;4.5:1;10.5pt (14px);normal;<p class="health-probe-label">Santé de l'API (sonde de déploiement continu)</p>
 admin-sante-api;conforme;li[data-probe-id="sante"] > .health-probe-why;#69707d;#ffffff;4,98;4.5:1;9.0pt (12px);normal;<p class="health-probe-why">Prouve que la chaîne complète (routeur, contrôleur, connexion à la base)
 admin-sante-api;conforme;li[data-probe-id="sante"] > .health-probe-result[data-probe-result=""][role="status"];#69707d;#ffffff;4,98;4.5:1;9.0pt (12px);normal;<p class="health-probe-result" data-probe-result="" role="status" aria-live="polite">Pas encore lanc

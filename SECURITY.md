@@ -29,15 +29,19 @@ documentes dans `.env.example`.
 
 ## Garde-fous CI (Forgejo Actions)
 
-Chaque PR vers `dev` ou `main` declenche `.forgejo/workflows/ci.yml` :
+Chaque PR vers `dev` ou `main` declenche `.forgejo/workflows/ci.yml`, cinq travaux :
 
 - **secret-scan** (gitleaks) : empeche un secret d'entrer dans l'historique
 - **php-lint** : `php -l` sur tous les fichiers PHP
-- **static-tests** : PHPStan + PHPUnit (s'activent quand le code PHP arrive en P2)
+- **static-tests** : PHPStan + PHPUnit
+- **js-tests** : tests de la borne (node:test + jsdom)
+- **shell-tests** : fonctions pures du filet instantane/remise a zero de la demo
 
-La strategie de merge est **PR + auto-merge sur CI verte** (travail solo) : la
-PR est obligatoire (trace de gouvernance), le merge se declenche automatiquement
-une fois les checks au vert. Voir `scripts/forgejo-pr-automerge.sh` et
+La protection des branches `main` et `dev` exige quatre de ces cinq travaux
+(`secret-scan`, `php-lint`, `static-tests`, `js-tests`) ; `shell-tests` n'est pas
+exige. La strategie de merge est **PR + auto-merge sur CI verte** (travail solo) :
+la PR est obligatoire (trace de gouvernance), le merge se declenche automatiquement
+une fois les checks requis au vert. Voir `scripts/forgejo-pr-automerge.sh` et
 `scripts/forgejo-branch-protection.sh`.
 
 ## Signaler une vulnerabilite

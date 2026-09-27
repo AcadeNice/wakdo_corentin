@@ -92,8 +92,10 @@ $activityKnown = array_key_exists('orders_created', $activity) && $activity['ord
         <ul class="toc__list">
             <li><a href="#health-etat">État en direct</a></li>
             <li><a href="#health-sondes">Appels réels</a></li>
+            <li><a href="#health-console">Console d'appels</a></li>
             <li><a href="#health-trajet">Le trajet d'un appel</a></li>
             <li><a href="#health-routes">La carte des routes</a></li>
+            <li><a href="#health-login">Connexion (démonstration API)</a></li>
         </ul>
     </nav>
 
@@ -197,11 +199,17 @@ $activityKnown = array_key_exists('orders_created', $activity) && $activity['ord
                     <div class="health-probe-head">
                         <span class="health-meth health-meth--<?= $esc($method) ?>"><?= $esc($method) ?></span>
                         <code class="mono health-probe-url"><?= $esc((string) ($probe['url'] ?? '')) ?></code>
+                        <button class="btn btn-ghost btn-sm" type="button" data-probe-detail-toggle="<?= $esc($pid) ?>" aria-expanded="false" aria-controls="health-probe-detail-<?= $esc($pid) ?>" aria-label="Détails de la réponse : <?= $esc((string) ($probe['label'] ?? '')) ?>">Détails</button>
                         <button class="btn btn-secondary btn-sm" type="button" data-probe-run>Lancer</button>
                     </div>
                     <p class="health-probe-label"><?= $esc((string) ($probe['label'] ?? '')) ?></p>
                     <p class="health-probe-why"><?= $esc((string) ($probe['why'] ?? '')) ?></p>
                     <p class="health-probe-result" data-probe-result role="status" aria-live="polite">Pas encore lancé.</p>
+                    <!-- Réponse complète (en-têtes retenus + corps JSON indenté), reconstruite
+                         par health.js à chaque lancement, repliée par défaut (bouton "Détails"
+                         ci-dessus). Contenu écrit par textContent uniquement : un corps de
+                         réponse est une donnée non fiable, jamais interprétée comme du HTML. -->
+                    <div class="health-probe-detail" id="health-probe-detail-<?= $esc($pid) ?>" hidden></div>
                 </li>
             <?php endforeach; ?>
         </ul>
@@ -209,6 +217,46 @@ $activityKnown = array_key_exists('orders_created', $activity) && $activity['ord
         <div class="health-probes-actions">
             <button class="btn btn-primary" id="health-run-all" type="button">Tout lancer</button>
             <p class="health-probes-summary" id="health-probes-summary" role="status" aria-live="polite"></p>
+        </div>
+    </section>
+
+    <!-- ============================================================
+         Bloc 2bis — Console d'appels, lecture seule. N'importe quelle route
+         GET de la carte des routes (bloc 4), avec la session courante
+         (credentials: 'same-origin'). GET uniquement : garanti par le code
+         (buildConsolePath/buildConsoleRequest refusent toute autre méthode),
+         pas seulement par ce qui est proposé ici.
+         ============================================================ -->
+    <section class="health-section" id="health-console" aria-labelledby="h-health-console">
+        <h2 id="h-health-console">Console d'appels (lecture)</h2>
+        <p class="health-section-lede">Choisis n'importe quelle route <strong>GET</strong> de la carte plus bas, renseigne ses paramètres, et lance l'appel avec ta session actuelle. Aucune autre méthode n'est proposée : la console n'appelle jamais qu'une lecture.</p>
+
+        <noscript><p class="health-noscript">Active JavaScript pour utiliser la console d'appels.</p></noscript>
+
+        <div class="card health-console-card">
+            <div class="health-console-form">
+                <div class="form-group">
+                    <label class="form-label" for="health-console-route">Route (GET uniquement)</label>
+                    <select class="form-select" id="health-console-route"></select>
+                </div>
+                <div class="health-console-params" id="health-console-params"></div>
+                <div class="health-console-actions">
+                    <button class="btn btn-primary" type="button" id="health-console-send">Envoyer</button>
+                    <p class="health-console-status" id="health-console-status" role="status" aria-live="polite"></p>
+                </div>
+            </div>
+
+            <div class="health-console-result" id="health-console-result" hidden>
+                <div class="health-resp-head">
+                    <span class="pill" id="health-console-resp-status">—</span>
+                    <span class="health-resp-where" id="health-console-resp-time"></span>
+                </div>
+                <!-- En-têtes et corps écrits par health.js via textContent uniquement
+                     (writeHeaders/writeBody) : une réponse d'API n'est jamais interprétée
+                     comme du HTML, même si son contenu en contient. -->
+                <div class="health-headers-box" id="health-console-headers"></div>
+                <pre class="health-body" id="health-console-body"></pre>
+            </div>
         </div>
     </section>
 
@@ -297,9 +345,58 @@ $activityKnown = array_key_exists('orders_created', $activity) && $activity['ord
         </div>
     </section>
 
+    <!-- ============================================================
+         Bloc 5 — Connexion JSON (démonstration), sans perte de session.
+         credentials: 'omit' (health.js, buildLoginRequest) : d'après la
+         spécification Fetch, un Set-Cookie de la réponse n'est appliqué QUE si
+         le mode credentials n'est pas 'omit' — le cookie de session de qui
+         regarde cette page n'est donc jamais remplacé.
+         ============================================================ -->
+    <section class="health-section" id="health-login" aria-labelledby="h-health-login">
+        <h2 id="h-health-login">Connexion (démonstration API)</h2>
+        <p class="health-section-lede">Un appel réel vers <code>/admin/api/auth/login</code>, envoyé sans les identifiants de cette page (<code>credentials: 'omit'</code>) : ta session actuelle n'est pas remplacée. Le mot de passe n'est jamais conservé ni réaffiché.</p>
+
+        <noscript><p class="health-noscript">Active JavaScript pour utiliser ce formulaire de démonstration.</p></noscript>
+
+        <div class="card health-login-card">
+            <form id="health-login-form" autocomplete="off" novalidate>
+                <div class="form-group">
+                    <label class="form-label" for="health-login-email">Email</label>
+                    <input class="form-input" type="email" id="health-login-email" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="health-login-password">Mot de passe</label>
+                    <input class="form-input" type="password" id="health-login-password" name="password" autocomplete="off" required>
+                </div>
+                <button class="btn btn-primary" type="submit">Se connecter (démonstration)</button>
+                <p class="health-console-status" id="health-login-status" role="status" aria-live="polite"></p>
+            </form>
+
+            <div class="health-console-result" id="health-login-result" hidden>
+                <div class="health-resp-head">
+                    <span class="pill" id="health-login-resp-status">—</span>
+                    <span class="health-resp-where" id="health-login-resp-time"></span>
+                </div>
+                <!-- Corps écrit par textContent uniquement (writeBody) : jamais interprété
+                     comme du HTML, y compris sur un message d'erreur. -->
+                <pre class="health-body" id="health-login-body"></pre>
+                <div class="health-login-token" id="health-login-token-row" hidden>
+                    <button class="btn btn-secondary btn-sm" type="button" id="health-login-copy-token">Copier le jeton csrf_token</button>
+                    <span class="health-login-copy-status" id="health-login-copy-status" role="status" aria-live="polite"></span>
+                </div>
+            </div>
+
+            <div class="health-login-explain">
+                <p><strong>Pourquoi la session ne peut pas être récupérée depuis cette page :</strong> le cookie de session est <code>HttpOnly</code>, volontairement illisible par tout script, y compris celui-ci. Chaque essai, réussi ou non, compte dans la limitation des connexions par adresse.</p>
+                <p>Pour rejouer cette connexion en ligne de commande (Postman, Bruno, curl), avec un fichier de cookies :</p>
+                <pre class="health-body health-curl" id="health-login-curl"></pre>
+            </div>
+        </div>
+    </section>
+
     <footer class="health-footer">
         <ul>
-            <li>Routes : <a href="https://git.acadenice.com/AcadeNice/corentin_wakdo/src/branch/dev/src/public/admin/index.php">src/public/admin/index.php</a></li>
+            <li>Routes : <a href="https://git.acadenice.com/AcadeNice/corentin_wakdo/src/branch/dev/src/app/Core/routes.php">src/app/Core/routes.php</a></li>
             <li>Permission exacte de chaque route de l'API d'administration, figée par un test : <a href="https://git.acadenice.com/AcadeNice/corentin_wakdo/src/branch/dev/tests/Unit/Admin/Api/RouteMatrixTest.php">tests/Unit/Admin/Api/RouteMatrixTest.php</a></li>
             <li>Frontière des deux sites : <a href="https://git.acadenice.com/AcadeNice/corentin_wakdo/src/branch/dev/docker/apache/vhost.conf">docker/apache/vhost.conf</a> · gardes JSON : <a href="https://git.acadenice.com/AcadeNice/corentin_wakdo/src/branch/dev/src/app/Controllers/Admin/Api/JsonApiTrait.php">JsonApiTrait.php</a> · code personnel : <a href="https://git.acadenice.com/AcadeNice/corentin_wakdo/src/branch/dev/src/app/Auth/PinGate.php">PinGate.php</a></li>
         </ul>

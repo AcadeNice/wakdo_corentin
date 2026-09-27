@@ -86,7 +86,7 @@ L'information ne repose pas sur la seule couleur : un libelle textuel ou une ico
 ratios ont depuis ete mesures a l'outil `axe-core` sur des ecrans reels, et les 10 noeuds
 trouves sous le seuil AA — dont un dans ce perimetre borne — ont ete corriges puis
 remesures conformes. La campagne courante (2026-09-27) porte sur **19 ecrans et
-943 mesures**, contre 11 ecrans et 407 a la campagne d'origine. Detail complet, chiffres
+946 mesures**, contre 11 ecrans et 407 a la campagne d'origine. Detail complet, chiffres
 avant/apres, et methode : `06-audit-accessibilite-mesure.md`.
 
 ---
@@ -282,7 +282,7 @@ de menu, et la caisse drive.
 
 Deux resultats a retenir pour l'oral :
 
-- **0 violation WCAG AA** sur les treize ecrans, contrastes compris (943 mesures au total
+- **0 violation WCAG AA** sur les treize ecrans, contrastes compris (946 mesures au total
   avec la borne).
 - **Un ecart trouve, corrige, et invisible pour l'outil** : le bloc de slot du formulaire
   menu etait un `<fieldset>` sans `<legend>`, donc un groupe de champs sans nom pour une
