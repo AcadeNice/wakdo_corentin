@@ -149,7 +149,7 @@ demo par poste) puis 1-2 requetes qui prouvent la matrice de droits reelle du se
 
 | Poste | Autorise (exemple) | Refuse (exemple, `403 FORBIDDEN`) |
 |---|---|---|
-| Manager | `GET /admin/api/stats` (`stats.read`) | `POST /admin/api/orders/{n}/cancel` (aucun `order.*`, decision D5) |
+| Manager | `GET /admin/api/stats` (`stats.read`) et `POST /admin/api/orders/{n}/cancel` (`order.cancel`, ADR-0020, qui remplace la decision D5 sur ce point) | `POST /admin/api/users` (pas de `user.create`) |
 | Cuisine | `GET /admin/api/orders` (`order.read`) | `GET /admin/api/users` (pas `user.read`) |
 | Comptoir | `POST /admin/api/orders` avec `items: []` (`422`, permission `order.create` accordee AVANT la validation) | `DELETE /admin/api/products/{id}` (pas `product.delete`) |
 | Drive | Meme preuve non encaissee que Comptoir (`422`) | `DELETE /admin/api/products/{id}` (pas `product.delete`, meme ensemble de droits que Comptoir par construction du seed) |

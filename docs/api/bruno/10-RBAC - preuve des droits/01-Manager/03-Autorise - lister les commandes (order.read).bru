@@ -1,0 +1,17 @@
+meta {
+  name: Autorise : lister les commandes (order.read)
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/admin/api/orders
+}
+
+docs {
+ADR-0020 (docs/adr/0020-responsable-annule-commande.md, remplace la decision D5 sur ce point) : le manager recoit desormais order.read, indispensable pour trouver une commande a annuler. 200 attendu, sans filtre de canal (aucune ligne role_visible_source pour ce role, comme admin).
+}
+
+tests {
+  expect(res.getStatus()).to.equal(200);
+}

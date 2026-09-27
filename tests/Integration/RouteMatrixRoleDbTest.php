@@ -63,6 +63,7 @@ final class RouteMatrixRoleDbTest extends TestCase
             'menu.create', 'menu.read', 'menu.update',
             'category.manage', 'ingredient.manage',
             'stock.read', 'stock.count', 'stock.manage',
+            'order.read', 'order.cancel',
             'user.read',
             'stats.read',
         ],
@@ -212,7 +213,7 @@ final class RouteMatrixRoleDbTest extends TestCase
     /**
      * Contre-preuve globale : le total de permissions par role en base (COUNT sur
      * role_permission) correspond au total documente (matrice-rbac.md : admin 23,
-     * manager 13, kitchen 5, counter 8, drive 8). Detecte une permission
+     * manager 15, kitchen 5, counter 8, drive 8). Detecte une permission
      * supplementaire non couverte par ROUTES (donc invisible au test route-par-
      * route ci-dessus, qui ne peut echouer que sur les permissions QU'IL CONNAIT).
      */

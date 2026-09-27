@@ -20,7 +20,7 @@ body {
 }
 
 docs {
-Identifiants VIDES par defaut (email_manager/password_manager) : a completer depuis docs/demo/comptes-demo.md (compte de demo par poste), jamais commis en clair dans cette collection. Droits attendus (stats.read oui, order.* non (D5)) : db/seeds/0001_rbac_and_reference.sql, section role_permission.
+Identifiants VIDES par defaut (email_manager/password_manager) : a completer depuis docs/demo/comptes-demo.md (compte de demo par poste), jamais commis en clair dans cette collection. Droits attendus (stats.read + order.read + order.cancel oui (ADR-0020), user.create non) : db/seeds/0001_rbac_and_reference.sql, section role_permission.
 }
 
 script:post-response {

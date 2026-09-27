@@ -688,7 +688,7 @@ d'emploi complet est dans `docs/api/demo-api.md`. Choisir **un seul** outil et s
 |---|---|---|
 | 28:00 | `POST /admin/api/auth/login` avec le compte administrateur | La connexion JSON, le cookie de session, le jeton anti-falsification renvoye |
 | 28:30 | `GET /admin/api/stats` | Une lecture autorisee, enveloppe `{ "data": ... }` |
-| 29:00 | Se reconnecter avec le compte responsable, puis rejouer une annulation de commande | **403** : le responsable n'a aucune permission sur les commandes (separation des pouvoirs, decision D5) |
+| 29:00 | Se reconnecter avec le compte cuisine, puis rejouer une annulation de commande | **403** : la cuisine *voit* les commandes (`order.read`) mais ne peut pas les annuler — la permission est decoupee au geste pres, et c'est le code qui la verifie, pas le nom du role |
 | 29:30 | Se reconnecter avec le compte comptoir, puis `POST /admin/api/orders` avec `{"items": []}` | **422** et non 403 : la permission passe, c'est la validation qui refuse |
 
 Le quatrieme geste est le plus fin : il montre qu'une permission est accordee **sans**

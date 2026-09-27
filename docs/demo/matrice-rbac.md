@@ -31,10 +31,10 @@ Légende : `X` = permission accordée (`role_permission`, seed 0001) ; case vide
 | Stock | Voir | `stock.read` | X | X | X | X | X |
 | Stock | Faire l'inventaire | `stock.count` | X | X | X | X | X |
 | Stock | Réapprovisionner | `stock.manage` | X | X | | | |
-| Commandes | Voir | `order.read` | X | | X | X | X |
+| Commandes | Voir | `order.read` | X | X | X | X | X |
 | Commandes | Créer | `order.create` | X | | | X | X |
 | Commandes | Livrer | `order.deliver` | X | | | X | X |
-| Commandes | Annuler | `order.cancel` | X | | | X | X |
+| Commandes | Annuler | `order.cancel` | X | X | | X | X |
 | Comptes | Voir | `user.read` | X | X | | | |
 | Comptes | Créer | `user.create` | X | | | | |
 | Comptes | Modifier | `user.update` | X | | | | |
@@ -43,7 +43,7 @@ Légende : `X` = permission accordée (`role_permission`, seed 0001) ; case vide
 | Rôles & statistiques | Voir les statistiques | `stats.read` | X | X | | | |
 
 Totaux par rôle (recoupent `role_permission`, vérifié par requête SQL en
-section 5) : admin 23, manager 13, kitchen 5, counter 8, drive 8. `counter` et
+section 5) : admin 23, manager 15, kitchen 5, counter 8, drive 8. `counter` et
 `drive` détiennent exactement le même sous-ensemble de 8 permissions — leur
 différence n'est pas une différence de droits mais de **source de commande**
 (auto-taguée par le chemin de la requête, `/counter/orders` vs `/drive/orders`)
@@ -82,17 +82,17 @@ de la session connectée.
 |---|---|---|
 | A1 | Navigateur : `GET /admin/roles` | 200 — `role.manage` détenu, seul rôle à avoir accès à la gestion RBAC. |
 | A2 | API : `DELETE /admin/api/products/{id}` avec PIN admin | 200/204 — seul rôle à détenir `product.delete`. |
-| A3 | Navigateur : `GET /admin/orders/{number}/cancel` puis annulation avec PIN | 200 — `order.cancel` détenu (contrairement à manager). |
+| A3 | Navigateur : `GET /admin/orders/{number}/cancel` puis annulation avec PIN | 200 — `order.cancel` détenu (comme manager, comptoir et drive depuis ADR-0020 ; admin reste le seul rôle à cumuler `order.create`/`order.deliver`/`order.cancel`). |
 
 ### Responsable (`manager@wakdo.local`)
 
 | # | Scénario | Attendu |
 |---|---|---|
 | M1 | Navigateur : `GET /admin/products/new` puis `POST /admin/products` | 200/302 — `product.create` détenu. |
-| M2 | Navigateur : `GET /admin/orders/{number}/cancel` (tentative d'annulation) | **403** — manager ne détient PAS `order.cancel` (décision D5, séparation des pouvoirs : celui qui gère le catalogue et le stock ne décide pas d'annuler une vente). |
+| M2 | Navigateur : `GET /admin/orders/{number}/cancel` puis annulation avec le code personnel du manager | 200 — `order.cancel` **et** `order.read` détenus depuis [ADR-0020](../adr/0020-responsable-annule-commande.md) (remplace la décision D5 sur ce point) ; `audit_log.actor_user_id` porte l'identifiant du manager, résolu par son propre code (RG-T13), pas par un rôle tiers. Le manager voit aussi la commande dans `/admin/orders` : aucune ligne `role_visible_source` pour ce rôle (vue globale, comme admin). |
 | M3 | API : `DELETE /admin/api/products/{id}` | 403 — pas de `product.delete` (réservé à admin). |
 | M4 | Navigateur : `GET /admin/users` | 200 — `user.read` détenu (lecture seule : le bouton « Nouveau compte » n'apparaît pas côté vue, `user.create` absent). |
-| M5 | API : `POST /admin/api/users` | 403 — pas de `user.create`. |
+| M5 | API : `POST /admin/api/users` | **403** — pas de `user.create`. Depuis ADR-0020, le refus « manager tente d'annuler une commande » n'existe plus (M2 ci-dessus) : c'est CE refus (créer un compte) qui porte désormais la démonstration de séparation des pouvoirs — le responsable gère le catalogue, le stock et l'annulation d'une vente, mais ne peut ni créer de compte ni s'attribuer des droits. |
 
 ### Équipier cuisine (`cuisine@wakdo.local`)
 
