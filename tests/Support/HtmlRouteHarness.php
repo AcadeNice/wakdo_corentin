@@ -610,7 +610,7 @@ final class HtmlRouteHarness
     {
         $importCsv = static fn (string $line): string => implode(';', ProductImportService::COLUMNS) . "\r\n" . $line . "\r\n";
         $pending = static fn (string $csv): \Closure => static function (SessionManager $session) use ($csv): void {
-            $session->set('_product_import_pending', ['token' => 'a1b2c3d4e5f60718293a4b5c6d7e8f90', 'csv' => $csv, 'created_at' => time()]);
+            $session->set('_product_import_pending', ['token' => 'jeton-import-fictif', 'csv' => $csv, 'created_at' => time()]);
         };
         $menuForm = [
             'category_id' => '1',
@@ -760,7 +760,7 @@ final class HtmlRouteHarness
             ],
             'POST /admin/products/import/confirm' => [
                 // Creation d'un produit nouveau : aucun prix existant ne change.
-                'form' => ['import_token' => 'a1b2c3d4e5f60718293a4b5c6d7e8f90'],
+                'form' => ['import_token' => 'jeton-import-fictif'],
                 'session' => $pending($importCsv('3;Cheeseburger;;6,90;10;;oui;;;;;')),
                 'success' => 302,
                 'write' => 'INSERT INTO product',

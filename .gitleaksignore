@@ -1,0 +1,14 @@
+# Wakdo - exceptions gitleaks par empreinte (commit:fichier:regle:ligne).
+#
+# Chaque ligne excuse UN constat precis, verifie a la main, et rien d'autre :
+# les regles restent entieres pour tout le reste du depot.
+#
+# 7793c36, tests/Support/HtmlRouteHarness.php : valeur FICTIVE du jeton d'import
+# CSV dans un double de test (aucun secret : le controleur ne fait que la comparer
+# a la valeur posee en session par le meme test). La regle generic-api-key l'a prise
+# pour une cle d'API a cause de son entropie. La valeur a ete remplacee par une
+# chaine sans entropie dans le commit suivant ; ces deux empreintes restent
+# necessaires parce que le scan couvre tout l'historique de la branche et que
+# l'historique ne se reecrit pas.
+7793c36a1a2d3a9d775d64b69428912fe64a6598:tests/Support/HtmlRouteHarness.php:generic-api-key:613
+7793c36a1a2d3a9d775d64b69428912fe64a6598:tests/Support/HtmlRouteHarness.php:generic-api-key:763
