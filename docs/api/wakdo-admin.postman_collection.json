@@ -1114,10 +1114,10 @@
                 "ingredients"
               ]
             },
-            "description": "ingredient.manage, pas de PIN. Nom unique par execution ({{run}} -- \"Cet ingrédient existe déjà\" sinon). stock_quantity pose a 0 cote serveur (RG-CREATE-ING).",
+            "description": "ingredient.manage, pas de PIN. Nom unique par execution ({{run}} -- \"Cet ingrédient existe déjà\" sinon). stock_quantity pose a 0 cote serveur (RG-CREATE-ING). family (migration 0017) : slug de la liste canonique (App\\Catalogue\\IngredientFamily) ou omis/vide pour non classe.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Ingredient Demo Plain {{run}}\",\n  \"unit\": \"unite\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}",
+              "raw": "{\n  \"name\": \"Ingredient Demo Plain {{run}}\",\n  \"unit\": \"unite\",\n  \"family\": \"dosette\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1189,10 +1189,10 @@
                 "{{created_ingredient_id}}"
               ]
             },
-            "description": "",
+            "description": "family change de \"dosette\" a \"sauce\" (visible sur la requete suivante) : remplacement COMPLET de la ressource (PUT), pas un PATCH -- omettre family ici la reinitialiserait a non classe, meme regle que pack_label.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Ingredient Demo Plain {{run}} v2\",\n  \"unit\": \"unite\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}",
+              "raw": "{\n  \"name\": \"Ingredient Demo Plain {{run}} v2\",\n  \"unit\": \"unite\",\n  \"family\": \"sauce\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}",
               "options": {
                 "raw": {
                   "language": "json"

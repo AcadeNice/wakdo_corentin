@@ -17,10 +17,15 @@ body {
   {
     "name": "Ingredient Demo Plain {{run}} v2",
     "unit": "unite",
+    "family": "sauce",
     "pack_size": 50,
     "pack_label": "carton de 50",
     "stock_capacity": 500,
     "low_stock_pct": 20,
     "critical_stock_pct": 5
   }
+}
+
+docs {
+family change de "dosette" a "sauce" (visible sur la requete suivante) : remplacement COMPLET de la ressource (PUT), pas un PATCH -- omettre family ici la reinitialiserait a non classe, meme regle que pack_label.
 }

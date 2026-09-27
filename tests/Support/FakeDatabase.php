@@ -124,6 +124,14 @@ final class FakeDatabase implements DatabaseInterface
     /** Resultat de CategoryRepository::slugExists(). */
     public bool $categorySlugTaken = false;
 
+    /**
+     * Lignes renvoyees par CategoryIngredientFamilyRepository::mapByCategory()
+     * (migration 0017), au format brut {category_id, family} avant regroupement.
+     *
+     * @var list<array<string, mixed>>
+     */
+    public array $categoryIngredientFamilyRows = [];
+
     /** Resultat de UserRepository::pinIsSet() (true = un PIN est defini). */
     public bool $userPinSet = false;
 
@@ -661,6 +669,13 @@ final class FakeDatabase implements DatabaseInterface
 
         if (str_contains($sql, 'FROM category ORDER BY')) {
             return $this->categoriesRows;
+        }
+
+        // CategoryIngredientFamilyRepository::mapByCategory() (migration 0017) : distinct
+        // de 'FROM category ORDER BY' juste au-dessus (table differente, meme si le nom
+        // commence pareil -- verifie AVANT toute autre branche 'category').
+        if (str_contains($sql, 'FROM category_ingredient_family')) {
+            return $this->categoryIngredientFamilyRows;
         }
 
         // F20 : bases groupees par categorie (basesByCategory). Desambigue par

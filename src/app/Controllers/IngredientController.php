@@ -11,6 +11,7 @@ use App\Auth\PasswordHasher;
 use App\Auth\PinThrottle;
 use App\Auth\PinVerifier;
 use App\Catalogue\AllergenRepository;
+use App\Catalogue\IngredientFamily;
 use App\Catalogue\IngredientRepository;
 use App\Catalogue\NutritionGateway;
 use App\Catalogue\OpenFoodFactsGateway;
@@ -812,8 +813,14 @@ class IngredientController extends AdminController
      * stock_quantity et is_active ne sont jamais lies ici (poses cote serveur a la
      * creation, modifies via restock/inventaire/toggle). Renvoie [donnees, erreurs].
      *
+     * `family` (migration 0017) : vide = non classe, ACCEPTE (degradation sure,
+     * visible dans toutes les categories) ; toute valeur non vide DOIT figurer
+     * dans la liste canonique (IngredientFamily) -- une faute de frappe cote
+     * client ne doit jamais silencieusement classer un ingredient dans une
+     * famille qui n'existe pour aucun filtre.
+     *
      * @param array<string, string> $form
-     * @return array{0: array{name: string, unit: string, stock_capacity: int, pack_size: int, pack_label: ?string, low_stock_pct: int, critical_stock_pct: int}, 1: array<string, string>}
+     * @return array{0: array{name: string, unit: string, family: ?string, stock_capacity: int, pack_size: int, pack_label: ?string, low_stock_pct: int, critical_stock_pct: int}, 1: array<string, string>}
      */
     protected function validate(array $form, int $exceptId, ?int $currentStock = null): array
     {
@@ -829,6 +836,16 @@ class IngredientController extends AdminController
         $unit = trim($form['unit'] ?? '');
         if ($unit === '' || mb_strlen($unit) > 40) {
             $errors['unit'] = 'L\'unité est requise (40 caractères max).';
+        }
+
+        $familyRaw = trim($form['family'] ?? '');
+        $family = null;
+        if ($familyRaw !== '') {
+            if (!IngredientFamily::isValid($familyRaw)) {
+                $errors['family'] = 'Famille inconnue.';
+            } else {
+                $family = $familyRaw;
+            }
         }
 
         $packRaw = trim($form['pack_size'] ?? '');
@@ -851,6 +868,7 @@ class IngredientController extends AdminController
         $data = [
             'name'               => $name,
             'unit'               => $unit,
+            'family'             => $family,
             'stock_capacity'     => $thresholds['stock_capacity'],
             'pack_size'          => $packValid ? (int) $packRaw : 0,
             'pack_label'         => $label !== '' ? $label : null,
@@ -958,9 +976,11 @@ class IngredientController extends AdminController
             'title'        => ($id !== 0 ? 'Modifier' : 'Nouvel') . ' ingrédient - Wakdo Admin',
             'activeNav'    => 'stock',
             'ingredientId' => $id,
+            'familyOptions' => IngredientFamily::labels(),
             'values'       => [
                 'name'               => (string) ($values['name'] ?? ''),
                 'unit'               => (string) ($values['unit'] ?? ''),
+                'family'             => (string) ($values['family'] ?? ''),
                 'stock_capacity'     => (string) ($values['stock_capacity'] ?? ''),
                 'pack_size'          => (string) ($values['pack_size'] ?? '1'),
                 'pack_label'         => (string) ($values['pack_label'] ?? ''),

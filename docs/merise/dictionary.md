@@ -196,6 +196,7 @@ Ingredient elementaire utilise dans la composition des produits. Porte les donne
 | `id` | INT UNSIGNED | NO | AUTO_INCREMENT | PK | |
 | `name` | VARCHAR(120) | NO | — | UNIQUE | ex. "Sesame Bun", "Cheddar Slice", "Ketchup Portion" |
 | `unit` | VARCHAR(40) | NO | — | — | libelle de l'unite de conditionnement : piece / portion / sachet 1kg / pot / bouteille (libelle libre, pas un ENUM — les unites varient par ingredient) |
+| `family` | VARCHAR(32) | YES | NULL | — | classement en famille (migration 0017) : `pain`, `viande`, `fromage`, `legume`, `sauce`, `feculent`, `dose_boisson`, `contenant`, `dessert`, `dosette` (liste canonique `App\Catalogue\IngredientFamily`, pas un ENUM — le formulaire ingredient valide contre la liste PHP). NULL = non classe = visible dans toutes les categories au formulaire produit (degradation sure). Voir note 16 |
 | `stock_quantity` | INT (signed) | NO | 0 | — | stock courant en unites. INT signe sans `CHECK >= 0` : il PEUT devenir negatif quand les ventes depassent le stock compte (ampleur de la survente, remontee aux managers). Le systeme ne bloque pas une commande sur le stock. |
 | `stock_capacity` | INT | NO | — | CHECK > 0 | niveau "plein" de reference en unites = les 100% servant a calculer le pourcentage de stock. Le `CHECK > 0` protege aussi la division du pourcentage contre la division par zero |
 | `pack_size` | SMALLINT UNSIGNED | NO | 1 | CHECK > 0 | unites par pack de reapprovisionnement (ex. 100 pour un sac de 100 portions) |
@@ -662,6 +663,28 @@ backoff que RG-8 mais PROPRES au PIN (PIN_THROTTLE_*, plus permissives). Meme pu
 
 ---
 
+### 3.23 `category_ingredient_family`
+
+Familles d'ingredients autorisees pour une categorie de produit (migration 0017). Pilote le filtrage
+du selecteur d'ingredients du formulaire produit : proposer "Brownie" ou "Gobelet" en composant un
+burger n'a pas de sens metier, sans pour autant que ces ingredients cessent d'exister (le produit
+Brownie a bien 1x ingredient Brownie dans sa recette, c'est ce qui decremente son stock). Table de
+jointure pure, meme forme que `ingredient_allergen` (3.9).
+
+| Attribut | Type | NULL | Default | Contrainte | Notes |
+|---|---|---|---|---|---|
+| `category_id` | INT UNSIGNED | NO | — | FK -> `category(id)`, ON DELETE CASCADE | supprimer une categorie purge sa correspondance, elle n'a de sens que rattachee |
+| `family` | VARCHAR(32) | NO | — | — | slug de la liste canonique `App\Catalogue\IngredientFamily`, pas de FK (l'ENUM applicatif est la seule source, comme `ingredient.family`) |
+
+**Cle primaire** : composite `(category_id, family)`.
+
+**Zero ligne pour une categorie = aucun filtre pour cette categorie** (ex. `menus`, dont le burger
+impose peut porter n'importe quelle famille d'ingredient) — l'absence est une decision, pas un oubli.
+
+**Volume** : seed 0010, 8 des 9 categories restreintes (`menus` exclue), 2 a 5 familles chacune.
+
+---
+
 ## 4. Notes de modelisation
 
 ### Note 1 — Pourquoi `INT UNSIGNED` en centimes pour les prix
@@ -1049,6 +1072,53 @@ Reference : `db/migrations/0011_ingredient_allergen_review.sql`. Entite 3.6.
 
 ---
 
+### Note 16 — Classement des ingredients par famille (migration 0017)
+
+**Le probleme resolu.** Le selecteur d'ingredients du formulaire produit proposait les
+50 ingredients a plat, quelle que soit la categorie du produit compose : on se voyait
+proposer "Brownie" ou "Gobelet" en composant un burger. La correction ne supprime rien
+— "Brownie" reste un ingredient legitime, le produit Brownie en a 1x dans sa recette,
+c'est ce qui decremente son stock — elle classe et filtre.
+
+**Les colonnes / la table.** `ingredient.family` VARCHAR(32) NULL (AFTER `unit`) porte
+le slug de famille de chaque ingredient ; `category_ingredient_family` (3.23) porte la
+correspondance categorie -> familles autorisees. Dix familles canoniques, ordre fige :
+`pain`, `viande`, `fromage`, `legume`, `sauce`, `feculent`, `dose_boisson`, `contenant`,
+`dessert`, `dosette` — liste unique cote applicatif : `App\Catalogue\IngredientFamily`
+(pas un ENUM SQL, pour que le formulaire ingredient et `category_ingredient_family`
+partagent la meme source sans dupliquer une liste dans le schema).
+
+**Degradation sure.** `family` NULL = ingredient non classe = visible dans toutes les
+categories (rien ne disparait d'un formulaire du seul fait de ne pas avoir ete range).
+Une categorie absente de `category_ingredient_family` (ex. `menus`) reste de meme sans
+filtre : un menu compose son burger impose avec n'importe quelle famille.
+
+**Reprise vs seed.** Les jeux de donnees (`db/seeds/*.sql`) sont suivis par NOM DE
+FICHIER dans `seeds_applied` : modifier un seed deja applique n'a pas d'effet sur une
+installation existante. La migration 0017 classe donc elle-meme les 50 ingredients de
+demonstration deja en place (gardee par `family IS NULL`, qui laisse intacte toute
+classification deja posee, y compris une correction faite a la main) ; le seed
+`0003_ingredients_recipes.sql` porte la meme classification pour une installation
+neuve (verifie par test, migration et seed doivent s'accorder). La correspondance
+categorie -> familles, en revanche, ne peut pas vivre dans une migration : les
+migrations s'executent avant tous les seeds (`category` serait encore vide a ce
+moment-la) — elle vit dans le seed `0010_ingredient_families.sql`, hors
+`seeds_applied`, qui s'applique aussi bien a l'init qu'en reprise.
+
+**Limite de modelisation resolue en passant.** `docs/adr/0015-allergenes-calcules-par-produit.md`
+(consequences) documentait que "Gobelet" est porte comme ingredient de recette (pour le
+stock) alors que ce n'est pas un aliment mais un materiau au contact des denrees
+(reglement 1935/2004), et proposait un drapeau `is_food` dedie si d'autres emballages
+entraient au catalogue. La famille `contenant` couvre ce besoin plus generalement,
+sans ajouter de colonne redondante : `IngredientFamily::isFood()` derive la reponse de
+la famille (`contenant` => non, toute autre valeur, y compris non classe => oui).
+
+Reference : `db/migrations/0017_ingredient_family.sql`,
+`db/seeds/0010_ingredient_families.sql`, `App\Catalogue\IngredientFamily`,
+`App\Catalogue\CategoryIngredientFamilyRepository`. Entites 3.6, 3.23.
+
+---
+
 ## 5. Synthese du decompte des entites
 
 | # | Entite | Type | Remplace / nouveau |
@@ -1075,18 +1145,20 @@ Reference : `db/migrations/0011_ingredient_allergen_review.sql`. Entite 3.6.
 | 20 | `audit_log` | audit | nouveau (security-by-design) — journal append-only d'actions sensibles |
 | 21 | `login_throttle` | security | nouveau (security-by-design) - throttle anti-brute-force par IP |
 | 22 | `pin_throttle` | security | nouveau (security-by-design) - throttle du PIN d'action sensible par acteur (RG-T22) |
+| 23 | `category_ingredient_family` | join | nouveau (migration 0017) — familles d'ingredients autorisees par categorie |
 
 **Retire de v0.1** : `commande_event` (remplace par les timestamps de phase sur `customer_order`),
 `menu_produit` (remplace par le modele `menu_slot` + `menu_slot_option`).
 
-**Total : 22 entites** (19 prod-like v0.2 + `audit_log`, `login_throttle` et `pin_throttle`
-de la couche security-by-design).
+**Total : 23 entites** (19 prod-like v0.2 + `audit_log`, `login_throttle` et `pin_throttle`
+de la couche security-by-design, + `category_ingredient_family` de la migration 0017).
 
 Le security-by-design ajoute aussi des colonnes (au-dela des deux nouvelles entites) : cycle de vie d'auth de `user` +
 `pin_hash` + `anonymized_at` (3.14), `customer_order.acting_user_id` + `idempotency_key` (3.10),
 et le modele de stock en pourcentage sur `ingredient` (3.6) — `stock_capacity`, `critical_stock_pct`,
 plus le renommage de `low_stock_threshold` en `low_stock_pct`. `login_throttle` (3.21) est la 21e
-entite et `pin_throttle` (3.22) la 22e. Voir note 13.
+entite, `pin_throttle` (3.22) la 22e, et `category_ingredient_family` (3.23, migration 0017) la 23e.
+Voir note 13 et note 16.
 
 ---
 

@@ -3124,6 +3124,25 @@ details.form-advanced > summary:focus-visible {
     color: var(--color-text-muted);
 }
 
+/* Barre du filtre d'ingredients par famille (categorie choisie plus haut dans
+   le formulaire). Filtre SOUPLE : la case "Afficher tous les ingredients" le
+   desactive d'un clic, jamais une interdiction -- une classification finit
+   toujours par rencontrer un cas qu'elle n'avait pas prevu. Le compteur est
+   volontairement visible (pas .sr-only) : un filtre qui cache des lignes sans
+   le dire serait un piege, pas seulement pour un lecteur d'ecran. */
+.recipe-filter {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3);
+    margin-bottom: var(--space-3);
+}
+.recipe-filter__count {
+    margin: 0;
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+}
+
 /* Sous 640px (telephone d'equipier), une ligne empile ses champs : sept
    controles cote a cote deborderaient de l'ecran. */
 @media (max-width: 640px) {

@@ -143,6 +143,20 @@ final class IngredientApiControllerTest extends TestCase
         return new TestIngredientApiController($request, new Config(), new Database(new Config()), $this->session, $db);
     }
 
+    /**
+     * @return array<string|int, mixed>|null
+     */
+    private function writeParams(FakeDatabase $db, string $needle): ?array
+    {
+        foreach ($db->writes as $write) {
+            if (str_contains($write['sql'], $needle)) {
+                return $write['params'];
+            }
+        }
+
+        return null;
+    }
+
     public function testStoreRejectsMissingCsrf(): void
     {
         $db = $this->permittedDb();
@@ -200,6 +214,121 @@ final class IngredientApiControllerTest extends TestCase
         $response = $this->controller($request, $db)->apiStore();
 
         self::assertSame(409, $response->status());
+    }
+
+    // --- Famille (migration 0017) : parite CRUD JSON / formulaire HTML ---
+
+    public function testStorePersistsAndPresentsTheFamily(): void
+    {
+        $db = $this->permittedDb();
+        $db->lastInsertId = 21;
+        $db->ingredientRow = ['id' => 21, 'name' => 'Cheddar', 'unit' => 'unite', 'family' => 'fromage', 'stock_quantity' => 0, 'stock_capacity' => 500, 'pack_size' => 50, 'pack_label' => null, 'low_stock_pct' => 20, 'critical_stock_pct' => 5, 'is_active' => 1];
+        $request = $this->jsonRequest('POST', '/admin/api/ingredients', $this->validBody(['family' => 'fromage']));
+
+        $response = $this->controller($request, $db)->apiStore();
+        $body = json_decode($response->body(), true);
+
+        self::assertSame(201, $response->status());
+        self::assertSame('fromage', $this->writeParams($db, 'INSERT INTO ingredient')['family'] ?? 'missing');
+        self::assertSame('fromage', $body['data']['family'] ?? 'missing');
+    }
+
+    public function testStoreOmittingFamilyPersistsAndPresentsNullNotEmptyString(): void
+    {
+        // Corps JSON qui n'envoie PAS `family` du tout (creation) : non classe,
+        // ecrit NULL en base, et PRESENTE `null` -- jamais une chaine vide qui se
+        // ferait passer pour l'un ou l'autre cote client (meme regle que pack_label).
+        $db = $this->permittedDb();
+        $db->lastInsertId = 22;
+        $db->ingredientRow = ['id' => 22, 'name' => 'Cheddar', 'unit' => 'unite', 'family' => null, 'stock_quantity' => 0, 'stock_capacity' => 500, 'pack_size' => 50, 'pack_label' => null, 'low_stock_pct' => 20, 'critical_stock_pct' => 5, 'is_active' => 1];
+        $request = $this->jsonRequest('POST', '/admin/api/ingredients', $this->validBody());
+
+        $response = $this->controller($request, $db)->apiStore();
+        $body = json_decode($response->body(), true);
+
+        self::assertSame(201, $response->status());
+        $params = $this->writeParams($db, 'INSERT INTO ingredient');
+        self::assertNotNull($params);
+        self::assertArrayHasKey('family', $params);
+        self::assertNull($params['family']);
+        self::assertArrayHasKey('family', $body['data']);
+        self::assertNull($body['data']['family']);
+    }
+
+    public function testStoreRejectsAFamilyOutsideTheCanonicalListWith422(): void
+    {
+        $db = $this->permittedDb();
+        $request = $this->jsonRequest('POST', '/admin/api/ingredients', $this->validBody(['family' => 'boisson']));
+
+        $response = $this->controller($request, $db)->apiStore();
+        $body = json_decode($response->body(), true);
+
+        self::assertSame(422, $response->status());
+        self::assertSame('VALIDATION_ERROR', $body['error']['code'] ?? null);
+        self::assertArrayHasKey('family', $body['error']['fields'] ?? []);
+        self::assertFalse($db->wrote('INSERT INTO ingredient'));
+    }
+
+    public function testUpdateOmittingFamilyResetsItToUnclassified(): void
+    {
+        // Documente le motif EXISTANT (meme que pack_label, deja ainsi avant ce
+        // lot) : ce endpoint remplace la ressource ENTIERE (PUT), pas un PATCH
+        // partiel. Un ingredient DEJA classe 'dessert', modifie par un corps JSON
+        // qui n'envoie pas `family`, la perd -- assume et fige par ce test.
+        $db = $this->permittedDb();
+        $db->ingredientRow = ['id' => 3, 'name' => 'Brownie', 'unit' => 'unite', 'family' => 'dessert', 'stock_quantity' => 10, 'stock_capacity' => 500, 'pack_size' => 50, 'pack_label' => null, 'low_stock_pct' => 20, 'critical_stock_pct' => 5, 'is_active' => 1];
+        $request = $this->jsonRequest('PUT', '/admin/api/ingredients/3', $this->validBody(['name' => 'Brownie']));
+
+        $response = $this->controller($request, $db)->apiUpdate(['id' => '3']);
+
+        self::assertSame(200, $response->status());
+        $params = $this->writeParams($db, 'UPDATE ingredient SET name');
+        self::assertNotNull($params);
+        self::assertArrayHasKey('family', $params);
+        self::assertNull($params['family']);
+    }
+
+    public function testUpdateRejectsAFamilyOutsideTheCanonicalListWith422(): void
+    {
+        $db = $this->permittedDb();
+        $db->ingredientRow = ['id' => 3, 'name' => 'Pain burger', 'stock_quantity' => 10, 'unit' => 'unite', 'stock_capacity' => 500, 'pack_size' => 50, 'pack_label' => null, 'low_stock_pct' => 20, 'critical_stock_pct' => 5, 'is_active' => 1];
+        $request = $this->jsonRequest('PUT', '/admin/api/ingredients/3', $this->validBody(['family' => 'boisson']));
+
+        $response = $this->controller($request, $db)->apiUpdate(['id' => '3']);
+        $body = json_decode($response->body(), true);
+
+        self::assertSame(422, $response->status());
+        self::assertArrayHasKey('family', $body['error']['fields'] ?? []);
+    }
+
+    public function testIndexPresentsTheFamilyOfEachIngredient(): void
+    {
+        $db = $this->permittedDb();
+        $db->ingredientsRows = [
+            ['id' => 1, 'name' => 'Cheddar', 'unit' => 'tranche', 'family' => 'fromage', 'stock_quantity' => 40, 'stock_capacity' => 100, 'is_active' => 1],
+            ['id' => 2, 'name' => 'Gobelet', 'unit' => 'pièce', 'family' => null, 'stock_quantity' => 40, 'stock_capacity' => 100, 'is_active' => 1],
+        ];
+
+        $response = $this->controller($this->get('/admin/api/ingredients'), $db)->apiIndex();
+        $body = json_decode($response->body(), true);
+
+        self::assertSame(200, $response->status());
+        self::assertSame('fromage', $body['data'][0]['family'] ?? 'missing');
+        self::assertArrayHasKey('family', $body['data'][1]);
+        self::assertNull($body['data'][1]['family']);
+    }
+
+    public function testShowPresentsNullNotEmptyStringForAnUnclassifiedIngredient(): void
+    {
+        $db = $this->permittedDb();
+        $db->ingredientRow = ['id' => 2, 'name' => 'Gobelet', 'unit' => 'pièce', 'family' => null, 'stock_quantity' => 40, 'stock_capacity' => 100, 'pack_size' => 1, 'pack_label' => null, 'low_stock_pct' => 10, 'critical_stock_pct' => 5, 'is_active' => 1];
+
+        $response = $this->controller($this->get('/admin/api/ingredients/2'), $db)->apiShow(['id' => '2']);
+        $body = json_decode($response->body(), true);
+
+        self::assertSame(200, $response->status());
+        self::assertArrayHasKey('family', $body['data']);
+        self::assertNull($body['data']['family']);
     }
 
     public function testUpdateInvalidThresholdsReturns422(): void
