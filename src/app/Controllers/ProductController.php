@@ -11,8 +11,10 @@ use App\Auth\GuardResult;
 use App\Auth\PasswordHasher;
 use App\Auth\PinThrottle;
 use App\Auth\PinVerifier;
+use App\Catalogue\CategoryIngredientFamilyRepository;
 use App\Catalogue\CategoryRepository;
 use App\Catalogue\ImportBlockedException;
+use App\Catalogue\IngredientFamily;
 use App\Catalogue\IngredientRepository;
 use App\Catalogue\MenuRepository;
 use App\Catalogue\ProductImportService;
@@ -1078,6 +1080,16 @@ class ProductController extends AdminController
         return new CategoryRepository($this->db());
     }
 
+    /**
+     * Correspondance categorie -> familles d'ingredients autorisees (migration
+     * 0017), consommee par renderForm() pour filtrer le selecteur d'ingredients
+     * du formulaire produit selon la categorie choisie.
+     */
+    protected function categoryIngredientFamilyRepository(): CategoryIngredientFamilyRepository
+    {
+        return new CategoryIngredientFamilyRepository($this->db());
+    }
+
     protected function menuRepository(): MenuRepository
     {
         return new MenuRepository($this->db());
@@ -1716,12 +1728,23 @@ class ProductController extends AdminController
     private function renderRecipe(GuardResult $guard, int $id, array $product, array $errors, int $status = 200): Response
     {
         return $this->adminView('admin/products/recipe', [
-            'title'       => 'Recette - ' . (string) ($product['name'] ?? '') . ' - Wakdo Admin',
-            'activeNav'   => 'products',
-            'productId'   => $id,
-            'productName' => (string) ($product['name'] ?? ''),
-            'ingredients' => $this->ingredientRepository()->all(),
-            'composition' => $this->productRepository()->composition($id),
+            'title'             => 'Recette - ' . (string) ($product['name'] ?? '') . ' - Wakdo Admin',
+            'activeNav'         => 'products',
+            'productId'         => $id,
+            'productName'       => (string) ($product['name'] ?? ''),
+            'ingredients'       => $this->ingredientRepository()->all(),
+            'composition'       => $this->productRepository()->composition($id),
+            // Filtrage du selecteur d'ingredients par categorie (migration 0017),
+            // meme mecanisme que renderForm() : la categorie du produit edite est
+            // ici FIXE (pas de selecteur de categorie sur cette page dediee), donc
+            // on passe son id a part -- productCategoryId -- plutot que de filtrer
+            // categoryFamilies cote serveur ; la FORME transmise reste la meme
+            // (array<int, list<string>> complet, categorie absente = pas de filtre)
+            // pour que product-recipe.js n'ait qu'un seul contrat a lire, sur cette
+            // page comme sur le formulaire produit.
+            'productCategoryId' => (int) ($product['category_id'] ?? 0),
+            'categoryFamilies'  => $this->categoryIngredientFamilyRepository()->mapByCategory(),
+            'ingredientFamilies' => IngredientFamily::labels(),
             'errors'      => $errors,
             'csrfToken'   => Csrf::token($this->sessionManager()),
         ], $guard, $status);
@@ -1763,6 +1786,12 @@ class ProductController extends AdminController
             'ingredients'          => $this->ingredientRepository()->all(),
             'compositionJson'      => $compositionJson,
             'canCreateIngredient'  => $this->may($guard, 'ingredient.manage'),
+            // Filtrage du selecteur d'ingredients par categorie (F1, migration 0017) :
+            // categoryFamilies n'a une entree QUE pour une categorie restreinte (une
+            // categorie absente = pas de filtre, ex. "menus") ; ingredientFamilies est
+            // le libelle francais de chaque slug, dans l'ordre canonique.
+            'categoryFamilies'     => $this->categoryIngredientFamilyRepository()->mapByCategory(),
+            'ingredientFamilies'   => IngredientFamily::labels(),
             'values'     => [
                 'category_id'             => (string) ($values['category_id'] ?? ''),
                 'name'                    => (string) ($values['name'] ?? ''),

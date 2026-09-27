@@ -528,6 +528,20 @@ class IngredientApiController extends IngredientController
     }
 
     /**
+     * `family` (migration 0017) suit EXACTEMENT le meme motif que `pack_label` :
+     * un champ scalaire optionnel de `toForm()`, defaute a '' quand absent/`null`
+     * du corps JSON. Consequence ASSUMEE (memes deux points que `pack_label`
+     * aujourd'hui, rien de nouveau introduit ici) : ce endpoint est un
+     * remplacement COMPLET de la ressource (PUT), pas un PATCH partiel -- un
+     * corps JSON qui omet `family` sur un `apiUpdate` la REINITIALISE a non
+     * classe (NULL), exactement comme il reinitialiserait `pack_label` a NULL.
+     * Le client API doit resoumettre la representation complete (GET puis PUT),
+     * comme le formulaire HTML le fait deja de facto (tous ses champs sont
+     * postes a chaque soumission). Un motif distinct (preserver l'existant sur
+     * un champ absent, comme `fieldBoolPreserving` pour les booleens) existe
+     * dans ce trait mais n'est PAS applique ici, pour ne pas diverger de
+     * `pack_label` sur un point que rien ne distingue.
+     *
      * @param array<string, mixed> $body
      * @return array{0: array<string, string>, 1: array<string, string>} [form, erreurs]
      */
@@ -536,6 +550,7 @@ class IngredientApiController extends IngredientController
         return $this->scalarForm($body, [
             'name'               => '',
             'unit'               => '',
+            'family'             => '',
             'pack_size'          => '',
             'pack_label'         => '',
             'stock_capacity'     => '',
@@ -554,6 +569,10 @@ class IngredientApiController extends IngredientController
             'id'                  => (int) ($row['id'] ?? 0),
             'name'                => (string) ($row['name'] ?? ''),
             'unit'                => (string) ($row['unit'] ?? ''),
+            // Meme convention que pack_label juste en dessous : NULL reste NULL
+            // (non classe), jamais une chaine vide qui se ferait passer pour l'un
+            // ou l'autre cote client.
+            'family'              => ($row['family'] ?? null) !== null ? (string) $row['family'] : null,
             'stock_quantity'      => (int) ($row['stock_quantity'] ?? 0),
             'stock_capacity'      => (int) ($row['stock_capacity'] ?? 0),
             'pack_size'           => (int) ($row['pack_size'] ?? 0),

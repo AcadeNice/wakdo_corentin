@@ -17,6 +17,7 @@ body {
   {
     "name": "Ingredient Demo Plain {{run}}",
     "unit": "unite",
+    "family": "dosette",
     "pack_size": 50,
     "pack_label": "carton de 50",
     "stock_capacity": 500,
@@ -26,7 +27,7 @@ body {
 }
 
 docs {
-ingredient.manage, pas de PIN. Nom unique par execution ({{run}} -- "Cet ingrédient existe déjà" sinon). stock_quantity pose a 0 cote serveur (RG-CREATE-ING).
+ingredient.manage, pas de PIN. Nom unique par execution ({{run}} -- "Cet ingrédient existe déjà" sinon). stock_quantity pose a 0 cote serveur (RG-CREATE-ING). family (migration 0017) : slug de la liste canonique (App\Catalogue\IngredientFamily) ou omis/vide pour non classe.
 }
 
 script:post-response {

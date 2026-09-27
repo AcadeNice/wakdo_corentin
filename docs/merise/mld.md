@@ -1,8 +1,8 @@
 # Modele Logique de Donnees (MLD) — Wakdo
 
 **Phase Merise** : P1 - Conception, etape 5 (apres MCD, MCT, MLT)
-**Version** : v0.4 — prod-like, 22 tables (19 prod-like + couche security-by-design)
-**Historique** : v0.4 (2026-09-24) — mise en coherence avec le code livre (2a09597) : les quatre diagrammes relationnels re-extraits des migrations 0001 a 0011 (colonnes `preparing_at` / `ready_at` de 0009 et `allergens_*` de 0011, descriptions et chemins d'image), cle etrangere nullable notee en 0..1, relation `user` -> `pin_throttle` corrigee en 1 vers 0..1 (unicite de `actor_user_id`), rendus SVG regeneres avec `_diagrams/mermaid-config.json`.
+**Version** : v0.5 — prod-like, 23 tables (19 prod-like + couche security-by-design + classement des ingredients)
+**Historique** : v0.5 (2026-09-27) — migration 0017 : colonne `ingredient.family` (nullable) et table `category_ingredient_family` (4.23), qui filtrent le selecteur d'ingredients du constructeur de recette selon la categorie du produit ; compte de tables 22 -> 23 ; voir `docs/adr/0018-familles-ingredients-filtre-recette.md`. v0.4 (2026-09-24) — mise en coherence avec le code livre (2a09597) : les quatre diagrammes relationnels re-extraits des migrations 0001 a 0011 (colonnes `preparing_at` / `ready_at` de 0009 et `allergens_*` de 0011, descriptions et chemins d'image), cle etrangere nullable notee en 0..1, relation `user` -> `pin_throttle` corrigee en 1 vers 0..1 (unicite de `actor_user_id`), rendus SVG regeneres avec `_diagrams/mermaid-config.json`.
 **Date** : 2026-06-04 (ajouts security-by-design 2026-06-11)
 **Branche** : `feat/p1-conception`
 **Statut** : prod-like — toutes les decisions D1-D8 + stock appliquees (voir `docs/notes/revue-alignement-p1.md` §7) ; couche security-by-design (audit_log + colonnes imputabilite/auth) en cours
@@ -94,14 +94,14 @@ en plus de la PK composite des FK. Applique a `product_ingredient`.
 
 ---
 
-## 4. Schema relationnel (22 tables)
+## 4. Schema relationnel (23 tables)
 
 Les tables sont ordonnees par dependance (tables sans FK d'abord, puis tables qui en dependent).
 
 ### Diagrammes relationnels (par sous-domaine)
 
 Le schema relationnel est presente sous forme de quatre vues Mermaid `erDiagram`, une par sous-domaine (meme
-decomposition que le MCD ; un unique diagramme de 22 tables ne se disposerait pas proprement). Elles different
+decomposition que le MCD ; un unique diagramme de 23 tables ne se disposerait pas proprement). Elles different
 du MCD : les entites associatives sont resolues en tables de jointure avec PK composites, le
 polymorphisme de `order_item` apparait sous forme de deux FK nullables (`product_id` / `menu_id`), et chaque
 cle etrangere est explicite. Les horodatages d'audit (`created_at` / `updated_at`) sont presents sur la plupart des
@@ -181,6 +181,7 @@ erDiagram
         int id PK
         varchar name UK
         varchar unit
+        varchar family
         int stock_quantity
         int stock_capacity
         smallint pack_size
@@ -213,6 +214,14 @@ erDiagram
         int ingredient_id PK,FK
         int allergen_id PK,FK
     }
+    category_ingredient_family {
+        int category_id PK,FK
+        varchar family PK
+    }
+    category {
+        int id PK
+        varchar name
+    }
     stock_movement {
         int id PK
         int ingredient_id FK
@@ -240,6 +249,7 @@ erDiagram
     ingredient ||--o{ ingredient_allergen : "ingredient_id (CASCADE)"
     allergen ||--o{ ingredient_allergen : "allergen_id (RESTRICT)"
     ingredient ||--o{ stock_movement : "ingredient_id (RESTRICT)"
+    category ||--o{ category_ingredient_family : "category_id (CASCADE)"
     customer_order |o--o{ stock_movement : "order_id (SET NULL, nullable)"
     user |o--o{ stock_movement : "user_id (SET NULL, nullable)"
 ```
@@ -576,7 +586,7 @@ Pas d'horodatages. Table de jointure pure.
 ### 4.6 `ingredient`
 
 ```
-ingredient (id, name, unit, stock_quantity, stock_capacity, pack_size, [pack_label],
+ingredient (id, name, unit, [family], stock_quantity, stock_capacity, pack_size, [pack_label],
             [energy_kcal_100g], [nutrition_source], [nutrition_fetched_at],
             [allergens_reviewed_at], [allergens_source],
             low_stock_pct, critical_stock_pct, is_active, created_at, updated_at)
@@ -595,6 +605,7 @@ ingredient (id, name, unit, stock_quantity, stock_capacity, pack_size, [pack_lab
 | `id` | INT UNSIGNED AUTO_INCREMENT | NO | PK |
 | `name` | VARCHAR(120) | NO | Nom unique, p. ex. "Sesame Bun" |
 | `unit` | VARCHAR(40) | NO | Libelle d'unite de conditionnement (libre, pas ENUM) |
+| `family` | VARCHAR(32) | YES | Famille de l'ingredient (migration 0017), parmi dix valeurs canoniques tenues cote applicatif par `App\Catalogue\IngredientFamily`. NULL = non classe : l'ingredient reste propose dans toutes les categories (degradation sure) |
 | `stock_quantity` | INT NOT NULL DEFAULT 0 | NO | Stock courant. INT signe pouvant devenir negatif quand les ventes depassent le stock compte (ampleur de la survente, remontee aux managers) ; le systeme ne bloque pas une commande sur le stock |
 | `stock_capacity` | INT NOT NULL | NO | Niveau "plein" de reference en unites = le 100% utilise pour calculer le pourcentage de stock ; CHECK > 0 protege aussi la division du pourcentage contre la division par zero |
 | `pack_size` | SMALLINT UNSIGNED NOT NULL DEFAULT 1 | NO | Unites par lot de reapprovisionnement |
@@ -631,6 +642,14 @@ produit a nouveau commandable de lui-meme ; un ingredient retirable/optionnel a 
 bloque pas le produit (seul son supplement devient indisponible). Le tableau de bord distingue un
 retrait manuel (`is_available=0`) d'une rupture pilotee par le stock (`is_available=1` mais un ingredient
 requis est critique).
+
+**Classement par famille (migration 0017, voir note 16 du dictionnaire)** : `family` sert a filtrer
+le selecteur d'ingredients du constructeur de recette selon la categorie du produit compose, via
+`category_ingredient_family` (4.23). C'est une aide a la saisie, PAS une regle de gestion : aucune
+contrainte de base ni de code ne refuse une recette dont un ingredient sort de la famille attendue,
+et l'interface offre une case "afficher tous les ingredients". La contrainte du domaine de valeurs
+est tenue par l'application (`IngredientFamily::isValid()`), pas par un ENUM : ajouter une famille ne
+doit pas demander une migration de schema. Voir `docs/adr/0018-familles-ingredients-filtre-recette.md`.
 
 **Enrichissement nutritionnel (migration 0005, voir note 14 du dictionnaire)** : `energy_kcal_100g`,
 `nutrition_source` et `nutrition_fetched_at` (toutes nullables) stockent une donnee importee depuis l'API
@@ -1209,6 +1228,45 @@ supprimer/anonymiser le compte purge sa ligne de throttle. Append/upsert par act
 
 ---
 
+### 4.23 `category_ingredient_family`
+
+Quelles familles d'ingredients une categorie de produits accepte (migration 0017). Alimente le filtre
+du selecteur d'ingredients du constructeur de recette.
+
+```
+category_ingredient_family (#category_id, family)
+
+  PK  : (category_id, family)
+  FK  : category_id -> category(id) ON DELETE CASCADE
+```
+
+| Colonne | Type | NULL | Notes |
+|---|---|---|---|
+| `category_id` | INT UNSIGNED | NO | FK -> category |
+| `family` | VARCHAR(32) | NO | Slug de famille, meme domaine de valeurs que `ingredient.family` |
+
+**Zero ligne = aucun filtre.** L'absence d'entree pour une categorie ne veut pas dire "aucune famille
+autorisee" mais "pas de restriction" : la categorie `menus`, qui traverse toutes les familles par
+nature, n'a volontairement aucune ligne. C'est le choix permissif : une categorie creee apres coup
+n'est pas filtree tant que personne ne l'a renseignee, plutot que de presenter un selecteur vide.
+
+**ON DELETE CASCADE** : supprimer une categorie emporte ses lignes de correspondance, qui n'auraient
+plus de sens.
+
+**Pas de FK sur `family`.** Le domaine de valeurs est tenu par l'application
+(`App\Catalogue\IngredientFamily`), pas par une table de reference ni un ENUM. Arbitrage assume : une
+table de reference pour dix libelles figes ajouterait une jointure a chaque lecture et une entite au
+modele sans rien garantir de plus, puisque les deux seules ecritures (le jeu de donnees 0010 et le
+formulaire ingredient) passent deja par la validation applicative. La contrepartie est qu'une faute de
+frappe inseree en SQL direct ne serait pas rejetee par la base. Un test d'integration
+(`IngredientFamilyMigrationDbTest::testEveryFamilyUsedByTheCorrespondenceIsCanonicalAndNoneIsOrphaned`)
+verifie dans les deux sens que les familles presentes dans cette table sont exactement les dix
+canoniques.
+
+Pas d'horodatages. Table de correspondance pure.
+
+---
+
 ## 5. Resume de l'integrite referentielle
 
 | Colonne FK | References | ON DELETE | Justification |
@@ -1222,6 +1280,7 @@ supprimer/anonymiser le compte purge sa ligne de throttle. Append/upsert par act
 | `product_ingredient.product_id` | `product(id)` | CASCADE | La recette disparait avec le produit |
 | `product_ingredient.ingredient_id` | `ingredient(id)` | RESTRICT | Impossible de retirer un ingredient encore dans une recette |
 | `ingredient_allergen.ingredient_id` | `ingredient(id)` | CASCADE | Les liens d'allergenes disparaissent avec l'ingredient |
+| `category_ingredient_family.category_id` | `category(id)` | CASCADE | La correspondance familles n'a plus de sens sans sa categorie |
 | `ingredient_allergen.allergen_id` | `allergen(id)` | RESTRICT | Le catalogue d'allergenes reglemente est immuable |
 | `user.role_id` | `role(id)` | RESTRICT | Un utilisateur ne peut pas exister sans role |
 | `role_visible_source.role_id` | `role(id)` | CASCADE | Les filtres du tableau de bord disparaissent avec le role |
