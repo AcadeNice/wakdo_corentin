@@ -16,6 +16,7 @@ declare(strict_types=1);
  * @var array<string, mixed>              $values
  * @var array<string, string>             $errors
  * @var string                            $csrfToken
+ * @var callable(string): string $asset  adresse d'un fichier statique, marqueur de version compris (App\Core\Asset)
  */
 
 $csrf = htmlspecialchars($csrfToken ?? '', ENT_QUOTES, 'UTF-8');
@@ -247,5 +248,5 @@ $variantsOpen = ($hasVariantValue || $hasVariantError) ? ' open' : '';
     </div>
 </form>
 
-<script src="/assets/js/image-drop.js"></script>
-<script src="/assets/js/product-recipe.js"></script>
+<script src="<?= $asset('/assets/js/image-drop.js') ?>"></script>
+<script src="<?= $asset('/assets/js/product-recipe.js') ?>"></script>

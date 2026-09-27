@@ -18,6 +18,7 @@ declare(strict_types=1);
  * @var array<string, mixed> $values
  * @var array<string, string> $errors
  * @var string               $csrfToken
+ * @var callable(string): string $asset  adresse d'un fichier statique, marqueur de version compris (App\Core\Asset)
  */
 
 $csrf = htmlspecialchars($csrfToken ?? '', ENT_QUOTES, 'UTF-8');
@@ -102,4 +103,4 @@ $openIfSet = static fn (string $k): string => ($id !== 0 && ($vals[$k] ?? '') !=
     </div>
 </form>
 
-<script src="/assets/js/image-drop.js"></script>
+<script src="<?= $asset('/assets/js/image-drop.js') ?>"></script>

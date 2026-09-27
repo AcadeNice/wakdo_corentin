@@ -24,6 +24,7 @@ declare(strict_types=1);
  * @var string                           $slotsJson
  * @var array<string, string>            $errors
  * @var string                           $csrfToken
+ * @var callable(string): string $asset  adresse d'un fichier statique, marqueur de version compris (App\Core\Asset)
  */
 
 $csrf = htmlspecialchars($csrfToken ?? '', ENT_QUOTES, 'UTF-8');
@@ -165,4 +166,4 @@ $slotsData = isset($slotsJson) && is_string($slotsJson) && $slotsJson !== '' ? $
         <a class="btn btn-secondary" href="/admin/menus">Annuler</a>
     </div>
 </form>
-<script src="/assets/js/menu-form.js"></script>
+<script src="<?= $asset('/assets/js/menu-form.js') ?>"></script>

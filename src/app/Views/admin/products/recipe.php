@@ -16,6 +16,7 @@ declare(strict_types=1);
  * @var array<int, array<string, mixed>> $composition  lignes existantes
  * @var array<string, string>            $errors
  * @var string                           $csrfToken
+ * @var callable(string): string $asset  adresse d'un fichier statique, marqueur de version compris (App\Core\Asset)
  */
 
 $csrf = htmlspecialchars($csrfToken ?? '', ENT_QUOTES, 'UTF-8');
@@ -101,4 +102,4 @@ $attr = static fn (mixed $data): string => htmlspecialchars(
         <a class="btn btn-secondary" href="/admin/products">Retour</a>
     </div>
 </form>
-<script src="/assets/js/product-recipe.js"></script>
+<script src="<?= $asset('/assets/js/product-recipe.js') ?>"></script>

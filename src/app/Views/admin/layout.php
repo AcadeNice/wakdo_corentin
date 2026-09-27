@@ -20,6 +20,7 @@ declare(strict_types=1);
  * @var string       $activeNav
  * @var string       $orderChannel  'counter' | 'drive' : canal de saisie du role courant
  * @var string|null  $flash
+ * @var callable(string): string $asset  adresse d'un fichier statique, marqueur de version compris (App\Core\Asset)
  */
 
 $pageTitle = htmlspecialchars($title ?? 'Wakdo Admin', ENT_QUOTES, 'UTF-8');
@@ -64,8 +65,8 @@ $navClass = static function (string $code, string $current): string {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex, nofollow">
     <title><?= $pageTitle ?></title>
-    <link rel="icon" type="image/svg+xml" href="/assets/images/favicon.svg">
-    <link rel="stylesheet" href="/assets/css/admin.css">
+    <link rel="icon" type="image/svg+xml" href="<?= $asset('/assets/images/favicon.svg') ?>">
+    <link rel="stylesheet" href="<?= $asset('/assets/css/admin.css') ?>">
 </head>
 <body data-user-email="<?= htmlspecialchars($currentUserEmail ?? '', ENT_QUOTES, 'UTF-8') ?>">
 <a class="skip-link" href="#main-content">Aller au contenu</a>
@@ -95,7 +96,7 @@ $navClass = static function (string $code, string $current): string {
 
     <nav class="sidebar">
         <div class="sidebar-brand">
-            <img class="sidebar-brand-logo" src="/assets/images/logo.png" alt="Wakdo">
+            <img class="sidebar-brand-logo" src="<?= $asset('/assets/images/logo.png') ?>" alt="Wakdo">
             <span class="sidebar-brand-name">Wak<span>do</span></span>
         </div>
         <div class="sidebar-section">
@@ -170,14 +171,14 @@ $navClass = static function (string $code, string $current): string {
         <?= $content ?? '' ?>
     </main>
 </div>
-<script src="/assets/js/admin.js"></script>
+<script src="<?= $asset('/assets/js/admin.js') ?>"></script>
 <?php /* Controle de saisie en temps reel (Cr 2.b.1) : tous les formulaires du shell. */ ?>
-<script src="/assets/js/form-validation.js"></script>
-<script src="/assets/js/pin-modal.js"></script>
-<script src="/assets/js/stock-thresholds.js"></script>
+<script src="<?= $asset('/assets/js/form-validation.js') ?>"></script>
+<script src="<?= $asset('/assets/js/pin-modal.js') ?>"></script>
+<script src="<?= $asset('/assets/js/stock-thresholds.js') ?>"></script>
 <?php /* Bascule de police pour personnes dyslexiques (RGAA Cr 1.c.2), parite avec
          la borne : meme module, reutilise via assets/js/a11y.js (voir le fichier
          pour le partage physique entre les deux racines statiques), pas reecrit. */ ?>
-<script type="module" src="/assets/js/a11y.js"></script>
+<script type="module" src="<?= $asset('/assets/js/a11y.js') ?>"></script>
 </body>
 </html>

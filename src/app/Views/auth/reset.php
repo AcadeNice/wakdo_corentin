@@ -9,6 +9,7 @@ declare(strict_types=1);
  * @var string      $csrfToken
  * @var string      $token
  * @var string|null $error
+ * @var callable(string): string $asset  adresse d'un fichier statique, marqueur de version compris (App\Core\Asset)
  */
 
 $csrf = htmlspecialchars($csrfToken ?? '', ENT_QUOTES, 'UTF-8');
@@ -18,7 +19,7 @@ $errorMessage = isset($error) && is_string($error) ? $error : null;
 <main class="login-page">
     <div class="login-card">
         <div class="login-logo">
-            <img src="/assets/images/logo.png" alt="Wakdo">
+            <img src="<?= $asset('/assets/images/logo.png') ?>" alt="Wakdo">
             <span class="login-logo-title">Wakdo Admin</span>
             <span class="login-logo-sub">Nouveau mot de passe</span>
         </div>

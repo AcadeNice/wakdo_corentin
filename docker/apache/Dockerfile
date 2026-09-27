@@ -18,9 +18,11 @@ RUN set -eux; \
 # Copie de la conf projet :
 # - httpd.conf      : main config avec LoadModule + include vhosts
 # - vhost.conf      : vhosts kiosk + admin/API + reverse FCGI
+# - cache.conf      : politique de cache navigateur, incluse par les deux vhosts
 # - mpm.conf        : tuning MPM event (workers)
 COPY httpd.conf /usr/local/apache2/conf/httpd.conf
 COPY vhost.conf /usr/local/apache2/conf/extra/wakdo-vhost.conf
+COPY cache.conf /usr/local/apache2/conf/extra/wakdo-cache.conf
 COPY mpm.conf   /usr/local/apache2/conf/extra/wakdo-mpm.conf
 
 # Le DocumentRoot doit exister dans l'image meme si le code source est
