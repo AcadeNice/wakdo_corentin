@@ -1,5 +1,5 @@
 {
-  "date": "2026-09-26T14:24:35.304Z",
+  "date": "2026-09-27T13:40:34.495Z",
   "outil": {
     "axe": {
       "name": "axe-core",
@@ -12,7 +12,7 @@
       "wcag21aa"
     ]
   },
-  "ecrans": 18,
+  "ecrans": 19,
   "pages": [
     {
       "page": "accueil",
@@ -47,7 +47,7 @@
       "regles_indeterminees": [
         "color-contrast"
       ],
-      "contrastes_mesures": 108,
+      "contrastes_mesures": 110,
       "contrastes_non_calculables": 13,
       "contraste_minimum_mesure": 3.59,
       "contrastes_sous_le_seuil": 0
@@ -67,7 +67,7 @@
       "regles_indeterminees": [
         "color-contrast"
       ],
-      "contrastes_mesures": 63,
+      "contrastes_mesures": 65,
       "contrastes_non_calculables": 9,
       "contraste_minimum_mesure": 3.59,
       "contrastes_sous_le_seuil": 0
@@ -87,7 +87,7 @@
       "regles_indeterminees": [
         "color-contrast"
       ],
-      "contrastes_mesures": 57,
+      "contrastes_mesures": 59,
       "contrastes_non_calculables": 8,
       "contraste_minimum_mesure": 3.59,
       "contrastes_sous_le_seuil": 0
@@ -105,7 +105,7 @@
       },
       "regles": [],
       "regles_indeterminees": [],
-      "contrastes_mesures": 27,
+      "contrastes_mesures": 29,
       "contrastes_non_calculables": 0,
       "contraste_minimum_mesure": 3.59,
       "contrastes_sous_le_seuil": 0
@@ -141,7 +141,7 @@
       },
       "regles": [],
       "regles_indeterminees": [],
-      "contrastes_mesures": 90,
+      "contrastes_mesures": 92,
       "contrastes_non_calculables": 0,
       "contraste_minimum_mesure": 3.59,
       "contrastes_sous_le_seuil": 0
@@ -159,7 +159,7 @@
       },
       "regles": [],
       "regles_indeterminees": [],
-      "contrastes_mesures": 49,
+      "contrastes_mesures": 51,
       "contrastes_non_calculables": 0,
       "contraste_minimum_mesure": 3.59,
       "contrastes_sous_le_seuil": 0
@@ -177,7 +177,7 @@
       },
       "regles": [],
       "regles_indeterminees": [],
-      "contrastes_mesures": 64,
+      "contrastes_mesures": 67,
       "contrastes_non_calculables": 0,
       "contraste_minimum_mesure": 3.59,
       "contrastes_sous_le_seuil": 0
@@ -195,7 +195,7 @@
       },
       "regles": [],
       "regles_indeterminees": [],
-      "contrastes_mesures": 78,
+      "contrastes_mesures": 80,
       "contrastes_non_calculables": 0,
       "contraste_minimum_mesure": 3.59,
       "contrastes_sous_le_seuil": 0
@@ -213,7 +213,7 @@
       },
       "regles": [],
       "regles_indeterminees": [],
-      "contrastes_mesures": 33,
+      "contrastes_mesures": 35,
       "contrastes_non_calculables": 0,
       "contraste_minimum_mesure": 3.59,
       "contrastes_sous_le_seuil": 0
@@ -231,7 +231,25 @@
       },
       "regles": [],
       "regles_indeterminees": [],
-      "contrastes_mesures": 73,
+      "contrastes_mesures": 75,
+      "contrastes_non_calculables": 0,
+      "contraste_minimum_mesure": 3.59,
+      "contrastes_sous_le_seuil": 0
+    },
+    {
+      "page": "admin-sante-api",
+      "url": "http://admin.wakdo.test/admin/health",
+      "total_violations": 0,
+      "noeuds_en_faute": 0,
+      "par_gravite": {
+        "critical": 0,
+        "serious": 0,
+        "moderate": 0,
+        "minor": 0
+      },
+      "regles": [],
+      "regles_indeterminees": [],
+      "contrastes_mesures": 62,
       "contrastes_non_calculables": 0,
       "contraste_minimum_mesure": 3.59,
       "contrastes_sous_le_seuil": 0
@@ -251,7 +269,7 @@
       "regles_indeterminees": [
         "color-contrast"
       ],
-      "contrastes_mesures": 50,
+      "contrastes_mesures": 52,
       "contrastes_non_calculables": 7,
       "contraste_minimum_mesure": 3.59,
       "contrastes_sous_le_seuil": 0

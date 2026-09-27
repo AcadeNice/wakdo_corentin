@@ -13,6 +13,8 @@ use App\Core\Config;
 use App\Core\Database;
 use App\Core\Request;
 use App\Core\Response;
+use App\Core\Router;
+use App\Health\RouteSecurity;
 use App\Tests\Support\FakeDatabase;
 
 // Les 8 doubles `Test<Ressource>ApiController` (+ leurs stubs de repository)
@@ -31,23 +33,44 @@ require_once __DIR__ . '/UserApiControllerTest.php';
 require_once __DIR__ . '/RoleApiControllerTest.php';
 require_once __DIR__ . '/OrderApiControllerTest.php';
 require_once __DIR__ . '/StatsApiControllerTest.php';
+// 9e double, ajoute par le chantier "Sante de l'API" : TestHealthApiController,
+// meme convention de nom et de constructeur que les 8 precedents (verifie ici,
+// pas suppose), pour GET /admin/api/health.
+require_once __DIR__ . '/HealthApiControllerTest.php';
 
 /**
  * Relecture adverse (2e passe, point 2) : table de donnees couvrant TOUTES les
- * routes `/admin/api/*` (index.php), verifiees route par route plutot que par
- * quelques exemples eparpilles. Pour chaque route d'ECRITURE (POST/PUT/DELETE) :
- * (a) sans `X-CSRF-Token` -> 403 ; (b) avec un jeton FAUX -> 403 ; (c) avec TOUTES
- * les permissions du catalogue SAUF la permission exacte -> 403 ; (d) avec
- * SEULEMENT la permission exacte (+ CSRF valide + PIN valide si l'action en a
- * besoin) -> jamais 403. Pour les routes de LECTURE (GET), seul (c) s'applique
- * (elles n'exigent pas de CSRF). `testRouteTableCoversEveryRegisteredRoute()`
- * relit `index.php` et echoue si une route y est ajoutee/retiree sans que cette
- * table soit mise a jour en meme temps.
+ * routes `/admin/api/*` (hors `/admin/api/auth/*`, cf. plus bas), verifiees
+ * route par route plutot que par quelques exemples eparpilles. Pour chaque
+ * route d'ECRITURE (POST/PUT/DELETE) : (a) sans `X-CSRF-Token` -> 403 ; (b) avec
+ * un jeton FAUX -> 403 ; (c) avec TOUTES les permissions du catalogue SAUF la
+ * permission exacte -> 403 ; (d) avec SEULEMENT la permission exacte (+ CSRF
+ * valide + PIN valide si l'action en a besoin) -> jamais 403. Pour les routes de
+ * LECTURE (GET), seul (c) s'applique (elles n'exigent pas de CSRF).
+ *
+ * Depuis le chantier "Sante de l'API" : la table `ROUTES` codee en dur a
+ * disparu. La LISTE des routes vient desormais de `App\Core\Router::routes()`
+ * (charge depuis `src/app/Core/routes.php` sur un Router neuf, jamais un texte
+ * relu par expression reguliere) et la PERMISSION exacte de chaque route vient
+ * de `App\Health\RouteSecurity::ENTRIES` -- la meme source unique que la carte
+ * des routes de la page "Sante de l'API". Le test qui echoue quand une route est
+ * ajoutee sans etre securisee vit maintenant dans
+ * tests/Unit/Health/RouteSecurityCoverageTest.php (bijection Router <->
+ * RouteSecurity sur TOUT le routeur, pas seulement /admin/api/*) ;
+ * derivedRoutes() ci-dessous ne garde que le nom court de ressource necessaire
+ * pour retrouver le double de test `Test<Ressource>ApiController` (une
+ * information de test, pas une exigence de securite -- elle peut donc rester
+ * ici sans dupliquer RouteSecurity).
+ *
+ * `GET /admin/api/health` (nouvelle route du chantier "Sante de l'API") EST
+ * incluse dans cette matrice comme la 9e ressource ('Health' ->
+ * `TestHealthApiController`, fourni par `HealthApiControllerTest.php`, meme
+ * convention que les 8 autres) : requiere_once ci-dessus, aucune fixture
+ * supplementaire necessaire (pas de {id}/{number} dans son chemin, pas
+ * d'ecriture).
  */
 final class RouteMatrixTest extends TestCase
 {
-    private const INDEX_PHP = __DIR__ . '/../../../../src/public/admin/index.php';
-
     /**
      * Catalogue complet des 23 permissions du seed (db/seeds/0001_rbac_and_reference.sql).
      *
@@ -64,73 +87,52 @@ final class RouteMatrixTest extends TestCase
     ];
 
     /**
-     * Chaque ligne : [methode, chemin (gabarit brut d'index.php), ressource
-     * (nom court -> `Test<Ressource>ApiController`), action, permission EXACTE
-     * attendue, ecriture (bool, determine si CSRF/PIN s'appliquent).
+     * Routes `/admin/api/*` (hors `/admin/api/auth/*`, cf. docblock de classe)
+     * qui ont un `Test<Ressource>ApiController` dans ce fichier : lues EN DIRECT
+     * dans le Router (routes.php), la permission EXACTE venant de
+     * RouteSecurity::ENTRIES. Chaque ligne :
+     * [methode, chemin, ressource (nom court -> `Test<Ressource>ApiController`),
+     * action, permission EXACTE attendue, ecriture (determine si CSRF/PIN
+     * s'appliquent -- toute route non-GET de cette surface est une ecriture)].
      *
-     * @var list<array{0: string, 1: string, 2: string, 3: string, 4: string, 5: bool}>
+     * @return list<array{0: string, 1: string, 2: string, 3: string, 4: string, 5: bool}>
      */
-    private const ROUTES = [
-        ['GET', '/admin/api/categories', 'Category', 'apiIndex', 'category.manage', false],
-        ['GET', '/admin/api/categories/{id}', 'Category', 'apiShow', 'category.manage', false],
-        ['POST', '/admin/api/categories', 'Category', 'apiStore', 'category.manage', true],
-        ['PUT', '/admin/api/categories/{id}', 'Category', 'apiUpdate', 'category.manage', true],
-        ['DELETE', '/admin/api/categories/{id}', 'Category', 'apiDestroy', 'category.manage', true],
-        ['POST', '/admin/api/categories/{id}/toggle', 'Category', 'apiToggle', 'category.manage', true],
-        ['POST', '/admin/api/categories/{id}/move', 'Category', 'apiMove', 'category.manage', true],
+    private static function derivedRoutes(): array
+    {
+        $router = new Router(new Config(), new Database(new Config()));
+        (require __DIR__ . '/../../../../src/app/Core/routes.php')($router);
 
-        ['GET', '/admin/api/products', 'Product', 'apiIndex', 'product.read', false],
-        ['GET', '/admin/api/products/{id}', 'Product', 'apiShow', 'product.read', false],
-        ['POST', '/admin/api/products', 'Product', 'apiStore', 'product.create', true],
-        ['PUT', '/admin/api/products/{id}', 'Product', 'apiUpdate', 'product.update', true],
-        ['DELETE', '/admin/api/products/{id}', 'Product', 'apiDestroy', 'product.delete', true],
-        ['POST', '/admin/api/products/{id}/move', 'Product', 'apiMove', 'product.update', true],
-        ['GET', '/admin/api/products/{id}/recipe', 'Product', 'apiRecipeShow', 'ingredient.manage', false],
-        ['PUT', '/admin/api/products/{id}/recipe', 'Product', 'apiRecipeSave', 'ingredient.manage', true],
-        ['GET', '/admin/api/products/import/template', 'Product', 'apiImportTemplate', 'product.create', false],
-        ['POST', '/admin/api/products/import', 'Product', 'apiImportRun', 'product.create', true],
+        $permissionBySignature = [];
+        foreach (RouteSecurity::ENTRIES as [$method, $path, , $perm]) {
+            $permissionBySignature[$method . ' ' . $path] = $perm;
+        }
 
-        ['GET', '/admin/api/menus', 'Menu', 'apiIndex', 'menu.read', false],
-        ['GET', '/admin/api/menus/{id}', 'Menu', 'apiShow', 'menu.read', false],
-        ['POST', '/admin/api/menus', 'Menu', 'apiStore', 'menu.create', true],
-        ['PUT', '/admin/api/menus/{id}', 'Menu', 'apiUpdate', 'menu.update', true],
-        ['DELETE', '/admin/api/menus/{id}', 'Menu', 'apiDestroy', 'menu.delete', true],
-        ['POST', '/admin/api/menus/{id}/toggle', 'Menu', 'apiToggle', 'menu.update', true],
+        $rows = [];
+        foreach ($router->routes() as $route) {
+            $path = $route['pattern'];
+            if (!str_starts_with($path, '/admin/api/') || str_starts_with($path, '/admin/api/auth/')) {
+                continue;
+            }
 
-        ['GET', '/admin/api/ingredients', 'Ingredient', 'apiIndex', 'stock.read', false],
-        ['GET', '/admin/api/ingredients/{id}', 'Ingredient', 'apiShow', 'stock.read', false],
-        ['POST', '/admin/api/ingredients', 'Ingredient', 'apiStore', 'ingredient.manage', true],
-        ['PUT', '/admin/api/ingredients/{id}', 'Ingredient', 'apiUpdate', 'ingredient.manage', true],
-        ['DELETE', '/admin/api/ingredients/{id}', 'Ingredient', 'apiDestroy', 'ingredient.manage', true],
-        ['POST', '/admin/api/ingredients/{id}/restock', 'Ingredient', 'apiRestock', 'stock.manage', true],
-        ['POST', '/admin/api/ingredients/{id}/toggle', 'Ingredient', 'apiToggle', 'ingredient.manage', true],
-        ['PUT', '/admin/api/ingredients/{id}/thresholds', 'Ingredient', 'apiThresholds', 'stock.manage', true],
-        ['POST', '/admin/api/ingredients/{id}/inventory', 'Ingredient', 'apiInventory', 'stock.count', true],
-        ['POST', '/admin/api/ingredients/{id}/adjust', 'Ingredient', 'apiAdjust', 'stock.count', true],
-        ['PUT', '/admin/api/ingredients/{id}/allergens', 'Ingredient', 'apiAllergens', 'ingredient.manage', true],
+            $signature = $route['method'] . ' ' . $path;
+            self::assertArrayHasKey($signature, $permissionBySignature, "Route $signature sans entree RouteSecurity : la table a-t-elle divergé du Router ?");
 
-        ['GET', '/admin/api/users', 'User', 'apiIndex', 'user.read', false],
-        ['GET', '/admin/api/users/{id}', 'User', 'apiShow', 'user.read', false],
-        ['POST', '/admin/api/users', 'User', 'apiStore', 'user.create', true],
-        ['PUT', '/admin/api/users/{id}', 'User', 'apiUpdate', 'user.update', true],
-        ['DELETE', '/admin/api/users/{id}', 'User', 'apiDestroy', 'user.deactivate', true],
-        ['POST', '/admin/api/users/{id}/reset-pin', 'User', 'apiResetPin', 'user.update', true],
-        ['POST', '/admin/api/users/{id}/erase', 'User', 'apiErase', 'user.update', true],
+            [$controllerClass, $action] = $route['handler'];
+            $basename = substr($controllerClass, strrpos($controllerClass, '\\') + 1);
+            $resource = str_ends_with($basename, 'ApiController') ? substr($basename, 0, -13) : $basename;
 
-        ['GET', '/admin/api/roles', 'Role', 'apiIndex', 'role.manage', false],
-        ['GET', '/admin/api/roles/{id}', 'Role', 'apiShow', 'role.manage', false],
-        ['POST', '/admin/api/roles', 'Role', 'apiStore', 'role.manage', true],
-        ['PUT', '/admin/api/roles/{id}', 'Role', 'apiUpdate', 'role.manage', true],
+            $rows[] = [
+                $route['method'],
+                $path,
+                $resource,
+                $action,
+                $permissionBySignature[$signature],
+                $route['method'] !== 'GET',
+            ];
+        }
 
-        ['GET', '/admin/api/orders', 'Order', 'apiIndex', 'order.read', false],
-        ['GET', '/admin/api/orders/{number}', 'Order', 'apiShow', 'order.read', false],
-        ['POST', '/admin/api/orders', 'Order', 'apiStore', 'order.create', true],
-        ['POST', '/admin/api/orders/{number}/ready', 'Order', 'apiReady', 'order.read', true],
-        ['POST', '/admin/api/orders/{number}/deliver', 'Order', 'apiDeliver', 'order.deliver', true],
-        ['POST', '/admin/api/orders/{number}/cancel', 'Order', 'apiCancel', 'order.cancel', true],
-
-        ['GET', '/admin/api/stats', 'Stats', 'apiIndex', 'stats.read', false],
-    ];
+        return $rows;
+    }
 
     private SessionManager $session;
     private string $csrf = '';
@@ -155,47 +157,24 @@ final class RouteMatrixTest extends TestCase
         putenv('SESSION_LIFETIME_ABSOLUTE');
     }
 
-    public function testRouteTableCoversEveryRegisteredRoute(): void
+    /**
+     * Canari de cette matrice : la bijection COMPLETE Router <-> RouteSecurity
+     * (toutes surfaces confondues) est verifiee ailleurs
+     * (tests/Unit/Health/RouteSecurityCoverageTest.php) ; celui-ci verifie
+     * seulement que le sous-ensemble /admin/api/* (hors auth/*) exploite par
+     * CETTE matrice comportementale garde le nombre attendu de routes -- un
+     * changement de perimetre ici (ajout/retrait d'une ressource) doit se voir
+     * immediatement, avant meme d'executer les data providers. 53 = les 52
+     * routes historiques + GET /admin/api/health (chantier "Sante de l'API").
+     */
+    public function testDerivedRoutesMatchTheKnownAdminApiSurface(): void
     {
-        $source = (string) file_get_contents(self::INDEX_PHP);
-        // `(?!auth/)` : exclut expressement `/admin/api/auth/*` (login/logout/me,
-        // AuthApiController) de cette matrice CSRF/permission. Ces trois routes ne
-        // partagent PAS son modele : `apiLogin` n'a ni permission (accessible SANS
-        // session) ni jeton CSRF synchroniseur a comparer (aucune session avant
-        // authentification reussie -- sa protection est le Content-Type impose (force un
-        // preflight CORS ferme sur ce prefixe), documentee dans le docblock
-        // d'AuthApiController et docs/adr/0017-api-admin-json.md).
-        // Les inclure ici forcerait soit un `TestAuthApiController` factice pour un modele
-        // de securite qui ne s'applique pas, soit des lignes ROUTES trompeuses (une
-        // "permission exacte" qui n'existe pas pour un login public). Testees a part,
-        // au comportement reel, dans AuthApiControllerTest (+ la garde 401-sans-session
-        // ci-dessous, testRouteRejectsNoSessionWithJsonAuthRequired, qui elle NE les
-        // exclut PAS : logout/me restent proteges par la meme garde que tout /admin/api/*).
-        preg_match_all(
-            '/\$router->add\(\'([A-Z]+)\',\s*\'(\/admin\/api\/(?!auth\/)[^\']*)\',\s*\[(\w+)ApiController::class,\s*\'(\w+)\'\]\)/',
-            $source,
-            $matches,
-            PREG_SET_ORDER,
-        );
-        self::assertNotSame([], $matches, 'Aucune route /admin/api/* trouvee dans index.php : le regex a-t-il divergé du code ?');
+        $rows = self::derivedRoutes();
 
-        $registered = [];
-        foreach ($matches as $m) {
-            $registered[] = $m[1] . ' ' . $m[2] . ' -> ' . $m[3] . '::' . $m[4];
-        }
-        sort($registered);
+        self::assertCount(53, $rows, 'Nombre de routes /admin/api/* (hors auth/*) inattendu : perimetre de la matrice a verifier.');
 
-        $tabled = [];
-        foreach (self::ROUTES as [$method, $path, $resource, $action]) {
-            $tabled[] = $method . ' ' . $path . ' -> ' . $resource . '::' . $action;
-        }
-        sort($tabled);
-
-        // Echec ici = une route a ete ajoutee/retiree/renommee dans index.php SANS
-        // repercuter le changement dans self::ROUTES -- donc sans que les 4 gardes
-        // (CSRF absent/faux, permission exacte, acces avec la bonne permission)
-        // n'aient ete verifiees pour elle.
-        self::assertSame($tabled, $registered, 'self::ROUTES ne correspond plus exactement aux routes /admin/api/* de index.php.');
+        $writeCount = count(array_filter($rows, static fn (array $r): bool => $r[5]));
+        self::assertSame(35, $writeCount, "Nombre de routes d'ecriture inattendu parmi les routes derivees.");
     }
 
     /**
@@ -204,7 +183,7 @@ final class RouteMatrixTest extends TestCase
     public static function writeRoutesProvider(): array
     {
         $cases = [];
-        foreach (self::ROUTES as [$method, $path, $resource, $action, $permission, $isWrite]) {
+        foreach (self::derivedRoutes() as [$method, $path, $resource, $action, $permission, $isWrite]) {
             if (!$isWrite) {
                 continue;
             }
@@ -253,7 +232,7 @@ final class RouteMatrixTest extends TestCase
     public static function allRoutesProvider(): array
     {
         $cases = [];
-        foreach (self::ROUTES as [$method, $path, $resource, $action, $permission, $isWrite]) {
+        foreach (self::derivedRoutes() as [$method, $path, $resource, $action, $permission, $isWrite]) {
             $cases[$method . ' ' . $path] = [$method, $path, $resource, $action, $permission, $isWrite];
         }
 
@@ -410,10 +389,10 @@ final class RouteMatrixTest extends TestCase
      * expiree ni compte desactive, deja couverts par les tests unitaires de
      * SessionGuard), renvoie du JSON `401 AUTH_REQUIRED` -- JAMAIS une redirection
      * HTML vers `/login` -- avant meme d'atteindre la verification CSRF/permission.
-     * Couvre les 49 routes de self::ROUTES ; les 3 routes `/admin/api/auth/*`
-     * (hors de cette table, cf. testRouteTableCoversEveryRegisteredRoute) sont
-     * couvertes a part dans AuthApiControllerTest (logout/me exigent une session,
-     * login n'en exige aucune par construction).
+     * Couvre les 53 routes de derivedRoutes() ; les 3 routes `/admin/api/auth/*`
+     * (hors de cette liste, cf. docblock de classe) sont couvertes a part dans
+     * AuthApiControllerTest (logout/me exigent une session, login n'en exige
+     * aucune par construction).
      */
     #[DataProvider('allRoutesProvider')]
     public function testRouteRejectsNoSessionWithJsonAuthRequired(string $method, string $path, string $resource, string $action, string $permission, bool $isWrite): void

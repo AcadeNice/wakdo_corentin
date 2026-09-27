@@ -12,7 +12,7 @@ Perimetre principal : la **borne de commande client** (`src/public/borne/`), int
 | Cr 1.a.5 | Balises semantiques | `01` + [`04`](04-accessibilite-rgaa.md) | Conforme |
 | Cr 1.b.1 | Adaptation aux resolutions (responsive) | [`02-matrice-responsive.md`](02-matrice-responsive.md) | Couvert (borne et back-office, ossature comprise ; aucun defilement horizontal mesure : borne a 360, 390, 768 et 1366 px, 16 pages du back-office a 360 et 390 px) |
 | Cr 1.b.2 / 1.b.3 | Compatibilite navigateurs + correction documentee | [`03-conformite-cross-browser.md`](03-conformite-cross-browser.md) | Couvert (perimetre assume) |
-| Cr 1.c.1 a 1.c.4 | Accessibilite RGAA (lecteurs d'ecran, OpenDyslexic, couleur, clavier) | [`04-accessibilite-rgaa.md`](04-accessibilite-rgaa.md) + [`06-audit-accessibilite-mesure.md`](06-audit-accessibilite-mesure.md) | Conforme, avec reserves — couvre desormais 12 ecrans du back-office dont la caisse comptoir/drive ; contraste mesure a l'outil et corrige (06) |
+| Cr 1.c.1 a 1.c.4 | Accessibilite RGAA (lecteurs d'ecran, OpenDyslexic, couleur, clavier) | [`04-accessibilite-rgaa.md`](04-accessibilite-rgaa.md) + [`06-audit-accessibilite-mesure.md`](06-audit-accessibilite-mesure.md) | Conforme, avec reserves — couvre desormais 13 ecrans du back-office dont la caisse comptoir/drive et la page Santé de l'API ; contraste mesure a l'outil et corrige (06) |
 | Cr 1.d.2 | Code CSS organise et commente | [`08-referencement-performance.md`](08-referencement-performance.md) section 7 | Couvert (21 sections numerotees + sommaire, garde par test) |
 | Cr 1.e.2 | Expressions cles mises en exergue | `08` section 4 | Couvert (strong/em sur les choix, la consigne, le retrait) |
 | Cr 1.e.3 | Donnees structurees schema.org | `08` section 3 | Couvert (5 pages, graphe relie par @id, section de carte construite depuis les produits) |
@@ -32,7 +32,7 @@ Perimetre principal : la **borne de commande client** (`src/public/borne/`), int
 - `w3c/borne-rendu.json` — sortie sur le DOM rendu (0 erreur, 1 avertissement assume).
 - `w3c/borne-modale-allergenes.json` — idem, modale allergenes ouverte.
 - `w3c/dom-rendu/` — les 4 fichiers de HTML rendu (JS execute) reellement soumis au validateur.
-- `rapports/` — audit d'accessibilite mesure : `resume.json` (18 ecrans), `contrastes-mesures.csv` (858 mesures), `axe-<ecran>.json` (x18).
+- `rapports/` — audit d'accessibilite mesure : `resume.json` (19 ecrans), `contrastes-mesures.csv` (943 mesures), `axe-<ecran>.json` (x19).
 - `captures-responsive/` — **52 captures** Playwright : la borne (5 ecrans x 360 / 390 / 768 / 1366 px) et le back-office (16 ecrans x 360 / 390 px).
 - `captures-controle-saisie/` — controle de saisie pendant la frappe, modal PIN avant / apres correctif, et message du serveur apres un PIN refuse (fiche 09). Les trois captures « apres » sont regenerees ; `modal-pin-avant.png` ne l'est pas, et ne peut pas l'etre : elle montre le defaut corrige depuis.
 
@@ -43,7 +43,7 @@ Trois commandes, une par famille d'artefacts. Chacune monte sa propre pile jetab
 | Commande | Ce qu'elle regenere |
 |---|---|
 | `tests/e2e/run-w3c.sh` | les deux niveaux de validation W3C + les 4 captures de DOM rendu |
-| `tests/e2e/run-a11y.sh` | l'audit d'accessibilite mesure (18 ecrans) dans `rapports/` |
+| `tests/e2e/run-a11y.sh` | l'audit d'accessibilite mesure (19 ecrans) dans `rapports/` |
 | `tests/e2e/run-captures.sh` | les 52 captures adaptatives + les 3 captures de controle de saisie |
 
 - **W3C** : moteur Nu (identique a `validator.w3.org/nu`) execute en local via `ghcr.io/validator/validator` ; detail dans `01-validation-w3c.md` section 2.
@@ -52,7 +52,7 @@ Trois commandes, une par famille d'artefacts. Chacune monte sa propre pile jetab
 
 ## Reserves honnetes consolidees (a ne pas survendre)
 
-- **Accessibilite** : aucun audit avec un lecteur d'ecran reel (NVDA/VoiceOver) — reserve ouverte. Les ratios de contraste, eux, ont ete mesures a l'outil (`axe-core`, **858 mesures sur 18 ecrans** au 2026-09-26, [`06-audit-accessibilite-mesure.md`](06-audit-accessibilite-mesure.md)) : 10 noeuds trouves sous le seuil AA au premier passage ont ete corriges et remesures conformes — reserve resolue, plus une reserve ouverte sur ce theme. La demarche est structuree et testee, pas certifiee RGAA.
+- **Accessibilite** : aucun audit avec un lecteur d'ecran reel (NVDA/VoiceOver) — reserve ouverte. Les ratios de contraste, eux, ont ete mesures a l'outil (`axe-core`, **943 mesures sur 19 ecrans** au 2026-09-27, [`06-audit-accessibilite-mesure.md`](06-audit-accessibilite-mesure.md)) : 10 noeuds trouves sous le seuil AA au premier passage ont ete corriges et remesures conformes — reserve resolue, plus une reserve ouverte sur ce theme. La demarche est structuree et testee, pas certifiee RGAA.
 - **Tailles de cible** : le « 0 violation » de l'audit ne les couvre pas. Le critere de taille minimale de cible releve de **WCAG 2.2**, hors des quatre familles de regles activees (qui s'arretent a WCAG 2.1). A dire avant qu'on ne le demande.
 - **Cross-navigateurs** : pas de campagne de test sur parc reel ; les tableaux de support sont tagues `[UNVERIFIED]`, a reconfirmer sur caniuse avant l'oral. La strategie (fallback `@supports`, prefixes) est verifiable dans le code.
 - **C2.d** : aucune librairie JS externe n'est integree (choix vanilla). La competence de reutilisation est demontree par des modules internes ; le critere « externe » n'est pas rempli a la lettre. Confiance faible, assumee.
