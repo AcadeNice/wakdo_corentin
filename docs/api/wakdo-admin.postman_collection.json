@@ -2514,7 +2514,7 @@
                     "login"
                   ]
                 },
-                "description": "Identifiants VIDES par defaut (email_manager/password_manager) : a completer depuis docs/demo/comptes-demo.md (compte de demo par poste), jamais commis en clair dans cette collection. Droits attendus (stats.read oui, order.* non (D5)) : db/seeds/0001_rbac_and_reference.sql, section role_permission.",
+                "description": "Identifiants VIDES par defaut (email_manager/password_manager) : a completer depuis docs/demo/comptes-demo.md (compte de demo par poste), jamais commis en clair dans cette collection. Droits attendus (stats.read + order.read + order.cancel oui (ADR-0020), user.create non) : db/seeds/0001_rbac_and_reference.sql, section role_permission.",
                 "body": {
                   "mode": "raw",
                   "raw": "{\n  \"email\": \"{{email_manager}}\",\n  \"password\": \"{{password_manager}}\"\n}",
@@ -2570,7 +2570,37 @@
               ]
             },
             {
-              "name": "Refuse : annuler une commande (pas order.cancel)",
+              "name": "Autorise : lister les commandes (order.read)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/api/orders",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "api",
+                    "orders"
+                  ]
+                },
+                "description": "ADR-0020 (docs/adr/0020-responsable-annule-commande.md, remplace la decision D5 sur ce point) : le manager recoit desormais order.read, indispensable pour trouver une commande a annuler. 200 attendu, sans filtre de canal (aucune ligne role_visible_source pour ce role, comme admin)."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200 order.read accorde', function () { pm.response.to.have.status(200); });"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Refuse : creer un compte (pas user.create)",
               "request": {
                 "method": "POST",
                 "header": [
@@ -2586,22 +2616,20 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/admin/api/orders/K1/cancel",
+                  "raw": "{{baseUrl}}/admin/api/users",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
                     "admin",
                     "api",
-                    "orders",
-                    "K1",
-                    "cancel"
+                    "users"
                   ]
                 },
-                "description": "Decision D5 : le manager ne recoit AUCUNE permission order.*, y compris order.cancel. 403 FORBIDDEN attendu (separation des pouvoirs), avant meme la verification du PIN. Numero K1 fictif : seul le code retourne compte ici (guardApi() s'execute avant toute lecture de commande).",
+                "description": "ADR-0020 ajoute order.read/order.cancel au manager mais ne touche pas aux droits utilisateurs : c'est ce refus qui porte desormais la demonstration de separation des pouvoirs (le responsable ne peut ni creer de compte ni s'attribuer des droits). 403 FORBIDDEN attendu, avant meme la validation du corps (guardApi() s'execute en premier, meme raisonnement que le refus product.delete ci-dessous).",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"pin_email\": \"{{email_manager}}\",\n  \"pin\": \"{{pin}}\"\n}",
+                  "raw": "{\n  \"email\": \"manager-{{run}}@wakdo.local\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -2615,7 +2643,7 @@
                   "script": {
                     "type": "text/javascript",
                     "exec": [
-                      "pm.test('403 FORBIDDEN (order.cancel absent)', function () { pm.response.to.have.status(403); });"
+                      "pm.test('403 FORBIDDEN (user.create absent)', function () { pm.response.to.have.status(403); });"
                     ]
                   }
                 }

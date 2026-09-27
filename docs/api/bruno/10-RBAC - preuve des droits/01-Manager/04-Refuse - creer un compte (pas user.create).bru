@@ -1,0 +1,28 @@
+meta {
+  name: Refuse : creer un compte (pas user.create)
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/admin/api/users
+}
+
+headers {
+  Content-Type: application/json
+  X-CSRF-Token: {{csrf_manager}}
+}
+
+body {
+  {
+    "email": "manager-{{run}}@wakdo.local"
+  }
+}
+
+docs {
+ADR-0020 ajoute order.read/order.cancel au manager mais ne touche pas aux droits utilisateurs : c'est ce refus qui porte desormais la demonstration de separation des pouvoirs (le responsable ne peut ni creer de compte ni s'attribuer des droits). 403 FORBIDDEN attendu, avant meme la validation du corps (guardApi() s'execute en premier, meme raisonnement que le refus product.delete ci-dessous).
+}
+
+tests {
+  expect(res.getStatus()).to.equal(403);
+}

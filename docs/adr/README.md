@@ -25,6 +25,9 @@ une decision revisee donne une nouvelle fiche qui *supersede* l'ancienne (statut
 | [0015](0015-allergenes-calcules-par-produit.md) | Allergenes calcules par produit, avec etat de revue explicite | Accepte |
 | [0016](0016-modification-commande-avant-paiement.md) | Modifier une commande avant paiement, et le verrou de ligne qui va avec | Accepte |
 | [0017](0017-api-admin-json.md) | API d'administration JSON (`/admin/api`), en complement du MVC rendu serveur | Accepte |
+| [0018](0018-familles-ingredients-filtre-recette.md) | Familles d'ingredients et filtre souple du constructeur de recette | Accepte |
+| [0019](0019-page-sante-api-carte-vivante.md) | Page « Santé de l'API » : une carte des routes qui ne peut pas diverger du code | Accepte |
+| [0020](0020-responsable-annule-commande.md) | Le responsable peut annuler une commande (remplace D5 sur ce point) | Accepte |
 
 ## Modele de fiche
 
