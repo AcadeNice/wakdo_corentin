@@ -45,8 +45,10 @@
 SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- -----------------------------------------------------------------------------
--- manager@wakdo.local — role manager (catalogue + stock + stats, PAS de RBAC/
--- utilisateurs, PAS d'annulation de commande : decision D5, seed 0001).
+-- manager@wakdo.local — role manager (catalogue + stock + stats, lecture et
+-- annulation des commandes de tous les canaux ; PAS de RBAC/utilisateurs, PAS
+-- de creation ni de remise de commande : ADR-0020, qui remplace la decision D5
+-- sur le seul point de l'annulation -- seed 0001).
 -- Mot de passe : WakdoManager2026!   PIN : 1010
 -- -----------------------------------------------------------------------------
 INSERT IGNORE INTO user (email, password_hash, pin_hash, first_name, last_name, role_id, is_active)

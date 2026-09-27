@@ -360,6 +360,54 @@ final class IngredientControllerTest extends TestCase
         self::assertSame(403, $response->status());
     }
 
+    // --- Famille (migration 0017) ---
+
+    public function testStoreAcceptsAnEmptyFamilyAsUnclassified(): void
+    {
+        // Vide = non classe (degradation sure, visible dans toutes les categories) :
+        // ACCEPTE, pas une erreur de validation.
+        $db = $this->permittedDb();
+        $response = $this->controller($this->post($this->validForm(['family' => '']), '/admin/ingredients'), $db)->store();
+
+        self::assertSame(302, $response->status());
+        $params = $this->writeParams($db, 'INSERT INTO ingredient');
+        self::assertNotNull($params);
+        self::assertArrayHasKey('family', $params);
+        self::assertNull($params['family']); // `??` masquerait un null reel, d'ou l'assertArrayHasKey d'abord
+    }
+
+    public function testStoreAcceptsACanonicalFamily(): void
+    {
+        $db = $this->permittedDb();
+        $response = $this->controller($this->post($this->validForm(['family' => 'fromage']), '/admin/ingredients'), $db)->store();
+
+        self::assertSame(302, $response->status());
+        $params = $this->writeParams($db, 'INSERT INTO ingredient');
+        self::assertSame('fromage', $params['family'] ?? null);
+    }
+
+    public function testStoreRejectsAFamilyOutsideTheCanonicalList(): void
+    {
+        $db = $this->permittedDb();
+        $response = $this->controller($this->post($this->validForm(['family' => 'boisson']), '/admin/ingredients'), $db)->store();
+
+        self::assertSame(422, $response->status());
+        self::assertFalse($db->wrote('INSERT INTO ingredient'));
+        self::assertStringContainsString('Famille inconnue', $response->body());
+    }
+
+    public function testEditFormExposesFamilyOptionsAndCurrentValue(): void
+    {
+        $db = $this->permittedDb();
+        $db->ingredientRow = $this->ingredient(['family' => 'viande']);
+
+        $body = $this->controller($this->get('/admin/ingredients/5/edit'), $db)->edit(['id' => '5'])->body();
+
+        self::assertStringContainsString('name="family"', $body);
+        self::assertStringContainsString('Viande', $body);
+        self::assertStringContainsString('Légume', $body); // options des dix familles, pas seulement la selectionnee
+    }
+
     public function testUpdateDoesNotBindStockOrActive(): void
     {
         $db = $this->permittedDb();
@@ -370,6 +418,18 @@ final class IngredientControllerTest extends TestCase
         self::assertNotSame('', $sql);
         self::assertStringNotContainsString('stock_quantity', $sql); // RG-T16
         self::assertStringNotContainsString('is_active', $sql);      // RG-T16 (bascule via toggle)
+    }
+
+    public function testUpdateBindsFamily(): void
+    {
+        // A la difference de stock_quantity/is_active (RG-T16), `family` fait
+        // partie des champs de definition editables au meme titre que name/unit.
+        $db = $this->permittedDb();
+        $response = $this->controller($this->post($this->validForm(['family' => 'dessert']), '/admin/ingredients/5'), $db)->update(['id' => '5']);
+
+        self::assertSame(302, $response->status());
+        $params = $this->writeParams($db, 'UPDATE ingredient SET name');
+        self::assertSame('dessert', $params['family'] ?? null);
     }
 
     public function testUpdateNotFound(): void

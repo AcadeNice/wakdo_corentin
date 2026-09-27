@@ -12,6 +12,7 @@ declare(strict_types=1);
  * @var array<string, mixed>   $values
  * @var array<string, string>  $errors
  * @var string                 $csrfToken
+ * @var array<string, string>  $familyOptions slug => libelle francais, ordre canonique (App\Catalogue\IngredientFamily)
  * @var list<array{id: int, name: string, description: string, checked: bool}> $allergenMatrix
  */
 
@@ -23,9 +24,12 @@ $action = $id !== 0 ? '/admin/ingredients/' . $id : '/admin/ingredients';
 $vals = isset($values) && is_array($values) ? $values : [];
 /** @var array<string, string> $errs */
 $errs = isset($errors) && is_array($errors) ? $errors : [];
+/** @var array<string, string> $families */
+$families = isset($familyOptions) && is_array($familyOptions) ? $familyOptions : [];
 
 $val = static fn (string $k): string => htmlspecialchars((string) ($vals[$k] ?? ''), ENT_QUOTES, 'UTF-8');
 $err = static fn (string $k): string => isset($errs[$k]) && is_string($errs[$k]) ? $errs[$k] : '';
+$selectedFamily = (string) ($vals['family'] ?? '');
 ?>
 <div class="page-header">
     <div>
@@ -46,6 +50,20 @@ $err = static fn (string $k): string => isset($errs[$k]) && is_string($errs[$k])
         <label class="form-label" for="unit">Unité (ex. portion, sachet, pièce)</label>
         <input class="form-input" type="text" id="unit" name="unit" maxlength="40" value="<?= $val('unit') ?>" required>
         <?php if ($err('unit') !== ''): ?><p class="form-error"><?= htmlspecialchars($err('unit'), ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
+    </div>
+
+    <div class="form-group">
+        <label class="form-label" for="family">Famille (classement pour le formulaire produit)</label>
+        <select class="form-input" id="family" name="family">
+            <option value="">-- non classé (visible dans toutes les catégories) --</option>
+            <?php foreach ($families as $slug => $label): ?>
+                <option value="<?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?>"<?= $slug === $selectedFamily ? ' selected' : '' ?>>
+                    <?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+        <small>Classer cet ingrédient limite le formulaire produit à le proposer dans les catégories pertinentes (ex. "Brownie" en dessert). Non classé = visible partout.</small>
+        <?php if ($err('family') !== ''): ?><p class="form-error"><?= htmlspecialchars($err('family'), ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
     </div>
 
     <div class="form-group">

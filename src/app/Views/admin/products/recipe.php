@@ -14,8 +14,12 @@ declare(strict_types=1);
  * @var string                           $productName
  * @var array<int, array<string, mixed>> $ingredients  catalogue pour le picker
  * @var array<int, array<string, mixed>> $composition  lignes existantes
+ * @var int                              $productCategoryId  categorie DU PRODUIT edite (fixe sur cette page, pas de selecteur)
+ * @var array<int, list<string>>         $categoryFamilies  categorie -> slugs de familles autorisees ; categorie absente = pas de filtre
+ * @var array<string, string>            $ingredientFamilies  slug de famille -> libelle francais, ordonne
  * @var array<string, string>            $errors
  * @var string                           $csrfToken
+ * @var callable(string): string $asset  adresse d'un fichier statique, marqueur de version compris (App\Core\Asset)
  */
 
 $csrf = htmlspecialchars($csrfToken ?? '', ENT_QUOTES, 'UTF-8');
@@ -35,9 +39,12 @@ $compError = isset($errs['composition']) && is_string($errs['composition']) ? $e
 // rend le JSON sur-able comme valeur d'attribut.
 $slimIngredients = array_map(
     static fn (array $i): array => [
-        'id'   => (int) ($i['id'] ?? 0),
-        'name' => (string) ($i['name'] ?? ''),
-        'unit' => (string) ($i['unit'] ?? ''),
+        'id'     => (int) ($i['id'] ?? 0),
+        'name'   => (string) ($i['name'] ?? ''),
+        'unit'   => (string) ($i['unit'] ?? ''),
+        // null = ingredient non classe : le picker le garde visible dans toutes
+        // les categories (filtre souple, jamais une interdiction).
+        'family' => isset($i['family']) && $i['family'] !== '' ? (string) $i['family'] : null,
     ],
     $ings,
 );
@@ -57,6 +64,23 @@ $attr = static fn (mixed $data): string => htmlspecialchars(
     ENT_QUOTES,
     'UTF-8',
 );
+
+// Filtre du picker par famille (migration 0017) : sur cette page, la categorie
+// du produit est deja fixee (pas de select#category_id) -- elle est transmise
+// a part (productCategoryId) plutot que d'etre deja appliquee cote serveur, pour
+// que product-recipe.js n'ait qu'un seul contrat a lire (categoryFamilies +
+// ingredientFamilies), identique a admin/products/form.php.
+/** @var array<int, list<string>> $catFamilies */
+$catFamilies = isset($categoryFamilies) && is_array($categoryFamilies) ? $categoryFamilies : [];
+/** @var array<string, string> $ingFamilies */
+$ingFamilies = isset($ingredientFamilies) && is_array($ingredientFamilies) ? $ingredientFamilies : [];
+// (object) force un encodage JSON en objet ({"3":[...]}) meme si les cles de
+// categorie se trouvaient etre 0,1,2... sequentielles : sinon json_encode
+// produirait un tableau JSON que product-recipe.js lirait comme une
+// correspondance vide (aucune categorie n'y matcherait plus par cle).
+$categoryFamiliesAttr = $attr((object) $catFamilies);
+$ingredientFamiliesAttr = $attr((object) $ingFamilies);
+$productCategoryIdValue = (int) ($productCategoryId ?? 0);
 ?>
 <div class="page-header">
     <div>
@@ -87,6 +111,9 @@ $attr = static fn (mixed $data): string => htmlspecialchars(
              data-ingredients="<?= $attr($slimIngredients) ?>"
              data-composition="<?= $attr($slimComposition) ?>"
              data-can-create-ingredient="1"
+             data-category-families="<?= $categoryFamiliesAttr ?>"
+             data-ingredient-families="<?= $ingredientFamiliesAttr ?>"
+             data-product-category-id="<?= $productCategoryIdValue ?>"
              <?= $compError !== '' ? 'aria-describedby="composition-error"' : '' ?>></div>
         <div class="form-actions">
             <button class="btn btn-secondary" type="button" id="add-ingredient">Ajouter un ingrédient</button>
@@ -101,4 +128,4 @@ $attr = static fn (mixed $data): string => htmlspecialchars(
         <a class="btn btn-secondary" href="/admin/products">Retour</a>
     </div>
 </form>
-<script src="/assets/js/product-recipe.js"></script>
+<script src="<?= $asset('/assets/js/product-recipe.js') ?>"></script>

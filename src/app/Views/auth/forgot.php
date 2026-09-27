@@ -8,6 +8,7 @@ declare(strict_types=1);
  *
  * @var string      $csrfToken
  * @var string|null $notice
+ * @var callable(string): string $asset  adresse d'un fichier statique, marqueur de version compris (App\Core\Asset)
  */
 
 $token = htmlspecialchars($csrfToken ?? '', ENT_QUOTES, 'UTF-8');
@@ -16,7 +17,7 @@ $noticeMessage = isset($notice) && is_string($notice) ? $notice : null;
 <main class="login-page">
     <div class="login-card">
         <div class="login-logo">
-            <img src="/assets/images/logo.png" alt="Wakdo">
+            <img src="<?= $asset('/assets/images/logo.png') ?>" alt="Wakdo">
             <span class="login-logo-title">Wakdo Admin</span>
             <span class="login-logo-sub">Réinitialisation du mot de passe</span>
         </div>

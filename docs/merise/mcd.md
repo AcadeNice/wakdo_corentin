@@ -1,8 +1,8 @@
 # Modele Conceptuel de Donnees (MCD) — Wakdo
 
 **Phase Merise** : P1 - Conception, etape 2 (data dictionary first, mantra #33)
-**Version** : v0.4 — prod-like, 22 entites (19 prod-like + couche security-by-design)
-**Historique** : v0.4 (2026-09-24) — mise en coherence avec le code livre (2a09597) : diagrammes des sections 4.1 a 7.1 re-extraits des migrations 0001 a 0011 (colonnes `allergens_*` de 0011, `preparing_at` / `ready_at` de 0009, entite `pin_throttle` et association `taken_by`), association `anchors` corrigee (un produit ancre 0 a N menus), cardinalites I2, I6, I7, R5, R6 et R9 alignees sur leur justification et sur les contraintes du DDL, association `taken_by` ajoutee au tableau 6.2 (O9), commande de rendu des diagrammes mise a jour (section 11).
+**Version** : v0.5 — prod-like, 23 entites (19 prod-like + couche security-by-design + classement des ingredients)
+**Historique** : v0.5 (2026-09-27) — migration 0017 : attribut `ingredient.family` et `category_ingredient_family` (attribut multivalue de CATEGORY sorti en table par la premiere forme normale, association `accepts`, cardinalite I8) ; la famille reste un domaine de valeurs et non une entite, arbitrage motive en 5.3 ; compte d'entites 22 -> 23. v0.4 (2026-09-24) — mise en coherence avec le code livre (2a09597) : diagrammes des sections 4.1 a 7.1 re-extraits des migrations 0001 a 0011 (colonnes `allergens_*` de 0011, `preparing_at` / `ready_at` de 0009, entite `pin_throttle` et association `taken_by`), association `anchors` corrigee (un produit ancre 0 a N menus), cardinalites I2, I6, I7, R5, R6 et R9 alignees sur leur justification et sur les contraintes du DDL, association `taken_by` ajoutee au tableau 6.2 (O9), commande de rendu des diagrammes mise a jour (section 11).
 **Date** : 2026-06-04 (ajouts security-by-design 2026-06-11)
 **Branche** : `feat/p1-conception`
 **Statut** : prod-like — toutes les decisions D1-D8 + stock appliquees (voir `docs/notes/revue-alignement-p1.md` §7) ; couche security-by-design (audit_log + colonnes imputabilite/auth) en cours
@@ -22,7 +22,7 @@ structure relationnelle : combien de X par Y, si la participation est obligatoir
 leurs propres attributs.
 
 **Sources** :
-- `docs/merise/dictionary.md` (v0.3 — 22 entites, source de verite pour tous les noms, types, ENUMs)
+- `docs/merise/dictionary.md` (v0.3 — 23 entites, source de verite pour tous les noms, types, ENUMs)
 - `docs/notes/revue-alignement-p1.md` §7 (table de decisions D1-D8 + stock)
 - `docs/PROJECT_CONTEXT.md` (regles metier : composition de menu, flux de commande, RBAC, modes de service)
 - `docs/merise/_sources/` (donnees de l'ecole : 9 categories, 53 produits, 13 menus)
@@ -63,14 +63,14 @@ Les associations N-N qui portent leurs propres attributs deviennent des **entite
 
 ## 3. Decomposition par sous-domaine
 
-Le modele de 22 entites est divise en 4 sous-domaines pour la lisibilite. Au-dela d'environ
+Le modele de 23 entites est divise en 4 sous-domaines pour la lisibilite. Au-dela d'environ
 5 entites, un diagramme plat unique devient difficile a lire ; la decomposition est la pratique
 Merise standard pour les modeles de cette taille.
 
 | Sous-domaine | Entites | Nombre |
 |---|---|---|
 | Catalogue | category, product, menu, menu_slot, menu_slot_option | 5 |
-| Ingredients & Stock | ingredient, product_ingredient, allergen, ingredient_allergen, stock_movement | 5 |
+| Ingredients & Stock | ingredient, product_ingredient, allergen, ingredient_allergen, stock_movement, category_ingredient_family | 6 |
 | Order | customer_order, order_item, order_item_selection, order_item_modifier | 4 |
 | RBAC & Audit | user, role, role_visible_source, permission, role_permission, audit_log, login_throttle, pin_throttle | 8 |
 
@@ -84,7 +84,7 @@ Merise standard pour les modeles de cette taille.
 > `user` cycle de vie auth + `pin_hash` + `anonymized_at`, `customer_order.acting_user_id`
 > + `idempotency_key`. Voir note 13 du dictionnaire.
 
-**Note sur l'absence d'un diagramme global** : un unique diagramme ER de 22 entites serait
+**Note sur l'absence d'un diagramme global** : un unique diagramme ER de 23 entites serait
 illisible et impossible a maintenir. La decomposition par sous-domaine ci-dessous est le choix
 structurel intentionnel. Chaque sous-domaine est un `erDiagram` Mermaid (faisant autorite, rendu
 nativement) avec un rendu SVG portable dans `docs/merise/_diagrams/` ; voir la section 11 pour les
@@ -194,6 +194,7 @@ erDiagram
         int id PK
         varchar name UK
         varchar unit
+        varchar family
         int stock_quantity
         int stock_capacity
         smallint pack_size
@@ -226,6 +227,14 @@ erDiagram
         int ingredient_id PK,FK
         int allergen_id PK,FK
     }
+    category {
+        int id PK
+        varchar name
+    }
+    category_ingredient_family {
+        int category_id PK,FK
+        varchar family PK
+    }
     customer_order {
         int id PK
         varchar order_number
@@ -249,6 +258,7 @@ erDiagram
     ingredient ||--o{ ingredient_allergen : "contains"
     allergen ||--o{ ingredient_allergen : "is_present_in"
     ingredient ||--o{ stock_movement : "decrements"
+    category ||--o{ category_ingredient_family : "accepts"
     customer_order |o--o{ stock_movement : "triggers"
     user |o--o{ stock_movement : "logs"
 ```
@@ -264,12 +274,19 @@ erDiagram
 | I5 | decrements | ingredient | (0,N) | stock_movement | (1,1) | Tous les mouvements affectent exactement un ingredient. Un ingredient peut n'avoir encore aucune ligne de mouvement de stock s'il a ete cree recemment et qu'aucune commande n'a ete passee. Chaque ligne de mouvement reference exactement un ingredient. |
 | I6 | triggers | customer_order | (0,N) | stock_movement | (0,1) | Un mouvement `sale` ou `cancellation` reference la commande d'origine. Un `restock` ou `inventory_correction` n'a pas de commande (NULL). Une commande donnee declenche des mouvements sur tous ses ingredients ; une commande encore `pending_payment` n'a declenche aucun mouvement. `stock_movement.order_id` est nullable et non unique (`0001_init_schema.sql`). |
 | I7 | logs | user | (0,N) | stock_movement | (0,1) | Les decrements de vente automatises n'ont pas d'utilisateur (NULL). Les reapprovisionnements et corrections manuels sont attribues a un utilisateur. Un utilisateur peut journaliser un nombre quelconque de mouvements. `stock_movement.user_id` est nullable et non unique. |
+| I8 | accepts | category | (0,N) | category_ingredient_family | (1,1) | Une categorie peut n'accepter aucune restriction de famille : l'absence de ligne vaut « pas de filtre », et c'est le cas voulu pour `menus`, qui traverse toutes les familles. Chaque ligne de correspondance appartient a exactement une categorie. La cardinalite (0,N) porte donc une vraie decision metier, pas une commodite : ce n'est pas « on n'a pas encore renseigne », c'est « cette categorie n'est pas filtree ». |
 
 ### 5.3 Notes sur le sous-domaine Ingredients & Stock
 
 **`product_ingredient` comme entite associative** : l'association N-N entre `product` et `ingredient` porte cinq attributs (`quantity_normal`, `quantity_maxi`, `is_removable`, `is_addable`, `extra_price_cents`). Elle devient une table de jointure dans le MLD avec une PK composite `(product_id, ingredient_id)`.
 
 **`ingredient_allergen` comme table de jointure pure** : aucun attribut propre. L'ensemble des allergenes d'un produit est calcule au moment de la requete en joignant `product_ingredient -> ingredient_allergen -> allergen` ; aucune saisie manuelle par produit n'est necessaire.
+
+**La famille d'ingredient est un domaine de valeurs, pas une entite (migration 0017)** : `ingredient.family` classe l'ingredient parmi dix valeurs figees (`pain`, `viande`, `fromage`, `legume`, `sauce`, `feculent`, `dose_boisson`, `contenant`, `dessert`, `dosette`), et `category_ingredient_family` dit quelles familles une categorie de produits accepte. Le modele aurait pu porter une entite FAMILLE avec deux associations N-N ; ce n'est pas le choix retenu. Une entite se justifie quand elle porte des attributs propres, un cycle de vie ou une identite que le metier manipule. Ici, la famille n'a qu'un libelle et une liste fermee decidee a la conception : en faire une entite ajouterait une jointure a chaque lecture et une ligne au modele sans rien garantir de plus, puisque le domaine de valeurs est tenu par l'application (`App\Catalogue\IngredientFamily`). La contrepartie est assumee et ecrite en `mld.md` 4.23 : la base ne rejetterait pas une valeur inventee inseree en SQL direct.
+
+**Une non-entite qui apparait quand meme au diagramme** : `category_ingredient_family` est dessinee ici parce qu'elle existe en tant que table et porte une cle etrangere reelle, mais elle n'est pas une association N-N entre deux entites — c'est un **attribut multivalue de CATEGORY**, que la premiere forme normale oblige a sortir dans sa propre table. C'est la seule de ce modele dans ce cas. Elle est rattachee au sous-domaine Ingredients & Stock plutot qu'a Catalogue parce que ce qu'elle contraint est le catalogue d'ingredients, pas le catalogue de produits.
+
+**L'absence de ligne vaut permission, pas interdiction** : une categorie sans aucune ligne dans `category_ingredient_family` n'est pas filtree. C'est une decision, pas un effet de bord : `menus` traverse toutes les familles par nature. Consequence connue, ecrite dans `docs/adr/0018-familles-ingredients-filtre-recette.md` : une categorie creee apres coup ne sera pas filtree tant que personne ne l'aura renseignee, et rien ne le signale.
 
 **Immuabilite de `stock_movement`** : cette table est append-only. Aucun UPDATE ni DELETE n'est autorise au niveau applicatif. Les corrections sont de nouvelles lignes avec `movement_type = 'inventory_correction'` et un `delta` signe.
 
@@ -567,7 +584,7 @@ purge cron quotidienne. Association R9 : `user` (0,1) -- (1,1) `pin_throttle` (u
 
 ## 8. Validation croisee MCD <-> dictionnaire
 
-Verification que les 22 entites du dictionnaire apparaissent dans le MCD et reciproquement.
+Verification que les 23 entites du dictionnaire apparaissent dans le MCD et reciproquement.
 
 | # | Entite du dictionnaire (section 3) | Sous-domaine dans le MCD | Presente |
 |---|---|---|---|
@@ -593,9 +610,10 @@ Verification que les 22 entites du dictionnaire apparaissent dans le MCD et reci
 | 20 | `audit_log` (3.20) | RBAC & Audit | Oui |
 | 21 | `login_throttle` (3.21) | RBAC & Audit | Oui |
 | 22 | `pin_throttle` (3.22) | RBAC & Audit | Oui |
+| 23 | `category_ingredient_family` (3.23) | Ingredients & Stock | Oui |
 
-**Resultat** : 22/22 entites tracees (19 prod-like + `audit_log`, `login_throttle` et `pin_throttle`
-security-by-design). Aucune entite du dictionnaire n'est absente du MCD. Aucune entite du MCD
+**Resultat** : 23/23 entites tracees (19 prod-like + `audit_log`, `login_throttle` et `pin_throttle`
+security-by-design + `category_ingredient_family`, filtre du constructeur de recette). Aucune entite du dictionnaire n'est absente du MCD. Aucune entite du MCD
 ne tombe en dehors du dictionnaire.
 
 **Entites apparaissant dans plusieurs sous-domaines** (entites partagees inter-domaines) :
@@ -606,6 +624,7 @@ ne tombe en dehors du dictionnaire.
 - `customer_order` : Order (cycle de vie de la commande) + Ingredients (declencheur de mouvement de stock) + RBAC & Audit (employe taken_by via `acting_user_id`)
 - `user` : RBAC (authentification) + Ingredients (auteur de mouvement de stock) + Order (`acting_user_id` sur les commandes comptoir/drive) + Audit (acteur de `audit_log`)
 - `role` : RBAC (permissions, sources visibles) + Audit (contexte `actor_role_id` denormalise sur `audit_log`)
+- `category` : Catalogue (regroupement des produits et des menus) + Ingredients & Stock (familles d'ingredients acceptees, via `category_ingredient_family`)
 
 C'est attendu dans un modele normalise. La division par sous-domaine est pour la lisibilite ; le schema
 relationnel reel est un graphe unifie.

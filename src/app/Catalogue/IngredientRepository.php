@@ -28,6 +28,11 @@ use App\Core\DatabaseInterface;
  * (RESTRICT) et stock_movement (RESTRICT) -> la suppression dure est bloquee des
  * qu'une recette ou un mouvement existe ; le controleur traduit la violation
  * (SQLSTATE 23000) en 409 et propose la desactivation (is_active).
+ *
+ * `family` (migration 0017, App\Catalogue\IngredientFamily) : classement en dix
+ * familles qui pilote le filtrage du selecteur d'ingredients du formulaire
+ * produit par categorie. NULLABLE : NULL = non classe = visible dans toutes les
+ * categories (degradation sure).
  */
 final class IngredientRepository
 {
@@ -43,7 +48,7 @@ final class IngredientRepository
     public function all(): array
     {
         $rows = $this->db->fetchAll(
-            'SELECT id, name, unit, stock_quantity, stock_capacity, pack_size, pack_label, '
+            'SELECT id, name, unit, family, stock_quantity, stock_capacity, pack_size, pack_label, '
             . 'energy_kcal_100g, nutrition_source, nutrition_fetched_at, '
             . 'allergens_reviewed_at, allergens_source, '
             . 'low_stock_pct, critical_stock_pct, is_active FROM ingredient ORDER BY name',
@@ -61,7 +66,7 @@ final class IngredientRepository
             // allergens_reviewed_at / allergens_source (F11b) : la liste de colonnes est
             // EXPLICITE, donc les oublier ferait afficher "Jamais revu" a un ingredient
             // pourtant revu. Le formulaire lit ces deux champs par renderForm().
-            'SELECT id, name, unit, stock_quantity, stock_capacity, pack_size, pack_label, '
+            'SELECT id, name, unit, family, stock_quantity, stock_capacity, pack_size, pack_label, '
             . 'energy_kcal_100g, nutrition_source, nutrition_fetched_at, '
             . 'allergens_reviewed_at, allergens_source, '
             . 'low_stock_pct, critical_stock_pct, is_active FROM ingredient WHERE id = :id',
@@ -83,17 +88,25 @@ final class IngredientRepository
      * Creation : pose les valeurs initiales, stock_quantity inclus (point de
      * depart du stock). Allowlist RG-T16.
      *
-     * @param array{name: string, unit: string, stock_quantity: int, stock_capacity: int, pack_size: int, pack_label: ?string, low_stock_pct: int, critical_stock_pct: int, is_active: int} $data
+     * `family` (migration 0017) est OPTIONNELLE dans le tableau d'entree --
+     * `??` la defaute a NULL -- pour ne pas casser les deux appelants qui
+     * creent un ingredient sans jamais fournir cette cle (import CSV,
+     * `ProductController::materializeCompositionLines` pour un ingredient cree
+     * a la volee depuis le constructeur de recette) : NULL = non classe =
+     * visible dans toutes les categories, degradation sure.
+     *
+     * @param array{name: string, unit: string, family?: ?string, stock_quantity: int, stock_capacity: int, pack_size: int, pack_label: ?string, low_stock_pct: int, critical_stock_pct: int, is_active: int} $data
      */
     public function create(array $data): void
     {
         $this->db->execute(
-            'INSERT INTO ingredient (name, unit, stock_quantity, stock_capacity, pack_size, '
+            'INSERT INTO ingredient (name, unit, family, stock_quantity, stock_capacity, pack_size, '
             . 'pack_label, low_stock_pct, critical_stock_pct, is_active) '
-            . 'VALUES (:name, :unit, :qty, :cap, :pack, :label, :low, :crit, :active)',
+            . 'VALUES (:name, :unit, :family, :qty, :cap, :pack, :label, :low, :crit, :active)',
             [
                 'name'   => $data['name'],
                 'unit'   => $data['unit'],
+                'family' => $data['family'] ?? null,
                 'qty'    => self::clampToCapacity((int) $data['stock_quantity'], (int) $data['stock_capacity']),
                 'cap'    => $data['stock_capacity'],
                 'pack'   => $data['pack_size'],
@@ -111,23 +124,24 @@ final class IngredientRepository
      * restock/inventoryCount (ledger) ; is_active bascule via setActive
      * (soft-delete). Les lier ici ouvrirait une affectation de masse non voulue.
      *
-     * @param array{name: string, unit: string, stock_capacity: int, pack_size: int, pack_label: ?string, low_stock_pct: int, critical_stock_pct: int} $data
+     * @param array{name: string, unit: string, family?: ?string, stock_capacity: int, pack_size: int, pack_label: ?string, low_stock_pct: int, critical_stock_pct: int} $data
      */
     public function update(int $id, array $data): void
     {
         $this->db->execute(
-            'UPDATE ingredient SET name = :name, unit = :unit, stock_capacity = :cap, '
+            'UPDATE ingredient SET name = :name, unit = :unit, family = :family, stock_capacity = :cap, '
             . 'pack_size = :pack, pack_label = :label, low_stock_pct = :low, '
             . 'critical_stock_pct = :crit WHERE id = :id',
             [
-                'name'  => $data['name'],
-                'unit'  => $data['unit'],
-                'cap'   => $data['stock_capacity'],
-                'pack'  => $data['pack_size'],
-                'label' => $data['pack_label'],
-                'low'   => $data['low_stock_pct'],
-                'crit'  => $data['critical_stock_pct'],
-                'id'    => $id,
+                'name'   => $data['name'],
+                'unit'   => $data['unit'],
+                'family' => $data['family'] ?? null,
+                'cap'    => $data['stock_capacity'],
+                'pack'   => $data['pack_size'],
+                'label'  => $data['pack_label'],
+                'low'    => $data['low_stock_pct'],
+                'crit'   => $data['critical_stock_pct'],
+                'id'     => $id,
             ],
         );
     }

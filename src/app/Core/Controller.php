@@ -67,6 +67,11 @@ abstract class Controller
             throw new RuntimeException(sprintf('View not found: %s', $name));
         }
 
+        // Adresse d'un fichier statique, marqueur de version compris (App\Core\Asset) :
+        // injectee ici pour que TOUTE vue en dispose sans qu'un controleur ait a la
+        // passer. Definie avant extract() qui, en EXTR_SKIP, ne l'ecrasera pas.
+        $asset = static fn (string $path): string => Asset::forAdmin()->url($path);
+
         // Les cles deviennent des variables locales a la vue ; le buffering
         // capture le HTML produit sans l'emettre directement.
         extract($data, EXTR_SKIP);

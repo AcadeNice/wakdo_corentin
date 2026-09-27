@@ -14,7 +14,7 @@ namespace App\Core;
 final class Router
 {
     /**
-     * @var array<int, array{method: string, regex: string, handler: array{0: class-string, 1: string}}>
+     * @var array<int, array{method: string, pattern: string, regex: string, handler: array{0: class-string, 1: string}}>
      */
     private array $routes = [];
 
@@ -31,11 +31,34 @@ final class Router
     {
         $this->routes[] = [
             'method'  => strtoupper($method),
+            // Motif brut CONSERVE en plus de la regex compilee (ci-dessous) :
+            // App\Health\RouteMap le relit pour construire la carte des routes de
+            // la page "Sante de l'API" sans avoir a decompiler la regex.
+            'pattern' => $pattern,
             'regex'   => $this->compile($pattern),
             'handler' => $handler,
         ];
 
         return $this;
+    }
+
+    /**
+     * Releve EN DIRECT des routes enregistrees, dans l'ordre de declaration
+     * (App\Health\RouteMap, page "Sante de l'API"). Ne modifie jamais l'etat du
+     * routeur ; n'affecte pas dispatch().
+     *
+     * @return list<array{method: string, pattern: string, handler: array{0: class-string, 1: string}}>
+     */
+    public function routes(): array
+    {
+        return array_map(
+            static fn (array $route): array => [
+                'method'  => $route['method'],
+                'pattern' => $route['pattern'],
+                'handler' => $route['handler'],
+            ],
+            $this->routes,
+        );
     }
 
     /**

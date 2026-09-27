@@ -13,9 +13,12 @@ declare(strict_types=1);
  * @var array<int, array<string, mixed>>  $ingredients  catalogue pour le picker de recette
  * @var string                            $compositionJson  composition initiale (JSON), voir ProductController::renderForm()
  * @var bool                              $canCreateIngredient  permission ingredient.manage (bouton "nouvel ingrédient")
+ * @var array<int, list<string>>          $categoryFamilies  categorie -> slugs de familles autorisees ; categorie absente = pas de filtre
+ * @var array<string, string>             $ingredientFamilies  slug de famille -> libelle francais, ordonne
  * @var array<string, mixed>              $values
  * @var array<string, string>             $errors
  * @var string                            $csrfToken
+ * @var callable(string): string $asset  adresse d'un fichier statique, marqueur de version compris (App\Core\Asset)
  */
 
 $csrf = htmlspecialchars($csrfToken ?? '', ENT_QUOTES, 'UTF-8');
@@ -42,12 +45,30 @@ $selectedMaxi = (string) ($vals['maxi_variant_product_id'] ?? '');
 /** @var array<int, array<string, mixed>> $ings */
 $ings = isset($ingredients) && is_array($ingredients) ? $ingredients : [];
 $slimIngredients = array_map(
-    static fn (array $i): array => ['id' => (int) ($i['id'] ?? 0), 'name' => (string) ($i['name'] ?? ''), 'unit' => (string) ($i['unit'] ?? '')],
+    static fn (array $i): array => [
+        'id'     => (int) ($i['id'] ?? 0),
+        'name'   => (string) ($i['name'] ?? ''),
+        'unit'   => (string) ($i['unit'] ?? ''),
+        // null = ingredient non classe : le picker le garde visible dans toutes
+        // les categories (filtre souple, jamais une interdiction).
+        'family' => isset($i['family']) && $i['family'] !== '' ? (string) $i['family'] : null,
+    ],
     $ings,
 );
 $compositionJsonValue = (string) ($compositionJson ?? '[]');
 $canCreateIngredientFlag = (bool) ($canCreateIngredient ?? false);
 $attr = static fn (mixed $data): string => htmlspecialchars((string) json_encode($data, JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8');
+
+/** @var array<int, list<string>> $catFamilies */
+$catFamilies = isset($categoryFamilies) && is_array($categoryFamilies) ? $categoryFamilies : [];
+/** @var array<string, string> $ingFamilies */
+$ingFamilies = isset($ingredientFamilies) && is_array($ingredientFamilies) ? $ingredientFamilies : [];
+// (object) force un encodage JSON en objet ({"3":[...]}) meme si les cles de
+// categorie se trouvaient etre 0,1,2... sequentielles : sinon json_encode
+// produirait un tableau JSON, que product-recipe.js lirait alors comme une
+// correspondance vide (aucune categorie n'y matcherait plus par cle).
+$categoryFamiliesAttr = $attr((object) $catFamilies);
+$ingredientFamiliesAttr = $attr((object) $ingFamilies);
 
 // "Variantes" est replie dans un <details class="form-advanced"> (design-system.md
 // 2.5) : trois champs que la grande majorite des produits laisse vides. Ouvert
@@ -214,6 +235,8 @@ $variantsOpen = ($hasVariantValue || $hasVariantError) ? ' open' : '';
              data-ingredients="<?= $attr($slimIngredients) ?>"
              data-composition="<?= htmlspecialchars($compositionJsonValue, ENT_QUOTES, 'UTF-8') ?>"
              data-can-create-ingredient="<?= $canCreateIngredientFlag ? '1' : '0' ?>"
+             data-category-families="<?= $categoryFamiliesAttr ?>"
+             data-ingredient-families="<?= $ingredientFamiliesAttr ?>"
              <?= ($errs['composition'] ?? '') !== '' ? 'aria-describedby="composition-error"' : '' ?>></div>
         <div class="form-actions">
             <button class="btn btn-secondary" type="button" id="add-ingredient">Ajouter un ingrédient</button>
@@ -247,5 +270,5 @@ $variantsOpen = ($hasVariantValue || $hasVariantError) ? ' open' : '';
     </div>
 </form>
 
-<script src="/assets/js/image-drop.js"></script>
-<script src="/assets/js/product-recipe.js"></script>
+<script src="<?= $asset('/assets/js/image-drop.js') ?>"></script>
+<script src="<?= $asset('/assets/js/product-recipe.js') ?>"></script>

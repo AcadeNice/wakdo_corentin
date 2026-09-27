@@ -1,0 +1,854 @@
+{
+  "page": "admin-sante-api",
+  "url": "http://admin.wakdo.test/admin/health",
+  "date": "2026-09-27T13:40:30.216Z",
+  "moteur": {
+    "axe": {
+      "name": "axe-core",
+      "version": "4.13.0"
+    },
+    "regles": [
+      "wcag2a",
+      "wcag2aa",
+      "wcag21a",
+      "wcag21aa"
+    ]
+  },
+  "navigateur": {
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.6778.33 Safari/537.36",
+    "windowWidth": 1440,
+    "windowHeight": 900,
+    "orientationAngle": 0,
+    "orientationType": "landscape-primary"
+  },
+  "violations": [],
+  "indetermines": [],
+  "contrastes_mesures": [
+    {
+      "compartiment": "conforme",
+      "selecteur": ".topbar-user-avatar",
+      "extrait": "<div class=\"topbar-user-avatar\">WA</div>",
+      "avant_plan": "#ffc72c",
+      "arriere_plan": "#1a1a1a",
+      "ratio": 11.15,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".topbar-user-name",
+      "extrait": "<div class=\"topbar-user-name\">Wakdo Admin</div>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".topbar-user-role",
+      "extrait": "<div class=\"topbar-user-role\">Administrateur</div>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-brand-name",
+      "extrait": "<span class=\"sidebar-brand-name\">Wak<span>do</span></span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "3:1",
+      "taille_px": "15.8pt (21px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-brand-name > span",
+      "extrait": "<span>do</span>",
+      "avant_plan": "#ae7f09",
+      "arriere_plan": "#ffffff",
+      "ratio": 3.59,
+      "seuil_attendu": "3:1",
+      "taille_px": "15.8pt (21px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-section:nth-child(2) > .sidebar-section-label",
+      "extrait": "<div class=\"sidebar-section-label\">Vue d'ensemble</div>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"dashboard\"]",
+      "extrait": "<a href=\"/admin/dashboard\" class=\"sidebar-item\">Tableau de bord</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-section:nth-child(3) > .sidebar-section-label",
+      "extrait": "<div class=\"sidebar-section-label\">Catalogue</div>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"categories\"]",
+      "extrait": "<a href=\"/admin/categories\" class=\"sidebar-item\">Catégories</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"products\"]",
+      "extrait": "<a href=\"/admin/products\" class=\"sidebar-item\">Produits</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"by-category\"]",
+      "extrait": "<a href=\"/admin/products/by-category\" class=\"sidebar-item\">Produits par catégorie</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"menus\"]",
+      "extrait": "<a href=\"/admin/menus\" class=\"sidebar-item\">Menus</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-section:nth-child(4) > .sidebar-section-label",
+      "extrait": "<div class=\"sidebar-section-label\">Stock</div>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"ingredients\"]",
+      "extrait": "<a href=\"/admin/ingredients\" class=\"sidebar-item\">Ingrédients</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-section:nth-child(5) > .sidebar-section-label",
+      "extrait": "<div class=\"sidebar-section-label\">Pilotage</div>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-item[href$=\"orders\"]:nth-child(2)",
+      "extrait": "<a href=\"/counter/orders\" class=\"sidebar-item\">Saisie commande</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"stats\"]",
+      "extrait": "<a href=\"/admin/stats\" class=\"sidebar-item\">Statistiques</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-item[href$=\"orders\"]:nth-child(4)",
+      "extrait": "<a href=\"/admin/orders\" class=\"sidebar-item\">Commandes</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"display\"]",
+      "extrait": "<a href=\"/kitchen/display\" class=\"sidebar-item\">Cuisine (KDS)</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-section:nth-child(6) > .sidebar-section-label",
+      "extrait": "<div class=\"sidebar-section-label\">Administration</div>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"users\"]",
+      "extrait": "<a href=\"/admin/users\" class=\"sidebar-item\">Utilisateurs</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"roles\"]",
+      "extrait": "<a href=\"/admin/roles\" class=\"sidebar-item\">Rôles</a>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".sidebar-section:nth-child(7) > .sidebar-section-label",
+      "extrait": "<div class=\"sidebar-section-label\">Système</div>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.3pt (11px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".active",
+      "extrait": "<a href=\"/admin/health\" class=\"sidebar-item active\">Santé de l'API</a>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#fff3d1",
+      "ratio": 15.74,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "h1",
+      "extrait": "<h1 class=\"page-title\">Santé de l'API</h1>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#f5f5f5",
+      "ratio": 15.96,
+      "seuil_attendu": "3:1",
+      "taille_px": "15.0pt (20px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".page-subtitle",
+      "extrait": "<p class=\"page-subtitle\">Ce que le serveur voit de lui-même, les appels réels qu'on peut lui envoyer",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#f5f5f5",
+      "ratio": 4.57,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".toc__label",
+      "extrait": "<p class=\"toc__label\">Aller à la section :</p>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#f9fafb",
+      "ratio": 4.76,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"#health-etat\"]",
+      "extrait": "<a href=\"#health-etat\">État en direct</a>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#f9fafb",
+      "ratio": 16.65,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"#health-sondes\"]",
+      "extrait": "<a href=\"#health-sondes\">Appels réels</a>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#f9fafb",
+      "ratio": 16.65,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"#health-trajet\"]",
+      "extrait": "<a href=\"#health-trajet\">Le trajet d'un appel</a>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#f9fafb",
+      "ratio": 16.65,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "a[href$=\"#health-routes\"]",
+      "extrait": "<a href=\"#health-routes\">La carte des routes</a>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#f9fafb",
+      "ratio": 16.65,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "#h-health-etat",
+      "extrait": "<h2 id=\"h-health-etat\">État en direct</h2>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#f5f5f5",
+      "ratio": 15.96,
+      "seuil_attendu": "3:1",
+      "taille_px": "15.0pt (20px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "#health-etat > .health-section-lede",
+      "extrait": "<p class=\"health-section-lede\">Généré le 27/09/2026 15:40:28, puis relu automatiquement toutes les 1",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#f5f5f5",
+      "ratio": 4.57,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".kpi-card:nth-child(1) > .kpi-label",
+      "extrait": "<p class=\"kpi-label\">Base de données</p>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "#health-db-pill",
+      "extrait": "<span class=\"pill pill-success\" id=\"health-db-pill\">Joignable</span>",
+      "avant_plan": "#065f46",
+      "arriere_plan": "#d1fae5",
+      "ratio": 6.77,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "#health-db-detail",
+      "extrait": "<p class=\"health-kpi-detail\" id=\"health-db-detail\">0.1 ms · 11.4.10-MariaDB-ubu2404</p>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".kpi-card:nth-child(2) > .kpi-label",
+      "extrait": "<p class=\"kpi-label\">Affichage des erreurs</p>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "#health-debug-pill",
+      "extrait": "<span class=\"pill pill-danger\" id=\"health-debug-pill\">Actif</span>",
+      "avant_plan": "#991b1b",
+      "arriere_plan": "#fee2e2",
+      "ratio": 6.8,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "#health-debug-detail",
+      "extrait": "<p class=\"health-kpi-detail\" id=\"health-debug-detail\">Environnement dev · débogage activé · PHP 8.3.",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".kpi-card:nth-child(3) > .kpi-label",
+      "extrait": "<p class=\"kpi-label\">Version servie</p>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "#health-deployed-at",
+      "extrait": "<p class=\"health-kpi-detail\" id=\"health-deployed-at\">date de déploiement inconnue</p>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".kpi-card:nth-child(4) > .kpi-label",
+      "extrait": "<p class=\"kpi-label\">Migrations</p>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "#health-migrations",
+      "extrait": "<p class=\"kpi-value\" id=\"health-migrations\">16 (nombre de fichiers inconnu)</p>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "3:1",
+      "taille_px": "18.0pt (24px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "#health-migrations-last",
+      "extrait": "<p class=\"health-kpi-detail\" id=\"health-migrations-last\">dernière : 0017_ingredient_family.sql</p>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".kpi-card:nth-child(5) > .kpi-label",
+      "extrait": "<p class=\"kpi-label\">Seeds</p>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "#health-seeds",
+      "extrait": "<p class=\"kpi-value\" id=\"health-seeds\">10 (nombre de fichiers inconnu)</p>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "3:1",
+      "taille_px": "18.0pt (24px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "#health-seeds-last",
+      "extrait": "<p class=\"health-kpi-detail\" id=\"health-seeds-last\">dernier : 0010_ingredient_families.sql</p>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".kpi-card:nth-child(6) > .kpi-label",
+      "extrait": "<p class=\"kpi-label\">Activité (24 h)</p>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "#health-activity",
+      "extrait": "<p class=\"kpi-value\" id=\"health-activity\">0 créées</p>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "3:1",
+      "taille_px": "18.0pt (24px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "#health-activity-detail",
+      "extrait": "<p class=\"health-kpi-detail\" id=\"health-activity-detail\">0 payées · 1 ligne d'audit · 0 échecs de co",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "#health-refresh-status",
+      "extrait": "<p class=\"health-refresh-status\" id=\"health-refresh-status\" role=\"status\" aria-live=\"polite\"> Derniè",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#f5f5f5",
+      "ratio": 4.57,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "#health-refresh-time",
+      "extrait": "<time id=\"health-refresh-time\">27/09/2026 15:40:28</time>",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#f5f5f5",
+      "ratio": 4.57,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "#h-health-sondes",
+      "extrait": "<h2 id=\"h-health-sondes\">Appels réels</h2>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#f5f5f5",
+      "ratio": 15.96,
+      "seuil_attendu": "3:1",
+      "taille_px": "15.0pt (20px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "#health-sondes > .health-section-lede",
+      "extrait": "<p class=\"health-section-lede\">Sept appels réels, envoyés à l'API depuis ce navigateur. Aucun n'écri",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#f5f5f5",
+      "ratio": 4.57,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "li[data-probe-id=\"sante\"] > .health-probe-head > .health-meth--GET.health-meth",
+      "extrait": "<span class=\"health-meth health-meth--GET\">GET</span>",
+      "avant_plan": "#1e40af",
+      "arriere_plan": "#dbeafe",
+      "ratio": 7.14,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "8.6pt (11.5px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "li[data-probe-id=\"sante\"] > .health-probe-head > code",
+      "extrait": "<code class=\"mono health-probe-url\">/api/health</code>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "li[data-probe-id=\"sante\"] > .health-probe-head > .btn-sm.btn-secondary[data-probe-run=\"\"]",
+      "extrait": "<button class=\"btn btn-secondary btn-sm\" type=\"button\" data-probe-run=\"\">Lancer</button>",
+      "avant_plan": "#4a4a4a",
+      "arriere_plan": "#ffffff",
+      "ratio": 8.86,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "li[data-probe-id=\"sante\"] > .health-probe-label",
+      "extrait": "<p class=\"health-probe-label\">Santé de l'API (sonde de déploiement continu)</p>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "10.5pt (14px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "li[data-probe-id=\"sante\"] > .health-probe-why",
+      "extrait": "<p class=\"health-probe-why\">Prouve que la chaîne complète (routeur, contrôleur, connexion à la base)",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": "li[data-probe-id=\"sante\"] > .health-probe-result[data-probe-result=\"\"][role=\"status\"]",
+      "extrait": "<p class=\"health-probe-result\" data-probe-result=\"\" role=\"status\" aria-live=\"polite\">Pas encore lanc",
+      "avant_plan": "#69707d",
+      "arriere_plan": "#ffffff",
+      "ratio": 4.98,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.0pt (12px)",
+      "graisse": "normal"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".a11y-toggle__icon",
+      "extrait": "<span class=\"a11y-toggle__icon\" aria-hidden=\"true\">Aa</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "11.3pt (15px)",
+      "graisse": "bold"
+    },
+    {
+      "compartiment": "conforme",
+      "selecteur": ".a11y-toggle__label",
+      "extrait": "<span class=\"a11y-toggle__label\">Police adaptée</span>",
+      "avant_plan": "#1a1a1a",
+      "arriere_plan": "#ffffff",
+      "ratio": 17.4,
+      "seuil_attendu": "4.5:1",
+      "taille_px": "9.8pt (13px)",
+      "graisse": "bold"
+    }
+  ],
+  "conformes_resume": [
+    {
+      "id": "aria-allowed-attr",
+      "noeuds": 193
+    },
+    {
+      "id": "aria-conditional-attr",
+      "noeuds": 193
+    },
+    {
+      "id": "aria-deprecated-role",
+      "noeuds": 10
+    },
+    {
+      "id": "aria-hidden-body",
+      "noeuds": 1
+    },
+    {
+      "id": "aria-hidden-focus",
+      "noeuds": 15
+    },
+    {
+      "id": "aria-prohibited-attr",
+      "noeuds": 193
+    },
+    {
+      "id": "aria-required-attr",
+      "noeuds": 10
+    },
+    {
+      "id": "aria-roles",
+      "noeuds": 10
+    },
+    {
+      "id": "aria-valid-attr",
+      "noeuds": 193
+    },
+    {
+      "id": "aria-valid-attr-value",
+      "noeuds": 193
+    },
+    {
+      "id": "button-name",
+      "noeuds": 184
+    },
+    {
+      "id": "bypass",
+      "noeuds": 1
+    },
+    {
+      "id": "color-contrast",
+      "noeuds": 63
+    },
+    {
+      "id": "document-title",
+      "noeuds": 1
+    },
+    {
+      "id": "duplicate-id-aria",
+      "noeuds": 4
+    },
+    {
+      "id": "form-field-multiple-labels",
+      "noeuds": 10
+    },
+    {
+      "id": "html-has-lang",
+      "noeuds": 1
+    },
+    {
+      "id": "html-lang-valid",
+      "noeuds": 1
+    },
+    {
+      "id": "image-alt",
+      "noeuds": 1
+    },
+    {
+      "id": "label",
+      "noeuds": 10
+    },
+    {
+      "id": "link-name",
+      "noeuds": 23
+    },
+    {
+      "id": "list",
+      "noeuds": 4
+    },
+    {
+      "id": "listitem",
+      "noeuds": 27
+    },
+    {
+      "id": "meta-viewport",
+      "noeuds": 1
+    },
+    {
+      "id": "nested-interactive",
+      "noeuds": 194
+    },
+    {
+      "id": "scrollable-region-focusable",
+      "noeuds": 1
+    }
+  ],
+  "non_applicables": [
+    "area-alt",
+    "aria-braille-equivalent",
+    "aria-command-name",
+    "aria-input-field-name",
+    "aria-meter-name",
+    "aria-progressbar-name",
+    "aria-required-children",
+    "aria-required-parent",
+    "aria-tab-name",
+    "aria-toggle-field-name",
+    "aria-tooltip-name",
+    "autocomplete-valid",
+    "avoid-inline-spacing",
+    "blink",
+    "definition-list",
+    "dlitem",
+    "frame-focusable-content",
+    "frame-title",
+    "frame-title-unique",
+    "html-xml-lang-mismatch",
+    "input-button-name",
+    "input-image-alt",
+    "link-in-text-block",
+    "marquee",
+    "meta-refresh",
+    "no-autoplay-audio",
+    "object-alt",
+    "role-img-alt",
+    "select-name",
+    "server-side-image-map",
+    "summary-name",
+    "svg-img-alt",
+    "td-headers-attr",
+    "th-has-data-cells",
+    "valid-lang",
+    "video-caption"
+  ]
+}

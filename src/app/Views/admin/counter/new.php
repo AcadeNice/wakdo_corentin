@@ -32,6 +32,7 @@ declare(strict_types=1);
  * @var string                     $landing      retour a la liste du canal
  * @var string|null                $error
  * @var string                     $csrfToken
+ * @var callable(string): string $asset  adresse d'un fichier statique, marqueur de version compris (App\Core\Asset)
  */
 
 $esc = static fn (mixed $v): string => htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
@@ -234,4 +235,4 @@ $jsonFlags = JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APO
 <!-- Conteneur de la modale de configuration de menu (rempli par counter-order.js). -->
 <div id="menu-composer-modal" hidden></div>
 
-<script src="/assets/js/counter-order.js"></script>
+<script src="<?= $asset('/assets/js/counter-order.js') ?>"></script>

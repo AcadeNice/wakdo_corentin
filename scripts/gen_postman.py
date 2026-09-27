@@ -576,13 +576,14 @@ items.append({
             json_body={
                 "name": "Ingredient Demo Plain {{run}}",
                 "unit": "unite",
+                "family": "dosette",
                 "pack_size": 50,
                 "pack_label": "carton de 50",
                 "stock_capacity": 500,
                 "low_stock_pct": 20,
                 "critical_stock_pct": 5,
             },
-            description="ingredient.manage, pas de PIN. Nom unique par execution ({{run}} -- \"Cet ingrédient existe déjà\" sinon). stock_quantity pose a 0 cote serveur (RG-CREATE-ING).",
+            description="ingredient.manage, pas de PIN. Nom unique par execution ({{run}} -- \"Cet ingrédient existe déjà\" sinon). stock_quantity pose a 0 cote serveur (RG-CREATE-ING). family (migration 0017) : slug de la liste canonique (App\\Catalogue\\IngredientFamily) ou omis/vide pour non classe.",
             tests=created_test(201, "created_ingredient_id"),
         ),
         request("Lire un ingredient", "GET", "/admin/api/ingredients/{{created_ingredient_id}}"),
@@ -591,12 +592,14 @@ items.append({
             json_body={
                 "name": "Ingredient Demo Plain {{run}} v2",
                 "unit": "unite",
+                "family": "sauce",
                 "pack_size": 50,
                 "pack_label": "carton de 50",
                 "stock_capacity": 500,
                 "low_stock_pct": 20,
                 "critical_stock_pct": 5,
             },
+            description="family change de \"dosette\" a \"sauce\" (visible sur la requete suivante) : remplacement COMPLET de la ressource (PUT), pas un PATCH -- omettre family ici la reinitialiserait a non classe, meme regle que pack_label.",
         ),
         request("Relire apres modification", "GET", "/admin/api/ingredients/{{created_ingredient_id}}"),
         request(
@@ -918,7 +921,8 @@ items.append({
 # par les dossiers ci-dessus), puis une requete AUTORISEE et une requete REFUSEE
 # (403 FORBIDDEN), deduites du SEUL SEED (db/seeds/0001_rbac_and_reference.sql,
 # section role_permission), pas d'une supposition :
-#   - manager : stats.read oui, order.* NON (D5 -- aucune commande, meme creation) ;
+#   - manager : stats.read + order.read + order.cancel oui (ADR-0020, qui remplace
+#     la decision D5 sur ce point), user.create NON ;
 #   - kitchen ("cuisine")  : order.read oui, user.read NON ;
 #   - counter ("comptoir") : order.create oui, product.delete NON ;
 #   - drive                : memes droits QUE counter (le seed leur donne le MEME
@@ -980,7 +984,7 @@ items.append({
     "name": "RBAC : preuve des droits",
     "item": [
         rbac_role_folder(
-            "manager", "Manager", "stats.read oui, order.* non (D5)",
+            "manager", "Manager", "stats.read + order.read + order.cancel oui (ADR-0020), user.create non",
             [
                 request(
                     "Autorise : tableau de bord (stats.read)", "GET", "/admin/api/stats",
@@ -988,15 +992,27 @@ items.append({
                     tests=expect_status(200, "200 stats.read accorde"),
                 ),
                 request(
-                    "Refuse : annuler une commande (pas order.cancel)", "POST", "/admin/api/orders/K1/cancel",
-                    json_body={"pin_email": "{{email_manager}}", "pin": "{{pin}}"},
+                    "Autorise : lister les commandes (order.read)", "GET", "/admin/api/orders",
                     description=(
-                        "Decision D5 : le manager ne recoit AUCUNE permission order.*, y compris "
-                        "order.cancel. 403 FORBIDDEN attendu (separation des pouvoirs), avant meme "
-                        "la verification du PIN. Numero K1 fictif : seul le code retourne compte ici "
-                        "(guardApi() s'execute avant toute lecture de commande)."
+                        "ADR-0020 (docs/adr/0020-responsable-annule-commande.md, remplace la "
+                        "decision D5 sur ce point) : le manager recoit desormais order.read, "
+                        "indispensable pour trouver une commande a annuler. 200 attendu, sans "
+                        "filtre de canal (aucune ligne role_visible_source pour ce role, comme admin)."
                     ),
-                    tests=expect_status(403, "403 FORBIDDEN (order.cancel absent)"),
+                    tests=expect_status(200, "200 order.read accorde"),
+                ),
+                request(
+                    "Refuse : creer un compte (pas user.create)", "POST", "/admin/api/users",
+                    json_body={"email": "manager-{{run}}@wakdo.local"},
+                    description=(
+                        "ADR-0020 ajoute order.read/order.cancel au manager mais ne touche pas aux "
+                        "droits utilisateurs : c'est ce refus qui porte desormais la demonstration "
+                        "de separation des pouvoirs (le responsable ne peut ni creer de compte ni "
+                        "s'attribuer des droits). 403 FORBIDDEN attendu, avant meme la validation du "
+                        "corps (guardApi() s'execute en premier, meme raisonnement que le refus "
+                        "product.delete ci-dessous)."
+                    ),
+                    tests=expect_status(403, "403 FORBIDDEN (user.create absent)"),
                     csrf_var="csrf_manager",
                 ),
             ],

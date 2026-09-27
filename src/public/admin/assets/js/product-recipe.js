@@ -21,6 +21,29 @@
  * Module CommonJS (admin = racine CommonJS, comme menu-form.js/pin-modal.js) :
  * init(doc) est exporte pour les tests (node --test + jsdom) et auto-appele au
  * DOMContentLoaded en production.
+ *
+ * Filtre du picker d'ingredients par famille (chantier "recette filtree par
+ * categorie du produit") : le catalogue propose par defaut est restreint aux
+ * familles pertinentes de la categorie du produit, plus tous les ingredients
+ * de famille inconnue (toujours visibles). Filtre SOUPLE, jamais une
+ * interdiction : une case "Afficher tous les ingredients" le desactive, et une
+ * ligne de recette deja presente n'est jamais retiree ni mise en erreur au nom
+ * d'une classification posee apres coup (une salade avec des croutons reste
+ * possible). Sur doute (donnees de correspondance absentes ou illisibles), le
+ * comportement est "aucun filtre, on montre tout" -- jamais une liste vide.
+ *
+ * Deux ecrans partagent ce builder, avec deux facons de connaitre la
+ * categorie :
+ * - admin/products/form.php : #category_id est un <select> que l'equipier
+ *   change en direct (produit pas encore enregistre, ou categorie en cours de
+ *   choix) -- le filtre se recalcule a chaque changement.
+ * - admin/products/recipe.php : la categorie du produit est deja fixee (page
+ *   d'edition de recette dediee, sans selecteur de categorie), transmise en
+ *   data-product-category-id sur #recipe-builder -- rien a ecouter, un seul
+ *   calcul au chargement.
+ * #category_id gagne s'il existe (formulaire produit) ; sinon
+ * data-product-category-id sert de repli (page recette dediee) ; sinon aucune
+ * categorie n'est connue -- aucun filtre.
  */
 (function () {
     'use strict';
@@ -136,8 +159,159 @@
         return Math.round(n * 100);
     }
 
+    // Une famille null/absente est TOUJOURS visible (RG du filtre souple) : une
+    // classification finit toujours par rencontrer un cas qu'elle n'avait pas
+    // prevu, elle ne doit jamais faire disparaitre un ingredient non classe.
+    function ingredientMatchesFamilies(ingredient, allowedSlugs) {
+        if (allowedSlugs === null) {
+            return true; // pas de restriction pour cette categorie
+        }
+        var slug = ingredient && ingredient.family;
+        if (!slug) {
+            return true;
+        }
+        return allowedSlugs.indexOf(slug) !== -1;
+    }
+
+    // Familles autorisees pour une categorie donnee. null = aucune restriction
+    // (categorie absente de categoryFamilies, ou aucune categorie choisie) --
+    // c'est le comportement par defaut si le contrat n'est pas au rendez-vous.
+    function allowedFamiliesFor(categoryFamilies, categoryId) {
+        if (!categoryId) {
+            return null;
+        }
+        var key = String(categoryId);
+        if (!Object.prototype.hasOwnProperty.call(categoryFamilies, key)) {
+            return null;
+        }
+        var list = categoryFamilies[key];
+        return Array.isArray(list) ? list : null;
+    }
+
+    function buildIngredientOption(doc, ingredient, selectedId) {
+        var opt = el(doc, 'option');
+        opt.value = String(ingredient.id);
+        opt.textContent = String(ingredient.name) + (ingredient.unit ? ' (' + String(ingredient.unit) + ')' : '');
+        if (selectedId != null && selectedId !== '' && Number(selectedId) === Number(ingredient.id)) {
+            opt.selected = true;
+        }
+        return opt;
+    }
+
+    /**
+     * Remplit un <select> d'ingredients. Sans libelles de familles
+     * (`hasFamilyLabels` faux -- taxonomie absente ou illisible), rendu plat
+     * identique au comportement historique : aucun filtre, aucun groupe.
+     *
+     * Avec une taxonomie : options groupees par famille (<optgroup>, dans
+     * l'ordre d'ingredientFamilyLabels), les non classes dans un groupe dedie
+     * en fin de liste. L'ingredient DEJA selectionne (`selectedId`) reste
+     * toujours dans la liste meme s'il sort du filtre courant -- une ligne de
+     * recette existante, ou un choix deja fait par l'equipier, n'est jamais
+     * retire au nom d'un filtre pose apres coup.
+     */
+    function populateIngredientOptions(doc, select, ingredients, selectedId, allowedSlugs, ingredientFamilyLabels, hasFamilyLabels) {
+        while (select.firstChild) {
+            select.removeChild(select.firstChild);
+        }
+
+        if (!hasFamilyLabels) {
+            ingredients.forEach(function (i) {
+                select.appendChild(buildIngredientOption(doc, i, selectedId));
+            });
+            return;
+        }
+
+        var order = Object.keys(ingredientFamilyLabels);
+        var groups = {};
+        order.forEach(function (slug) {
+            groups[slug] = [];
+        });
+        var unclassified = [];
+
+        ingredients.forEach(function (ing) {
+            var isKept = selectedId != null && selectedId !== '' && Number(selectedId) === Number(ing.id);
+            if (!ingredientMatchesFamilies(ing, allowedSlugs) && !isKept) {
+                return;
+            }
+            var slug = ing && ing.family;
+            if (slug && Object.prototype.hasOwnProperty.call(groups, slug)) {
+                groups[slug].push(ing);
+            } else {
+                unclassified.push(ing);
+            }
+        });
+
+        order.forEach(function (slug) {
+            if (!groups[slug].length) {
+                return; // groupe vide (aucun ingredient de cette famille visible) : omis
+            }
+            var optgroup = el(doc, 'optgroup');
+            optgroup.label = ingredientFamilyLabels[slug];
+            groups[slug].forEach(function (ing) {
+                optgroup.appendChild(buildIngredientOption(doc, ing, selectedId));
+            });
+            select.appendChild(optgroup);
+        });
+
+        if (unclassified.length) {
+            var unclassifiedGroup = el(doc, 'optgroup');
+            unclassifiedGroup.label = 'Ingrédients non classés';
+            unclassified.forEach(function (ing) {
+                unclassifiedGroup.appendChild(buildIngredientOption(doc, ing, selectedId));
+            });
+            select.appendChild(unclassifiedGroup);
+        }
+    }
+
+    // Combien d'ingredients du catalogue passent le filtre (pour le compteur
+    // "X sur Y" pres du picker). Ne compte pas les exceptions "deja
+    // selectionne" d'un select particulier : c'est l'etat du filtre lui-meme.
+    function countVisibleIngredients(ingredients, allowedSlugs) {
+        if (allowedSlugs === null) {
+            return ingredients.length;
+        }
+        var count = 0;
+        ingredients.forEach(function (ing) {
+            if (ingredientMatchesFamilies(ing, allowedSlugs)) {
+                count += 1;
+            }
+        });
+        return count;
+    }
+
+    /**
+     * Case "Afficher tous les ingredients" + compteur "X sur Y" en region live
+     * discrete. L'etiquette entoure la case (association implicite, meme
+     * technique que .recipe-check) ; le compteur est visible (pas sr-only) et
+     * annonce aussi aux technologies d'assistance (role="status" + aria-live) :
+     * un filtre invisible qui cache des lignes est un piege pour tout le monde,
+     * pas seulement pour un lecteur d'ecran.
+     */
+    function buildFilterControls(doc) {
+        var wrap = el(doc, 'div', 'recipe-filter');
+
+        var label = el(doc, 'label', 'recipe-check recipe-filter__toggle');
+        var checkbox = el(doc, 'input', 'recipe-show-all');
+        checkbox.type = 'checkbox';
+        checkbox.id = 'recipe-show-all-ingredients';
+        var caption = el(doc, 'span');
+        caption.textContent = 'Afficher tous les ingrédients';
+        label.appendChild(checkbox);
+        label.appendChild(caption);
+        wrap.appendChild(label);
+
+        var counter = el(doc, 'p', 'recipe-filter__count');
+        counter.id = 'recipe-filter-count';
+        counter.setAttribute('role', 'status');
+        counter.setAttribute('aria-live', 'polite');
+        wrap.appendChild(counter);
+
+        return { wrap: wrap, checkbox: checkbox, counter: counter };
+    }
+
     // Ligne "ingredient existant" : picker + quantites. `line` peut etre vide (ajout).
-    function renderExistingLine(doc, ingredients, line) {
+    function renderExistingLine(doc, ingredients, line, allowedSlugs, ingredientFamilyLabels, hasFamilyLabels) {
         line = line || {};
 
         var block = el(doc, 'fieldset', 'recipe-line recipe-line-existing form-group');
@@ -150,14 +324,16 @@
         block.appendChild(fields);
 
         var ingSelect = el(doc, 'select', 'form-input recipe-ingredient');
-        ingredients.forEach(function (i) {
-            var opt = el(doc, 'option');
-            opt.value = String(i.id);
-            opt.textContent = String(i.name) + (i.unit ? ' (' + String(i.unit) + ')' : '');
-            if (Number(line.ingredient_id) === Number(i.id)) {
-                opt.selected = true;
-            }
-            ingSelect.appendChild(opt);
+        populateIngredientOptions(doc, ingSelect, ingredients, line.ingredient_id, allowedSlugs || null, ingredientFamilyLabels || {}, Boolean(hasFamilyLabels));
+        // Marque si la valeur du select est un choix REEL (donnee de composition
+        // deja enregistree, ou selection manuelle) plutot que le premier <option>
+        // choisi par defaut par le navigateur faute de mieux. Seul un choix reel
+        // doit survivre a un recalcul de filtre (changement de categorie, case
+        // "afficher tout") -- sinon le filtre ne recalculerait jamais rien, une
+        // ligne fraichement ajoutee gardant pour toujours son option par defaut.
+        ingSelect.dataset.userSet = line.ingredient_id != null ? '1' : '0';
+        ingSelect.addEventListener('change', function () {
+            ingSelect.dataset.userSet = '1';
         });
         fields.appendChild(field(doc, 'Ingrédient', 'wide', ingSelect));
 
@@ -200,6 +376,27 @@
             return Array.isArray(v) ? v : JSON.parse(fallback);
         } catch (e) {
             return JSON.parse(fallback);
+        }
+    }
+
+    // Meme prudence que parseData, pour une correspondance (objet JSON) plutot
+    // qu'une liste : attribut absent, JSON illisible, ou valeur qui n'est pas un
+    // objet -> {} (objet vide). Un objet vide desactive naturellement tout
+    // filtre qui s'appuie dessus (aucune cle ne matche jamais) : c'est le
+    // comportement "sur doute, on montre tout" demande, sans cas particulier.
+    function parseObject(builder, key) {
+        var raw = builder.dataset[key];
+        if (!raw) {
+            return {};
+        }
+        try {
+            var v = JSON.parse(raw);
+            if (v && typeof v === 'object') {
+                return v;
+            }
+            return {};
+        } catch (e) {
+            return {};
         }
     }
 
@@ -272,14 +469,88 @@
         }
 
         var canCreateIngredient = builder.dataset.canCreateIngredient === '1';
-        var ingredients = parseData(builder, 'ingredients', '[]'); // [{id, name, unit}]
+        var ingredients = parseData(builder, 'ingredients', '[]'); // [{id, name, unit, family}]
         var initial = parseData(builder, 'composition', '[]');     // [{ingredient_id, quantity_normal, ...}]
+
+        // Filtre par famille (categorie -> familles autorisees). Sans libelles de
+        // familles (attribut absent ou JSON illisible), la fonctionnalite entiere
+        // reste inerte : rendu plat historique, aucune commande de filtre affichee
+        // -- c'est le cas de recipe.php (page recette dediee, hors perimetre de ce
+        // chantier) et le repli "sur doute" impose pour ce chantier.
+        var categoryFamilies = parseObject(builder, 'categoryFamilies');
+        var ingredientFamilyLabels = parseObject(builder, 'ingredientFamilies');
+        var hasFamilyLabels = Object.keys(ingredientFamilyLabels).length > 0;
+        var categorySelect = doc.getElementById('category_id');
+        var showAllIngredients = false;
+        var filterControls = null;
+
+        // #category_id (formulaire produit, categorie encore modifiable) gagne
+        // s'il existe ; sinon data-product-category-id (page recette dediee,
+        // categorie du produit deja fixee) ; sinon aucune categorie connue.
+        function currentCategoryId() {
+            if (categorySelect) {
+                return categorySelect.value;
+            }
+            return builder.dataset.productCategoryId || '';
+        }
+
+        function currentAllowedSlugs() {
+            if (!hasFamilyLabels || showAllIngredients) {
+                return null;
+            }
+            return allowedFamiliesFor(categoryFamilies, currentCategoryId());
+        }
+
+        function updateCounter() {
+            if (!filterControls) {
+                return;
+            }
+            var allowedSlugs = currentAllowedSlugs();
+            var total = ingredients.length;
+            if (allowedSlugs === null) {
+                filterControls.counter.textContent = total + ' ingrédient(s) affiché(s), aucun filtre.';
+                return;
+            }
+            var shown = countVisibleIngredients(ingredients, allowedSlugs);
+            filterControls.counter.textContent = shown + ' ingrédient(s) affiché(s) sur ' + total + ', filtrés selon la catégorie.';
+        }
+
+        // Recalcule les options de tous les selects d'ingredients deja montes,
+        // en conservant la valeur COURANTE de chacun (choix deja fait par
+        // l'equipier, ou ingredient d'une ligne existante) meme si elle sort du
+        // filtre recalcule : on ne detruit jamais un choix deja fait.
+        function refreshIngredientPickers() {
+            var allowedSlugs = currentAllowedSlugs();
+            var selects = builder.querySelectorAll('.recipe-ingredient');
+            Array.prototype.forEach.call(selects, function (select) {
+                // Seul un choix reel (dataset.userSet) doit survivre au recalcul --
+                // pas le premier <option> retenu par defaut sur une ligne fraiche.
+                var keepValue = select.dataset.userSet === '1' ? select.value : null;
+                populateIngredientOptions(doc, select, ingredients, keepValue, allowedSlugs, ingredientFamilyLabels, hasFamilyLabels);
+            });
+            updateCounter();
+        }
+
+        if (hasFamilyLabels) {
+            filterControls = buildFilterControls(doc);
+            builder.parentNode.insertBefore(filterControls.wrap, builder);
+            filterControls.checkbox.addEventListener('change', function () {
+                showAllIngredients = filterControls.checkbox.checked;
+                refreshIngredientPickers();
+            });
+
+            if (categorySelect) {
+                categorySelect.addEventListener('change', function () {
+                    refreshIngredientPickers();
+                });
+            }
+        }
 
         addBtn.addEventListener('click', function () {
             if (!ingredients.length) {
                 return; // aucun ingredient au catalogue : rien a composer
             }
-            builder.appendChild(renderExistingLine(doc, ingredients, null));
+            builder.appendChild(renderExistingLine(doc, ingredients, null, currentAllowedSlugs(), ingredientFamilyLabels, hasFamilyLabels));
         });
 
         if (addNewBtn && canCreateIngredient) {
@@ -294,9 +565,13 @@
 
         // Rendu initial : lignes existantes (edition). Composition vide -> aucune
         // ligne (l'utilisateur ajoute a la demande, ou enregistre une recette vide).
+        // Chaque ligne garde son ingredient d'origine meme s'il sort du filtre de
+        // la categorie actuelle (RG : jamais de perte d'une donnee correcte).
         initial.forEach(function (l) {
-            builder.appendChild(renderExistingLine(doc, ingredients, l));
+            builder.appendChild(renderExistingLine(doc, ingredients, l, currentAllowedSlugs(), ingredientFamilyLabels, hasFamilyLabels));
         });
+
+        updateCounter();
     }
 
     if (typeof module !== 'undefined' && module.exports) {

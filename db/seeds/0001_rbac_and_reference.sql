@@ -9,8 +9,11 @@
 --           role_visible_source, 3.17 permission catalogue + default grants,
 --           3.18 role_permission), docs/merise/mct.md (operations 1-28),
 --           docs/PROJECT_CONTEXT.md section 7 (role responsibilities) and
---           decision D5 (admin gets order.create / order.deliver ; manager
---           does NOT get order.cancel).
+--           ADR-0020 (docs/adr/0020-responsable-annule-commande.md), qui
+--           remplace la decision D5 sur le seul point de l'annulation de
+--           commande : admin garde order.create / order.deliver / order.cancel,
+--           et manager recoit desormais order.read + order.cancel (mais pas
+--           order.create ni order.deliver).
 -- Phase   : P2 — demo/reference seed, applied AFTER db/migrations/0001_init_schema.sql.
 -- Target  : MariaDB 11.4 LTS. Fed by db/seed.sh into the already-selected DB.
 --
@@ -40,7 +43,7 @@ SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;
 -- affiches en clair aux equipiers), donc inchanges.
 INSERT INTO role (code, label, description, default_route, order_source, is_active) VALUES
     ('admin',   'Administrateur',       'Accès complet au back-office : gestion CRUD complète du catalogue (y compris les suppressions), gestion des utilisateurs, rôles et permissions (RBAC), stock, statistiques, création/remise/annulation de commande.', '/admin/dashboard', NULL,      1),
-    ('manager', 'Responsable',          'Création et mise à jour du catalogue, gestion des ingrédients et du stock (réapprovisionnement et inventaire), statistiques. Ni administration des utilisateurs/rôles, ni annulation de commande.', '/admin/stats',     NULL,      1),
+    ('manager', 'Responsable',          'Création et mise à jour du catalogue, gestion des ingrédients et du stock (réapprovisionnement et inventaire), statistiques, lecture et annulation des commandes (tous canaux, sans filtre). Ni création ni remise de commande, ni administration des utilisateurs/rôles.', '/admin/stats',     NULL,      1),
     ('kitchen', 'Équipier cuisine',     'Écran cuisine (KDS) des commandes actives ; fait avancer l''état de préparation (en préparation puis prête) via order.read, et effectue l''inventaire. N''effectue pas la remise finale (order.deliver).', '/kitchen/display', NULL,      1),
     ('counter', 'Équipier comptoir',    'Prend les commandes au comptoir, les remet au client, peut annuler. Effectue l''inventaire. Source de commande taguée automatiquement comptoir.', '/counter/orders',  'counter', 1),
     ('drive',   'Équipier drive',       'Prend les commandes au drive (interphone et casque), les remet au client, peut annuler. Effectue l''inventaire. Source de commande taguée automatiquement drive.', '/drive/orders',    'drive',   1);
@@ -80,8 +83,9 @@ INSERT INTO permission (code, label, description) VALUES
 
 -- -----------------------------------------------------------------------------
 -- 3. role_permission — default matrix, dictionary.md 3.17 grants + PROJECT_CONTEXT
---    section 7 + decision D5. Subqueries on role.code / permission.code avoid
---    hardcoded ids.
+--    section 7 + ADR-0020 (remplace la decision D5 sur le seul point de
+--    l'annulation de commande par le role manager). Subqueries on role.code /
+--    permission.code avoid hardcoded ids.
 -- -----------------------------------------------------------------------------
 
 -- admin: ALL 23 permissions (cross join the admin role with the whole catalogue).
@@ -91,8 +95,12 @@ FROM role r
 CROSS JOIN permission p
 WHERE r.code = 'admin';
 
--- manager: catalogue create/update + category/ingredient + full stock + stats.
---          NO order.* (incl. no order.cancel per D5), NO user/role admin.
+-- manager: catalogue create/update + category/ingredient + full stock + stats,
+--          plus order.read + order.cancel (ADR-0020 : le responsable lit et
+--          annule les commandes de tous les canaux, sans role_visible_source ;
+--          il ne recoit ni order.create ni order.deliver). Toujours NO
+--          user/role admin (user.read seul, pas user.create/update/deactivate
+--          ni role.manage).
 INSERT INTO role_permission (role_id, permission_id)
 SELECT r.id, p.id
 FROM role r
@@ -101,6 +109,7 @@ JOIN permission p ON p.code IN (
     'menu.create',    'menu.read',    'menu.update',
     'category.manage', 'ingredient.manage',
     'stock.read', 'stock.count', 'stock.manage',
+    'order.read', 'order.cancel',
     'user.read',
     'stats.read'
 )

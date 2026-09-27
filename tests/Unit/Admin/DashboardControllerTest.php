@@ -410,8 +410,16 @@ final class DashboardControllerTest extends TestCase
 
         self::assertStringContainsString('<a class="skip-link" href="#main-content">Aller au contenu</a>', $body);
         self::assertStringContainsString('<main class="content" id="main-content">', $body);
-        self::assertStringContainsString('<link rel="icon" type="image/svg+xml" href="/assets/images/favicon.svg">', $body);
-        self::assertStringContainsString('<script type="module" src="/assets/js/a11y.js"></script>', $body);
+        // Les adresses des fichiers statiques portent un marqueur de version
+        // (?v=..., App\Core\Asset) : on verifie la presence, pas l'adresse exacte.
+        self::assertMatchesRegularExpression(
+            '#<link rel="icon" type="image/svg\+xml" href="/assets/images/favicon\.svg(\?v=[^"]+)?">#',
+            $body,
+        );
+        self::assertMatchesRegularExpression(
+            '#<script type="module" src="/assets/js/a11y\.js(\?v=[^"]+)?"></script>#',
+            $body,
+        );
 
         // Position, pas seulement presence : le critere exige le PREMIER element
         // focalisable, donc le lien doit preceder la topbar dans le HTML rendu.

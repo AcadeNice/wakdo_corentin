@@ -6,28 +6,29 @@ namespace App\Tests\Integration;
 
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
-use ReflectionClass;
 use Throwable;
 use App\Auth\Authorizer;
 use App\Core\Config;
 use App\Core\Database;
+use App\Health\RouteSecurity;
 
 /**
  * Preuve RBAC "role reel x route reelle" (docs/demo/matrice-rbac.md), contre une
  * vraie MariaDB migree + seedee (seed 0001 : roles/permissions/role_permission ;
- * seed 0009 : les 5 comptes de demonstration). Reutilise la table de routes de
- * `App\Tests\Unit\Admin\Api\RouteMatrixTest::ROUTES` par reflexion (constante
- * privee, lisible via ReflectionClass::getConstant() depuis PHP 7.1 quelle que
- * soit sa visibilite) -- PAS de duplication de cette table : un changement de
- * route/permission dans RouteMatrixTest est repercute ici automatiquement.
+ * seed 0009 : les 5 comptes de demonstration). Lit la permission de chaque route
+ * directement dans `App\Health\RouteSecurity::ENTRIES` -- la source UNIQUE des
+ * exigences de securite depuis le chantier "Sante de l'API" -- au lieu de
+ * relire par reflexion la constante privee de RouteMatrixTest : PAS de
+ * duplication de cette table, et plus de couplage a une constante privee d'un
+ * autre fichier de test.
  *
  * Ce que ce test prouve : pour chacun des 5 comptes de demonstration REELS
  * (resolus par email depuis `user`, donc depend du seed 0009), et pour CHAQUE
- * route du catalogue /admin/api/*, le resultat du controle d'autorisation
- * (`Authorizer::can`, la meme classe que `AdminController::guard()` invoque en
- * production) correspond exactement a la grille documentee dans
- * docs/demo/matrice-rbac.md -- c'est-a-dire au contenu reel de
- * `role_permission` issu du seed 0001. RouteMatrixTest prouve deja que
+ * route `/admin/api/*` (hors `/admin/api/auth/*`, sans modele de permission),
+ * le resultat du controle d'autorisation (`Authorizer::can`, la meme classe que
+ * `AdminController::guard()` invoque en production) correspond exactement a la
+ * grille documentee dans docs/demo/matrice-rbac.md -- c'est-a-dire au contenu
+ * reel de `role_permission` issu du seed 0001. RouteMatrixTest prouve deja que
  * `guard()` applique CSRF + la permission EXACTE avec un jeu de permissions
  * SYNTHETIQUE (FakeDatabase) ; ce test ferme la boucle en verifiant que les
  * jeux de permissions REELS des 5 roles de production produisent bien le
@@ -62,6 +63,7 @@ final class RouteMatrixRoleDbTest extends TestCase
             'menu.create', 'menu.read', 'menu.update',
             'category.manage', 'ingredient.manage',
             'stock.read', 'stock.count', 'stock.manage',
+            'order.read', 'order.cancel',
             'user.read',
             'stats.read',
         ],
@@ -144,31 +146,33 @@ final class RouteMatrixRoleDbTest extends TestCase
     }
 
     /**
-     * Reprend, par reflexion, la table ROUTES de RouteMatrixTest (private const) :
-     * [methode, chemin, ressource, action, permission, ecriture]. Le require_once
-     * garantit que la classe existe meme si ce fichier est lance seul via
-     * --filter (meme precaution que RouteMatrixTest pour ses propres dependances).
+     * Routes `/admin/api/*` protegees (hors `/admin/api/auth/*`, sans modele de
+     * permission -- cf. docblock de RouteMatrixTest), lues EN DIRECT dans
+     * `App\Health\RouteSecurity::ENTRIES` : source unique, partagee avec
+     * RouteMatrixTest et la page "Sante de l'API", jamais recopiee ici.
      *
-     * @return list<array{0: string, 1: string, 2: string, 3: string, 4: string, 5: bool}>
+     * @return list<array{0: string, 1: string, 2: string}> [methode, chemin, permission]
      */
     private static function routes(): array
     {
-        require_once __DIR__ . '/../Unit/Admin/Api/RouteMatrixTest.php';
+        $rows = [];
+        foreach (RouteSecurity::ENTRIES as [$method, $path, , $permission]) {
+            if (!str_starts_with($path, '/admin/api/') || str_starts_with($path, '/admin/api/auth/')) {
+                continue;
+            }
+            $rows[] = [$method, $path, $permission];
+        }
 
-        $reflection = new ReflectionClass(\App\Tests\Unit\Admin\Api\RouteMatrixTest::class);
-
-        /** @var list<array{0: string, 1: string, 2: string, 3: string, 4: string, 5: bool}> $routes */
-        $routes = $reflection->getConstant('ROUTES');
-
-        return $routes;
+        return $rows;
     }
 
     /**
      * Un cas par (compte de demonstration reel x route). "critique" = les 23
      * permissions du catalogue, chacune couvrant au moins une route parmi les
-     * routes /admin/api/* de RouteMatrixTest (dont /admin/api/roles et
-     * /admin/api/users, jamais touchees par un test cote pages) -- le nombre
-     * exact suit RouteMatrixTest::ROUTES, jamais recopie en dur ici.
+     * routes /admin/api/* protegees (dont /admin/api/roles, /admin/api/users et,
+     * depuis le chantier "Sante de l'API", /admin/api/health, jamais touchees
+     * par un test cote pages) -- le nombre exact suit RouteSecurity::ENTRIES,
+     * jamais recopie en dur ici.
      *
      * @return array<string, array{0: string, 1: string, 2: string}>
      */
@@ -176,7 +180,7 @@ final class RouteMatrixRoleDbTest extends TestCase
     {
         $cases = [];
         foreach (self::DEMO_ACCOUNTS as $email => $roleCode) {
-            foreach (self::routes() as [$method, $path, , , $permission]) {
+            foreach (self::routes() as [$method, $path, $permission]) {
                 $cases["$email $method $path"] = [$email, $roleCode, $permission];
             }
         }
@@ -209,7 +213,7 @@ final class RouteMatrixRoleDbTest extends TestCase
     /**
      * Contre-preuve globale : le total de permissions par role en base (COUNT sur
      * role_permission) correspond au total documente (matrice-rbac.md : admin 23,
-     * manager 13, kitchen 5, counter 8, drive 8). Detecte une permission
+     * manager 15, kitchen 5, counter 8, drive 8). Detecte une permission
      * supplementaire non couverte par ROUTES (donc invisible au test route-par-
      * route ci-dessus, qui ne peut echouer que sur les permissions QU'IL CONNAIT).
      */

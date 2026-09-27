@@ -3124,10 +3124,231 @@ details.form-advanced > summary:focus-visible {
     color: var(--color-text-muted);
 }
 
+/* Barre du filtre d'ingredients par famille (categorie choisie plus haut dans
+   le formulaire). Filtre SOUPLE : la case "Afficher tous les ingredients" le
+   desactive d'un clic, jamais une interdiction -- une classification finit
+   toujours par rencontrer un cas qu'elle n'avait pas prevu. Le compteur est
+   volontairement visible (pas .sr-only) : un filtre qui cache des lignes sans
+   le dire serait un piege, pas seulement pour un lecteur d'ecran. */
+.recipe-filter {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3);
+    margin-bottom: var(--space-3);
+}
+.recipe-filter__count {
+    margin: 0;
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+}
+
 /* Sous 640px (telephone d'equipier), une ligne empile ses champs : sept
    controles cote a cote deborderaient de l'ecran. */
 @media (max-width: 640px) {
     .recipe-field--num,
     .recipe-field--text { width: 100%; }
     .recipe-line__fields .recipe-remove { margin-left: 0; }
+}
+
+/* --- Page "Sante de l'API" (/admin/health) ---
+ * Portage de l'artifact valide (scratchpad/apimap/template.html) sur les jetons
+ * DEJA audites de ce fichier (pas ceux de l'artifact, qui definissait sa propre
+ * palette + Google Fonts, interdits par la CSP du back-office). Les alias
+ * ci-dessous ne sont QUE des noms de confort pour porter les regles de
+ * l'artifact presque telles quelles ; leurs valeurs pointent toutes vers des
+ * jetons --color-* deja mesures (docs/soutenance/preuves/06-audit-accessibilite-mesure.md).
+ * Back-office = theme clair unique, donc aucune section @media (prefers-color-scheme).
+ */
+.health-page {
+    --h-ink: var(--color-text);
+    --h-ink-2: var(--color-text-sec);
+    --h-muted: var(--color-text-muted);
+    --h-line: var(--color-border);
+    --h-line-2: var(--color-border-dark);
+    --h-surface: var(--color-white);
+    --h-surface-2: var(--color-surface);
+    --h-accent-ink: var(--color-yellow-dark);
+    --h-accent-soft: var(--color-yellow-bg);
+    --h-ok: var(--color-success); --h-ok-bg: var(--color-success-bg); --h-ok-ink: var(--color-success-text);
+    --h-warn: var(--color-warning); --h-warn-bg: var(--color-warning-bg); --h-warn-ink: var(--color-warning-text);
+    --h-bad: var(--color-danger); --h-bad-bg: var(--color-danger-bg); --h-bad-ink: var(--color-danger-text);
+    --h-info: var(--color-info); --h-info-bg: var(--color-info-bg); --h-info-ink: var(--color-info-text);
+    --h-mono: "SF Mono", "Cascadia Mono", "Consolas", monospace;
+}
+
+.health-section { margin-top: var(--space-7); }
+.health-section:first-of-type { margin-top: 0; }
+.health-section h2 { font-size: var(--text-xl); font-weight: 700; color: var(--h-ink); margin-bottom: var(--space-1); }
+.health-section-lede { color: var(--h-muted); font-size: var(--text-base); max-width: 78ch; margin-bottom: var(--space-4); }
+
+.health-noscript {
+    background: var(--h-warn-bg);
+    color: var(--h-warn-ink);
+    border-radius: var(--radius-md);
+    padding: var(--space-3) var(--space-4);
+    margin-bottom: var(--space-4);
+}
+
+/* Focus visible, unifie pour tous les controles interactifs de la page (RGAA Cr 10.7). */
+.health-page button:focus-visible,
+.health-page input:focus-visible,
+.health-page a:focus-visible,
+.health-route:focus-visible,
+.health-failbtn:focus-visible {
+    outline: 3px solid var(--h-accent-ink);
+    outline-offset: 2px;
+}
+
+/* Bloc 1 : etat en direct */
+.health-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: var(--space-4);
+    margin-bottom: var(--space-3);
+}
+.health-kpi-detail { font-size: var(--text-sm); color: var(--h-muted); margin-top: var(--space-1); }
+.health-refresh-status { font-size: var(--text-sm); color: var(--h-muted); margin: 0; }
+.health-refresh-status--error { color: var(--h-bad-ink); font-weight: 600; }
+/* Le message d'echec (#health-refresh-error) reste dans le flux (hidden natif,
+   pas .sr-only) : une relecture en echec doit se voir, pas seulement s'annoncer. */
+
+/* Bloc 2 : sondes */
+.health-probes { list-style: none; margin: 0 0 var(--space-4); padding: 0; display: grid; gap: var(--space-3); }
+.health-probe { padding: var(--space-4); }
+.health-probe-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-bottom: var(--space-2); }
+.health-probe-url { font-size: var(--text-sm); word-break: break-all; }
+.health-probe-head .btn { margin-left: auto; }
+.health-probe-label { font-weight: 600; color: var(--h-ink); margin-bottom: 2px; }
+.health-probe-why { color: var(--h-muted); font-size: var(--text-sm); margin-bottom: var(--space-2); }
+.health-probe-result { font-size: var(--text-sm); font-weight: 600; color: var(--h-muted); margin: 0; }
+.health-probe-result--ok { color: var(--h-ok-ink); }
+.health-probe-result--unexpected { color: var(--h-bad-ink); }
+.health-probes-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+.health-probes-summary { margin: 0; font-size: var(--text-sm); font-weight: 600; color: var(--h-ink); }
+
+/* Bloc 3 : le trajet anime */
+.health-presets { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-4); }
+.health-chip {
+    appearance: none; border: 1px solid var(--h-line-2); background: var(--h-surface); color: var(--h-ink);
+    border-radius: 999px; padding: 7px 14px; font: inherit; font-size: var(--text-base); cursor: pointer;
+    display: inline-flex; gap: 8px; align-items: center;
+}
+.health-chip:hover { border-color: var(--h-ink-2); }
+.health-chip[aria-pressed="true"] { background: var(--h-ink); color: var(--color-white); border-color: var(--h-ink); }
+/* Couleurs des points de surface = les memes tons -text/-ink DEJA mesures AA
+   (docs/soutenance/preuves/06-audit-accessibilite-mesure.md) que .pill-warning/
+   -info/-success plus bas -- jamais --color-yellow-dark seul (mesure ~3:1 sur
+   blanc, sous le seuil AA texte) ni un accent sature brut. */
+.health-chip__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--h-muted); }
+.health-chip__dot--borne { background: var(--h-warn-ink); }
+.health-chip__dot--api { background: var(--h-info-ink); }
+.health-chip__dot--bo { background: var(--h-ok-ink); }
+
+.health-scene { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: var(--space-4); align-items: start; }
+.health-routebar { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; padding: var(--space-4); border-bottom: 1px solid var(--h-line); }
+.health-route__path { font-family: var(--h-mono); font-size: var(--text-md); font-weight: 600; word-break: break-all; }
+.health-routebar__handler { color: var(--h-muted); font-family: var(--h-mono); font-size: var(--text-xs); width: 100%; overflow-wrap: anywhere; }
+.health-controls { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--h-line); background: var(--h-surface-2); }
+.health-hint { color: var(--h-muted); font-size: var(--text-sm); margin-left: auto; }
+
+.health-rail { list-style: none; margin: 0; padding: var(--space-4) var(--space-4) var(--space-4) var(--space-4); position: relative; }
+.health-rail::before { content: ""; position: absolute; left: 35px; top: 30px; bottom: 30px; width: 3px; border-radius: 3px; background: var(--h-line-2); }
+.health-packet {
+    position: absolute; left: 28px; top: 0; width: 17px; height: 17px; border-radius: 50%;
+    background: var(--h-accent-ink); box-shadow: 0 0 0 5px color-mix(in srgb, var(--h-accent-ink) 30%, transparent), 0 0 18px var(--h-accent-ink);
+    transition: transform .55s cubic-bezier(.5,0,.2,1), background .2s; z-index: 2; pointer-events: none;
+}
+.health-packet--fail { background: var(--h-bad); box-shadow: 0 0 0 5px color-mix(in srgb, var(--h-bad) 28%, transparent), 0 0 18px var(--h-bad); }
+.health-packet--done { background: var(--h-ok); box-shadow: 0 0 0 5px color-mix(in srgb, var(--h-ok) 28%, transparent), 0 0 16px var(--h-ok); }
+
+.health-step { position: relative; display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 10px; padding: 8px 0; }
+.health-step__node { width: 22px; height: 22px; margin: 6px 0 0 8px; border-radius: 50%; background: var(--h-surface); border: 3px solid var(--h-line-2); position: relative; z-index: 1; transition: border-color .2s, background .2s; }
+.health-step--passed .health-step__node { border-color: var(--h-ok); background: var(--h-ok-bg); }
+.health-step--active .health-step__node { border-color: var(--h-accent-ink); background: var(--h-accent-soft); }
+.health-step--failed .health-step__node { border-color: var(--h-bad); background: var(--h-bad-bg); }
+.health-step--skipped { opacity: .5; }
+.health-step__body { border: 1px solid transparent; border-radius: var(--radius-md); padding: 6px 10px 8px; transition: background .2s, border-color .2s; }
+.health-step--active .health-step__body { background: var(--h-accent-soft); border-color: color-mix(in srgb, var(--h-accent-ink) 45%, transparent); }
+.health-step--failed .health-step__body { background: var(--h-bad-bg); border-color: color-mix(in srgb, var(--h-bad) 40%, transparent); }
+.health-step__title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.health-step__name { font-weight: 700; font-size: var(--text-md); color: var(--h-ink); }
+.health-step__where { font-family: var(--h-mono); font-size: var(--text-xs); color: var(--h-muted); overflow-wrap: anywhere; }
+.health-step__does { margin: 2px 0 0; color: var(--h-ink-2); font-size: var(--text-base); }
+.health-step__fail { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.health-failbtn {
+    appearance: none; border: 1px dashed var(--h-line-2); background: transparent; color: var(--h-muted);
+    border-radius: 8px; padding: 2px 8px; font: inherit; font-size: var(--text-sm); cursor: pointer;
+}
+.health-failbtn:hover { border-color: var(--h-bad); color: var(--h-bad-ink); }
+.health-failbtn[aria-pressed="true"] { border-style: solid; border-color: var(--h-bad); color: var(--h-bad-ink); background: var(--h-bad-bg); }
+
+.health-side { display: grid; gap: var(--space-4); position: sticky; top: var(--space-3); }
+.health-resp-head { display: flex; align-items: center; gap: 10px; padding: var(--space-4); border-bottom: 1px solid var(--h-line); }
+.health-resp-where { color: var(--h-muted); font-size: var(--text-sm); }
+.health-body {
+    margin: 0; overflow-wrap: anywhere; padding: var(--space-4); font-family: var(--h-mono); font-size: 12.5px;
+    line-height: 1.6; white-space: pre-wrap; word-break: break-word; color: var(--h-ink-2); background: var(--h-surface-2);
+    border-bottom: 1px solid var(--h-line);
+}
+.health-notes { padding: 12px var(--space-4) var(--space-4); display: grid; gap: 8px; font-size: var(--text-base); color: var(--h-ink-2); }
+.health-notes p { margin: 0; }
+.health-notes__k { font-family: var(--h-mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--h-muted); display: block; margin-bottom: 2px; }
+
+/* Bloc 4 : la carte des routes */
+.health-filters { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; padding: var(--space-4); border-bottom: 1px solid var(--h-line); }
+.health-filter-group { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-3); align-items: center; border: 0; padding: 0; margin: 0; }
+.health-filter-group legend { font-size: var(--text-xs); text-transform: uppercase; letter-spacing: .06em; color: var(--h-muted); padding: 0; margin-right: var(--space-2); }
+.health-filter-group label { display: inline-flex; align-items: center; gap: 4px; font-size: var(--text-sm); color: var(--h-ink-2); }
+.health-checkline { display: inline-flex; gap: 6px; align-items: center; font-size: var(--text-sm); color: var(--h-ink-2); }
+.health-count { color: var(--h-muted); font-size: var(--text-sm); margin-left: auto; }
+.health-legend { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); align-items: center; font-size: var(--text-sm); color: var(--h-muted); padding: var(--space-3) var(--space-4) 0; }
+
+.health-meth { display: inline-block; font-family: var(--h-mono); font-weight: 600; font-size: 11.5px; letter-spacing: .04em; padding: 2px 7px; border-radius: 6px; min-width: 58px; text-align: center; }
+.health-meth--GET { background: var(--h-info-bg); color: var(--h-info-ink); }
+.health-meth--POST { background: var(--h-ok-bg); color: var(--h-ok-ink); }
+.health-meth--PUT { background: var(--h-warn-bg); color: var(--h-warn-ink); }
+.health-meth--DELETE { background: var(--h-bad-bg); color: var(--h-bad-ink); }
+
+.health-groups { padding: 6px 0 10px; }
+.health-group__title { font-size: var(--text-sm); letter-spacing: .06em; text-transform: uppercase; color: var(--h-muted); font-weight: 700; padding: var(--space-3) var(--space-4) 6px; display: flex; gap: 8px; }
+.health-route {
+    appearance: none; display: grid; grid-template-columns: 70px minmax(0, 1fr) auto; gap: 4px 12px; align-items: center;
+    width: 100%; text-align: left; background: transparent; border: 0; border-top: 1px solid var(--h-line);
+    padding: 9px var(--space-4); font: inherit; color: inherit; cursor: pointer;
+}
+.health-route:hover { background: var(--h-surface-2); }
+.health-route[aria-current="true"] { background: var(--h-accent-soft); }
+.health-route__handler { grid-column: 2; font-family: var(--h-mono); font-size: 11.5px; color: var(--h-muted); overflow-wrap: anywhere; min-width: 0; }
+.health-badges { display: flex; flex-wrap: wrap; gap: 5px; justify-content: flex-end; grid-row: 1 / span 2; grid-column: 3; }
+/* Les badges de surface (borne/API/back-office) REUTILISENT .pill-warning/-info/
+   -success telles quelles (definies plus haut dans ce fichier, deja mesurees
+   AA) : pas de variante "bordure + texte accent sur transparent" ici -- ce
+   style aurait pose le texte directement sur le fond de la page/carte, hors de
+   toute paire fond/texte deja auditee. Voir badgesHtml()/renderRoute() dans
+   health.js : la classe posee est health-pill-surf--{borne|api|bo}, alias pur
+   vers pill-warning/pill-info/pill-success.
+   Concretement, mapSurfPill() (health.js) pose DIRECTEMENT pill-warning /
+   pill-info / pill-success -- ces trois regles ne servent donc plus qu'a
+   documenter le mapping choisi. */
+.health-empty { padding: var(--space-5) var(--space-4); color: var(--h-muted); }
+
+.health-footer { margin-top: var(--space-7); color: var(--h-muted); font-size: var(--text-sm); display: grid; gap: 8px; border-top: 1px solid var(--h-line); padding-top: var(--space-4); }
+.health-footer ul { margin: 0; padding-left: 18px; display: grid; gap: 3px; }
+
+@media (max-width: 900px) {
+    .health-scene { grid-template-columns: minmax(0, 1fr); }
+    .health-side { position: static; }
+    .health-route { grid-template-columns: 64px minmax(0, 1fr); }
+    .health-badges { grid-row: auto; grid-column: 1 / -1; justify-content: flex-start; }
+    .health-hint { margin-left: 0; width: 100%; }
+}
+
+/* Le trajet ne doit annoncer QUE son resultat final (aria-live sur #health-notes'
+   conteneur parent), jamais chaque pas de l'animation -- voir index.php, la liste
+   #health-rail ne porte elle-meme aucun aria-live. Sous prefers-reduced-motion,
+   la page ne joue de toute facon jamais l'animation (health.js, REDUCED) ; cette
+   regle CSS est une ceinture de securite supplementaire. */
+@media (prefers-reduced-motion: reduce) {
+    .health-packet, .health-step__node, .health-step__body { transition: none; }
 }
