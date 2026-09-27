@@ -265,13 +265,14 @@ Reseaux :
 - `docker-compose.yml` orchestrant 5 services : 4 longs (web, app, db, cron) + 1 one-shot (`wakdo-migrate`)
 - `docker compose up` lance toute la stack (service one-shot `wakdo-migrate` : migrations + seed idempotents) en une commande (Cr 7.c.4)
 - Scripts Bash d'automatisation (backup, restore, deploy, migrate)
-- **Cron tab** avec 3 jobs actifs planifies dans la fenetre de maintenance (01h30-09h30) :
+- **Cron tab** avec 4 jobs actifs planifies dans la fenetre de maintenance (01h30-09h30) :
+  - `0 2 * * *` — expiration des commandes restees en attente de paiement (`bin/order-expire.php`)
   - `0 3 * * *` — backup BDD quotidien a 03h00 (entre fin service 01h et ouverture 10h)
   - `15 4 * * *` — purge du journal d'audit au-dela de la fenetre de retention (~12 mois)
   - `45 4 * * *` — purge des compteurs de throttle expires
   - Differes (templates commentes dans `docker/cron/crontab`, a activer plus tard) : purge des sessions expirees, agregation des stats sur le jour de service
 - **CI Forgejo Actions** (act_runner auto-heberge) : lint PHP + PHPStan + PHPUnit + secret-scan (gitleaks) + js-tests sur PR -> dev
-- **CD : deploiement scripte a declenchement humain** (`scripts/deploy.sh` : recupere `main` depuis Forgejo puis `docker compose build --pull && up -d` -- les images wakdo sont buildees localement depuis les Dockerfiles, pas de registre). Choix solo dev sur un environnement de prod unique. L'automatisation visee est **pull-based** : un job cron cote hote qui detecte un nouveau `main` et lance `deploy.sh` (a armer ensuite, reutilise le meme script)
+- **CD : deploiement automatique, declenche par un push sur `main`** (`.forgejo/workflows/deploy.yml`, `on: push: branches: [main]`, depuis le commit `8c5d942` du 23/06/2026) : le job recupere `main` depuis Forgejo puis lance `scripts/deploy.sh` (`docker compose build --pull && up -d` -- les images wakdo sont buildees localement depuis les Dockerfiles, pas de registre). Choix solo dev sur un environnement de prod unique.
 - `.env.example` documente (parametres securite : argon2id, lockout, seuils throttle, retention RGPD), secrets hors du repo
 - `php.ini` durci (expose_php off, session cookies httponly/secure/samesite, upload limite)
 - Healthcheck Traefik + readiness probes
@@ -803,7 +804,7 @@ re-login force.
 
 ### 19.4 Matrice de classification des donnees (4 niveaux)
 
-Les 21 entites du modele (`dictionary.md` 3.1-3.21) sont reparties en quatre niveaux. La
+Les 23 entites du modele (`dictionary.md` 3.1-3.23) sont reparties en quatre niveaux. La
 classification suit l'entite ; quelques colonnes sont surclassees explicitement (credentials,
 PII).
 
@@ -811,14 +812,15 @@ PII).
 |---|---|---|---|
 | **RESTRICTED** (secrets / credentials) | Secrets d'authentification ; tenus hors de toute exposition | Colonnes de `user` (14) : `password_hash`, `pin_hash`, `password_reset_token_hash` | Hors logs et hors reponses API ; argon2id ; invalides a l'anonymisation (`mlt.md` 10.5 RG-1) ; exclus de `audit_log.details` qui ne retient que des noms de champs (RG-T14) |
 | **CONFIDENTIAL** (PII, RGPD) | Donnees a caractere personnel d'un staff identifiable | Colonnes de `user` (14) : `email`, `first_name`, `last_name` | Sujet a l'anonymisation a l'effacement (`ERASE_USER_PII`, op 27) ; `audit_log` stocke les noms de champs, pas les valeurs ; echappement au rendu (RG-T15) |
-| **INTERNAL** (sensible metier) | Donnees d'exploitation, non publiques, a acces restreint par RBAC | `customer_order` (10), `order_item` (11), `order_item_selection` (12), `order_item_modifier` (13), `stock_movement` (19), `audit_log` (20), `login_throttle` (21, contient l'IP source), `role` (15), `permission` (17), `role_permission` (18), `role_visible_source` (16) ; sorties de stats (`READ_STATS`, op 24) | Acces filtre par permission (RG-T03) ; attribution stock visible manager/admin seulement (`mlt.md` 9.3 RG-4) ; integrite par snapshots (RG-T05) et transactions (RG-T08/RG-T11) |
+| **INTERNAL** (sensible metier) | Donnees d'exploitation, non publiques, a acces restreint par RBAC | `customer_order` (10), `order_item` (11), `order_item_selection` (12), `order_item_modifier` (13), `stock_movement` (19), `audit_log` (20), `login_throttle` (21, contient l'IP source), `pin_throttle` (22, contient l'identifiant de l'utilisateur agissant), `role` (15), `permission` (17), `role_permission` (18), `role_visible_source` (16), `category_ingredient_family` (23, parametrage du constructeur de recette) ; sorties de stats (`READ_STATS`, op 24) | Acces filtre par permission (RG-T03) ; attribution stock visible manager/admin seulement (`mlt.md` 9.3 RG-4) ; integrite par snapshots (RG-T05) et transactions (RG-T08/RG-T11) |
 | **PUBLIC** (catalogue, face kiosk) | Donnees servies a la borne anonyme | `category` (1), `product` (2), `menu` (3), `menu_slot` (4), `menu_slot_option` (5), `ingredient` (6, nom + dispo calculee), `product_ingredient` (7), `allergen` (8), `ingredient_allergen` (9) | Lecture publique via `LOAD_CATALOGUE` (op 1) ; ecriture reservee admin/manager (RG-T03) ; texte echappe au rendu (RG-T15) ; disponibilite calculee (RG-T21) |
 
-**Couverture** : 21/21 entites classifiees (9 PUBLIC, 11 INTERNAL incluant les deux entites
-security-by-design `audit_log` et `login_throttle`, plus `user` dont les colonnes sont
-reparties entre RESTRICTED, CONFIDENTIAL et — pour `is_active`, `role_id`, `last_login_at`,
-les compteurs de throttle — INTERNAL). L'entite `user` (14) est la seule a porter trois
-niveaux simultanement, d'ou son traitement par colonne.
+**Couverture** : 23/23 entites classifiees (9 PUBLIC, 13 INTERNAL incluant les quatre entites
+security-by-design/parametrage `audit_log`, `login_throttle`, `pin_throttle` et
+`category_ingredient_family`, plus `user` dont les colonnes sont reparties entre RESTRICTED,
+CONFIDENTIAL et — pour `is_active`, `role_id`, `last_login_at`, les compteurs de throttle —
+INTERNAL). L'entite `user` (14) est la seule a porter trois niveaux simultanement, d'ou son
+traitement par colonne.
 
 ---
 

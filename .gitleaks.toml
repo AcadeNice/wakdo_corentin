@@ -1,8 +1,13 @@
 # Wakdo - configuration gitleaks (secret-scan)
 #
 # Utilise par :
-#   - le hook pre-commit local (defense en profondeur)
-#   - le job CI Forgejo Actions (.forgejo/workflows/, lot D) sur chaque PR -> dev
+#   - le job CI Forgejo Actions (.forgejo/workflows/, lot D) sur chaque PR -> dev,
+#     seul a l'executer reellement : le hook pre-commit local (.githooks/pre-commit)
+#     ne fait que refuser les commits directs sur main/dev et lancer php -l.
+#   - en local, a lancer explicitement en conteneur, sur un clone (pas sur une copie
+#     `git worktree`, qui masque l'historique complet) :
+#       docker run --rm -v "$PWD":/src -w /src ghcr.io/gitleaks/gitleaks:v8.30.1 \
+#         detect --source /src --config .gitleaks.toml --redact --no-banner
 #
 # Principe : etendre le jeu de regles par defaut de gitleaks, puis ne tolerer
 # QUE les faux positifs explicitement justifies ci-dessous (placeholders de doc).

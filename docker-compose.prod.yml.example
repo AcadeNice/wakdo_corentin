@@ -15,6 +15,10 @@ name: wakdo
 networks:
   wakdo_internal:
     driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 192.168.148.0/24
   reverse_proxy:
     name: ${REVERSE_PROXY_NETWORK}
     external: true

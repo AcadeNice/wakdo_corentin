@@ -735,5 +735,11 @@ sensible par utilisateur AGISSANT : il est lu (gate avant verification) ET ecrit
 a zero sur succes) par les operations sensibles sous PIN (ex. UPDATE_PRODUCT prix/TVA, DELETE_PRODUCT). Sa
 purge quotidienne suit celle de `login_throttle` (cron, `mlt.md`), hors du perimetre des operations MCT.
 
-**Conclusion** : 22/22 entites couvertes (19 prod-like + `audit_log` + `login_throttle` + `pin_throttle`).
-Coherence MCT <-> MCD validee.
+(*****) `category_ingredient_family` (entite 23, ADR-0018) est, comme `allergen` et `permission`, une
+table de parametrage sans operation MCT dediee : c'est le constructeur de recette qui la lit pour
+filtrer le selecteur d'ingredients par famille (`dictionary.md` 3.23), et elle est alimentee par la
+migration 0017 et le seed 0010, pas par une operation metier autonome. Geree indirectement via
+MANAGE_INGREDIENT/MANAGE_CATEGORY.
+
+**Conclusion** : 23/23 entites couvertes (19 prod-like + `audit_log` + `login_throttle` +
+`pin_throttle` + `category_ingredient_family`). Coherence MCT <-> MCD validee.

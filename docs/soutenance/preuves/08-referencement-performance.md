@@ -156,3 +156,12 @@ section absente.
   serveur de production ; 5 passages par page.
 - Les textes generes par les fichiers JavaScript de la borne et du back-office restent sans
   accents (« Recapitulatif », « Categories ») : a corriger dans un lot a part (F38).
+- La mesure de la section 6 desactive volontairement le cache HTTP par construction
+  (`tests/e2e/perf-accueil.spec.js`, `Network.setCacheDisabled`) : elle ne mesure donc pas la
+  politique de cache reelle de production. Cette politique existe et differe par zone
+  (`docker/apache/cache.conf`, commit `1a1b925`, PR #173) : la borne est servie en
+  `Cache-Control: no-cache` (revalidation systematique, pas de marqueur de version possible sur
+  du HTML statique), la banniere webp garde `public, max-age=604800`, et les assets du
+  back-office sont versionnes (`?v=`) et servis en `public, max-age=31536000, immutable`. Un
+  usage repete a la journee sur un meme poste beneficierait donc du cache navigateur pour tout
+  ce qui est versionne, ce que cette mesure ne reflete pas.

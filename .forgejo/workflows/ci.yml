@@ -4,13 +4,15 @@ name: CI
 # (merge_when_checks_succeed, programme a l'ouverture de la PR) fusionne en squash
 # des que les checks requis passent. Pas de job de merge dans le workflow.
 #
-# Jobs (quatre, independants) :
+# Jobs (cinq, independants) :
 #   - secret-scan : gitleaks sur tout l'historique du depot
 #   - php-lint    : php -l sur chaque fichier PHP
 #   - static-tests: PHPStan + PHPUnit via leur .phar (projet sans Composer), avec un
 #                   service MariaDB ephemere migre et seede. Gardes conserves : le job
 #                   se saute si phpstan.neon ou tests/ + phpunit.xml manquent.
 #   - js-tests    : tests de la borne (node:test + jsdom), garde sur package.json + tests/js/
+#   - shell-tests : fonctions pures du filet instantane/remise a zero de la demo
+#                   (scripts/lib/demo-snapshot-lib.sh), garde sur tests/shell/
 
 on:
   pull_request:

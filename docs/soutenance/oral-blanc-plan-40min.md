@@ -7,6 +7,10 @@
 > Format : 40 min d'expose, puis 40 min de questions du jury
 > Statut : aide-memoire d'orateur. Ce n'est pas un jeu de diapositives.
 > Chiffres arretes au 2026-09-26 sur `origin/dev`, au commit `1dd2620` (demande de fusion #166).
+> Recomptes le 2026-09-27 sur le commit deploye `main` `11271f7` (fusion de la demande #177) :
+> routes, controleurs, depots, vues, decisions d'architecture, migrations, jeux de donnees,
+> entites, commits et suites de tests. Les autres chiffres du document n'ont pas ete
+> rejoues a cette occasion et peuvent encore refleter le comptage du 26/09.
 
 ---
 
@@ -53,8 +57,8 @@ depot coute plus cher que le chiffre lui-meme.
 
 | Metrique | Valeur | Comment la revalider |
 |---|---|---|
-| Commits sur `dev` | 210 | `git rev-list --count origin/dev` |
-| Demandes de fusion entrees dans `dev` | 158 (dernier numero : #166) | `git log --format='%s' origin/dev > /tmp/s.txt ; grep -oE '\(#[0-9]+\)$' /tmp/s.txt \| sort -u \| wc -l` |
+| Commits (sur `main`, commit deploye `11271f7`) | 226 | `git rev-list --count 11271f7` |
+| Demandes de fusion fusionnees | 176 (derniere : #177, la release deployee `11271f7`) | API de la forge : `GET /api/v1/repos/AcadeNice/corentin_wakdo/pulls?state=closed`, compter les entrees `merged: true` (le decompte par `git log` ne voit pas les anciennes fusions, dont le titre ne finit pas par `(#n)`) |
 | Repartition des commits | 104 `feat`, 38 `docs`, 33 `fix`, 11 `chore`, 8 `ci`, 3 `test`, 2 `refactor` | `grep -oE '^[a-z]+' /tmp/s.txt \| sort \| uniq -c` |
 | Lignes PHP livrees | 25 075 sur 123 fichiers | `find src -name '*.php' -type f -exec cat {} + \| wc -l` |
 | Lignes JavaScript livrees | 6 385 sur 29 fichiers | `find src -name '*.js' -type f -exec cat {} + \| wc -l` |
@@ -64,32 +68,32 @@ depot coute plus cher que le chiffre lui-meme.
 | Appels de test JavaScript | 351 sur 28 fichiers | `grep -rhoE "\b(it\|test)\(" tests/js --include='*.test.js' \| wc -l` |
 | Scenarios de bout en bout | 76 | `grep -rhoE '^\s*test\(' tests/e2e --include='*.spec.js' \| wc -l` |
 | Analyse statique | PHPStan niveau 6, sans erreur | `phpstan.neon` (`level: 6`) |
-| Entites du modele | 22 | `grep -hiE 'CREATE TABLE' db/migrations/*.sql` |
-| Migrations / jeux de donnees | 15 / 9, idempotents | `ls db/migrations/*.sql \| wc -l` ; `ls db/seeds/*.sql \| wc -l` |
+| Entites du modele | 23 | `docs/merise/dictionary.md` (3.1 a 3.23) |
+| Migrations / jeux de donnees | 17 / 10, idempotents | `ls db/migrations/*.sql \| wc -l` ; `ls db/seeds/*.sql \| wc -l` |
 | Roles / permissions | 5 / 23 | `db/seeds/0001_rbac_and_reference.sql` |
-| Routes declarees | 155 (55 API back-office, 10 API borne, 90 pages) | `grep -cE 'router->add\(' src/public/admin/index.php` |
-| Controleurs | 32 (22 au premier niveau + 10 pour l'API JSON) | `ls src/app/Controllers/*.php src/app/Controllers/Admin/Api/*.php \| wc -l` |
-| Depots / vues | 10 / 38 | `find src/app -name '*Repository.php' \| wc -l` |
+| Routes declarees | 157 (76 GET, 67 POST, 9 PUT, 5 DELETE) dans `src/app/Core/routes.php` | `grep -c "router->add(" src/app/Core/routes.php` |
+| Controleurs | 23 au premier niveau (2 abstraits, 14 `AdminController`, 6 `Controller`, 1 `AuthenticatedController`) + 11 sous `Admin/Api` (10 concrets + 1 trait `JsonApiTrait`) | `ls src/app/Controllers/*.php src/app/Controllers/Admin/Api/*.php \| wc -l` |
+| Depots / vues | 11 / 41 | `find src/app -name '*Repository.php' \| wc -l` ; `find src/app/Views -name '*.php' \| wc -l` |
 | Regles transverses de securite | 22 (RG-T01 a RG-T22) | `docs/merise/mlt.md`, lignes 41-62 |
-| Decisions d'architecture | 17 | `ls docs/adr/0*.md \| wc -l` |
+| Decisions d'architecture | 20 | `ls docs/adr/0*.md \| wc -l` |
 | Entrees de journal de bord | 12 | `ls docs/journal/2026-*.md \| wc -l` |
 | Services conteneurises | 5 | `docker-compose.yml` |
 | Travaux d'integration continue | 4 | `.forgejo/workflows/ci.yml` |
 | Taches planifiees actives | 4 (+ 3 modeles commentes) | `docker/cron/crontab` |
 
 **Sur les suites de tests - une precaution de formulation.** La derniere execution
-complete mesuree donne **1 543 tests PHP pour 4 311 assertions** et **334 tests
-JavaScript** (mesure du 2026-09-26). Depuis, des tests ont ete ajoutes : le comptage
-statique ci-dessus est passe a 1 152 methodes PHP et 351 appels JavaScript. Les chiffres
-d'execution sont donc un **plancher**. Deux options a l'oral, au choix :
+complete mesuree donne **2 352 tests PHP pour 7 791 assertions** (avec la base de test)
+et **399 tests JavaScript** (mesure du 2026-09-27, sur le commit deploye `11271f7`).
+Ces chiffres continuent de croitre a chaque demande de fusion : ce sont donc un
+**plancher**, pas un plafond. Deux options a l'oral, au choix :
 
 - relancer les suites la veille et annoncer le resultat exact ;
-- dire *"plus de 1 500 tests PHP et plus de 330 tests JavaScript, derniere execution
-  complete le 26 septembre"*.
+- dire *"plus de 2 300 tests PHP et plus de 390 tests JavaScript, derniere execution
+  complete le 27 septembre"*.
 
-L'ecart entre 1 152 methodes et 1 543 tests s'explique et doit etre su : une methode
-associee a un fournisseur de donnees s'execute une fois par jeu de donnees et compte
-pour autant de tests.
+L'ecart entre le comptage statique de methodes et le nombre de tests executes s'explique
+et doit etre su : une methode associee a un fournisseur de donnees s'execute une fois par
+jeu de donnees et compte pour autant de tests.
 
 ### 1.2 Les trois mesures qui portent l'axe
 
@@ -214,9 +218,9 @@ paiement simule. Ils sont documentes dans le dossier.
   traitements avec ses 30 operations).
 - **Developpement pilote par les tests** sur les chemins sensibles : commande, stock,
   authentification, droits.
-- **Tracabilite** : 17 decisions d'architecture datees et motivees, 12 entrees de
-  journal de bord, 210 commits en convention de nommage, chaque changement passe par
-  une demande de fusion (158 entrees dans `dev`).
+- **Tracabilite** : 20 decisions d'architecture datees et motivees, 12 entrees de
+  journal de bord, 226 commits en convention de nommage, chaque changement passe par
+  une demande de fusion (176 fusionnees au 27/09/2026).
 
 **A dire, seconde moitie (90 s) - l'assistance IA, avant qu'on me la demande :**
 
@@ -413,8 +417,9 @@ et supprimer le reste.
 
 **F.1 - Le modele (19:00 - 21:00)**
 
-- **22 entites**, reparties en cinq domaines :
-  - Catalogue : `category`, `product`, `menu`, `menu_slot`, `menu_slot_option`
+- **23 entites**, reparties en cinq domaines :
+  - Catalogue : `category`, `product`, `menu`, `menu_slot`, `menu_slot_option`,
+    `category_ingredient_family`
   - Ingredients et stock : `ingredient`, `product_ingredient`, `allergen`,
     `ingredient_allergen`, `stock_movement`
   - Commande : `customer_order`, `order_item`, `order_item_selection`,
@@ -424,7 +429,7 @@ et supprimer le reste.
 - Le point a souligner : les trois entites du domaine securite viennent de la
   modelisation de la menace, pas du besoin fonctionnel. Un modele qui porte ses propres
   contre-mesures, c'est ce que veut dire "par conception".
-- Construction de la base : **15 migrations et 9 jeux de donnees de reference**, tous
+- Construction de la base : **17 migrations et 10 jeux de donnees de reference**, tous
   idempotents et rejouables, suivis par une table de migrations. Le saut sur le numero
   0004 est une decision tracee, pas un oubli.
 - Montrer le diagramme du modele conceptuel (`docs/merise/_diagrams/`).
@@ -433,10 +438,12 @@ et supprimer le reste.
 
 - Routeur ecrit pour le projet (`src/app/Core/Router.php`) : une association entre
   methode HTTP et chemin d'un cote, controleur et action de l'autre.
-  **155 routes declarees** dans `src/public/admin/index.php` : **55 pour l'API JSON du
-  back-office** (dont 9 `PUT` et 5 `DELETE`), 10 pour l'API publique de la borne,
-  90 pages de back-office. L'API JSON complete est portee par 10 controleurs dedies sous
-  `src/app/Controllers/Admin/Api/`, et tracee par la decision d'architecture 0017.
+  **157 routes declarees** (76 `GET`, 67 `POST`, 9 `PUT`, 5 `DELETE`), dans
+  `src/app/Core/routes.php` (extrait de `src/public/admin/index.php` par la PR #175,
+  pour que le routeur puisse etre reconstruit hors requete HTTP, ADR-0019). Les 9 `PUT`
+  et 5 `DELETE` appartiennent tous a l'API JSON du back-office, portee par 10
+  controleurs dedies sous `src/app/Controllers/Admin/Api/`, et tracee par la decision
+  d'architecture 0017.
 - Enveloppe de reponse uniforme : `{ "data": ... }` en succes,
   `{ "data": null, "error": { "code", "message" } }` en echec. Codes HTTP coherents :
   201 a la creation, 409 sur conflit, 422 sur validation, 403 sur droit refuse.
@@ -756,15 +763,15 @@ est en section 8. La proposer soi-meme si la question sur l'IA tombe.
 | B1 | Cr 2.b validation de formulaire | G.2 | Validation serveur (RG-T18) |
 | B1 | Cr 2.c echanges asynchrones | E | `data.js`, memoisation de promesse |
 | B1 | Cr 2.d bibliotheques externes | E | **Non couvert au sens strict, argumente** |
-| B2 | Cr 3.a analyse et modele | F.1 | Dictionnaire, 22 entites |
-| B2 | Cr 3.b construction de la base | F.1, H.1 | 15 migrations, 9 jeux de donnees |
+| B2 | Cr 3.a analyse et modele | F.1 | Dictionnaire, 23 entites |
+| B2 | Cr 3.b construction de la base | F.1, H.1 | 17 migrations, 10 jeux de donnees |
 | B2 | Cr 3.c SQL | G.2 | Decrement atomique, depots PDO |
 | B2 | Cr 3.d donnees personnelles | G.1 | Classification 4 niveaux, anonymisation |
-| B2 | Cr 4.b developpement serveur | F.2 | 155 routes, API JSON complete |
+| B2 | Cr 4.b developpement serveur | F.2 | 157 routes, API JSON complete |
 | B2 | Cr 4.c heritage | F.2 | Hierarchie des controleurs a 4 niveaux |
 | B2 | Cr 4.d separation des responsabilites | F.2 | Controleur, depot, vue |
 | B2 | Cr 4.e securite | G | 22 regles transverses, modelisation de la menace |
-| B2 | Cr 4.f versionnement | C | 210 commits, 158 demandes de fusion |
+| B2 | Cr 4.f versionnement | C | 226 commits, 176 demandes de fusion |
 | B2 | Cr 4.g livraison testee | H.2 | Suites PHP et JS, PHPStan niveau 6 |
 | B5 | Cr 7.a analyse infrastructure | H.3 | Arbitrage sur le socket Docker |
 | B5 | Cr 7.b scripts et taches planifiees | H.1 | 4 taches actives, scripts de migration |
@@ -805,15 +812,15 @@ bonne reponse est *"le code fait foi, et voici pourquoi le document a pris du re
 | Ecart | Le document dit | Le code dit |
 |---|---|---|
 | **API `PUT`/`DELETE`** | "reste au stade prevu" (dossier, C4.b) | **Livree** : 55 routes sous `/admin/api/`, dont 9 `PUT` et 5 `DELETE`, 10 controleurs dedies, decision d'architecture 0017. **C'est l'ecart le plus important** : le dossier declare absente une fonctionnalite demontrable. |
-| Nombre de tests | 755 PHP / 233 JS (dossier, deux endroits) | Derniere execution mesuree : 1 543 PHP / 334 JS. Comptage statique aujourd'hui : 1 152 methodes / 351 appels. |
-| Decisions d'architecture | "seize" (dossier, quatre endroits) | **17**. La 0017 porte justement l'API JSON. |
-| Migrations | "dix fichiers, 0001 a 0011" (dossier, C3.b) | **15 fichiers**, 0001 a 0015. Le saut sur 0004 reste volontaire et trace. |
-| Fichiers PHP de l'application | "103 fichiers" avec une repartition detaillee | **117** sous `src/app`, dont 32 controleurs (22 + 10 pour l'API JSON). |
+| Nombre de tests | 755 PHP / 233 JS (dossier, deux endroits) | Derniere execution mesuree (27/09/2026, commit `11271f7`) : 2 352 PHP / 7 791 assertions / 399 JS. Comptage statique aujourd'hui : 1 152 methodes / 351 appels. |
+| Decisions d'architecture | "seize" (dossier, quatre endroits) | **20**. Les 0018-0020 portent les familles d'ingredients, la page Sante de l'API et l'annulation par le responsable. |
+| Migrations | "dix fichiers, 0001 a 0011" (dossier, C3.b) | **17 fichiers**, 0001 a 0018. Le saut sur 0004 reste volontaire et trace. |
+| Fichiers PHP de l'application | "103 fichiers" avec une repartition detaillee | **117** sous `src/app`, dont 34 controleurs (23 au premier niveau + 11 sous `Admin/Api`). |
 | Modules de la borne | "18 modules, 2 979 lignes" | **21 modules, 3 311 lignes**. |
 | Feuille de style du back-office | "2 714 lignes" | **3 133 lignes** (refonte du 26 septembre). |
 | Operations du modele de traitements | "28 operations" | **30** depuis la version 0.3. |
 | Dependances de developpement | "deux" | **trois** (`@axe-core/playwright` en plus). Le fond tient : zero dependance de production. |
-| Nombre d'entites | 21 entites classifiees (dossier, section 19.4) | **22**. `pin_throttle` n'est classee nulle part dans la matrice. |
+| Nombre d'entites | 21 entites classifiees (dossier, section 19.4) | **23**. `pin_throttle` et `category_ingredient_family` sont desormais classees en INTERNAL (`PROJECT_CONTEXT.md` 19.4, corrige). |
 | Empreintes de mot de passe | "bcrypt ou argon2" (dossier, sections 7, 16, 18) | **argon2id**, et le dossier lui-meme l'ecrit en section 19.3. |
 | Services conteneurises | 4 en section 16, 5 ailleurs | **5**, dont un a execution unique. |
 | Regles transverses | "RG-T13 a RG-T21" en introduction de la section 19 | **22 regles**, RG-T22 comprise. |
@@ -854,25 +861,26 @@ Pour ne pas finir la liste sur une note basse, enchainer :
 ### 7.1 Architecture
 
 **Q1.1 - Comment une requete traverse votre application ?**
-Point d'entree `src/public/admin/index.php`, qui declare les 155 routes. Le routeur
-(`src/app/Core/Router.php`) compile chaque chemin, compare methode et chemin, et
-distingue 404 (chemin inconnu) de 405 (chemin connu, mauvaise methode). Il instancie le
-controleur et appelle l'action. Le controleur verifie la permission, valide les entrees,
-appelle le depot ; le depot parle a la base en requete preparee. Retour en HTML ou en
-JSON.
+Point d'entree `src/public/admin/index.php`, qui charge les 157 routes declarees dans
+`src/app/Core/routes.php` (extrait de `index.php` par la PR #175, pour que le routeur
+puisse etre reconstruit hors requete HTTP, ADR-0019). Le routeur (`src/app/Core/Router.php`)
+compile chaque chemin, compare methode et chemin, et distingue 404 (chemin inconnu) de 405
+(chemin connu, mauvaise methode). Il instancie le controleur et appelle l'action. Le
+controleur verifie la permission, valide les entrees, appelle le depot ; le depot parle a
+la base en requete preparee. Retour en HTML ou en JSON.
 
 **Q1.2 - Ou est la separation modele / vue / controleur ?**
-Les depots (10 classes `Repository`) portent l'acces aux donnees et ne contiennent pas
-de HTML. Les vues sont sous `src/app/Views/` (38 gabarits, dont 35 appellent
-`htmlspecialchars` - les 3 autres sont des pages statiques). Les controleurs sont sous
+Les depots (11 classes `Repository`) portent l'acces aux donnees et ne contiennent pas
+de HTML. Les vues sont sous `src/app/Views/` (41 fichiers : 36 vues de back-office, 3
+vues d'authentification, 2 gabarits de page). Les controleurs sont sous
 `src/app/Controllers/`. Formule : *"le controleur ne sait pas parler SQL et ne sait pas
 dessiner du HTML ; il coordonne."*
 
 **Q1.3 - Ou est l'heritage dans votre code ?**
 Une hierarchie a quatre niveaux. `src/app/Core/Controller.php` est abstraite ;
 `AdminController` en herite et ajoute le controle de permission, le rendu de vue et les
-messages ; les controleurs concrets en heritent. Sur les 22 fichiers du premier niveau :
-2 abstraits, 13 qui etendent `AdminController`, 6 `Controller`, 1
+messages ; les controleurs concrets en heritent. Sur les 23 fichiers du premier niveau :
+2 abstraits, 14 qui etendent `AdminController`, 6 `Controller`, 1
 `AuthenticatedController`. C'est le critere Cr 4.c.
 
 **Q1.4 - Pourquoi un routeur ecrit a la main plutot qu'une bibliotheque ?**
@@ -1004,7 +1012,7 @@ passaient.
 
 **Q4.1 - Comment deploie-t-on votre application ?**
 Une seule commande : `docker compose up -d`. Un service a execution unique applique les
-15 migrations et les 9 jeux de donnees, tous idempotents, puis s'arrete ; l'application
+17 migrations et les 10 jeux de donnees, tous idempotents, puis s'arrete ; l'application
 demarre ensuite. En production, le deploiement part sur chaque arrivee dans `main` et
 peut etre relance a la demande.
 
@@ -1051,7 +1059,7 @@ sauvegarde pour que le cliche de la nuit contienne l'etat nettoye.
 ### 7.5 Base de donnees
 
 **Q5.1 - Presentez votre modele de donnees.**
-22 entites en cinq domaines : catalogue, ingredients et stock, commande, droits,
+23 entites en cinq domaines : catalogue, ingredients et stock, commande, droits,
 securite. Le dictionnaire de donnees a ete pose avant le modele, et le modele a ete
 enrichi lot par lot. Point a souligner : les trois entites du domaine securite - journal
 d'audit et les deux compteurs de tentatives - viennent de la modelisation de la menace,
@@ -1070,7 +1078,7 @@ montants sont stockes et calcules en entiers, et convertis en euros seulement a
 l'affichage (RG-T04).
 
 **Q5.4 - Comment construisez-vous la base sur une machine neuve ?**
-15 migrations puis 9 jeux de donnees, appliques dans l'ordre lexicographique par un
+17 migrations puis 10 jeux de donnees, appliques dans l'ordre lexicographique par un
 service a execution unique, avec un suivi en table. Tous sont idempotents : les rejouer
 ne casse rien, ce qui rend l'operation sure a relancer. L'integration continue applique
 exactement la meme sequence sur une base ephemere avant de lancer les tests.
@@ -1120,8 +1128,8 @@ code de production.
 
 **Q7.1 - Votre couverture de tests mesure quoi exactement ?** **(rude)**
 Je n'ai pas de taux de couverture : je n'ai pas active l'instrumentation qui le calcule,
-et c'est un manque. Ce que j'ai, ce sont des nombres de tests - plus de 1 500 tests PHP
-pour plus de 4 300 assertions, plus de 330 tests JavaScript, 76 scenarios de bout en
+et c'est un manque. Ce que j'ai, ce sont des nombres de tests - plus de 2 300 tests PHP
+pour plus de 7 700 assertions, plus de 390 tests JavaScript, 76 scenarios de bout en
 bout - et surtout le **choix de ce qui est teste** : les chemins de commande, de stock,
 d'authentification et de droits. Un taux eleve sur du code sans risque ne m'aurait rien
 appris ; un test d'integration qui verifie qu'un role sans permission recoit 403, si.
@@ -1130,7 +1138,7 @@ appris ; un test d'integration qui verifie qu'un role sans permission recoit 403
 C'est precisement le piege que j'ai ferme. Sans base de donnees, ils s'ignoreraient
 tout seuls et le pipeline serait vert. Le drapeau `--fail-on-skipped` fait echouer
 l'integration des qu'un test est ignore. L'integration monte une base MariaDB ephemere,
-lui applique les 15 migrations et les 9 jeux de donnees, puis lance la suite. La
+lui applique les 17 migrations et les 10 jeux de donnees, puis lance la suite. La
 configuration refuse aussi les tests douteux et ceux qui n'assertent rien.
 
 **Q7.3 - Avez-vous pratique le developpement pilote par les tests ?**
@@ -1185,8 +1193,8 @@ dossier, dans la liste de ce que l'outil ne fait pas.
 
 **Q8.7 - Vos echanges avec l'IA sont-ils verifiables ?** **(piege - eviter de sur-promettre)**
 Partiellement, et je prefere etre precis. Ce qui est versionne et que je peux vous
-montrer : les regles de methodologie, les 17 decisions d'architecture, le journal de
-bord, les 210 commits. Ce qui ne l'est pas : les journaux de conversation eux-memes.
+montrer : les regles de methodologie, les 20 decisions d'architecture, le journal de
+bord, les 226 commits. Ce qui ne l'est pas : les journaux de conversation eux-memes.
 Le dossier laisse entendre en section 17.9 qu'ils sont auditables ; c'est une imprecision
 que j'ai relevee, ils ne sont pas versionnes.
 
