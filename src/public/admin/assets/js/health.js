@@ -815,7 +815,6 @@
     var REASON = { 200: 'OK', 201: 'Created', 302: 'Found', 400: 'Bad Request', 401: 'Unauthorized', 403: 'Forbidden', 404: 'Not Found', 409: 'Conflict', 415: 'Unsupported Media Type', 422: 'Unprocessable Content', 429: 'Too Many Requests', 500: 'Internal Server Error' };
 
     function isJson(r) { return r.f === 'json'; }
-    function createsResource(r) { return r.m === 'POST' && (/\/(orders|categories|products|menus|ingredients|users|roles)$/.test(r.p)); }
 
     function find(routes, m, p) {
         for (var i = 0; i < routes.length; i++) {
@@ -985,44 +984,163 @@
         return S;
     }
 
-    function redirectOf(r) {
-        var special = {
-            '/login': "route d'accueil du rôle (par exemple /admin/stats ou /kitchen/display)",
-            '/logout': '/login', '/reset_password': '/login',
-            '/forgot_password': '/forgot_password (message neutre, que le compte existe ou non)',
-            '/admin/profile/pin': '/admin/profile/pin',
-        };
-        if (special[r.p]) {
-            return special[r.p];
-        }
-        return r.p.replace(/\/\{[^}]+\}.*$/, '').replace(/\/(new|import.*)$/, '') || '/';
+    /* ------------------------------------------------------------
+     * Réponses du trajet : RÉELLES, jamais un modèle.
+     *
+     * Une lecture (GET) est appelée pour de vrai, avec la session de la page. Le
+     * refus « sans session » d'une route JSON et le refus « adresse inconnue » d'une
+     * lecture le sont aussi : ils s'arrêtent avant tout contrôleur. Tout le reste
+     * (le succès d'une écriture, un refus qui demande un autre compte ou un corps
+     * volontairement faux) vient des réponses CAPTURÉES sur une pile jetable par
+     * tests/e2e/health-capture.spec.js, transmises par la page (data-responses) :
+     * la page n'écrit jamais en base. Un refus que la capture n'a pas pu provoquer
+     * n'est pas inventé : la page dit qu'il ne s'applique pas à cette route.
+     * ------------------------------------------------------------ */
+
+    var LIST_MAX = 2;
+
+    /** Où prendre la réponse : appel réel depuis la page, ou réponse capturée. */
+    function trajetSource(r, failId, boom) {
+        if (boom) return { mode: 'captured', slot: 'boom' };
+        if (!failId) return r.m === 'GET' ? { mode: 'live', slot: 'ok' } : { mode: 'captured', slot: 'ok' };
+        if (failId === 'session' && r.f === 'json') return { mode: 'live', slot: 'session' };
+        if (failId === 'router' && r.m === 'GET') return { mode: 'live', slot: 'router' };
+        return { mode: 'captured', slot: failId };
     }
 
-    function successOf(r) {
-        if (!isJson(r)) {
-            return r.m === 'GET'
-                ? { status: 200, body: '<!doctype html>\n… page du back-office, rendue côté serveur …' }
-                : { status: 302, body: 'Location: ' + redirectOf(r) + '\n\n(corps vide : le navigateur suit la redirection)' };
+    /**
+     * Requête réelle du trajet. Garantie tenue ici, pas par l'interface : une écriture
+     * ne part JAMAIS avec la session de la page. Le seul appel d'écriture possible est
+     * le refus « sans session », envoyé avec credentials 'omit' : sans cookie, le
+     * serveur le refuse (401) avant tout contrôleur.
+     *
+     * @returns {?{url: string, init: object}} null si l'appel ne doit pas partir
+     */
+    function buildTrajetRequest(r, path, slot) {
+        if (slot === 'ok') {
+            if (r.m !== 'GET') return null;
+            return { url: path, init: { method: 'GET', credentials: 'same-origin', headers: { Accept: 'application/json, text/html' } } };
         }
-        var st = (r.p === '/api/orders' && r.m === 'POST') || (r.s === 'api' && createsResource(r)) ? 201 : 200;
-        var body = r.m === 'GET' && !/\{(id|number)\}/.test(r.p) && r.p !== '/api/health' && r.p !== '/admin/me' && r.a !== 'apiMe' && r.p !== '/admin/api/stats'
-            ? '{\n  "data": [ … ]\n}' : '{\n  "data": { … }\n}';
-        if (r.a === 'apiCancel') {
-            body = '{\n  "data": {\n    "order_number": "{number}",\n    "status": "cancelled"\n  }\n}';
+        if (slot === 'router') {
+            if (r.m !== 'GET') return null;
+            return { url: path.replace(/\/?$/, '/inexistant'), init: { method: 'GET', credentials: 'same-origin' } };
         }
-        return { status: st, body: body };
+        if (slot === 'session') {
+            var init = { method: r.m, credentials: 'omit', redirect: 'manual' };
+            if (r.m !== 'GET') {
+                init.headers = { 'Content-Type': 'application/json' };
+                init.body = '{}';
+            }
+            return { url: path, init: init };
+        }
+        return null;
     }
 
-    function errorBody(f) {
-        if (f.kind === 'redirect') return 'Location: /login\n\n(corps vide : retour à la connexion)';
-        if (f.kind === 'text') return 'Content-Type: text/plain; charset=utf-8\n\nRequête invalide.';
-        if (f.kind === 'page') return '<!doctype html>\n… ' + f.code + ' …';
-        if (f.kind === 'login') return '<!doctype html>\n… page de connexion réaffichée …\nEmail ou mot de passe incorrect\n\n(même message pour un compte inconnu ou un mauvais mot de passe)';
-        if (f.kind === 'form') return '<!doctype html>\n… formulaire réaffiché, saisie conservée, erreur signalée au champ concerné …';
-        if (f.kind === 'cors') return 'aucun en-tête Access-Control-Allow-Origin\n\n(le navigateur bloque la lecture de la réponse)';
-        var e = '{\n  "data": null,\n  "error": {\n    "code": "' + f.code + '",\n    "message": "' + f.msg + '"';
-        if (f.fields) e += ',\n    "fields": { "<champ>": "…" }';
-        return e + '\n  }\n}';
+    /**
+     * Liste à lire pour obtenir un identifiant réel, quand une lecture a un
+     * paramètre ({id}, {number}) : le trajet ne demande rien à la main.
+     */
+    function listUrlFor(pattern) {
+        if (!/\{[^}]+\}/.test(pattern)) return null;
+        var m = pattern.match(/^\/(admin\/api|api|admin)\/([a-z-]+)\//);
+        if (!m) return null;
+        if (m[2] === 'orders') return { url: '/admin/api/orders', field: 'order_number' };
+        if (m[1] === 'api') return { url: '/api/' + m[2], field: 'id' };
+        return { url: '/admin/api/' + m[2], field: 'id' };
+    }
+
+    function pruneForDisplay(v) {
+        if (Array.isArray(v)) {
+            var head = v.slice(0, LIST_MAX).map(pruneForDisplay);
+            if (v.length > LIST_MAX) head.push('… et ' + (v.length - LIST_MAX) + ' autre(s) élément(s)');
+            return head;
+        }
+        if (v && typeof v === 'object') {
+            var o = {};
+            Object.keys(v).forEach(function (k) {
+                var x = v[k];
+                o[k] = (/csrf|token/i.test(k) && typeof x === 'string' && x.length > 16) ? ('<jeton de ' + x.length + ' caractères>') : pruneForDisplay(x);
+            });
+            return o;
+        }
+        return v;
+    }
+
+    function stripTags(s) {
+        return String(s).replace(/<[^>]+>/g, '').replace(/&#0?39;|&apos;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
+    }
+
+    /**
+     * Ce que le trajet affiche d'un corps de réponse : JSON indenté (listes
+     * raccourcies, jetons masqués), page HTML résumée (titre, en-tête, messages
+     * affichés à l'utilisateur), sinon le texte tel quel. Partagée avec le
+     * programme de capture : une réponse en direct et une réponse capturée se
+     * lisent de la même façon. Toujours écrite par textContent.
+     */
+    function summarizeBody(contentType, text) {
+        var raw = text || '';
+        var type = String(contentType || '').split(';')[0].trim();
+        if (type === 'application/json') {
+            try { return JSON.stringify(pruneForDisplay(JSON.parse(raw)), null, 2); } catch (e) { return raw.slice(0, BODY_TEXT_MAX); }
+        }
+        if (type === 'text/html') {
+            var lines = ['<!doctype html> … page HTML de ' + raw.length + ' caractères, extrait :'];
+            var title = raw.match(/<title>([\s\S]*?)<\/title>/i);
+            var h1 = raw.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+            if (title) lines.push('<title>' + stripTags(title[1]) + '</title>');
+            if (h1) lines.push('<h1>' + stripTags(h1[1]) + '</h1>');
+            var re, m, n;
+            re = /class="[^"]*\b(?:flash|alert)[^"]*"[^>]*>([\s\S]*?)<\/(?:div|p)>/gi; n = 0;
+            while ((m = re.exec(raw)) && n < 3) { if (stripTags(m[1])) { lines.push('message : « ' + stripTags(m[1]) + ' »'); n++; } }
+            re = /class="[^"]*\bform-error\b[^"]*"[^>]*>([\s\S]*?)<\/(?:p|span|div)>/gi; n = 0;
+            while ((m = re.exec(raw)) && n < 4) { if (stripTags(m[1])) { lines.push('erreur sous un champ : « ' + stripTags(m[1]) + ' »'); n++; } }
+            re = /role="alert"[^>]*>([\s\S]*?)<\/(?:div|section)>/gi; n = 0;
+            while ((m = re.exec(raw)) && n < 2) { if (stripTags(m[1])) { lines.push("bloc d'alerte : « " + stripTags(m[1]).slice(0, 300) + ' »'); n++; } }
+            if (lines.length === 1) lines.push(raw.slice(0, 400));
+            return lines.join('\n');
+        }
+        return raw.length > BODY_TEXT_MAX ? raw.slice(0, BODY_TEXT_MAX) + '\n… (tronqué)' : raw;
+    }
+
+    /** Réponse capturée pour une route et une étape (ou 'ok', ou 'boom'). */
+    function capturedOutcome(captures, r, slot) {
+        if (!captures || !captures.routes) return null;
+        var entry;
+        if (slot === 'boom') {
+            var kind = r.s === 'borne' ? 'borne' : (r.f === 'json' ? 'api' : 'html');
+            entry = captures.boom ? captures.boom[kind] : null;
+        } else {
+            var route = captures.routes[r.m + ' ' + r.p];
+            if (!route) return null;
+            entry = slot === 'ok' ? route.ok : (route.fail || {})[slot];
+        }
+        if (!entry) return null;
+        if (entry.not_reproduced) {
+            return { notReproduced: true, observed: entry.observed_status === undefined ? null : entry.observed_status, how: entry.how || '' };
+        }
+        return { status: entry.status, type: entry.type || null, body: entry.body || '', location: entry.location || null, request: entry.request || null, how: entry.how || '' };
+    }
+
+    /** Code d'erreur métier d'un corps capturé ou reçu (error.code), sinon null. */
+    function errorCodeOf(body) {
+        var m = /"code":\s*"([^"]+)"/.exec(body || '');
+        return m ? m[1] : null;
+    }
+
+    /** Requête affichée sous la réponse : ligne de requête, en-têtes utiles, corps. */
+    function requestText(req) {
+        if (!req) return '';
+        var lines = [req.method + ' ' + req.path];
+        Object.keys(req.headers || {}).forEach(function (k) { lines.push(k + ': ' + req.headers[k]); });
+        if (req.body) lines.push('', req.body);
+        return lines.join('\n');
+    }
+
+    function fmtCaptureDate(iso) {
+        var d = new Date(iso);
+        if (isNaN(d.getTime())) return String(iso || '');
+        function p(n) { return (n < 10 ? '0' : '') + n; }
+        return p(d.getUTCDate()) + '/' + p(d.getUTCMonth() + 1) + '/' + d.getUTCFullYear() + ' à ' + p(d.getUTCHours()) + 'h' + p(d.getUTCMinutes()) + ' UTC';
     }
 
     /**
@@ -1047,9 +1165,15 @@
         return -1;
     }
 
-    function wireTrajet(doc, routes, onLoad) {
+    function wireTrajet(doc, routes, onLoad, deps) {
+        deps = deps || {};
         var win = doc.defaultView || (typeof window !== 'undefined' ? window : null);
-        var REDUCED = !!(win && win.matchMedia && win.matchMedia('(prefers-reduced-motion: reduce)').matches);
+        // Sans matchMedia (faux DOM des tests), pas d'animation : la réponse s'affiche
+        // tout de suite, comme pour « réduire les animations ».
+        var REDUCED = deps.reduced !== undefined ? !!deps.reduced
+            : (!(win && win.matchMedia) || win.matchMedia('(prefers-reduced-motion: reduce)').matches);
+        var captures = deps.captures || null;
+        function fetchFn(url, init) { return fetch(url, init); }
 
         var PRESETS = [
             { label: 'Borne · lire le catalogue', m: 'GET', p: '/api/products' },
@@ -1073,6 +1197,8 @@
         var elRespWhere = byId(doc, 'health-respwhere');
         var elBody = byId(doc, 'health-respbody');
         var elNotes = byId(doc, 'health-notes');
+        var elSource = byId(doc, 'health-respsource');
+        var elReq = byId(doc, 'health-reqbody');
         var elBoom = byId(doc, 'health-boom');
         if (!elRail || !elRoutebar || !elStatus) {
             return;
@@ -1107,8 +1233,16 @@
             S = stations(r, routes);
             var html = S.map(function (s, i) {
                 var f = s.fail, fb = '';
-                if (f) {
-                    fb = '<div class="health-step__fail"><button type="button" class="health-failbtn" data-fail="' + s.id + '" aria-pressed="' + (state.fail === s.id) + '">si refus : <span class="mono">' + (f.status !== '—' ? f.status + ' ' : '') + esc(f.code) + '</span></button>'
+                var cap = f ? capturedOutcome(captures, r, s.id) : null;
+                if (f && cap && cap.notReproduced) {
+                    // Refus que la capture n'a pas pu provoquer : il ne s'applique pas à
+                    // cette route, on ne le propose pas.
+                    fb = '<div class="health-step__fail"><span class="health-step__where">refus non observé sur cette route : la même demande a répondu '
+                        + esc(String(cap.observed)) + '</span></div>';
+                } else if (f) {
+                    var label = (cap && cap.status) ? (cap.status + ' ' + (errorCodeOf(cap.body) || '')).trim()
+                        : ((f.status !== '—' ? f.status + ' ' : '') + f.code);
+                    fb = '<div class="health-step__fail"><button type="button" class="health-failbtn" data-fail="' + s.id + '" aria-pressed="' + (state.fail === s.id) + '">si refus : <span class="mono">' + esc(label) + '</span></button>'
                         + (f.alt ? '<span class="health-step__where">' + esc(f.alt) + '</span>' : '') + '</div>';
                 }
                 return '<li class="health-step" data-i="' + i + '" data-step-id="' + esc(s.id) + '"><span class="health-step__node" aria-hidden="true"></span>'
@@ -1147,38 +1281,113 @@
             });
         }
 
-        function setResp(st, where, body, tone) {
-            var c = (st === '—' || tone === 'warn') ? 'pill-warning' : (String(st).charAt(0) === '2' ? 'pill-success' : String(st).charAt(0) === '3' ? 'pill-info' : String(st).charAt(0) === '4' ? 'pill-warning' : 'pill-danger');
+        function setStatus(st) {
+            var c = (st === '—' || st === null) ? 'pill-warning' : statusPillClass(st);
             elStatus.className = 'pill ' + c;
-            elStatus.textContent = st === '—' ? 'bloquée' : st + ' ' + (REASON[st] || '');
-            if (elRespWhere) elRespWhere.textContent = where;
-            if (elBody) elBody.textContent = body;
+            elStatus.textContent = st === '—' ? 'non obtenu' : (st === null ? 'pas encore envoyé' : st + ' ' + (REASON[st] || ''));
         }
 
-        function showResponse(kind) {
-            var r = routes[state.ri], fi = currentFailIndex(), notes = [];
-            if (kind === 'wait') {
-                elStatus.className = 'pill';
-                elStatus.textContent = 'en route…';
-                if (elRespWhere) elRespWhere.textContent = 'la requête traverse les couches';
-                if (elBody) elBody.textContent = '';
-                if (elNotes) elNotes.innerHTML = '';
-                return;
+        function outcomeKey() {
+            return state.ri + '|' + (state.fail || '') + '|' + (state.boom ? 1 : 0);
+        }
+
+        /** Chemin réel d'une lecture paramétrée : l'identifiant est lu dans la liste. */
+        function livePath(r) {
+            if (!/\{[^}]+\}/.test(r.p)) return Promise.resolve({ path: r.p, from: null });
+            var lu = listUrlFor(r.p);
+            if (!lu) return Promise.resolve(null);
+            return fetchFn(lu.url, { method: 'GET', credentials: 'same-origin' })
+                .then(function (res) { return res.text(); })
+                .then(function (text) {
+                    var d = JSON.parse(text);
+                    var list = Array.isArray(d.data) ? d.data : ((d.data && (d.data.items || d.data.orders)) || []);
+                    if (!list.length || list[0][lu.field] === undefined || list[0][lu.field] === null) return null;
+                    var v = String(list[0][lu.field]);
+                    return { path: r.p.replace(/\{[^}]+\}/g, encodeURIComponent(v)), from: 'identifiant ' + v + ' lu dans GET ' + lu.url };
+                })
+                .catch(function () { return null; });
+        }
+
+        function resolveOutcome(trigger) {
+            var r = routes[state.ri];
+            var fi = currentFailIndex();
+            var failId = state.boom ? null : (fi >= 0 ? S[fi].id : null);
+            var src = trajetSource(r, failId, state.boom);
+            if (src.mode === 'captured') {
+                return Promise.resolve({ kind: 'captured', slot: src.slot, cap: capturedOutcome(captures, r, src.slot) });
             }
-            if (fi >= 0 && state.boom) {
-                setResp(500, 'refus au niveau « ' + S[fi].name + ' »', '{\n  "data": null,\n  "error": {\n    "code": "INTERNAL_ERROR",\n    "message": "Internal server error"\n  }\n}');
-                notes.push(['Côté serveur', 'La pile complète part dans le journal du conteneur, quel que soit APP_DEBUG. Côté client, un message générique : rien de la mécanique interne ne fuit.']);
-                notes.push(['Toujours lisible par la borne', 'La réponse 500 est elle aussi décorée des en-têtes CORS, pour que le navigateur puisse lire l’erreur.']);
+            if (!trigger) {
+                return Promise.resolve({ kind: 'idle', slot: src.slot });
+            }
+            return livePath(r).then(function (lp) {
+                if (!lp) return { kind: 'captured', slot: src.slot, cap: capturedOutcome(captures, r, src.slot), noLiveId: true };
+                var req = buildTrajetRequest(r, lp.path, src.slot);
+                if (!req) return { kind: 'captured', slot: src.slot, cap: capturedOutcome(captures, r, src.slot) };
+                var start = nowMs();
+                return fetchFn(req.url, req.init).then(function (res) {
+                    return res.text().catch(function () { return ''; }).then(function (text) {
+                        var ctype = (res.headers && res.headers.get) ? (res.headers.get('content-type') || '') : '';
+                        return {
+                            kind: 'live', slot: src.slot, status: res.type === 'opaqueredirect' ? null : res.status,
+                            body: summarizeBody(ctype, text), ms: nowMs() - start, from: lp.from,
+                            omit: req.init.credentials === 'omit',
+                            req: { method: req.init.method, path: req.url, headers: req.init.headers || {}, body: req.init.body || null },
+                        };
+                    });
+                }, function () { return { kind: 'neterr', slot: src.slot }; });
+            });
+        }
+
+        function reasonFor(r, slot) {
+            if (slot === 'ok') return r.m === 'GET' ? 'aucun élément à lire en direct pour cette route.' : 'cet appel écrirait en base, il n’est donc pas envoyé depuis cette page.';
+            if (slot === 'boom') return 'une vraie exception, obtenue en arrêtant la base de données.';
+            if (slot === 'perm') return 'ce refus demande un compte qui n’a pas la permission.';
+            return 'ce refus demande une requête volontairement fausse, jouée sur la pile de test.';
+        }
+
+        function renderOutcome(o) {
+            var r = routes[state.ri], fi = currentFailIndex(), notes = [];
+            var where = fi >= 0 ? 'arrêt à l’étape « ' + S[fi].name + ' »' : 'trajet complet, ' + S.length + ' étapes franchies';
+            var status = null, body = '', req = null, source = '';
+            if (o.kind === 'idle') {
+                source = 'Appel réel : clique « Lancer l\'appel » pour l’envoyer au serveur' + (o.slot === 'session' ? ', sans le cookie de session.' : ', avec ta session.');
+                where = '';
+            } else if (o.kind === 'neterr') {
+                source = 'Appel réel : la requête n’a pas abouti (réseau).';
+            } else if (o.kind === 'live') {
+                status = o.status;
+                body = o.body;
+                req = o.req;
+                source = 'Appel réel envoyé à ' + fmtTime(new Date()) + ', ' + Math.round(o.ms) + ' ms, ' + (o.omit ? 'sans le cookie de session' : 'avec ta session') + (o.from ? ' (' + o.from + ')' : '') + '.';
+            } else if (!captures) {
+                source = 'Réponse capturée indisponible : le fichier des réponses n’a pas été chargé. Rien n’est inventé ici.';
+            } else if (!o.cap) {
+                source = 'Aucune réponse capturée pour ce cas : relancer tests/e2e/run-health-capture.sh.';
+            } else if (o.cap.notReproduced) {
+                status = '—';
+                source = 'Ce refus n’a pas pu être provoqué sur cette route : la même demande a répondu ' + o.cap.observed + ' (' + o.cap.how + '). L’étape ne s’applique pas ici.';
+            } else {
+                status = o.cap.status;
+                body = o.cap.body;
+                req = o.cap.request;
+                source = 'Réponse réelle capturée le ' + fmtCaptureDate(captures.captured_at) + ' sur une pile de test'
+                    + (captures.commit ? ' (commit ' + captures.commit + ')' : '') + ' : ' + reasonFor(r, o.slot)
+                    + (o.cap.how ? ' Obtenue ainsi : ' + o.cap.how + '.' : '');
+            }
+            setStatus(status);
+            if (elRespWhere) elRespWhere.textContent = where;
+            if (elSource) elSource.textContent = source;
+            if (elBody) elBody.textContent = body;
+            if (elReq) elReq.textContent = requestText(req);
+
+            if (state.boom) {
+                notes.push(['Côté serveur', 'La pile complète part dans le journal du conteneur. Côté client, un message générique : rien de la mécanique interne ne fuit (production avec APP_DEBUG désactivé).']);
             } else if (fi >= 0) {
-                var f = S[fi].fail;
-                setResp(f.status, 'arrêt à l’étape « ' + S[fi].name + ' »', errorBody(f), f.tone);
                 notes.push(['Ce qui s’est passé', 'La requête s’arrête ici : aucune étape suivante n’est exécutée, rien n’est écrit en base.']);
-                if (f.pinNote) notes.push(['Même réponse si le compte est verrouillé', 'Un code verrouillé et un code faux renvoient la même chose et coûtent le même temps de calcul : de l’extérieur, rien ne distingue les deux cas. L’échec est écrit au journal d’audit.']);
+                if (S[fi].fail && S[fi].fail.pinNote) notes.push(['Même réponse si le compte est verrouillé', 'Un code verrouillé et un code faux renvoient la même chose et coûtent le même temps de calcul : de l’extérieur, rien ne distingue les deux cas. L’échec est écrit au journal d’audit.']);
                 if (S[fi].id === 'perm' && r.s === 'api' && /\{number\}/.test(r.p) && r.w) notes.push(['Pas de 404 révélateur', 'Une commande inexistante et une commande hors des canaux du rôle renvoient toutes deux 403 : on ne peut pas sonder l’existence d’un numéro.']);
                 if (S[fi].id === 'session' && r.s === 'api') notes.push(['Pourquoi 401 et pas une redirection', 'L’API répond en JSON, jamais par une redirection vers la page de connexion : un client HTTP doit pouvoir lire le refus.']);
             } else {
-                var ok = successOf(r);
-                setResp(ok.status, 'trajet complet, ' + S.length + ' étapes franchies', ok.body);
                 if (r.p === '/api/orders' && r.m === 'POST') notes.push(['Le prix ne vient pas du client', 'Le montant est recalculé depuis la base à la création ; chaque ligne fige le libellé, le prix et la TVA appliqués.']);
                 if (r.pin) notes.push(['Traçabilité', 'L’action et sa ligne d’audit sont écrites dans la même transaction : l’une ne peut pas exister sans l’autre.']);
                 if (r.s === 'borne') notes.push(['Sans compte, mais pas sans garde', 'La borne est publique : la protection tient dans la validation serveur, l’idempotence des commandes et la lecture seule du catalogue.']);
@@ -1189,17 +1398,43 @@
             }
         }
 
+        function showWaiting() {
+            elStatus.className = 'pill';
+            elStatus.textContent = 'en route…';
+            if (elRespWhere) elRespWhere.textContent = 'la requête traverse les couches';
+            if (elSource) elSource.textContent = '';
+            if (elBody) elBody.textContent = '';
+            if (elReq) elReq.textContent = '';
+            if (elNotes) elNotes.innerHTML = '';
+        }
+
+        /** Affiche la réponse quand elle est prête, si l'utilisateur n'a pas changé de route entre-temps. */
+        function renderWhenReady(pending) {
+            var key = outcomeKey();
+            return pending.then(function (o) {
+                if (key === outcomeKey()) renderOutcome(o);
+                return o;
+            });
+        }
+
         function stopTimer() {
             if (state.timer) { clearTimeout(state.timer); state.timer = null; }
         }
 
-        function atRest() {
-            stopTimer();
+        function settle() {
             var fi = currentFailIndex(), last = fi >= 0 ? fi : S.length - 1;
             state.step = last;
             paint(last, true);
             packetTo(fi >= 0 ? fi : 0, fi >= 0 ? 'fail' : 'done');
-            showResponse('final');
+        }
+
+        /** État au repos. Un appel réel ne part que sur un geste de l'utilisateur (trigger). */
+        function atRest(trigger) {
+            stopTimer();
+            settle();
+            state.pending = resolveOutcome(!!trigger);
+            state.done = renderWhenReady(state.pending);
+            return state.done;
         }
 
         function advance() {
@@ -1218,17 +1453,20 @@
             state.step = last;
             paint(last, true);
             packetTo(0, fi >= 0 ? 'fail' : 'done');
-            showResponse('final');
+            state.done = renderWhenReady(state.pending || resolveOutcome(true));
         }
 
         function play() {
             stopTimer();
-            if (REDUCED) { atRest(); return; }
+            if (REDUCED) { return atRest(true); }
+            // L'appel part pendant l'animation ; sa réponse s'affiche à l'arrivée du paquet.
+            state.pending = resolveOutcome(true);
             state.step = -1;
             paint(-1, false);
             packetTo(0, '');
-            showResponse('wait');
+            showWaiting();
             (function tick() { if (advance()) state.timer = setTimeout(tick, 650); })();
+            return state.pending;
         }
 
         function load(ri, opts) {
@@ -1237,12 +1475,13 @@
             state.ri = ri;
             state.fail = opts.fail || null;
             state.boom = false;
+            state.pending = null;
             state.preset = (opts.preset !== undefined) ? opts.preset : null;
             renderPresets();
             renderRoute();
             markCurrentRoute(doc, state.ri);
             if (onLoad) { onLoad(state.ri); }
-            if (opts.animate) { play(); } else { atRest(); }
+            return opts.animate ? play() : atRest(false);
         }
 
         elPresets && elPresets.addEventListener('click', function (e) {
@@ -1255,6 +1494,7 @@
             var id = b.getAttribute('data-fail');
             state.boom = false;
             state.fail = (state.fail === id) ? null : id;
+            state.pending = null;
             renderRoute();
             play();
         });
@@ -1265,16 +1505,17 @@
         elStep && elStep.addEventListener('click', function () {
             stopTimer();
             var fi = currentFailIndex(), last = fi >= 0 ? fi : S.length - 1;
-            if (state.step >= last) { state.step = -1; paint(-1, false); packetTo(0, ''); showResponse('wait'); }
+            if (state.step >= last) { state.step = -1; paint(-1, false); packetTo(0, ''); showWaiting(); state.pending = resolveOutcome(true); }
+            if (!state.pending) { state.pending = resolveOutcome(true); }
             advance();
         });
-        elReset && elReset.addEventListener('click', function () { stopTimer(); state.fail = null; state.boom = false; renderRoute(); atRest(); });
-        elBoom && elBoom.addEventListener('click', function () { state.boom = !state.boom; state.fail = null; renderRoute(); play(); });
+        elReset && elReset.addEventListener('click', function () { stopTimer(); state.fail = null; state.boom = false; state.pending = null; renderRoute(); atRest(false); });
+        elBoom && elBoom.addEventListener('click', function () { state.boom = !state.boom; state.fail = null; state.pending = null; renderRoute(); play(); });
 
         load(state.ri, { preset: 2 });
 
         return {
-            loadRoute: function (ri, opts) { load(ri, opts); },
+            loadRoute: function (ri, opts) { return load(ri, opts); },
             currentIndex: function () { return state.ri; },
         };
     }
@@ -1327,6 +1568,107 @@
         };
     }
 
+    /*
+     * Regroupement par ACTION. Une même action existe jusqu'à trois fois, pour trois
+     * raisons : la page qui affiche le formulaire (GET) puis son envoi (POST), parce que
+     * ce sont deux requêtes ; l'envoi en POST …/delete côté back-office, parce qu'un
+     * formulaire HTML ne connaît que GET et POST ; la même action dans l'API JSON, pour
+     * Postman ou Bruno. Sans ce regroupement, la carte montre des lignes qui semblent
+     * répétées.
+     */
+    var ACTION_LABELS = {
+        toggle: 'Activer / désactiver', move: "Changer l'ordre", restock: 'Réapprovisionner',
+        thresholds: 'Régler les seuils', inventory: 'Inventaire', adjust: 'Ajuster le stock',
+        movements: 'Historique des mouvements', enrich: 'Données nutritionnelles (Open Food Facts)',
+        allergens: 'Allergènes', recipe: 'Recette', cancel: 'Annuler une commande',
+        ready: 'Marquer prête', deliver: 'Remettre au client', pay: 'Payer (borne)',
+        'reset-pin': 'Réinitialiser le code personnel', erase: 'Anonymiser (RGPD)',
+        deactivate: 'Désactiver le compte', 'delete': 'Supprimer',
+    };
+    var FIXED_LABELS = {
+        '/': 'Accueil (redirection)', '/login': 'Se connecter', '/logout': 'Se déconnecter', '/admin/me': 'Qui suis-je',
+        '/forgot_password': 'Mot de passe oublié', '/reset_password': 'Nouveau mot de passe',
+        '/admin/profile/pin': 'Définir son code personnel', '/admin/health': "Santé de l'application",
+        '/api/health': 'Santé (sonde publique)', '/admin/privacy': 'Données personnelles',
+        '/admin/products/import': 'Importer : choisir le fichier', '/admin/products/import/apply': "Importer : aperçu puis application",
+        '/admin/products/import/template': 'Importer : modèle à télécharger', '/admin/products/by-category': 'Produits par catégorie',
+        '/admin/dashboard': 'Tableau de bord', '/admin/stats': 'Statistiques', '/kitchen/display': 'Écran cuisine',
+        '/counter/orders': 'Caisse comptoir', '/drive/orders': 'Caisse drive',
+        '/api/orders': 'Passer commande (borne)', '/api/categories': 'Catégories (borne)', '/api/products': 'Produits (borne)',
+        '/api/menus': 'Menus (borne)', '/api/allergens': 'Allergènes (borne)',
+    };
+    var COLLECTION_RE = /\/(categories|products|menus|ingredients|users|roles|orders)$/;
+
+    /** Clé d'action commune aux colonnes, et colonne de la route (borne, page, form, api). */
+    function actionOf(r) {
+        var col = r.s === 'borne' ? 'borne' : (r.s === 'api' ? 'api' : (r.m === 'GET' ? 'page' : 'form'));
+        var base = r.s === 'api' ? r.p.replace(/^\/admin\/api\//, '/admin/') : r.p;
+        var special = { '/admin/auth/login': '/login', '/admin/auth/logout': '/logout', '/admin/auth/me': '/admin/me', '/admin/products/import': '/admin/products/import/apply' };
+        if (r.s === 'api' && special[base]) base = special[base];
+        if (r.s === 'bo' && (r.p === '/admin/products/import/preview' || r.p === '/admin/products/import/confirm')) base = '/admin/products/import/apply';
+        if (/\/new$/.test(base)) return { key: base.slice(0, -4) + ' #create', col: col };
+        if (/\/edit$/.test(base)) return { key: base.slice(0, -5) + ' #update', col: col };
+        if (r.s === 'api' && r.m === 'DELETE' && /\}$/.test(base)) {
+            // Pour un compte ou une catégorie, le DELETE de l'API désactive (is_active=0,
+            // l'historique reste) : même action que « désactiver » du back-office.
+            return { key: base + (/^\/admin\/(users|categories)\//.test(base) ? '/deactivate' : '/delete'), col: col };
+        }
+        if ((r.s === 'api' && r.m === 'PUT' || r.s === 'bo' && r.m === 'POST') && /\}$/.test(base)) return { key: base + ' #update', col: col };
+        if (r.m === 'POST' && r.s !== 'borne' && COLLECTION_RE.test(base)) return { key: base + ' #create', col: col };
+        if (r.m === 'GET' && /\}$/.test(base)) return { key: base + ' #show', col: col };
+        return { key: base, col: col };
+    }
+
+    var NOUNS = {
+        categories: ['une catégorie', 'les catégories'], products: ['un produit', 'les produits'], menus: ['un menu', 'les menus'],
+        ingredients: ['un ingrédient', 'les ingrédients'], users: ['un compte', 'les comptes'], roles: ['un rôle', 'les rôles'],
+        orders: ['une commande', 'les commandes'],
+    };
+
+    function actionLabel(key) {
+        var parts = key.split(' #');
+        var path = parts[0];
+        var m = path.match(/^\/(admin|api|counter|drive|kitchen)\/([a-z-]+)/);
+        var noun = m && NOUNS[m[2]] ? NOUNS[m[2]] : null;
+        var where = m && m[1] === 'counter' ? ' au comptoir' : (m && m[1] === 'drive' ? ' au drive' : (m && m[1] === 'api' ? ' (borne)' : ''));
+        if (noun && parts[1] === 'create') return 'Créer ' + noun[0] + where;
+        if (noun && parts[1] === 'update') return 'Modifier ' + noun[0];
+        if (noun && parts[1] === 'show') return 'Voir ' + noun[0] + where;
+        var last = path.replace(/\/$/, '').split('/').pop();
+        if (noun && (last === 'delete' || last === 'deactivate')) return (last === 'delete' ? 'Supprimer ' : 'Désactiver ') + noun[0];
+        if (ACTION_LABELS[last]) return ACTION_LABELS[last];
+        if (FIXED_LABELS[path]) return FIXED_LABELS[path];
+        if (noun && COLLECTION_RE.test(path)) return 'Lister ' + noun[1];
+        return path;
+    }
+
+    /**
+     * Regroupe des routes (par INDEX dans `routes`) en actions, groupe par groupe, dans
+     * l'ordre de déclaration du routeur.
+     *
+     * @returns {Array<{g: string, hasBorne: boolean, actions: Array<{key: string, label: string, cols: object}>}>}
+     */
+    function groupByAction(routes, indexes) {
+        var byGroup = {};
+        indexes.forEach(function (i) {
+            var r = routes[i];
+            var a = actionOf(r);
+            var grp = byGroup[r.g] = byGroup[r.g] || { g: r.g, hasBorne: false, actions: [], byKey: {} };
+            var act = grp.byKey[a.key];
+            if (!act) {
+                act = { key: a.key, label: actionLabel(a.key), cols: { borne: [], page: [], form: [], api: [] } };
+                grp.byKey[a.key] = act;
+                grp.actions.push(act);
+            }
+            act.cols[a.col].push(i);
+            if (a.col === 'borne') grp.hasBorne = true;
+        });
+        var out = [];
+        GROUPS.forEach(function (g) { if (byGroup[g]) { delete byGroup[g].byKey; out.push(byGroup[g]); } });
+        Object.keys(byGroup).forEach(function (g) { if (GROUPS.indexOf(g) < 0) { delete byGroup[g].byKey; out.push(byGroup[g]); } });
+        return out;
+    }
+
     var markCurrentRoute = function (doc, ri) {
         var rows = doc.querySelectorAll('#health-routes-groups [data-ri]');
         rows.forEach(function (b) { b.setAttribute('aria-current', String(+b.getAttribute('data-ri') === ri)); });
@@ -1350,45 +1692,55 @@
             return b.join('');
         }
 
+        function routeHtml(i) {
+            var r = routes[i];
+            // Un <button> ne peut pas en contenir un autre : le bouton "Ouvrir dans la
+            // console" (GET uniquement) est un FRÈRE de .health-route, jamais imbriqué.
+            var h = '<div class="health-route-row">'
+                + '<button type="button" class="health-route" data-ri="' + i + '" aria-current="' + (i === currentRi) + '">'
+                + '<span class="health-meth health-meth--' + r.m + '">' + r.m + '</span>'
+                + '<span class="health-route__path">' + pathHtml(r.p) + '</span>'
+                + '<span class="health-badges">' + badgesHtml(r) + '</span>'
+                + '<span class="health-route__handler">' + esc(r.c) + 'Controller::' + esc(r.a) + '()</span></button>';
+            if (r.m === 'GET') {
+                // aria-label distinct par ligne : au clavier, la carte peut afficher des
+                // dizaines de boutons au même texte visible.
+                h += '<button type="button" class="btn btn-ghost btn-sm health-route-console-btn" data-console-ri="' + i + '" aria-label="Ouvrir ' + esc(r.m + ' ' + r.p) + ' dans la console">Ouvrir dans la console</button>';
+            }
+            return h + '</div>';
+        }
+
+        function cellHtml(list, colName) {
+            if (!list.length) return '<div class="health-arow__cell health-arow__cell--empty" data-col="' + colName + '"><span class="health-arow__none">—</span></div>';
+            return '<div class="health-arow__cell" data-col="' + colName + '">' + list.map(routeHtml).join('') + '</div>';
+        }
+
         function render() {
             var filters = readFilters(doc);
             var kept = filterRoutes(routes, filters);
-            var byGroup = {};
-            kept.forEach(function (i) {
-                var g = routes[i].g;
-                (byGroup[g] = byGroup[g] || []).push(i);
-            });
+            var groups = groupByAction(routes, kept);
+            var nActions = 0;
             var html = '';
-            GROUPS.forEach(function (g) {
-                var list = byGroup[g];
-                if (!list) return;
-                html += '<div class="health-group"><h3 class="health-group__title">' + esc(g) + ' <span class="mono">' + list.length + '</span></h3>';
-                list.forEach(function (i) {
-                    var r = routes[i];
-                    // Un <button> ne peut pas en contenir un autre : le bouton "Ouvrir
-                    // dans la console" (GET uniquement) est un FRÈRE de .health-route
-                    // dans une enveloppe, jamais imbriqué dedans.
-                    html += '<div class="health-route-row">';
-                    html += '<button type="button" class="health-route" data-ri="' + i + '" aria-current="' + (i === currentRi) + '">'
-                        + '<span class="health-meth health-meth--' + r.m + '">' + r.m + '</span>'
-                        + '<span class="health-route__path">' + pathHtml(r.p) + '</span>'
-                        + '<span class="health-badges">' + '<span class="pill ' + surfPillClass(r.s) + '">' + SURF[r.s] + '</span>' + badgesHtml(r) + '</span>'
-                        + '<span class="health-route__handler">' + esc(r.c) + 'Controller::' + esc(r.a) + '()</span></button>';
-                    if (r.m === 'GET') {
-                        // aria-label distinct par ligne (pas juste "Ouvrir dans la
-                        // console" répété) : au clavier/lecteur d'écran, la carte peut
-                        // afficher des dizaines de lignes GET, toutes avec le même texte
-                        // visible.
-                        html += '<button type="button" class="btn btn-ghost btn-sm health-route-console-btn" data-console-ri="' + i + '" aria-label="Ouvrir ' + esc(r.m + ' ' + r.p) + ' dans la console">Ouvrir dans la console</button>';
-                    }
-                    html += '</div>';
+            groups.forEach(function (grp) {
+                var n = 0;
+                grp.actions.forEach(function (a) { n += a.cols.borne.length + a.cols.page.length + a.cols.form.length + a.cols.api.length; });
+                nActions += grp.actions.length;
+                var cols = (grp.hasBorne ? [['borne', 'Borne (JSON public)']] : []).concat([['page', 'Page affichée (GET)'], ['form', 'Envoi du formulaire'], ['api', "API d'administration (JSON)"]]);
+                html += '<div class="health-group"><h3 class="health-group__title">' + esc(grp.g) + ' <span class="mono">' + n + ' route' + (n > 1 ? 's' : '') + ' · ' + grp.actions.length + ' action' + (grp.actions.length > 1 ? 's' : '') + '</span></h3>'
+                    + '<div class="health-amap' + (grp.hasBorne ? ' health-amap--borne' : '') + '" role="table" aria-label="' + esc(grp.g) + ' : routes par action">'
+                    + '<div class="health-arow health-arow--head" role="row"><div role="columnheader">Action</div>'
+                    + cols.map(function (c) { return '<div role="columnheader">' + esc(c[1]) + '</div>'; }).join('') + '</div>';
+                grp.actions.forEach(function (a) {
+                    html += '<div class="health-arow" role="row"><div class="health-arow__label" role="rowheader">' + esc(a.label) + '</div>'
+                        + cols.map(function (c) { return cellHtml(a.cols[c[0]], c[1]).replace('<div class="health-arow__cell', '<div role="cell" class="health-arow__cell'); }).join('')
+                        + '</div>';
                 });
-                html += '</div>';
+                html += '</div></div>';
             });
             groupsEl.innerHTML = html || '<p class="health-empty">Aucune route ne correspond à ces filtres.</p>';
             var count = byId(doc, 'health-count');
             if (count) {
-                count.textContent = kept.length + ' route' + (kept.length > 1 ? 's' : '') + ' sur ' + routes.length;
+                count.textContent = kept.length + ' route' + (kept.length > 1 ? 's' : '') + ' sur ' + routes.length + ' · ' + nActions + ' action' + (nActions > 1 ? 's' : '');
             }
         }
 
@@ -1604,6 +1956,7 @@
             return;
         }
         var routes = parseJsonAttr(page.getAttribute('data-routes'), []);
+        var captures = parseJsonAttr(page.getAttribute('data-responses'), null);
         var probes = parseJsonAttr(page.getAttribute('data-probes'), []);
         var csrfToken = page.getAttribute('data-csrf-token') || '';
 
@@ -1635,21 +1988,26 @@
             if (routesMap) {
                 routesMap.setCurrent(ri);
             }
-        });
+        }, { captures: captures && captures.routes ? captures : null });
     }
 
     var api = {
         init: init,
         // Fonctions pures, exportées pour les tests (node --test + jsdom, sans fetch ni timers réels) :
         stations: stations,
-        successOf: successOf,
-        errorBody: errorBody,
+        trajetSource: trajetSource,
+        buildTrajetRequest: buildTrajetRequest,
+        listUrlFor: listUrlFor,
+        summarizeBody: summarizeBody,
+        capturedOutcome: capturedOutcome,
+        errorCodeOf: errorCodeOf,
         failIndex: failIndex,
         find: find,
         buildProbeRequest: buildProbeRequest,
         probeMatches: probeMatches,
         matchesFilters: matchesFilters,
         filterRoutes: filterRoutes,
+        groupByAction: groupByAction,
         applyReport: applyReport,
         pollHealth: pollHealth,
         runProbe: runProbe,

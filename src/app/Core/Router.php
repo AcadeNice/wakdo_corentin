@@ -113,15 +113,9 @@ final class Router
         }
 
         if ($pathMatched) {
-            return (new Response())->json(
-                ['data' => null, 'error' => ['code' => 'METHOD_NOT_ALLOWED', 'message' => 'Method not allowed']],
-                405,
-            );
+            return ErrorResponse::methodNotAllowed($request->path(), $request->method());
         }
 
-        return (new Response())->json(
-            ['data' => null, 'error' => ['code' => 'NOT_FOUND', 'message' => 'Resource not found']],
-            404,
-        );
+        return ErrorResponse::notFound($request->path());
     }
 }

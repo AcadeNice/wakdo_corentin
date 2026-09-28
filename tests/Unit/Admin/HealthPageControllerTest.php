@@ -162,4 +162,24 @@ final class HealthPageControllerTest extends TestCase
         // couvert par ses propres tests de vue.
         self::assertStringContainsString('admin-layout', $response->body());
     }
+
+    public function testThePageCarriesTheCapturedRealResponsesForTheCallPath(): void
+    {
+        // Le trajet affiche les reponses capturees quand il ne peut pas appeler
+        // lui-meme : elles arrivent avec la page (reservee a role.manage), pas par
+        // un fichier statique lisible sans compte.
+        $db = new FakeDatabase();
+        $db->guardUserRow = ['is_active' => 1];
+        $db->userDisplayRow = ['first_name' => 'Ada', 'last_name' => 'L', 'role_label' => 'Administrateur'];
+        $db->permissionCodes = ['role.manage'];
+        $db->canResult = true;
+
+        $body = $this->controller($this->authedSession(), $db)->index()->body();
+
+        self::assertSame(1, preg_match('/data-responses="([^"]*)"/', $body, $m));
+        $doc = json_decode(html_entity_decode($m[1], ENT_QUOTES), true);
+        self::assertIsArray($doc);
+        self::assertArrayHasKey('POST /api/orders', $doc['routes']);
+        self::assertSame(201, $doc['routes']['POST /api/orders']['ok']['status']);
+    }
 }

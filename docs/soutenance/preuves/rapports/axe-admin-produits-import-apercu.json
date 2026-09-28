@@ -1,7 +1,7 @@
 {
   "page": "admin-produits-import-apercu",
   "url": "http://admin.wakdo.test/admin/products/import/preview",
-  "date": "2026-09-27T16:20:45.501Z",
+  "date": "2026-09-28T10:22:17.446Z",
   "moteur": {
     "axe": {
       "name": "axe-core",
@@ -312,128 +312,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": "div[role=\"alert\"] > h2",
-      "extrait": "<h2>Le fichier contient 2 erreur(s) : l'import est bloqué</h2>",
-      "avant_plan": "#1a1a1a",
-      "arriere_plan": "#f5f5f5",
-      "ratio": 15.96,
-      "seuil_attendu": "3:1",
-      "taille_px": "15.8pt (21px)",
-      "graisse": "bold"
-    },
-    {
-      "compartiment": "conforme",
-      "selecteur": "div[role=\"alert\"] > p",
-      "extrait": "<p>Corrigez le fichier puis renvoyez-le. Aucune confirmation n'est possible tant qu'une erreur subsi",
-      "avant_plan": "#1a1a1a",
-      "arriere_plan": "#f5f5f5",
-      "ratio": 15.96,
-      "seuil_attendu": "4.5:1",
-      "taille_px": "10.5pt (14px)",
-      "graisse": "normal"
-    },
-    {
-      "compartiment": "conforme",
-      "selecteur": "div[role=\"alert\"] > table > thead > tr > th:nth-child(1)",
-      "extrait": "<th scope=\"col\">Ligne</th>",
-      "avant_plan": "#69707d",
-      "arriere_plan": "#f9fafb",
-      "ratio": 4.76,
-      "seuil_attendu": "4.5:1",
-      "taille_px": "9.0pt (12px)",
-      "graisse": "normal"
-    },
-    {
-      "compartiment": "conforme",
-      "selecteur": "div[role=\"alert\"] > table > thead > tr > th:nth-child(2)",
-      "extrait": "<th scope=\"col\">Colonne</th>",
-      "avant_plan": "#69707d",
-      "arriere_plan": "#f9fafb",
-      "ratio": 4.76,
-      "seuil_attendu": "4.5:1",
-      "taille_px": "9.0pt (12px)",
-      "graisse": "normal"
-    },
-    {
-      "compartiment": "conforme",
-      "selecteur": "div[role=\"alert\"] > table > thead > tr > th:nth-child(3)",
-      "extrait": "<th scope=\"col\">Erreur</th>",
-      "avant_plan": "#69707d",
-      "arriere_plan": "#f9fafb",
-      "ratio": 4.76,
-      "seuil_attendu": "4.5:1",
-      "taille_px": "9.0pt (12px)",
-      "graisse": "normal"
-    },
-    {
-      "compartiment": "conforme",
-      "selecteur": "div[role=\"alert\"] > table > tbody > tr:nth-child(1) > td:nth-child(1)",
-      "extrait": "<td>2</td>",
-      "avant_plan": "#1a1a1a",
-      "arriere_plan": "#f5f5f5",
-      "ratio": 15.96,
-      "seuil_attendu": "4.5:1",
-      "taille_px": "9.8pt (13px)",
-      "graisse": "normal"
-    },
-    {
-      "compartiment": "conforme",
-      "selecteur": "div[role=\"alert\"] > table > tbody > tr:nth-child(1) > td:nth-child(2)",
-      "extrait": "<td>unite</td>",
-      "avant_plan": "#1a1a1a",
-      "arriere_plan": "#f5f5f5",
-      "ratio": 15.96,
-      "seuil_attendu": "4.5:1",
-      "taille_px": "9.8pt (13px)",
-      "graisse": "normal"
-    },
-    {
-      "compartiment": "conforme",
-      "selecteur": "div[role=\"alert\"] > table > tbody > tr:nth-child(1) > td:nth-child(3)",
-      "extrait": "<td>Unité \"piece\" différente de l'unité existante (\"pièce\") pour l'ingrédient \"Pain burger\".</td>",
-      "avant_plan": "#1a1a1a",
-      "arriere_plan": "#f5f5f5",
-      "ratio": 15.96,
-      "seuil_attendu": "4.5:1",
-      "taille_px": "9.8pt (13px)",
-      "graisse": "normal"
-    },
-    {
-      "compartiment": "conforme",
-      "selecteur": "div[role=\"alert\"] > table > tbody > tr:nth-child(2) > td:nth-child(1)",
-      "extrait": "<td>3</td>",
-      "avant_plan": "#1a1a1a",
-      "arriere_plan": "#f5f5f5",
-      "ratio": 15.96,
-      "seuil_attendu": "4.5:1",
-      "taille_px": "9.8pt (13px)",
-      "graisse": "normal"
-    },
-    {
-      "compartiment": "conforme",
-      "selecteur": "div[role=\"alert\"] > table > tbody > tr:nth-child(2) > td:nth-child(2)",
-      "extrait": "<td>unite</td>",
-      "avant_plan": "#1a1a1a",
-      "arriere_plan": "#f5f5f5",
-      "ratio": 15.96,
-      "seuil_attendu": "4.5:1",
-      "taille_px": "9.8pt (13px)",
-      "graisse": "normal"
-    },
-    {
-      "compartiment": "conforme",
-      "selecteur": "div[role=\"alert\"] > table > tbody > tr:nth-child(2) > td:nth-child(3)",
-      "extrait": "<td>Unité \"piece\" différente de l'unité existante (\"pièce\") pour l'ingrédient \"Steak hache\".</td>",
-      "avant_plan": "#1a1a1a",
-      "arriere_plan": "#f5f5f5",
-      "ratio": 15.96,
-      "seuil_attendu": "4.5:1",
-      "taille_px": "9.8pt (13px)",
-      "graisse": "normal"
-    },
-    {
-      "compartiment": "conforme",
-      "selecteur": ".form-card:nth-child(3) > h2",
+      "selecteur": ".form-card:nth-child(2) > h2",
       "extrait": "<h2>Résumé</h2>",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#f5f5f5",
@@ -499,7 +378,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".form-card:nth-child(4) > h2",
+      "selecteur": ".form-card:nth-child(3) > h2",
       "extrait": "<h2>Produits à créer (2)</h2>",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#f5f5f5",
@@ -510,7 +389,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".form-card:nth-child(4) > table > thead > tr > th:nth-child(1)",
+      "selecteur": ".form-card:nth-child(3) > table > thead > tr > th:nth-child(1)",
       "extrait": "<th scope=\"col\">Ligne</th>",
       "avant_plan": "#69707d",
       "arriere_plan": "#f9fafb",
@@ -521,7 +400,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".form-card:nth-child(4) > table > thead > tr > th:nth-child(2)",
+      "selecteur": ".form-card:nth-child(3) > table > thead > tr > th:nth-child(2)",
       "extrait": "<th scope=\"col\">Produit</th>",
       "avant_plan": "#69707d",
       "arriere_plan": "#f9fafb",
@@ -532,7 +411,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".form-card:nth-child(4) > table > thead > tr > th:nth-child(3)",
+      "selecteur": ".form-card:nth-child(3) > table > thead > tr > th:nth-child(3)",
       "extrait": "<th scope=\"col\">Catégorie</th>",
       "avant_plan": "#69707d",
       "arriere_plan": "#f9fafb",
@@ -576,33 +455,33 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".form-card:nth-child(4) > table > tbody > tr:nth-child(1) > td:nth-child(1)",
+      "selecteur": ".form-card:nth-child(3) > table > tbody > tr:nth-child(1) > td:nth-child(1)",
       "extrait": "<td>2</td>",
       "avant_plan": "#1a1a1a",
-      "arriere_plan": "#f5f5f5",
-      "ratio": 15.96,
+      "arriere_plan": "#f9fafb",
+      "ratio": 16.65,
       "seuil_attendu": "4.5:1",
       "taille_px": "9.8pt (13px)",
       "graisse": "normal"
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".form-card:nth-child(4) > table > tbody > tr:nth-child(1) > td:nth-child(2)",
+      "selecteur": ".form-card:nth-child(3) > table > tbody > tr:nth-child(1) > td:nth-child(2)",
       "extrait": "<td>Cheeseburger Wakdo</td>",
       "avant_plan": "#1a1a1a",
-      "arriere_plan": "#f5f5f5",
-      "ratio": 15.96,
+      "arriere_plan": "#f9fafb",
+      "ratio": 16.65,
       "seuil_attendu": "4.5:1",
       "taille_px": "9.8pt (13px)",
       "graisse": "normal"
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".form-card:nth-child(4) > table > tbody > tr:nth-child(1) > td:nth-child(3)",
+      "selecteur": ".form-card:nth-child(3) > table > tbody > tr:nth-child(1) > td:nth-child(3)",
       "extrait": "<td>Burgers</td>",
       "avant_plan": "#1a1a1a",
-      "arriere_plan": "#f5f5f5",
-      "ratio": 15.96,
+      "arriere_plan": "#f9fafb",
+      "ratio": 16.65,
       "seuil_attendu": "4.5:1",
       "taille_px": "9.8pt (13px)",
       "graisse": "normal"
@@ -612,8 +491,8 @@
       "selecteur": "tr:nth-child(1) > td:nth-child(4)",
       "extrait": "<td>6,90 €</td>",
       "avant_plan": "#1a1a1a",
-      "arriere_plan": "#f5f5f5",
-      "ratio": 15.96,
+      "arriere_plan": "#f9fafb",
+      "ratio": 16.65,
       "seuil_attendu": "4.5:1",
       "taille_px": "9.8pt (13px)",
       "graisse": "normal"
@@ -623,8 +502,8 @@
       "selecteur": "tr:nth-child(1) > td:nth-child(5)",
       "extrait": "<td>10 %</td>",
       "avant_plan": "#1a1a1a",
-      "arriere_plan": "#f5f5f5",
-      "ratio": 15.96,
+      "arriere_plan": "#f9fafb",
+      "ratio": 16.65,
       "seuil_attendu": "4.5:1",
       "taille_px": "9.8pt (13px)",
       "graisse": "normal"
@@ -634,15 +513,15 @@
       "selecteur": "tr:nth-child(1) > td:nth-child(6)",
       "extrait": "<td>3</td>",
       "avant_plan": "#1a1a1a",
-      "arriere_plan": "#f5f5f5",
-      "ratio": 15.96,
+      "arriere_plan": "#f9fafb",
+      "ratio": 16.65,
       "seuil_attendu": "4.5:1",
       "taille_px": "9.8pt (13px)",
       "graisse": "normal"
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".form-card:nth-child(4) > table > tbody > tr:nth-child(2) > td:nth-child(1)",
+      "selecteur": "tr:nth-child(2) > td:nth-child(1)",
       "extrait": "<td>5</td>",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#f5f5f5",
@@ -653,7 +532,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".form-card:nth-child(4) > table > tbody > tr:nth-child(2) > td:nth-child(2)",
+      "selecteur": "tr:nth-child(2) > td:nth-child(2)",
       "extrait": "<td>Coca-Cola</td>",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#f5f5f5",
@@ -664,7 +543,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".form-card:nth-child(4) > table > tbody > tr:nth-child(2) > td:nth-child(3)",
+      "selecteur": "tr:nth-child(2) > td:nth-child(3)",
       "extrait": "<td>Boissons</td>",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#f5f5f5",
@@ -708,7 +587,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".form-card:nth-child(5) > h2",
+      "selecteur": ".form-card:nth-child(4) > h2",
       "extrait": "<h2>Ingrédients à créer (1)</h2>",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#f5f5f5",
@@ -730,7 +609,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".form-card:nth-child(5) > table > thead > tr > th:nth-child(1)",
+      "selecteur": ".form-card:nth-child(4) > table > thead > tr > th:nth-child(1)",
       "extrait": "<th scope=\"col\">Ligne</th>",
       "avant_plan": "#69707d",
       "arriere_plan": "#f9fafb",
@@ -741,7 +620,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".form-card:nth-child(5) > table > thead > tr > th:nth-child(2)",
+      "selecteur": ".form-card:nth-child(4) > table > thead > tr > th:nth-child(2)",
       "extrait": "<th scope=\"col\">Nom</th>",
       "avant_plan": "#69707d",
       "arriere_plan": "#f9fafb",
@@ -752,7 +631,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".form-card:nth-child(5) > table > thead > tr > th:nth-child(3)",
+      "selecteur": ".form-card:nth-child(4) > table > thead > tr > th:nth-child(3)",
       "extrait": "<th scope=\"col\">Unité</th>",
       "avant_plan": "#69707d",
       "arriere_plan": "#f9fafb",
@@ -763,7 +642,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".form-card:nth-child(5) > table > tbody > tr > td:nth-child(1)",
+      "selecteur": ".form-card:nth-child(4) > table > tbody > tr > td:nth-child(1)",
       "extrait": "<td>5</td>",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#f5f5f5",
@@ -774,7 +653,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".form-card:nth-child(5) > table > tbody > tr > td:nth-child(2)",
+      "selecteur": ".form-card:nth-child(4) > table > tbody > tr > td:nth-child(2)",
       "extrait": "<td>Coca-Cola</td>",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#f5f5f5",
@@ -785,7 +664,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".form-card:nth-child(5) > table > tbody > tr > td:nth-child(3)",
+      "selecteur": ".form-card:nth-child(4) > table > tbody > tr > td:nth-child(3)",
       "extrait": "<td>canette</td>",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#f5f5f5",
@@ -796,7 +675,7 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".form-card:nth-child(6) > h2",
+      "selecteur": ".form-card:nth-child(5) > h2",
       "extrait": "<h2>Confirmation</h2>",
       "avant_plan": "#1a1a1a",
       "arriere_plan": "#f5f5f5",
@@ -807,19 +686,19 @@
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".form-card:nth-child(6) > p:nth-child(2)",
-      "extrait": "<p>Corrigez les erreurs ci-dessus et renvoyez le fichier.</p>",
+      "selecteur": ".btn-primary",
+      "extrait": "<button class=\"btn btn-primary\" type=\"submit\">Confirmer l'import</button>",
       "avant_plan": "#1a1a1a",
-      "arriere_plan": "#f5f5f5",
-      "ratio": 15.96,
+      "arriere_plan": "#ffc72c",
+      "ratio": 11.15,
       "seuil_attendu": "4.5:1",
-      "taille_px": "10.5pt (14px)",
+      "taille_px": "9.8pt (13px)",
       "graisse": "normal"
     },
     {
       "compartiment": "conforme",
-      "selecteur": ".btn",
-      "extrait": "<a class=\"btn btn-secondary\" href=\"/admin/products/import\">Renvoyer un fichier</a>",
+      "selecteur": ".btn-secondary",
+      "extrait": "<a class=\"btn btn-secondary\" href=\"/admin/products/import\">Annuler</a>",
       "avant_plan": "#4a4a4a",
       "arriere_plan": "#ffffff",
       "ratio": 8.86,
@@ -860,10 +739,6 @@
       "noeuds": 2
     },
     {
-      "id": "aria-deprecated-role",
-      "noeuds": 1
-    },
-    {
       "id": "aria-hidden-body",
       "noeuds": 1
     },
@@ -876,14 +751,6 @@
       "noeuds": 2
     },
     {
-      "id": "aria-required-attr",
-      "noeuds": 1
-    },
-    {
-      "id": "aria-roles",
-      "noeuds": 1
-    },
-    {
       "id": "aria-valid-attr",
       "noeuds": 2
     },
@@ -893,7 +760,7 @@
     },
     {
       "id": "button-name",
-      "noeuds": 2
+      "noeuds": 3
     },
     {
       "id": "bypass",
@@ -901,7 +768,7 @@
     },
     {
       "id": "color-contrast",
-      "noeuds": 75
+      "noeuds": 64
     },
     {
       "id": "document-title",
@@ -937,26 +804,29 @@
     },
     {
       "id": "nested-interactive",
-      "noeuds": 3
+      "noeuds": 4
     },
     {
       "id": "td-headers-attr",
-      "noeuds": 3
+      "noeuds": 2
     },
     {
       "id": "th-has-data-cells",
-      "noeuds": 3
+      "noeuds": 2
     }
   ],
   "non_applicables": [
     "area-alt",
     "aria-braille-equivalent",
     "aria-command-name",
+    "aria-deprecated-role",
     "aria-input-field-name",
     "aria-meter-name",
     "aria-progressbar-name",
+    "aria-required-attr",
     "aria-required-children",
     "aria-required-parent",
+    "aria-roles",
     "aria-tab-name",
     "aria-toggle-field-name",
     "aria-tooltip-name",

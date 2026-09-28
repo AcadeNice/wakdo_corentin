@@ -6,7 +6,7 @@ Titre professionnel RNCP 37805 — Bloc 1 (developpement front-end)
 Cr 1.c.3 par une reserve explicite : « les ratios de contraste exacts n'ont pas ete
 mesures avec un outil dedie ([UNVERIFIED], section 8) ». Le meme aveu revient en
 section 8, reserve n° 2, et dans les reserves consolidees du `README.md` du dossier.
-Ce document remplace cette reserve par **946 ratios de contraste mesures** sur 19 ecrans
+Ce document remplace cette reserve par **935 ratios de contraste mesures** (campagne du 2026-09-28) sur 19 ecrans
 reels, et par le detail des 10 elements qui passaient sous le seuil au premier passage.
 
 **Avertissement de lecture.** Ce rapport documente **quatre campagnes**, pas une seule :
@@ -680,6 +680,17 @@ violation**. Seule la page Sante change (62 -> 65 mesures, 26 -> 28 regles confo
 combinaison couleur/fond nouvelle, les ajouts reutilisant les pastilles, boutons et champs
 deja mesures. Les panneaux de resultat, masques tant qu'aucun appel n'est lance, ne sont pas
 rendus au moment de la mesure : ils portent les memes classes que les blocs mesures.
+
+**Remesure du 2026-09-28 : le trajet aux reponses reelles, et un ecart explique.** La page
+Sante a recu une ligne de provenance sous chaque reponse du trajet et un bloc « Requete
+envoyee ». La campagne rejouee donne **19 ecrans, 935 mesures, 85 combinaisons, 0 violation**,
+contraste minimum 3,59:1. La page Sante reste a 65 mesures. L'ecart de 11 mesures vient d'un
+autre ecran : l'**apercu d'import** passe de 75 a 64. La campagne du 27/09 avait ete mesuree
+sur un etat qui affichait le defaut des accents, corrige depuis par #178 : l'apercu montrait
+alors un tableau d'erreurs (« Unite "piece" differente de l'unite existante ("pièce") »), que
+l'outil mesurait. Ce tableau n'apparait plus, parce que l'import ne bloque plus. Le chiffre
+de 946 comptait donc un bug ; 935 est la mesure de la version corrigee. Les combinaisons
+couleur/fond restent 85, le tableau d'erreurs n'en portant aucune qui ne soit ailleurs.
 
 **Limite de cette campagne.** Elle n'a ete jouee qu'une fois. Le double passage identique
 decrit en section 2 concerne la campagne du 2026-09-26, pas celle-ci.

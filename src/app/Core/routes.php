@@ -319,6 +319,7 @@ return static function (Router $router): void {
     $router->add('POST', '/admin/api/ingredients/{id}/inventory', [IngredientApiController::class, 'apiInventory']);
     $router->add('POST', '/admin/api/ingredients/{id}/adjust', [IngredientApiController::class, 'apiAdjust']);
     $router->add('PUT', '/admin/api/ingredients/{id}/allergens', [IngredientApiController::class, 'apiAllergens']);
+    $router->add('GET', '/admin/api/ingredients/{id}/movements', [IngredientApiController::class, 'apiMovements']);
 
     $router->add('GET', '/admin/api/users', [UserApiController::class, 'apiIndex']);
     $router->add('GET', '/admin/api/users/{id}', [UserApiController::class, 'apiShow']);

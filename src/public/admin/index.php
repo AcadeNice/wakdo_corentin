@@ -16,8 +16,8 @@ use App\Core\Config;
 use App\Core\Cors;
 use App\Core\Database;
 use App\Core\ErrorDisplay;
+use App\Core\ErrorResponse;
 use App\Core\Request;
-use App\Core\Response;
 use App\Core\Router;
 
 // src/public/admin/index.php : __DIR__ = src/public/admin ; remonter de deux
@@ -82,14 +82,12 @@ try {
         $exception->getLine(),
     ));
     // En debug on remonte le message pour iterer ; en prod, reponse generique
-    // pour ne rien divulguer de la pile interne (information disclosure).
-    $payload = $config->isDebug()
-        ? ['data' => null, 'error' => ['code' => 'INTERNAL_ERROR', 'message' => $exception->getMessage()]]
-        : ['data' => null, 'error' => ['code' => 'INTERNAL_ERROR', 'message' => 'Internal server error']];
+    // pour ne rien divulguer de la pile interne (information disclosure). JSON pour
+    // l'API, page HTML pour le back-office (App\Core\ErrorResponse).
+    $errorResponse = ErrorResponse::internal($request->path(), $config->isDebug(), $exception->getMessage());
 
     // Decore aussi la 500 : une requete /api/ cross-origin (ex. BDD indisponible)
     // doit rester lisible par le navigateur de la borne (RG enveloppe d'erreur).
-    $errorResponse = (new Response())->json($payload, 500);
     $cors->applyTo($request, $errorResponse);
     $errorResponse->send();
 }

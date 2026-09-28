@@ -85,8 +85,8 @@ L'information ne repose pas sur la seule couleur : un libelle textuel ou une ico
 « les ratios de contraste exacts n'ont pas ete mesures avec un outil dedie »). Les
 ratios ont depuis ete mesures a l'outil `axe-core` sur des ecrans reels, et les 10 noeuds
 trouves sous le seuil AA — dont un dans ce perimetre borne — ont ete corriges puis
-remesures conformes. La campagne courante (2026-09-27) porte sur **19 ecrans et
-946 mesures**, contre 11 ecrans et 407 a la campagne d'origine. Detail complet, chiffres
+remesures conformes. La campagne courante (2026-09-28) porte sur **19 ecrans et
+935 mesures**, contre 11 ecrans et 407 a la campagne d'origine. Detail complet, chiffres
 avant/apres, et methode : `06-audit-accessibilite-mesure.md`.
 
 ---
@@ -282,8 +282,8 @@ de menu, et la caisse drive.
 
 Deux resultats a retenir pour l'oral :
 
-- **0 violation WCAG AA** sur les treize ecrans, contrastes compris (946 mesures au total
-  avec la borne).
+- **0 violation WCAG AA** sur les treize ecrans, contrastes compris (935 mesures au total
+  avec la borne, campagne du 2026-09-28).
 - **Un ecart trouve, corrige, et invisible pour l'outil** : le bloc de slot du formulaire
   menu etait un `<fieldset>` sans `<legend>`, donc un groupe de champs sans nom pour une
   technologie d'assistance. Aucune regle du jeu WCAG A/AA active ne couvre ce cas ; c'est

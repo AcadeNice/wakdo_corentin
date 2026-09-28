@@ -165,6 +165,7 @@ final class RouteMapTest extends TestCase
         ['m' => 'POST', 'p' => '/admin/api/ingredients/{id}/inventory', 'c' => 'IngredientApi', 'a' => 'apiInventory', 's' => 'api', 'anon' => false, 'perm' => 'stock.count', 'w' => true, 'csrf' => 'header', 'pin' => 'always', 'f' => 'json', 'g' => 'Ingrédients et stock'],
         ['m' => 'POST', 'p' => '/admin/api/ingredients/{id}/adjust', 'c' => 'IngredientApi', 'a' => 'apiAdjust', 's' => 'api', 'anon' => false, 'perm' => 'stock.count', 'w' => true, 'csrf' => 'header', 'pin' => 'always', 'f' => 'json', 'g' => 'Ingrédients et stock'],
         ['m' => 'PUT', 'p' => '/admin/api/ingredients/{id}/allergens', 'c' => 'IngredientApi', 'a' => 'apiAllergens', 's' => 'api', 'anon' => false, 'perm' => 'ingredient.manage', 'w' => true, 'csrf' => 'header', 'pin' => null, 'f' => 'json', 'g' => 'Ingrédients et stock'],
+        ['m' => 'GET', 'p' => '/admin/api/ingredients/{id}/movements', 'c' => 'IngredientApi', 'a' => 'apiMovements', 's' => 'api', 'anon' => false, 'perm' => 'stock.read', 'w' => false, 'csrf' => null, 'pin' => null, 'f' => 'json', 'g' => 'Ingrédients et stock'],
         ['m' => 'GET', 'p' => '/admin/api/users', 'c' => 'UserApi', 'a' => 'apiIndex', 's' => 'api', 'anon' => false, 'perm' => 'user.read', 'w' => false, 'csrf' => null, 'pin' => null, 'f' => 'json', 'g' => 'Comptes'],
         ['m' => 'GET', 'p' => '/admin/api/users/{id}', 'c' => 'UserApi', 'a' => 'apiShow', 's' => 'api', 'anon' => false, 'perm' => 'user.read', 'w' => false, 'csrf' => null, 'pin' => null, 'f' => 'json', 'g' => 'Comptes'],
         ['m' => 'POST', 'p' => '/admin/api/users', 'c' => 'UserApi', 'a' => 'apiStore', 's' => 'api', 'anon' => false, 'perm' => 'user.create', 'w' => true, 'csrf' => 'header', 'pin' => 'always', 'f' => 'json', 'g' => 'Comptes'],
@@ -198,9 +199,9 @@ final class RouteMapTest extends TestCase
         return $bySignature;
     }
 
-    public function testProducesExactly157Rows(): void
+    public function testProducesExactly158Rows(): void
     {
-        self::assertCount(157, RouteMap::rows());
+        self::assertCount(158, RouteMap::rows());
     }
 
     /**

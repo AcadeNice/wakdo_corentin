@@ -142,7 +142,9 @@ function setupTrajetDom() {
         '  <ol id="health-rail"></ol>' +
         '  <span id="health-status">—</span>' +
         '  <span id="health-respwhere"></span>' +
+        '  <p id="health-respsource"></p>' +
         '  <pre id="health-respbody"></pre>' +
+        '  <pre id="health-reqbody"></pre>' +
         '  <div id="health-notes"></div>' +
         '</div>' +
         '</body></html>',
@@ -150,37 +152,192 @@ function setupTrajetDom() {
     return dom.window.document;
 }
 
-test("wireTrajet : un refus simulé à l'étape 'session' fige cette étape, saute la suite, et affiche le bon statut/corps", () => {
-    const doc = setupTrajetDom();
-    const trajet = health.wireTrajet(doc, ROUTES);
+// Reponses capturees minimales, de la forme de src/app/Health/captured-responses.json.
+const CAPTURES = {
+    captured_at: '2026-09-28T09:00:00.000Z',
+    commit: 'abc1234',
+    where: 'pile Docker jetable',
+    routes: {
+        'POST /api/orders': {
+            ok: { status: 201, type: 'application/json', body: '{\n  "data": {\n    "order_number": "K42",\n    "status": "pending_payment"\n  }\n}', request: { method: 'POST', path: '/api/orders', headers: { 'Content-Type': 'application/json' }, body: '{"items": []}' }, how: 'commande de la borne sur la pile de test' },
+            fail: {
+                valid: { status: 422, type: 'application/json', body: '{\n  "data": null,\n  "error": {\n    "code": "PRODUCT_UNAVAILABLE",\n    "message": "Produit indisponible."\n  }\n}', how: 'produit inexistant dans la commande' },
+            },
+        },
+        'PUT /admin/api/products/{id}': {
+            ok: { status: 200, type: 'application/json', body: '{"data": {"id": 7}}', how: 'collection Postman' },
+            fail: {
+                body: { not_reproduced: true, observed_status: 200, how: 'corps en text/plain' },
+                pin: { status: 422, type: 'application/json', body: '{"data": null, "error": {"code": "PIN_INVALID", "message": "Email ou PIN invalide"}}', how: 'code personnel faux' },
+            },
+        },
+    },
+    boom: {
+        borne: { status: 500, type: 'application/json', body: '{"data": null, "error": {"code": "INTERNAL_ERROR", "message": "Internal server error"}}', how: 'base de donnees arretee' },
+        api: { status: 500, type: 'application/json', body: '{"data": null, "error": {"code": "INTERNAL_ERROR", "message": "Internal server error"}}', how: 'base de donnees arretee' },
+        html: { status: 500, type: 'application/json', body: '{"data": null}', how: 'base de donnees arretee' },
+    },
+};
 
-    // Route 2 (API authentifiée, avec permission) : refus simulé à l'étape session.
-    trajet.loadRoute(2, { fail: 'session' });
+function fakeResponse(status, body, type) {
+    return {
+        status: status, ok: status >= 200 && status < 300, type: 'basic',
+        headers: { get: (k) => (k.toLowerCase() === 'content-type' ? (type || 'application/json') : null) },
+        text: async () => body,
+    };
+}
 
-    const steps = doc.querySelectorAll('#health-rail .health-step');
-    const sessionLi = doc.querySelector('[data-step-id="session"]');
-    const permLi = doc.querySelector('[data-step-id="perm"]');
-    assert.ok(sessionLi.classList.contains('health-step--failed'), "l'étape 'session' doit porter la classe failed");
-    assert.ok(permLi.classList.contains('health-step--skipped'), "l'étape suivante ('perm') doit être marquée sautée");
-    assert.ok(steps[0].classList.contains('health-step--passed'), "les étapes avant le refus sont marquées passées");
-
-    assert.match(doc.getElementById('health-status').textContent, /^401\b/);
-    const body = doc.getElementById('health-respbody').textContent;
-    assert.match(body, /AUTH_REQUIRED/);
-    assert.match(body, /Authentification requise/);
+test('trajetSource() : lecture = appel réel ; écriture = réponse capturée ; refus sans session d\'une route JSON = appel réel', () => {
+    assert.deepEqual(health.trajetSource(ROUTES[0], null, false), { mode: 'live', slot: 'ok' });
+    assert.deepEqual(health.trajetSource(ROUTES[1], null, false), { mode: 'captured', slot: 'ok' });
+    assert.deepEqual(health.trajetSource(ROUTES[3], 'session', false), { mode: 'live', slot: 'session' });
+    assert.deepEqual(health.trajetSource(ROUTES[4], 'session', false), { mode: 'captured', slot: 'session' });
+    assert.deepEqual(health.trajetSource(ROUTES[2], 'router', false), { mode: 'live', slot: 'router' });
+    assert.deepEqual(health.trajetSource(ROUTES[3], 'router', false), { mode: 'captured', slot: 'router' });
+    assert.deepEqual(health.trajetSource(ROUTES[3], 'perm', false), { mode: 'captured', slot: 'perm' });
+    assert.deepEqual(health.trajetSource(ROUTES[2], null, true), { mode: 'captured', slot: 'boom' });
 });
 
-test('wireTrajet : sans refus choisi, le trajet complet affiche la réponse de succès', () => {
+test('buildTrajetRequest() : aucune écriture ne part jamais avec la session de la page', () => {
+    const ok = health.buildTrajetRequest(ROUTES[2], '/admin/api/products', 'ok');
+    assert.equal(ok.init.method, 'GET');
+    assert.equal(ok.init.credentials, 'same-origin');
+
+    const noSession = health.buildTrajetRequest(ROUTES[3], '/admin/api/products/7', 'session');
+    assert.equal(noSession.init.method, 'PUT');
+    assert.equal(noSession.init.credentials, 'omit', 'un refus sans session part SANS le cookie de la page');
+    assert.equal(noSession.init.body, '{}');
+
+    const router = health.buildTrajetRequest(ROUTES[2], '/admin/api/products', 'router');
+    assert.equal(router.url, '/admin/api/products/inexistant');
+    assert.equal(router.init.method, 'GET');
+
+    assert.equal(health.buildTrajetRequest(ROUTES[3], '/admin/api/products/7', 'ok'), null, 'le succès d\'une écriture n\'est jamais envoyé');
+});
+
+test('listUrlFor() : la liste où prendre un identifiant réel pour une lecture paramétrée', () => {
+    assert.deepEqual(health.listUrlFor('/admin/api/products/{id}'), { url: '/admin/api/products', field: 'id' });
+    assert.deepEqual(health.listUrlFor('/admin/products/{id}/edit'), { url: '/admin/api/products', field: 'id' });
+    assert.deepEqual(health.listUrlFor('/api/products/{id}'), { url: '/api/products', field: 'id' });
+    assert.deepEqual(health.listUrlFor('/api/orders/{number}'), { url: '/admin/api/orders', field: 'order_number' });
+    assert.deepEqual(health.listUrlFor('/admin/orders/{number}/cancel'), { url: '/admin/api/orders', field: 'order_number' });
+    assert.equal(health.listUrlFor('/admin/api/products'), null);
+});
+
+test('summarizeBody() : JSON raccourci (listes longues, jetons masqués), HTML résumé, texte tel quel', () => {
+    const json = health.summarizeBody('application/json', JSON.stringify({ data: { items: [1, 2, 3, 4], csrf_token: 'a'.repeat(64) } }));
+    assert.match(json, /"… et 2 autre\(s\) élément\(s\)"/);
+    assert.match(json, /<jeton de 64 caractères>/);
+    assert.ok(!json.includes('a'.repeat(64)));
+
+    const html = health.summarizeBody('text/html', '<html><head><title>Produits - Wakdo Admin</title></head><body><h1>Produits</h1><div class="flash" role="status">Produit créé.</div></body></html>');
+    assert.match(html, /<title>Produits - Wakdo Admin<\/title>/);
+    assert.match(html, /message : « Produit créé\. »/);
+
+    assert.equal(health.summarizeBody('text/plain', 'Requête invalide.'), 'Requête invalide.');
+});
+
+test('capturedOutcome() : succès, refus, refus non obtenu, exception selon la surface', () => {
+    const ok = health.capturedOutcome(CAPTURES, ROUTES[1], 'ok');
+    assert.equal(ok.status, 201);
+    assert.match(ok.body, /K42/);
+    const nr = health.capturedOutcome(CAPTURES, ROUTES[3], 'body');
+    assert.equal(nr.notReproduced, true);
+    assert.equal(nr.observed, 200);
+    const boom = health.capturedOutcome(CAPTURES, ROUTES[0], 'boom');
+    assert.equal(boom.status, 500);
+    assert.equal(health.capturedOutcome(null, ROUTES[1], 'ok'), null);
+});
+
+test("wireTrajet : le succès d'une écriture montre la réponse capturée, étiquetée comme telle, sans rien envoyer", async () => {
     const doc = setupTrajetDom();
-    const trajet = health.wireTrajet(doc, ROUTES);
+    let calls = 0;
+    global.fetch = async () => { calls += 1; return fakeResponse(200, '{}'); };
+    const trajet = health.wireTrajet(doc, ROUTES, null, { captures: CAPTURES });
 
-    trajet.loadRoute(0, {});
+    await trajet.loadRoute(1, {});
 
+    assert.equal(calls, 0, 'une écriture ne part jamais depuis la page');
+    assert.match(doc.getElementById('health-status').textContent, /^201\b/);
+    assert.match(doc.getElementById('health-respbody').textContent, /K42/);
+    assert.match(doc.getElementById('health-respsource').textContent, /capturée/);
+    assert.match(doc.getElementById('health-reqbody').textContent, /POST \/api\/orders/);
+    assert.ok(!/\{ … \}/.test(doc.getElementById('health-respbody').textContent), 'plus aucun corps inventé');
+});
+
+test("wireTrajet : un refus capturé affiche le vrai code, et le bouton de l'étape porte le vrai statut", async () => {
+    const doc = setupTrajetDom();
+    const trajet = health.wireTrajet(doc, ROUTES, null, { captures: CAPTURES });
+
+    await trajet.loadRoute(1, { fail: 'valid' });
+
+    assert.match(doc.getElementById('health-status').textContent, /^422\b/);
+    assert.match(doc.getElementById('health-respbody').textContent, /PRODUCT_UNAVAILABLE/);
+    assert.match(doc.querySelector('[data-fail="valid"]').textContent, /422 PRODUCT_UNAVAILABLE/);
+});
+
+test("wireTrajet : un refus qui ne s'applique pas à la route n'est plus proposé, la page dit pourquoi", async () => {
+    const doc = setupTrajetDom();
+    const trajet = health.wireTrajet(doc, ROUTES, null, { captures: CAPTURES });
+
+    await trajet.loadRoute(3, {});
+
+    const bodyStep = doc.querySelector('[data-step-id="body"]');
+    assert.equal(bodyStep.querySelector('[data-fail]'), null, 'pas de bouton pour un refus jamais observé');
+    assert.match(bodyStep.textContent, /la même demande a répondu 200/);
+});
+
+test("wireTrajet : une lecture lancée fait le vrai appel et affiche la vraie réponse", async () => {
+    const doc = setupTrajetDom();
+    const seen = [];
+    global.fetch = async (url, init) => { seen.push([url, init]); return fakeResponse(200, JSON.stringify({ data: [{ id: 14, name: 'Coca Cola' }] })); };
+    const trajet = health.wireTrajet(doc, ROUTES, null, { captures: CAPTURES });
+
+    await trajet.loadRoute(0, { animate: true });
+
+    assert.equal(seen.length, 1);
+    assert.equal(seen[0][0], '/api/products');
+    assert.equal(seen[0][1].method, 'GET');
     assert.match(doc.getElementById('health-status').textContent, /^200\b/);
-    const allSteps = doc.querySelectorAll('#health-rail .health-step');
-    allSteps.forEach(function (li) {
-        assert.ok(li.classList.contains('health-step--passed'), 'chaque étape doit être marquée passée sur un trajet complet');
-    });
+    assert.match(doc.getElementById('health-respbody').textContent, /Coca Cola/);
+    assert.match(doc.getElementById('health-respsource').textContent, /appel réel/i);
+});
+
+test("wireTrajet : au chargement, une lecture n'est pas envoyée tant qu'on ne la lance pas", async () => {
+    const doc = setupTrajetDom();
+    let calls = 0;
+    global.fetch = async () => { calls += 1; return fakeResponse(200, '{}'); };
+    const trajet = health.wireTrajet(doc, ROUTES, null, { captures: CAPTURES });
+
+    await trajet.loadRoute(0, {});
+
+    assert.equal(calls, 0);
+    assert.match(doc.getElementById('health-respsource').textContent, /Lancer l'appel/);
+});
+
+test("wireTrajet : le refus sans session d'une route JSON part sans cookie et affiche le vrai 401", async () => {
+    const doc = setupTrajetDom();
+    const seen = [];
+    global.fetch = async (url, init) => { seen.push(init); return fakeResponse(401, JSON.stringify({ data: null, error: { code: 'AUTH_REQUIRED', message: 'Authentification requise' } })); };
+    const trajet = health.wireTrajet(doc, ROUTES, null, { captures: CAPTURES });
+
+    await trajet.loadRoute(2, { fail: 'session', animate: true });
+
+    assert.equal(seen[0].credentials, 'omit');
+    assert.match(doc.getElementById('health-status').textContent, /^401\b/);
+    assert.match(doc.getElementById('health-respbody').textContent, /AUTH_REQUIRED/);
+    const sessionLi = doc.querySelector('[data-step-id="session"]');
+    assert.ok(sessionLi.classList.contains('health-step--failed'));
+});
+
+test("wireTrajet : sans fichier de captures, la page le dit et n'invente aucun corps", async () => {
+    const doc = setupTrajetDom();
+    const trajet = health.wireTrajet(doc, ROUTES, null, { captures: null });
+
+    await trajet.loadRoute(1, {});
+
+    assert.match(doc.getElementById('health-respsource').textContent, /indisponible/);
+    assert.equal(doc.getElementById('health-respbody').textContent, '');
 });
 
 /* ============================================================
@@ -234,6 +391,95 @@ function setupRoutesMapDom() {
     );
     return dom.window.document;
 }
+
+// Routes d'une meme famille, sur les trois surfaces : de la forme de RouteMap::rows().
+function R(m, p, s, extra) {
+    return Object.assign({ m: m, p: p, c: 'X', a: 'a', s: s, anon: false, perm: 'ingredient.manage', w: m !== 'GET', csrf: m === 'GET' ? null : (s === 'api' ? 'header' : 'form'), pin: null, re: null, f: s === 'bo' ? (m === 'GET' ? 'html' : 'redirect') : 'json', g: 'Ingrédients et stock' }, extra || {});
+}
+const FAMILY = [
+    R('GET', '/admin/ingredients', 'bo'),
+    R('GET', '/admin/ingredients/new', 'bo'),
+    R('POST', '/admin/ingredients', 'bo'),
+    R('GET', '/admin/ingredients/{id}/edit', 'bo'),
+    R('POST', '/admin/ingredients/{id}', 'bo'),
+    R('GET', '/admin/ingredients/{id}/delete', 'bo'),
+    R('POST', '/admin/ingredients/{id}/delete', 'bo'),
+    R('GET', '/admin/ingredients/{id}/restock', 'bo'),
+    R('POST', '/admin/ingredients/{id}/restock', 'bo'),
+    R('GET', '/admin/ingredients/{id}/movements', 'bo'),
+    R('GET', '/admin/api/ingredients', 'api'),
+    R('GET', '/admin/api/ingredients/{id}', 'api'),
+    R('POST', '/admin/api/ingredients', 'api'),
+    R('PUT', '/admin/api/ingredients/{id}', 'api'),
+    R('DELETE', '/admin/api/ingredients/{id}', 'api'),
+    R('POST', '/admin/api/ingredients/{id}/restock', 'api'),
+    R('DELETE', '/admin/api/users/{id}', 'api', { g: 'Comptes' }),
+    R('GET', '/admin/users/{id}/deactivate', 'bo', { g: 'Comptes' }),
+    R('POST', '/admin/users/{id}/deactivate', 'bo', { g: 'Comptes' }),
+    R('GET', '/api/products', 'borne', { g: 'Catalogue', anon: true, perm: null }),
+];
+
+function actionIn(groups, g, label) {
+    const grp = groups.filter((x) => x.g === g)[0];
+    return grp ? grp.actions.filter((a) => a.label === label)[0] : undefined;
+}
+function paths(list) { return list.map((i) => FAMILY[i].m + ' ' + FAMILY[i].p); }
+
+test('groupByAction() : la page, l\'envoi du formulaire et l\'API d\'une même action sur une seule ligne', () => {
+    const groups = health.groupByAction(FAMILY, FAMILY.map((_, i) => i));
+    const restock = actionIn(groups, 'Ingrédients et stock', 'Réapprovisionner');
+    assert.deepEqual(paths(restock.cols.page), ['GET /admin/ingredients/{id}/restock']);
+    assert.deepEqual(paths(restock.cols.form), ['POST /admin/ingredients/{id}/restock']);
+    assert.deepEqual(paths(restock.cols.api), ['POST /admin/api/ingredients/{id}/restock']);
+
+    const create = actionIn(groups, 'Ingrédients et stock', 'Créer un ingrédient');
+    assert.deepEqual(paths(create.cols.page), ['GET /admin/ingredients/new']);
+    assert.deepEqual(paths(create.cols.form), ['POST /admin/ingredients']);
+    assert.deepEqual(paths(create.cols.api), ['POST /admin/api/ingredients']);
+
+    const update = actionIn(groups, 'Ingrédients et stock', 'Modifier un ingrédient');
+    assert.deepEqual(paths(update.cols.page), ['GET /admin/ingredients/{id}/edit']);
+    assert.deepEqual(paths(update.cols.form), ['POST /admin/ingredients/{id}']);
+    assert.deepEqual(paths(update.cols.api), ['PUT /admin/api/ingredients/{id}']);
+
+    const del = actionIn(groups, 'Ingrédients et stock', 'Supprimer un ingrédient');
+    assert.deepEqual(paths(del.cols.form), ['POST /admin/ingredients/{id}/delete']);
+    assert.deepEqual(paths(del.cols.api), ['DELETE /admin/api/ingredients/{id}']);
+
+    const list = actionIn(groups, 'Ingrédients et stock', 'Lister les ingrédients');
+    assert.deepEqual(paths(list.cols.page), ['GET /admin/ingredients']);
+    assert.deepEqual(paths(list.cols.api), ['GET /admin/api/ingredients']);
+
+    const moves = actionIn(groups, 'Ingrédients et stock', 'Historique des mouvements');
+    assert.deepEqual(paths(moves.cols.page), ['GET /admin/ingredients/{id}/movements']);
+    assert.equal((moves.cols.api || []).length, 0);
+});
+
+test('groupByAction() : supprimer un compte dans l\'API, c\'est le désactiver dans le back-office', () => {
+    const groups = health.groupByAction(FAMILY, FAMILY.map((_, i) => i));
+    const deact = actionIn(groups, 'Comptes', 'Désactiver un compte');
+    assert.deepEqual(paths(deact.cols.form), ['POST /admin/users/{id}/deactivate']);
+    assert.deepEqual(paths(deact.cols.api), ['DELETE /admin/api/users/{id}']);
+});
+
+test('groupByAction() : les routes de la borne ont leur propre colonne', () => {
+    const groups = health.groupByAction(FAMILY, FAMILY.map((_, i) => i));
+    const grp = groups.filter((x) => x.g === 'Catalogue')[0];
+    assert.equal(grp.hasBorne, true);
+    assert.deepEqual(paths(grp.actions[0].cols.borne), ['GET /api/products']);
+});
+
+test('wireRoutesMap : une ligne par action, les routes gardent leur bouton et le compte dit routes et actions', () => {
+    const doc = setupRoutesMapDom();
+    health.wireRoutesMap(doc, FAMILY, function () {});
+    assert.equal(doc.querySelectorAll('#health-routes-groups [data-ri]').length, FAMILY.length, 'chaque route reste cliquable');
+    const rows = doc.querySelectorAll('#health-routes-groups .health-arow');
+    assert.ok(rows.length < FAMILY.length, 'moins de lignes que de routes : les actions regroupent');
+    const restockRow = Array.from(rows).filter((row) => /Réapprovisionner/.test(row.textContent))[0];
+    assert.equal(restockRow.querySelectorAll('[data-ri]').length, 3);
+    assert.match(doc.getElementById('health-count').textContent, /20 routes sur 20/);
+    assert.match(doc.getElementById('health-count').textContent, /actions/);
+});
 
 test('wireRoutesMap : changer le filtre de surface réduit la liste affichée', () => {
     const doc = setupRoutesMapDom();

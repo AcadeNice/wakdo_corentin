@@ -217,6 +217,14 @@ Stock et ingredients (`stock.read` / `ingredient.manage` / `stock.manage` / `sto
 | POST | `/admin/api/ingredients/{id}/inventory` | oui | comptage absolu (mlt 9.2, `stock.count`) ; PAS d'audit_log au succes (RG-T14 : `stock_movement` suffit) |
 | POST | `/admin/api/ingredients/{id}/adjust` | oui | delta signe non nul, meme garde que l'inventaire (R9, `stock.count`) |
 | PUT | `/admin/api/ingredients/{id}/allergens` | non | `{ "allergen_ids": [int], "source": "..." }` (`ingredient.manage`) ; `source` obligatoire |
+| GET | `/admin/api/ingredients/{id}/movements` | non | historique des mouvements, du plus recent au plus ancien (`stock.read`). RG-4 : l'auteur (`actor`) n'est renvoye qu'aux detenteurs de `stock.manage` ; `actor_visible` le dit. Ajoute le 2026-09-28 : la page du back-office l'avait, l'API non |
+
+> **Reste au back-office seul, par choix : la recherche des donnees nutritionnelles**
+> (`POST /admin/ingredients/{id}/enrich`). Elle interroge Open Food Facts, un service
+> exterieur, et ecrit directement ce qu'il renvoie (`IngredientController::enrich`). Elle
+> reste un geste declenche a la main depuis la fiche de l'ingredient, ou l'equipier voit
+> aussitot ce qui a ete importe. L'exposer dans l'API permettrait de la declencher en boucle
+> depuis un script, vers un tiers, et d'ecrire ses reponses sans que personne les voie.
 
 > **Plafonnement a la capacite (`restock`/`inventory`/`adjust`)** -- le stock d'un
 > ingredient ne depasse JAMAIS sa capacite configuree (`stock_capacity`,

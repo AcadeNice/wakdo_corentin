@@ -73,6 +73,9 @@ sur la version deployee. La page Sante n'avait pas encore ete balayee : le derni
 - **PHPStan et PHPUnit inchangés** (aucun fichier PHP modifié).
 - **Audit d'accessibilité mesuré : 19 écrans, 946 mesures de contraste, 85 combinaisons, 0
   violation**. Seule la page Santé change : 65 mesures (62 avant), 28 règles conformes (26).
+- **Audit d'accessibilite rejoue le 28/09**, apres le trajet aux reponses reelles : 935 mesures
+  (et non plus 946). L'apercu d'import ne montre plus le tableau d'erreurs du defaut des accents,
+  corrige par #178 ; le detail est dans la fiche 06.
 - **Balayage du back-office, le 28/09** : 3 échecs à la première passe sur la page Santé, puis
   **4807 vérifications, 0 échec** après correction (5 rôles connectés plus l'état non connecté,
   111 pages-rôles, 4 largeurs). Test navigateur de la page : 6 scénarios sur 6.

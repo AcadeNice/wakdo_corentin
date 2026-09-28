@@ -73,7 +73,7 @@ depot coute plus cher que le chiffre lui-meme.
 | Entites du modele | 23 | `docs/merise/dictionary.md` (3.1 a 3.23) |
 | Migrations / jeux de donnees | 17 / 10, idempotents | `ls db/migrations/*.sql \| wc -l` ; `ls db/seeds/*.sql \| wc -l` |
 | Roles / permissions | 5 / 23 | `db/seeds/0001_rbac_and_reference.sql` |
-| Routes declarees | 157 (76 GET, 67 POST, 9 PUT, 5 DELETE) dans `src/app/Core/routes.php` | `grep -c "router->add(" src/app/Core/routes.php` |
+| Routes declarees | 158 (77 GET, 67 POST, 9 PUT, 5 DELETE) dans `src/app/Core/routes.php` | `grep -c "router->add(" src/app/Core/routes.php` |
 | Controleurs | 23 au premier niveau (2 abstraits, 14 `AdminController`, 6 `Controller`, 1 `AuthenticatedController`) + 11 sous `Admin/Api` (10 concrets + 1 trait `JsonApiTrait`) | `ls src/app/Controllers/*.php src/app/Controllers/Admin/Api/*.php \| wc -l` |
 | Depots / vues | 11 / 41 | `find src/app -name '*Repository.php' \| wc -l` ; `find src/app/Views -name '*.php' \| wc -l` |
 | Regles transverses de securite | 22 (RG-T01 a RG-T22) | `docs/merise/mlt.md`, lignes 41-62 |
@@ -104,7 +104,7 @@ distincts**, et les confondre serait une erreur qu'un jury technique reperera.
 
 | Mesure | Outil | Resultat | Source |
 |---|---|---|---|
-| Audit d'accessibilite | axe-core 4.13.0 via Playwright, regles WCAG 2.0 A/AA et WCAG 2.1 A/AA | **19 ecrans** (6 borne, 13 back-office), **0 violation** toutes gravites, **946 rapports de contraste**, **0 sous le seuil**, minimum releve **3,59**. Resolutions : 1080x1920 pour la borne, 1440x900 pour le back-office. **Un seul role : administrateur** | `docs/soutenance/preuves/rapports/resume.json`, campagne du 2026-09-27 |
+| Audit d'accessibilite | axe-core 4.13.0 via Playwright, regles WCAG 2.0 A/AA et WCAG 2.1 A/AA | **19 ecrans** (6 borne, 13 back-office), **0 violation** toutes gravites, **935 rapports de contraste**, **0 sous le seuil**, minimum releve **3,59**. Resolutions : 1080x1920 pour la borne, 1440x900 pour le back-office. **Un seul role : administrateur** | `docs/soutenance/preuves/rapports/resume.json`, campagne du 2026-09-28 |
 | Balayage de mise en page et d'ergonomie | outil ecrit pour le projet (`tests/e2e/backoffice-sweep/`), 12 familles de verifications | **4 807 verifications, 0 echec** - 5 roles connectes plus l'etat non connecte, toutes les pages atteignables (111 pages-roles), **4 largeurs** (1366, 1024, 768, 390 px). Trajectoire : **104 echecs avant la refonte, 11 apres le premier lot, 0 le 26/09 ; le 28/09, 3 echecs sur la page Sante, qui n'avait pas encore ete balayee, corriges (#183), 0 a nouveau** | mesure du 2026-09-28 sur `1ccc9db` plus la correction #183. Les sorties de cet outil ne sont pas versionnees : le relancer pour produire le rapport |
 | Canal auxiliaire par le temps sur la connexion | mesure directe des 4 chemins | compte inexistant 257,4 ms / mot de passe faux 251,4 ms / compte verrouille 253,3 ms / connexion reussie 252,6 ms. **Ecart maximal 6,0 ms pour un bruit de mesure de 13,8 ms** | mesure du 2026-09-26 |
 
@@ -303,7 +303,7 @@ Distinguer clairement les deux outils - c'est ce qui montre qu'on sait ce qu'on 
 
 - **axe-core 4.13.0**, pilote par Playwright dans un vrai navigateur, sur les regles
   WCAG 2.0 niveaux A et AA et les ajouts WCAG 2.1 niveaux A et AA. Resultat :
-  **19 ecrans**, **0 violation** toutes gravites, **946 rapports de contraste**,
+  **19 ecrans**, **0 violation** toutes gravites, **935 rapports de contraste**,
   **0 sous le seuil**, minimum releve **3,59**.
   Pourquoi un vrai navigateur et pas un rendu simule : sans rendu, il n'y a ni couleur
   calculee ni geometrie, donc aucun rapport de contraste calculable. C'est la raison
@@ -440,7 +440,7 @@ et supprimer le reste.
 
 - Routeur ecrit pour le projet (`src/app/Core/Router.php`) : une association entre
   methode HTTP et chemin d'un cote, controleur et action de l'autre.
-  **157 routes declarees** (76 `GET`, 67 `POST`, 9 `PUT`, 5 `DELETE`), dans
+  **158 routes declarees** (77 `GET`, 67 `POST`, 9 `PUT`, 5 `DELETE`), dans
   `src/app/Core/routes.php` (extrait de `src/public/admin/index.php` par la PR #175,
   pour que le routeur puisse etre reconstruit hors requete HTTP, ADR-0019). Les 9 `PUT`
   et 5 `DELETE` appartiennent tous a l'API JSON du back-office, portee par 10
@@ -769,7 +769,7 @@ est en section 8. La proposer soi-meme si la question sur l'IA tombe.
 | B2 | Cr 3.b construction de la base | F.1, H.1 | 17 migrations, 10 jeux de donnees |
 | B2 | Cr 3.c SQL | G.2 | Decrement atomique, depots PDO |
 | B2 | Cr 3.d donnees personnelles | G.1 | Classification 4 niveaux, anonymisation |
-| B2 | Cr 4.b developpement serveur | F.2 | 157 routes, API JSON complete |
+| B2 | Cr 4.b developpement serveur | F.2 | 158 routes, API JSON complete |
 | B2 | Cr 4.c heritage | F.2 | Hierarchie des controleurs a 4 niveaux |
 | B2 | Cr 4.d separation des responsabilites | F.2 | Controleur, depot, vue |
 | B2 | Cr 4.e securite | G | 22 regles transverses, modelisation de la menace |
@@ -827,7 +827,7 @@ bonne reponse est *"le code fait foi, et voici pourquoi le document a pris du re
 | Services conteneurises | 4 en section 16, 5 ailleurs | **5**, dont un a execution unique. |
 | Regles transverses | "RG-T13 a RG-T21" en introduction de la section 19 | **22 regles**, RG-T22 comprise. |
 | Auditabilite des echanges avec l'IA | Annoncee en section 17.9 | Les journaux ne sont pas versionnes (section 17.6). Ne pas promettre cette preuve. |
-| Mesures de contraste | 407 (fiches 06 et README des preuves) | **946** dans l'artefact `rapports/resume.json` du 27 septembre ; la section de remesure de la fiche 06 et le README des preuves portent 946. |
+| Mesures de contraste | 407 (fiches 06 et README des preuves) | **935** dans l'artefact `rapports/resume.json` du 28 septembre ; la fiche 06 explique l'ecart avec les 946 du 27 (l'apercu d'import affichait alors le defaut des accents, corrige par #178). |
 
 **Deux points a verifier avant le 5 octobre**, non verifiables depuis le depot mais
 lisibles en direct par le jury :
@@ -863,7 +863,7 @@ Pour ne pas finir la liste sur une note basse, enchainer :
 ### 7.1 Architecture
 
 **Q1.1 - Comment une requete traverse votre application ?**
-Point d'entree `src/public/admin/index.php`, qui charge les 157 routes declarees dans
+Point d'entree `src/public/admin/index.php`, qui charge les 158 routes declarees dans
 `src/app/Core/routes.php` (extrait de `index.php` par la PR #175, pour que le routeur
 puisse etre reconstruit hors requete HTTP, ADR-0019). Le routeur (`src/app/Core/Router.php`)
 compile chaque chemin, compare methode et chemin, et distingue 404 (chemin inconnu) de 405
@@ -965,7 +965,7 @@ retention automatisees : journal d'audit environ 12 mois, compteurs de tentative
 **Q3.1 - Qu'est-ce qui vous permet de dire que votre site est accessible ?**
 Je ne dis pas qu'il est accessible : je dis qu'il ne porte aucune violation detectable
 automatiquement. axe-core 4.13.0 sur les regles WCAG 2.0 A/AA et 2.1 A/AA, 19 ecrans,
-0 violation toutes gravites, 946 rapports de contraste, 0 sous le seuil. Et 4 807
+0 violation toutes gravites, 935 rapports de contraste, 0 sous le seuil. Et 4 807
 verifications sans echec au balayage de mise en page, sur 5 roles et 4 largeurs.
 
 **Q3.2 - Quelle est la limite de votre audit ?** **(rude)**

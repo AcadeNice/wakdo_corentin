@@ -99,10 +99,10 @@ final class RouteSecurityCoverageTest extends TestCase
         );
     }
 
-    public function testTotalEntriesIs157(): void
+    public function testTotalEntriesIs158(): void
     {
-        self::assertCount(157, RouteSecurity::ENTRIES);
-        self::assertCount(157, $this->routeSignatures());
+        self::assertCount(158, RouteSecurity::ENTRIES);
+        self::assertCount(158, $this->routeSignatures());
     }
 
     /**

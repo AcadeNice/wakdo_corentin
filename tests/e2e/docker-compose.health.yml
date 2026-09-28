@@ -1,0 +1,16 @@
+# Override JETABLE pour la capture des reponses de la page Sante : neutralise les
+# container_name fixes du compose afin de monter une stack isolee (`-p wakdohc`) en
+# parallele d'une stack existante, sans collision de noms ni de port.
+# N'est PAS un compose de deploiement ; sert uniquement a run-health-capture.sh.
+services:
+  wakdo-db:
+    container_name: wakdohc-db
+  wakdo-migrate:
+    container_name: wakdohc-migrate
+  wakdo-app:
+    container_name: wakdohc-app
+  wakdo-web:
+    container_name: wakdohc-web
+    ports: !reset []
+  wakdo-cron:
+    container_name: wakdohc-cron

@@ -801,6 +801,89 @@
               }
             }
           ]
+        },
+        {
+          "name": "Telecharger le modele d'import (CSV)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/products/import/template",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "products",
+                "import",
+                "template"
+              ]
+            },
+            "description": "product.create, lecture seule. Renvoie le modele officiel dans data.csv (en-tete + exemples), le meme que le bouton du back-office."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Import : apercu sans ecriture (dry_run=1)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/products/import?dry_run=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "products",
+                "import?dry_run=1"
+              ]
+            },
+            "description": "product.create. Corps JSON {csv}, pas un fichier. dry_run=1 : le serveur analyse et rend l'apercu (productsToCreate, errors...) SANS rien ecrire. Sans dry_run, il applique l'import (code personnel exige seulement si un prix change).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"csv\": \"categorie;produit;description;prix_ttc;tva;taille_cl;disponible;ingredient;unite;quantite;retirable;ajoutable\\nBurgers;Burger demo {{run}};;6,90;10;;oui;Pain burger;pièce;1;non;non\\n\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -1500,6 +1583,38 @@
               }
             }
           }
+        },
+        {
+          "name": "Historique des mouvements (lecture)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/ingredients/{{created_restock_ingredient_id}}/movements",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "ingredients",
+                "{{created_restock_ingredient_id}}",
+                "movements"
+              ]
+            },
+            "description": "stock.read, lecture seule : les mouvements du plus recent au plus ancien (reapprovisionnement, inventaire, ajustement ci-dessus). RG-4 : l'auteur (actor) n'est renvoye qu'aux detenteurs de stock.manage ; actor_visible le dit."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Revue des allergenes",
@@ -2462,7 +2577,7 @@
       ]
     },
     {
-      "name": "Statistiques",
+      "name": "Statistiques et sante",
       "item": [
         {
           "name": "Tableau de bord (compteurs + stock + ventes)",
@@ -2482,6 +2597,36 @@
             },
             "description": "stats.read, lecture seule."
           }
+        },
+        {
+          "name": "Sante de l'application (etat detaille)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/api/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "api",
+                "health"
+              ]
+            },
+            "description": "role.manage, lecture seule : version servie, base, migrations, activite des 24 dernieres heures. C'est ce que relit la page Sante du back-office toutes les 15 s. La sonde publique, sans compte, est GET /api/health."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
         }
       ]
     },

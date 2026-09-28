@@ -1,0 +1,28 @@
+meta {
+  name: Import : apercu sans ecriture (dry_run=1)
+  type: http
+  seq: 13
+}
+
+post {
+  url: {{baseUrl}}/admin/api/products/import?dry_run=1
+}
+
+headers {
+  Content-Type: application/json
+  X-CSRF-Token: {{csrf}}
+}
+
+body {
+  {
+    "csv": "categorie;produit;description;prix_ttc;tva;taille_cl;disponible;ingredient;unite;quantite;retirable;ajoutable\nBurgers;Burger demo {{run}};;6,90;10;;oui;Pain burger;pièce;1;non;non\n"
+  }
+}
+
+docs {
+product.create. Corps JSON {csv}, pas un fichier. dry_run=1 : le serveur analyse et rend l'apercu (productsToCreate, errors...) SANS rien ecrire. Sans dry_run, il applique l'import (code personnel exige seulement si un prix change).
+}
+
+tests {
+  expect(res.getStatus()).to.equal(200);
+}

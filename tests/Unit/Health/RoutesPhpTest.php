@@ -15,7 +15,8 @@ use App\Core\Router;
  * (contrat sante-back-office, section 1) : routes.php charge sur un Router neuf
  * doit produire EXACTEMENT les 155 routes de origin/dev (commit ab0c553),
  * DANS LE MEME ORDRE, plus les 2 nouvelles (/admin/health, /admin/api/health) --
- * 157 au total.
+ * 157 au total ; puis 158 avec GET /admin/api/ingredients/{id}/movements (2026-09-28,
+ * l'historique des mouvements que l'API n'exposait pas).
  *
  * Les 155 tuples [methode, chemin, classe, action] ci-dessous sont extraits
  * MOT POUR MOT de `git show origin/dev:src/public/admin/index.php` (commit
@@ -199,9 +200,9 @@ final class RoutesPhpTest extends TestCase
         return $router->routes();
     }
 
-    public function testRoutesPhpProducesExactly157Routes(): void
+    public function testRoutesPhpProducesExactly158Routes(): void
     {
-        self::assertCount(157, $this->loadRoutes());
+        self::assertCount(158, $this->loadRoutes());
     }
 
     public function testRoutesPhpAddsExactlyTheTwoHealthRoutes(): void
@@ -216,7 +217,7 @@ final class RoutesPhpTest extends TestCase
         )));
 
         sort($newOnes);
-        self::assertSame(['GET /admin/api/health', 'GET /admin/health'], $newOnes);
+        self::assertSame(['GET /admin/api/health', 'GET /admin/api/ingredients/{id}/movements', 'GET /admin/health'], $newOnes);
     }
 
     /**
@@ -229,7 +230,7 @@ final class RoutesPhpTest extends TestCase
             $this->loadRoutes(),
             static fn (array $r): bool => !in_array(
                 $r['method'] . ' ' . $r['pattern'],
-                ['GET /admin/health', 'GET /admin/api/health'],
+                ['GET /admin/health', 'GET /admin/api/health', 'GET /admin/api/ingredients/{id}/movements'],
                 true,
             ),
         ));

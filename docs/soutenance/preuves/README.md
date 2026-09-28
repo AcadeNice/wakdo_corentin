@@ -32,7 +32,7 @@ Perimetre principal : la **borne de commande client** (`src/public/borne/`), int
 - `w3c/borne-rendu.json` — sortie sur le DOM rendu (0 erreur, 1 avertissement assume).
 - `w3c/borne-modale-allergenes.json` — idem, modale allergenes ouverte.
 - `w3c/dom-rendu/` — les 4 fichiers de HTML rendu (JS execute) reellement soumis au validateur.
-- `rapports/` — audit d'accessibilite mesure : `resume.json` (19 ecrans), `contrastes-mesures.csv` (946 mesures), `axe-<ecran>.json` (x19).
+- `rapports/` — audit d'accessibilite mesure : `resume.json` (19 ecrans), `contrastes-mesures.csv` (935 mesures, campagne du 2026-09-28), `axe-<ecran>.json` (x19).
 - `captures-responsive/` — **52 captures** Playwright : la borne (5 ecrans x 360 / 390 / 768 / 1366 px) et le back-office (16 ecrans x 360 / 390 px).
 - `captures-controle-saisie/` — controle de saisie pendant la frappe, modal PIN avant / apres correctif, et message du serveur apres un PIN refuse (fiche 09). Les trois captures « apres » sont regenerees ; `modal-pin-avant.png` ne l'est pas, et ne peut pas l'etre : elle montre le defaut corrige depuis.
 
@@ -52,7 +52,7 @@ Trois commandes, une par famille d'artefacts. Chacune monte sa propre pile jetab
 
 ## Reserves honnetes consolidees (a ne pas survendre)
 
-- **Accessibilite** : aucun audit avec un lecteur d'ecran reel (NVDA/VoiceOver) — reserve ouverte. Les ratios de contraste, eux, ont ete mesures a l'outil (`axe-core`, **946 mesures sur 19 ecrans** au 2026-09-27, [`06-audit-accessibilite-mesure.md`](06-audit-accessibilite-mesure.md)) : 10 noeuds trouves sous le seuil AA au premier passage ont ete corriges et remesures conformes — reserve resolue, plus une reserve ouverte sur ce theme. La demarche est structuree et testee, pas certifiee RGAA.
+- **Accessibilite** : aucun audit avec un lecteur d'ecran reel (NVDA/VoiceOver) — reserve ouverte. Les ratios de contraste, eux, ont ete mesures a l'outil (`axe-core`, **935 mesures sur 19 ecrans** au 2026-09-28, [`06-audit-accessibilite-mesure.md`](06-audit-accessibilite-mesure.md)) : 10 noeuds trouves sous le seuil AA au premier passage ont ete corriges et remesures conformes — reserve resolue, plus une reserve ouverte sur ce theme. La demarche est structuree et testee, pas certifiee RGAA.
 - **Tailles de cible** : le « 0 violation » de l'audit ne les couvre pas. Le critere de taille minimale de cible releve de **WCAG 2.2**, hors des quatre familles de regles activees (qui s'arretent a WCAG 2.1). A dire avant qu'on ne le demande.
 - **Cross-navigateurs** : pas de campagne de test sur parc reel ; les tableaux de support sont tagues `[UNVERIFIED]`, a reconfirmer sur caniuse avant l'oral. La strategie (fallback `@supports`, prefixes) est verifiable dans le code.
 - **C2.d** : aucune librairie JS externe n'est integree (choix vanilla). La competence de reutilisation est demontree par des modules internes ; le critere « externe » n'est pas rempli a la lettre. Confiance faible, assumee.
