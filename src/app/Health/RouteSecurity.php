@@ -170,6 +170,7 @@ final class RouteSecurity
     ['POST', '/admin/api/ingredients/{id}/inventory', false, 'stock.count', 'header', 'always', null],
     ['POST', '/admin/api/ingredients/{id}/adjust', false, 'stock.count', 'header', 'always', null],
     ['PUT', '/admin/api/ingredients/{id}/allergens', false, 'ingredient.manage', 'header', null, null],
+    ['GET', '/admin/api/ingredients/{id}/movements', false, 'stock.read', null, null, null],
     ['GET', '/admin/api/users', false, 'user.read', null, null, null],
     ['GET', '/admin/api/users/{id}', false, 'user.read', null, null, null],
     ['POST', '/admin/api/users', false, 'user.create', 'header', 'always', null],

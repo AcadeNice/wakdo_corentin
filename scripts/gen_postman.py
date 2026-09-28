@@ -485,6 +485,24 @@ items.append({
             description="Preuve de nettoyage : suppression dure, la ressource n'existe plus.",
             tests=expect_status(404, "404 NOT_FOUND"),
         ),
+        request(
+            "Telecharger le modele d'import (CSV)", "GET", "/admin/api/products/import/template",
+            description=(
+                "product.create, lecture seule. Renvoie le modele officiel dans data.csv (en-tete + "
+                "exemples), le meme que le bouton du back-office."
+            ),
+            tests=expect_status(200, "200 OK"),
+        ),
+        request(
+            "Import : apercu sans ecriture (dry_run=1)", "POST", "/admin/api/products/import?dry_run=1",
+            json_body={"csv": "categorie;produit;description;prix_ttc;tva;taille_cl;disponible;ingredient;unite;quantite;retirable;ajoutable\nBurgers;Burger demo {{run}};;6,90;10;;oui;Pain burger;pièce;1;non;non\n"},
+            description=(
+                "product.create. Corps JSON {csv}, pas un fichier. dry_run=1 : le serveur analyse et "
+                "rend l'apercu (productsToCreate, errors...) SANS rien ecrire. Sans dry_run, il "
+                "applique l'import (code personnel exige seulement si un prix change)."
+            ),
+            tests=expect_status(200, "200 OK"),
+        ),
     ],
 })
 
@@ -644,6 +662,15 @@ items.append({
             "Ajustement libre (delta signe, PIN requis)", "POST", "/admin/api/ingredients/{{created_restock_ingredient_id}}/adjust",
             json_body={"delta": -3, "note": "casse demo", "pin_email": "{{pin_email}}", "pin": "{{pin}}"},
             description="stock.count + PIN. delta entier non nul (+ pour ajouter, - pour retirer).",
+        ),
+        request(
+            "Historique des mouvements (lecture)", "GET", "/admin/api/ingredients/{{created_restock_ingredient_id}}/movements",
+            description=(
+                "stock.read, lecture seule : les mouvements du plus recent au plus ancien "
+                "(reapprovisionnement, inventaire, ajustement ci-dessus). RG-4 : l'auteur (actor) "
+                "n'est renvoye qu'aux detenteurs de stock.manage ; actor_visible le dit."
+            ),
+            tests=expect_status(200, "200 OK"),
         ),
         request(
             "Revue des allergenes", "PUT", "/admin/api/ingredients/{{created_restock_ingredient_id}}/allergens",
@@ -905,11 +932,20 @@ items[-1]["item"].append(request(
 
 # --- Statistiques ---
 items.append({
-    "name": "Statistiques",
+    "name": "Statistiques et sante",
     "item": [
         request(
             "Tableau de bord (compteurs + stock + ventes)", "GET", "/admin/api/stats",
             description="stats.read, lecture seule.",
+        ),
+        request(
+            "Sante de l'application (etat detaille)", "GET", "/admin/api/health",
+            description=(
+                "role.manage, lecture seule : version servie, base, migrations, activite des 24 "
+                "dernieres heures. C'est ce que relit la page Sante du back-office toutes les 15 s. "
+                "La sonde publique, sans compte, est GET /api/health."
+            ),
+            tests=expect_status(200, "200 OK"),
         ),
     ],
 })

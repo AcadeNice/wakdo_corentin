@@ -56,6 +56,23 @@ se chevauchaient, et la grille, nommée `health-actions`, était lue comme une b
 (dans ce projet, une classe en `*actions` désigne une barre de boutons alignés). La grille
 s'appelle `health-amap`, et les groupes à cinq colonnes passent en fiches sous 1280 px.
 
+## L'historique des mouvements dans l'API, et la collection complétée
+
+La revue des cartes a montré deux actions présentes dans le back-office mais absentes de l'API.
+Décision de l'auteur : ajouter la lecture de l'historique, laisser la recherche nutritionnelle au
+back-office et l'écrire.
+
+- **`GET /admin/api/ingredients/{id}/movements`** (`stock.read`) : la route 158. Même règle que la
+  page du back-office (RG-4) : l'auteur d'un mouvement n'est renvoyé qu'aux détenteurs de
+  `stock.manage`, et le champ `actor` est alors absent, pas seulement vide. La fonction qui teste
+  la permission (`may`) est partagée avec le contrôleur du back-office, pas recopiée.
+- **La recherche nutritionnelle reste au back-office**, écrit dans le contrat de l'API : elle
+  interroge Open Food Facts et écrit directement ce qu'il renvoie ; l'exposer permettrait de la
+  déclencher en boucle vers un tiers, sans que personne voie ce qui est écrit.
+- **La collection Postman et Bruno** gagne les quatre requêtes qui manquaient : l'historique des
+  mouvements, le modèle d'import, l'aperçu d'import sans écriture (`dry_run=1`) et l'état de
+  santé détaillé. La capture a rejoué la collection régénérée : l'aperçu d'import répond 200.
+
 ## Pourquoi — decisions et alternatives
 
 - **Capturer plutôt qu'appeler la production pour les écritures.** L'auteur avait tranché la

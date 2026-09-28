@@ -802,8 +802,9 @@ class IngredientController extends AdminController
      * RG-T03 : la permission est-elle detenue par le role de la session courante ?
      * Utilise pour adapter l'affichage (liens d'action, visibilite acteur RG-4) sans
      * remplacer la garde par-action (chaque route reste gardee independamment).
+     * Protegee : l'API (IngredientApiController) applique la MEME regle, sans copie.
      */
-    private function may(GuardResult $guard, string $permission): bool
+    protected function may(GuardResult $guard, string $permission): bool
     {
         return $guard->roleId !== null && $this->authorizer()->can($guard->roleId, $permission);
     }

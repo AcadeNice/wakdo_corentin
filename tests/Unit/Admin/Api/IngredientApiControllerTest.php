@@ -428,6 +428,73 @@ final class IngredientApiControllerTest extends TestCase
         self::assertSame(403, $response->status());
     }
 
+    // --- historique des mouvements (lecture, meme regle que la page du back-office) ---
+
+    private function withHistory(FakeDatabase $db): void
+    {
+        $db->ingredientRow = ['id' => 21, 'name' => 'Pain burger', 'unit' => 'unite', 'stock_quantity' => 40, 'stock_capacity' => 500, 'pack_size' => 50, 'pack_label' => 'carton de 50', 'low_stock_pct' => 20, 'critical_stock_pct' => 5, 'is_active' => 1];
+        $db->movementsRows = [
+            ['id' => 5, 'ingredient_id' => 21, 'movement_type' => 'restock', 'delta' => 50, 'order_id' => null, 'user_id' => 7, 'note' => 'livraison', 'created_at' => '2026-09-28 09:00:00'],
+            ['id' => 4, 'ingredient_id' => 21, 'movement_type' => 'sale', 'delta' => -10, 'order_id' => 88, 'user_id' => null, 'note' => null, 'created_at' => '2026-09-27 12:00:00'],
+        ];
+        $db->userDisplayRow = ['first_name' => 'Rita', 'last_name' => 'Balayage', 'email' => 'rita@wakdo.local', 'role_label' => 'Responsable', 'order_source' => null];
+    }
+
+    public function testMovementsListTheHistoryWithTheActorForAHolderOfStockManage(): void
+    {
+        $db = $this->permittedDb();
+        $this->withHistory($db);
+
+        $response = $this->controller($this->get('/admin/api/ingredients/21/movements'), $db)->apiMovements(['id' => '21']);
+
+        self::assertSame(200, $response->status());
+        $data = json_decode($response->body(), true)['data'];
+        self::assertSame(21, $data['ingredient']['id']);
+        self::assertCount(2, $data['movements']);
+        self::assertSame(['id' => 5, 'type' => 'restock', 'delta' => 50, 'order_id' => null, 'note' => 'livraison', 'created_at' => '2026-09-28 09:00:00', 'actor' => ['id' => 7, 'name' => 'Rita Balayage']], $data['movements'][0]);
+        self::assertNull($data['movements'][1]['actor'], 'une vente n\'a pas d\'auteur : actor vaut null');
+        self::assertTrue($data['actor_visible']);
+    }
+
+    public function testMovementsHideWhoActedFromARoleWithoutStockManage(): void
+    {
+        // RG-4 (9.3) : le personnel de ligne voit les quantites, pas l'auteur.
+        $db = $this->permittedDb();
+        $db->grantedCodes = ['stock.read'];
+        $this->withHistory($db);
+
+        $response = $this->controller($this->get('/admin/api/ingredients/21/movements'), $db)->apiMovements(['id' => '21']);
+
+        self::assertSame(200, $response->status());
+        $data = json_decode($response->body(), true)['data'];
+        self::assertFalse($data['actor_visible']);
+        foreach ($data['movements'] as $movement) {
+            self::assertArrayNotHasKey('actor', $movement);
+        }
+        self::assertStringNotContainsString('Rita', $response->body());
+    }
+
+    public function testMovementsOfAnUnknownIngredientReturn404(): void
+    {
+        $db = $this->permittedDb();
+        $db->ingredientRow = null;
+
+        $response = $this->controller($this->get('/admin/api/ingredients/9/movements'), $db)->apiMovements(['id' => '9']);
+
+        self::assertSame(404, $response->status());
+    }
+
+    public function testMovementsWithoutStockReadReturn403(): void
+    {
+        $db = $this->permittedDb();
+        $db->grantedCodes = [];
+        $this->withHistory($db);
+
+        $response = $this->controller($this->get('/admin/api/ingredients/21/movements'), $db)->apiMovements(['id' => '21']);
+
+        self::assertSame(403, $response->status());
+    }
+
     public function testShowNotFoundReturns404(): void
     {
         $db = $this->permittedDb();

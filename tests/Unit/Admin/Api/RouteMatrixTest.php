@@ -171,7 +171,7 @@ final class RouteMatrixTest extends TestCase
     {
         $rows = self::derivedRoutes();
 
-        self::assertCount(53, $rows, 'Nombre de routes /admin/api/* (hors auth/*) inattendu : perimetre de la matrice a verifier.');
+        self::assertCount(54, $rows, 'Nombre de routes /admin/api/* (hors auth/*) inattendu : perimetre de la matrice a verifier.');
 
         $writeCount = count(array_filter($rows, static fn (array $r): bool => $r[5]));
         self::assertSame(35, $writeCount, "Nombre de routes d'ecriture inattendu parmi les routes derivees.");

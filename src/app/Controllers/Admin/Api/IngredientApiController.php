@@ -46,6 +46,57 @@ class IngredientApiController extends IngredientController
     }
 
     /**
+     * Historique des mouvements de stock d'un ingredient (GET, lecture seule), meme
+     * regle que la page du back-office (IngredientController::movements) : RG-4 (9.3),
+     * l'auteur d'un mouvement n'est expose qu'aux detenteurs de stock.manage ; les
+     * autres lecteurs (stock.read) voient les quantites sans l'auteur, et le champ
+     * actor est alors absent, pas seulement vide.
+     *
+     * @param array<string, string> $params
+     */
+    public function apiMovements(array $params): Response
+    {
+        $guard = $this->guardApi('stock.read');
+        if ($guard instanceof Response) {
+            return $guard;
+        }
+
+        $id = (int) ($params['id'] ?? 0);
+        $ingredient = $this->ingredientRepository()->find($id);
+        if ($ingredient === null) {
+            return $this->notFoundResponse();
+        }
+
+        $showActor = $this->may($guard, 'stock.manage');
+        $names = [];
+        $movements = [];
+        foreach ($this->ingredientRepository()->movements($id) as $row) {
+            $movement = [
+                'id'         => (int) ($row['id'] ?? 0),
+                'type'       => (string) ($row['movement_type'] ?? ''),
+                'delta'      => (int) ($row['delta'] ?? 0),
+                'order_id'   => ($row['order_id'] ?? null) !== null ? (int) $row['order_id'] : null,
+                'note'       => ($row['note'] ?? null) !== null ? (string) $row['note'] : null,
+                'created_at' => (string) ($row['created_at'] ?? ''),
+            ];
+            if ($showActor) {
+                $uid = ($row['user_id'] ?? null) !== null ? (int) $row['user_id'] : 0;
+                if ($uid > 0 && !isset($names[$uid])) {
+                    $names[$uid] = $this->userDirectory()->displayInfo($uid)['name'];
+                }
+                $movement['actor'] = $uid > 0 ? ['id' => $uid, 'name' => $names[$uid]] : null;
+            }
+            $movements[] = $movement;
+        }
+
+        return $this->okResponse([
+            'ingredient'    => $this->present($ingredient),
+            'actor_visible' => $showActor,
+            'movements'     => $movements,
+        ]);
+    }
+
+    /**
      * @param array<string, string> $params
      */
     public function apiShow(array $params): Response

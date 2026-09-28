@@ -73,7 +73,7 @@ depot coute plus cher que le chiffre lui-meme.
 | Entites du modele | 23 | `docs/merise/dictionary.md` (3.1 a 3.23) |
 | Migrations / jeux de donnees | 17 / 10, idempotents | `ls db/migrations/*.sql \| wc -l` ; `ls db/seeds/*.sql \| wc -l` |
 | Roles / permissions | 5 / 23 | `db/seeds/0001_rbac_and_reference.sql` |
-| Routes declarees | 157 (76 GET, 67 POST, 9 PUT, 5 DELETE) dans `src/app/Core/routes.php` | `grep -c "router->add(" src/app/Core/routes.php` |
+| Routes declarees | 158 (77 GET, 67 POST, 9 PUT, 5 DELETE) dans `src/app/Core/routes.php` | `grep -c "router->add(" src/app/Core/routes.php` |
 | Controleurs | 23 au premier niveau (2 abstraits, 14 `AdminController`, 6 `Controller`, 1 `AuthenticatedController`) + 11 sous `Admin/Api` (10 concrets + 1 trait `JsonApiTrait`) | `ls src/app/Controllers/*.php src/app/Controllers/Admin/Api/*.php \| wc -l` |
 | Depots / vues | 11 / 41 | `find src/app -name '*Repository.php' \| wc -l` ; `find src/app/Views -name '*.php' \| wc -l` |
 | Regles transverses de securite | 22 (RG-T01 a RG-T22) | `docs/merise/mlt.md`, lignes 41-62 |
@@ -440,7 +440,7 @@ et supprimer le reste.
 
 - Routeur ecrit pour le projet (`src/app/Core/Router.php`) : une association entre
   methode HTTP et chemin d'un cote, controleur et action de l'autre.
-  **157 routes declarees** (76 `GET`, 67 `POST`, 9 `PUT`, 5 `DELETE`), dans
+  **158 routes declarees** (77 `GET`, 67 `POST`, 9 `PUT`, 5 `DELETE`), dans
   `src/app/Core/routes.php` (extrait de `src/public/admin/index.php` par la PR #175,
   pour que le routeur puisse etre reconstruit hors requete HTTP, ADR-0019). Les 9 `PUT`
   et 5 `DELETE` appartiennent tous a l'API JSON du back-office, portee par 10
@@ -769,7 +769,7 @@ est en section 8. La proposer soi-meme si la question sur l'IA tombe.
 | B2 | Cr 3.b construction de la base | F.1, H.1 | 17 migrations, 10 jeux de donnees |
 | B2 | Cr 3.c SQL | G.2 | Decrement atomique, depots PDO |
 | B2 | Cr 3.d donnees personnelles | G.1 | Classification 4 niveaux, anonymisation |
-| B2 | Cr 4.b developpement serveur | F.2 | 157 routes, API JSON complete |
+| B2 | Cr 4.b developpement serveur | F.2 | 158 routes, API JSON complete |
 | B2 | Cr 4.c heritage | F.2 | Hierarchie des controleurs a 4 niveaux |
 | B2 | Cr 4.d separation des responsabilites | F.2 | Controleur, depot, vue |
 | B2 | Cr 4.e securite | G | 22 regles transverses, modelisation de la menace |
@@ -863,7 +863,7 @@ Pour ne pas finir la liste sur une note basse, enchainer :
 ### 7.1 Architecture
 
 **Q1.1 - Comment une requete traverse votre application ?**
-Point d'entree `src/public/admin/index.php`, qui charge les 157 routes declarees dans
+Point d'entree `src/public/admin/index.php`, qui charge les 158 routes declarees dans
 `src/app/Core/routes.php` (extrait de `index.php` par la PR #175, pour que le routeur
 puisse etre reconstruit hors requete HTTP, ADR-0019). Le routeur (`src/app/Core/Router.php`)
 compile chaque chemin, compare methode et chemin, et distingue 404 (chemin inconnu) de 405
