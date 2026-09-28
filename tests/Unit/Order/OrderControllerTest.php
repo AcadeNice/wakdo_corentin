@@ -93,6 +93,21 @@ final class OrderControllerTest extends TestCase
         self::assertSame('INVALID_SERVICE_MODE', $data['error']['code'] ?? null);
     }
 
+    public function testCreateWithTooLongIdempotencyKeyReturns422NotAServerError(): void
+    {
+        $db = new FakeOrderDatabase();
+        $db->products[12] = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 890, 'vat_rate' => 100, 'is_available' => 1];
+        $body = $this->jsonBody(['idempotency_key' => str_repeat('k', 39), 'service_mode' => 'takeaway', 'items' => [['type' => 'product', 'product_id' => 12, 'quantity' => 1]]]);
+
+        $response = $this->controller($db, $body)->create();
+
+        self::assertSame(422, $response->status());
+        $data = json_decode($response->body(), true);
+        self::assertIsArray($data);
+        self::assertSame('INVALID_IDEMPOTENCY_KEY', $data['error']['code'] ?? null);
+        self::assertSame('Clé d\'idempotence invalide (36 caractères au plus).', $data['error']['message'] ?? null);
+    }
+
     public function testPayReturns200Preparing(): void
     {
         $db = new FakeOrderDatabase();

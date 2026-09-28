@@ -263,6 +263,44 @@ final class OrderRepositoryTest extends TestCase
         self::assertSame(890, $res['total_ttc_cents']);
     }
 
+    public function testIdempotencyKeyLongerThanItsColumnIsRejectedBeforeAnyWrite(): void
+    {
+        // La colonne customer_order.idempotency_key est un VARCHAR(36) (migration 0001) :
+        // une cle plus longue faisait echouer l'INSERT en base (500). Elle est refusee a
+        // la validation, comme toute autre entree invalide, et rien n'est ecrit.
+        $db = new FakeOrderDatabase();
+        $db->products[12] = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 890, 'vat_rate' => 100, 'is_available' => 1];
+
+        try {
+            $this->repo($db)->createPending([
+                'idempotency_key' => str_repeat('k', 37),
+                'service_mode' => 'takeaway',
+                'items' => [['type' => 'product', 'product_id' => 12, 'quantity' => 1]],
+            ]);
+            self::fail('une cle de 37 caracteres doit etre refusee');
+        } catch (OrderValidationException $exception) {
+            self::assertSame('INVALID_IDEMPOTENCY_KEY', $exception->getMessage());
+        }
+        self::assertSame(0, $db->countWrites('INSERT INTO customer_order'));
+    }
+
+    public function testIdempotencyKeyOfExactly36CharactersIsAccepted(): void
+    {
+        // Un UUID (crypto.randomUUID cote borne) fait 36 caracteres : la limite l'accepte.
+        // Cle de meme longueur, volontairement non aleatoire (un UUID d'exemple est pris
+        // pour un secret par l'analyse de secrets).
+        $db = new FakeOrderDatabase();
+        $db->products[12] = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 890, 'vat_rate' => 100, 'is_available' => 1];
+
+        $this->repo($db)->createPending([
+            'idempotency_key' => str_repeat('k', 36),
+            'service_mode' => 'takeaway',
+            'items' => [['type' => 'product', 'product_id' => 12, 'quantity' => 1]],
+        ]);
+
+        self::assertSame(1, $db->countWrites('INSERT INTO customer_order'));
+    }
+
     public function testRejectsUnknownProduct(): void
     {
         $db = new FakeOrderDatabase();

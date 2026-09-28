@@ -177,6 +177,7 @@ class OrderController extends Controller
             'EMPTY_ORDER'              => 'La commande est vide.',
             'INVALID_SERVICE_MODE'     => 'Mode de service invalide.',
             'INVALID_SERVICE_TAG'      => 'Numéro de chevalet invalide.',
+            'INVALID_IDEMPOTENCY_KEY'  => 'Clé d\'idempotence invalide (36 caractères au plus).',
             'INVALID_ITEM_TYPE'        => 'Type d\'article invalide.',
             'PRODUCT_UNAVAILABLE'      => 'Produit indisponible.',
             'MENU_UNAVAILABLE'         => 'Menu indisponible.',

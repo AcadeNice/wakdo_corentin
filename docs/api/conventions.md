@@ -564,6 +564,12 @@ qu'il hesitait serait bloque — commande impayable, cle interdisant d'en creer 
 La borne repart alors d'une cle neuve, **une seule fois** (une reprise sur n'importe
 quelle erreur masquerait un vrai probleme, par exemple un article indisponible).
 
+**`INVALID_IDEMPOTENCY_KEY` (422).** Rendu par `POST /api/orders` (et par la creation au
+comptoir ou au drive) quand la cle depasse 36 caracteres, la largeur de sa colonne
+(`VARCHAR(36)`, un UUID). Avant ce controle, une cle trop longue faisait echouer l'insertion
+en base et la commande repondait 500 (trouve le 28/09/2026 en capturant les reponses de la
+page Sante) ; elle est desormais refusee a la validation, avant toute ecriture.
+
 ### 8.2bis Ce que garantit la cle d'idempotence (revise par F18)
 
 `POST /api/orders` avec une `idempotency_key` deja connue ne cree pas de seconde commande
