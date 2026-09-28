@@ -18,13 +18,13 @@ annonçait `Resource not found`.
 
 - **Un programme de capture** (`tests/e2e/health-capture.spec.js`, lancé par
   `tests/e2e/run-health-capture.sh`) monte une pile Docker jetable et appelle pour de vrai
-  chacune des 157 routes de la carte : en succès, puis sur chacun des refus que le trajet
+  chacune des 158 routes de la carte : en succès, puis sur chacun des refus que le trajet
   propose (sans session, sans permission, sans jeton, corps mal typé, saisie invalide, code
   personnel faux, adresse inconnue, élément inexistant, autre site). Les écritures JSON rejouent
   la collection Postman livrée ; les formulaires du back-office sont remplis sur les vraies
   pages ; la base est arrêtée pour obtenir la vraie réponse d'une exception ; le lien de
-  réinitialisation du mot de passe est lu dans le journal de la pile. Résultat : **157 succès
-  sur 157, 667 refus obtenus sur 685 tentés**, dans `src/app/Health/captured-responses.json`.
+  réinitialisation du mot de passe est lu dans le journal de la pile. Résultat : **158 succès
+  sur 158, 670 refus obtenus sur 689 tentés**, dans `src/app/Health/captured-responses.json`.
 - **Le trajet** fait le vrai appel quand c'est sans danger : une lecture, avec la session de la
   page ; le refus « sans session » d'une route JSON, sans le cookie ; l'adresse inconnue d'une
   lecture. Une lecture qui attend un identifiant le lit d'abord dans la liste correspondante.
@@ -46,7 +46,7 @@ Il n'y en avait pas, mais la carte alignait les routes à plat, et trois routes 
 se lisaient comme des répétitions. La carte range désormais les routes **par action**, avec une
 colonne pour la page affichée (GET), une pour l'envoi du formulaire, une pour l'API JSON, et une
 pour la borne dans les groupes qui en ont. Les ingrédients passent de 29 lignes à 13 actions ;
-l'ensemble, de 157 routes à 80 actions. Chaque route garde son bouton (trajet, console). Le texte
+l'ensemble, de 158 routes à 80 actions. Chaque route garde son bouton (trajet, console). Le texte
 de la section explique les trois raisons d'avoir jusqu'à trois routes par action. Deux
 corrections de nommage au passage : le `DELETE` d'un compte et celui d'une catégorie
 **désactivent** (`is_active = 0`), ils sont rangés avec « Désactiver », pas avec « Supprimer ».
@@ -118,8 +118,8 @@ back-office et l'écrire.
 
 ## Mesures
 
-- Tests PHP : 2366 tests, 7823 assertions, 0 échec ; PHPStan niveau 6 propre.
-- Tests JavaScript : 442, 0 échec.
+- Tests PHP : 2386 tests, 7886 assertions, 0 échec ; PHPStan niveau 6 propre.
+- Tests JavaScript : 446, 0 échec.
 - Tests navigateur sur pile jetable : console, trajet et balayage, 22 scénarios sur 22 ;
   balayage du back-office : 4807 vérifications, 0 échec.
 - Audit d'accessibilité : 19 écrans, 935 mesures, 85 combinaisons, 0 violation (rejoué après la
