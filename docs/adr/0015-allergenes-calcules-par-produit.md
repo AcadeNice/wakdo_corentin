@@ -1,7 +1,14 @@
 # ADR-0015 — Allergenes calcules par produit, avec etat de revue explicite
 
-- Statut : Accepte
+- Statut : Accepte, complete le 2026-09-27 par [ADR-0018](0018-familles-ingredients-filtre-recette.md)
 - Date : 2026-07-31
+
+> **Complement (ADR-0018).** La limite de modelisation nommee ci-dessous en consequence
+> (`Gobelet` porte comme ingredient de recette faute de distinguer aliment et materiau, et
+> le drapeau `is_food` envisage comme correction) est levee : ADR-0018 introduit une
+> classification par FAMILLE d'ingredient (dont la famille `contenant`), qui repond a la
+> fois a ce cas et au filtrage du constructeur de recette, sans ajouter le drapeau binaire
+> envisage ici.
 
 ## Contexte
 
@@ -152,14 +159,15 @@ accompagnement et chaque boisson porte les siens, consultables dans le composeur
   a l'ecran. C'est la valeur centrale du lot.
 - (+) La liste affichee est un sur-ensemble de toute personnalisation : l'ecart penche
   du cote prudent, verifiable a la lecture du SQL (aucun filtre sur `is_removable`).
-- (+) Deux requetes groupees pour tout le catalogue (58 produits), pas une par produit :
-  pas de N+1 sur le chemin le plus chaud de la borne. Verrouille par test.
+- (+) Deux requetes groupees pour tout le catalogue (58 lignes de la table `product`,
+  variantes de taille comprises — 53 produits de base + 5 variantes 50cl), pas une par
+  produit : pas de N+1 sur le chemin le plus chaud de la borne. Verrouille par test.
 - (+) Tracabilite complete : la source par ingredient est lisible **depuis
   l'application**, sans ouvrir un fichier de seed.
 - (+) Zero permission ajoutee (catalogue gele a 23).
-- (-) 8 produits sur 53 affichent « information non disponible ». Assume : c'est le
-  resultat correct de la regle, pas un manque. Chacun se leve en lisant la fiche du
-  produit reellement achete.
+- (-) 8 produits sur 53 (produits de base du catalogue, hors variantes de taille)
+  affichent « information non disponible ». Assume : c'est le resultat correct de la
+  regle, pas un manque. Chacun se leve en lisant la fiche du produit reellement achete.
 - (-) **Donnees de demonstration datees.** Ce n'est pas un substitut aux fiches
   techniques fournisseur d'un etablissement reel : une mise en service exige de relire
   chaque ligne. Le seed le dit, le back-office permet la correction.

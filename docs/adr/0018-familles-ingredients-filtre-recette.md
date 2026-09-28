@@ -159,10 +159,13 @@ Le filtre par famille se place en amont de cette garde, il ne la remplace pas et
 durcit pas.
 
 **Rendre la correspondance modifiable depuis le back-office.** Ecarte pour l'instant : la
-table est modifiable par migration, ce qui couvre le besoin reel constate. Un ecran
-d'administration pour neuf lignes de correspondance ajouterait une surface a tester et a
-rendre accessible sans demande qui le justifie. La decision est reversible : la donnee est
-deja au bon endroit pour qu'un ecran vienne se poser dessus.
+table `category_ingredient_family` est peuplee par le jeu de donnees
+`db/seeds/0010_ingredient_families.sql` (23 lignes, reparties sur 8 des 9 categories --
+`menus` n'en recoit volontairement aucune, cf. decision (d)) et reste modifiable par
+migration, ce qui couvre le besoin reel constate. Un ecran d'administration pour ces 23
+lignes de correspondance ajouterait une surface a tester et a rendre accessible sans
+demande qui le justifie. La decision est reversible : la donnee est deja au bon endroit
+pour qu'un ecran vienne se poser dessus.
 
 ## Consequences
 

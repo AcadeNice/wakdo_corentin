@@ -126,5 +126,6 @@ jobs:
 ## Lien avec les autres lots
 
 - **Lot C** : ce document + prerequis infra.
-- **Lot D** : `.forgejo/workflows/ci.yml` (PHPUnit + PHPStan + secret-scan gitleaks)
-  et auto-merge des PR sur CI verte (strategie solo dev validee).
+- **Lot D** : `.forgejo/workflows/ci.yml` (cinq travaux : secret-scan gitleaks,
+  php-lint, static-tests PHPStan + PHPUnit, js-tests, shell-tests) et auto-merge
+  des PR sur CI verte (strategie solo dev validee).

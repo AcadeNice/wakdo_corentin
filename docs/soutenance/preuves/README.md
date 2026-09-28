@@ -26,7 +26,7 @@ Perimetre principal : la **borne de commande client** (`src/public/borne/`), int
 
 ## Artefacts
 
-**Tous regeneres le 2026-09-26** contre le code courant (`dev`), apres la refonte du back-office (demandes de fusion #158 a #166) et les cinq lots livres sur la borne depuis le 2026-09-23. Les versions precedentes restent consultables dans l'historique git.
+**Regeneres le 2026-09-26** contre le code courant (`dev`), apres la refonte du back-office (demandes de fusion #158 a #166) et les cinq lots livres sur la borne depuis le 2026-09-23 — **sauf `rapports/`, regeneres le 2026-09-28** (trajet aux reponses reelles de la page Sante, voir `06-audit-accessibilite-mesure.md`). Les versions precedentes restent consultables dans l'historique git.
 
 - `w3c/borne-statique.json` — sortie du validateur W3C Nu sur les 5 pages servies (`messages: []`).
 - `w3c/borne-rendu.json` — sortie sur le DOM rendu (0 erreur, 1 avertissement assume).

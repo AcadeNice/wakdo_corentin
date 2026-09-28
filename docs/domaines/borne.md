@@ -5,8 +5,11 @@ Front client tactile (Bloc 1) : parcours welcome -> categories -> produit -> pan
 confirmation. HTML/CSS/JS vanilla, servi en statique par Apache.
 
 ## Ce qui est livre
-- Pages : `index`, `categories`, `products`, `product`, `cart`, `payment`,
-  `confirmation` (`src/public/borne/`).
+- Pages : `index`, `categories`, `products`, `payment`, `confirmation`
+  (`src/public/borne/`). Les pages intermediaires `product` et `cart` du premier jet ont
+  ete retirees : sur l'ecran `products`, les options produit et le composeur de menu
+  s'ouvrent en modale, et le panier est le panneau de commande persistant
+  (`order-panel.js`) — voir [maquette-vs-build.md](../design/maquette-vs-build.md).
 - JS modules ES6 (`assets/js/`) : `data.js` (chargement + conversion vers la forme
   borne), `state.js` (panier), `page-*.js`, `nav.js`, et `allergens.js` (modale
   allergenes PAR PRODUIT sur carte et fiche).

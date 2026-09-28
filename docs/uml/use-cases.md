@@ -1,8 +1,8 @@
 # Diagramme de cas d'utilisation - Wakdo
 
 **Phase UML** : P1 - Conception, complement UML (apres MCD)
-**Statut** : v0.3 - prod-like, 5 roles RBAC + catalogue de 23 permissions
-**Historique** : v0.3 (2026-09-24) - mise en coherence avec le code livre (2a09597) : cas "Marquer une commande prete" ajoute (kitchen, counter, drive, admin, permission `order.read`), mention "lecture seule" retiree du role kitchen, "Saisir le numero de retrait" remplace par "Saisir le numero de chevalet (sur place)" en extension, admin relie a la saisie et a la remise, parcours de commande en deux appels (creation puis encaissement), aucun modificateur d'ingredient construit par la borne.
+**Statut** : v0.4 - prod-like, 5 roles RBAC + catalogue de 23 permissions
+**Historique** : v0.3 (2026-09-24) - mise en coherence avec le code livre (2a09597) : cas "Marquer une commande prete" ajoute (kitchen, counter, drive, admin, permission `order.read`), mention "lecture seule" retiree du role kitchen, "Saisir le numero de retrait" remplace par "Saisir le numero de chevalet (sur place)" en extension, admin relie a la saisie et a la remise, parcours de commande en deux appels (creation puis encaissement), aucun modificateur d'ingredient construit par la borne. v0.4 (2026-09-28) - audit final sur pieces : manager relie a "Consulter la file de preparation", "Marquer une commande prete" et "Annuler une commande" (`order.read` + `order.cancel` depuis ADR-0020, #176) sans `order.create` ni `order.deliver` ; cas livres absents ajoutes (page Sante, historique des mouvements, ajustement libre de stock, seuils, import CSV, enrichissement Open Food Facts, effacement RGPD, reinitialisation du PIN d'un equipier, choix de son propre PIN, mot de passe oublie, page confidentialite, API JSON d'administration, suivi public de commande) dans un second diagramme (section 3bis) pour garder le premier lisible ; UC51 "Se deconnecter" relie aux acteurs back-office ; statistiques (UC "Consulter les statistiques") realignees sur le code livre ; seuils de stock corriges en pourcentage de `stock_capacity`.
 **Date** : 2026-06-11
 **Branche** : `feat/p1-conception`
 **Auteur methodologie** : BYAN
@@ -34,7 +34,8 @@ permission-driven : le code teste une permission, pas un nom de role.
 
 Le brief initial (`PROJECT_CONTEXT.md` section 2) decrivait quatre acteurs
 metier (Client, Accueil, Preparation, Administration) adosses a 3 roles RBAC. Le
-modele v0.2 (prod-like, Decision 4 de `revue-alignement-p1.md` section 7) raffine
+modele v0.2 (prod-like, decision de conception documentee dans
+`docs/journal/2026-06-04--p1-merise-v0.2-rewrite-and-forgejo-migration.md`) raffine
 le back-office en **5 roles** pour coller a l'organisation reelle d'un fast-food
 multi-canal. Chaque acteur candidat est confronte au perimetre reel.
 
@@ -43,7 +44,7 @@ multi-canal. Chaque acteur candidat est confronte au perimetre reel.
 | **Client (borne kiosk)** | Retenu (acteur `CUSTOMER`) | Acteur central du Bloc 1. Compose et valide une commande sur la borne tactile autonome (canal `kiosk`). **Non authentifie**. |
 | **Accueil** | **Scinde** en `counter` et `drive` | Le besoin "Accueil" recouvre deux canaux operationnels distincts : le comptoir (`counter`) et le drive (`drive`). Le v0.2 les separe car le tag `source` de la commande et le filtre de dashboard (`role_visible_source`) different. Tous deux saisissent des commandes, les remettent et les annulent. |
 | **Preparation** | Retenu, renomme `kitchen` | Role RBAC `kitchen`. Voit la file des commandes `paid`, `preparing` et `ready` triees par `paid_at` croissant et **marque une commande prete** (`preparing -> ready`, permission `order.read`). Ne cree, ne remet ni n'annule de commande (la remise revient a `counter`/`drive`). |
-| **Administration** | **Scinde** en `admin` et `manager` | Le v0.1 fusionnait "Manager/Admin". Le v0.2 distingue : `admin` (gestion des utilisateurs, des roles et permissions, suppressions catalogue) et `manager` (catalogue create/update, stock/reappro, stats), utilisateurs en lecture seule (`user.read`) et sans acces au RBAC. Resout le point ouvert v0.1 "Manager vs Admin". |
+| **Administration** | **Scinde** en `admin` et `manager` | Le v0.1 fusionnait "Manager/Admin". Le v0.2 distingue : `admin` (gestion des utilisateurs, des roles et permissions, suppressions catalogue, `order.create`/`order.deliver`) et `manager` (catalogue create/update, stock/reappro, stats, PLUS `order.read`/`order.cancel` depuis ADR-0020 (#176) — consulte la file de preparation, marque une commande prete et l'annule, mais ne cree ni ne remet de commande), utilisateurs en lecture seule (`user.read`) et sans acces au RBAC. Resout le point ouvert v0.1 "Manager vs Admin". |
 | **Caisse** | Ecarte (recouvert par `counter`/`drive`) | Aucun role `caisse` n'existe. L'encaissement est simule (cadre RNCP) : il suit la creation de la commande, par un second appel de la borne ou dans la meme requete au comptoir et au drive. Resout le point ouvert v0.1 "Caisse absente du RBAC". |
 | **Systeme** | Retenu (acteur `SYS`) | Logique interne (generation du numero, reponse API de confirmation). Apparait dans le MCT (3.4 `DISPLAY_CONFIRMATION`) ; non represente comme acteur humain au diagramme. |
 
@@ -53,7 +54,7 @@ Six acteurs sont conserves : un acteur public et cinq roles back-office.
 
 1. **Customer** (borne kiosk, non authentifie)
 2. **Admin** (role `admin`)
-3. **Manager** (role `manager`)
+3. **Manager** (role `manager` : catalogue, stock, stats, PLUS `order.read`/`order.cancel` — consulte la file, marque une commande prete, annule ; ni `order.create` ni `order.deliver`)
 4. **Kitchen** (role `kitchen`, ex-"Preparation" : consulte la file et marque une commande prete)
 5. **Counter** (role `counter`, ex-"Accueil" comptoir)
 6. **Drive** (role `drive`, ex-"Accueil" drive)
@@ -152,6 +153,9 @@ flowchart LR
     Drive --> UC13
     Kitchen --> UC11
     Kitchen --> UC14
+    Manager --> UC11
+    Manager --> UC14
+    Manager --> UC13
     Admin --> UC10
     Admin --> UC11
     Admin --> UC14
@@ -196,7 +200,124 @@ flowchart LR
     UC30 -. include .-> UC50
     UC40 -. include .-> UC50
     UC42 -. include .-> UC50
+
+    %% Deconnexion : tout acteur back-office authentifie
+    Kitchen --> UC51
+    Counter --> UC51
+    Drive --> UC51
+    Manager --> UC51
+    Admin --> UC51
 ```
+
+---
+
+## 3bis. Second diagramme — cas livres absents du premier
+
+Le premier diagramme couvre le parcours de commande, le catalogue et le coeur RBAC. Les
+cas ci-dessous existent dans le code livre (verifies dans `RouteSecurity.php`) mais
+manquaient au diagramme : ils sont regroupes ici pour garder le premier lisible (Mantra
+Ockham — un diagramme sature devient illisible pour un gain de completude marginal par
+noeud supplementaire).
+
+```mermaid
+flowchart LR
+    Customer(("Customer<br/>borne kiosk<br/>non authentifie"))
+    Admin(("Admin<br/>role admin"))
+    Manager(("Manager<br/>role manager"))
+    Kitchen(("Kitchen<br/>role kitchen"))
+    Counter(("Counter<br/>role counter"))
+    Drive(("Drive<br/>role drive"))
+
+    subgraph SYS["Systeme et securite - back-office"]
+        UC60(["Consulter la sante de l'API<br/>(carte des routes)"])
+        UC61(["Consulter l'historique<br/>des mouvements de stock"])
+        UC62(["Ajuster librement<br/>le stock"])
+        UC63(["Regler les seuils<br/>d'alerte de stock"])
+        UC64(["Importer des produits<br/>depuis un CSV"])
+        UC65(["Enrichir un ingredient<br/>via Open Food Facts"])
+        UC66(["Effacer les donnees<br/>d'un equipier (RGPD)"])
+        UC67(["Reinitialiser le PIN<br/>d'un equipier"])
+        UC68(["Choisir son propre PIN"])
+        UC69(["Demander une reinitialisation<br/>de mot de passe"])
+        UC70(["Consulter la page<br/>de confidentialite"])
+        UC71(["Utiliser l'API JSON<br/>d'administration"])
+    end
+
+    subgraph PUB["Suivi public"]
+        UC72(["Suivre sa commande<br/>par son numero"])
+    end
+
+    %% role.manage : admin seul au seed
+    Admin --> UC60
+
+    %% stock.read (tous) / stock.count (tous, PIN) / stock.manage (manager+admin)
+    Kitchen --> UC61
+    Counter --> UC61
+    Drive --> UC61
+    Manager --> UC61
+    Admin --> UC61
+    Kitchen --> UC62
+    Counter --> UC62
+    Drive --> UC62
+    Manager --> UC62
+    Admin --> UC62
+    Manager --> UC63
+    Admin --> UC63
+
+    %% product.create (manager+admin, PIN si changement de prix)
+    Manager --> UC64
+    Admin --> UC64
+
+    %% ingredient.manage (manager+admin)
+    Manager --> UC65
+    Admin --> UC65
+
+    %% user.update + PIN (admin seul)
+    Admin --> UC66
+    Admin --> UC67
+
+    %% aucune permission dediee : tout compte back-office authentifie
+    Kitchen --> UC68
+    Counter --> UC68
+    Drive --> UC68
+    Manager --> UC68
+    Admin --> UC68
+    Kitchen --> UC70
+    Counter --> UC70
+    Drive --> UC70
+    Manager --> UC70
+    Admin --> UC70
+
+    %% mot de passe oublie : public, avant authentification
+    Kitchen -.-> UC69
+    Counter -.-> UC69
+    Drive -.-> UC69
+    Manager -.-> UC69
+    Admin -.-> UC69
+
+    %% API JSON : meme perimetre fonctionnel que le HTML, canal alternatif
+    Manager --> UC71
+    Admin --> UC71
+
+    %% suivi public de commande, canal kiosk uniquement
+    Customer --> UC72
+```
+
+Notes de lecture :
+- **UC60** (`GET /admin/health`, `role.manage`) : seul `admin` detient `role.manage` au
+  seed ; `manager` en est exclu.
+- **UC61/UC62** (`stock.read`/`stock.count`) : memes cinq roles que "Consulter le stock"
+  (4.4) et "Compter l'inventaire" — UC62 est PIN-garde (RG-T13), UC61 ne l'est pas.
+- **UC63** (`stock.manage`) : reserve a `manager`/`admin`, comme "Reapprovisionner".
+- **UC64** (`product.create`) : PIN uniquement si le fichier modifie un prix (meme regle
+  que "Gerer produits", 4.5).
+- **UC69** : fleche en pointilles (relation indirecte) — la demande est soumise SANS
+  session active (route publique `sans_compte=true`), mais elle est utile a la personne
+  identifiee par l'un des cinq roles back-office. Le Customer (kiosk) n'a pas de compte
+  et n'est pas concerne.
+- **UC71** ne cree aucune capacite nouvelle : c'est un canal JSON (`/admin/api`, 57
+  routes) vers les MEMES cas que le HTML (sections 4.2, 4.4, 4.5, 4.6), avec les memes
+  permissions et gardes PIN.
 
 ---
 
@@ -213,15 +334,32 @@ flowchart LR
 | Saisir le numero de chevalet (sur place) | (extension de 3.3) | En service sur place, renseigner le numero du chevalet pour etre servi a table. Extension de "Passer une commande" : absente en vente a emporter. Le numero de commande, lui, est genere par le serveur (`K<id>`). | `customer_order.service_tag` |
 | Recevoir la confirmation | 3.4 DISPLAY_CONFIRMATION | Afficher l'ecran de confirmation avec le numero et le montant, apres la reponse `200` de l'encaissement (statut `preparing`), sans nouvel appel a l'API. | `customer_order` |
 
-### 4.2 Acteurs Counter et Drive (roles `counter`, `drive`)
+### 4.2 Acteurs Counter et Drive (roles `counter`, `drive`) — l'admin partage les memes cinq cas
+
+L'admin detient les 23 permissions du seed, donc `order.create` et `order.deliver` aussi :
+il peut saisir une commande comptoir/drive et la remettre, en plus de consulter la file,
+marquer une commande prete et l'annuler (les cinq cas ci-dessous). C'est le seul role,
+avec `counter`/`drive`, a cumuler les cinq.
 
 | Cas | Operation MCT | Permission | Description | Entites |
 |---|---|---|---|---|
-| Saisir une commande comptoir/drive | 4.1 CREATE_COUNTER_ORDER | `order.create` | Composer une commande pour un client au comptoir (`counter`) ou au drive (`drive`). Logique identique a CREATE_ORDER ; `source` auto-tague depuis `role.order_source`. Numero prefixe canal + id (`C<id>`/`D<id>`, voir dictionnaire note 4). | `customer_order`, `order_item`, `order_item_selection`, `order_item_modifier`, `ingredient`, `stock_movement` |
-| Consulter la file de preparation | 5.1 LIST_ORDERS_DISPLAY | `order.read` | Voir les commandes `paid`, `preparing` et `ready` triees par `paid_at` croissant, filtrees par `role_visible_source` (counter voit kiosk+counter ; drive voit drive). Couleur KDS = `now - paid_at`. | `customer_order`, `order_item`, `order_item_selection`, `order_item_modifier`, `role_visible_source` |
+| Saisir une commande comptoir/drive | 4.1 CREATE_COUNTER_ORDER | `order.create` | Composer une commande pour un client au comptoir (`counter`) ou au drive (`drive`). Logique identique a CREATE_ORDER. Le canal est deduit du CHEMIN emprunte (`/counter/orders` ou `/drive/orders`, `channelGuard()`) puis auto-tague en `source` depuis `role.order_source` pour un role a canal fixe ; l'admin (sans canal fixe) le choisit explicitement dans le corps de la requete API. Numero prefixe canal + id (`C<id>`/`D<id>`, voir dictionnaire note 4). | `customer_order`, `order_item`, `order_item_selection`, `order_item_modifier`, `ingredient`, `stock_movement` |
+| Consulter la file de preparation | 5.1 LIST_ORDERS_DISPLAY | `order.read` | Voir les commandes `paid`, `preparing` et `ready` triees par `paid_at` croissant, filtrees par `role_visible_source` (counter voit kiosk+counter ; drive voit drive ; admin voit tout). Couleur KDS = `now - paid_at`. | `customer_order`, `order_item`, `order_item_selection`, `order_item_modifier`, `role_visible_source` |
 | Marquer une commande prete | MARK_READY (`mct.md` 13) | `order.read` | Depuis la file, passer une commande `paid` ou `preparing` a `ready`, `ready_at = NOW()` (`POST /admin/orders/{number}/ready`). | `customer_order` |
-| Remettre la commande | 6.1 DELIVER_ORDER | `order.deliver` | Geste unique vers `delivered` depuis `paid`, `preparing` ou `ready`, `delivered_at = NOW()`. | `customer_order` |
+| Remettre la commande | 6.1 DELIVER_ORDER | `order.deliver` | Geste unique vers `delivered` depuis `paid`, `preparing` ou `ready`, `delivered_at = NOW()`. Admin inclus (seul manager en est exclu, cf. 4.2bis). | `customer_order` |
 | Annuler une commande | 7.1 CANCEL_ORDER | `order.cancel` + PIN | Transition vers `cancelled` depuis `pending_payment`, `paid`, `preparing` ou `ready`, `cancelled_at = NOW()`, apres verification du PIN de l'equipier. Re-credit du stock si des mouvements `sale` existent ; trace `audit_log`. | `customer_order`, `ingredient`, `stock_movement`, `audit_log` |
+
+### 4.2bis Acteur Manager (role `manager`) — commandes
+
+Le manager n'a pas de page de saisie dediee (pas de canal fixe `role.order_source`) : il
+agit sur `/admin/orders`, la meme liste que l'admin, avec `order.read` + `order.cancel`
+(migration `0018`, ADR-0020, #176) mais **sans** `order.create` ni `order.deliver`.
+
+| Cas | Operation MCT | Permission | Description | Entites |
+|---|---|---|---|---|
+| Consulter la file de preparation | 5.1 LIST_ORDERS_DISPLAY | `order.read` | Voit `/admin/orders` comme l'admin (toutes sources, pas de filtre par canal). | `customer_order`, `order_item`, `order_item_selection`, `order_item_modifier`, `role_visible_source` |
+| Marquer une commande prete | MARK_READY (`mct.md` 13) | `order.read` | Meme bouton « Prete » que kitchen/counter/drive/admin. | `customer_order` |
+| Annuler une commande | 7.1 CANCEL_ORDER | `order.cancel` + PIN | Meme flux PIN + audit que counter/drive/admin (7.1). | `customer_order`, `ingredient`, `stock_movement`, `audit_log` |
 
 ### 4.3 Acteur Kitchen (role `kitchen`)
 
@@ -234,9 +372,11 @@ flowchart LR
 
 | Cas | Operation MCT | Permission | Description | Entites |
 |---|---|---|---|---|
-| Consulter le stock | 9.3 READ_STOCK | `stock.read` | Lister les ingredients avec stock courant ; alerte rupture calculee a l'affichage (`stock_quantity <= low_stock_threshold`). | `ingredient`, `stock_movement` |
-| Compter l'inventaire | 9.2 INVENTORY_COUNT | `stock.count` | Saisir un comptage physique ; le systeme enregistre l'ecart (`inventory_correction`). Inclut les equipiers (kitchen/counter/drive). | `ingredient`, `stock_movement` |
-| Reapprovisionner | 9.1 RESTOCK | `stock.manage` | Enregistrer une livraison en conditionnements (`+= N * pack_size`). Reserve manager/admin. | `ingredient`, `stock_movement` |
+| Consulter le stock | 9.3 READ_STOCK | `stock.read` | Lister TOUS les ingredients (actifs et inactifs) avec stock courant ; bandes `low_stock`/`critical_stock` calculees en pourcentage de `stock_capacity` (`stock_quantity <= stock_capacity * low_stock_pct/100`, defaut 10 % / 5 %) — pas de seuil absolu `low_stock_threshold`. | `ingredient`, `stock_movement` |
+| Compter l'inventaire | 9.2 INVENTORY_COUNT | `stock.count` + PIN | Saisir un comptage physique ; le systeme enregistre l'ecart (`inventory_correction`), plafonne a la capacite. Inclut les equipiers (kitchen/counter/drive). Action sensible : PIN requis (RG-T13). | `ingredient`, `stock_movement` |
+| Ajuster librement le stock | 9.4 ADJUST | `stock.count` + PIN | Correction signee (+/-) hors reappro/inventaire (casse, erreur a reprendre), plafonnee a la capacite. Meme PIN que l'inventaire (RG-T13). | `ingredient`, `stock_movement` |
+| Reapprovisionner | 9.1 RESTOCK | `stock.manage` | Enregistrer une livraison en conditionnements (`+= N * pack_size`), plafonnee a la capacite. Reserve manager/admin, sans PIN. | `ingredient`, `stock_movement` |
+| Regler les seuils d'alerte | 9.5 SET_STOCK_THRESHOLDS | `stock.manage` | Ajuster `stock_capacity`, `low_stock_pct`, `critical_stock_pct` d'un ingredient. Reserve manager/admin, sans PIN ni audit (parametrage, pas un mouvement). | `ingredient` |
 
 ### 4.5 Catalogue (Manager, Admin)
 
@@ -253,7 +393,7 @@ flowchart LR
 |---|---|---|---|---|
 | Gerer les utilisateurs | 10.1-10.3 CREATE/UPDATE/DEACTIVATE_USER | `user.create`/`update`/`deactivate` (admin) ; `user.read` (admin+manager) | CRUD comptes back-office avec hash argon2id ; desactivation sans suppression (historique preserve). | `user`, `role` |
 | Gerer roles et permissions | 10.4 MANAGE_RBAC | `role.manage` (admin) | Editer la matrice `role_permission`, creer/modifier des roles personnalises (`default_route`, `order_source`), regler `role_visible_source`. Permissions statiques (declarees en migration). | `role`, `permission`, `role_permission`, `role_visible_source` |
-| Consulter les statistiques | 11.1 READ_STATS | `stats.read` (admin+manager) | Agregats par `service_day` (coupure 10h), top produits, taux d'annulation, temps moyen de remise `delivered_at - paid_at`, repartition par `source`/`service_mode`. | `customer_order`, `order_item` |
+| Consulter les statistiques | 11.1 READ_STATS | `stats.read` (admin+manager) | CA encaisse (statuts `paid`/`preparing`/`ready`/`delivered`), panier moyen, CA et compte du jour, repartition par statut, serie 7 jours (CA + commandes), compteurs de catalogue et sante du stock. PAS encore codes : coupure `service_day` a 10h, top produits, taux d'annulation, temps moyen de remise, ventilation par `source`/`service_mode`. | `customer_order`, `order_item`, `category`, `product`, `menu`, `ingredient` |
 
 ### 4.7 Cas transverses - Authentification
 

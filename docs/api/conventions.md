@@ -7,8 +7,8 @@ d'administration JSON sous `/admin/api/*`
 **Auteur methodologie** : BYAN
 **A lire avec** : `docs/PROJECT_CONTEXT.md`, `docs/merise/dictionary.md` (source de verite des
 noms de champs), `docs/merise/mct.md` + `mlt.md` (operations metier), `db/seeds/0001_rbac_and_reference.sql`
-(catalogue des 23 permissions). NB : `docs/api/byan-api.md` documente l'API de la plateforme BYAN,
-distincte de l'API Wakdo decrite ici.
+(catalogue des 23 permissions). NB : `.claude/rules/byan-api.md` documente l'API de la plateforme
+BYAN, distincte de l'API Wakdo decrite ici.
 
 ---
 
@@ -29,7 +29,7 @@ Deux hotes distincts, un seul conteneur web (Apache), routes par le Traefik de l
 Client (borne / navigateur back-office)
   -> Traefik (TLS, ajoute X-Forwarded-For, route par Host)
     -> wakdo-web (Apache, vhost selon le Host)
-       - vhost kiosk  : DocumentRoot src/public/borne  (statique + futur appel /api)
+       - vhost kiosk  : DocumentRoot src/public/borne  (statique, appelle deja /api en meme origine)
        - vhost admin  : DocumentRoot src/public/admin
          - fichier existant (assets/ : css, js, images) : servi tel quel
          - sinon RewriteRule -> index.php (front controller)
@@ -42,9 +42,9 @@ Consequence de nommage : le DocumentRoot du vhost admin est `src/public/admin`, 
 `REQUEST_URI` arrive **sans prefixe** `/admin`. Le Router voit `/login`, `/api/health`, etc.
 On n'ajoute pas de segment `/admin` dans les chemins de routes.
 
-Code de reference : routes dans `src/public/admin/index.php`, controleurs dans
-`src/app/Controllers/`, enveloppe de reponse dans `src/app/Core/Response.php`, resolution
-(404 / 405) dans `src/app/Core/Router.php`.
+Code de reference : routes dans `src/app/Core/routes.php` (charge par le front controller
+`src/public/admin/index.php`), controleurs dans `src/app/Controllers/`, enveloppe de reponse
+dans `src/app/Core/Response.php`, resolution (404 / 405) dans `src/app/Core/Router.php`.
 
 ---
 
@@ -84,8 +84,9 @@ Autres regles :
   `/api/orders`.
 - **Identifiant en segment** pour une ressource unitaire : `/api/orders/{number}`,
   `/api/products/{id}`. Parametre dynamique : `{nom}` (groupe nomme cote Router).
-- **Sous-ressource** par imbrication : `/api/orders/{id}/items` (prevu).
-- **Action non-CRUD** par sous-chemin verbe : `POST /api/orders/{id}/cancel`
+- **Sous-ressource** par imbrication : `GET /admin/api/ingredients/{id}/movements`
+  (historique des mouvements de stock d'un ingredient, section 5.3).
+- **Action non-CRUD** par sous-chemin verbe : `POST /admin/api/orders/{number}/cancel`
   (cf. `docs/uml/security-sequence.md`).
 - Pas de barre oblique finale signifiante : `Request::normalizePath` aligne `/api/health/` et
   `/api/health`.
@@ -98,7 +99,7 @@ Autres regles :
 
 | Methode | Chemin | Auth | Rendu | Role |
 |---|---|---|---|---|
-| GET | `/` | (session en P3) | HTML | accueil back-office (squelette) |
+| GET | `/` | public | 302 | redirige vers `/login` (pas de page d'accueil publique, RG-T02) |
 | GET | `/api/health` | public | JSON (plat) | sonde de sante (DB reelle) |
 | GET | `/login` | public | HTML | formulaire de connexion |
 | POST | `/login` | public + CSRF | 302 / HTML | authentification (mlt 12.1) |
@@ -484,6 +485,16 @@ enregistree -> `405` ; chemin inconnu -> `404` (`Router::dispatch`). Une requete
 route `GET` renvoie aujourd'hui `405` (correspondance exacte) ; un assouplissement reste possible
 si un besoin apparait.
 
+**Forme de l'erreur selon la surface appelee (`App\Core\ErrorResponse`).** Le 404 (routeur), le
+405 (routeur) et le 500 (controleur frontal, exception non attrapee) passent tous par cette
+classe, qui choisit le format d'apres le chemin (`ErrorResponse::wantsJson()`) : `/api/*`,
+`/admin/api/*` et `/admin/me` gardent l'enveloppe JSON `{ data: null, error: {...} }` decrite en
+section 7 ; toute autre adresse du back-office recoit une page HTML lisible par un equipier
+(« Page introuvable » sur 404/405 en `GET`, « Action impossible » sur 405 en ecriture, « Une
+erreur est survenue » sur 500), sans reprendre l'adresse demandee et avec le message d'exception
+affiche uniquement en mode debogage, echappe. Avant ce correctif, une adresse inconnue du
+back-office ou une exception renvoyaient du JSON brut a un equipier.
+
 ---
 
 ## 7. Enveloppe de reponse JSON
@@ -509,8 +520,9 @@ Erreur :
 ```
 
 Exception documentee : `GET /api/health` renvoie un objet de diagnostic plat (`status`, `app_env`,
-`php_version`, `db`, `categories`), hors enveloppe, car il sert le monitoring et non un client
-applicatif.
+`php_version`, `db`, `categories`, `version`, `deployed_at`), hors enveloppe, car il sert le
+monitoring et non un client applicatif. `version` / `deployed_at` sont lus depuis le marqueur
+`VERSION` ecrit par `scripts/deploy.sh` (`null` avant le premier deploiement).
 
 Type de contenu : `application/json; charset=utf-8` (`Response::json`). Les pages back-office
 renvoient `text/html; charset=utf-8`.
@@ -530,13 +542,15 @@ ce qui evite une couche de traduction entre base, code et contrat HTTP.
 | Montant monetaire | entier en centimes, suffixe `_cents` | `price_cents`, `total_ttc_cents` |
 | Taux de TVA | entier pour mille | `vat_rate` (55 = 5,5 % ; 100 = 10 %) |
 | Booleen | prefixe `is_` | `is_available`, `is_active` |
-| Horodatage | suffixe `_at`, ISO 8601 en sortie API | `created_at`, `paid_at` |
+| Horodatage | suffixe `_at` | `created_at`, `paid_at` |
 | Cle etrangere | suffixe `_id` | `category_id`, `role_id` |
 | Valeur d'enumeration | minuscules snake_case | `pending_payment`, `dine_in`, `kiosk` |
 | Identifiant | `id` (entier) ou `order_number` (chaine metier) | `id`, `order_number` |
 
-Les horodatages sont stockes en `DATETIME` ; leur exposition API se fait en ISO 8601 (a cadrer
-au moment d'ecrire les endpoints de lecture P4).
+Les horodatages sont stockes en `DATETIME` et exposes tels quels par les endpoints commande
+(`YYYY-MM-DD HH:MM:SS`, sans fuseau, cf. `OrderApiController::apiIndex`) : pas de conversion
+ISO 8601. Exception : `App\Health\HealthReport` (page Sante) formate `generated_at` en ISO 8601
+(`DATE_ATOM`), propre a ce rapport.
 
 ### 8.2 Codes d'erreur
 
@@ -630,9 +644,11 @@ Voir [ADR-0015](../adr/0015-allergenes-calcules-par-produit.md).
 
 ## 9. Authentification et sessions
 
-- **Cookie de session** : `WAKDO_SID` (`SESSION_NAME`), attributs `secure`, `HttpOnly`,
-  `SameSite=Strict`. Bornes de validite appliquees cote application (idle 4h, absolue 10h),
-  pas par la duree du cookie.
+- **Cookie de session** : `WAKDO_SID` (`SESSION_NAME`), attributs `HttpOnly`, `SameSite=Strict`
+  inconditionnels et `secure` **conditionnel au schema** (`X-Forwarded-Proto: https` en priorite,
+  sinon `HTTPS`, sinon le port 443 ; vrai en prod derriere Traefik, faux en HTTP local/E2E —
+  [ADR-0010](../adr/0010-cookie-secure-conditionnel-https.md)). Bornes de validite appliquees
+  cote application (idle 4h, absolue 10h), pas par la duree du cookie.
 - **Formulaires back-office** : jeton CSRF synchroniseur en champ cache `_csrf`, verifie sur chaque
   POST (`/login`, `/logout`, `/forgot_password`, `/reset_password`, et chaque ecriture
   `/admin/*`). Jeton invalide -> `403`.
@@ -647,8 +663,8 @@ Voir [ADR-0015](../adr/0015-allergenes-calcules-par-produit.md).
   SameSite, detaillee en 5.3bis) ; `.../logout` et `.../me` suivent ensuite la meme regle que
   le reste de `/admin/api/*` ci-dessus.
 
-Le schema `ApiKey` / `Bearer` de l'API plateforme BYAN (`docs/api/byan-api.md`) ne s'applique pas
-ici.
+Le schema `ApiKey` / `Bearer` de l'API plateforme BYAN (`.claude/rules/byan-api.md`) ne s'applique
+pas ici.
 
 ---
 
@@ -677,8 +693,9 @@ introduit a ce moment-la, en gardant `/api/...` pour la v1 tant que des clients 
 
 | Element | Fichier |
 |---|---|
-| Declaration des routes | `src/public/admin/index.php` |
+| Declaration des routes | `src/app/Core/routes.php` (charge par `src/public/admin/index.php`) |
 | Resolution / 404 / 405 | `src/app/Core/Router.php` |
+| Forme de l'erreur (JSON API vs page HTML back-office) | `src/app/Core/ErrorResponse.php` |
 | Enveloppe `data` / `error` / contenu JSON | `src/app/Core/Response.php` |
 | Lecture de la requete (chemin, query, corps, IP) | `src/app/Core/Request.php` |
 | Controleurs (HTML) | `src/app/Controllers/` |

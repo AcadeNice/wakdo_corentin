@@ -255,6 +255,8 @@ Si le fichier contient encore une erreur au moment d'appliquer (état changé en
 l'aperçu et la confirmation) : `422 VALIDATION_ERROR` avec le détail dans
 `error.fields.details`, rien n'est écrit.
 
-> La collection Postman/Bruno du projet vit sur une autre branche et n'est pas
-> modifiée ici ; ce document sert de référence pour y ajouter les 3 requêtes
-> ci-dessus.
+> La collection Postman/Bruno du projet est sur `main` (dossier "03-Produits") et
+> couvre le modèle CSV (`GET .../import/template`) et l'aperçu sans écriture
+> (`POST .../import?dry_run=1`). La troisième requête — appliquer l'import pour de
+> vrai (sans `dry_run`) — n'y est pas encore ; ce document reste la référence pour
+> l'ajouter le cas échéant.

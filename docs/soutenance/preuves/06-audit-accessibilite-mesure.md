@@ -9,7 +9,7 @@ section 8, reserve n° 2, et dans les reserves consolidees du `README.md` du dos
 Ce document remplace cette reserve par **935 ratios de contraste mesures** (campagne du 2026-09-28) sur 19 ecrans
 reels, et par le detail des 10 elements qui passaient sous le seuil au premier passage.
 
-**Avertissement de lecture.** Ce rapport documente **quatre campagnes**, pas une seule :
+**Avertissement de lecture.** Ce rapport documente **cinq campagnes**, pas une seule :
 
 1. **Campagne AVANT correction** (sections 4 a 6, telles qu'ecrites au premier passage) :
    11 ecrans, 10 noeuds de texte sous le seuil WCAG AA, dont 9 dans le back-office. C'est
@@ -28,12 +28,17 @@ reels, et par le detail des 10 elements qui passaient sous le seuil au premier p
    elargie a trouve.
 4. **Campagne du 2026-09-27** (section 5 quater) : une page nouvelle, « Santé de l'API »,
    entre au perimetre le jour de sa creation. 19 ecrans, 0 violation.
+5. **Remesure du 2026-09-28** (fin de la section 5 quater) : le trajet aux reponses
+   reelles ajoute a la page Sante. 19 ecrans, **935 mesures**, 85 combinaisons,
+   0 violation ; l'ecart avec les 946 mesures de la veille est explique et n'est pas une
+   regression (voir plus bas).
 
-Les quatre campagnes sont conservees telles quelles, l'une a la suite de l'autre : un
+Les cinq campagnes sont conservees telles quelles, l'une a la suite de l'autre : un
 dossier qui montre « 10 violations trouvees, voici les corrections, voici la remesure a
 0 » a plus de valeur devant un jury qu'un dossier qui n'aurait rien trouve des le premier
 passage, ou qu'un dossier qui aurait efface la trace du probleme initial. Les chiffres
-courants, ceux que portent les artefacts sur disque, sont ceux de la section 5 quater.
+courants, ceux que portent les artefacts sur disque, sont ceux de la remesure du
+2026-09-28 (fin de la section 5 quater).
 
 ---
 
@@ -45,7 +50,7 @@ courants, ceux que portent les artefacts sur disque, sont ceux de la section 5 q
 | Liaison navigateur | `@axe-core/playwright` **4.13.0** (version exacte epinglee, pas une plage) |
 | Navigateur | Chromium 131.0.6778.33, image officielle `mcr.microsoft.com/playwright:v1.49.1-jammy` |
 | Familles de regles | `wcag2a`, `wcag2aa`, `wcag21a`, `wcag21aa` |
-| Date de la campagne courante | 2026-09-27 (campagnes precedentes : 2026-09-22, 2026-09-26 au matin, puis 2026-09-26) |
+| Date de la campagne courante | 2026-09-28 (campagnes precedentes : 2026-09-22, 2026-09-26 au matin, 2026-09-26, puis 2026-09-27) |
 | Ecrans analyses | 19 (6 borne, 13 back-office) — 18 a la campagne du 2026-09-26, 11 aux deux premieres |
 
 ### Pourquoi exactement ces quatre familles de regles
@@ -647,7 +652,8 @@ pastilles du back-office deja mesurees conformes. La mesure ci-dessus porte sur 
 corrigee ; l'ecart n'a donc pas ete mesure par l'outil, il a ete calcule a la main a partir
 des jetons de couleur.
 
-Mesures ecran par ecran, relues dans `rapports/resume.json` :
+Mesures ecran par ecran de la campagne du 27/09, telles que relues dans `rapports/resume.json`
+ce jour-la (le fichier porte aujourd'hui la remesure du 28/09, voir plus bas) :
 
 | Ecran | Mesures | Minimum mesure |
 |---|---|---|
@@ -913,7 +919,7 @@ en bout.
   ne couvre que les ecrans qu'on lui donne, dans l'etat ou on les lui donne. Elle ne
   pouvait pas signaler que la recette du formulaire produit etait mesuree avant d'exister,
   ni que la caisse n'etait pas mesuree du tout (section 5 ter). Trois tests couvrent
-  desormais 18 ecrans, et chaque ecran bati par le navigateur est mesure **apres**
+  desormais 19 ecrans, et chaque ecran bati par le navigateur est mesure **apres**
   attente d'un element reellement rendu (une ligne de recette, un bloc de slot, une tuile,
   une ligne de panier, la modale du composeur) et non de son conteneur vide.
 
@@ -925,12 +931,12 @@ Tout est sous `rapports/` :
 
 | Fichier | Contenu |
 |---|---|
-| `resume.json` | synthese machine : 18 ecrans, violations par gravite, nombre de mesures, ratio minimum, nombre de noeuds non calculables |
-| `contrastes-mesures.csv` | **858 lignes** de mesure : ecran, compartiment, selecteur, couleur de texte, couleur de fond, ratio, seuil attendu, taille, graisse, extrait. Separateur point-virgule (ouverture directe en tableur francais) |
-| `axe-<ecran>.json` (x18) | sortie par ecran : violations et indetermines **integraux**, toutes les mesures de contraste, decompte des regles conformes, liste des regles non applicables |
+| `resume.json` | synthese machine : 19 ecrans, violations par gravite, nombre de mesures, ratio minimum, nombre de noeuds non calculables |
+| `contrastes-mesures.csv` | **935 lignes** de mesure : ecran, compartiment, selecteur, couleur de texte, couleur de fond, ratio, seuil attendu, taille, graisse, extrait. Separateur point-virgule (ouverture directe en tableur francais) |
+| `axe-<ecran>.json` (x19) | sortie par ecran : violations et indetermines **integraux**, toutes les mesures de contraste, decompte des regles conformes, liste des regles non applicables |
 
-**Ces artefacts portent la campagne la plus recente**, celle du 2026-09-26 a perimetre
-elargi (section 5 ter), 0 violation sur 18 ecrans. `run-a11y.sh` purge et regenere ces
+**Ces artefacts portent la campagne la plus recente**, la remesure du 2026-09-28
+(fin de la section 5 quater), 0 violation sur 19 ecrans. `run-a11y.sh` purge et regenere ces
 fichiers a chaque execution (il n'existe pas d'historique automatique) : les chiffres des
 campagnes precedentes (sections 4 a 6, puis 5 bis) restent lisibles dans ce document en
 texte, mais leurs fichiers sources ne sont plus sur disque. Les versions precedentes des
@@ -1008,12 +1014,12 @@ reserve sur les ratios non mesures y est levee et pointe vers ce document).
 ---
 
 Perimetre couvert : Cr 1.c.3 (contraste, mesure a l'outil puis corrige — reserve de la
-preuve 04 levee, 0 violation `color-contrast` sur les **18 ecrans** de la campagne
+preuve 04 levee, 0 violation `color-contrast` sur les **19 ecrans** de la campagne
 courante), et en renfort Cr 1.c.1 / Cr 1.c.4 (aucune violation mesuree sur les
-alternatives textuelles, les roles, les etiquettes et la structure de ces 18 ecrans). Les
+alternatives textuelles, les roles, les etiquettes et la structure de ces 19 ecrans). Les
 references au code se font par citation de texte cherchable, conformement a la convention
 du dossier.
 
-Etat des suites au moment de la campagne courante (2026-09-26, meme arbre que les
-empreintes de la section 2) : `npm run test:js` **356 tests**, PHPUnit **1 677 tests,
-4 855 assertions, `OK`**, PHPStan niveau 6 sans erreur.
+Etat des suites au moment de la campagne courante (2026-09-28) : `npm run test:js`
+**446 tests**, PHPUnit **2 386 tests, 7 886 assertions, `OK`**, PHPStan niveau 6 sans
+erreur.

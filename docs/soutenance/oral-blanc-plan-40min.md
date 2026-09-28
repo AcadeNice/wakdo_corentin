@@ -11,8 +11,10 @@
 > routes, controleurs, depots, vues, decisions d'architecture, migrations, jeux de donnees,
 > entites, commits et suites de tests. Le 2026-09-28, sur le commit deploye `1ccc9db`
 > (release #182) : audit d'accessibilite (artefact `preuves/rapports/resume.json` du
-> 27/09) et balayage de mise en page, rejoue. Les autres chiffres du document n'ont pas ete
-> rejoues a ces occasions et peuvent encore refleter le comptage du 26/09.
+> 27/09) et balayage de mise en page, rejoue. **Nouveau recomptage complet le 2026-09-28**,
+> sur le commit deploye `main` `04bece0` (release #194) : tous les chiffres du present
+> document (section 1.1 comprise) refletent cet etat, y compris l'artefact
+> `preuves/rapports/resume.json` regenere ce jour-la.
 
 ---
 
@@ -52,23 +54,23 @@ Trois mots a placer tot et a tenir : **par conception, mesure, assume**.
 
 ### 1.1 Chiffres a connaitre par coeur
 
-Chaque ligne porte la commande qui la revalide. **Ce projet bouge vite** : entre le
-2026-09-22 et le 2026-09-26, 20 demandes de fusion sont entrees. Relancer ces commandes
+Chaque ligne porte la commande qui la revalide. **Ce projet bouge vite** : pres de
+20 demandes de fusion sont entrees entre chaque recomptage. Relancer ces commandes
 la veille, et corriger ce qui a bouge. Un chiffre annonce de memoire et dementi par le
 depot coute plus cher que le chiffre lui-meme.
 
 | Metrique | Valeur | Comment la revalider |
 |---|---|---|
-| Commits (sur `main`, commit deploye `11271f7`) | 226 | `git rev-list --count 11271f7` |
-| Demandes de fusion fusionnees | 176 (derniere : #177, la release deployee `11271f7`) | API de la forge : `GET /api/v1/repos/AcadeNice/corentin_wakdo/pulls?state=closed`, compter les entrees `merged: true` (le decompte par `git log` ne voit pas les anciennes fusions, dont le titre ne finit pas par `(#n)`) |
-| Repartition des commits | 104 `feat`, 38 `docs`, 33 `fix`, 11 `chore`, 8 `ci`, 3 `test`, 2 `refactor` | `grep -oE '^[a-z]+' /tmp/s.txt \| sort \| uniq -c` |
-| Lignes PHP livrees | 25 075 sur 123 fichiers | `find src -name '*.php' -type f -exec cat {} + \| wc -l` |
-| Lignes JavaScript livrees | 6 385 sur 29 fichiers | `find src -name '*.js' -type f -exec cat {} + \| wc -l` |
+| Commits (sur `main`, commit deploye `04bece0`) | 242 | `git rev-list --count 04bece0` |
+| Demandes de fusion fusionnees | 192 (derniere : #194, la release deployee `04bece0`) | API de la forge : `GET /api/v1/repos/AcadeNice/corentin_wakdo/pulls?state=closed`, compter les entrees `merged: true` (le decompte par `git log` ne voit pas les anciennes fusions, dont le titre ne finit pas par `(#n)`) |
+| Repartition des commits | 111 `feat`, 42 `docs`, 41 `fix`, 11 `chore`, 8 `ci`, 4 `test`, 2 `refactor` | `git log --pretty=%s 04bece0 \| grep -oE '^[a-z]+' \| sort \| uniq -c` |
+| Lignes PHP livrees | 27 168 sur 137 fichiers | `find src -name '*.php' -type f -exec cat {} + \| wc -l` |
+| Lignes JavaScript livrees | 8 711 sur 30 fichiers | `find src -name '*.js' -type f -exec cat {} + \| wc -l` |
 | dont borne client | 3 311 sur 21 modules | `wc -l src/public/borne/assets/js/*.js` |
-| Lignes CSS | 5 455 (borne 2 322 + back-office 3 133) | `wc -l src/public/*/assets/css/*.css` |
-| Methodes de test PHP | 1 152 sur 93 fichiers | `grep -rhoE 'public function test[A-Za-z0-9_]*' tests --include='*.php' \| wc -l` |
-| Appels de test JavaScript | 351 sur 28 fichiers | `grep -rhoE "\b(it\|test)\(" tests/js --include='*.test.js' \| wc -l` |
-| Scenarios de bout en bout | 76 | `grep -rhoE '^\s*test\(' tests/e2e --include='*.spec.js' \| wc -l` |
+| Lignes CSS | 5 792 (borne 2 322 + back-office 3 470) | `wc -l src/public/*/assets/css/*.css` |
+| Methodes de test PHP | 1 295 sur 116 fichiers | `grep -rhoE 'public function test[A-Za-z0-9_]*' tests --include='*.php' \| wc -l` |
+| Appels de test JavaScript | 450 sur 29 fichiers | `grep -rhoE "\b(it\|test)\(" tests/js --include='*.test.js' \| wc -l` |
+| Scenarios de bout en bout | 92 sur 22 specs | `grep -rhoE '^\s*test\(' tests/e2e --include='*.spec.js' \| wc -l` |
 | Analyse statique | PHPStan niveau 6, sans erreur | `phpstan.neon` (`level: 6`) |
 | Entites du modele | 23 | `docs/merise/dictionary.md` (3.1 a 3.23) |
 | Migrations / jeux de donnees | 17 / 10, idempotents | `ls db/migrations/*.sql \| wc -l` ; `ls db/seeds/*.sql \| wc -l` |
@@ -78,20 +80,20 @@ depot coute plus cher que le chiffre lui-meme.
 | Depots / vues | 11 / 41 | `find src/app -name '*Repository.php' \| wc -l` ; `find src/app/Views -name '*.php' \| wc -l` |
 | Regles transverses de securite | 22 (RG-T01 a RG-T22) | `docs/merise/mlt.md`, lignes 41-62 |
 | Decisions d'architecture | 20 | `ls docs/adr/0*.md \| wc -l` |
-| Entrees de journal de bord | 12 | `ls docs/journal/2026-*.md \| wc -l` |
+| Entrees de journal de bord | 16 | `ls docs/journal/2026-*.md \| wc -l` |
 | Services conteneurises | 5 | `docker-compose.yml` |
-| Travaux d'integration continue | 4 | `.forgejo/workflows/ci.yml` |
+| Travaux d'integration continue | 5 (`secret-scan`, `php-lint`, `static-tests`, `js-tests`, `shell-tests`) + deploiement continu separe | `.forgejo/workflows/ci.yml` (+ `deploy.yml` pour le CD) |
 | Taches planifiees actives | 4 (+ 3 modeles commentes) | `docker/cron/crontab` |
 
 **Sur les suites de tests - une precaution de formulation.** La derniere execution
-complete mesuree donne **2 352 tests PHP pour 7 791 assertions** (avec la base de test)
-et **399 tests JavaScript** (mesure du 2026-09-27, sur le commit deploye `11271f7`).
+complete mesuree donne **2 386 tests PHP pour 7 886 assertions** (avec la base de test)
+et **446 tests JavaScript** (mesure du 2026-09-28, sur le commit deploye `04bece0`).
 Ces chiffres continuent de croitre a chaque demande de fusion : ce sont donc un
 **plancher**, pas un plafond. Deux options a l'oral, au choix :
 
 - relancer les suites la veille et annoncer le resultat exact ;
-- dire *"plus de 2 300 tests PHP et plus de 390 tests JavaScript, derniere execution
-  complete le 27 septembre"*.
+- dire *"plus de 2 380 tests PHP et plus de 440 tests JavaScript, derniere execution
+  complete le 28 septembre"*.
 
 L'ecart entre le comptage statique de methodes et le nombre de tests executes s'explique
 et doit etre su : une methode associee a un fournisseur de donnees s'execute une fois par
@@ -220,9 +222,9 @@ paiement simule. Ils sont documentes dans le dossier.
   traitements avec ses 30 operations).
 - **Developpement pilote par les tests** sur les chemins sensibles : commande, stock,
   authentification, droits.
-- **Tracabilite** : 20 decisions d'architecture datees et motivees, 12 entrees de
-  journal de bord, 226 commits en convention de nommage, chaque changement passe par
-  une demande de fusion (176 fusionnees au 27/09/2026).
+- **Tracabilite** : 20 decisions d'architecture datees et motivees, 16 entrees de
+  journal de bord, 242 commits en convention de nommage, chaque changement passe par
+  une demande de fusion (192 fusionnees au 28/09/2026).
 
 **A dire, seconde moitie (90 s) - l'assistance IA, avant qu'on me la demande :**
 
@@ -276,9 +278,10 @@ d'acces**, pas l'esthetique :
    pas seulement une couleur : le grisage, un badge texte "Indisponible", et le suffixe
    correspondant dans son intitule accessible (`page-products.js`).
 4. **Composition d'un menu** - modales successives (taille, accompagnement, boisson).
-   Le piege a tabulation est ecrit a la main dans `confirm-modal.js` : boucle sur la
-   touche de tabulation, fermeture a l'echappement, clic sur le fond, et restauration
-   du focus sur l'element declencheur a la fermeture.
+   Le piege a tabulation est ecrit a la main dans `page-product-menu.js`
+   (`trapFocus`, l.531-540) : boucle sur la touche de tabulation, fermeture a
+   l'echappement, clic sur le fond, et restauration du focus sur l'element
+   declencheur a la fermeture.
 5. **Panier** - panneau persistant, compteur de quantite. Le total anime respecte la
    preference systeme de mouvement reduit.
 6. **Paiement puis confirmation** - mode de service, numero de commande.
@@ -348,8 +351,10 @@ A dire avant que le jury ne le demande :
   personnes en situation de handicap. C'est la limite principale de mon travail sur ce
   sujet, et je ne la presente pas comme couverte.
 - L'audit porte sur 19 ecrans (13 du back-office) et un seul role. Le back-office compte
-  36 vues ; l'ecran de cuisine, les comptes, les roles et le stock n'y sont pas. Les
-  autres roles et les autres ecrans sont couverts par le balayage, pas par axe.
+  36 vues ; le tableau de bord du stock (`admin-ingredients`) fait partie des 19 ecrans
+  mesures, mais ses sous-pages (reappro, ajustement, inventaire, mouvements), l'ecran de
+  cuisine, les comptes et les roles n'y sont pas. Les autres roles et les autres ecrans
+  sont couverts par le balayage, pas par axe.
 - Un seul moteur de rendu (Chromium). Les couleurs calculees peuvent varier a la marge
   ailleurs, notamment sur les fonds composites.
 - Un point de durcissement identifie et **non fait** : sur la modale, l'arriere-plan est
@@ -459,6 +464,15 @@ et supprimer le reste.
 > *"cette phrase du dossier a pris du retard sur le code ; l'API est livree, je vous la
 > montre tout de suite."* Puis enchainer sur la demonstration - c'est une occasion, pas
 > un probleme.
+
+**Livre le 28/09 sur la page Sante de l'API** (`/admin/health`), a citer brievement si le
+jury s'y arrete : le trajet d'une requete montre desormais la reponse reelle, lecture
+comme ecriture, capturee depuis le systeme (et non simulee) ; la carte des routes est
+rangee par action plutot que par methode HTTP brute (158 routes, 80 actions) ; les pages
+d'erreur du back-office s'affichent en HTML lisible, l'API gardant, elle, du JSON ; et
+`GET /admin/api/ingredients/{id}/movements` expose l'historique des mouvements de stock
+d'un ingredient. Sources : `docs/journal/2026-09-28--trajet-reponses-reelles.md`,
+`docs/api/conventions.md`.
 
 **Criteres servis :** Cr 3.a (analyse et modele), Cr 3.b (construction de la base),
 Cr 3.c (SQL), Cr 4.b (developpement serveur), Cr 4.c (heritage),
@@ -580,12 +594,17 @@ Cr 4.f (discipline de versionnement), Cr 4.g (livraison testee).
 
 **H.2 - L'integration continue (32:00 - 34:00)**
 
-- **4 travaux** sur Forgejo Actions, a chaque demande de fusion :
+- **5 travaux** sur Forgejo Actions, a chaque demande de fusion :
   1. `secret-scan` - recherche de secrets sur tout l'historique (gitleaks 8.21.2).
   2. `php-lint` - controle de syntaxe sur chaque fichier PHP.
   3. `static-tests` - PHPStan niveau 6, puis PHPUnit avec une base MariaDB ephemere
      reellement migree et remplie.
   4. `js-tests` - la suite de la borne.
+  5. `shell-tests` - les fonctions pures du filet de la demo (instantane + remise a
+     zero), sans conteneur ni base.
+- **Deux travaux supplementaires, separes, pour le deploiement** (`deploy.yml`) :
+  declenches sur `main`, ils portent la livraison continue vers l'hote de production
+  (detail en H.3 : pourquoi deux travaux et pas un).
 - **Le detail a mettre en avant** : PHPUnit tourne avec `--fail-on-skipped`. Sans base,
   les tests d'integration s'auto-ignoreraient et le pipeline passerait au vert en ayant
   saute precisement les chemins de securite. Avec ce drapeau, un test ignore fait
@@ -773,12 +792,12 @@ est en section 8. La proposer soi-meme si la question sur l'IA tombe.
 | B2 | Cr 4.c heritage | F.2 | Hierarchie des controleurs a 4 niveaux |
 | B2 | Cr 4.d separation des responsabilites | F.2 | Controleur, depot, vue |
 | B2 | Cr 4.e securite | G | 22 regles transverses, modelisation de la menace |
-| B2 | Cr 4.f versionnement | C | 226 commits, 176 demandes de fusion |
+| B2 | Cr 4.f versionnement | C | 242 commits, 192 demandes de fusion |
 | B2 | Cr 4.g livraison testee | H.2 | Suites PHP et JS, PHPStan niveau 6 |
 | B5 | Cr 7.a analyse infrastructure | H.3 | Arbitrage sur le socket Docker |
 | B5 | Cr 7.b scripts et taches planifiees | H.1 | 4 taches actives, scripts de migration |
 | B5 | Cr 7.c conteneurisation | H.1 | 5 services, une seule commande |
-| B5 | Cr 7.d integration et deploiement | H.2, H.3 | 4 travaux, deploiement en deux etapes |
+| B5 | Cr 7.d integration et deploiement | H.2, H.3 | 5 travaux, deploiement en deux etapes |
 
 ---
 
@@ -813,13 +832,13 @@ bonne reponse est *"le code fait foi, et voici pourquoi le document a pris du re
 
 | Ecart | Le document dit | Le code dit |
 |---|---|---|
-| **API `PUT`/`DELETE`** | "reste au stade prevu" (dossier, C4.b) | **Livree** : 55 routes sous `/admin/api/`, dont 9 `PUT` et 5 `DELETE`, 10 controleurs dedies, decision d'architecture 0017. **C'est l'ecart le plus important** : le dossier declare absente une fonctionnalite demontrable. |
-| Nombre de tests | 755 PHP / 233 JS (dossier, deux endroits) | Derniere execution mesuree (27/09/2026, commit `11271f7`) : 2 352 PHP / 7 791 assertions / 399 JS. Comptage statique aujourd'hui : 1 152 methodes / 351 appels. |
+| **API `PUT`/`DELETE`** | "reste au stade prevu" (dossier, C4.b) | **Livree** : 57 routes sous `/admin/api/`, dont 9 `PUT` et 5 `DELETE`, 10 controleurs dedies, decision d'architecture 0017. **C'est l'ecart le plus important** : le dossier declare absente une fonctionnalite demontrable. |
+| Nombre de tests | 755 PHP / 233 JS (dossier, deux endroits) | Derniere execution mesuree (28/09/2026, commit `04bece0`) : 2 386 PHP / 7 886 assertions / 446 JS. Comptage statique aujourd'hui : 1 295 methodes / 450 appels. |
 | Decisions d'architecture | "seize" (dossier, quatre endroits) | **20**. Les 0018-0020 portent les familles d'ingredients, la page Sante de l'API et l'annulation par le responsable. |
 | Migrations | "dix fichiers, 0001 a 0011" (dossier, C3.b) | **17 fichiers**, 0001 a 0018. Le saut sur 0004 reste volontaire et trace. |
-| Fichiers PHP de l'application | "103 fichiers" avec une repartition detaillee | **117** sous `src/app`, dont 34 controleurs (23 au premier niveau + 11 sous `Admin/Api`). |
+| Fichiers PHP de l'application | "103 fichiers" avec une repartition detaillee | **135** sous `src/app`, dont 34 controleurs (23 au premier niveau + 11 sous `Admin/Api`). |
 | Modules de la borne | "18 modules, 2 979 lignes" | **21 modules, 3 311 lignes**. |
-| Feuille de style du back-office | "2 714 lignes" | **3 133 lignes** (refonte du 26 septembre). |
+| Feuille de style du back-office | "2 714 lignes" | **3 470 lignes** (refonte du 26 septembre, complements du 28). |
 | Operations du modele de traitements | "28 operations" | **30** depuis la version 0.3. |
 | Dependances de developpement | "deux" | **trois** (`@axe-core/playwright` en plus). Le fond tient : zero dependance de production. |
 | Nombre d'entites | 21 entites classifiees (dossier, section 19.4) | **23**. `pin_throttle` et `category_ingredient_family` sont desormais classees en INTERNAL (`PROJECT_CONTEXT.md` 19.4, corrige). |
@@ -829,14 +848,15 @@ bonne reponse est *"le code fait foi, et voici pourquoi le document a pris du re
 | Auditabilite des echanges avec l'IA | Annoncee en section 17.9 | Les journaux ne sont pas versionnes (section 17.6). Ne pas promettre cette preuve. |
 | Mesures de contraste | 407 (fiches 06 et README des preuves) | **935** dans l'artefact `rapports/resume.json` du 28 septembre ; la fiche 06 explique l'ecart avec les 946 du 27 (l'apercu d'import affichait alors le defaut des accents, corrige par #178). |
 
-**Deux points a verifier avant le 5 octobre**, non verifiables depuis le depot mais
-lisibles en direct par le jury :
+**Un point deja regle, un point restant a verifier avant le 5 octobre** :
 
-1. Le dossier indique que la production sert encore le mode de deboguage detaille et que
-   `/api/health` annonce un environnement de developpement. **A corriger, ou a assumer
-   explicitement** : c'est une adresse publique que le jury peut ouvrir.
-2. Les captures d'annexe du back-office datent du 24 septembre, avant la refonte du 26.
-   Les recapturer, ou dater la mesure dans le dossier.
+1. **Regle.** Le dossier indiquait que la production servait encore le mode de deboguage
+   detaille et que `/api/health` annonçait un environnement de developpement. C'est
+   desormais un fait etabli et verifiable en direct : `/api/health` annonce
+   `"app_env":"production"` (`src/app/Controllers/HealthController.php:47`). Le dossier
+   reste a corriger sur ce point s'il n'est pas deja mis a jour.
+2. **A verifier.** Les captures d'annexe du back-office datent du 24 septembre, avant la
+   refonte du 26. Les recapturer, ou dater la mesure dans le dossier.
 
 ### 6.3 Ce que je revendique quand meme
 
@@ -1027,9 +1047,10 @@ deploiement **demande** donc a l'hote de se deployer, par un canal qui ne peut d
 qu'une seule commande.
 
 **Q4.3 - Que verifie votre integration continue, exactement ?**
-Quatre travaux : recherche de secrets sur tout l'historique, controle de syntaxe PHP,
-puis PHPStan niveau 6 et PHPUnit sur une base MariaDB ephemere reellement migree, enfin
-la suite JavaScript. Le point important est le drapeau `--fail-on-skipped` : sans base,
+Cinq travaux : recherche de secrets sur tout l'historique, controle de syntaxe PHP,
+puis PHPStan niveau 6 et PHPUnit sur une base MariaDB ephemere reellement migree, la
+suite JavaScript, et les fonctions pures du filet de la demo (shell). Le point important
+est le drapeau `--fail-on-skipped` : sans base,
 les tests d'integration s'auto-ignoreraient et le pipeline passerait au vert en ayant
 saute les chemins de securite.
 
@@ -1130,8 +1151,8 @@ code de production.
 
 **Q7.1 - Votre couverture de tests mesure quoi exactement ?** **(rude)**
 Je n'ai pas de taux de couverture : je n'ai pas active l'instrumentation qui le calcule,
-et c'est un manque. Ce que j'ai, ce sont des nombres de tests - plus de 2 300 tests PHP
-pour plus de 7 700 assertions, plus de 390 tests JavaScript, 76 scenarios de bout en
+et c'est un manque. Ce que j'ai, ce sont des nombres de tests - plus de 2 380 tests PHP
+pour plus de 7 800 assertions, plus de 440 tests JavaScript, 92 scenarios de bout en
 bout - et surtout le **choix de ce qui est teste** : les chemins de commande, de stock,
 d'authentification et de droits. Un taux eleve sur du code sans risque ne m'aurait rien
 appris ; un test d'integration qui verifie qu'un role sans permission recoit 403, si.
@@ -1149,7 +1170,7 @@ compteurs de tentatives et les droits. Honnetement, pas partout : sur des ecrans
 back-office, le test est venu apres. Je prefere le dire que pretendre une discipline
 uniforme.
 
-**Q7.4 - Vous annoncez 1 152 methodes mais plus de 1 500 tests. D'ou vient l'ecart ?**
+**Q7.4 - Vous annoncez 1 295 methodes mais plus de 2 300 tests. D'ou vient l'ecart ?**
 Des jeux de donnees de test. Une methode associee a un fournisseur de donnees s'execute
 une fois par jeu, et compte pour autant de tests. C'est ce qui permet de couvrir de
 nombreux cas de validation sans dupliquer le code du test.
@@ -1183,7 +1204,7 @@ d'integration qui tournent contre une vraie base, sans possibilite d'etre ignore
 **Q8.5 - Si on vous enleve l'IA, savez-vous travailler ?**
 Oui, plus lentement. Je m'appuie sur ce qu'utilisait un developpeur avant : la
 documentation officielle, la lecture d'une trace d'erreur, le debogage pas a pas, et la
-documentation de mon propre projet - 17 decisions d'architecture, le modele Merise, le
+documentation de mon propre projet - 20 decisions d'architecture, le modele Merise, le
 journal. Les schemas du projet sont en tete parce que je l'ai construit. A eviter :
 dire "je n'ai pas besoin de l'IA", c'est invalidable en une question.
 
@@ -1196,7 +1217,7 @@ dossier, dans la liste de ce que l'outil ne fait pas.
 **Q8.7 - Vos echanges avec l'IA sont-ils verifiables ?** **(piege - eviter de sur-promettre)**
 Partiellement, et je prefere etre precis. Ce qui est versionne et que je peux vous
 montrer : les regles de methodologie, les 20 decisions d'architecture, le journal de
-bord, les 226 commits. Ce qui ne l'est pas : les journaux de conversation eux-memes.
+bord, les 242 commits. Ce qui ne l'est pas : les journaux de conversation eux-memes.
 Le dossier laisse entendre en section 17.9 qu'ils sont auditables ; c'est une imprecision
 que j'ai relevee, ils ne sont pas versionnes.
 
@@ -1224,7 +1245,7 @@ j'ai repertories - je peux vous donner la liste.
 
 **Q9.3 - Votre dossier dit que l'API `PUT`/`DELETE` n'est pas faite. Elle l'est ou pas ?** **(rude, et facile a transformer)**
 Elle est faite. Le dossier a ete ecrit avant les demandes de fusion #151 et #164 :
-55 routes sous `/admin/api/`, dont 9 `PUT` et 5 `DELETE`, portees par 10 controleurs
+57 routes sous `/admin/api/`, dont 9 `PUT` et 5 `DELETE`, portees par 10 controleurs
 dedies et tracees par la decision d'architecture 0017. C'est un retard de documentation
 dans le sens favorable - le code en fait plus que le document ne le dit. Je vous le
 montre tout de suite en collection Postman.
@@ -1253,9 +1274,9 @@ sans acces aux journaux.
 
 Je remonte la pile, en le disant a voix haute :
 
-1. **Base** : nouvelle migration `db/migrations/0016_category_description.sql`,
-   `ALTER TABLE category ADD COLUMN description VARCHAR(255) NULL`, avec une garde
-   d'idempotence sur `information_schema`.
+1. **Base** : nouvelle migration `db/migrations/0019_category_description.sql`
+   (0016 est deja prise), `ALTER TABLE category ADD COLUMN description VARCHAR(255)
+   NULL`, avec une garde d'idempotence sur `information_schema`.
 2. **Depot** : `src/app/Catalogue/CategoryRepository.php`, ajouter la colonne aux
    requetes et a la liste blanche de colonnes (RG-T16).
 3. **Controleur** : `CategoryController::validate()`, valider la longueur.
@@ -1264,11 +1285,21 @@ Je remonte la pile, en le disant a voix haute :
 
 ### 8.2 Ajouter une route
 
-1. `src/public/admin/index.php` :
+1. Les routes sont declarees dans `src/app/Core/routes.php` (les points d'entree
+   `index.php` se contentent d'un `require` sur ce fichier) :
    `$router->add('GET', '/api/categories/{id}', [CatalogueController::class, 'category']);`
 2. L'action `category(array $params)` dans le controleur, qui lit `$params['id']`,
    appelle le depot et renvoie `$this->json([...])`.
-3. Un test d'integration sur la nouvelle route.
+3. **Declarer aussi la route dans `src/app/Health/RouteSecurity.php`** (sans_compte,
+   permission, csrf, pin, reauth) : cette table est la source unique lue par la carte
+   de la page Sante, et trois tests figent la coherence entre le routeur et cette
+   table (`tests/Unit/Health/RoutesPhpTest.php`, `RouteMapTest.php`,
+   `RouteSecurityCoverageTest.php`) — une route absente de l'une des deux fait
+   echouer ces tests.
+4. **Relancer `tests/e2e/run-health-capture.sh`** pour regenerer les reponses
+   capturees de la page Sante ; sans cette etape, `tests/Unit/Health/CapturedResponsesTest.php`
+   echoue en CI (le fichier de capture ne connait pas la nouvelle route).
+5. Un test d'integration sur la nouvelle route.
 
 ### 8.3 Changer une regle de validation
 
@@ -1317,7 +1348,7 @@ evalue la demarche de navigation autant que la vitesse.
 - [ ] Recapturer les ecrans du back-office si on compte montrer des captures : celles du
       dossier datent d'avant la refonte du 26 septembre.
 - [ ] Rendre les diagrammes Merise en image.
-- [ ] Relire les titres des 17 decisions d'architecture.
+- [ ] Relire les titres des 20 decisions d'architecture.
 - [ ] Repeter les deux demonstrations, chronometre.
 - [ ] Repeter une modification en direct (section 8.4 de preference).
 - [ ] Relire la section 6 a voix haute : c'est celle qu'on oublie sous stress.
@@ -1359,8 +1390,8 @@ evalue la demarche de navigation autant que la vitesse.
 | Conventions de l'API | `docs/api/conventions.md` |
 | Comptes de demonstration | `docs/demo/comptes-demo.md` |
 | Matrice des droits | `docs/demo/matrice-rbac.md` |
-| Decisions d'architecture | `docs/adr/` (17 decisions) |
-| Journal de bord | `docs/journal/` (12 entrees) |
+| Decisions d'architecture | `docs/adr/` (20 decisions) |
+| Journal de bord | `docs/journal/` (16 entrees) |
 | Integration continue | `.forgejo/workflows/ci.yml` |
 | Deploiement | `.forgejo/workflows/deploy.yml` |
 | Conteneurs | `docker-compose.yml`, `docker/` |

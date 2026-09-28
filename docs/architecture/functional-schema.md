@@ -111,7 +111,7 @@ manager -> `/admin/stats`, kitchen -> `/kitchen/display`, counter -> `/counter/o
 drive -> `/drive/orders`. Les trois ecrans operationnels (file cuisine, saisie
 comptoir/drive) sont livres et routes : `KitchenController::display` (lecture de la file
 `paid`/`preparing`/`ready` + action `MARK_READY`) et `CounterOrderController` (liste +
-creation de commande, `index`/`create`/`store`) — voir `src/public/admin/index.php` pour le
+creation de commande, `index`/`create`/`store`) — voir `src/app/Core/routes.php` pour le
 detail des routes.
 
 ---

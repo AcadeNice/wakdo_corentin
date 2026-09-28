@@ -13,7 +13,7 @@ Criteres couverts :
 Fichiers examines (code reel) :
 
 - `src/public/borne/assets/css/style.css` (2322 lignes) — front borne de commande.
-- `src/public/admin/assets/css/admin.css` (3354 lignes) — back-office.
+- `src/public/admin/assets/css/admin.css` (3470 lignes) — back-office.
 
 Perimetre honnete de cette preuve : elle documente le *choix* et le *fallback*
 des proprietes CSS a partir de la lecture du code source et de la matrice de
@@ -78,7 +78,7 @@ ce repere plutot qu'un numero de ligne.
 | `-webkit-overflow-scrolling: touch` | admin `.pos__tabs` (section « POS tactile a tuiles comptoir/drive ») | WebKit iOS ancien | Prefixe intentionnel, ignore ailleurs. Ameliore le defilement inertiel sur iOS. |
 | `-webkit-font-smoothing: antialiased` | admin `html, body` (section « Reset & Base ») | WebKit/Blink | Cosmetique, ignore ailleurs. |
 | `calc()` | borne `.order-panel` (section 15) ; admin `.topbar-logo`, etc. — 5 occurrences au total | tres large ; Safari >= 6.1 | OK. |
-| `@media` (points de rupture) | borne 7 requetes (style.css, sections 6, 12, 14, 15) ; admin **7** requetes : `max-width: 640px` (`.admin-layout`, ossature, section « Ossature sur petit ecran (Cr 1.b.1) »), `max-width: 640px` (`.dash-tiles`, tableau de bord, section « Dashboard (direction A+C) »), `max-width: 700px` (`.perm-grid`, section « Matrice de droits d'acces groupee (formulaire Roles humanise) »), `max-width: 720px` (`.catalogue-summary`/`.catalogue-grid`, section « Produits par categorie (vue groupee back-office, F20) »), `max-width: 860px` (`.pos__main`, section « POS tactile a tuiles comptoir/drive »), `max-width: 900px` (`.stock-summary`, section « Stock dashboard (page d'accueil ingredients) »), `max-width: 640px` (`.allergen-matrix`, section « Revue des allergenes d'un ingredient (F11b) ») | tres large tous moteurs | OK. Responsive natif. |
+| `@media` (points de rupture) | borne **8** requetes, **5** valeurs de point de rupture distinctes (`1080`, `900`, `700`, `600`, `480` ; style.css, sections 6, 12, 14, 15) ; admin **14** requetes, **8** valeurs de point de rupture distinctes (`1280`, `1024`, `900`, `860`, `720`, `700`, `640`, `400` ; detail complet dans `02-matrice-responsive.md`, tableau 2.2) | tres large tous moteurs | OK. Responsive natif. |
 | `@font-face` + `font-display: swap` (OpenDyslexic auto-heberge) | borne section 19 | `@font-face` tres large ; `font-display` recent | OK. Police servie en local (pas de CDN), format woff2. |
 | `@keyframes` / `animation` | borne `check-pop` (section 11), `composer-fade-in`/`composer-slide-up` (section 13) | tres large tous moteurs | OK. Entrees discretes (pop, fade, slide). |
 

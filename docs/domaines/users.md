@@ -18,8 +18,11 @@ desactivation, reinitialisation de PIN, effacement RGPD.
   noms de champs / role (pas de PII). Throttle RG-T22.
 - RG-T16 : allowlist (email/prenom/nom/role_id/is_active) ; `is_active` pose serveur a
   la creation. Unicite email -> 409.
-- Self-protection : pas d'auto-desactivation (403 SELF_DEACTIVATION) ; on ne retire pas
-  le statut du **dernier admin actif** (update/deactivate/erase) ; effacement deja fait -> 409.
+- Self-protection : pas d'auto-desactivation ni d'auto-effacement (403 — HTML : page de
+  confirmation avec le message « Vous ne pouvez pas desactiver/anonymiser votre propre
+  compte. » ; API JSON : `403 FORBIDDEN`, meme message, aucun code dedie du type
+  `SELF_DEACTIVATION`) ; on ne retire pas le statut du **dernier admin actif**
+  (update/deactivate/erase) ; effacement deja fait -> 409.
 
 ## Decisions
 [ADR-0004](../adr/0004-pin-action-sensible-audit.md) (PIN + audit),

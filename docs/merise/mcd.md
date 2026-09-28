@@ -1,11 +1,11 @@
 # Modele Conceptuel de Donnees (MCD) — Wakdo
 
 **Phase Merise** : P1 - Conception, etape 2 (data dictionary first, mantra #33)
-**Version** : v0.5 — prod-like, 23 entites (19 prod-like + couche security-by-design + classement des ingredients)
-**Historique** : v0.5 (2026-09-27) — migration 0017 : attribut `ingredient.family` et `category_ingredient_family` (attribut multivalue de CATEGORY sorti en table par la premiere forme normale, association `accepts`, cardinalite I8) ; la famille reste un domaine de valeurs et non une entite, arbitrage motive en 5.3 ; compte d'entites 22 -> 23. v0.4 (2026-09-24) — mise en coherence avec le code livre (2a09597) : diagrammes des sections 4.1 a 7.1 re-extraits des migrations 0001 a 0011 (colonnes `allergens_*` de 0011, `preparing_at` / `ready_at` de 0009, entite `pin_throttle` et association `taken_by`), association `anchors` corrigee (un produit ancre 0 a N menus), cardinalites I2, I6, I7, R5, R6 et R9 alignees sur leur justification et sur les contraintes du DDL, association `taken_by` ajoutee au tableau 6.2 (O9), commande de rendu des diagrammes mise a jour (section 11).
+**Version** : v0.6 — prod-like, 23 entites (19 prod-like + couche security-by-design + classement des ingredients)
+**Historique** : v0.6 (2026-09-28) — audit final : correction du role `manager` (order_source NULL sans `order.create`, ADR-0020/D5), de l'association I7 (`stock_movement.user_id` porte l'acteur counter/drive, pas seulement les mouvements manuels), de la contrainte `source`/`service_mode` (deja posee en base, migration 0001) et des references vers `docs/notes/revue-alignement-p1.md` (non versionne) remplacees par les journaux traces `docs/journal/`. v0.5 (2026-09-27) — migration 0017 : attribut `ingredient.family` et `category_ingredient_family` (attribut multivalue de CATEGORY sorti en table par la premiere forme normale, association `accepts`, cardinalite I8) ; la famille reste un domaine de valeurs et non une entite, arbitrage motive en 5.3 ; compte d'entites 22 -> 23. v0.4 (2026-09-24) — mise en coherence avec le code livre (2a09597) : diagrammes des sections 4.1 a 7.1 re-extraits des migrations 0001 a 0011 (colonnes `allergens_*` de 0011, `preparing_at` / `ready_at` de 0009, entite `pin_throttle` et association `taken_by`), association `anchors` corrigee (un produit ancre 0 a N menus), cardinalites I2, I6, I7, R5, R6 et R9 alignees sur leur justification et sur les contraintes du DDL, association `taken_by` ajoutee au tableau 6.2 (O9), commande de rendu des diagrammes mise a jour (section 11).
 **Date** : 2026-06-04 (ajouts security-by-design 2026-06-11)
 **Branche** : `feat/p1-conception`
-**Statut** : prod-like — toutes les decisions D1-D8 + stock appliquees (voir `docs/notes/revue-alignement-p1.md` §7) ; couche security-by-design (audit_log + colonnes imputabilite/auth) en cours
+**Statut** : prod-like — toutes les decisions D1-D8 + stock appliquees (voir `docs/journal/2026-06-04--conception-prodlike-revision.md` pour D1-D3 et `docs/journal/2026-06-04--p1-merise-v0.2-rewrite-and-forgejo-migration.md` pour D4-D8 + stock) ; couche security-by-design (audit_log + colonnes imputabilite/auth) en cours
 **Auteur** : BYAN (couche methodologie)
 
 ---
@@ -23,7 +23,8 @@ leurs propres attributs.
 
 **Sources** :
 - `docs/merise/dictionary.md` (v0.3 — 23 entites, source de verite pour tous les noms, types, ENUMs)
-- `docs/notes/revue-alignement-p1.md` §7 (table de decisions D1-D8 + stock)
+- `docs/journal/2026-06-04--conception-prodlike-revision.md` (decisions D1-D3) et
+  `docs/journal/2026-06-04--p1-merise-v0.2-rewrite-and-forgejo-migration.md` (decisions D4-D8 + stock)
 - `docs/PROJECT_CONTEXT.md` (regles metier : composition de menu, flux de commande, RBAC, modes de service)
 - `docs/merise/_sources/` (donnees de l'ecole : 9 categories, 53 produits, 13 menus)
 
@@ -273,7 +274,7 @@ erDiagram
 | I4 | is_present_in | allergen | (0,N) | ingredient_allergen | (1,1) | Un allergene peut initialement n'avoir aucun ingredient lie (seed : le catalogue d'allergenes est complet avant que les donnees de recette ne soient saisies). Chaque ligne de lien reference un allergene. |
 | I5 | decrements | ingredient | (0,N) | stock_movement | (1,1) | Tous les mouvements affectent exactement un ingredient. Un ingredient peut n'avoir encore aucune ligne de mouvement de stock s'il a ete cree recemment et qu'aucune commande n'a ete passee. Chaque ligne de mouvement reference exactement un ingredient. |
 | I6 | triggers | customer_order | (0,N) | stock_movement | (0,1) | Un mouvement `sale` ou `cancellation` reference la commande d'origine. Un `restock` ou `inventory_correction` n'a pas de commande (NULL). Une commande donnee declenche des mouvements sur tous ses ingredients ; une commande encore `pending_payment` n'a declenche aucun mouvement. `stock_movement.order_id` est nullable et non unique (`0001_init_schema.sql`). |
-| I7 | logs | user | (0,N) | stock_movement | (0,1) | Les decrements de vente automatises n'ont pas d'utilisateur (NULL). Les reapprovisionnements et corrections manuels sont attribues a un utilisateur. Un utilisateur peut journaliser un nombre quelconque de mouvements. `stock_movement.user_id` est nullable et non unique. |
+| I7 | logs | user | (0,N) | stock_movement | (0,1) | `stock_movement.user_id` porte l'utilisateur AGISSANT : l'equipier de session pour une vente counter/drive ou une annulation, le manager/admin pour un reapprovisionnement ou une correction. NULL uniquement pour les ventes de la borne (`kiosk`, anonyme). Un utilisateur peut journaliser un nombre quelconque de mouvements. `stock_movement.user_id` est nullable et non unique. |
 | I8 | accepts | category | (0,N) | category_ingredient_family | (1,1) | Une categorie peut n'accepter aucune restriction de famille : l'absence de ligne vaut « pas de filtre », et c'est le cas voulu pour `menus`, qui traverse toutes les familles. Chaque ligne de correspondance appartient a exactement une categorie. La cardinalite (0,N) porte donc une vraie decision metier, pas une commodite : ce n'est pas « on n'a pas encore renseigne », c'est « cette categorie n'est pas filtree ». |
 
 ### 5.3 Notes sur le sous-domaine Ingredients & Stock
@@ -411,14 +412,14 @@ erDiagram
 CASE WHEN HOUR(created_at) < 10 THEN DATE(created_at) - INTERVAL 1 DAY ELSE DATE(created_at) END
 ```
 Seuil : 10:00. La formule de colonne generee avec `INTERVAL 4 HOUR 30 MINUTE` du MLD v0.1
-etait incorrecte et est abandonnee (decision D6, `revue-alignement-p1.md` §7).
+etait incorrecte et est abandonnee (decision D6, `docs/journal/2026-06-04--p1-merise-v0.2-rewrite-and-forgejo-migration.md`).
 
 **`source = 'drive' => service_mode = 'drive'`** : contrainte croisee. Une commande du canal drive ne peut
-avoir que `service_mode = 'drive'`. Imposee au niveau applicatif (et optionnellement comme CHECK dans
-le MLD).
+avoir que `service_mode = 'drive'`. Posee en base (`chk_customer_order_drive_mode`, migration 0001), pas
+seulement au niveau applicatif — voir le MLD, section 4.15.
 
 **Machine a 6 etats** (`pending_payment -> preparing -> ready -> delivered` + `cancelled`,
-plus `paid` conserve pour l'historique) : la decision D4 (`revue-alignement-p1.md` §7) avait
+plus `paid` conserve pour l'historique) : la decision D4 (`docs/journal/2026-06-04--p1-merise-v0.2-rewrite-and-forgejo-migration.md`) avait
 abandonne `preparing` et `ready` ; le retour d'oral #8 les a reintroduits, livres par la
 migration `0009_order_prep_states.sql` avec les horodatages `preparing_at` / `ready_at`.
 L'encaissement pose directement `preparing` (aucun chemin de code n'ecrit plus `paid`) et
@@ -428,7 +429,8 @@ Cycle detaille et regles de transition : `mct.md` section 13 et `mlt.md` section
 
 **Colonnes security-by-design (2026-06-11)** : `idempotency_key` (UUID client, UNIQUE)
 deduplique un `POST /api/orders` rejoue. `acting_user_id` (FK -> `user`, ON DELETE SET NULL)
-enregistre l'employe de comptoir/drive qui a pris la commande sous PIN ; NULL pour les commandes anonymes de la borne.
+enregistre l'employe de comptoir/drive qui a pris la commande, via l'utilisateur de la SESSION
+authentifiee (`order.create` suffit, sans PIN) ; NULL pour les commandes anonymes de la borne.
 Cela ajoute l'association `taken_by` (O9 en 6.2), notee `customer_order }o--o| user` : une commande est
 prise par (0,1) user ; un user prend (0,N) commandes (`acting_user_id` non unique). Voir note 13 du dictionnaire.
 
@@ -542,9 +544,9 @@ erDiagram
 
 ### 7.3 Notes sur le sous-domaine RBAC
 
-**Architecture RBAC** : les roles sont dynamiques (creables et modifiables via l'UI admin). Les permissions sont statiques (declarees en migration, liees au code applicatif). Le code applicatif teste les permissions, pas les noms de role : ajouter un nouveau role avec les bonnes permissions ne necessite aucun changement de code (permission-driven, selon le modele RBAC Sandhu/NIST — decision D4, `revue-alignement-p1.md` §7).
+**Architecture RBAC** : les roles sont dynamiques (creables et modifiables via l'UI admin). Les permissions sont statiques (declarees en migration, liees au code applicatif). Le code applicatif teste les permissions, pas les noms de role : ajouter un nouveau role avec les bonnes permissions ne necessite aucun changement de code (permission-driven, selon le modele RBAC Sandhu/NIST — decision D4, `docs/journal/2026-06-04--p1-merise-v0.2-rewrite-and-forgejo-migration.md`).
 
-**`role.order_source`** : quand un employe de comptoir ou de drive cree une commande, la colonne `source` sur `customer_order` est automatiquement renseignee a partir de l'`order_source` de son role. NULL pour admin et manager (ils peuvent creer pour le compte de n'importe quel canal).
+**`role.order_source`** : quand un employe de comptoir ou de drive cree une commande, la colonne `source` sur `customer_order` est automatiquement renseignee a partir de l'`order_source` de son role. NULL pour `admin` (seul role sans canal fixe a detenir `order.create`) et pour `manager` (NULL egalement, mais sans consequence : `manager` n'a pas `order.create`, decision D5/ADR-0020).
 
 **`role.default_route`** : l'ecran d'arrivee pour chaque role, stocke en base de donnees. Le routage front-end lit cette valeur au login ; aucun nom de role n'est code en dur dans la logique de routage.
 
@@ -679,8 +681,8 @@ Pre-validation : chaque entite participe a au moins un traitement.
 | `login_throttle` | Lu et ecrit par AUTHENTICATE_USER (12.1) : throttle par IP source upserte a chaque echec de login, lu pour imposer la fenetre de backoff, purge par un cron quotidien |
 | `pin_throttle` | Lu et ecrit par les operations sensibles sous PIN (RG-T13, RG-T22) : verrou evalue avant la verification du PIN, compteur incremente a chaque echec, remis a zero apres un PIN valide, purge par un cron quotidien |
 
-La validation croisee MCD <-> MCT (mantra #34) sera completee de maniere exhaustive dans `mct.md`
-une fois que le MCT integrera les operations security-by-design (actions sensibles protegees par PIN,
+La validation croisee MCD <-> MCT (mantra #34) est completee de maniere exhaustive dans `mct.md`
+(v0.3), qui integre desormais les operations security-by-design (actions sensibles protegees par PIN,
 ecritures d'audit, reset/lockout, anonymisation). Les ajouts de la couche traitements y sont suivis.
 
 ---
@@ -689,7 +691,7 @@ ecritures d'audit, reset/lockout, anonymisation). Les ajouts de la couche traite
 
 Le modele graphique faisant autorite est l'ensemble des blocs `erDiagram` Mermaid des sections 4-7,
 un par sous-domaine. Ils s'affichent nativement sur Forgejo et GitHub. Le MCD est decompose par
-sous-domaine a dessein : un unique diagramme de 22 entites ne peut etre dispose sans croisement de
+sous-domaine a dessein : un unique diagramme de 23 entites ne peut etre dispose sans croisement de
 lignes de relation (limite de planarite intrinseque, et `erDiagram` n'offre aucun controle de mise en page
 manuel). Chaque sous-domaine reste a 5-8 entites, ce que la mise en page automatique gere proprement. La
 vue integree a travers les sous-domaines est la table de validation croisee de la section 8.

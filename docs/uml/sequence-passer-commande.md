@@ -1,13 +1,15 @@
 # Diagramme de sequence - Passer une commande (borne client)
 
 **Phase UML** : P1 - Conception, complement UML (apres MCD)
-**Statut** : v0.3 - realigne sur le code livre : creation puis encaissement (deux appels)
-**Date** : 2026-06-11 (v0.2), 2026-09-24 (v0.3)
+**Statut** : v0.4 - realigne sur le code livre : creation puis encaissement (deux appels)
+**Date** : 2026-06-11 (v0.2), 2026-09-24 (v0.3), 2026-09-28 (v0.4)
 **Historique** : v0.3 (2026-09-24) - mise en coherence avec le code livre (2a09597) : la creation atomique
 (un seul `POST /api/orders` qui cree, encaisse et decremente le stock) est remplacee par les deux appels
 reels (creation en `pending_payment`, puis encaissement vers `preparing`) ; aucun modificateur d'ingredient
 n'est construit par la borne ; panier conserve dans le navigateur ; repli JSON retire ; garde-fous
-d'idempotence et de verrou decrits tels qu'ils sont livres.
+d'idempotence et de verrou decrits tels qu'ils sont livres. v0.4 (2026-09-28) - audit final sur pieces :
+cle d'idempotence de plus de 36 caracteres -> 422 `INVALID_IDEMPOTENCY_KEY` (#186), cle vide -> `NULL`
+en base ; references de routes recalees sur `src/app/Core/routes.php`.
 **Branche** : `feat/p1-conception`
 **Auteur methodologie** : BYAN
 
@@ -160,6 +162,9 @@ sequenceDiagram
     alt Panier vide, article indisponible,<br/>mode de service invalide
         API-->>Borne: 422 {data: null,<br/>error: {code, message}}
         Borne-->>Client: message sur la page<br/>de paiement, qui reste affichee
+    else Cle d'idempotence de plus<br/>de 36 caracteres
+        API-->>Borne: 422 INVALID_IDEMPOTENCY_KEY<br/>(#186, avant toute ecriture)
+        Borne-->>Client: message sur la page<br/>de paiement, qui reste affichee
     else Encaissement d'une commande annulee
         API-->>Borne: 409 INVALID_TRANSITION
         Borne-->>Client: message generique,<br/>nouvel essai possible
@@ -207,7 +212,9 @@ API, ni la lecture ni la commande ne sont possibles.
 ### 4.5 Garde-fous livres
 
 - **Idempotence** : la borne envoie une `idempotency_key` stable pour la session de
-  paiement (`checkout.js`, `checkoutKey`), colonne UNIQUE en base. Une cle deja
+  paiement (`checkout.js`, `checkoutKey`), colonne UNIQUE en base (VARCHAR(36) —
+  une cle vide est stockee `NULL`, une cle de plus de 36 caracteres est refusee en
+  `422 INVALID_IDEMPOTENCY_KEY` avant toute ecriture, #186). Une cle deja
   connue remplace les lignes d'une commande encore en attente (panier modifie,
   `mlt.md` 3.3bis), renvoie l'etat reel d'une commande deja encaissee, ou repond
   409 `ORDER_CANCELLED` pour une commande annulee ou expiree ; la borne repart
@@ -229,7 +236,7 @@ et la taille (`product-options.js`), le composeur de menu que le format et les s
 
 | Verification | Resultat |
 |---|---|
-| Endpoints utilises existent (`src/public/admin/index.php`) | `GET /api/categories`, `GET /api/products`, `GET /api/menus`, `GET /api/menus/{id}`, `POST /api/orders`, `POST /api/orders/{number}/pay` |
+| Endpoints utilises existent (`src/app/Core/routes.php`) | `GET /api/categories`, `GET /api/products`, `GET /api/menus`, `GET /api/menus/{id}`, `POST /api/orders`, `POST /api/orders/{number}/pay` |
 | Entites manipulees presentes au MCD | `category`, `product`, `menu`, `menu_slot`, `menu_slot_option`, `ingredient`, `customer_order`, `order_item`, `order_item_selection`, `stock_movement` |
 | Statuts coherents avec `state-commande.md` | `pending_payment` (T1), puis `preparing` (T2) ; modification du panier en attente (M1) |
 | Operations MLT correspondantes | `mlt.md` 3.3 CREATE_ORDER, 3.3bis MODIFY_PENDING_ORDER, 3.3ter PAY_ORDER |

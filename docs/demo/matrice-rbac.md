@@ -3,8 +3,8 @@
 Author: BYAN
 
 Source de vérité : `db/seeds/0001_rbac_and_reference.sql` (`role_permission`) et
-les routes réelles de `src/public/admin/index.php` (pages serveur + API JSON
-`/admin/api/*`). Les libellés français des permissions reprennent le mapping
+les routes réelles de `src/app/Core/routes.php` (chargé par le front contrôleur
+`src/public/admin/index.php` ; pages serveur + API JSON `/admin/api/*`). Les libellés français des permissions reprennent le mapping
 déjà affiché aux administrateurs dans le formulaire de rôle
 (`src/app/Views/admin/roles/form.php`, tableau `$permMap`) : la base stocke les
 codes et des libellés anglais (`permission.label`), la présentation française
@@ -152,7 +152,7 @@ n'excusant pas l'absence de l'autre :
 
 Même règle côté API JSON (`OrderApiController::apiStore()`) : le canal retenu
 (imposé par le rôle ou choisi dans le corps) doit lui aussi être dans les
-sources visibles du rôle, sinon `422 VALIDATION_ERROR` — un rôle sans canal
+sources visibles du rôle, sinon `403 FORBIDDEN` — un rôle sans canal
 fixe mais à visibilité restreinte ne peut plus choisir un canal qu'il ne voit
 pas ailleurs.
 

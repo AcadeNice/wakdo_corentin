@@ -150,7 +150,7 @@ Le balisage s'appuie sur les landmarks HTML5 a leur role : `header`, `nav`, `mai
 
 ## 5. Reserves honnetes
 
-1. **Back-office non couvert ici.** Les 29 vues PHP du back-office ne sont pas validees dans cette preuve (perimetre = front borne, Bloc 1). Leur balisage a ete relu (doctype + `lang` portes par les deux layouts, `<th>` de colonne d'action parfois vides — valide mais signale par un audit a11y) mais sans passage au validateur.
+1. **Back-office non couvert ici.** Les 36 vues PHP du back-office ne sont pas validees dans cette preuve (perimetre = front borne, Bloc 1). Leur balisage a ete relu (doctype + `lang` portes par les deux layouts, `<th>` de colonne d'action parfois vides — valide mais signale par un audit a11y) mais sans passage au validateur.
 2. **Etats interactifs non exhaustivement rendus.** Le DOM rendu valide couvre l'accueil, la liste categories, la grille produits peuplee et la **modale allergenes ouverte**. Les deux autres modales (composeur de menu, options produit) n'ont pas ete soumises au validateur ; leur structure a toutefois ete relue en statique (le composeur `page-product-menu.js` et le panneau commande `order-panel.js` utilisent des `<ul>` a enfants `<li>` conformes) et la modale d'options est, elle, mesuree par l'audit d'accessibilite (`06-audit-accessibilite-mesure.md`, ecran `produits-modale-options`). Ajouter ces deux etats a `tests/e2e/w3c-capture.spec.js` est desormais une modification d'une dizaine de lignes.
 3. **Le validateur en ligne reste a rejouer a l'oral.** La preuve locale utilise le meme moteur ; montrer `validator.w3.org` en direct sur l'URL de la borne renforce la demonstration.
 

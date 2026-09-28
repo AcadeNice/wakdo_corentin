@@ -1,10 +1,10 @@
 # Dictionnaire de Donnees — Wakdo
 
 **Phase Merise** : P1 - Conception, etape 1 (dictionnaire de donnees d'abord, mantra #33)
-**Version** : v0.3 — prod-like, 22 entites (19 prod-like + couche security-by-design, incl. les entites `login_throttle` et `pin_throttle`)
-**Date** : 2026-06-04 (ajouts security-by-design 2026-06-11)
+**Version** : v0.4 — prod-like, 23 entites (19 prod-like + couche security-by-design + classement des ingredients, incl. les entites `login_throttle`, `pin_throttle` et `category_ingredient_family`)
+**Date** : 2026-06-04 (ajouts security-by-design 2026-06-11 ; classement des ingredients 2026-09-27 ; corrections d'audit 2026-09-28)
 **Branche** : `feat/p1-conception`
-**Statut** : prod-like — toutes les decisions D1-D8 + stock appliquees (voir `docs/notes/revue-alignement-p1.md` §7) ; couche security-by-design en cours (voir note 13) ; colonnes additives post-v0.3 des migrations 0003/0005/0006/0007 alignees sur le deploye (voir note 14)
+**Statut** : prod-like — toutes les decisions D1-D8 + stock appliquees (voir `docs/journal/2026-06-04--conception-prodlike-revision.md` pour D1-D3 et `docs/journal/2026-06-04--p1-merise-v0.2-rewrite-and-forgejo-migration.md` pour D4-D8 + stock) ; couche security-by-design en cours (voir note 13) ; colonnes additives post-v0.3 des migrations 0003/0005/0006/0007 alignees sur le deploye (voir note 14)
 **Auteur** : BYAN (couche methodologie)
 
 ---
@@ -91,15 +91,15 @@ Regroupement metier de produits et de menus pour l'affichage sur la borne.
 |---|---|---|---|---|---|---|
 | `id` | INT UNSIGNED | NO | AUTO_INCREMENT | PK | `id` (1-9) | identique a la source |
 | `name` | VARCHAR(60) | NO | — | UNIQUE | `title` | renomme depuis `title` |
-| `slug` | VARCHAR(60) | NO | — | UNIQUE | derive de `title` (kebab-case minuscule) | utilise pour l'URL `/api/categories/burgers` |
+| `slug` | VARCHAR(60) | NO | — | UNIQUE | derive de `title` (kebab-case minuscule) | identifiant technique stable, utilise cote back-office (mapping slot_type -> categories) ; il n'existe pas de route `/api/categories/{slug}`, seule `GET /api/categories` liste le catalogue |
 | `image_path` | VARCHAR(255) | YES | NULL | — | `image` | chemin relatif, voir note 8 |
 | `display_order` | SMALLINT UNSIGNED | NO | 0 | — | (ajoute) | ordre d'affichage sur la borne, ajustable depuis l'admin |
 | `is_active` | TINYINT(1) | NO | 1 | — | (ajoute) | desactiver sans supprimer |
 | `created_at` | DATETIME | NO | CURRENT_TIMESTAMP | — | — | audit |
 | `updated_at` | DATETIME | NO | CURRENT_TIMESTAMP ON UPDATE | — | — | audit |
 
-**Exemples** : `menus`, `drinks`, `burgers`, `fries`, `snacks`, `wraps`, `salads`,
-`desserts`, `sauces`. Volume : 9 lignes a l'init (seed depuis `categories.json`).
+**Exemples** (slugs reels, seed 0002) : `menus`, `boissons`, `burgers`, `frites`, `encas`, `wraps`,
+`salades`, `desserts`, `sauces`. Volume : 9 lignes a l'init (seed depuis `categories.json`).
 
 ---
 
@@ -111,7 +111,7 @@ Un article vendable unique, disponible a la carte ou comme composant dans un slo
 |---|---|---|---|---|---|---|
 | `id` | INT UNSIGNED | NO | AUTO_INCREMENT | PK | `id` | identique a la source |
 | `category_id` | INT UNSIGNED | NO | — | FK -> `category(id)`, ON DELETE RESTRICT | (derive de la cle d'objet JSON) | |
-| `name` | VARCHAR(120) | NO | — | INDEX | `nom` | renomme depuis `nom` |
+| `name` | VARCHAR(120) | NO | — | — | `nom` | renomme depuis `nom` ; pas d'index dedie (seul l'index composite `(category_id, is_available, display_order)` existe, migration 0001) |
 | `description` | TEXT | YES | NULL | — | (ajoute) | renseigne plus tard via l'admin |
 | `price_cents` | INT UNSIGNED | NO | — | CHECK > 0 | `prix` (FLOAT) | conversion FLOAT -> INT centimes au seed (voir note 1) |
 | `maxi_variant_product_id` | INT UNSIGNED | YES | NULL | FK -> `product(id)`, ON DELETE SET NULL | (migration 0006) | auto-reference : variante servie quand un menu est commande au format Maxi (ex. Moyenne Frite -> Grande Frite). Data-driven (la regle vit dans la donnee). SET NULL = degradation gracieuse : si la variante Grande est retiree du catalogue, le produit de base reste vendable, il perd seulement sa substitution Maxi. Voir note 14 |
@@ -138,7 +138,7 @@ Combo a prix fixe construit autour d'un burger specifique, avec des slots select
 | `id` | INT UNSIGNED | NO | AUTO_INCREMENT | PK | `id` (1-13 dans la categorie `menus`) | |
 | `category_id` | INT UNSIGNED | NO | — | FK -> `category(id)`, ON DELETE RESTRICT | implicite (categorie `menus`) | |
 | `burger_product_id` | INT UNSIGNED | NO | — | FK -> `product(id)`, ON DELETE RESTRICT | (ajoute) | le burger fixe qui ancre ce menu ; pilote la personnalisation des ingredients |
-| `name` | VARCHAR(120) | NO | — | INDEX | `nom` | ex. "Menu Le 280" |
+| `name` | VARCHAR(120) | NO | — | — | `nom` | ex. "Menu Le 280" ; pas d'index dedie (meme situation que `product.name`) |
 | `description` | TEXT | YES | NULL | — | (ajoute) | |
 | `price_normal_cents` | INT UNSIGNED | NO | — | CHECK > 0 | `prix` | prix format Normal. Remplace le `prix_ttc_cents` unique. |
 | `price_maxi_cents` | INT UNSIGNED | NO | — | CHECK > 0 | (ajoute) | prix format Maxi (~+150 centimes vs normal ; voir note 7) |
@@ -162,7 +162,7 @@ la table de jointure `menu_slot_option`.
 |---|---|---|---|---|---|
 | `id` | INT UNSIGNED | NO | AUTO_INCREMENT | PK | |
 | `menu_id` | INT UNSIGNED | NO | — | FK -> `menu(id)`, ON DELETE CASCADE | un slot appartient a exactement un menu |
-| `name` | VARCHAR(80) | NO | — | — | ex. "Drink", "Side", "Sauce" |
+| `name` | VARCHAR(80) | NO | — | — | libelles reels du seed 0002 : "Accompagnement" (`side`, display_order=1), "Boisson" (`drink`, display_order=2), "Sauce" (`sauce`, display_order=3) |
 | `slot_type` | ENUM('drink','side','sauce','dessert','extra') | NO | — | — | role semantique de ce slot |
 | `is_required` | TINYINT(1) | NO | 1 | — | indique si le client doit remplir ce slot |
 | `display_order` | SMALLINT UNSIGNED | NO | 0 | — | ordre d'affichage dans le constructeur de menu |
@@ -217,8 +217,12 @@ Ingredient elementaire utilise dans la composition des produits. Porte les donne
 **Regle de decrement de stock** : a la transition `paid`, chaque ingredient est decremente de
 `product_ingredient.quantity_normal` ou `quantity_maxi` (selectionne par `order_item.format`)
 multiplie par `order_item.quantity`, puis ajuste par les lignes `order_item_modifier`. Voir note 7.
-**Regle de reapprovisionnement** : `stock_quantity += N * pack_size` (reapprovisionne en packs complets).
-**Regle d'annulation** : le stock est recredite quand une commande `paid` est annulee.
+**Regle de reapprovisionnement** : `stock_quantity += N * pack_size` (reapprovisionne en packs complets),
+plafonne a `stock_capacity` (`IngredientRepository::restock`, delta reellement applique renvoye a l'appelant).
+**Regle d'annulation** : le recredit est conditionnel a l'existence de mouvements `sale` pour la commande
+(pose au decrement de l'encaissement) plutot qu'au statut lu avant la transaction (insensible a la course
+`pending_payment -> paid -> cancel`) ; sans mouvement `sale`, rien n'est recredite. Le recredit est lui
+aussi plafonne a `stock_capacity` (`OrderRepository::cancel`).
 **Modele de stock (base sur le pourcentage, trois bandes)** : le seuil d'alerte absolu est remplace par un
 modele en pourcentage ancre sur `stock_capacity` (la reference 100%). Le pourcentage de stock est
 calcule, non stocke : `stock_pct = ROUND(stock_quantity / stock_capacity * 100)`. Le
@@ -300,7 +304,7 @@ Transaction client : 1 commande = 1 panier valide a un instant donne.
 | `order_number` | VARCHAR(20) | NO | — | UNIQUE | numero lisible : prefixe canal + id sequentiel, soit `K<id>` / `C<id>` / `D<id>` (K=kiosk, C=counter, D=drive). Ecrit en deux temps (INSERT puis UPDATE avec `LAST_INSERT_ID()`). Voir note 4. |
 | `idempotency_key` | VARCHAR(36) | YES | NULL | UNIQUE | UUID genere par le client pour dedupliquer un `POST /api/orders` reessaye (anti-double-charge). UNIQUE rejette les doublons ; plusieurs NULL autorises. Security-by-design, voir note 13 |
 | `source` | ENUM('kiosk','counter','drive') | NO | — | INDEX | canal de saisie (qui a saisi la commande). Valeurs en anglais, voir note 5. |
-| `acting_user_id` | INT UNSIGNED | YES | NULL | FK -> `user(id)`, ON DELETE SET NULL | personnel back-office (counter/drive) ayant cree la commande, capture sous PIN. NULL pour `kiosk` (anonyme). Imputabilite ciblee sans imposer un login par personne sur la borne. Voir note 13 |
+| `acting_user_id` | INT UNSIGNED | YES | NULL | FK -> `user(id)`, ON DELETE SET NULL | personnel back-office (counter/drive) ayant cree la commande : l'utilisateur de la SESSION authentifiee (`order.create` suffit, sans PIN — la creation n'est pas une action sensible). NULL pour `kiosk` (anonyme). Imputabilite ciblee sans imposer un login par personne sur la borne. Voir note 13 |
 | `service_mode` | ENUM('dine_in','takeaway','drive') | NO | — | — | mode de consommation, conserve pour les stats/KPI uniquement. Aucun role fiscal (voir note 9). La source `drive` implique le service_mode `drive` : contrainte croisee posee en base (`chk_customer_order_drive_mode`, migration 0001), pas seulement au niveau applicatif. |
 | `service_tag` | VARCHAR(20) | YES | NULL | — | numero de chevalet pour le service EN SALLE (migration 0003), saisi a la borne quand le client choisit `dine_in` ; permet d'apporter la commande a la bonne table (B4). NULL pour `takeaway` / `drive`. Voir note 14 |
 | `status` | ENUM('pending_payment','paid','preparing','ready','delivered','cancelled') | NO | 'pending_payment' | INDEX | machine a 6 etats (migration `0009_order_prep_states.sql`, retour oral #8) : `pending_payment -> preparing -> ready -> delivered` (+ `cancelled`). `paid` reste dans l'ENUM comme statut historique (aucun chemin de code actuel ne l'ecrit plus ; `ready` est optionnel). Voir note 6. |
@@ -411,7 +415,7 @@ ne sont pas authentifies et n'ont pas de ligne ici.
 |---|---|---|---|---|---|
 | `id` | INT UNSIGNED | NO | AUTO_INCREMENT | PK | |
 | `email` | VARCHAR(254) | NO | — | UNIQUE | longueur max selon RFC 5321 |
-| `password_hash` | VARCHAR(255) | NO | — | — | hash argon2id (voir `PASSWORD_ALGO` dans `.env`) ; longueur typique 96 caracteres, marge jusqu'a 255 |
+| `password_hash` | VARCHAR(255) | NO | — | — | hash argon2id, code en dur dans `PasswordHasher` (choix security-by-design non configurable ; il n'existe pas de variable `PASSWORD_ALGO`, seuls les couts `ARGON2_MEMORY_COST`/`ARGON2_TIME_COST`/`ARGON2_THREADS` se lisent depuis `.env`) ; longueur typique 96 caracteres, marge jusqu'a 255 |
 | `first_name` | VARCHAR(60) | NO | — | — | |
 | `last_name` | VARCHAR(60) | NO | — | — | |
 | `role_id` | INT UNSIGNED | NO | — | FK -> `role(id)`, ON DELETE RESTRICT | un utilisateur ne peut exister sans role |
@@ -447,10 +451,10 @@ Le seed fournit 5 roles ; des roles personnalises (ex. "chef-patissier") peuvent
 |---|---|---|---|---|---|
 | `id` | INT UNSIGNED | NO | AUTO_INCREMENT | PK | |
 | `code` | VARCHAR(40) | NO | — | UNIQUE | code machine, ex. `admin`, `manager`, `kitchen`, `counter`, `drive` |
-| `label` | VARCHAR(80) | NO | — | — | nom d'affichage, ex. `Administrator`, `Kitchen Staff` |
+| `label` | VARCHAR(80) | NO | — | — | nom d'affichage, en francais (migration 0012, seed 0001) : `Administrateur`, `Responsable`, `Équipier cuisine`, `Équipier comptoir`, `Équipier drive` |
 | `description` | TEXT | YES | NULL | — | |
 | `default_route` | VARCHAR(120) | YES | NULL | — | ecran d'atterrissage pour ce role (ex. `/admin/orders`, `/kitchen/display`). Rend le routage dynamique — pas de noms de role en dur dans le routage front-end. |
-| `order_source` | ENUM('kiosk','counter','drive') | YES | NULL | — | `source` auto-taggee quand ce role cree une commande (NULL pour admin/manager qui peuvent creer au nom de n'importe quel canal) |
+| `order_source` | ENUM('kiosk','counter','drive') | YES | NULL | — | `source` auto-taggee quand ce role cree une commande. NULL pour `admin` (seul role sans canal fixe a detenir `order.create`, il peut donc creer au nom de n'importe quel canal) et pour `manager` (NULL egalement, mais sans consequence : `manager` n'a pas `order.create`, decision D5/ADR-0020) |
 | `is_active` | TINYINT(1) | NO | 1 | — | la desactivation preserve l'historique des utilisateurs ayant detenu ce role |
 | `created_at` | DATETIME | NO | CURRENT_TIMESTAMP | — | audit |
 | `updated_at` | DATETIME | NO | CURRENT_TIMESTAMP ON UPDATE | — | audit |
@@ -523,13 +527,17 @@ Permissions granulaires assignables aux roles. Le catalogue est fixe au seed (pa
 | `order.read` | admin, manager, kitchen, counter, drive |
 | `order.create` | admin, counter, drive |
 | `order.deliver` | admin, counter, drive |
-| `order.cancel` | admin, counter, drive |
+| `order.cancel` | admin, manager, counter, drive |
 | `user.create` | admin |
 | `user.read` | admin, manager |
 | `user.update` | admin |
 | `user.deactivate` | admin |
 | `role.manage` | admin |
 | `stats.read` | admin, manager |
+
+`manager` recoit `order.read` + `order.cancel` par la migration 0018 (ADR-0020), qui remplace la
+decision D5 sur ce seul point : le responsable lit et annule les commandes de tous les canaux, sans
+recevoir `order.create` ni `order.deliver`.
 
 **Volume** : 23 lignes au seed.
 
@@ -562,7 +570,7 @@ Journal d'audit append-only de tous les changements de stock par ingredient.
 | `movement_type` | ENUM('sale','cancellation','restock','inventory_correction','adjustment') | NO | — | INDEX | nature du mouvement |
 | `delta` | INT | NO | — | — | changement signe : negatif pour la consommation (vente), positif pour reapprovisionnement/annulation/correction |
 | `order_id` | INT UNSIGNED | YES | NULL | FK -> `customer_order(id)`, ON DELETE SET NULL | commande liee pour les mouvements `sale` et `cancellation` ; NULL pour restock/correction |
-| `user_id` | INT UNSIGNED | YES | NULL | FK -> `user(id)`, ON DELETE SET NULL | utilisateur ayant declenche le mouvement (NULL pour les decrements de vente automatises) |
+| `user_id` | INT UNSIGNED | YES | NULL | FK -> `user(id)`, ON DELETE SET NULL | utilisateur AGISSANT ayant declenche le mouvement : l'equipier de session pour une vente counter/drive ou une annulation, le manager/admin pour un reapprovisionnement/une correction. NULL uniquement pour les ventes de la borne (`kiosk`, anonyme) |
 | `note` | VARCHAR(255) | YES | NULL | — | note humaine optionnelle (ex. raison de la correction, reference de pack) |
 | `created_at` | DATETIME | NO | CURRENT_TIMESTAMP | INDEX | timestamp immuable |
 
@@ -570,8 +578,12 @@ Journal d'audit append-only de tous les changements de stock par ingredient.
 `movement_type='inventory_correction'` et un delta signe.
 
 **Mouvements automatiques** (declenches aux transitions de statut) :
-- transition `paid` : 1 ligne `sale` par unite d'ingredient consommee (en tenant compte des modificateurs).
-- `cancelled` (depuis `paid`) : 1 ligne `cancellation` par unite d'ingredient recreditee.
+- transition `paid`/`preparing` (encaissement) : 1 ligne `sale` par ingredient consomme (en tenant compte
+  des modificateurs), `delta` = -(total des unites consommees pour cet ingredient dans la commande) —
+  agregee par ingredient, pas une ligne par unite.
+- `cancelled` (depuis `paid`/`preparing`/`ready`, si des mouvements `sale` existent pour la commande) :
+  1 ligne `cancellation` par ingredient recredite, `delta` = +(total des unites recreditees), plafonne a
+  `stock_capacity`.
 
 **Mouvements manuels** :
 - `restock` : le manager ou l'admin enregistre une livraison (`+= N * pack_size`).
@@ -611,9 +623,14 @@ Ajout security-by-design (voir note 13).
 **Retention** : fenetre propre (~12 mois, interet legitime / tracabilite fiscale), decouplee
 du cycle de vie des PII utilisateur (note 13). Une purge planifiee (cron) retire les lignes au-dela de la fenetre.
 
-**Operations journalisees** (ensemble sensible) : `UPDATE_PRODUCT` (8.2, incl. prix), `DELETE_PRODUCT`
-(8.3), `DELETE_MENU` (8.6), `CANCEL_ORDER` (7.1), `RESTOCK` (9.1), `INVENTORY_COUNT` (9.2),
-`CREATE_USER` / `UPDATE_USER` / `DEACTIVATE_USER` (10.1-10.3), `MANAGE_RBAC` (10.4).
+**Codes ecrits reellement** (`action_code`, verifie par grep des `INSERT INTO audit_log` dans
+`src/app`) : `product.update`, `product.delete`, `product.import`, `menu.delete`, `order.cancel`,
+`order.expire`, `user.create`, `user.update`, `user.deactivate`, `user.erase_pii`, `role.manage`,
+`pin.set`, `pin.failed`, `auth.login_failed`, `auth.login_success`, `auth.password_reset`,
+`ingredient.allergens`. Le reapprovisionnement, l'inventaire et la correction de stock (`adjustment`)
+n'y ecrivent pas : leur trace est `stock_movement.user_id` (RG-T14). Cote catalogue, seule la
+suppression d'un menu ecrit ici (`menu.delete`) ; une modification de menu (`menu.update`,
+sans suppression) n'a pas de chemin d'ecriture equivalent dans le code actuel.
 
 **Volume** : faible (~10-50 actions sensibles/jour) — des ordres de grandeur sous `stock_movement`.
 
@@ -828,8 +845,12 @@ fictif, donc les prix exacts ne sont pas copies d'une chaine reelle).
 ### Note 8 — Stockage des images : chemin en VARCHAR vs BLOB en BDD
 
 Les colonnes `image_path` (`category`, `product`, `menu`) stockent un **chemin relatif** depuis la
-racine publique (ex. `/uploads/products/classic-burger.jpg`), pas un chemin serveur absolu.
-PHP resout via un prefixe depuis `.env` (`UPLOAD_DIR=public/uploads`).
+racine publique (ex. `uploads/products/<64-hex>.jpg`), pas un chemin serveur absolu. Le repertoire de
+destination (`public/uploads`) est CALCULE par `ImageUploader` depuis l'emplacement du fichier PHP
+(`dirname(__DIR__, 2) . '/public/uploads'`), pas lu depuis une variable d'environnement — il n'existe
+pas de `UPLOAD_DIR` dans `.env`. Le nom de fichier stocke est en outre REGENERE cote serveur
+(`bin2hex(random_bytes(16))` + extension deduite du type MIME reel) : le nom d'origine envoye par le
+client n'est pas reutilise, ce qui ferme la traversee de repertoire et les doubles extensions.
 
 Le stockage BLOB a ete considere et rejete :
 
@@ -901,14 +922,16 @@ de bugs de justesse. Coherent avec l'ambition prod-like de ce modele.
 ### Note 12 — `commande_event` retire
 
 v0.1 portait une table d'audit append-only `commande_event` (pattern event sourcing).
-Retiree en v0.2 (Decision 1, `revue-alignement-p1.md` §7).
+Retiree en v0.2 (Decision 1, `docs/journal/2026-06-04--conception-prodlike-revision.md`).
 
 Rationale : dans un contexte restaurant, le compte back-office est partage par poste de travail, non
 individuel. L'attribution par personne d'une transition d'etat n'a aucune valeur metier. Le besoin reel
 (durees de phase, stats par heure de la journee) est couvert par les timestamps de phase sur `customer_order`
 (`paid_at`, `delivered_at`, `cancelled_at`) sans la complexite d'un event store.
 
-La machine a 4 etats combinee a 3 timestamps de phase fournit toutes les donnees KPI necessaires :
+La machine a 6 etats combinee aux timestamps de phase (`paid_at`, `preparing_at`, `ready_at`,
+`delivered_at`, `cancelled_at` — les deux derniers ajoutes par la migration 0009, voir note 6) fournit
+toutes les donnees KPI necessaires, sans reintroduire d'event store :
 - Temps de remise : `delivered_at - paid_at`
 - Taux et timing d'annulation : `cancelled_at - created_at`
 - Volume par heure : calcul `HOUR(created_at)` / `service_day`
@@ -929,7 +952,9 @@ des utilisateurs 10.1-10.3, RBAC 10.4). Ces actions ecrivent le `user_id` agissa
 (3.20). Cela resout la justification circulaire qui avait retire `commande_event` en v0.1
 (les events etaient juges inutiles parce que les comptes etaient partages) : l'imputabilite est enregistree
 la ou elle importe, a friction quasi nulle pour les 95% de routine. `customer_order.acting_user_id`
-capture le personnel pour les commandes counter/drive prises sous PIN ; les commandes borne restent anonymes.
+capture le personnel pour les commandes counter/drive, via l'utilisateur de la SESSION authentifiee (la
+creation d'une commande n'est pas dans l'ensemble des actions sensibles, donc aucun PIN n'est demande a
+cette etape) ; les commandes borne restent anonymes.
 
 **Cycle de vie d'auth.** `password_reset_token_hash` + `password_reset_expires_at` permettent un parcours
 de reset (le token est stocke hashe, le token brut est envoye par e-mail une seule fois). La resistance au brute-force utilise
@@ -975,8 +1000,10 @@ dans une table separee des compteurs de connexion. La dimension est l'acteur (et
 contournable par rotation, ni l'IP, qui penaliserait tous les equipiers d'un poste partage) ; le verrou
 est un backoff degressif aux bornes propres (PIN_THROTTLE_*). Meme purge cron que `login_throttle`. RG-T22.
 
-References : `docs/notes/revue-alignement-p1.md` §7 (decisions D), carte d'impact security-by-design
-(2026-06-11). Modele de menace et matrice de classification des donnees : `PROJECT_CONTEXT.md` §19 (a venir).
+References : `docs/journal/2026-06-04--conception-prodlike-revision.md` (decisions D1-D3) et
+`docs/journal/2026-06-04--p1-merise-v0.2-rewrite-and-forgejo-migration.md` (decisions D4-D8 + stock),
+carte d'impact security-by-design (2026-06-11). Modele de menace et matrice de classification des
+donnees : `PROJECT_CONTEXT.md` §19 (a venir).
 
 ### Note 14 — Colonnes additives post-v0.3 (migrations 0003 / 0005 / 0006 / 0007)
 
@@ -1102,8 +1129,11 @@ classification deja posee, y compris une correction faite a la main) ; le seed
 neuve (verifie par test, migration et seed doivent s'accorder). La correspondance
 categorie -> familles, en revanche, ne peut pas vivre dans une migration : les
 migrations s'executent avant tous les seeds (`category` serait encore vide a ce
-moment-la) — elle vit dans le seed `0010_ingredient_families.sql`, hors
-`seeds_applied`, qui s'applique aussi bien a l'init qu'en reprise.
+moment-la) — elle vit dans le seed `0010_ingredient_families.sql`, suivi comme
+tout seed dans `seeds_applied` (par nom de fichier, meme mecanisme que les autres) :
+une installation neuve l'applique au premier passage du runner, une installation
+existante l'applique au prochain rejeu puisqu'il ne figure pas encore dans sa table
+de suivi.
 
 **Limite de modelisation resolue en passant.** `docs/adr/0015-allergenes-calcules-par-produit.md`
 (consequences) documentait que "Gobelet" est porte comme ingredient de recette (pour le
@@ -1132,7 +1162,7 @@ Reference : `db/migrations/0017_ingredient_family.sql`,
 | 7 | `product_ingredient` | join | nouveau — recette + metadonnees de personnalisation |
 | 8 | `allergen` | reference | nouveau — INCO 1169/2011 |
 | 9 | `ingredient_allergen` | join | nouveau — mappe les allergenes aux ingredients |
-| 10 | `customer_order` | business | v0.1 `commande` (renommee, machine a 4 etats, timestamps de phase) |
+| 10 | `customer_order` | business | v0.1 `commande` (renommee, machine a 6 etats, timestamps de phase) |
 | 11 | `order_item` | business | v0.1 `ligne_commande` (+ format, vat_rate_snapshot) |
 | 12 | `order_item_selection` | business | nouveau — choix de slot de menu du client |
 | 13 | `order_item_modifier` | business | nouveau — modifications au niveau ingredient |

@@ -137,17 +137,27 @@ le `REQUEST_URI` intact).
 
 ```
 src/app/
-  Core/          Autoloader, Config, Database (PDO), Request, Response, Router
+  Core/          Autoloader, Config, Database (PDO), Request, Response, Router (routes.php),
+                 Cors, Asset, ErrorResponse/ErrorDisplay, Money, NumericInput
   Auth/          AuthService, SessionManager, SessionGuard, Authorizer, PinVerifier,
-                 PinThrottle, ThrottlePolicy, PasswordHasher, Csrf, PasswordResetService,
-                 UserRepository, RoleRepository, UserDirectory, Mailer/LogMailer
-  Catalogue/     Category / Product / Menu / Ingredient / Stats Repository
+                 PinGate, PinThrottle, ThrottlePolicy, PasswordHasher, Csrf,
+                 PasswordResetService, UserRepository, RoleRepository, UserDirectory,
+                 Mailer/LogMailer/SmtpMailer
+  Catalogue/     Category / Product / Menu / Ingredient / Allergen / Stats /
+                 CategoryIngredientFamily Repository, OpenFoodFactsGateway,
+                 ProductImportService
+  Order/         OrderRepository (creation, encaissement, transitions), OrderQueryRepository
+                 (files KDS/comptoir/drive, stats), OrderValidationException
+  Health/        RouteMap, RouteSecurity, Probes, HealthReport, CapturedResponses
+                 (page Sante /admin/health)
   Controllers/   Admin (base), Authenticated (base), Auth, PasswordReset, Profile, Me,
                  Dashboard, Stats, Category, Product, Menu, Ingredient, User, Role,
-                 Health, Home
+                 Health, HealthPage, Home, Order (Admin), CounterOrder, Kitchen, Privacy
+    Admin/Api/   10 controleurs JSON : Auth, Category, Health, Ingredient, Menu, Order,
+                 Product, Role, Stats, User (+ JsonApiTrait partage)
   Views/         admin/*  (pages back-office rendues serveur), auth/*  (login/reset)
 src/public/
-  admin/         front controller + assets (CSS/JS) du back-office
+  admin/         front controller (`index.php`) + assets (CSS/JS) du back-office
   borne/         front kiosk statique (index, categories, products, payment,
                  confirmation ; panier en panneau persistant) + assets JS modules
 ```
@@ -213,7 +223,9 @@ Couche transverse, regles `RG-T*` definies dans `docs/merise/mlt.md`. Synthese :
   qui echoue -> **422** ; CSRF/permission -> **403**.
 - **RGPD** : anonymisation (mlt 10.5) qui conserve la ligne (tombstone) pour preserver
   les FK et la trace d'audit, en vidant la PII ; purges de retention par `wakdo-cron`
-  (audit_log, throttle, sessions, commandes).
+  (`audit_log`, compteurs de throttle) et expiration des commandes restees en attente
+  de paiement. La purge des sessions et l'agregation de stats restent des templates
+  commentes dans `docker/cron/crontab`, non actifs.
 - **Isolation** : pas de port hote en mode prod (acces par le proxy) ; user applicatif
   MariaDB en moindre privilege (DDL reserve au runner migrate root ; cf.
   `db/init/10-scope-app-user.sh`).
@@ -224,10 +236,12 @@ Threat model STRIDE + classification des donnees : `docs/PROJECT_CONTEXT.md` sec
 
 ## 8. Modele de donnees
 
-22 tables (DDL `db/migrations/`), regroupees par domaine :
+23 tables (DDL `db/migrations/`), regroupees par domaine :
 
 - **Catalogue** : `category`, `product`, `menu`, `menu_slot`, `menu_slot_option`,
-  `ingredient`, `product_ingredient`, `allergen`, `ingredient_allergen`, `stock_movement`.
+  `ingredient`, `product_ingredient`, `allergen`, `ingredient_allergen`, `stock_movement`,
+  `category_ingredient_family` (parametrage du constructeur de recette, migration
+  `0017_ingredient_family.sql`).
 - **RBAC / comptes** : `user`, `role`, `permission`, `role_permission`,
   `role_visible_source`.
 - **Commande (livre)** : `customer_order`, `order_item`,
@@ -257,10 +271,13 @@ MCD / MLD / dictionnaire : `docs/merise/`.
   `docker run --rm -v "$PWD":/app -w /app wakdo-wakdo-app php phpunit.phar -c phpunit.xml`.
 - **Front borne** : `node --test` + jsdom (`tests/js/`).
 - **PHPStan niveau 6** (`.phar`).
-- **CI Forgejo Actions** (`.forgejo/workflows/ci.yml`) : `secret-scan` (gitleaks),
-  `php-lint`, `static-tests` (PHPStan + PHPUnit avec service MariaDB ephemere migre +
-  seede), `js-tests` (Node 20). Fusion par auto-merge NATIF Forgejo (squash,
-  `merge_when_checks_succeed`) des que les checks requis sont verts — pas de job de merge.
+- **CI Forgejo Actions** (`.forgejo/workflows/ci.yml`, cinq travaux) : `secret-scan`
+  (gitleaks), `php-lint`, `static-tests` (PHPStan + PHPUnit avec service MariaDB
+  ephemere migre + seede), `js-tests` (Node 20), `shell-tests` (fonctions pures du
+  filet instantane/remise a zero de la demo, `tests/shell/`). Fusion par auto-merge
+  NATIF Forgejo (squash, `merge_when_checks_succeed`) des que les checks requis sont
+  verts — pas de job de merge. Le deploiement continu (`.forgejo/workflows/deploy.yml`,
+  deux travaux `cle-de-deploiement` + `deploiement`) se declenche sur push `main`.
 - **Branch protection** : `dev` et `main` proteges (PR requise, force-push bloque,
   checks requis).
 

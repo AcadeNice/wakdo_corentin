@@ -109,7 +109,8 @@ npm run test:js      # node --test tests/js/
 - **Statuts HTTP** : conflit -> 409 ; validation -> 422 ; CSRF/permission -> 403.
 - **Pas d'emoji** dans le code, les commits, les specs (Mantra IA-23).
 
-Detail par entite : `docs/merise/` et `docs/domaines/` (a venir).
+Detail par entite : `docs/merise/` et `docs/domaines/` (un fichier par domaine metier :
+auth, borne, catalogue, commande...).
 
 ---
 

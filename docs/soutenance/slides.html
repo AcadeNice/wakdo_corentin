@@ -127,12 +127,12 @@
           <li>Panier, paiement simule (numero de commande)</li>
           <li>Back-office de gestion (RBAC)</li>
           <li>File cuisine (KDS) + stock</li>
+          <li>Upload d'images produits</li>
         </ul></div>
       <div class="card"><h3 style="color:#f87272">Hors perimetre (assume)</h3>
         <ul class="x muted">
           <li>Paiement bancaire reel</li>
           <li>Compte fidelite, multi-langue, hors-ligne</li>
-          <li>Upload d'images produits</li>
           <li>Monitoring Prometheus, Kubernetes</li>
         </ul></div>
     </div>
@@ -148,12 +148,12 @@
           Source de verite unique : PROJECT_CONTEXT.md + dossier merise/.</p></div>
       <div class="card"><h3>TDD</h3>
         <p class="muted">Tests avant code sur les chemins critiques
-          (commande, stock, securite). ~498 methodes de test PHP.</p></div>
+          (commande, stock, securite). 1 295 methodes de test PHP.</p></div>
       <div class="card"><h3>Git discipline</h3>
-        <p class="muted">161 commits Conventional, branches feat/*, PR vers dev,
+        <p class="muted">242 commits Conventional, branches feat/*, PR vers dev,
           hooks protegeant main/dev.</p></div>
       <div class="card"><h3>Tracabilite</h3>
-        <p class="muted">12 ADR (decisions datees) + 11 entrees de journal de bord.
+        <p class="muted">20 ADR (decisions datees) + 16 entrees de journal de bord.
           Transparence IA portee dans la doc.</p></div>
     </div>
   </section>
@@ -205,6 +205,7 @@
           <li>Cibles tactiles larges, contrastes</li>
           <li>Navigation au clavier</li>
           <li>Information non portee par la seule couleur</li>
+          <li><b>Mesure</b> : 19 ecrans, 935 mesures de contraste, 0 violation (axe-core)</li>
         </ul></div>
       <div class="card"><h3>HTML semantique + SEO (Cr 1.e)</h3>
         <ul class="muted">
@@ -221,7 +222,8 @@
     <div class="two">
       <div>
         <p class="muted">HTML5 + CSS3 + JavaScript ES6+ modulaire.
-          <b>Zero dependance</b> : ni jQuery, ni framework, ni bundler. ~2 370 lignes JS.</p>
+          <b>Zero dependance</b> : ni jQuery, ni framework, ni bundler.
+          3 311 lignes JS sur 21 modules (borne).</p>
         <ul class="muted">
           <li><code>data.js</code> - recuperation catalogue (fetch)</li>
           <li><code>state.js</code> - panier en localStorage</li>
@@ -253,14 +255,14 @@
 
   <!-- 13 MERISE -->
   <section class="slide">
-    <h2>Modele de donnees Merise - 22 entites</h2>
+    <h2>Modele de donnees Merise - 23 entites</h2>
     <div class="grid" style="flex:1;grid-template-columns:repeat(3,1fr)">
-      <div class="card"><h3>Catalogue</h3><p class="muted">category, product, menu, menu_slot, menu_slot_option</p></div>
+      <div class="card"><h3>Catalogue</h3><p class="muted">category, product, menu, menu_slot, menu_slot_option, category_ingredient_family</p></div>
       <div class="card"><h3>Ingredients & Stock</h3><p class="muted">ingredient, product_ingredient, allergen, ingredient_allergen, stock_movement</p></div>
       <div class="card"><h3>Order</h3><p class="muted">customer_order, order_item, order_item_selection, order_item_modifier</p></div>
       <div class="card"><h3>RBAC</h3><p class="muted">user, role, permission, role_permission, role_visible_source</p></div>
       <div class="card"><h3>Security-by-design</h3><p class="muted">audit_log, login_throttle, pin_throttle</p></div>
-      <div class="card center"><p class="big">6 migrations<br>6 seeds</p><p class="muted">idempotentes</p></div>
+      <div class="card center"><p class="big">17 migrations<br>10 seeds</p><p class="muted">idempotentes</p></div>
     </div>
   </section>
 
@@ -274,6 +276,8 @@ GET  /api/orders/{n}        -> consultation statut</div>
     <p class="muted" style="margin-top:2vh">Routeur maison (methode + chemin -> controleur).
       Enveloppe standard <code>{ data }</code> / <code>{ data:null, error }</code>.
       Codes coherents : 201, 200, 409 conflit, 422 validation, 403 permission/CSRF, 404.</p>
+    <p class="muted"><b>Page Sante</b> (<code>/admin/health</code>) : carte vivante des
+      158 routes rangee par action, trajet d'une requete aux reponses reelles.</p>
   </section>
 
   <!-- 15 SECURITE TRIO -->
@@ -295,17 +299,22 @@ GET  /api/orders/{n}        -> consultation statut</div>
 
   <!-- 16 ETATS COMMANDE -->
   <section class="slide">
-    <h2>Machine a etats - 4 etats</h2>
+    <h2>Machine a etats - 6 etats</h2>
     <div class="flow" style="margin:3vh 0">
       <div class="pill">pending_payment</div>
       <span class="arrow">&rarr;</span>
       <div class="pill">paid <span class="muted">(+ decrement stock)</span></div>
       <span class="arrow">&rarr;</span>
+      <div class="pill">preparing</div>
+      <span class="arrow">&rarr;</span>
+      <div class="pill">ready</div>
+      <span class="arrow">&rarr;</span>
       <div class="pill">delivered</div>
       <span style="margin-left:2vw" class="muted">+ cancelled</span>
     </div>
-    <p class="muted">Pas de cycle preparing/ready inutile pour ce perimetre.
-      Simplicite + immuabilite des snapshots (libelle, prix, TVA figes a la commande).</p>
+    <p class="muted">preparing et ready sont optionnels et visibles au KDS (retour oral,
+      migration 0009) : ready accepte aussi paid en direct, deliver accepte
+      paid|preparing|ready. Immuabilite des snapshots (libelle, prix, TVA figes a la commande).</p>
   </section>
 
   <!-- 17 RBAC + PIN -->
@@ -340,36 +349,37 @@ GET  /api/orders/{n}        -> consultation statut</div>
 
   <!-- 19 CI/CD -->
   <section class="slide">
-    <h2>CI/CD - pipeline Forgejo</h2>
+    <h2>CI/CD - pipeline Forgejo - 5 travaux + deploiement</h2>
     <div class="flow" style="margin:3vh 0;font-size:2vh">
       <div class="pill">secret-scan<br><span class="muted">gitleaks</span></div>
       <span class="arrow">&rarr;</span>
       <div class="pill">php-lint</div>
       <span class="arrow">&rarr;</span>
-      <div class="pill">PHPStan<br><span class="muted">niveau 6</span></div>
-      <span class="arrow">&rarr;</span>
-      <div class="pill">PHPUnit<br><span class="muted">MariaDB ephemere</span></div>
+      <div class="pill">static-tests<br><span class="muted">PHPStan niveau 6 + PHPUnit</span></div>
       <span class="arrow">&rarr;</span>
       <div class="pill">js-tests</div>
+      <span class="arrow">&rarr;</span>
+      <div class="pill">shell-tests</div>
     </div>
-    <p class="muted">A chaque PR. Auto-merge en squash quand les checks requis passent au vert.
-      "La meme commande qui marche sur ma machine est celle qui deploie."</p>
+    <p class="muted">A chaque PR (<code>ci.yml</code>). Auto-merge en squash quand les checks
+      requis passent au vert. Deploiement continu separe (<code>deploy.yml</code>) sur
+      <code>main</code> : "la meme commande qui marche sur ma machine est celle qui deploie."</p>
   </section>
 
   <!-- 20 CHIFFRES -->
   <section class="slide">
     <h2>Le projet en chiffres</h2>
     <div class="kpis" style="margin-bottom:1.6vh">
-      <div class="kpi"><b>161</b><span>commits Conventional</span></div>
-      <div class="kpi"><b>~498</b><span>methodes de test PHP</span></div>
-      <div class="kpi"><b>22</b><span>entites Merise</span></div>
+      <div class="kpi"><b>242</b><span>commits Conventional</span></div>
+      <div class="kpi"><b>1 295</b><span>methodes de test PHP</span></div>
+      <div class="kpi"><b>23</b><span>entites Merise</span></div>
       <div class="kpi"><b>22</b><span>regles securite RG-T</span></div>
     </div>
     <div class="kpis">
       <div class="kpi"><b>5</b><span>conteneurs Docker</span></div>
-      <div class="kpi"><b>12</b><span>ADR</span></div>
-      <div class="kpi"><b>11</b><span>entrees journal</span></div>
-      <div class="kpi"><b>~15k</b><span>lignes PHP</span></div>
+      <div class="kpi"><b>20</b><span>ADR</span></div>
+      <div class="kpi"><b>16</b><span>entrees journal</span></div>
+      <div class="kpi"><b>~27k</b><span>lignes PHP</span></div>
     </div>
   </section>
 
@@ -379,7 +389,7 @@ GET  /api/orders/{n}        -> consultation statut</div>
     <table>
       <tr><th>Bloc</th><th>Demontre par</th><th>Preuve</th></tr>
       <tr><td><span class="tag b1">B1 Front</span></td><td>Demo borne, accessibilite, JS vanilla</td><td>5 pages + modules JS</td></tr>
-      <tr><td><span class="tag b2">B2 Back</span></td><td>Merise, API REST, securite by-design</td><td>22 entites + RG-T + tests</td></tr>
+      <tr><td><span class="tag b2">B2 Back</span></td><td>Merise, API REST, securite by-design</td><td>23 entites + RG-T + tests</td></tr>
       <tr><td><span class="tag b5">B5 DevOps</span></td><td>Docker une commande, CI/CD, crons</td><td>5 services + pipeline Forgejo</td></tr>
     </table>
     <p class="muted" style="margin-top:2vh">Seuil : 50 % minimum par bloc et 50 % de moyenne globale.</p>
@@ -396,9 +406,7 @@ GET  /api/orders/{n}        -> consultation statut</div>
         </ul></div>
       <div class="card"><h3>A poursuivre</h3>
         <ul class="muted">
-          <li>Categories dynamiques cote borne</li>
-          <li>Allergenes par produit</li>
-          <li>Gate de couverture CI, CD automatique</li>
+          <li>Gate de couverture de tests en CI (seuil chiffre, pas encore active)</li>
         </ul></div>
     </div>
     <p class="muted">Un modele pose tot et une securite des la conception coutent moins cher qu'ajoutes apres.</p>

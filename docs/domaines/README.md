@@ -13,6 +13,6 @@ routes), **regles metier** (RG-T* de `docs/merise/mlt.md`), **decisions** (renvo
 | Stock & recettes (ingredients) | [stock-recettes.md](stock-recettes.md) | Livre (P3) |
 | Comptes utilisateurs | [users.md](users.md) | Livre (P3) |
 | RBAC (roles & permissions) | [rbac.md](rbac.md) | Livre (P3) |
-| Statistiques | [stats.md](stats.md) | Livre (P3, KPIs vente differes P4) |
-| Borne (kiosk) | [borne.md](borne.md) | Front P5 (API au swap P4) |
-| Commande | — | P4 (schema pret, workflow a venir) |
+| Statistiques | [stats.md](stats.md) | Livre (P3 catalogue/stock, P4 KPIs de vente) |
+| Borne (kiosk) | [borne.md](borne.md) | Livre (P5, API au swap P4) |
+| Commande | [commande.md](commande.md) | Livre (P4) |
