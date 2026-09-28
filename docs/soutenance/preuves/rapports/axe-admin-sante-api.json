@@ -1,7 +1,7 @@
 {
   "page": "admin-sante-api",
   "url": "http://admin.wakdo.test/admin/health",
-  "date": "2026-09-27T16:20:48.291Z",
+  "date": "2026-09-28T10:03:08.393Z",
   "moteur": {
     "axe": {
       "name": "axe-core",
@@ -401,7 +401,7 @@
     {
       "compartiment": "conforme",
       "selecteur": "#health-etat > .health-section-lede",
-      "extrait": "<p class=\"health-section-lede\">Généré le 27/09/2026 18:20:45, puis relu automatiquement toutes les 1",
+      "extrait": "<p class=\"health-section-lede\">Généré le 28/09/2026 12:03:05, puis relu automatiquement toutes les 1",
       "avant_plan": "#69707d",
       "arriere_plan": "#f5f5f5",
       "ratio": 4.57,
@@ -434,7 +434,7 @@
     {
       "compartiment": "conforme",
       "selecteur": "#health-db-detail",
-      "extrait": "<p class=\"health-kpi-detail\" id=\"health-db-detail\">0.1 ms · 11.4.10-MariaDB-ubu2404</p>",
+      "extrait": "<p class=\"health-kpi-detail\" id=\"health-db-detail\">0.3 ms · 11.4.10-MariaDB-ubu2404</p>",
       "avant_plan": "#69707d",
       "arriere_plan": "#ffffff",
       "ratio": 4.98,
@@ -610,7 +610,7 @@
     {
       "compartiment": "conforme",
       "selecteur": "#health-refresh-time",
-      "extrait": "<time id=\"health-refresh-time\">27/09/2026 18:20:45</time>",
+      "extrait": "<time id=\"health-refresh-time\">28/09/2026 12:03:05</time>",
       "avant_plan": "#69707d",
       "arriere_plan": "#f5f5f5",
       "ratio": 4.57,
@@ -743,11 +743,11 @@
   "conformes_resume": [
     {
       "id": "aria-allowed-attr",
-      "noeuds": 280
+      "noeuds": 282
     },
     {
       "id": "aria-conditional-attr",
-      "noeuds": 280
+      "noeuds": 282
     },
     {
       "id": "aria-deprecated-role",
@@ -763,7 +763,7 @@
     },
     {
       "id": "aria-prohibited-attr",
-      "noeuds": 280
+      "noeuds": 282
     },
     {
       "id": "aria-required-attr",
@@ -775,11 +775,11 @@
     },
     {
       "id": "aria-valid-attr",
-      "noeuds": 280
+      "noeuds": 282
     },
     {
       "id": "aria-valid-attr-value",
-      "noeuds": 280
+      "noeuds": 282
     },
     {
       "id": "autocomplete-valid",
@@ -803,7 +803,7 @@
     },
     {
       "id": "duplicate-id-aria",
-      "noeuds": 16
+      "noeuds": 18
     },
     {
       "id": "form-field-multiple-labels",
@@ -827,7 +827,7 @@
     },
     {
       "id": "link-name",
-      "noeuds": 25
+      "noeuds": 26
     },
     {
       "id": "list",

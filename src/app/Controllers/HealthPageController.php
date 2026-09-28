@@ -6,6 +6,7 @@ namespace App\Controllers;
 
 use App\Auth\Csrf;
 use App\Core\Response;
+use App\Health\CapturedResponses;
 use App\Health\HealthReport;
 use App\Health\Probes;
 use App\Health\RouteMap;
@@ -43,6 +44,7 @@ class HealthPageController extends AdminController
             'report'     => $this->healthReport()->build(),
             'routes'     => RouteMap::rows(),
             'probes'     => Probes::all(),
+            'responses'  => CapturedResponses::load(),
             'csrfToken'  => Csrf::token($this->sessionManager()),
         ], $guard);
     }

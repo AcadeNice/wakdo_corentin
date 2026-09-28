@@ -3294,6 +3294,13 @@ details.form-advanced > summary:focus-visible {
     line-height: 1.6; white-space: pre-wrap; word-break: break-word; color: var(--h-ink-2); background: var(--h-surface-2);
     border-bottom: 1px solid var(--h-line);
 }
+/* Provenance de la réponse du trajet (appel réel ou réponse capturée) et requête envoyée. */
+.health-resp-source { margin: 0; padding: 10px var(--space-4); font-size: var(--text-sm); color: var(--h-ink-2); border-bottom: 1px solid var(--h-line); }
+.health-resp-source:empty { display: none; }
+.health-req-label { margin: 0; padding: 10px var(--space-4) 0; font-family: var(--h-mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--h-muted); }
+.health-req { max-height: 16rem; overflow: auto; }
+.health-side .health-body:empty { display: none; }
+.health-req-label:has(+ .health-req:empty) { display: none; }
 .health-notes { padding: 12px var(--space-4) var(--space-4); display: grid; gap: 8px; font-size: var(--text-base); color: var(--h-ink-2); }
 .health-notes p { margin: 0; }
 .health-notes__k { font-family: var(--h-mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--h-muted); display: block; margin-bottom: 2px; }

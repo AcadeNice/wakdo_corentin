@@ -104,7 +104,7 @@ distincts**, et les confondre serait une erreur qu'un jury technique reperera.
 
 | Mesure | Outil | Resultat | Source |
 |---|---|---|---|
-| Audit d'accessibilite | axe-core 4.13.0 via Playwright, regles WCAG 2.0 A/AA et WCAG 2.1 A/AA | **19 ecrans** (6 borne, 13 back-office), **0 violation** toutes gravites, **946 rapports de contraste**, **0 sous le seuil**, minimum releve **3,59**. Resolutions : 1080x1920 pour la borne, 1440x900 pour le back-office. **Un seul role : administrateur** | `docs/soutenance/preuves/rapports/resume.json`, campagne du 2026-09-27 |
+| Audit d'accessibilite | axe-core 4.13.0 via Playwright, regles WCAG 2.0 A/AA et WCAG 2.1 A/AA | **19 ecrans** (6 borne, 13 back-office), **0 violation** toutes gravites, **935 rapports de contraste**, **0 sous le seuil**, minimum releve **3,59**. Resolutions : 1080x1920 pour la borne, 1440x900 pour le back-office. **Un seul role : administrateur** | `docs/soutenance/preuves/rapports/resume.json`, campagne du 2026-09-28 |
 | Balayage de mise en page et d'ergonomie | outil ecrit pour le projet (`tests/e2e/backoffice-sweep/`), 12 familles de verifications | **4 807 verifications, 0 echec** - 5 roles connectes plus l'etat non connecte, toutes les pages atteignables (111 pages-roles), **4 largeurs** (1366, 1024, 768, 390 px). Trajectoire : **104 echecs avant la refonte, 11 apres le premier lot, 0 le 26/09 ; le 28/09, 3 echecs sur la page Sante, qui n'avait pas encore ete balayee, corriges (#183), 0 a nouveau** | mesure du 2026-09-28 sur `1ccc9db` plus la correction #183. Les sorties de cet outil ne sont pas versionnees : le relancer pour produire le rapport |
 | Canal auxiliaire par le temps sur la connexion | mesure directe des 4 chemins | compte inexistant 257,4 ms / mot de passe faux 251,4 ms / compte verrouille 253,3 ms / connexion reussie 252,6 ms. **Ecart maximal 6,0 ms pour un bruit de mesure de 13,8 ms** | mesure du 2026-09-26 |
 
@@ -303,7 +303,7 @@ Distinguer clairement les deux outils - c'est ce qui montre qu'on sait ce qu'on 
 
 - **axe-core 4.13.0**, pilote par Playwright dans un vrai navigateur, sur les regles
   WCAG 2.0 niveaux A et AA et les ajouts WCAG 2.1 niveaux A et AA. Resultat :
-  **19 ecrans**, **0 violation** toutes gravites, **946 rapports de contraste**,
+  **19 ecrans**, **0 violation** toutes gravites, **935 rapports de contraste**,
   **0 sous le seuil**, minimum releve **3,59**.
   Pourquoi un vrai navigateur et pas un rendu simule : sans rendu, il n'y a ni couleur
   calculee ni geometrie, donc aucun rapport de contraste calculable. C'est la raison
@@ -827,7 +827,7 @@ bonne reponse est *"le code fait foi, et voici pourquoi le document a pris du re
 | Services conteneurises | 4 en section 16, 5 ailleurs | **5**, dont un a execution unique. |
 | Regles transverses | "RG-T13 a RG-T21" en introduction de la section 19 | **22 regles**, RG-T22 comprise. |
 | Auditabilite des echanges avec l'IA | Annoncee en section 17.9 | Les journaux ne sont pas versionnes (section 17.6). Ne pas promettre cette preuve. |
-| Mesures de contraste | 407 (fiches 06 et README des preuves) | **946** dans l'artefact `rapports/resume.json` du 27 septembre ; la section de remesure de la fiche 06 et le README des preuves portent 946. |
+| Mesures de contraste | 407 (fiches 06 et README des preuves) | **935** dans l'artefact `rapports/resume.json` du 28 septembre ; la fiche 06 explique l'ecart avec les 946 du 27 (l'apercu d'import affichait alors le defaut des accents, corrige par #178). |
 
 **Deux points a verifier avant le 5 octobre**, non verifiables depuis le depot mais
 lisibles en direct par le jury :
@@ -965,7 +965,7 @@ retention automatisees : journal d'audit environ 12 mois, compteurs de tentative
 **Q3.1 - Qu'est-ce qui vous permet de dire que votre site est accessible ?**
 Je ne dis pas qu'il est accessible : je dis qu'il ne porte aucune violation detectable
 automatiquement. axe-core 4.13.0 sur les regles WCAG 2.0 A/AA et 2.1 A/AA, 19 ecrans,
-0 violation toutes gravites, 946 rapports de contraste, 0 sous le seuil. Et 4 807
+0 violation toutes gravites, 935 rapports de contraste, 0 sous le seuil. Et 4 807
 verifications sans echec au balayage de mise en page, sur 5 roles et 4 largeurs.
 
 **Q3.2 - Quelle est la limite de votre audit ?** **(rude)**

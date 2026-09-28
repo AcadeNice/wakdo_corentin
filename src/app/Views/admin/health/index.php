@@ -38,6 +38,9 @@ $attr = static fn (mixed $data): string => htmlspecialchars((string) json_encode
 $rep = isset($report) && is_array($report) ? $report : [];
 /** @var list<array<string, mixed>> $routeRows */
 $routeRows = isset($routes) && is_array($routes) ? $routes : [];
+// Reponses reelles capturees (App\Health\CapturedResponses) : lues par le trajet quand
+// il ne peut pas faire l'appel lui-meme. Absentes -> objet vide, et la page le dit.
+$capturedResponses = isset($responses) && is_array($responses) ? $responses : ['routes' => new \stdClass()];
 /** @var list<array<string, mixed>> $probeRows */
 $probeRows = isset($probes) && is_array($probes) ? $probes : [];
 $csrf = htmlspecialchars($csrfToken ?? '', ENT_QUOTES, 'UTF-8');
@@ -77,6 +80,7 @@ $activityKnown = array_key_exists('orders_created', $activity) && $activity['ord
 ?>
 <div class="health-page"
      data-routes="<?= $attr($routeRows) ?>"
+     data-responses="<?= $attr($capturedResponses) ?>"
      data-probes="<?= $attr($probeRows) ?>"
      data-csrf-token="<?= $csrf ?>">
 
@@ -266,7 +270,7 @@ $activityKnown = array_key_exists('orders_created', $activity) && $activity['ord
          ============================================================ -->
     <section class="health-section" id="health-trajet" aria-labelledby="h-health-trajet">
         <h2 id="h-health-trajet">Le trajet d'un appel</h2>
-        <p class="health-section-lede">Cinq appels types pour démarrer. N'importe quelle route de la carte plus bas se charge ici d'un clic. Clique un code de refus sous une étape pour simuler ce refus.</p>
+        <p class="health-section-lede">Cinq appels types pour démarrer. N'importe quelle route de la carte plus bas se charge ici d'un clic. Les réponses sont réelles : une lecture est envoyée au serveur quand tu lances l'appel ; une écriture, qui modifierait les données, n'est jamais envoyée depuis cette page, et le trajet montre la réponse obtenue pour de vrai sur une pile de test. Clique un code de refus sous une étape pour voir ce refus.</p>
 
         <noscript><p class="health-noscript">Active JavaScript pour suivre le trajet d'un appel étape par étape.</p></noscript>
 
@@ -291,7 +295,10 @@ $activityKnown = array_key_exists('orders_created', $activity) && $activity['ord
                         <span class="pill" id="health-status">—</span>
                         <span class="health-resp-where" id="health-respwhere"></span>
                     </div>
+                    <p class="health-resp-source" id="health-respsource"></p>
                     <pre class="health-body" id="health-respbody"></pre>
+                    <p class="health-req-label">Requête envoyée</p>
+                    <pre class="health-body health-req" id="health-reqbody"></pre>
                     <div class="health-notes" id="health-notes"></div>
                 </div>
             </aside>
@@ -400,7 +407,7 @@ $activityKnown = array_key_exists('orders_created', $activity) && $activity['ord
             <li>Permission exacte de chaque route de l'API d'administration, figée par un test : <a href="https://git.acadenice.com/AcadeNice/corentin_wakdo/src/branch/dev/tests/Unit/Admin/Api/RouteMatrixTest.php">tests/Unit/Admin/Api/RouteMatrixTest.php</a></li>
             <li>Frontière des deux sites : <a href="https://git.acadenice.com/AcadeNice/corentin_wakdo/src/branch/dev/docker/apache/vhost.conf">docker/apache/vhost.conf</a> · gardes JSON : <a href="https://git.acadenice.com/AcadeNice/corentin_wakdo/src/branch/dev/src/app/Controllers/Admin/Api/JsonApiTrait.php">JsonApiTrait.php</a> · code personnel : <a href="https://git.acadenice.com/AcadeNice/corentin_wakdo/src/branch/dev/src/app/Auth/PinGate.php">PinGate.php</a></li>
         </ul>
-        <p>Les corps de réponse affichés dans le trajet montrent la forme de l'enveloppe et les messages réels du code, pas des données de production.</p>
+        <p>Les réponses du trajet sont réelles : envoyées depuis cette page pour une lecture, ou capturées sur une pile de test jetable, jamais sur la production, pour une écriture (<a href="https://git.acadenice.com/AcadeNice/corentin_wakdo/src/branch/dev/tests/e2e/health-capture.spec.js">tests/e2e/health-capture.spec.js</a>). La date et le commit de la capture sont indiqués sous chaque réponse capturée.</p>
     </footer>
 </div>
 <script src="<?= $asset('/assets/js/health.js') ?>"></script>
