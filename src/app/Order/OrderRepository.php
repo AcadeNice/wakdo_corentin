@@ -29,6 +29,9 @@ use App\Core\DatabaseInterface;
  */
 class OrderRepository
 {
+    /** Largeur de customer_order.idempotency_key (VARCHAR(36), migration 0001) : un UUID. */
+    private const IDEMPOTENCY_KEY_MAX = 36;
+
     public function __construct(
         private readonly DatabaseInterface $db,
         private readonly ProductRepository $products,
@@ -106,7 +109,7 @@ class OrderRepository
      */
     public function createPending(array $req): array
     {
-        $key = trim((string) ($req['idempotency_key'] ?? ''));
+        $key = $this->idempotencyKey($req);
         $existing = $this->findByIdempotencyKey($key);
         if ($existing !== null) {
             // La cle est deja connue. Ce qu'on en fait depend de l'etat de la commande
@@ -305,7 +308,7 @@ class OrderRepository
      */
     private function persist(array $req, string $source, string $prefix, ?int $actingUserId): array
     {
-        $key = trim((string) ($req['idempotency_key'] ?? ''));
+        $key = $this->idempotencyKey($req);
 
         [$serviceMode, $serviceTag] = $this->resolveHeader($req);
 
@@ -380,6 +383,23 @@ class OrderRepository
             . 'WHERE order_number = :n FOR UPDATE',
             ['n' => $orderNumber],
         );
+    }
+
+    /**
+     * Cle d'idempotence nettoyee. Une cle plus longue que sa colonne ferait echouer
+     * l'INSERT en base (erreur 500) : elle est refusee ici, comme une entree invalide.
+     *
+     * @param array<string, mixed> $req
+     * @throws OrderValidationException INVALID_IDEMPOTENCY_KEY
+     */
+    private function idempotencyKey(array $req): string
+    {
+        $key = trim((string) ($req['idempotency_key'] ?? ''));
+        if (mb_strlen($key) > self::IDEMPOTENCY_KEY_MAX) {
+            throw new OrderValidationException('INVALID_IDEMPOTENCY_KEY');
+        }
+
+        return $key;
     }
 
     /**
