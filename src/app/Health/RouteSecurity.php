@@ -7,7 +7,7 @@ namespace App\Health;
 /**
  * Source unique des exigences de securite par route (page "Sante de l'API").
  * Une ligne par route enregistree dans le routeur (src/app/Core/routes.php),
- * 157 au total. App\Health\RouteMap la fusionne avec App\Core\Router::routes()
+ * 158 au total. App\Health\RouteMap la fusionne avec App\Core\Router::routes()
  * pour construire la carte affichee ; les tests de securite (RouteMatrixTest,
  * les nouveaux tests sous tests/Unit/Health/Route*) la lisent comme reference,
  * au lieu de tabuler ces valeurs une seconde fois.

@@ -36,8 +36,9 @@ l'environnement "wakdo" (menu des environnements, en haut a droite).
 
 Aucun secret n'est present dans ces fichiers : `email`, `password`, `csrf` et `pin` sont vides
 par defaut (idem pour les variables `email_manager`/`password_manager`/... du dossier RBAC,
-section 5 ci-dessous), non versionnes en clair — a completer localement. Ajustez `baseUrl` si
-votre instance n'ecoute pas sur `http://localhost:8080`.
+section 5 ci-dessous), non versionnes en clair — a completer localement. `baseUrl` vaut par
+defaut `http://admin.localhost:8080` (vhost admin local, cf. `.env.example`) : ajustez-le si
+votre instance ecoute ailleurs.
 
 ## 2. Renseigner l'environnement puis se connecter
 
@@ -63,7 +64,7 @@ Postman de le reutiliser — cette restriction n'a de sens qu'entre origines dan
 NAVIGATEUR, pas dans un client API. La meme page precise aussi que `HttpOnly` "doesn't have
 an effect on Postman's behavior" (Postman peut stocker/rejouer un cookie `HttpOnly`, la
 restriction ne vise que `document.cookie` en JavaScript navigateur) et que `Secure`
-"restricts sending cookies to `https://` connections only" — sur `http://localhost:8080`
+"restricts sending cookies to `https://` connections only" — sur `http://admin.localhost:8080`
 (par defaut), notre cookie n'est justement pas marque `Secure` (`SessionManager::cookieSecure()`
 ne le pose que derriere une vraie connexion HTTPS), donc pas de probleme ici ; si vous pointez
 `baseUrl` sur un deploiement HTTPS, le cookie sera `Secure` ET la connexion sera elle-meme en
@@ -260,12 +261,10 @@ par l'inspection directe de la base apres plusieurs executions, cf. rapport E2E 
   decrementent le stock reel au moment de la creation et comptent dans les statistiques
   (`GET /admin/api/stats`) tant qu'elles ne sont pas retirees.
 
-**Consigne pour une demo en production** : si `scripts/demo-reset.sh` est present dans votre
-copie (voir `docs/ops/demo-reset.md` pour son usage exact), lancez-le juste apres la demo pour
-retirer ces effets de bord d'une base de production. S'il est absent, ne lancez PAS le
-dossier Commandes contre la production (les autres dossiers restent sans risque : ils
-suppriment ou desactivent deja ce qu'ils creent, section 4) — reservez Commandes a une pile
-jetable (section 6) tant que ce script n'est pas disponible. Sur une pile jetable justement,
+**Consigne pour une demo en production** : `scripts/demo-reset.sh` existe (voir
+`docs/ops/demo-reset.md` pour son usage exact) ; lancez-le juste apres la demo pour retirer ces
+effets de bord d'une base de production. Les autres dossiers restent sans risque (ils
+suppriment ou desactivent deja ce qu'ils creent, section 4). Sur une pile jetable (section 6),
 aucun nettoyage n'est requis dans tous les cas : la pile entiere est detruite ensuite.
 
 ## Limite connue : `clientIp()` derriere un mauvais proxy

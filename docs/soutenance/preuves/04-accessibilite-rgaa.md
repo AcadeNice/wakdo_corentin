@@ -29,26 +29,26 @@ Chaque affirmation est mappee au code de critere attendu (Cr 1.c.x) et sourcee e
 - **Image decorative neutralisee.** La photo de fond d'accueil porte `alt=""` **et** `aria-hidden="true"` : `index.html:52-57`. Le contenu utile vit dans la carte, l'image n'est donc pas annoncee.
 - **Logo.** Le logo d'en-tete porte `alt="Wakdo"` sur les pages concernees : `categories.html:27-31`, `products.html:31-35`, `payment.html:29-33`, `confirmation.html:22-26`.
 - **Icones SVG purement decoratives** marquees `aria-hidden="true"` + `focusable="false"` : SVG carte/especes de paiement `payment.html:61,77`, coche de confirmation `confirmation.html:34`.
-- **Images injectees dynamiquement.** Les cartes produit et categorie generees par JS recoivent un `alt` egal au nom de l'article. Le repli en cas d'echec de chargement passe par l'attribut `data-fallback`, lu par un ecouteur delegue au niveau du document — et non par un `onerror` en ligne, que la CSP stricte de la borne interdit : `page-products.js:81-87` et `page-categories.js:69-70` (`data-fallback="logo" data-fallback-alt="Image non disponible"`), coeur du repli `img-fallback.js:23-36`. L'icone corbeille du panneau de commande est decorative : `alt=""` + `aria-hidden="true"`, l'information etant portee par l'`aria-label` du bouton parent : `order-panel.js:132-139`.
+- **Images injectees dynamiquement.** Les cartes produit et categorie generees par JS recoivent un `alt` egal au nom de l'article. Le repli en cas d'echec de chargement passe par l'attribut `data-fallback`, lu par un ecouteur delegue au niveau du document — et non par un `onerror` en ligne, que la CSP stricte de la borne interdit : `page-products.js:128-136` et `page-categories.js:69-70` (`data-fallback="logo" data-fallback-alt="Image non disponible"`), coeur du repli `img-fallback.js:23-36`. L'icone corbeille du panneau de commande est decorative : `alt=""` + `aria-hidden="true"`, l'information etant portee par l'`aria-label` du bouton parent : `order-panel.js:132-139`.
 
 ### aria-label et roles sur les controles
 
 - **Liens-boutons d'accueil** : `role="button"` + `aria-label` explicite (`index.html:72-77`, `86-91`).
 - **Retours de navigation** : `aria-label="Retour a l'accueil"` (`categories.html:24`), `aria-label="Retour aux categories"` (`products.html:23-28`, `payment.html:22-26`).
-- **Cartes produit dynamiques** : `aria-label` combinant nom + prix, et `aria-disabled="true"` sur une tuile en rupture : `page-products.js:75-76`.
+- **Cartes produit dynamiques** : `aria-label` combinant nom + prix, et `aria-disabled="true"` sur une tuile en rupture : `page-products.js:122,126`.
 - **Stepper de quantite** dans le panneau commande : chaque groupe `role="group"` + `aria-label="Quantite de <libelle>"`, boutons `aria-label="Diminuer/Augmenter la quantite de <libelle>"`, retrait `aria-label="Retirer <libelle> de la commande"` : `order-panel.js:115-137`.
 - **Boutons de paiement** : `aria-label="Payer par carte bancaire"` / `aria-label="Payer en especes"` : `payment.html:58,74`.
 - **Bouton d'information allergenes** : `aria-label="Informations allergenes"` + `title` : `allergens.js:62-63`.
 
 ### Landmarks et regions vivantes
 
-- **Landmarks** sur chaque page : `main` avec `aria-label` (ex. `index.html:46`, `products.html:39`, `payment.html:37`, `confirmation.html:29`), `nav` etiquetees (`index.html:66`, `categories.html:53`, `products.html:41`).
-- **`aria-live`** : le panneau de commande annonce ses mises a jour (`aside ... aria-live="polite"`, `products.html:61`) ; la banniere de confirmation est un `role="status" aria-live="polite"` (`confirmation.html:31`) ; les blocs d'erreur sont `role="alert"` (`products.html:53`, `payment.html:46`).
+- **Landmarks** sur chaque page : `main` avec `aria-label` (ex. `index.html:76`, `products.html:57`, `payment.html:54`, `confirmation.html:46`), `nav` etiquetees (`index.html:110`, `categories.html:71`, `products.html:59`).
+- **`aria-live`** : le panneau de commande annonce ses mises a jour (`aside ... aria-live="polite"`, `products.html:84`) ; la banniere de confirmation est un `role="status" aria-live="polite"` (`confirmation.html:48`) ; les blocs d'erreur sont `role="alert"` (`products.html:76`, `payment.html:63`).
 - **`lang="fr"`** present sur les 5 pages (verifie : 1 occurrence par fichier).
 
 ### Correction recente de conformite ARIA
 
-Des `aria-label` avaient ete poses sur des `span`/`div` generiques (badge de mode, recap de paiement). Ils ont ete retires pour respecter la specification W3C/ARIA (un `aria-label` sur un element sans role semantique n'est pas fiable selon les navigateurs). Etat actuel verifie : les badges de mode ne portent plus que `data-mode-badge` et laissent le lecteur d'ecran annoncer le **texte visible reel** (`products.html:49`, `payment.html:34`). Le bloc recapitulatif de paiement conserve, lui, un `role="region"` legitime avec son `aria-label` (`payment.html:42`).
+Des `aria-label` avaient ete poses sur des `span`/`div` generiques (badge de mode, recap de paiement). Ils ont ete retires pour respecter la specification W3C/ARIA (un `aria-label` sur un element sans role semantique n'est pas fiable selon les navigateurs). Etat actuel verifie : les badges de mode ne portent plus que `data-mode-badge` et laissent le lecteur d'ecran annoncer le **texte visible reel** (`products.html:67`, `payment.html:51`). Le bloc recapitulatif de paiement conserve, lui, un `role="region"` legitime avec son `aria-label` (`payment.html:59`).
 
 **Verdict Cr 1.c.1 : conforme** sur le perimetre borne, avec une reserve honnete listee en section 8 (contenus dynamiques dependant du navigateur, non audites avec un lecteur d'ecran reel — [UNVERIFIED]).
 
@@ -62,7 +62,7 @@ Fonctionnalite complete, prevue **et** integree, avec bascule utilisateur persis
 - **`@font-face`** declares (poids 400 et 700) avec `font-display: swap` : `style.css` (cherchez « self-hosted under assets/fonts »).
 - **Bascule par classe racine.** `html.dys-font` redefinit `--font-family-base` vers la pile OpenDyslexic, appliquee a toute l'interface : `style.css` (cherchez « html.dys-font »).
 - **Module de bascule** `a11y.js` : lit la preference (`isDyslexiaEnabled`, l.27-33), applique/retire la classe sur `<html>` (`applyDyslexiaPreference`, l.40-44), persiste dans `localStorage` (`persistDyslexiaPreference`, l.51-59), construit un bouton `aria-pressed` refletant l'etat (`buildDyslexiaToggle`, l.68-98), injecte le bouton de facon idempotente (`initDyslexiaToggle`, l.106-125) et s'auto-initialise au `DOMContentLoaded` (l.129-131).
-- **Bouton present sur chaque ecran** : le tag `<script type="module" src="assets/js/a11y.js">` est charge par les 5 pages (`index.html:104`, `categories.html:62`, `products.html:68`, `payment.html:92`, `confirmation.html:70`).
+- **Bouton present sur chaque ecran** : le tag `<script type="module" src="assets/js/a11y.js">` est charge par les 5 pages (`index.html:155`, `categories.html:85`, `products.html:91`, `payment.html:109`, `confirmation.html:88`).
 - **Robustesse.** L'acces storage est encapsule en `try/catch` : mode prive ou quota indisponible retombe sur la police de base sans erreur (l.28-32, l.52-58).
 - **Style du bouton** : controle fixe en bas-gauche, `z-index` eleve, hors collision avec le bouton Retour et le panneau panier : `style.css` (cherchez « .a11y-toggle »).
 - **Tests unitaires** (jsdom, sans navigateur) : `tests/js/a11y.test.js` couvre lecture de preference, application de classe, injection idempotente, reflet `aria-pressed`, cycle de clic + persistance, et le cas storage qui jette (l.39-106).
@@ -75,7 +75,7 @@ Fonctionnalite complete, prevue **et** integree, avec bascule utilisateur persis
 
 L'information ne repose pas sur la seule couleur : un libelle textuel ou une icone accompagne l'indice chromatique dans chaque cas identifie.
 
-- **Produit en rupture de stock.** La tuile grisee (couleur) est doublee d'un badge textuel `Indisponible` (`page-products.js:87`, CSS `style.css` — cherchez « .product-card--unavailable » pour le grisage et « .product-card__badge » pour le badge), d'un suffixe dans l'`aria-label` (` - indisponible`, `page-products.js:75`) et d'un `aria-disabled="true"` (`page-products.js:76`). Le grisage seul ne fait pas foi.
+- **Produit en rupture de stock.** La tuile grisee (couleur) est doublee d'un badge textuel `Indisponible` (`page-products.js:137`, CSS `style.css` — cherchez « .product-card--unavailable » pour le grisage et « .product-card__badge » pour le badge), d'un suffixe dans l'`aria-label` (` - indisponible`, `page-products.js:122`) et d'un `aria-disabled="true"` (`page-products.js:126`). Le grisage seul ne fait pas foi.
 - **Categorie active dans le bandeau.** L'etat actif combine une bordure epaissie **et** un fond distinct `#FFF8E6`, precisement pour ne pas dependre de la seule bordure coloree : `style.css` (cherchez « 2e cue »).
 - **Selection de carte composeur.** L'etat selectionne cumule bordure jaune fonce, halo et fond legerement teinte, et il est expose a la technologie d'assistance via `aria-pressed` (documente dans `style.css`, cherchez « jaune fonce : contraste » et « Uses aria-pressed »).
 - **Bascule de police active.** L'etat actif change la couleur du bouton mais est aussi expose par `aria-pressed` et par un libelle texte qui reste visible : `style.css` (cherchez « not signalled by colour alone »).
@@ -103,7 +103,7 @@ avant/apres, et methode : `06-audit-accessibilite-mesure.md`.
 - **Navigation par liens HTML natifs.** Les choix d'accueil sont de simples `<a href>` servis directement dans le HTML : la tabulation et l'activation clavier y fonctionnent sans JavaScript (`index.html:72-98`, commentaire `index.html:44`). Les cartes categorie, elles, sont **generees par JavaScript** depuis `GET /api/categories` (`page-categories.js:63-79`) : cet ecran depend donc du JS pour s'afficher, comme les ecrans produits et paiement. Une fois rendues, ce sont de vrais `<a href>` — le focus, la tabulation et l'activation clavier sont natifs, pas simules (`page-categories.js:73`).
 
   **Reserve assumee, a defendre a l'oral.** La page portait auparavant une liste de neuf cartes ecrite en dur, qui s'affichait sans JavaScript mais ne refletait pas le catalogue reel : une categorie desactivee, renommee ou ajoutee en back-office restait fausse a l'ecran. Le choix retenu est d'afficher le catalogue juste plutot que de fonctionner sans JavaScript sur un ecran qui, de toute facon, ne permet pas de commander sans JavaScript (composeur, panier et paiement en dependent). Un repli statique aurait reintroduit exactement la donnee codee en dur que ce lot supprime.
-- **Cartes produit focusables au clavier.** Bien que le clic ouvre une modale, la carte reste un `<a>` avec `href` pour conserver focus et activation clavier (`page-products.js:70-74`, commentaire l.72-73).
+- **Cartes produit focusables au clavier.** Bien que le clic ouvre une modale, la carte reste un `<a>` avec `href` pour conserver focus et activation clavier (`page-products.js:117-121`, commentaire l.119-120).
 - **Modales sans piege bloquant, avec focus gere.** La modale de confirmation d'un geste destructeur (`confirm-modal.js`) :
   - piege le `Tab`/`Shift+Tab` en boucle sur ses boutons (l.50-59) ;
   - se ferme sur `Echap` (l.51) et sur clic-fond (l.62) ;
@@ -138,15 +138,15 @@ Verdicts : **conforme** (preuve dans le code) · **partiel** (couvert mais reser
 |---|---|---|---|
 | Image informative a une alternative | `page-categories.js:69-70` ; `index.html:78-96` | conforme | `alt` = libelle de categorie (genere depuis le catalogue) / illustration de mode. |
 | Image decorative correctement ignoree | `index.html:52-57` | conforme | `alt=""` + `aria-hidden="true"` sur le fond d'accueil. |
-| Alternative des images injectees | `page-products.js:81-87` ; `page-categories.js:69-70` ; `img-fallback.js:23-36` | conforme | `alt` = nom de l'article ; repli par `data-fallback` delegue, aucun `onerror` en ligne (CSP stricte). |
+| Alternative des images injectees | `page-products.js:128-136` ; `page-categories.js:69-70` ; `img-fallback.js:23-36` | conforme | `alt` = nom de l'article ; repli par `data-fallback` delegue, aucun `onerror` en ligne (CSP stricte). |
 | Icones/SVG decoratifs ignores | `payment.html:61,77` ; `confirmation.html:34` ; `order-panel.js:138` | conforme | `aria-hidden="true"` + `focusable="false"` / `alt=""`. |
 
 ### Theme 3 — Couleurs
 
 | Critere | Preuve (fichier:ligne) | Verdict | Commentaire |
 |---|---|---|---|
-| Info pas donnee par la seule couleur | `page-products.js:75,87` ; `style.css` (cherchez « 2e cue » et « not signalled by colour alone ») | conforme | Rupture = badge texte + aria ; actif = fond + libelle + `aria-pressed`. |
-| Contraste texte suffisant | `style.css` (cherchez « --color-text-muted »), `06-audit-accessibilite-mesure.md` | conforme | Mesure a l'outil (`axe-core`, 858 ratios sur 18 ecrans au 2026-09-26) : un noeud sous le seuil trouve sur ce perimetre au premier passage, corrige et remesure conforme. |
+| Info pas donnee par la seule couleur | `page-products.js:122,126,137` ; `style.css` (cherchez « 2e cue » et « not signalled by colour alone ») | conforme | Rupture = badge texte + aria ; actif = fond + libelle + `aria-pressed`. |
+| Contraste texte suffisant | `style.css` (cherchez « --color-text-muted »), `06-audit-accessibilite-mesure.md` | conforme | Mesure a l'outil (`axe-core`, 935 ratios sur 19 ecrans au 2026-09-28) : un noeud sous le seuil trouve sur ce perimetre au premier passage, corrige et remesure conforme. |
 
 ### Theme 10 — Presentation / focus
 
@@ -169,8 +169,8 @@ Verdicts : **conforme** (preuve dans le code) · **partiel** (couvert mais reser
 | Critere | Preuve (fichier:ligne) | Verdict | Commentaire |
 |---|---|---|---|
 | Landmarks / zones | `index.html:46,66` ; `products.html:39,41,61` ; `payment.html:37,48` | conforme | `main`, `nav`, `aside`, `header` etiquetes. |
-| Navigation clavier sans piege bloquant | `index.html:72-98` ; `page-products.js:70-74` ; `confirm-modal.js:50-59` | conforme | Liens natifs ; modales sortables (Echap + boucle Tab). |
-| Titre de page pertinent | `index.html:20` ; `categories.html:8` ; `payment.html:8` ; `confirmation.html:8` | conforme | `<title>` distinct par ecran, mis a jour dynamiquement (`page-products.js:48`). |
+| Navigation clavier sans piege bloquant | `index.html:72-98` ; `page-products.js:117-121` ; `confirm-modal.js:50-59` | conforme | Liens natifs ; modales sortables (Echap + boucle Tab). |
+| Titre de page pertinent | `index.html:25` ; `categories.html:9` ; `payment.html:9` ; `confirmation.html:9` | conforme | `<title>` distinct par ecran, mis a jour dynamiquement (`page-products.js:87`). |
 | Langue de la page | 5 pages `html lang="fr"` | conforme | Verifie : 1 occurrence par fichier. |
 | Lien d'evitement (Cr 1.e.11) | 5 pages borne + `admin/layout.php` (cherchez `class="skip-link"` dans chaque fichier) | conforme | Absent avant ce lot (zero `href="#"` dans tout le depot). Voir section 5 pour le detail. |
 

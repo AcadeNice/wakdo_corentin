@@ -1,14 +1,19 @@
 # Diagramme de sequence securite - Annulation de commande avec PIN (CANCEL_ORDER)
 
 **Phase UML** : P1 - Conception, complement UML (passe security-by-design)
-**Statut** : v0.3 - realigne sur le code livre (`OrderAdminController`, `OrderRepository::cancel`)
-**Date** : 2026-06-12 (v0.2), 2026-09-24 (v0.3)
+**Statut** : v0.4 - realigne sur le code livre (`OrderAdminController`, `OrderRepository::cancel`)
+**Date** : 2026-06-12 (v0.2), 2026-09-24 (v0.3), 2026-09-28 (v0.4)
 **Historique** : v0.3 (2026-09-24) - mise en coherence avec le code livre (2a09597) : route
 `/admin/orders/{number}/cancel` (page de confirmation en GET, envoi en POST) au lieu de
 `POST /api/orders/{id}/cancel` ; PIN saisi avec la demande et verifie en premier ; echec de PIN
 trace (`pin.failed`) et compte (`pin_throttle`) ; quatre statuts annulables (`pending_payment`, `paid`,
 `preparing`, `ready`) ; re-credit du stock conditionne a l'existence de mouvements `sale` ; reponses par
-message puis redirection au lieu de codes 422 / 409.
+message puis redirection au lieu de codes 422 / 409. v0.4 (2026-09-28) - audit final sur pieces : `manager`
+ajoute aux acteurs autorises (ADR-0020, migration `0018`) ; garde de visibilite de canal `sourceVisibleToRole`
+(PRE-3/RG-T12) ajoutee en GET et en POST, apres la garde de permission + CSRF et AVANT le PIN — un numero
+inconnu et un canal non visible rendent tous deux 403 (anti-enumeration), le 404 restant reserve a la course
+theorique ou la commande disparaitrait entre deux lectures ; parcours JSON `POST /admin/api/orders/{number}/cancel`
+documente en section 4.4.
 **Branche** : `feat/p1-conception`
 **Auteur methodologie** : BYAN
 
@@ -30,8 +35,8 @@ T5 de `docs/uml/state-commande.md` et le cas d'utilisation "Annuler une commande
 de `docs/uml/use-cases.md` (UC13).
 
 **Sources** :
-- `src/public/admin/index.php` (routes `GET` et `POST /admin/orders/{number}/cancel`)
-- `src/app/Controllers/OrderAdminController.php` (`confirmCancel`, `cancel`, `logFailedPin`)
+- `src/app/Core/routes.php` (routes `GET`/`POST /admin/orders/{number}/cancel`, `POST /admin/api/orders/{number}/cancel`, chargees par le controleur frontal `src/public/admin/index.php`)
+- `src/app/Controllers/OrderAdminController.php` (`confirmCancel`, `cancel`, `logFailedPin`, `sourceVisibleToRole`)
 - `src/app/Auth/PinVerifier.php` (`resolveActingUser`), `src/app/Auth/PinThrottle.php`
 - `src/app/Order/OrderRepository.php` (`cancel`, `hasSaleMovements`)
 - `src/app/Views/admin/orders/cancel.php` (formulaire email + PIN)
@@ -43,7 +48,7 @@ de `docs/uml/use-cases.md` (UC13).
 
 | Participant | Role | Couche |
 |---|---|---|
-| **Equipier** | Counter, drive ou admin titulaire de `order.cancel`, depuis son navigateur sur un poste partage | Acteur |
+| **Equipier** | Counter, drive, manager (ADR-0020, #176) ou admin titulaire de `order.cancel`, depuis son navigateur sur un poste partage | Acteur |
 | **OrderAdminController** | Pages rendues serveur du back-office : garde, CSRF, orchestration | Application |
 | **PinVerifier / PinThrottle** | Verification du PIN (argon2id) et compteur d'echecs par utilisateur agissant | Application |
 | **OrderRepository** | Transaction d'annulation, re-credit, trace d'audit | Application |
@@ -76,15 +81,21 @@ sequenceDiagram
     else Permission absente
         Ctrl-->>Equipier: 403 page Acces refuse
     else Autorise
-        Ctrl->>Repo: findByNumber(number)
-        Repo->>BDD: lire la commande
-        BDD-->>Repo: numero, statut, montant
-        alt Commande inconnue
-            Ctrl-->>Equipier: 404 page Introuvable
-        else Statut pending_payment, paid,<br/>preparing ou ready
-            Ctrl-->>Equipier: 200 formulaire :<br/>email, PIN, jeton CSRF
-        else Statut delivered ou cancelled
-            Ctrl-->>Equipier: 200 message bloquant,<br/>sans formulaire
+        Ctrl->>Repo: sourceVisibleToRole(number,<br/>role) : source de la<br/>commande dans role_visible_source ?
+        Repo->>BDD: lire source de<br/>customer_order (RG-T12)
+        alt Numero inconnu OU<br/>canal non visible
+            Ctrl-->>Equipier: 403 page Acces refuse<br/>(meme reponse, anti-<br/>enumeration -- AVANT tout PIN)
+        else Canal visible
+            Ctrl->>Repo: findByNumber(number)
+            Repo->>BDD: lire la commande
+            BDD-->>Repo: numero, statut, montant
+            alt Commande introuvable (course :<br/>disparue entre les deux lectures)
+                Ctrl-->>Equipier: 404 page Introuvable
+            else Statut pending_payment, paid,<br/>preparing ou ready
+                Ctrl-->>Equipier: 200 formulaire :<br/>email, PIN, jeton CSRF
+            else Statut delivered ou cancelled
+                Ctrl-->>Equipier: 200 message bloquant,<br/>sans formulaire
+            end
         end
     end
 
@@ -95,22 +106,26 @@ sequenceDiagram
     alt Jeton CSRF invalide
         Ctrl-->>Equipier: 403 Requete invalide
     else Jeton valide
-        Ctrl->>Repo: findByNumber(number)<br/>(lecture de la commande)
-        Ctrl->>PIN: isLocked(utilisateur<br/>de la session)
-        PIN->>BDD: lire pin_throttle
-        alt Verrou actif (RG-T22)
-            PIN->>PIN: leurre de temps
-            Ctrl-->>Equipier: 422 formulaire<br/>Email ou PIN invalide
-        else Pas de verrou
-            Ctrl->>PIN: resolveActingUser<br/>(email, PIN)
-            PIN->>BDD: lire id, role_id, pin_hash<br/>(email, compte actif)
-            PIN->>PIN: verifier le PIN (argon2id)
-            alt PIN incorrect ou compte inconnu
-                PIN-->>Ctrl: aucun equipier
-                Ctrl->>BDD: transaction : INSERT<br/>audit_log (pin.failed,<br/>acteur NULL) + echec<br/>compte dans pin_throttle
+        Ctrl->>Repo: sourceVisibleToRole(number,<br/>role), PUIS findByNumber
+        alt Numero inconnu OU<br/>canal non visible
+            Ctrl-->>Equipier: 403 (meme reponse,<br/>anti-enumeration --<br/>AVANT toute verification PIN)
+        else Canal visible et commande trouvee
+            Ctrl->>PIN: isLocked(utilisateur<br/>de la session)
+            PIN->>BDD: lire pin_throttle
+            alt Verrou actif (RG-T22)
+                PIN->>PIN: leurre de temps
                 Ctrl-->>Equipier: 422 formulaire<br/>Email ou PIN invalide
-            else PIN correct
-                PIN-->>Ctrl: equipier identifie<br/>(id, role_id)
+            else Pas de verrou
+                Ctrl->>PIN: resolveActingUser<br/>(email, PIN)
+                PIN->>BDD: lire id, role_id, pin_hash<br/>(email, compte actif)
+                PIN->>PIN: verifier le PIN (argon2id)
+                alt PIN incorrect ou compte inconnu
+                    PIN-->>Ctrl: aucun equipier
+                    Ctrl->>BDD: transaction : INSERT<br/>audit_log (pin.failed,<br/>acteur NULL) + echec<br/>compte dans pin_throttle
+                    Ctrl-->>Equipier: 422 formulaire<br/>Email ou PIN invalide
+                else PIN correct
+                    PIN-->>Ctrl: equipier identifie<br/>(id, role_id)
+                end
             end
         end
     end
@@ -149,7 +164,8 @@ sequenceDiagram
 | # | Interaction | Regle | Code |
 |---|---|---|---|
 | 1 | Page de confirmation, garde `order.cancel` (302 vers `/login`, 403) | `RG-T02`, `RG-T03`, 7.1 PRE-1 | `OrderAdminController::confirmCancel`, `AdminController::guard` |
-| 2 | Formulaire email + PIN seulement pour un statut annulable | 7.1 PRE-3 | `Views/admin/orders/cancel.php` |
+| 1bis | Visibilite de canal : numero inconnu OU source hors `role_visible_source` -> 403 (meme reponse, anti-enumeration), AVANT tout PIN, en GET comme en POST | `RG-T12`, 7.1 PRE-2 | `OrderAdminController::sourceVisibleToRole` |
+| 2 | Formulaire email + PIN seulement pour un statut annulable | 7.1 PRE-4 | `Views/admin/orders/cancel.php` |
 | 3 | POST : jeton CSRF (403 sinon) | `RG-T01` | `OrderAdminController::cancel`, `Csrf::validate` |
 | 4 | Verrou du throttle evalue avant la verification, leurre de temps | `RG-T22` | `PinThrottle::isLocked`, `PinVerifier::payTimingDecoy` |
 | 5 | Equipier resolu par email + PIN (compte actif, argon2id) | `RG-T13` | `PinVerifier::resolveActingUser` |
@@ -184,6 +200,20 @@ compteurs de connexion ; au-dela du seuil, un verrou degressif s'applique et le
 message reste generique (« Email ou PIN invalide »). Le `pin_hash` est un hash
 argon2id, classe RESTRICTED et tenu hors des journaux et des reponses (`dictionary.md` 3.14).
 
+### 4.4 Parcours JSON equivalent (`POST /admin/api/orders/{number}/cancel`)
+
+Le back-office HTML n'est pas le seul point d'entree : `OrderApiController::apiCancel`
+applique le MEME flux, dans le MEME ordre — garde `order.cancel`, CSRF (header), visibilite
+de canal (`sourceVisible`, meme regle RG-T12 que `sourceVisibleToRole`, 403 FORBIDDEN si le
+numero est inconnu ou le canal non visible), puis PIN equipier via `PinGate::resolve`
+(memes verrou et leurre de temps que `PinThrottle`/`PinVerifier`), puis
+`OrderRepository::cancel` (identique, audit et re-credit inclus). Les reponses different
+par le format (JSON `{data, error}` au lieu d'une redirection HTML) et les codes : PIN
+refuse -> reponse generique via `pinErrorResponse` ; `CANNOT_CANCEL_IN_STATE` -> 422 ;
+toute autre transition invalide -> 409 `INVALID_TRANSITION`. La logique metier (annulation,
+re-credit, audit) est partagee avec le flux HTML de ce document ; seule la couche de
+presentation differe.
+
 ---
 
 ## 5. Menace adressee : repudiation et detournement d'especes
@@ -217,6 +247,8 @@ partage de PIN relevent de controles organisationnels.
 | Regles PIN et audit | `RG-T13`, `RG-T14`, `RG-T22` |
 | Atomicite re-credit + statut + audit | `RG-T08` + `RG-T11` (une transaction, `COMMIT` / `ROLLBACK`) |
 | Reponses | Page 422 pour un PIN refuse ; message puis redirection vers `/admin/orders` pour le succes, `CANNOT_CANCEL_IN_STATE` et `INVALID_TRANSITION` |
+| Visibilite de canal (RG-T12) | Verifiee AVANT le PIN, en GET comme en POST, HTML comme JSON ; numero inconnu et canal non visible rendent la meme reponse 403 |
+| Acteurs autorises | Counter, drive, manager (ADR-0020) et admin — coherent avec `use-cases.md` (4.2, 4.2bis) et `mct.md`/`mlt.md` 7.1 |
 
 ---
 

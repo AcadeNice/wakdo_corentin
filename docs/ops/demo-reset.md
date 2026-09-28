@@ -29,7 +29,7 @@ retour arriere" plus bas).
 ## Quand figer l'instantane (important)
 
 Figer l'instantane **apres le deploiement complet** (toutes les migrations,
-0012 a 0014 comprises, appliquees) et **avant toute demonstration** devant le
+0001 a 0018 comprises, appliquees) et **avant toute demonstration** devant le
 jury. Ne PAS refaire un instantane apres le passage du jury si des donnees ont
 ete modifiees pendant la demo : cela figerait ces donnees abimees comme
 nouvelle reference, et `demo-reset.sh` les restaurerait ensuite fidelement — il

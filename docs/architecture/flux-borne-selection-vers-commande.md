@@ -1,8 +1,13 @@
 # Flux borne : de la selection d'un produit a la commande
 
 > Auteur : BYAN
-> Date : 2026-06-25 (v0.2), 2026-09-24 (v0.3)
-> Version : v0.3 (2026-09-24) — mise en coherence avec le code livre (2a09597) : l'encaissement pose `preparing` (et non `paid`) avec `paid_at` et `preparing_at`, sous verrou de la ligne de commande ; references `chemin:ligne` recalees sur le code courant (la validation d'en-tete, le calcul des totaux et l'ecriture des lignes ont ete extraits de `persist()` dans `resolveHeader`, `resolveAndTotal` et `insertLines`) ; extraits de code remplaces par le code courant (reprise sur `ORDER_CANCELLED`, commande en attente modifiable).
+> Date : 2026-06-25 (v0.2), 2026-09-24 (v0.3), 2026-09-28 (v0.4)
+> Version : v0.4 (2026-09-28) — toutes les references `chemin:ligne` recalees sur le
+> code courant (`git grep -n`) : le fichier de routes est `src/app/Core/routes.php`
+> (charge par `src/public/admin/index.php`, qui ne declare plus les routes lui-meme) ;
+> les methodes de `OrderRepository` ont toutes decale (creation d'un lot de commandes
+> modifiables avant paiement, F18) ; `page-products.js` et `product-options.js`
+> recales sur leurs fonctions reelles.
 > Perimetre : front borne (`src/public/borne/`) + API + back (`src/app/`)
 > Methode : trace du code REEL (chemin:ligne cites a chaque etape).
 
@@ -15,8 +20,8 @@ reel.
 Note sur le produit : la borne n'a pas de produit nomme exactement **"Salade
 Cesar"** au seed. Le produit le plus proche est **"César Classic"** (categorie
 `salades`, 880 centimes soit 8,80 EUR), insere dans
-`db/seeds/0002_catalogue.sql:104` et dote d'une recette dans
-`db/seeds/0003_ingredients_recipes.sql:208-212`. Le document utilise ce produit
+`db/seeds/0002_catalogue.sql:107` et dote d'une recette dans
+`db/seeds/0003_ingredients_recipes.sql:215-220`. Le document utilise ce produit
 comme exemple concret ; le chemin trace est celui, generique, d'un produit a la
 carte (type `produit`) sans option ni taille multiple.
 
@@ -64,7 +69,7 @@ sequenceDiagram
 ## Etape 1 — Chargement du catalogue
 
 Au demarrage de `products.html`, le rendu est declenche au `DOMContentLoaded` par
-`src/public/borne/assets/js/page-products.js:151`. La couche de donnees
+`src/public/borne/assets/js/page-products.js:194`. La couche de donnees
 (`data.js`) appelle l'API en lecture.
 
 Endpoints appeles (constantes en tete de fichier) :
@@ -119,7 +124,7 @@ Forme de la reponse (enveloppe standard de l'API) :
 
 Origine des donnees (cote serveur) :
 
-- Route : `src/public/admin/index.php:99`
+- Route : `src/app/Core/routes.php:92`
   `GET /api/products -> [CatalogueController::class, 'products']`.
 - Controleur : `src/app/Controllers/CatalogueController.php:52-85`. Il appelle
   `ProductRepository::availableForCatalogue()`, croise les tailles
@@ -133,20 +138,20 @@ Origine des donnees (cote serveur) :
 
 Cote borne, `data.js` traduit la forme canonique (snake_case) vers la forme
 historique borne (`nom`, `prix`, `image`, `type`, ...) et regroupe par slug de
-categorie (`src/public/borne/assets/js/data.js:79-103`). La salade arrive dans le
-tableau `bySlug['salades']`.
+categorie (`src/public/borne/assets/js/data.js:73-120`, dans `loadProducts()`).
+La salade arrive dans le tableau `bySlug['salades']`.
 
 ---
 
 ## Etape 2 — Affichage et selection
 
 `page-products.js` lit `?category=<id>` de l'URL, mappe vers un slug via
-`CATEGORY_ID_TO_SLUG` (`src/public/borne/assets/js/data.js:232-242` ;
-`salades` = id 7), puis rend les tuiles
-(`src/public/borne/assets/js/page-products.js:39-126`).
+`CATEGORY_ID_TO_SLUG` (`src/public/borne/assets/js/data.js:235-245` ;
+`salades` = id 7), puis rend les tuiles dans `renderProducts()`
+(`src/public/borne/assets/js/page-products.js:78-192`).
 
 Au tap sur une tuile, le handler de clic decide du comportement
-(`src/public/borne/assets/js/page-products.js:112-117`) :
+(`src/public/borne/assets/js/page-products.js:155-160`) :
 
 ```js
 card.addEventListener('click', (e) => {
@@ -176,7 +181,7 @@ prix, un stepper de quantite et le total
 
 > Le contrat API supporte des modificateurs d'ingredient (`modifiers`) cote
 > serveur (`OrderRepository::resolveModifiers`,
-> `src/app/Order/OrderRepository.php:1184-1218`), mais la modale produit de la borne
+> `src/app/Order/OrderRepository.php:1212-1241`), mais la modale produit de la borne
 > n'en construit pas dans le code lu. L'item panier d'un produit simple ne porte
 > pas de champ `modifiers` (cf. etape 3). Ce point est signale plutot qu'affirme
 > comme une regle : la couche serveur reste prete a les recevoir.
@@ -188,7 +193,7 @@ prix, un stepper de quantite et le total
 A ce stade, rien n'est envoye au serveur. L'ajout est entierement local.
 
 Au clic sur "Ajouter a ma commande"
-(`src/public/borne/assets/js/product-options.js:167-172`) :
+(`src/public/borne/assets/js/product-options.js:189-194`) :
 
 ```js
 overlay.querySelector('#po-add').addEventListener('click', () => {
@@ -263,7 +268,7 @@ carte, mode "sur place" -> `dine_in`), le corps POST a la forme :
   `{ type: 'product', product_id, quantity }`
   (`src/public/borne/assets/js/checkout.js:75`).
 - Le mode est mappe `'sur-place' -> 'dine_in'`, `'a-emporter' -> 'takeaway'`
-  (`src/public/borne/assets/js/checkout.js:24,31-33`).
+  (`src/public/borne/assets/js/checkout.js:25,29-31`).
 - `service_tag` (numero de chevalet) n'est inclus qu'en `dine_in`
   (`src/public/borne/assets/js/checkout.js:90-92`), saisi via la modale chevalet
   de `page-payment.js` (`src/public/borne/assets/js/page-payment.js:82-173`).
@@ -307,8 +312,8 @@ directe.
 
 ## Etape 5 — API : routage vers le back
 
-Routes (entree HTTP du vhost admin, docroot `src/public/admin/`) :
-`src/public/admin/index.php:88-89`
+Routes (fichier charge par le front controller du vhost admin, docroot
+`src/public/admin/`) : `src/app/Core/routes.php:81-82`
 
 ```php
 $router->add('POST', '/api/orders', [OrderController::class, 'create']);
@@ -316,7 +321,7 @@ $router->add('POST', '/api/orders/{number}/pay', [OrderController::class, 'pay']
 ```
 
 Le controleur recoit le corps JSON et delegue au repository
-(`src/app/Controllers/OrderController.php:35-58`) :
+(`src/app/Controllers/OrderController.php:37-59`) :
 
 ```php
 public function create(array $params = []): Response {
@@ -333,11 +338,11 @@ public function pay(array $params = []): Response {
 > Divergence de nommage a noter : le controleur appelle
 > `OrderRepository::createPending()` (et non `create()`). La methode `create()`
 > n'existe pas dans le repository ; c'est `createPending()` qui porte le flux kiosk
-> (`src/app/Order/OrderRepository.php:102-140`).
+> (`src/app/Order/OrderRepository.php:110-148`).
 
 Le corps recu cote serveur est exactement le JSON construit a l'etape 4.a. Les
 erreurs metier (`OrderValidationException`) sont mappees en codes HTTP par
-`orderError()` (`src/app/Controllers/OrderController.php:112-131`) :
+`orderError()` (`src/app/Controllers/OrderController.php:146-164`) :
 `ORDER_NOT_FOUND -> 404`, `INVALID_TRANSITION -> 409`, le reste `-> 422`.
 
 ---
@@ -347,7 +352,7 @@ erreurs metier (`OrderValidationException`) sont mappees en codes HTTP par
 ### 6.a Creation : `createPending` -> `persist`
 
 `createPending()` verifie d'abord l'idempotence
-(`src/app/Order/OrderRepository.php:102-140`) :
+(`src/app/Order/OrderRepository.php:110-148`) :
 
 ```php
 $existing = $this->findByIdempotencyKey($key);
@@ -364,24 +369,24 @@ return $this->persist($req, 'kiosk', 'K', null);   // source kiosk, prefixe K, p
 ```
 
 `findByIdempotencyKey()` lit `customer_order WHERE idempotency_key = :k`
-(`src/app/Order/OrderRepository.php:42-61`). La colonne porte une contrainte
+(`src/app/Order/OrderRepository.php:45-63`). La colonne porte une contrainte
 UNIQUE (`db/migrations/0001_init_schema.sql:328`,
 `uk_customer_order_idempotency_key`).
 
 **Revalidation SERVEUR (RG-T16) — le serveur ne s'appuie pas sur le prix client.**
-`persist()` (`src/app/Order/OrderRepository.php:301-345`) delegue la validation de
+`persist()` (`src/app/Order/OrderRepository.php:309-354`) delegue la validation de
 l'en-tete a `resolveHeader()` et le calcul des lignes a `resolveAndTotal()`, qui
 re-resout chaque ligne et RE-CALCULE les prix depuis la base ; ces deux methodes
 sont partagees avec `replaceItems()`. Le client n'envoie que
 `product_id` + `quantity` ; aucun prix client n'est lu dans le code.
 
 - Validation du `service_mode` et du `service_tag` dans `resolveHeader()`
-  (`src/app/Order/OrderRepository.php:393-405`).
+  (`src/app/Order/OrderRepository.php:418-429`).
 - Garde rupture de stock RG-T21, dans `resolveAndTotal()` (set calcule une fois)
-  (`src/app/Order/OrderRepository.php:430`).
+  (`src/app/Order/OrderRepository.php:454`).
 - Resolution ligne par ligne via `resolveLine()`
-  (`src/app/Order/OrderRepository.php:432,1064-1111`). Pour un produit a la carte
-  (`src/app/Order/OrderRepository.php:1070-1085`) :
+  (`src/app/Order/OrderRepository.php:456,1092-1135`). Pour un produit a la carte
+  (`src/app/Order/OrderRepository.php:1098-1111`) :
 
 ```php
 $product = $this->products->find((int) ($item['product_id'] ?? 0));
@@ -393,23 +398,23 @@ $vat      = (int) $product['vat_rate'];      // TVA RELUE EN BASE
 ```
 
 Le prix HT par unite est derive du TTC et du taux TVA dans `line()`
-(`src/app/Order/OrderRepository.php:1225-1242`) :
+(`src/app/Order/OrderRepository.php:1253-1265`) :
 
 ```php
 $unitHt = (int) round($unitTtc * 1000 / (1000 + $vat));
 ```
 
 Les totaux commande sont la somme des lignes, dans `resolveAndTotal()`
-(`src/app/Order/OrderRepository.php:434-444`).
+(`src/app/Order/OrderRepository.php:458-466`).
 
-**INSERT dans une transaction unique** (`src/app/Order/OrderRepository.php:314-342`).
+**INSERT dans une transaction unique** (`src/app/Order/OrderRepository.php:322-350`).
 
-`customer_order` ecrit (`src/app/Order/OrderRepository.php:315-330`) :
+`customer_order` ecrit (`src/app/Order/OrderRepository.php:323-338`) :
 `order_number` (provisoire `''`), `idempotency_key`, `source`, `service_mode`,
 `service_tag`, `status='pending_payment'`, `acting_user_id`, `total_ht_cents`,
 `total_vat_cents`, `total_ttc_cents`.
 
-**Generation du numero `order_number`** (`src/app/Order/OrderRepository.php:331-336`) :
+**Generation du numero `order_number`** (`src/app/Order/OrderRepository.php:339-344`) :
 
 ```php
 $orderId = (int) ($db->fetch('SELECT LAST_INSERT_ID() AS id')['id'] ?? 0);
@@ -419,25 +424,25 @@ $db->execute('UPDATE customer_order SET order_number = :num WHERE id = :id', ...
 
 > Note : le format `K<id>` est une decision projet, qui diverge du
 > `K-AAAA-MM-JJ-NNN` de la spec (documente en tete du fichier,
-> `src/app/Order/OrderRepository.php:19-21`).
+> `src/app/Order/OrderRepository.php:17-19`).
 
-**Snapshots** ecrits sur `order_item` par `insertLines()` (`src/app/Order/OrderRepository.php:457-475`) :
+**Snapshots** ecrits sur `order_item` par `insertLines()` (`src/app/Order/OrderRepository.php:480-517`) :
 `label_snapshot` (le nom du produit fige), `unit_price_cents_snapshot` (le prix
 TTC recalcule), `vat_rate_snapshot` (le taux TVA fige), plus `item_type`,
 `product_id`, `menu_id`, `format`, `quantity`. Les colonnes existent dans
 `db/migrations/0001_init_schema.sql:352-354`. Pour un menu, `insertLines()` ecrit
 aussi `order_item_selection`, et `order_item_modifier` si le corps porte des modificateurs
-(`src/app/Order/OrderRepository.php:477-490`) ; pour un produit a la carte sans
+(`src/app/Order/OrderRepository.php:502-515`) ; pour un produit a la carte sans
 modificateur, ces deux tables ne recoivent rien.
 
 ### 6.b Encaissement : `pay`
 
-`pay()` (`src/app/Order/OrderRepository.php:523-610`) lit la commande par numero,
+`pay()` (`src/app/Order/OrderRepository.php:551-638`) lit la commande par numero,
 gere l'idempotence de transition, puis, dans UNE transaction, verrouille la ligne de
 commande (`SELECT ... FOR UPDATE`, `lockOrder()`), relit le total, pose `preparing`
 et decremente le stock.
 
-Idempotence / transitions (`src/app/Order/OrderRepository.php:539-549`) :
+Idempotence / transitions (`src/app/Order/OrderRepository.php:567-577`) :
 
 ```php
 if (in_array($status, ['paid', 'preparing', 'ready', 'delivered'], true)) {
@@ -447,7 +452,7 @@ if ($status !== 'pending_payment') throw new OrderValidationException('INVALID_T
 ```
 
 Transition atomique gardee + decrement de stock RG-T20
-(`src/app/Order/OrderRepository.php:559-607`) :
+(`src/app/Order/OrderRepository.php:594-635`) :
 
 ```php
 $affected = $db->execute(
@@ -464,16 +469,16 @@ foreach ($this->consumption($db, $orderId) as $ingredientId => $units) {
 - La garde `status = 'pending_payment'` dans le `WHERE` du `UPDATE` assure qu'en
   cas d'appels concurrents, un seul decremente (l'autre voit 0 ligne affectee et
   sort idempotent).
-- `consumption()` (`src/app/Order/OrderRepository.php:981-1055`) agrege les unites
+- `consumption()` (`src/app/Order/OrderRepository.php:1009-1082`) agrege les unites
   par `ingredient_id` (cle triee : ordre de verrou stable, anti-deadlock) en
   lisant les recettes (`ProductRepository::composition`). Pour "César Classic",
-  la recette est seedee (`db/seeds/0003_ingredients_recipes.sql:208-212`) : le
+  la recette est seedee (`db/seeds/0003_ingredients_recipes.sql:215-220`) : le
   decrement s'applique.
 - Chaque mouvement est trace dans `stock_movement` (`movement_type='sale'`,
   `delta` negatif, `order_id`), table definie en
   `db/migrations/0001_init_schema.sql:420`.
 
-> Nuance documentee dans le code (`src/app/Order/OrderRepository.php:514-516`) :
+> Nuance documentee dans le code (`src/app/Order/OrderRepository.php:542-544`) :
 > le decrement est inerte tant qu'un produit n'a pas de recette
 > (`product_ingredient`). La transition vers `preparing` s'applique de toute facon ; le
 > mouvement de stock n'est produit que si la composition existe. "César Classic"
@@ -484,7 +489,7 @@ foreach ($this->consumption($db, $orderId) as $ingredientId => $units) {
 ## Etape 7 — Reponse et confirmation
 
 Forme de la reponse des deux appels (presenteur
-`src/app/Controllers/OrderController.php:102-110`) :
+`src/app/Controllers/OrderController.php:114-121`) :
 
 ```json
 {
@@ -532,37 +537,38 @@ dans `#order-number` et `#order-total` de `confirmation.html`
 2. **Revalidation serveur (securite, RG-T16).** Le serveur RE-CALCULE le prix
    depuis la base ; dans le code lu, aucun prix client n'est utilise : le payload
    ne transporte que `product_id` + `quantity`
-   (`src/public/borne/assets/js/checkout.js:75`), et `resolveLine()` relit
+   (`src/public/borne/assets/js/checkout.js:76`), et `resolveLine()` relit
    `price_cents` / `vat_rate` en base
-   (`src/app/Order/OrderRepository.php:1079-1080`). Un client malveillant ne peut pas
+   (`src/app/Order/OrderRepository.php:1107-1108`). Un client malveillant ne peut pas
    imposer son prix. La disponibilite est aussi re-verifiee serveur (RG-T21,
-   `src/app/Order/OrderRepository.php:430,1071-1078`), au-dela du simple grisage
+   `src/app/Order/OrderRepository.php:454,1100-1106`), au-dela du simple grisage
    d'UI.
 
 3. **Snapshots (tracabilite du prix a l'instant T).** `order_item` fige
    `label_snapshot`, `unit_price_cents_snapshot`, `vat_rate_snapshot`
-   (`src/app/Order/OrderRepository.php:457-475` ;
+   (`src/app/Order/OrderRepository.php:480-517` ;
    colonnes `db/migrations/0001_init_schema.sql:352-354`). Une evolution future du
    catalogue ne reecrit pas l'historique d'une commande passee.
 
 4. **Idempotence (anti double-charge).** `idempotency_key` genere cote borne et
-   stable pour la session de paiement (`src/public/borne/assets/js/checkout.js:118-136`),
-   verifie a la creation (`src/app/Order/OrderRepository.php:104-135`) avec
+   stable pour la session de paiement (`src/public/borne/assets/js/checkout.js:119-137`),
+   verifie a la creation (`src/app/Order/OrderRepository.php:110-148`) avec
    contrainte UNIQUE en base (`db/migrations/0001_init_schema.sql:328`). Cote
    `pay()`, l'idempotence de transition evite un double decrement de stock
-   (`src/app/Order/OrderRepository.php:539-546`).
+   (`src/app/Order/OrderRepository.php:567-577`).
 
 5. **Decrement de stock atomique (RG-T20).** Transition `preparing` + decrement +
    `stock_movement` dans une seule transaction
-   (`src/app/Order/OrderRepository.php:559-607`). La garde
+   (`src/app/Order/OrderRepository.php:594-635`). La garde
    `WHERE ... status = 'pending_payment'` et l'ordre de verrou stable par
-   `ingredient_id` (`ksort`, `src/app/Order/OrderRepository.php:1052`) protegent
+   `ingredient_id` (`ksort`, `src/app/Order/OrderRepository.php:1080`) protegent
    des courses concurrentes et des deadlocks.
 
 6. **Conventions HTTP.** Enveloppe standard `{ data }` (succes) /
-   `{ data: null, error: { code, message } }` (echec) ; `201` a la creation,
-   `200` au paiement, mapping des erreurs metier en `404 / 409 / 422`
-   (`src/app/Controllers/OrderController.php:43,57,112-131`). Le flux en deux POST
+   `{ data: null, error: { code, message } }` (echec) ; `201` a la creation
+   (`src/app/Controllers/OrderController.php:45`), `200` au paiement (`:58`),
+   mapping des erreurs metier en `404 / 409 / 422`
+   (`src/app/Controllers/OrderController.php:146-164`). Le flux en deux POST
    distincts (creer puis payer) materialise la transition d'etat
    `pending_payment -> preparing`.
 
@@ -575,9 +581,9 @@ dans `#order-number` et `#order-total` de `confirmation.html`
   (`src/public/borne/assets/js/checkout.js:178,193`) — POST creation puis POST
   pay, et non un POST unique.
 - **Modificateurs d'ingredient** : le contrat serveur les supporte
-  (`src/app/Order/OrderRepository.php:1184-1218`) mais la modale produit borne lue
+  (`src/app/Order/OrderRepository.php:1212-1241`) mais la modale produit borne lue
   ne les construit pas pour un produit a la carte. Signale comme observation, non
   comme regle definitive.
 - **Produit exemple** : pas de "Salade Cesar" exacte au seed ; substitue par
-  "César Classic" (`db/seeds/0002_catalogue.sql:104`). Le chemin trace reste
+  "César Classic" (`db/seeds/0002_catalogue.sql:107`). Le chemin trace reste
   generique pour tout produit a la carte.

@@ -1,7 +1,23 @@
 # ADR-0019 — Page « Santé de l'API » : une carte des routes qui ne peut pas diverger du code
 
-- Statut : Accepte
+- Statut : Accepte, complete le 2026-09-28 (reponses reelles + carte par action)
 - Date : 2026-09-27
+
+> **Complement (2026-09-28).** Le trajet d'un appel affichait jusque-la un corps ecrit a la
+> main pour illustrer une reponse ; certains refus illustres etaient meme faux au regard du
+> serveur reel. Un programme de capture (`tests/e2e/health-capture.spec.js`, lance par
+> `tests/e2e/run-health-capture.sh`) appelle pour de vrai chacune des 158 routes, en succes
+> puis sur chaque refus propose par le trajet, et enregistre le resultat dans
+> `App\Health\CapturedResponses` / `src/app/Health/captured-responses.json` (hors racine web,
+> servi par la page deja gardee `role.manage`) : **158 succes obtenus sur 158, 670 refus
+> obtenus sur 689 tentes** ; un refus non observe l'affiche explicitement plutot que
+> d'inventer un code. Le trajet continue de ne jamais rien ecrire depuis la page (garanti par
+> `buildTrajetRequest`, verifie par un test navigateur) ; `tests/Unit/Health/CapturedResponsesTest.php`
+> (CI) verifie que chaque route a sa capture (ou une raison ecrite), qu'aucune capture ne vise
+> une route disparue, et que le fichier ne contient ni jeton ni mot de passe. Independamment,
+> la carte a ete rangee **par action** plutot qu'a plat : les 158 routes se lisent desormais en
+> 80 actions (une colonne par surface : page, formulaire, API JSON, borne). Livre par #188 et
+> #189. Detail : `docs/journal/2026-09-28--trajet-reponses-reelles.md`.
 
 ## Contexte
 

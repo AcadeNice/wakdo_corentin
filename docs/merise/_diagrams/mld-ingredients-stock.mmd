@@ -3,6 +3,7 @@ erDiagram
         int id PK
         varchar name UK
         varchar unit
+        varchar family
         int stock_quantity
         int stock_capacity
         smallint pack_size
@@ -35,6 +36,14 @@ erDiagram
         int ingredient_id PK,FK
         int allergen_id PK,FK
     }
+    category_ingredient_family {
+        int category_id PK,FK
+        varchar family PK
+    }
+    category {
+        int id PK
+        varchar name
+    }
     stock_movement {
         int id PK
         int ingredient_id FK
@@ -62,5 +71,6 @@ erDiagram
     ingredient ||--o{ ingredient_allergen : "ingredient_id (CASCADE)"
     allergen ||--o{ ingredient_allergen : "allergen_id (RESTRICT)"
     ingredient ||--o{ stock_movement : "ingredient_id (RESTRICT)"
+    category ||--o{ category_ingredient_family : "category_id (CASCADE)"
     customer_order |o--o{ stock_movement : "order_id (SET NULL, nullable)"
     user |o--o{ stock_movement : "user_id (SET NULL, nullable)"

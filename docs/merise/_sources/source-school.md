@@ -113,10 +113,16 @@ Consequence : ces JSON ne peuvent pas servir directement de fallback runtime - l
 pointent sur la convention source. La generation des fichiers JSON fallback en P1 partira
 du seed normalise, pas de ces fichiers.
 
-## Utilisation prevue en P1
+## Utilisation faite en P1
 
-1. Extraction des entites + attributs vers le **dictionnaire de donnees**
-2. Derivation du **MCD** (entites + relations) en enrichissant les ecarts ci-dessus
-3. Generation du **DDL** (`db/migrations/0001_init_schema.sql`)
-4. Transformation en **seed** (`db/seeds/0001_demo_data.sql`) avec normalisation des prix
-5. Export des **JSON fallback** (`src/public/borne/data/*.json`) depuis le seed
+1. Extraction des entites + attributs vers le **dictionnaire de donnees**.
+2. Derivation du **MCD** (entites + relations) en enrichissant les ecarts ci-dessus.
+3. Generation du **DDL** (`db/migrations/0001_init_schema.sql`, complete par dix-sept migrations
+   additives 0002-0018).
+4. Transformation en **seed**, avec normalisation des prix — pas un fichier unique mais dix fichiers
+   par sous-domaine (`db/seeds/0001_rbac_and_reference.sql` a `0010_ingredient_families.sql`),
+   appliques par un runner idempotent (`db/migrate.sh` / `db/migrate-container.sh`).
+5. **Pas d'export JSON de fallback.** L'idee d'un mode borne isole servi par des fichiers JSON
+   statiques a ete abandonnee : la borne consomme l'API REST en lecture (`/api/categories`,
+   `/api/products`, `/api/menus`, `/api/allergens`) ; les anciens fichiers JSON statiques ont ete
+   retires (voir `src/public/borne/data/README.md`).

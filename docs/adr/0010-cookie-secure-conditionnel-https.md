@@ -25,4 +25,5 @@ Applique aux deux points (pose du cookie + expiration au logout).
   reverse proxy sur le reseau interne (aucun acces client direct).
 - (-) Un deploiement en **HTTP nu** (sans proxy TLS) n'aurait pas `Secure` — mais servir
   l'authentification en HTTP nu est de toute facon a proscrire (independant de ce flag).
-- `httponly` et `SameSite=Strict` restent inconditionnels. Revele par [E2E admin](../domaines/auth.md).
+- `httponly` et `SameSite=Strict` restent inconditionnels. Revele par
+  [E2E admin](../../tests/e2e/admin.spec.js) (`garde -> login -> dashboard -> logout`).

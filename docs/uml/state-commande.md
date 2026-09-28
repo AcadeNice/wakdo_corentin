@@ -1,8 +1,8 @@
 # Diagramme d'etats-transitions - Commande
 
 **Phase UML** : P1 - Conception, complement UML (apres MCD)
-**Statut** : v0.4 - realigne sur le code livre, machine a 6 valeurs
-**Historique** : v0.4 (2026-09-24) - mise en coherence avec le code livre (2a09597) : references `OrderRepository.php:ligne` recalees sur le code courant (le fichier a evolue depuis le 2026-07-31) ; libelles du diagramme ecrits avec `<br/>`, que Mermaid 11 affiche en retour a la ligne dans un `stateDiagram-v2` (il y affichait `\n` tel quel).
+**Statut** : v0.5 - realigne sur le code livre, machine a 6 valeurs
+**Historique** : v0.4 (2026-09-24) - mise en coherence avec le code livre (2a09597) : references `OrderRepository.php:ligne` recalees sur le code courant (le fichier a evolue depuis le 2026-07-31) ; libelles du diagramme ecrits avec `<br/>`, que Mermaid 11 affiche en retour a la ligne dans un `stateDiagram-v2` (il y affichait `\n` tel quel). v0.5 (2026-09-28) - audit final sur pieces : references de ligne re-recalees (le fichier a encore evolue) ; T5 (annulation) ouverte au manager (ADR-0020) ; l'arc `paid --> preparing` (aucun code ne l'ecrit) retire du diagramme et remplace par une note ; T6 precise sur `GREATEST(created_at, updated_at)` et le delai borne [1, 1440] min ; section 6 mise a jour (dictionnaire/MLD/MCD alignes depuis le 2026-09-22, plus d'ecart a signaler).
 **Date** : 2026-07-31
 **Auteur methodologie** : BYAN
 
@@ -25,9 +25,9 @@ Il complete le MCD (`docs/merise/mcd.md`), le dictionnaire (`docs/merise/diction
 > que creation et encaissement sont deux appels HTTP distincts. Chaque transition
 > ci-dessous est ancree dans le code qui l'execute.
 >
-> Portee du realignement : ce document et `mlt.md` sections 13/14. Le dictionnaire,
-> le MLD et le MCD portent encore la description a 4 etats -- dette connue, traitee
-> a part.
+> Portee du realignement : ce document et `mlt.md` sections 13/14, complete depuis
+> par le dictionnaire, le MLD et le MCD (alignes sur la machine a 6 valeurs depuis le
+> 2026-09-22 — voir section 6, la dette de coherence documentaire est soldee).
 
 ---
 
@@ -49,12 +49,12 @@ proprietaire pour la machine a etats.
 
 | Etat | Valeur ENUM | Signification | Ecrit par |
 |---|---|---|---|
-| En attente de paiement | `pending_payment` | Commande composee, totaux figes, lignes persistees, rien de debite. Etat initial. **Observable** : la creation committe dans sa propre transaction. | `persist()` (`OrderRepository.php:314-342`) |
+| En attente de paiement | `pending_payment` | Commande composee, totaux figes, lignes persistees, rien de debite. Etat initial. **Observable** : la creation committe dans sa propre transaction. | `persist()` (`OrderRepository.php:309-353`) |
 | Payee | `paid` | **Etat historique.** Aucun chemin de code ne l'ecrit plus depuis que le paiement met directement en preparation. Il subsiste dans l'enumeration et dans les gardes pour les commandes creees AVANT ce changement (11 lignes en base de demonstration au 2026-07-31). | plus aucun code |
-| En preparation | `preparing` | Encaissee et en cuisine. C'est ici que le stock est debite. `paid_at` ET `preparing_at` sont poses ensemble ; `paid_at` reste l'horloge de reference du SLA et des indicateurs de vente. | `pay()` (`:575`) |
-| Prete | `ready` | Preparation terminee, en attente de remise. | `markReady()` (`:700`) |
-| Remise | `delivered` | Remise au client. Etat **final**. | `deliver()` (`:649`) |
-| Annulee | `cancelled` | Annulee par un equipier, ou expiree par le planificateur. Etat **final**. | `cancel()` (`:772`), `expireStalePending()` (`:901`) |
+| En preparation | `preparing` | Encaissee et en cuisine. C'est ici que le stock est debite. `paid_at` ET `preparing_at` sont poses ensemble ; `paid_at` reste l'horloge de reference du SLA et des indicateurs de vente. | `pay()` (`:551-638`) |
+| Prete | `ready` | Preparation terminee, en attente de remise. | `markReady()` (`:702-741`) |
+| Remise | `delivered` | Remise au client. Etat **final**. | `deliver()` (`:649-691`) |
+| Annulee | `cancelled` | Annulee par un equipier ou un manager, ou expiree par le planificateur. Etat **final**. | `cancel()` (`:775-864`), `expireStalePending()` (`:886-970`) |
 
 ---
 
@@ -69,7 +69,6 @@ stateDiagram-v2
     pending_payment --> cancelled : annuler (T5)<br/>[aucun re-credit :<br/>rien n a ete debite]
     pending_payment --> cancelled : expirer (T6)<br/>[planificateur<br/>02h00, sans acteur]
 
-    paid --> preparing : etat historique<br/>[aucune transition<br/>ecrite aujourd hui]
     paid --> ready : marquer prete<br/>(T3)
     paid --> delivered : remettre (T4)
     paid --> cancelled : annuler (T5)
@@ -83,6 +82,17 @@ stateDiagram-v2
 
     delivered --> [*]
     cancelled --> [*]
+
+    note right of paid
+        Etat historique : AUCUN chemin de
+        code n'ecrit plus la transition
+        paid -> preparing. L'arc n'est donc
+        pas trace (aucune ligne ne l'emprunte
+        aujourd'hui) ; seules les sorties
+        depuis paid (T3/T4/T5) restent
+        codees pour les commandes anterieures
+        au 2026-07-31.
+    end note
 ```
 
 ---
@@ -91,12 +101,12 @@ stateDiagram-v2
 
 | # | De | Vers | Evenement | Garde | Acteur | Code |
 |---|---|---|---|---|---|---|
-| T1 | (initial) | `pending_payment` | Creation de la commande composee | Au moins une ligne resolue ; produits disponibles (RG-T21) ; prix refiges serveur | Client (borne) / Equipier (comptoir, drive) | `persist()` `:314-342` |
-| T2 | `pending_payment` | `preparing` | Encaissement | `WHERE status = 'pending_payment'` ; 0 ligne affectee et etat deja encaisse -> sortie idempotente, sinon transition invalide | Client / Equipier | `pay()` `:559-607` |
-| T3 | `paid`, `preparing` | `ready` | Preparation terminee | `WHERE status IN ('paid','preparing')` ; permission `order.read` | Cuisine | `markReady()` `:699-703` |
-| T4 | `paid`, `preparing`, `ready` | `delivered` | Remise physique | `WHERE status IN ('paid','preparing','ready')` ; permission `order.deliver` ; source compatible avec le role (`role_visible_source`, PRE-3) | Comptoir / Drive | `deliver()` `:648-652` |
-| T5 | `pending_payment`, `paid`, `preparing`, `ready` | `cancelled` | Annulation | `WHERE status IN (...)` ; permission `order.cancel` + PIN equipier ; re-credit du stock **conditionne a l'existence de mouvements `sale`**, pas au statut lu | Comptoir / Drive / Admin | `cancel()` `:747` |
-| T6 | `pending_payment` | `cancelled` | **Expiration automatique** | Age > `ORDER_PENDING_EXPIRY_MINUTES` ; `WHERE status = 'pending_payment'` ; aucun mouvement `sale` ; **aucun effet de stock** | Systeme (planificateur 02h00) | `expireStalePending()` `:858` |
+| T1 | (initial) | `pending_payment` | Creation de la commande composee | Au moins une ligne resolue ; produits disponibles (RG-T21) ; prix refiges serveur | Client (borne) / Equipier (comptoir, drive, admin) | `persist()` `:309-353` |
+| T2 | `pending_payment` | `preparing` | Encaissement | `WHERE status = 'pending_payment'` ; 0 ligne affectee et etat deja encaisse -> sortie idempotente, sinon transition invalide | Client / Equipier | `pay()` `:551-638` |
+| T3 | `paid`, `preparing` | `ready` | Preparation terminee | `WHERE status IN ('paid','preparing')` ; permission `order.read` (donc aussi manager/admin, pas seulement la cuisine) | Cuisine / Comptoir / Drive / Manager / Admin | `markReady()` `:702-741` |
+| T4 | `paid`, `preparing`, `ready` | `delivered` | Remise physique | `WHERE status IN ('paid','preparing','ready')` ; permission `order.deliver` ; source compatible avec le role (`role_visible_source`, PRE-3) | Comptoir / Drive / Admin (le manager n'a pas `order.deliver`) | `deliver()` `:649-691` |
+| T5 | `pending_payment`, `paid`, `preparing`, `ready` | `cancelled` | Annulation | `WHERE status IN (...)` ; permission `order.cancel` + PIN equipier ; re-credit du stock **conditionne a l'existence de mouvements `sale`**, pas au statut lu | Comptoir / Drive / Manager (ADR-0020, migration `0018`) / Admin | `cancel()` `:775-864` |
+| T6 | `pending_payment` | `cancelled` | **Expiration automatique** | `GREATEST(created_at, updated_at) < NOW() - INTERVAL :m MINUTE`, avec `:m = ORDER_PENDING_EXPIRY_MINUTES` (defaut 60) borne a [1, 1440] min ; `WHERE status = 'pending_payment'` ; aucun mouvement `sale` ; **aucun effet de stock** | Systeme (planificateur 02h00) | `expireStalePending()` `:886-970` |
 
 ### Boucle sur place (pas une transition)
 
@@ -148,7 +158,7 @@ facture — et parce qu'il partage un verrou avec T2. Detail :
 | Annulation possible sauf depuis un etat final | Respectee (T5, T6 ; rien depuis `delivered` ni `cancelled`) |
 | Le stock ne bouge qu'a l'encaissement et a l'annulation d'une commande encaissee | Verifie par test (unitaire + integration sur base reelle) |
 | `mlt.md` section 13.6 (expiration) | Presente, alignee sur T6 |
-| Dictionnaire / MLD / MCD | **En ecart** : ils decrivent encore 4 etats. Dette connue, hors perimetre de ce document. |
+| Dictionnaire / MLD / MCD | Alignes depuis le 2026-09-22 : les trois decrivent la meme machine a 6 valeurs (dictionnaire Note 6, `mld.md` §"Machine a 6 etats", `mcd.md` §"Machine a 6 etats"). Plus d'ecart a signaler. |
 
 ---
 

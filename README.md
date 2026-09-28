@@ -2,7 +2,7 @@
 
 Borne de commande pour restauration rapide. Projet de certification RNCP 37805 (Titre Developpeur Web, B2, option DevOps).
 
-**Statut** : en developpement actif. Soutenance prevue septembre 2026.
+**Statut** : en developpement actif. Soutenance prevue lundi 5 octobre 2026.
 
 **Sites exposes cibles** :
 - `https://corentin-wakdo.stark.a3n.fr` — Borne client (Bloc 1 Front)
@@ -20,7 +20,7 @@ Trois canaux de prise de commande :
 - `counter` — comptoir (un equipier saisit pour le client au guichet)
 - `drive` — drive-thru (equipier saisit via intercom + casque)
 
-Statuts commande (machine a 4 etats) : `pending_payment` -> `paid` -> `delivered`, plus `cancelled` (atteignable depuis `pending_payment` ou `paid`). La saisie du numero tient lieu de paiement : la creation passe atomiquement de `pending_payment` a `paid`. La cuisine voit la file des commandes `paid` en lecture seule ; la remise est un geste unique `paid` -> `delivered`.
+Statuts commande (machine a 6 etats) : `pending_payment` -> `paid` -> `preparing` -> `ready` -> `delivered`, plus `cancelled` (terminal, atteignable depuis tout etat non termine). La saisie du numero tient lieu de paiement : la creation passe atomiquement de `pending_payment` a `preparing` (`paid_at` et `preparing_at` poses ensemble). La cuisine (KDS) fait avancer `preparing` -> `ready` ; la remise accepte `paid`, `preparing` ou `ready` -> `delivered`.
 
 Scope metier complet, regles, horaires de service et fenetre de maintenance : voir `docs/PROJECT_CONTEXT.md`.
 
@@ -134,7 +134,7 @@ Avec un `.env` adapte : `APP_ENV=prod`, `APP_DEBUG=false`, mots de passe forts,
 ```
 .
 |-- .claude/                     # Methodologie BYAN (visible jury : CLAUDE.md + rules/)
-|-- .forgejo/workflows/          # CI Forgejo Actions (ci.yml : secret-scan, php-lint, static-tests, js-tests)
+|-- .forgejo/workflows/          # Forgejo Actions (ci.yml : secret-scan, php-lint, static-tests, js-tests, shell-tests ; deploy.yml : cle-de-deploiement, deploiement)
 |-- .githooks/                   # pre-commit (refus main/dev + php -l) + commit-msg (Conventional Commits)
 |-- docker/                      # Dockerfiles customs par service
 |   |-- apache/                  # httpd + vhosts kiosk / admin
@@ -153,12 +153,13 @@ Avec un `.env` adapte : `APP_ENV=prod`, `APP_DEBUG=false`, mots de passe forts,
 |   `-- adr/ api/ domaines/ design/ journal/ _ref/
 |-- scripts/                     # deploy, install-hooks, forgejo-*, demo-snapshot/demo-reset (voir docs/ops/demo-reset.md)
 |-- src/
-|   |-- app/                     # namespace App\ : Core, Controllers, Auth, Catalogue, Order, Views
+|   |-- app/                     # namespace App\ : Core, Controllers, Auth, Catalogue, Order, Health, Views
 |   `-- public/                  # DocumentRoots Apache : borne/ (kiosk) + admin/ (back-office + API)
 |-- tests/
 |   |-- Unit/ Integration/       # PHPUnit (.phar autonome, sans Composer ; integration sur vraie MariaDB)
-|   |-- js/                      # node:test + jsdom (front borne)
-|   |-- e2e/                     # Playwright (parcours borne + admin, lance a la main)
+|   |-- js/                      # node:test + jsdom (front borne ET back-office)
+|   |-- e2e/                     # Playwright (parcours borne + admin, lance a la main ; e2e/backoffice-sweep/ = balayage exhaustif)
+|   |-- shell/                   # tests bash purs (scripts/lib/demo-snapshot-lib.sh), lances en CI (shell-tests)
 |   `-- Support/                 # doubles de test (Fake* / Spy*)
 |-- .env.example  .gitleaks.toml  phpstan.neon  phpunit.xml
 |-- docker-compose.yml           # standalone local ; prod = docker-compose.prod.yml (gitignore, par hote)
@@ -192,16 +193,16 @@ Trois niveaux, sans dependance Composer cote PHP (priorite Unit > Integration > 
   docker run --rm -v "$PWD":/app -w /app wakdo-wakdo-app php -d memory_limit=-1 phpstan.phar analyse
   ```
 
-- **JS (node:test + jsdom)** — modules du front borne : `npm run test:js`
+- **JS (node:test + jsdom)** — modules du front borne et du back-office : `npm run test:js`
 - **E2E (Playwright)** — parcours borne + admin, lances a la main contre une stack jetable : `tests/e2e/run.sh`
 
-La CI Forgejo execute secret-scan, php-lint, static-tests (PHPStan niveau 6 + PHPUnit avec service MariaDB) et js-tests sur chaque PR.
+La CI Forgejo (`ci.yml`, cinq travaux) execute secret-scan, php-lint, static-tests (PHPStan niveau 6 + PHPUnit avec service MariaDB), js-tests et shell-tests sur chaque PR.
 
 ---
 
 ## Deploiement
 
-*CI Forgejo Actions sur PR vers `dev`/`main` (secret-scan gitleaks, php-lint, static-tests PHPStan + PHPUnit, js-tests), avec auto-merge sur CI verte. Deploiement via `scripts/deploy.sh` (recupere `main` depuis Forgejo puis `docker compose build --pull && up -d` ; les images sont buildees localement depuis les Dockerfiles, le one-shot `wakdo-migrate` applique migrations + seed). Le deploiement est CONTINU : tout commit arrivant sur `main` declenche le workflow Deploy, qui demande a l'hote de se deployer par un canal restreint (commande forcee, une seule commande possible), puis verifie que `/api/health` sert bien le commit attendu avant de passer au vert. `scripts/deploy.sh` reste lancable a la main et refuse de partir si l'arbre de travail n'est pas propre. Voir `docs/PROJECT_CONTEXT.md` section 7 Bloc 5.*
+*CI Forgejo Actions (`ci.yml`, cinq travaux : secret-scan gitleaks, php-lint, static-tests PHPStan + PHPUnit, js-tests, shell-tests) sur PR vers `dev`/`main`, avec auto-merge sur CI verte. Deploiement via `scripts/deploy.sh` (recupere `main` depuis Forgejo puis `docker compose build --pull && up -d` ; les images sont buildees localement depuis les Dockerfiles, le one-shot `wakdo-migrate` applique migrations + seed). Le deploiement est CONTINU : tout commit arrivant sur `main` declenche le workflow `deploy.yml` (deux travaux : `cle-de-deploiement` verifie le secret SSH, `deploiement` demande a l'hote de se deployer par un canal restreint, commande forcee, une seule commande possible), puis verifie que `/api/health` sert bien le commit attendu avant de passer au vert. `scripts/deploy.sh` reste lancable a la main et refuse de partir si l'arbre de travail n'est pas propre. Voir `docs/PROJECT_CONTEXT.md` section 7 Bloc 5.*
 
 ---
 
@@ -209,13 +210,13 @@ La CI Forgejo execute secret-scan, php-lint, static-tests (PHPStan niveau 6 + PH
 
 | Document | Role |
 |---|---|
-| `docs/PROJECT_CONTEXT.md` | Source de verite projet (17 sections : scope, stack, architecture, mapping critere RNCP, planning, risques, conventions) |
+| `docs/PROJECT_CONTEXT.md` | Source de verite projet (19 sections : scope, stack, architecture, mapping critere RNCP, planning, risques, conventions, threat model) |
 | `docs/journal/` | Retrospectives par session et par feature (preparation de l'oral RNCP) |
 | `docs/merise/` | Modelisation Merise : dictionnaire, MCD, MCT, MLD, MLT (+ diagrammes) |
 | `docs/ARCHITECTURE.md` / `docs/adr/` | Vue technique + decisions d'architecture (ADR) |
 | `docs/ops/demo-reset.md` | Remise a zero des donnees de demo avant/pendant la soutenance (`scripts/demo-snapshot.sh`, `scripts/demo-reset.sh`) |
 | `.claude/CLAUDE.md` | Constitution du projet pour les agents Claude Code |
-| `.claude/rules/` | Protocoles appliques : fact-check, merise-agile, elo-trust, hermes-dispatcher, byan-api, byan-agents |
+| `.claude/rules/` | Protocoles appliques (13 fichiers) : fact-check, merise-agile, elo-trust, hermes-dispatcher, byan-api, byan-agents, strict-mode, benchmark, team-doctrine, portable-core, native-workflows, plain-language, agent-entry-gate |
 
 ---
 

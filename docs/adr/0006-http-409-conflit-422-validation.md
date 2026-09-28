@@ -6,7 +6,7 @@
 ## Contexte
 Les controleurs renvoyaient 422 a la fois pour une validation qui echoue ET pour un
 conflit d'etat (unicite, suppression bloquee par FK RESTRICT). Le contrat documente
-(`byan-api.md`) attendait 409 pour les conflits. Derive a corriger.
+(`docs/api/conventions.md`) attendait 409 pour les conflits. Derive a corriger.
 
 ## Decision
 Convention harmonisee sur tous les controleurs :

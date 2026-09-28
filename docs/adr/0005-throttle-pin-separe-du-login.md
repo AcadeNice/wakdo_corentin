@@ -4,9 +4,10 @@
 - Date : 2026-06-15
 
 ## Contexte
-Le PIN d'action sensible (ADR-0004) est court (4 chiffres) : il faut limiter le
-brute-force. Question : reutiliser les compteurs de login (`user.lockout_until` /
-`login_throttle`) ou un compteur dedie ? Et sur quelle dimension compter ?
+Le PIN d'action sensible (ADR-0004) est court (4 a 12 chiffres, `STAFF_PIN_MIN_LENGTH`/
+`STAFF_PIN_MAX_LENGTH`) : il faut limiter le brute-force. Question : reutiliser les
+compteurs de login (`user.lockout_until` / `login_throttle`) ou un compteur dedie ? Et sur
+quelle dimension compter ?
 
 ## Decision
 Table **`pin_throttle`** dediee, **separee** des compteurs de connexion. La dimension

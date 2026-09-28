@@ -61,7 +61,7 @@ class OrderAdminController extends AdminController
             'activeNav'  => 'orders',
             'orders'     => $orders,
             // RG-T03 : adapte l'affichage (bouton Annuler) sans remplacer la garde
-            // par-action de cancel(). manager n'a PAS order.cancel (decision D5).
+            // par-action de cancel(). manager a order.cancel depuis ADR-0020 (#176).
             'canCancel'  => $this->may($guard, 'order.cancel'),
             // Ligne a signaler (retour visuel apres deliver()/cancel(), qui posent
             // _highlight_order juste avant de rediriger ici). Voir la note du meme nom

@@ -6,17 +6,28 @@ la composition des produits (recettes). Sous-tend la disponibilite produit calcu
 
 ## Ce qui est livre
 - `IngredientRepository` : CRUD, stock %/bande calcules, `restock` (tx), `inventoryCount`
-  (tx, ecrit une ligne meme a delta=0, RG-3), `movements` (borne), `isReferenced`.
-- `IngredientController` : CRUD (`ingredient.manage`, sans PIN), RESTOCK (`stock.manage`,
-  sans PIN), INVENTORY_COUNT (`stock.count` + PIN), mouvements (`stock.read`).
+  (tx, ecrit une ligne meme a delta=0, RG-3), `adjust` (tx, correction delta signee),
+  `movements` (page ET API), `isReferenced`.
+- `IngredientController` : CRUD (`ingredient.manage`, sans PIN), RESTOCK
+  (`POST /admin/ingredients/{id}/restock`, `stock.manage`, sans PIN), THRESHOLDS
+  (`POST /admin/ingredients/{id}/thresholds`, `stock.manage`, sans PIN — reglage
+  capacite/alerte/critique), INVENTORY_COUNT
+  (`POST /admin/ingredients/{id}/inventory`, `stock.count` + PIN), ADJUST
+  (`POST /admin/ingredients/{id}/adjust`, `stock.count` + PIN — correction libre,
+  meme garde-fou que l'inventaire), mouvements (`GET /admin/ingredients/{id}/movements`,
+  `stock.read`). `IngredientApiController` expose le meme CRUD et les memes actions en
+  JSON sous `/admin/api/ingredients/...`, dont `GET /admin/api/ingredients/{id}/movements`
+  (`stock.read` ; le champ `actor` n'est renvoye qu'aux detenteurs de `stock.manage`,
+  absent sinon — pas seulement vide).
 - `ProductRepository` : composition (`product_ingredient`), `setComposition`
   (delete-and-reinsert tx), `isOrderable` (RG-T21), `autoUnavailableIds`.
 - Editeur de recette (`ProductController::recipeForm/saveRecipe`, `ingredient.manage`).
 
 ## Regles metier
-- RG-T13 : INVENTORY_COUNT seule action sensible du stock (PIN equipier) ; succes ->
+- RG-T13 : INVENTORY_COUNT et ADJUST (mouvement `adjustment`) sont les actions sensibles
+  du stock (PIN equipier — une baisse non attribuee masquerait de la demarque) ; succes ->
   `stock_movement.user_id`, **sans** `audit_log` (RG-T14 : le mouvement EST la trace).
-  RESTOCK et CRUD ingredient ne sont PAS sensibles.
+  RESTOCK, THRESHOLDS et CRUD ingredient ne sont PAS sensibles (sans PIN).
 - RG-T22 : echec PIN inventaire -> `pin.failed` + throttle dans une transaction.
 - RG-T21 : disponibilite produit calculee (cf. [ADR-0003](../adr/0003-stock-pourcentage-dispo-calculee.md)).
 - FK : `product_ingredient`/`stock_movement` RESTRICT sur l'ingredient (hard-delete -> 409) ;

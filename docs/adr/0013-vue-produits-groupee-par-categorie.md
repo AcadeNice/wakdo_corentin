@@ -68,4 +68,6 @@ Trois choix de mise en oeuvre :
   ADR-0011/0012 (les deux refontes de reference du back-office). Fichiers :
   `src/app/Catalogue/ProductRepository.php`, `src/app/Controllers/ProductController.php`,
   `src/app/Views/admin/products/by_category.php`, `src/app/Views/admin/layout.php`,
-  `src/public/admin/index.php`, `src/public/admin/assets/css/admin.css`.
+  `src/app/Core/routes.php` (les declarations de route ont ete extraites de
+  `src/public/admin/index.php` vers ce fichier le 2026-09-27, commit `64bdb67`),
+  `src/public/admin/assets/css/admin.css`.

@@ -51,9 +51,11 @@ Ce qui reste NEANMOINS reecrit en double, cote `IngredientApiController`, MALGRE
 partage de `NumericInput` ci-dessus (relecture adverse, 2e passe, point 5 -- honnetete
 sur ce qui n'est pas factorise) :
 - la longueur maximale de la note libre (255 caracteres, `restock`/`inventory`/`adjust`) :
-  verifiee par un `if (mb_strlen($note) > 255)` DUPLIQUE dans chaque methode API, qui a
-  son pendant DUPLIQUE separement dans chaque methode HTML correspondante -- meme regle,
-  quatre copies (2 HTML + 2 JSON), pas une source unique ;
+  verifiee par un `if (mb_strlen($note) > 255)` DUPLIQUE dans les trois methodes API
+  (`apiRestock`/`apiInventory`/`apiAdjust`), qui a son pendant DUPLIQUE separement dans
+  chacune des trois methodes HTML correspondantes (`restock`/`inventory`/`adjust` de
+  `IngredientController`) -- meme regle, six copies (3 HTML + 3 JSON), pas une source
+  unique ;
 - le controle "ingredient actif" prealable au reapprovisionnement (`apiRestock` :
   `(int) ($ingredient['is_active'] ?? 0) !== 1`) : reecrit a l'identique de l'equivalent
   HTML (`IngredientController::restock()`), pas appele en partage ;
@@ -87,7 +89,7 @@ Ce qui n'est PAS du code partage, mais une REIMPLEMENTATION du meme comportement
   `orderDetail()`) reproduit le principe de `OrderAdminController::orderSource()`/
   `sourceVisibleToRole()` (memes regles) dans du code neuf, pas partage.
 
-**Mise a jour (post-soutenance, chantier RBAC canal)** : `roleFixedSource()` (canal
+**Mise a jour (pre-soutenance, chantier RBAC canal)** : `roleFixedSource()` (canal
 FIXE du role, `role.order_source`), a la redaction initiale de cet ADR, n'avait pas
 d'equivalent HTML reutilise : le HTML deduisait sa source du CHEMIN (`/counter/orders`
 vs `/drive/orders`) sans verifier que le role visitant cette page y avait droit --
@@ -162,7 +164,7 @@ parent et que ce parent est deja pris par le controleur HTML.
     un numero INCONNU comme pour un canal non visible, VERIFIE AVANT le PIN sur `cancel`
     (un acteur ne doit pas pouvoir distinguer "n'existe pas" de "existe, PIN faux" via le
     code HTTP) -- pour ne pas reveler par la difference de code qu'une commande d'un
-    autre canal existe. **Limite levee (chantier RBAC canal, post-soutenance)** : cote
+    autre canal existe. **Limite levee (chantier RBAC canal, pre-soutenance)** : cote
     HTML, `OrderAdminController::cancel()` applique desormais la MEME garde de
     visibilite de canal (`sourceVisibleToRole()`, verifiee AVANT le PIN, meme reponse
     403 pour un numero inconnu et pour un canal non visible), et `confirmCancel()`
@@ -173,7 +175,8 @@ parent et que ce parent est deja pris par le controleur HTML.
     pour le contrat a jour).
 - Fichiers concernes : `src/app/Controllers/Admin/Api/*` (dont `OrderApiController` et
   `StatsApiController`, ajoutes au second chantier), `src/app/Auth/PinGate.php`,
-  `src/public/admin/index.php` (routes), `docs/api/conventions.md` (section 5.3),
+  `src/app/Core/routes.php` (routes ; extraites de `src/public/admin/index.php` le
+  2026-09-27, commit `64bdb67`), `docs/api/conventions.md` (section 5.3),
   `docs/api/wakdo-admin.postman_collection.json`.
 
 ## Addendum (2026-09-26) — Connexion JSON (`/admin/api/auth/*`)
@@ -223,7 +226,7 @@ assume plutot qu'une garantie :
    initiee depuis un autre site -- pas d'empecher la CREATION du cookie (cf.
    `docs/api/conventions.md` section 5.3bis pour la source exacte et la distinction).
    Correction : le cookie de session existe DEJA a ce stade, contrairement a ce qu'une
-   premiere version de ce paragraphe affirmait. `src/public/admin/index.php` (ligne 77)
+   premiere version de ce paragraphe affirmait. `src/public/admin/index.php` (ligne 56)
    appelle `(new SessionManager($config))->start()` de facon INCONDITIONNELLE, avant le
    routage, sur CHAQUE requete du vhost admin -- `POST /admin/api/auth/login` y compris.
    Une session anonyme (aucun `user_id`) existe donc deja, et son cookie part deja dans la
@@ -272,7 +275,7 @@ CSRF), plutot que d'echanger un risque contre un autre sans filet.
 - (+) `AuthApiController extends MeController` (et non `AuthenticatedController`
   directement) : `apiMe()` appelle `MeController::show()` sans le reimplementer (heritage
   reel, meme raisonnement que le reste de cet ADR).
-- (-) `AuthApiController::authService()` DUPLIQUE le hook prive equivalent
+- (-) `AuthApiController::authService()` DUPLIQUE le hook protected equivalent
   d'`App\Controllers\AuthController` (meme construction exacte) : les deux controleurs
   n'ont pas de parent commun compatible (`AuthController extends Controller`,
   `AuthApiController extends MeController extends AuthenticatedController`), donc ce hook de

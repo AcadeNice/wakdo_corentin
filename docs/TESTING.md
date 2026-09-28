@@ -14,7 +14,7 @@
 | Unitaire PHP | PHPUnit (`.phar`) | logique (Auth, RBAC, PIN, throttle, calcul commande, controleurs via doubles) | CI + local |
 | Integration PHP | PHPUnit + vraie MariaDB | requetes SQL preparees, contraintes, RBAC `is_active`, audit, FK | CI + local |
 | Analyse statique | PHPStan niveau 6 | typage, erreurs potentielles sur `src/` + `tests/` | CI + local |
-| Unitaire JS | `node:test` + jsdom | modules du front borne (panier, composeur, checkout, allergenes, a11y, validation) | CI + local |
+| Unitaire JS | `node:test` + jsdom | modules du front borne (panier, composeur, checkout, allergenes, a11y, validation) et du back-office (formulaires produit/menu, categories, stock, saisie comptoir) | CI + local |
 | E2E | Playwright | parcours borne + admin de bout en bout | **local / manuel** (voir section 5) |
 
 ---
@@ -71,15 +71,22 @@ elle suppose un PHP de CI equipe de pcov).
 
 ## 5. E2E (Playwright) — execution manuelle, hors CI
 
-Les parcours E2E (borne : accueil -> commande -> chevalet -> confirmation ; admin :
-login -> dashboard -> logout) se lancent **a la main**, contre une stack jetable :
+22 specs (`tests/e2e/*.spec.js` : borne, admin, RBAC, accessibilite, performance,
+balayage back-office, capture de la page Sante...) se lancent **a la main**, contre
+une stack jetable, via cinq lanceurs :
 
-```bash
-tests/e2e/run.sh
-```
+| Lanceur | Fait |
+|---|---|
+| `tests/e2e/run.sh` | Monte une stack jetable, lance Playwright (conteneur officiel headless) contre elle, puis demonte tout. |
+| `tests/e2e/run-a11y.sh` | Monte une stack jetable, lance l'audit d'accessibilite axe-core via Playwright, depose les artefacts dans le dossier de preuves, puis demonte tout. |
+| `tests/e2e/run-w3c.sh` | Valide au validateur W3C les pages servies ET les pages statiques de la borne, en une commande reproductible. |
+| `tests/e2e/run-captures.sh` | Monte une stack jetable, joue `responsive.spec.js` avec `CAPTURES_DIR` pose, range les captures dans les dossiers de preuves, puis demonte tout. |
+| `tests/e2e/run-health-capture.sh` | Monte une stack jetable, joue `health-capture.spec.js`, coupe la base pour capturer une vraie reponse d'exception, puis demonte tout. |
 
-Le script monte une stack isolee (`docker-compose.yml` + `tests/e2e/docker-compose.e2e.yml`),
-attend migrate + healthcheck, puis lance Playwright dans le conteneur officiel.
+`tests/e2e/run.sh` (borne : accueil -> commande -> chevalet -> confirmation ; admin :
+login -> dashboard -> logout) monte une stack isolee (`docker-compose.yml` +
+`tests/e2e/docker-compose.e2e.yml`), attend migrate + healthcheck, puis lance
+Playwright dans le conteneur officiel.
 
 **Pourquoi pas en CI ?** Decision assumee : le runner Forgejo de production execute les
 jobs sans acces au socket Docker (pas de docker-in-docker), et les jobs sont repartis sur
@@ -92,13 +99,18 @@ A l'oral, c'est la position a defendre : E2E reels et reproductibles, mais decle
 
 ## 6. Ce que la CI execute (Forgejo Actions, sur PR)
 
-`.forgejo/workflows/ci.yml`, sur `pull_request` vers `dev`/`main` :
+`.forgejo/workflows/ci.yml`, sur `pull_request` vers `dev`/`main` (et sur `push` de certaines
+branches, feedback avant la PR) :
 
 | Job | Verifie |
 |---|---|
 | `secret-scan` | gitleaks (aucun secret dans le diff/historique) |
 | `php-lint` | `php -l` sur tous les fichiers `.php` |
 | `static-tests` | PHPStan niveau 6 + PHPUnit (unit + integration sur service MariaDB, `--fail-on-skipped`) |
-| `js-tests` | `node --test tests/js/` (jsdom) |
+| `js-tests` | `node --test tests/js/` (jsdom, borne et back-office) |
+| `shell-tests` | fonctions pures du filet instantane/remise a zero de la demo (`tests/shell/`, `scripts/lib/demo-snapshot-lib.sh`) |
 
 L'auto-merge ne se declenche que lorsque ces checks requis sont verts (branch protection).
+Le deploiement continu (`.forgejo/workflows/deploy.yml`, deux travaux `cle-de-deploiement` +
+`deploiement`) est un workflow separe, declenche par un push sur `main` — hors perimetre de ce
+document, voir `docs/PROJECT_CONTEXT.md` section 7 Bloc 5.

@@ -16,7 +16,7 @@ L'adaptation repose sur des `@media` queries qui reorganisent les grilles, empil
 Toutes les pages declarent le viewport meta responsive `width=device-width, initial-scale=1.0`, condition prealable a l'application des media queries :
 
 - borne : `src/public/borne/index.html`, `categories.html`, `products.html`, `payment.html`, `confirmation.html` (viewport verifie sur les cinq pages) ;
-- admin : `src/app/Views/admin/layout.php:64` (layout partage de toutes les pages admin) ; layout public partage : `src/app/Views/layout.php:18`.
+- admin : `src/app/Views/admin/layout.php:65` (layout partage de toutes les pages admin) ; layout public partage : `src/app/Views/layout.php:19`.
 
 ## 2. Recensement des points de rupture reels
 
@@ -36,14 +36,17 @@ Les cinq points de rupture attendus (`1080` / `900` / `700` / `600` / `480`) son
 
 | Point de rupture | Direction | Regle (selecteur, section) | Effet principal |
 |---|---|---|---|
-| `max-width: 900px` | descendante | `.stock-summary` (section « Stock dashboard (page d'accueil ingredients) ») | `.stock-summary` passe a 1 colonne (meme regle) ; `.stock-list__row` degrille en 1 colonne (`.stock-list__row`, meme section) ; actions realignees a gauche (meme section) |
+| `max-width: 1280px` | descendante | `.health-amap--borne .health-arow` (section « Sante de l'API », bloc 4 addendum) | Sur le groupe a cinq colonnes de la carte Sante (routes borne), chaque ligne devient une fiche empilee et l'entete de colonnes est masquee (meme bloc) |
+| `max-width: 1024px` | descendante | `.dash-tiles` (section « Dashboard (direction A+C) », lot 0) | Les 4 tuiles KPI du tableau de bord passent a 2 colonnes des ce palier intermediaire, avant meme le seuil telephone (`640px`) |
+| `max-width: 900px` | descendante | `.stock-summary` (section « Stock dashboard (page d'accueil ingredients) ») | `.stock-summary` passe a 1 colonne (meme regle) ; `.stock-list__row` degrille en 1 colonne (`.stock-list__row`, meme section) ; actions realignees a gauche (meme section) ; le groupe a quatre colonnes de la carte Sante devient egalement une fiche empilee au meme seuil (`.health-arow`, section « Sante de l'API ») |
 | `max-width: 860px` | descendante | `.pos__main` (section « POS tactile a tuiles comptoir/drive ») | POS comptoir/drive : `.pos__main` en colonne (meme regle) ; le `.pos__panel` perd son `sticky` et passe pleine largeur (`.pos__panel`, meme section) ; hauteur du panier plafonnee (`.order-cart`, meme section) |
 | `max-width: 720px` | descendante | `.catalogue-grid` (section « Produits par categorie (vue groupee back-office, F20) ») | `.catalogue-summary` passe a 1 colonne ; `.catalogue-grid` (base : `repeat(auto-fill, minmax(min(240px,100%),1fr))`) passe a 1 colonne (memes regles) |
 | `max-width: 700px` | descendante | `.perm-grid` (section « Matrice de droits d'acces groupee (formulaire Roles humanise) ») | `.perm-grid` (matrice de droits) passe a 1 colonne (meme regle) |
 | `max-width: 640px` | descendante | bloc « Ossature sur petit ecran (Cr 1.b.1) » (section du meme nom, apres `.content`), et bloc de la section « Dashboard (direction A+C) » (apres les regles `.tile`) | **ossature** : grille a 1 colonne (barre du haut, bande de navigation, contenu) ; le menu lateral devient une bande horizontale defilante, recentree sur la page courante (`admin.js`) ; contenu pleine largeur. **Tableau de bord** : tuiles sur 2 colonnes au lieu de 4 ; boutons d'en-tete sous le titre (ajoutes le 2026-09-23) |
 | `max-width: 640px` | descendante | `.allergen-matrix` (section « Revue des allergenes d'un ingredient (F11b) ») | `.allergen-matrix` (base : `repeat(auto-fill, minmax(260px,1fr))`) passe a 1 colonne (meme regle) |
+| `max-width: 400px` | descendante | `.dash-tiles` (section « Dashboard (direction A+C) », lot 0, dernier palier) | Les 4 tuiles KPI passent a 1 colonne pleine largeur sur telephone etroit |
 
-Les points de rupture des composants (`900` / `860` / `720` / `700`) sont presents dans le fichier, ainsi que deux points a `640` : l'ossature (ajoutee le 2026-09-23) et la matrice d'allergenes (presente depuis le 2026-07-31, PR #128).
+Les points de rupture des composants (`1280` / `1024` / `900` / `860` / `720` / `700` / `400`) sont presents dans le fichier, ainsi que deux points a `640` : l'ossature (ajoutee le 2026-09-23) et la matrice d'allergenes (presente depuis le 2026-07-31, PR #128) — soit **huit valeurs de point de rupture distinctes** au total dans `admin.css`.
 
 ## 3. Matrice Page x Point de rupture -> comportement de layout
 
@@ -181,7 +184,7 @@ Ces captures montrent les etats fonctionnels d'un seul viewport (borne portrait)
 |---|---|---|
 | Viewport meta responsive present | Couvert | 5 pages borne + `layout.php` admin (voir section 1) |
 | Adaptation par media queries (borne) | Couvert | 5 points de rupture reels, matrice section 3.1 |
-| Adaptation des composants admin | Couvert | 3 points de rupture reels, matrice section 3.2 |
+| Adaptation des composants admin | Couvert | 8 points de rupture reels, matrice section 3.2 (voir tableau 2.2) |
 | Empilement des panneaux lateraux en etroit | Couvert | `.order-layout`/`.order-panel` (style.css, section 15), `.pos__main`/`.pos__panel` (admin.css, section « POS tactile a tuiles comptoir/drive ») |
 | Reflow des grilles multi-colonnes | Couvert | citations section 4 |
 | Ossature admin (sidebar) sur mobile portrait etroit | Couvert | bande de navigation sous `640px` (section 3.2), mesuree dans Chromium |

@@ -36,7 +36,7 @@ Preuves de l'absence de dependance externe :
 - Aucun import externe dans le code de la borne. Une recherche sur
   `http`, `cdn`, `unpkg`, `jsdelivr`, `node_modules`, `npm:` dans
   `src/public/borne/assets/js/*.js` ne remonte rien : tous les imports sont
-  relatifs (`./data.js`, `./state.js`, `./nav.js`...). Verifie sur les 14
+  relatifs (`./data.js`, `./state.js`, `./nav.js`...). Verifie sur les 21
   modules.
 - Aucune balise `<script src="http...">` ni reference CDN dans les 5 pages
   HTML de la borne (`src/public/borne/*.html`). Tous les scripts sont charges
@@ -87,8 +87,8 @@ bibliotheques partagees.
 
 Deux modules concentrent la logique reutilisable :
 
-- **`state.js`** — bibliotheque d'etat panier + utilitaires. 13 exports
-  (`state.js:25-194`) : `getMode`/`setMode`, `getCart`/`setCart`/`addToCart`/
+- **`state.js`** — bibliotheque d'etat panier + utilitaires. 14 exports
+  (`state.js:25-196`) : `getMode`/`setMode`/`clearMode`, `getCart`/`setCart`/`addToCart`/
   `removeFromCart`/`updateQuantity`/`clearCart`, `computeMenuLineCents`/
   `getTotalCents`/`getCartCount`, `formatPrice`, `escHtml`. C'est l'equivalent
   fonctionnel d'un mini-store client (persistance `localStorage`, prix en
@@ -110,7 +110,7 @@ competence. Chaine d'imports verifiee :
 |---|---|---|
 | `page-products.js` | `getProductsByCategory`, `getCategoryById`, `CATEGORY_ID_TO_SLUG`, `loadAllergens` (data) ; `formatPrice`, `escHtml` (state) | `page-products.js:10-11` |
 | `page-payment.js` | `getTotalCents`, `formatPrice`, `getCart`, `getMode`, `clearCart`, `escHtml` (state) | `page-payment.js:12` |
-| `checkout.js` | `getCart`, `getMode` (state) ; `loadMenu` (data) | `checkout.js:21-22` |
+| `checkout.js` | `getCart`, `getMode` (state) ; `loadMenu` (data) | `checkout.js:22-23` |
 | `order-panel.js` | bloc d'imports state (`order-panel.js:12-21`) | `order-panel.js:12` |
 | `nav.js` | `getMode`, `setMode`, `getCartCount` (state) | `nav.js:17` |
 | `page-product-menu.js` | `loadMenu`, `loadProductsById` (data) ; `addToCart`, `computeMenuLineCents`, `formatPrice`, `escHtml` (state) | `page-product-menu.js:22-23` |
@@ -123,13 +123,22 @@ porte son propre `package.json` avec `{"type":"module"}` (`package.json` du
 dossier borne), qui marque ces fichiers comme ESM pour Node (execution des
 tests) ; le navigateur, lui, les charge via `<script type="module">`
 independamment de ce fichier. Cette meme couche ESM est reutilisee telle quelle
-par la suite de tests unitaires (`tests/js/state.test.js`, `data.test.js`,
-etc.), preuve supplementaire que ce sont bien des bibliotheques importables.
+par la suite de tests unitaires (`tests/js/data.test.js`, et les tests qui
+importent `state.js` sans lui dedier de fichier propre, notamment
+`checkout.test.js` et `welcome-reset.test.js`), preuve supplementaire que ce
+sont bien des bibliotheques importables.
 
-Ampleur mesuree : environ 2368 lignes de JavaScript reparties sur 14 modules
+Ampleur mesuree : 3 311 lignes de JavaScript reparties sur 21 modules
 (`wc -l src/public/borne/assets/js/*.js`), tous articules autour de ce noyau
 `state.js` / `data.js`. L'organisation en briques reutilisables est donc reelle
 et a l'echelle du projet.
+
+**Une librairie externe integree, puis retiree.** Entre les deux etats, une
+vraie librairie tierce (`a11y-dialog`) a ete cablee pour la gestion des
+modales, avant d'etre retiree sur decision de l'auteur au profit du piege a
+tabulation ecrit a la main (`confirm-modal` `1452bc0`, `docs/journal/2026-09-22--remediation-cd-mono-hote-et-bloc1.md`) :
+l'episode reste la preuve la plus concrete que l'ecart avec C2.d est un choix
+assume, pas une meconnaissance de l'ecosysteme.
 
 ## 4. La tension, nommee sans detour
 

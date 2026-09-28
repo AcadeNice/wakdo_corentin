@@ -94,7 +94,7 @@ Cette note garde la trace de la decomposition maquette -> code et des ecarts res
 | (pas de page categories separee) | `categories.html` plein ecran "Que souhaitez-vous commander ?" | ecran **ajoute** (la maquette met les categories en bandeau) |
 | 3-5. Composeur menu = **assistant modal en etapes** | `page-product-menu.js` : composeur **modal pilote par les slots** de `/api/menus/{id}` (format Maxi puis 1 etape par slot) | conforme |
 | 8. Modale d'option produit (taille + quantite) | `product-options.js` : **modale** d'options (taille R4 + stepper de quantite) au-dessus de la grille | conforme |
-| 9. Ecran **chevalet** dedie (saisie numero) | **modale chevalet** au paiement sur place (`page-payment.js`), numero pose via l'API ; rappele en confirmation | conforme |
+| 9. Ecran **chevalet** dedie (saisie numero) | **modale chevalet** au paiement sur place (`page-payment.js`), numero pose via l'API | conforme (ecart : `confirmation.html` ne rappelle QUE le numero de commande et le montant regle, `page-confirmation.js` — pas le numero du chevalet) |
 | (aucun ecran de paiement) | `payment.html` "Carte bancaire / Especes" | ecran **ajoute** par le build |
 | 10. Remerciement | `confirmation.html` | conforme |
 
@@ -109,7 +109,12 @@ Les ecarts structurants du premier jet ont ete realignes sur la maquette :
    premier jet ont ete retirees.
 2. **Panneau de commande lateral.** La piece centrale de la maquette (numero de
    commande, lignes editables avec quantite et retrait, TOTAL ttc, Abandon / Payer)
-   est rendue par `order-panel.js`, visible en permanence sur l'ecran de commande.
+   est rendue par `order-panel.js`, visible en permanence sur l'ecran de commande — avec
+   un ecart : le panneau construit affiche le titre « Ma commande » et le mode de
+   service (Sur place / A emporter), SANS numero de commande (la maquette en affiche
+   un, ex. « 72 ») ; le numero n'apparait qu'a la confirmation, une fois la commande
+   reellement creee cote serveur. Le reste (lignes editables, TOTAL ttc, Abandon /
+   Payer) est conforme.
 3. **Composition de menu.** Le composeur (`page-product-menu.js`) est un assistant
    modal en etapes pilote par les slots de `/api/menus/{id}` (format Maxi puis une
    etape par slot), conforme a l'enchainement de la maquette.

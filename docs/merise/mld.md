@@ -1,11 +1,11 @@
 # Modele Logique de Donnees (MLD) — Wakdo
 
 **Phase Merise** : P1 - Conception, etape 5 (apres MCD, MCT, MLT)
-**Version** : v0.5 — prod-like, 23 tables (19 prod-like + couche security-by-design + classement des ingredients)
-**Historique** : v0.5 (2026-09-27) — migration 0017 : colonne `ingredient.family` (nullable) et table `category_ingredient_family` (4.23), qui filtrent le selecteur d'ingredients du constructeur de recette selon la categorie du produit ; compte de tables 22 -> 23 ; voir `docs/adr/0018-familles-ingredients-filtre-recette.md`. v0.4 (2026-09-24) — mise en coherence avec le code livre (2a09597) : les quatre diagrammes relationnels re-extraits des migrations 0001 a 0011 (colonnes `preparing_at` / `ready_at` de 0009 et `allergens_*` de 0011, descriptions et chemins d'image), cle etrangere nullable notee en 0..1, relation `user` -> `pin_throttle` corrigee en 1 vers 0..1 (unicite de `actor_user_id`), rendus SVG regeneres avec `_diagrams/mermaid-config.json`.
+**Version** : v0.6 — prod-like, 23 tables (19 prod-like + couche security-by-design + classement des ingredients)
+**Historique** : v0.6 (2026-09-28) — audit final : slots du composeur de menu alignes sur le seed reel (Accompagnement/Boisson/Sauce), `stock_movement.user_id`/`customer_order.acting_user_id` corriges (utilisateur de session, sans PIN, a la creation d'une commande counter/drive), calcul HT precise (arrondi par unite puis multiplie), section 8 recalee sur 23 tables (ajout de `category_ingredient_family`), sections 9 et 11 reecrites au present/passe pour refleter le livre reel, references vers `docs/notes/revue-alignement-p1.md` (non versionne) remplacees par les journaux traces `docs/journal/`. v0.5 (2026-09-27) — migration 0017 : colonne `ingredient.family` (nullable) et table `category_ingredient_family` (4.23), qui filtrent le selecteur d'ingredients du constructeur de recette selon la categorie du produit ; compte de tables 22 -> 23 ; voir `docs/adr/0018-familles-ingredients-filtre-recette.md`. v0.4 (2026-09-24) — mise en coherence avec le code livre (2a09597) : les quatre diagrammes relationnels re-extraits des migrations 0001 a 0011 (colonnes `preparing_at` / `ready_at` de 0009 et `allergens_*` de 0011, descriptions et chemins d'image), cle etrangere nullable notee en 0..1, relation `user` -> `pin_throttle` corrigee en 1 vers 0..1 (unicite de `actor_user_id`), rendus SVG regeneres avec `_diagrams/mermaid-config.json`.
 **Date** : 2026-06-04 (ajouts security-by-design 2026-06-11)
 **Branche** : `feat/p1-conception`
-**Statut** : prod-like — toutes les decisions D1-D8 + stock appliquees (voir `docs/notes/revue-alignement-p1.md` §7) ; couche security-by-design (audit_log + colonnes imputabilite/auth) en cours
+**Statut** : prod-like — toutes les decisions D1-D8 + stock appliquees (voir `docs/journal/2026-06-04--conception-prodlike-revision.md` pour D1-D3 et `docs/journal/2026-06-04--p1-merise-v0.2-rewrite-and-forgejo-migration.md` pour D4-D8 + stock) ; couche security-by-design (audit_log + colonnes imputabilite/auth) en cours
 **Auteur** : BYAN (couche methodologique)
 
 ---
@@ -23,7 +23,8 @@ document en P2.
 **Sources** :
 - `docs/merise/dictionary.md` (v0.2 — types et contraintes par attribut, source de verite)
 - `docs/merise/mcd.md` (v0.2 — entites + cardinalites + decisions reportees)
-- `docs/notes/revue-alignement-p1.md` §7 (table de decisions D1-D8 + stock)
+- `docs/journal/2026-06-04--conception-prodlike-revision.md` (decisions D1-D3) et
+  `docs/journal/2026-06-04--p1-merise-v0.2-rewrite-and-forgejo-migration.md` (decisions D4-D8 + stock)
 
 **Plateforme cible** :
 - MariaDB 11.4 LTS (cf. `docker-compose.yml` service `wakdo-db`)
@@ -546,7 +547,7 @@ menu_slot (id, #menu_id, name, slot_type, is_required, display_order)
 |---|---|---|---|
 | `id` | INT UNSIGNED AUTO_INCREMENT | NO | PK |
 | `menu_id` | INT UNSIGNED | NO | FK -> menu |
-| `name` | VARCHAR(80) | NO | p. ex. "Drink", "Side", "Sauce" |
+| `name` | VARCHAR(80) | NO | libelles reels du seed 0002 : "Accompagnement" (`side`, display_order=1), "Boisson" (`drink`, display_order=2), "Sauce" (`sauce`, display_order=3) |
 | `slot_type` | ENUM('drink','side','sauce','dessert','extra') | NO | Role semantique |
 | `is_required` | TINYINT(1) NOT NULL DEFAULT 1 | NO | Indique si le client doit remplir ce slot |
 | `display_order` | SMALLINT UNSIGNED NOT NULL DEFAULT 0 | NO | Ordre d'affichage dans le constructeur de menu |
@@ -915,7 +916,7 @@ customer_order (id, order_number, [idempotency_key], source, [#acting_user_id],
 | `order_number` | VARCHAR(20) | NO | Prefixe canal + id sequentiel : `K<id>`/`C<id>`/`D<id>` (existant, voir note de table) |
 | `idempotency_key` | VARCHAR(36) | YES | UUID client, UNIQUE ; deduplique un POST reessaye (security-by-design) |
 | `source` | ENUM('kiosk','counter','drive') | NO | Canal de saisie |
-| `acting_user_id` | INT UNSIGNED | YES | FK -> user ; personnel counter/drive sous PIN ; NULL pour kiosk |
+| `acting_user_id` | INT UNSIGNED | YES | FK -> user ; personnel counter/drive, capture depuis l'utilisateur de SESSION (`order.create` suffit, sans PIN) ; NULL pour kiosk |
 | `service_mode` | ENUM('dine_in','takeaway','drive') | NO | Mode de consommation (stats uniquement, pas de role fiscal) |
 | `service_tag` | VARCHAR(20) | YES | Numero de chevalet du service en salle (`dine_in`), saisi a la borne ; NULL pour takeaway/drive (migration 0003) |
 | `status` | ENUM('pending_payment','paid','preparing','ready','delivered','cancelled') NOT NULL DEFAULT 'pending_payment' | NO | Machine a 6 etats (migration 0009) |
@@ -942,7 +943,9 @@ saisi a la borne pour le mode `dine_in` ; NULL pour `takeaway` / `drive`. Colonn
 de BD (la coherence avec `service_mode` est appliquee au niveau applicatif).
 
 **Attribution du personnel (security-by-design)** : `acting_user_id` (FK -> `user`, ON DELETE SET NULL)
-enregistre le personnel counter/drive qui a pris la commande sous PIN ; NULL pour les commandes kiosk anonymes.
+enregistre le personnel counter/drive qui a pris la commande, via l'utilisateur de la SESSION
+authentifiee (`order.create` suffit, sans PIN — la creation n'est pas une action sensible) ; NULL pour
+les commandes kiosk anonymes.
 Les commandes kiosk restent anonymes par conception. `stock_movement.user_id` couvre l'attribution des actions
 de stock. `idempotency_key` (UNIQUE, nullable) deduplique un `POST /api/orders` reessaye
 (plusieurs NULL autorises par l'index UNIQUE, donc les chemins legacy non idempotents sont toleres).
@@ -966,10 +969,12 @@ END
 Coupure : 10:00. La formule de colonne generee avec `INTERVAL 4 HOUR 30 MINUTE` de la v0.1 etait
 incorrecte et est abandonnee (decision D6).
 
-**Calcul de TVA** : les totaux sur `customer_order` sont la somme des calculs au niveau ligne.
-TVA au niveau ligne : `unit_price_cents_snapshot * quantity` est le montant TTC par ligne ;
-HT = `ROUND(ttc_cents * 100 / (100 + vat_rate_per_cent))` ou `vat_rate_per_cent`
-vaut `vat_rate_snapshot / 10`. Calcule au niveau applicatif a la validation du panier.
+**Calcul de TVA** : les totaux sur `customer_order` sont la somme des calculs au niveau ligne. L'arrondi
+se fait sur l'UNITE, avant multiplication par la quantite (`OrderRepository::line()`) : `unit_ht =
+ROUND(unit_ttc * 1000 / (1000 + vat_rate_snapshot))`, `unit_vat = unit_ttc - unit_ht` ; le total de la
+ligne est ensuite `unit_ht * quantity` (HT), `unit_ttc * quantity` (TTC). Arrondir l'unite avant de
+multiplier (plutot que multiplier puis arrondir le total) evite qu'un ecart d'arrondi ne s'accumule
+differemment selon la quantite. Calcule au niveau applicatif a la validation du panier.
 
 **`source = 'drive' => service_mode = 'drive'`** : le CHECK l'impose au niveau de la BD.
 
@@ -1104,7 +1109,7 @@ stock_movement (id, #ingredient_id, movement_type, delta,
 | `movement_type` | ENUM('sale','cancellation','restock','inventory_correction','adjustment') | NO | Nature du mouvement |
 | `delta` | INT | NO | Changement signe : negatif pour consommation, positif pour reapprovisionnement/annulation/correction |
 | `order_id` | INT UNSIGNED | YES | FK -> customer_order ; non-null pour `sale` et `cancellation` |
-| `user_id` | INT UNSIGNED | YES | FK -> user ; null pour les decrements de vente automatises |
+| `user_id` | INT UNSIGNED | YES | FK -> user ; utilisateur AGISSANT (equipier de session pour vente counter/drive ou annulation, manager/admin pour reapprovisionnement/correction) ; null uniquement pour les ventes de la borne (kiosk, anonyme) |
 | `note` | VARCHAR(255) | YES | Note humaine optionnelle |
 | `created_at` | DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP | NO | Horodatage immuable |
 
@@ -1373,8 +1378,8 @@ MCT / MLT.
 
 ## 8. Validation croisee MLD <-> MCD
 
-Verification que les 22 entites MCD (19 prod-like + 3 security-by-design) correspondent a une table,
-et que toutes les tables se rattachent au MCD.
+Verification que les 23 entites MCD (19 prod-like + 3 security-by-design + `category_ingredient_family`)
+correspondent a une table, et que toutes les tables se rattachent au MCD.
 
 | Entite MCD | Table MLD | Type de mapping | Notes |
 |---|---|---|---|
@@ -1383,7 +1388,7 @@ et que toutes les tables se rattachent au MCD.
 | `menu` (C3) | `menu` (4.3) | entite 1:1 | Nouveau : `burger_product_id`, `price_normal_cents`, `price_maxi_cents` |
 | `menu_slot` (C4) | `menu_slot` (4.4) | entite 1:1 | Nouvelle entite (v0.2) |
 | `menu_slot_option` (C5) | `menu_slot_option` (4.5) | Table de jointure (PK composite) | Nouvelle entite (v0.2) |
-| `ingredient` (C6) | `ingredient` (4.6) | entite 1:1 | Nouvelle entite (v0.2) ; additif post-v0.3 : `energy_kcal_100g`, `nutrition_source`, `nutrition_fetched_at` (0005) |
+| `ingredient` (C6) | `ingredient` (4.6) | entite 1:1 | Nouvelle entite (v0.2) ; additif post-v0.3 : `energy_kcal_100g`, `nutrition_source`, `nutrition_fetched_at` (0005), `allergens_reviewed_at`, `allergens_source` (0011), `family` (0017) |
 | `product_ingredient` (C7) | `product_ingredient` (4.7) | Table de jointure avec attributs | Nouvelle entite (v0.2) |
 | `allergen` (C8) | `allergen` (4.8) | entite 1:1 | Nouvelle entite (v0.2) |
 | `ingredient_allergen` (C9) | `ingredient_allergen` (4.9) | Table de jointure (PK composite) | Nouvelle entite (v0.2) |
@@ -1400,12 +1405,14 @@ et que toutes les tables se rattachent au MCD.
 | `audit_log` (R5/R6) | `audit_log` (4.20) | entite 1:1 | Nouvelle entite (security-by-design) |
 | `login_throttle` (R7) | `login_throttle` (4.21) | entite 1:1 | Nouvelle entite (security-by-design) |
 | `pin_throttle` (R9) | `pin_throttle` (4.22) | entite 1:1 | Nouvelle entite (security-by-design, RG-T22) |
+| `category_ingredient_family` (I8) | `category_ingredient_family` (4.23) | Table de jointure (PK composite) | Nouvelle table (migration 0017) — attribut multivalue de `category` sorti par la 1FN, voir `mcd.md` 5.3 |
 
-**Resultat** : 22/22 entites mappees (19 prod-like + `audit_log` + `login_throttle` + `pin_throttle`). Aucune entite
-sans table ; aucune table hors du MCD. Nouvelles colonnes sur les tables existantes : `user`
-(cycle de vie auth + `pin_hash` + `anonymized_at`), `customer_order` (`idempotency_key`,
-`acting_user_id`), `ingredient` (`stock_capacity`, `low_stock_pct`, `critical_stock_pct` ;
-`low_stock_threshold` reaffecte).
+**Resultat** : 23/23 entites mappees (19 prod-like + `audit_log`, `login_throttle`, `pin_throttle`
+security-by-design + `category_ingredient_family`). Aucune entite sans table ; aucune table hors du
+MCD. Nouvelles colonnes sur les tables existantes : `user` (cycle de vie auth + `pin_hash` +
+`anonymized_at`), `customer_order` (`idempotency_key`, `acting_user_id`), `ingredient`
+(`stock_capacity`, `low_stock_pct`, `critical_stock_pct` ; `low_stock_threshold` reaffecte ;
+`allergens_reviewed_at`, `allergens_source`, `family`).
 
 **Abandonne depuis v0.1** : `commande_event` (remplace par les horodatages de phase `paid_at`, `delivered_at`, `cancelled_at`
 sur `customer_order` — decision 2.A) ; le modele de composition fixe `menu_produit`
@@ -1439,6 +1446,7 @@ sur `customer_order` — decision 2.A) ; le modele de composition fixe `menu_pro
 | `audit_log` | ~5k-10k | 200 octets | ~2 MB |
 | `login_throttle` | ~100-1k | 80 octets | < 1 MB |
 | `pin_throttle` | ~10-100 | 80 octets | < 1 MB (1 ligne par user back-office) |
+| `category_ingredient_family` | ~20-30 | 40 octets | < 1 KB (8 des 9 categories, 2 a 5 familles chacune) |
 
 **Total estime** : ~190 MB de donnees + ~60-80 MB pour les index = ~250-270 MB sur 6 mois
 (`audit_log` est negligeable : les actions sensibles sont d'un ordre de grandeur plus rares que les commandes).
@@ -1458,12 +1466,17 @@ ingredient ; il portera une amplification d'ecriture significative a l'echelle.
    l'expression CASE applicative est retenue (plus simple, evite les cas limites des colonnes generees).
 2. **Partitionnement** : `stock_movement` pourrait etre partitionnee par mois si le volume depasse les
    estimations. Hors perimetre pour le DDL initial.
-3. **Triggers** : decrement de stock a l'encaissement (PAY_ORDER, transition vers `preparing`) et re-credit a `cancelled` quand des mouvements `sale` existent
-   pourraient etre implementes en triggers MariaDB ou en logique applicative. A decider en P2.
+3. **Triggers** : decrement de stock a l'encaissement (PAY_ORDER, transition vers `preparing`) et
+   re-credit a `cancelled` quand des mouvements `sale` existent sont geres en LOGIQUE APPLICATIVE
+   (`OrderRepository::pay()` / `::cancel()`, `IngredientRepository`), pas en triggers MariaDB : le
+   choix retenu au livre garde la regle metier lisible en PHP et testable, plutot que dupliquee en SQL.
 4. **Collation** : `utf8mb4_unicode_ci` retenue (conforme Unicode, insensible a la casse).
    Si un tri alphabetique francais strict est necessaire, `utf8mb4_fr_0900_ai_ci` est disponible dans
    MySQL 8 mais pas MariaDB ; `unicode_ci` est le choix portable.
-5. **Outillage de migration** : Phinx, Doctrine Migrations, ou un simple script PHP. Decision en P2.
+5. **Outillage de migration** : ni Phinx ni Doctrine Migrations. Le choix retenu est un runner bash
+   dedie (`db/migrate.sh` cote hote, `db/migrate-container.sh` en conteneur pour le service compose
+   `wakdo-migrate`) qui applique `db/migrations/*.sql` puis `db/seeds/*.sql` dans l'ordre lexicographique,
+   suivi par nom de fichier dans les tables `schema_migrations` / `seeds_applied` (rejeu idempotent).
 6. **Contrainte `order_item_id` pour les selections** : la regle metier voulant que
    `order_item_selection.order_item_id` reference une ligne avec `item_type='menu'`
    est imposee au niveau applicatif. Un trigger MariaDB pourrait renforcer cela au niveau de la BD si
@@ -1471,40 +1484,34 @@ ingredient ; il portera une amplification d'ecriture significative a l'echelle.
 
 ---
 
-## 11. Prochaines etapes (DDL + Seed)
+## 11. DDL + Seed (livres)
 
-1. **DDL** (`db/migrations/0001_init_schema.sql`) : transcrire ce MLD en instructions
-   `CREATE TABLE` executables, dans l'ordre de dependance :
-   - `category` -> `product`, `ingredient`, `allergen`, `role`
-   - `menu` (depend de `category`, `product`)
-   - `menu_slot` (depend de `menu`), `menu_slot_option` (depend de `menu_slot`, `product`)
-   - `product_ingredient` (depend de `product`, `ingredient`)
-   - `ingredient_allergen` (depend de `ingredient`, `allergen`)
-   - `user` (depend de `role`), `role_visible_source` (depend de `role`)
-   - `permission`, `role_permission` (depend de `role`, `permission`)
-   - `customer_order`
-   - `order_item` (depend de `customer_order`, `product`, `menu`)
-   - `order_item_selection` (depend de `order_item`, `menu_slot`, `product`)
-   - `order_item_modifier` (depend de `order_item`, `ingredient`)
-   - `stock_movement` (depend de `ingredient`, `customer_order`, `user`)
-   - `audit_log` (depend de `user`, `role`)
-   - `login_throttle` (pas de FK, peut etre cree a n'importe quel moment)
-   - `pin_throttle` (FK `actor_user_id -> user`, donc apres le bloc `user`)
+Cette section decrivait a l'origine un plan ; elle enregistre desormais ce qui a ete construit, pour
+que le document reste exact une fois le travail fait.
 
-   Note : `customer_order` porte desormais `acting_user_id -> user`, donc `user` doit etre cree
-   avant `customer_order` (deja le cas : le bloc RBAC precede `customer_order`).
+1. **DDL** : `db/migrations/0001_init_schema.sql` transcrit ce MLD en `CREATE TABLE`, dans l'ordre de
+   dependance (`category` -> `product`/`ingredient`/`allergen`/`role` -> `menu` -> `menu_slot` ->
+   `menu_slot_option` -> `product_ingredient` -> `ingredient_allergen` -> `user` ->
+   `role_visible_source`/`permission`/`role_permission` -> `customer_order` -> `order_item` ->
+   `order_item_selection`/`order_item_modifier` -> `stock_movement` -> `audit_log` -> `login_throttle` ->
+   `pin_throttle`). Seize migrations additives suivent dans `db/migrations/`, numerotees 0002 a 0018 (la
+   numerotation saute 0004), appliquees par un runner idempotent (`db/migrate.sh` cote hote,
+   `db/migrate-container.sh` en conteneur), suivi par nom de fichier dans `schema_migrations`.
 
-2. **Seed** (`db/seeds/0001_demo_data.sql`) :
-   - 9 categories + 53 produits + 13 menus depuis les sources JSON (`docs/merise/_sources/`)
-   - 13 menus avec slots et options de slot
-   - 14 allergenes (INCO UE 1169/2011)
-   - Catalogue d'ingredients exemple avec recettes
-   - 5 roles avec matrice `role_permission` et donnees `role_visible_source`
-   - 1 utilisateur admin
-   - Commandes exemple pour la demo
+2. **Seed** : dix fichiers (`db/seeds/0001_rbac_and_reference.sql` a `0010_ingredient_families.sql`),
+   pas un unique `0001_demo_data.sql` — chaque sous-domaine a le sien (RBAC + reference, catalogue,
+   ingredients/recettes, variantes de menu/boisson, allergenes, comptes de demo, familles
+   d'ingredients). Appliques par le meme runner, suivis dans `seeds_applied`. Couvrent : 9 categories +
+   53 produits + 13 menus (depuis les sources JSON `docs/merise/_sources/`), les slots et options de
+   slot, les 14 allergenes (INCO UE 1169/2011), le catalogue d'ingredients avec recettes, les 5 roles
+   avec matrice `role_permission` et donnees `role_visible_source`, un utilisateur admin bootstrap.
 
-3. **Export JSON de fallback** (`scripts/export-fallback.{sh|php}`) : extraire les donnees de seed vers
-   `src/public/borne/data/*.json` pour le mode borne isole (Bloc 1 sans BD).
+3. **Pas d'export JSON de fallback** : l'idee d'un mode borne isole servi par des fichiers statiques
+   (`src/public/borne/data/*.json`) a ete abandonnee. La borne consomme l'API REST en lecture
+   (`/api/categories`, `/api/products`, `/api/menus`, `/api/allergens`) ; les anciens fichiers JSON
+   statiques ont ete retires (voir `src/public/borne/data/README.md`).
 
-4. **Tests de validation DDL** : confirmer que les contraintes CHECK se declenchent comme attendu ; confirmer
-   que les comportements ON DELETE CASCADE / RESTRICT / SET NULL correspondent a la specification.
+4. **Tests de validation** : les contraintes CHECK et les comportements ON DELETE sont exerces par la
+   suite d'integration (`tests/Integration/*DbTest.php`, execution sur une vraie base) plutot que par
+   une suite dediee au DDL seul ; deux tests ciblent directement une migration
+   (`ManagerOrderCancelMigrationDbTest`, `IngredientFamilyMigrationDbTest`).

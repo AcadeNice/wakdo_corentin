@@ -13,7 +13,7 @@
 | Cadre | Epreuve RNCP 37805 — Titre Developpeur Web, B2, option **DevOps** |
 | Centre | Acadenice |
 | Contexte pro | Alternance en tant qu'admin sys + etudiant B2 DevOps |
-| Deadline soutenance | **Septembre 2026** |
+| Deadline soutenance | **Lundi 5 octobre 2026** |
 | Budget heures | 10-15 h/semaine — budget total 272 h (P0-P8, section 11), cible ~264 h effectives apres buffer (correction du 2026-09-24 : ce chiffre etait incoherent avec le budget detaille de la section 11) |
 | Mode de travail | Solo |
 | Date de creation du doc | 2026-04-23 |
@@ -31,8 +31,8 @@ Wakdo est une **borne de commande tactile** pour un restaurant de restauration r
 | **Client** | (non authentifie) | Borne tactile (Bloc 1, canal `kiosk`) |
 | **Counter** | `counter` | Back-office : saisit les commandes au **comptoir**, les remet au client, peut annuler |
 | **Drive** | `drive` | Back-office : saisit les commandes au **drive** (intercom + casque), les remet, peut annuler |
-| **Kitchen** | `kitchen` | Back-office : voit la file des commandes `paid` triees par `paid_at` croissant, en **lecture seule** (KDS visuel, aucune transition) |
-| **Manager** | `manager` | Back-office : catalogue (create/update), stock/reappro, statistiques |
+| **Kitchen** | `kitchen` | Back-office : voit la file des commandes actives (`paid`/`preparing`/`ready`) triees par `paid_at` croissant (KDS), fait avancer la preparation (`preparing` -> `ready`, via `order.read`) ; n'effectue pas la remise finale (`order.deliver`) |
+| **Manager** | `manager` | Back-office : catalogue (create/update), stock/reappro, statistiques, consultation et annulation des commandes tous canaux (`order.read` + `order.cancel`, migration `0018_manager_order_cancel.sql`, ADR-0020) |
 | **Administration** | `admin` | Back-office : catalogue complet (+ suppressions), gestion utilisateurs, roles et permissions (RBAC), stats |
 
 > Modele v0.2 : 5 roles RBAC (`admin`, `manager`, `kitchen`, `counter`, `drive`)
@@ -53,9 +53,10 @@ Client                Borne (Bloc 1)           API (Bloc 2)          BDD
   │                       │─POST /api/orders─────▶│───INSERT──────────▶│
   │                       │◀──────────201─────────│                    │
   │─recupere au comptoir  │                       │                    │
-                          Kitchen voit la file des commandes paid (lecture seule, KDS)
-                          Counter / Drive remettent au client
-                          → declarent "livree" (geste unique paid -> delivered)
+                          Encaissement -> passage automatique en preparation (paid_at + preparing_at)
+                          Kitchen fait avancer la preparation (KDS) : preparing -> ready
+                          Counter / Drive remettent au client depuis paid, preparing ou ready
+                          → declarent "livree" (paid|preparing|ready -> delivered)
 ```
 
 ### Regles metier (MCT - a modeliser en Merise)
@@ -65,9 +66,9 @@ Client                Borne (Bloc 1)           API (Bloc 2)          BDD
 - **Personnalisation des ingredients** (retirer = gratuit, ajouter = supplement) sur les sandwichs composes, via le configurateur (`ingredient`, `product_ingredient`, `order_item_modifier`)
 - **TVA portee par le produit** (`vat_rate` : 10% defaut, 5,5% contenant conservable), calculee ligne par ligne et snapshotee sur `order_item` (fact-check BOFiP, voir `dictionary.md` note 9)
 - Une **commande** a un **numero** saisi par le client, prefixe par canal `K`/`C`/`D` (remplace le paiement dans le cadre de l'exam)
-- Statuts commande (machine a **4 etats**) : `pending_payment` -> `paid` -> `delivered` (+ `cancelled`). La transition `pending_payment -> paid` est **atomique** a la creation (saisie du numero = substitut de paiement). `cancelled` est atteignable depuis `pending_payment` et `paid` (pas depuis `delivered`). Plus de `preparing` / `ready` : la cuisine est en lecture seule, la remise est un geste unique
+- Statuts commande (machine a **6 etats**, migration `0009_order_prep_states.sql`) : `pending_payment` -> `paid` -> `preparing` -> `ready` -> `delivered`, plus `cancelled` (terminal, atteignable depuis tout etat non termine). L'encaissement (saisie du numero) fait passer atomiquement `pending_payment` -> `preparing` (`paid_at` ET `preparing_at` poses dans la meme transaction ; `paid` reste un etat encaisse valide, conserve pour les commandes anterieures et pour l'idempotence). La cuisine (KDS) fait avancer `preparing` -> `ready` (`OrderRepository::markReady`). La remise accepte tout etat encaisse (`paid`, `preparing` ou `ready`) -> `delivered`, sans obliger a transiter par les etats de cuisine
 - **Source commande** (trace sur chaque commande) : `kiosk` (borne autonome) | `counter` (comptoir) | `drive` (drive-thru)
-- Le canal de prepa (`kitchen`/`counter`/`drive`) voit la file des commandes `paid` triee par `paid_at` **croissant**, filtree par `role_visible_source` (kitchen voit tout ; counter voit kiosk+counter ; drive voit drive)
+- Le canal de prepa (`kitchen`/`counter`/`drive`) voit la file des commandes actives (`paid`, `preparing`, `ready`) triee par `paid_at` **croissant**, filtree par `role_visible_source` (kitchen voit tout ; counter voit kiosk+counter ; drive voit drive)
 - **Horaires service** : 10h00 → 01h00 du matin (service continu 15h, pas de fermeture intermediaire)
 - **Pas de notion de "session de service" a modeliser** : les equipiers se relaient, chacun se connecte a sa prise de poste et se deconnecte a la fin. Pas de "shift" a tracer dans la BDD (hors scope RNCP)
 - **Fenetre de maintenance systeme** : 01h30 → 09h30 (crons lourds, backups, agregations) — evite toute interference avec le service actif
@@ -130,7 +131,7 @@ Client                Borne (Bloc 1)           API (Bloc 2)          BDD
 | FQDN | Role | Bloc | Auth |
 |---|---|---|---|
 | `corentin-wakdo.stark.a3n.fr` | Borne client (kiosk tactile) | Bloc 1 | Public |
-| `corentin-wakdo-admin.stark.a3n.fr` | Back-office + API REST (sous `/api/*`) | Bloc 2 | Sessions (back-office) + tokens (API ecriture) |
+| `corentin-wakdo-admin.stark.a3n.fr` | Back-office + API REST (sous `/api/*`) | Bloc 2 | Session (cookie `WAKDO_SID`) + jeton CSRF (en-tete `X-CSRF-Token`) sur toute mutation ; PIN equipier pour les actions sensibles. Pas de jeton d'acces separe. |
 
 **CORS** : la borne (`corentin-wakdo.stark.a3n.fr`) consomme l'API (`corentin-wakdo-admin.stark.a3n.fr/api/*`). Headers CORS explicites avec origine precise (pas de wildcard `*`), argumentable comme durcissement securite face au jury.
 
@@ -153,7 +154,9 @@ Client                Borne (Bloc 1)           API (Bloc 2)          BDD
                ▼
     ┌──────────────────────────────────────────┐
     │      wakdo-app (PHP 8.3-fpm Alpine)       │
-    │   POO MVC — borne.php, admin.php, api.php │
+    │   POO MVC — un seul front controller      │
+    │   (src/public/admin/index.php) ; la borne │
+    │   est du HTML/CSS/JS statique              │
     └──────────┬───────────────────────────────┘
                │ PDO MySQL
                ▼
@@ -164,7 +167,8 @@ Client                Borne (Bloc 1)           API (Bloc 2)          BDD
 
     ┌──────────────────────────────────────────┐
     │       wakdo-cron (Alpine + PHP CLI)       │
-    │  crond — backup BDD, purge sessions, ...  │
+    │  crond — backup BDD, purge audit_log,     │
+    │  purge throttle, expiration commandes     │
     └──────────────────────────────────────────┘
 ```
 
@@ -188,7 +192,7 @@ Reseaux :
 | Composer | **Non utilise** | — | Colle au "from scratch" |
 | BDD | MariaDB | **11** LTS | Compatible MySQL, LTS 2028 |
 | Driver BDD | PDO (prepared statements uniquement) | natif PHP | Cr 4.e.1 anti-injection |
-| Serveur web | Apache httpd | Alpine latest | Reverse proxy vers PHP-FPM |
+| Serveur web | Apache httpd | `httpd:2.4-alpine` | Reverse proxy vers PHP-FPM |
 | Serveur app | PHP-FPM | 8.3-fpm-alpine | Contenairisation propre |
 | Reverse proxy | Traefik (deja en place) | existant | `admin_proxy` network |
 | TLS | Let's Encrypt via Traefik | auto | `acme.json` existant |
@@ -229,9 +233,9 @@ Reseaux :
 - Authentification sessions securisees (hash bcrypt/argon2, protection CSRF, fixation session) — duree de session adaptee a un poste complet d'equipier (idle timeout 4h, absolute timeout 10h)
 - 5 roles RBAC seed : `admin`, `manager`, `kitchen`, `counter`, `drive` (RBAC permission-driven, 23 permissions figees au seed ; roles personnalises possibles)
 - **Admin** : CRUD complet catalogue (+ suppressions), gestion utilisateurs, roles et permissions (RBAC), stats
-- **Manager** : catalogue (create/update), stock (reappro + inventaire), statistiques ; utilisateurs en **lecture seule** (`user.read`, pas de creation/modification/desactivation), pas d'acces RBAC
-- **Kitchen** : file des commandes `paid` triee par `paid_at` croissant, en **lecture seule** (KDS visuel) ; inventaire
-- **Counter** / **Drive** : saisir une commande (comptoir / drive-thru via casque/intercom), bouton "declarer livree" (geste unique `paid -> delivered`), annuler ; `source` auto-tague depuis `role.order_source` ; inventaire
+- **Manager** : catalogue (create/update), stock (reappro + inventaire), statistiques ; utilisateurs en **lecture seule** (`user.read`, pas de creation/modification/desactivation), pas d'acces RBAC ; consultation et annulation des commandes tous canaux (`order.read` + `order.cancel`, ADR-0020)
+- **Kitchen** : file des commandes actives (`paid`/`preparing`/`ready`) triee par `paid_at` croissant (KDS) ; fait avancer la preparation (`preparing -> ready`, via `order.read`), n'effectue pas la remise finale (`order.deliver`) ; inventaire
+- **Counter** / **Drive** : saisir une commande (comptoir / drive-thru via casque/intercom), bouton "declarer livree" (`paid`/`preparing`/`ready` -> `delivered`), annuler ; `source` auto-tague depuis `role.order_source` ; inventaire
 - Upload images produits : **implemente et teste** (`App\Core\ImageUploader`, `tests/Unit/Core/ImageUploaderTest.php`) — type reel detecte cote serveur (finfo + getimagesize), sans se fier a l'extension du nom d'origine ni au type annonce par le navigateur, nom de fichier regenere, stockage dans `public/uploads` (voisin des deux racines web, non execute directement) ; taille et formats acceptes regles par l'environnement (`UPLOAD_MAX_SIZE_MB`, `UPLOAD_ALLOWED_MIME`). Correction du 2026-09-24 : cette ligne annoncait a tort l'upload comme non implemente.
 - Historique commandes par statut
 - Stats de base (commandes du jour, CA jour, produits top)
@@ -240,14 +244,14 @@ Reseaux :
 - `GET /api/categories` — liste categories produits
 - `GET /api/products` — liste produits (filtrable par categorie)
 - `GET /api/menus` — liste menus avec compositions et options
-- `POST /api/orders` — creer une commande (body JSON, retour `{id, number, status}`)
+- `POST /api/orders` — creer une commande (body JSON, retour `{id, order_number, status, total_ttc_cents}`)
 - `GET /api/orders/{number}` — recuperer statut commande
 - Headers CORS explicites pour l'origine borne
-- Reponses JSON standardisees : `{data: ..., error: null}` ou `{data: null, error: {code, message}}`
+- Reponses JSON standardisees : `{data: ...}` (succes) ou `{data: null, error: {code, message}}` (echec)
 
 **IN scope — Transverse :**
-- Architecture **MVC** stricte (Models / Views / Controllers)
-- **Heritage** entre classes (ex : `BaseController` -> `AdminController` -> `ProductController`)
+- Architecture **MVC** (couche modele = Repository pattern, pas de dossier `Models/` ; voir section 8)
+- **Heritage** entre classes (ex : `Controller` -> `AuthenticatedController` -> `AdminController` -> `ProductController`)
 - **Namespaces** + autoloader PSR-4 manuel
 - **Anti-injection** : PDO prepared statements exclusivement
 - **RGPD** : hash mdp, droit consultation/modif/suppr user, info stockage/utilisation donnees
@@ -272,7 +276,14 @@ Reseaux :
   - `45 4 * * *` — purge des compteurs de throttle expires
   - Differes (templates commentes dans `docker/cron/crontab`, a activer plus tard) : purge des sessions expirees, agregation des stats sur le jour de service
 - **CI Forgejo Actions** (act_runner auto-heberge) : lint PHP + PHPStan + PHPUnit + secret-scan (gitleaks) + js-tests sur PR -> dev
-- **CD : deploiement automatique, declenche par un push sur `main`** (`.forgejo/workflows/deploy.yml`, `on: push: branches: [main]`, depuis le commit `8c5d942` du 23/06/2026) : le job recupere `main` depuis Forgejo puis lance `scripts/deploy.sh` (`docker compose build --pull && up -d` -- les images wakdo sont buildees localement depuis les Dockerfiles, pas de registre). Choix solo dev sur un environnement de prod unique.
+- **CD : deploiement automatique, declenche par un push sur `main`** (`.forgejo/workflows/deploy.yml`,
+  `on: push: branches: [main]`, deux travaux `cle-de-deploiement` + `deploiement`) : le job
+  n'a pas le socket Docker (mesure du 2026-09-22) et ne pilote pas Docker lui-meme. Il ouvre
+  une connexion SSH vers l'hote SANS commande explicite : c'est la commande forcee cote hote
+  (`authorized_keys`) qui decide quoi lancer, et l'hote execute alors `scripts/deploy.sh`
+  (`docker compose build --pull && up -d` -- les images wakdo sont buildees localement depuis
+  les Dockerfiles, pas de registre), puis le job verifie que `/api/health` sert bien le commit
+  attendu. Choix solo dev sur un environnement de prod unique.
 - `.env.example` documente (parametres securite : argon2id, lockout, seuils throttle, retention RGPD), secrets hors du repo
 - `php.ini` durci (expose_php off, session cookies httponly/secure/samesite, upload limite)
 - Healthcheck Traefik + readiness probes
@@ -332,7 +343,7 @@ Reseaux :
 | Cr 7.a.1-3 | Analyse infra + securite | Audit code + proposition automatisation documentee |
 | Cr 7.b.1 | Langage de script | Bash (db/*.sh migrate/seed, scripts/forgejo-*.sh, entrypoints, backup) |
 | Cr 7.b.2 | Automatisation fiabilisee | Scripts Bash (set -euo pipefail, exit codes, logs) + service compose wakdo-migrate idempotent |
-| Cr 7.b.3 | **Cron tab** | `wakdo-cron` service avec crontab : backup BDD, purge sessions, stats |
+| Cr 7.b.3 | **Cron tab** | `wakdo-cron` service avec crontab : backup BDD, expiration des commandes en attente, purge d'audit, purge de throttle (4 jobs actifs ; purge de sessions et agregation de stats restent des templates commentes) |
 | Cr 7.c.1 | VM operationnelle | Serveur existant Acadenice |
 | Cr 7.c.2 | OS conteneur installe | Docker Engine |
 | Cr 7.c.3 | App conteneurisee complete | 5 services : 4 longs (web, app, db, cron) + 1 one-shot (wakdo-migrate) |
@@ -393,7 +404,7 @@ fait regle) :
 ### Code PHP
 
 - **PSR-12** style (indentation 4 espaces, namespaces 1 classe par fichier, `{` sur nouvelle ligne pour classes/methodes)
-- **Namespaces** : `App\Controllers`, `App\Models`, `App\Core`, `App\Services`
+- **Namespaces** : `App\Controllers`, `App\Core`, `App\Auth`, `App\Catalogue`, `App\Order`, `App\Health` (pas de `App\Models` ni `App\Services` : couche modele en Repository pattern)
 - **1 classe = 1 fichier**, nom fichier == nom classe (PascalCase)
 - **Proprietes typees** (PHP 8.3) : `private int $id`, `private string $name`
 - **Retours typees** : `public function find(int $id): ?Product`
@@ -414,16 +425,18 @@ fait regle) :
 - **BEM** naming : `.block__element--modifier`
 - **Variables CSS** dans `:root` (palette couleurs, spacings, fonts)
 - **Mobile-first** : `min-width` media queries
-- **1 fichier par composant** dans `src/public/assets/css/components/`, assemble via `@import` ou concat build
+- **1 fichier par composant**, servi depuis `src/public/admin/assets/css/` (back-office) et
+  `src/public/borne/assets/css/` (borne) — pas de dossier `src/public/assets/` partage
 
 ### BDD
 
-- **Tables** : `snake_case`, pluriel (`products`, `orders`, `order_items`)
+- **Tables** : `snake_case`, **singulier** (`product`, `customer_order`, `order_item`)
 - **Colonnes** : `snake_case`
-- **PK** : `id` BIGINT UNSIGNED AUTO_INCREMENT
+- **PK** : `id` INT UNSIGNED AUTO_INCREMENT
 - **FK** : `<table_singulier>_id` (ex : `product_id`, `user_id`)
 - **Timestamps** : `created_at`, `updated_at` (DATETIME default CURRENT_TIMESTAMP)
-- **Soft delete** : `deleted_at` DATETIME NULL quand applicable
+- **Pas de soft delete** : aucune colonne `deleted_at` ; l'etat actif/inactif passe par
+  `is_active` (catalogue, roles) ou par une transition d'etat (`status`) selon l'entite
 - **Index** systematique sur FK + colonnes de recherche frequente
 - **Collation** : `utf8mb4_unicode_ci`
 
@@ -573,7 +586,7 @@ Le jury Bloc 2 demande **capacite a modifier le code en direct** (Cr 4.a.1). Il 
 Preparer des **questions frequentes** :
 - "Pourquoi pas Laravel/Symfony ?" → Sujet impose from scratch + demo maitrise des fondamentaux
 - "Pourquoi pas Composer ?" → Criteres Cr 4.c.3 autorise manuel, plus defendable "from scratch"
-- "Comment gerez-vous l'injection SQL ?" → PDO prepared statements exclusivement, montrer exemple dans Models
+- "Comment gerez-vous l'injection SQL ?" → PDO prepared statements exclusivement, montrer exemple dans un Repository
 - "Votre API ne gere pas X role" → Fallback : middleware RBAC par role, montrer code
 - "Comment deploieriez-vous en prod vrai ?" → Ajouter monitoring, blue-green, IaC, secrets manager
 
@@ -643,7 +656,10 @@ Fichiers committes dans le repo qui rendent la methodologie observable :
 | Moteur BYAN (code des agents) | `_byan/`, `_byan-output/` | Non pertinent pour le rendu RNCP. La methodologie qui s'en sert est visible dans `.claude/rules/`. |
 | Configuration personnelle Claude | `.claude/` sauf `CLAUDE.md` et `rules/` | Etat local, logs conversations, config machine. Non pertinent et potentiellement sensible. |
 | Notes techniques personnelles | `docs/notes/` | Supports de revision rediges par l'IA pour l'auteur. Ne font pas partie du livrable. Exclus pour eviter toute ambiguite sur ce qui est "de la main du candidat". |
-| Notes de session | `docs/SESSION_*.md` | Documents de continuite entre sessions de travail. Usage personnel. |
+
+`docs/SESSION_RESUME.md` (document de reprise entre sessions de travail) est, lui,
+**versionne** : il est utile a la tracabilite (retrospectives datees, decisions
+notees) et ne contient rien de personnel ou sensible.
 
 ### 17.7 Politique de commit
 
@@ -748,7 +764,7 @@ Un bloc par categorie STRIDE, mappe aux controles reels du modele (verifies cont
 
 **Spoofing (usurpation d'identite).** L'authentification back-office repose sur argon2id
 (`user.password_hash`, `mlt.md` 12.1 RG-2) avec regeneration de session a la connexion
-(`session_regenerate(true)`, RG-3) pour contrer la fixation. Le login est enumeration-safe :
+(`session_regenerate_id(true)`, RG-3) pour contrer la fixation. Le login est enumeration-safe :
 meme erreur generique que l'email existe ou non, avec un `password_verify` leurre pour garder
 le timing comparable (RG-2). Sur un poste partage, un PIN par equipier (`user.pin_hash`,
 RG-T13) re-authentifie l'acteur reel pour les actions sensibles. La reinitialisation de mot de
@@ -824,4 +840,4 @@ traitement par colonne.
 
 ---
 
-*Document vivant — version 1.3 — 2026-06-15 (drift GitHub -> Forgejo Actions corrige, CI securite PHPStan/secret-scan, planning rechiffre pour la couche security-by-design). A mettre a jour a chaque decision structurante.*
+*Document vivant — version 1.4 — 2026-09-28 (audit final : machine a etats commande a 6 etats, permissions manager order.read/order.cancel, date de soutenance, CI a 5 travaux + CD, authentification session+CSRF+PIN, alignement Repository pattern / tables singulier / INT UNSIGNED sur le code livre). A mettre a jour a chaque decision structurante.*
