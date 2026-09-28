@@ -147,6 +147,20 @@ const TECH_CODES = [
   'menus', 'boissons', 'burgers', 'frites', 'encas', 'wraps', 'salades', 'desserts', 'sauces',
 ];
 
+// Pages dont la fonction est de montrer l'API a l'administrateur (ADR-0019, page Sante) :
+// y afficher un chemin, un code de permission ou un identifiant n'est pas un defaut. Seules
+// ces regles-la y sont admises, plus le nom d'un fichier .php (le trajet d'un appel nomme
+// routes.php) ; une trace PHP (« on line 42 ») ou un « undefined » y restent des echecs.
+// Le releve admis reste ecrit dans le tableau complet, prefixe, pour rester visible.
+const TECHNICAL_PAGES = new Set(['/admin/health']);
+const TECHNICAL_ADMITTED = ['chemin d\'URL interne', 'code de permission', 'identifiant technique (snake_case)', 'code technique affiché seul', 'chemin de fichier PHP : « .php »'];
+function technicalVerdict(pattern, tech) {
+  if (!TECHNICAL_PAGES.has(pattern)) return { ok: tech.ok, details: tech.details };
+  const admitted = tech.details.filter((d) => TECHNICAL_ADMITTED.some((label) => d.startsWith(label)));
+  const remaining = tech.details.filter((d) => !admitted.includes(d));
+  return { ok: remaining.length === 0, details: [...remaining, ...admitted.map((d) => 'admis, page technique (ADR-0019) : ' + d)] };
+}
+
 // ---------------------------------------------------------------------------------
 // Enregistrement des resultats : une ligne JSON par verification, ecrite au fil de
 // l'eau (un echec de test relance le processus de test, la memoire ne suffit pas).
@@ -430,7 +444,7 @@ async function sweepPage(page, roleKey, url, state) {
     }
 
     if (vp === VIEWPORTS[0]) {
-      const tech = await page.evaluate(audit.auditTechnicalText, TECH_CODES);
+      const tech = technicalVerdict(pattern, await page.evaluate(audit.auditTechnicalText, TECH_CODES));
       record({ ...base, verification: 'texte technique', ok: tech.ok, details: tech.details, capture: tech.ok ? null : await failShot(page, parts, 'texte technique') });
       links = await page.$$eval('a[href]', (as) => as.map((a) => a.getAttribute('href')));
     }

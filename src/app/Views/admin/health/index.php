@@ -359,7 +359,7 @@ $activityKnown = array_key_exists('orders_created', $activity) && $activity['ord
         <noscript><p class="health-noscript">Active JavaScript pour utiliser ce formulaire de démonstration.</p></noscript>
 
         <div class="card health-login-card">
-            <form id="health-login-form" autocomplete="off" novalidate>
+            <form id="health-login-form" autocomplete="off">
                 <div class="form-group">
                     <label class="form-label" for="health-login-email">Email</label>
                     <input class="form-input" type="email" id="health-login-email" name="email" required>

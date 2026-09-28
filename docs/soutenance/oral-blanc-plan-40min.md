@@ -9,8 +9,10 @@
 > Chiffres arretes au 2026-09-26 sur `origin/dev`, au commit `1dd2620` (demande de fusion #166).
 > Recomptes le 2026-09-27 sur le commit deploye `main` `11271f7` (fusion de la demande #177) :
 > routes, controleurs, depots, vues, decisions d'architecture, migrations, jeux de donnees,
-> entites, commits et suites de tests. Les autres chiffres du document n'ont pas ete
-> rejoues a cette occasion et peuvent encore refleter le comptage du 26/09.
+> entites, commits et suites de tests. Le 2026-09-28, sur le commit deploye `1ccc9db`
+> (release #182) : audit d'accessibilite (artefact `preuves/rapports/resume.json` du
+> 27/09) et balayage de mise en page, rejoue. Les autres chiffres du document n'ont pas ete
+> rejoues a ces occasions et peuvent encore refleter le comptage du 26/09.
 
 ---
 
@@ -102,8 +104,8 @@ distincts**, et les confondre serait une erreur qu'un jury technique reperera.
 
 | Mesure | Outil | Resultat | Source |
 |---|---|---|---|
-| Audit d'accessibilite | axe-core 4.13.0 via Playwright, regles WCAG 2.0 A/AA et WCAG 2.1 A/AA | **11 ecrans** (6 borne, 5 back-office), **0 violation** toutes gravites, **415 rapports de contraste**, **0 sous le seuil**, minimum releve **3,59**. Resolutions : 1080x1920 pour la borne, 1440x900 pour le back-office. **Un seul role : administrateur** | `docs/soutenance/preuves/rapports/resume.json`, campagne du 2026-09-26 |
-| Balayage de mise en page et d'ergonomie | outil ecrit pour le projet (`tests/e2e/backoffice-sweep/`), 12 familles de verifications | **4 630 verifications, 0 echec** - 5 roles connectes plus l'etat non connecte, toutes les pages atteignables, **4 largeurs** (1366, 1024, 768, 390 px). Trajectoire : **104 echecs avant la refonte, 11 apres le premier lot, 0 aujourd'hui** | mesure du 2026-09-26. Les sorties de cet outil ne sont pas versionnees : le relancer pour produire le rapport |
+| Audit d'accessibilite | axe-core 4.13.0 via Playwright, regles WCAG 2.0 A/AA et WCAG 2.1 A/AA | **19 ecrans** (6 borne, 13 back-office), **0 violation** toutes gravites, **946 rapports de contraste**, **0 sous le seuil**, minimum releve **3,59**. Resolutions : 1080x1920 pour la borne, 1440x900 pour le back-office. **Un seul role : administrateur** | `docs/soutenance/preuves/rapports/resume.json`, campagne du 2026-09-27 |
+| Balayage de mise en page et d'ergonomie | outil ecrit pour le projet (`tests/e2e/backoffice-sweep/`), 12 familles de verifications | **4 807 verifications, 0 echec** - 5 roles connectes plus l'etat non connecte, toutes les pages atteignables (111 pages-roles), **4 largeurs** (1366, 1024, 768, 390 px). Trajectoire : **104 echecs avant la refonte, 11 apres le premier lot, 0 le 26/09 ; le 28/09, 3 echecs sur la page Sante, qui n'avait pas encore ete balayee, corriges (#183), 0 a nouveau** | mesure du 2026-09-28 sur `1ccc9db` plus la correction #183. Les sorties de cet outil ne sont pas versionnees : le relancer pour produire le rapport |
 | Canal auxiliaire par le temps sur la connexion | mesure directe des 4 chemins | compte inexistant 257,4 ms / mot de passe faux 251,4 ms / compte verrouille 253,3 ms / connexion reussie 252,6 ms. **Ecart maximal 6,0 ms pour un bruit de mesure de 13,8 ms** | mesure du 2026-09-26 |
 
 La lecture a donner au jury pour la troisieme : *"l'ecart entre les chemins est plus
@@ -301,7 +303,7 @@ Distinguer clairement les deux outils - c'est ce qui montre qu'on sait ce qu'on 
 
 - **axe-core 4.13.0**, pilote par Playwright dans un vrai navigateur, sur les regles
   WCAG 2.0 niveaux A et AA et les ajouts WCAG 2.1 niveaux A et AA. Resultat :
-  **11 ecrans**, **0 violation** toutes gravites, **415 rapports de contraste**,
+  **19 ecrans**, **0 violation** toutes gravites, **946 rapports de contraste**,
   **0 sous le seuil**, minimum releve **3,59**.
   Pourquoi un vrai navigateur et pas un rendu simule : sans rendu, il n'y a ni couleur
   calculee ni geometrie, donc aucun rapport de contraste calculable. C'est la raison
@@ -309,7 +311,7 @@ Distinguer clairement les deux outils - c'est ce qui montre qu'on sait ce qu'on 
 - **Le balayage de mise en page**, ecrit pour le projet, qui mesure ce qu'axe ne regarde
   pas : chevauchement d'elements, texte coupe, defilement horizontal, taille de cible,
   alignement, ordre de tabulation et visibilite du focus, contraste des messages
-  d'erreur reellement declenches. **4 630 verifications, 0 echec**, sur 5 roles connectes
+  d'erreur reellement declenches. **4 807 verifications, 0 echec**, sur 5 roles connectes
   plus l'etat non connecte, et **4 largeurs** : 1366, 1024, 768 et 390 px.
 
 **La trajectoire est le vrai argument.** Dire cette suite de trois nombres :
@@ -345,9 +347,9 @@ A dire avant que le jury ne le demande :
 - **Pas de test avec un lecteur d'ecran reel** (NVDA, VoiceOver, TalkBack), ni avec des
   personnes en situation de handicap. C'est la limite principale de mon travail sur ce
   sujet, et je ne la presente pas comme couverte.
-- L'audit porte sur 11 ecrans et un seul role. Le back-office compte 34 vues ; les
-  formulaires de creation, l'ecran de cuisine et la caisse comptoir n'y sont pas. Les
-  autres roles sont couverts par le balayage, pas par axe.
+- L'audit porte sur 19 ecrans (13 du back-office) et un seul role. Le back-office compte
+  36 vues ; l'ecran de cuisine, les comptes, les roles et le stock n'y sont pas. Les
+  autres roles et les autres ecrans sont couverts par le balayage, pas par axe.
 - Un seul moteur de rendu (Chromium). Les couleurs calculees peuvent varier a la marge
   ailleurs, notamment sur les fonds composites.
 - Un point de durcissement identifie et **non fait** : sur la modale, l'arriere-plan est
@@ -757,7 +759,7 @@ est en section 8. La proposer soi-meme si la question sur l'IA tombe.
 | Bloc | Critere | Demontre en | Preuve montrable |
 |---|---|---|---|
 | B1 | Cr 1.a integration conforme | D.1 | Borne en direct + maquette |
-| B1 | Cr 1.c accessibilite | D.1, D.2 | Rapport axe-core, 0 violation sur 11 ecrans |
+| B1 | Cr 1.c accessibilite | D.1, D.2 | Rapport axe-core, 0 violation sur 19 ecrans |
 | B1 | Cr 1.e semantique | D.1 | Source HTML, lien d'evitement en premier element |
 | B1 | Cr 2.a JavaScript moderne | E | 21 modules ES6 natifs |
 | B1 | Cr 2.b validation de formulaire | G.2 | Validation serveur (RG-T18) |
@@ -792,7 +794,7 @@ est en section 8. La proposer soi-meme si la question sur l'IA tombe.
 | Bibliotheque JavaScript tierce (Cr 2.d.2) | Non couvert au sens strict | Integree puis retiree sur decision. Motifs : perimetre, politique de securite du contenu, controle du code. Confiance annoncee faible dans `05-librairies-js-c2d.md`. |
 | Test avec un lecteur d'ecran reel ou des utilisateurs en situation de handicap | Non fait | L'audit automatise ne couvre qu'une partie des criteres. Je ne presente pas une conformite, je presente une absence de regression detectable. |
 | Couverture de tests chiffree | Non mesuree | L'instrumentation de couverture n'est pas activee. J'ai des nombres de tests et un choix argumente de ce qui est teste, pas un pourcentage. |
-| Audit d'accessibilite sur toute l'application | Partiel | 11 ecrans sur 34 vues de back-office, et un seul role pour axe. Les autres roles passent par le balayage. |
+| Audit d'accessibilite sur toute l'application | Partiel | 13 ecrans du back-office sur 36 vues (plus 6 ecrans de la borne), et un seul role pour axe. Les autres roles passent par le balayage. |
 | Piege a tabulation verifiable par l'outil | Identifie, non fait | L'arriere-plan des modales est masque par attribut mais reste atteignable au clavier. L'attribut `inert` est la prochaine etape. |
 | Paiement bancaire reel | Hors perimetre | Simule par un numero de commande. Le reste du flux (recalcul du prix, stock, idempotence) est reel. |
 | Multi-restaurants, multi-bornes | Hors perimetre structurel | Le modele ne porte pas d'identifiant d'etablissement. Ce n'est pas un reglage a activer. |
@@ -825,7 +827,7 @@ bonne reponse est *"le code fait foi, et voici pourquoi le document a pris du re
 | Services conteneurises | 4 en section 16, 5 ailleurs | **5**, dont un a execution unique. |
 | Regles transverses | "RG-T13 a RG-T21" en introduction de la section 19 | **22 regles**, RG-T22 comprise. |
 | Auditabilite des echanges avec l'IA | Annoncee en section 17.9 | Les journaux ne sont pas versionnes (section 17.6). Ne pas promettre cette preuve. |
-| Mesures de contraste | 407 (fiches 06 et README des preuves) | **415** dans l'artefact `rapports/resume.json` du 26 septembre. |
+| Mesures de contraste | 407 (fiches 06 et README des preuves) | **946** dans l'artefact `rapports/resume.json` du 27 septembre ; la section de remesure de la fiche 06 et le README des preuves portent 946. |
 
 **Deux points a verifier avant le 5 octobre**, non verifiables depuis le depot mais
 lisibles en direct par le jury :
@@ -962,8 +964,8 @@ retention automatisees : journal d'audit environ 12 mois, compteurs de tentative
 
 **Q3.1 - Qu'est-ce qui vous permet de dire que votre site est accessible ?**
 Je ne dis pas qu'il est accessible : je dis qu'il ne porte aucune violation detectable
-automatiquement. axe-core 4.13.0 sur les regles WCAG 2.0 A/AA et 2.1 A/AA, 11 ecrans,
-0 violation toutes gravites, 415 rapports de contraste, 0 sous le seuil. Et 4 630
+automatiquement. axe-core 4.13.0 sur les regles WCAG 2.0 A/AA et 2.1 A/AA, 19 ecrans,
+0 violation toutes gravites, 946 rapports de contraste, 0 sous le seuil. Et 4 807
 verifications sans echec au balayage de mise en page, sur 5 roles et 4 largeurs.
 
 **Q3.2 - Quelle est la limite de votre audit ?** **(rude)**
@@ -984,7 +986,7 @@ resterait bloque.
 **Q3.4 - Comment garantissez-vous que l'accessibilite ne regresse pas ?**
 L'audit est rejoue a chaque execution de la suite de bout en bout, avec une barriere qui
 fait echouer le test en **nommant** la regle si une violation apparait. La liste des
-tolerances acceptees est vide aujourd'hui sur les 11 ecrans. La trajectoire le montre :
+tolerances acceptees est vide aujourd'hui sur les 19 ecrans. La trajectoire le montre :
 104 echecs avant la refonte, 11 apres le premier lot, 0 aujourd'hui.
 
 **Q3.5 - Vos cibles tactiles font quelle taille ?**

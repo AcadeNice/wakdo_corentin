@@ -718,6 +718,44 @@ test('wireLogin : un échec (401) s\'affiche tel quel avec son code, et vide aus
     assert.equal(doc.getElementById('health-login-token-row').hidden, true, 'pas de jeton à copier sur un échec');
 });
 
+// Un essai vide partirait au serveur pour un 422 certain et compterait dans la
+// limitation des connexions par adresse : il est arrêté avant l'envoi.
+for (const [cas, email, password] of [
+    ['email vide', '', 'mot-de-passe-de-test'],
+    ['mot de passe vide', 'a@b.fr', ''],
+    ['les deux vides', '   ', ''],
+]) {
+    test(`wireLogin : ${cas}, rien n'est envoyé et la page dit quoi compléter`, async () => {
+        const doc = setupLoginDom();
+        let calls = 0;
+        global.fetch = async () => { calls += 1; return { ok: true, status: 200, headers: { get: () => null }, text: async () => '{}' }; };
+        const api = health.wireLogin(doc);
+        doc.getElementById('health-login-email').value = email;
+        doc.getElementById('health-login-password').value = password;
+
+        await api.submit();
+
+        assert.equal(calls, 0, 'aucun appel réseau pour un formulaire incomplet');
+        assert.equal(doc.getElementById('health-login-result').hidden, true, 'aucun panneau de réponse sans appel');
+        assert.match(doc.getElementById('health-login-status').textContent, /email et le mot de passe/);
+    });
+}
+
+test('wireLogin : un email mal formé (contrôle du navigateur) n\'est pas envoyé', async () => {
+    const doc = setupLoginDom();
+    doc.getElementById('health-login-email').setAttribute('required', '');
+    let calls = 0;
+    global.fetch = async () => { calls += 1; return { ok: true, status: 200, headers: { get: () => null }, text: async () => '{}' }; };
+    const api = health.wireLogin(doc);
+    doc.getElementById('health-login-email').value = 'pas-un-email';
+    doc.getElementById('health-login-password').value = 'mot-de-passe-de-test';
+
+    await api.submit();
+
+    assert.equal(calls, 0);
+    assert.equal(doc.getElementById('health-login-result').hidden, true);
+});
+
 test('wireLogin : le mot de passe n\'est jamais exposé ailleurs, même sur un échec de validation', async () => {
     const doc = setupLoginDom();
     global.fetch = async () => ({
