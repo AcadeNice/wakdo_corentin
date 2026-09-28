@@ -1,6 +1,6 @@
 {
- "captured_at": "2026-09-28T09:51:02.642Z",
- "commit": "9bd350b",
+ "captured_at": "2026-09-28T10:39:25.312Z",
+ "commit": "5072132",
  "where": "pile Docker jetable, donnees de demonstration du depot (tests/e2e/run-health-capture.sh)",
  "routes": {
   "POST /admin/profile/pin": {
@@ -95,12 +95,12 @@
    "fail": {
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "GET",
       "path": "/inexistant",
@@ -174,7 +174,7 @@
      "cache-control": "no-store, private",
      "content-type": "text/html; charset=utf-8"
     },
-    "body": "<!doctype html> … page HTML de 820011 caractères, extrait :\n<title>Santé de l'API - Wakdo Admin</title>\n<h1>Santé de l'API</h1>\nmessage : « PIN enregistré. »",
+    "body": "<!doctype html> … page HTML de 821874 caractères, extrait :\n<title>Santé de l'API - Wakdo Admin</title>\n<h1>Santé de l'API</h1>\nmessage : « PIN enregistré. »",
     "request": {
      "method": "GET",
      "path": "/admin/health",
@@ -220,12 +220,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "GET",
       "path": "/admin/health/inexistant",
@@ -244,7 +244,7 @@
      "cache-control": "no-store, private",
      "content-type": "application/json; charset=utf-8"
     },
-    "body": "{\n  \"data\": {\n    \"generated_at\": \"2026-09-28T11:50:20+02:00\",\n    \"version\": null,\n    \"deployed_at\": null,\n    \"app_env\": \"dev\",\n    \"debug\": false,\n    \"display_errors_off\": true,\n    \"php_version\": \"8.3.22\",\n    \"db\": {\n      \"ok\": true,\n      \"latency_ms\": 0.1,\n      \"server_version\": \"11.4.10-MariaDB-ubu2404\"\n    },\n    \"migrations\": {\n      \"applied\": 17,\n      \"files\": null,\n      \"last\": \"0018_manager_order_cancel.sql\"\n    },\n    \"seeds\": {\n      \"applied\": 10,\n      \"files\": null,\n      \"last\": \"0010_ingredient_families.sql\"\n    },\n    \"activity_24h\": {\n      \"orders_created\": 1,\n      \"orders_paid\": 0,\n      \"audit_lines\": 7,\n      \"pin_failures\": 0\n    }\n  }\n}",
+    "body": "{\n  \"data\": {\n    \"generated_at\": \"2026-09-28T12:38:43+02:00\",\n    \"version\": null,\n    \"deployed_at\": null,\n    \"app_env\": \"dev\",\n    \"debug\": false,\n    \"display_errors_off\": true,\n    \"php_version\": \"8.3.22\",\n    \"db\": {\n      \"ok\": true,\n      \"latency_ms\": 0.1,\n      \"server_version\": \"11.4.10-MariaDB-ubu2404\"\n    },\n    \"migrations\": {\n      \"applied\": 17,\n      \"files\": null,\n      \"last\": \"0018_manager_order_cancel.sql\"\n    },\n    \"seeds\": {\n      \"applied\": 10,\n      \"files\": null,\n      \"last\": \"0010_ingredient_families.sql\"\n    },\n    \"activity_24h\": {\n      \"orders_created\": 1,\n      \"orders_paid\": 0,\n      \"audit_lines\": 7,\n      \"pin_failures\": 0\n    }\n  }\n}",
     "request": {
      "method": "GET",
      "path": "/admin/api/health",
@@ -324,12 +324,12 @@
    "fail": {
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "GET",
       "path": "/login/inexistant",
@@ -360,12 +360,12 @@
    "fail": {
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "GET",
       "path": "/forgot_password/inexistant",
@@ -396,12 +396,12 @@
    "fail": {
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "GET",
       "path": "/reset_password/inexistant",
@@ -881,12 +881,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "GET",
       "path": "/admin/me/inexistant",
@@ -935,12 +935,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "GET",
       "path": "/admin/dashboard/inexistant",
@@ -1005,12 +1005,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "GET",
       "path": "/admin/stats/inexistant",
@@ -1059,12 +1059,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "GET",
       "path": "/admin/orders/inexistant",
@@ -1129,12 +1129,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "GET",
       "path": "/admin/orders/K1/cancel/inexistant",
@@ -1199,12 +1199,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "GET",
       "path": "/kitchen/display/inexistant",
@@ -1269,12 +1269,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "GET",
       "path": "/counter/orders/inexistant",
@@ -1339,12 +1339,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "GET",
       "path": "/counter/orders/new/inexistant",
@@ -1409,12 +1409,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "GET",
       "path": "/drive/orders/inexistant",
@@ -1479,12 +1479,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "GET",
       "path": "/drive/orders/new/inexistant",
@@ -1549,12 +1549,12 @@
     },
     "router": {
      "status": 405,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"METHOD_NOT_ALLOWED\",\n    \"message\": \"Method not allowed\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "GET",
       "path": "/admin/users/inexistant",
@@ -1619,12 +1619,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "GET",
       "path": "/admin/users/new/inexistant",
@@ -1689,12 +1689,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "GET",
       "path": "/admin/users/1/edit/inexistant",
@@ -1775,12 +1775,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "GET",
       "path": "/admin/users/1/deactivate/inexistant",
@@ -1861,12 +1861,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "GET",
       "path": "/admin/users/1/reset-pin/inexistant",
@@ -1947,12 +1947,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "GET",
       "path": "/admin/users/1/erase/inexistant",
@@ -2033,12 +2033,12 @@
     },
     "router": {
      "status": 405,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"METHOD_NOT_ALLOWED\",\n    \"message\": \"Method not allowed\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "GET",
       "path": "/admin/roles/inexistant",
@@ -2103,12 +2103,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "GET",
       "path": "/admin/roles/new/inexistant",
@@ -2173,12 +2173,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "GET",
       "path": "/admin/roles/1/edit/inexistant",
@@ -2259,12 +2259,12 @@
     },
     "router": {
      "status": 405,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"METHOD_NOT_ALLOWED\",\n    \"message\": \"Method not allowed\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "GET",
       "path": "/admin/categories/inexistant",
@@ -2329,12 +2329,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "GET",
       "path": "/admin/categories/new/inexistant",
@@ -2399,12 +2399,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "GET",
       "path": "/admin/categories/1/edit/inexistant",
@@ -2469,12 +2469,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "GET",
       "path": "/admin/profile/pin/inexistant",
@@ -2523,12 +2523,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "GET",
       "path": "/admin/privacy/inexistant",
@@ -2577,12 +2577,12 @@
     },
     "router": {
      "status": 405,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"METHOD_NOT_ALLOWED\",\n    \"message\": \"Method not allowed\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "GET",
       "path": "/admin/products/inexistant",
@@ -2631,12 +2631,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "GET",
       "path": "/admin/products/by-category/inexistant",
@@ -2701,12 +2701,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "GET",
       "path": "/admin/products/new/inexistant",
@@ -2771,12 +2771,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "GET",
       "path": "/admin/products/38/edit/inexistant",
@@ -2857,12 +2857,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "GET",
       "path": "/admin/products/38/delete/inexistant",
@@ -2943,12 +2943,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "GET",
       "path": "/admin/products/38/recipe/inexistant",
@@ -3029,12 +3029,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "GET",
       "path": "/admin/products/import/inexistant",
@@ -3099,12 +3099,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "GET",
       "path": "/admin/products/import/template/inexistant",
@@ -3153,12 +3153,12 @@
     },
     "router": {
      "status": 405,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"METHOD_NOT_ALLOWED\",\n    \"message\": \"Method not allowed\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "GET",
       "path": "/admin/menus/inexistant",
@@ -3223,12 +3223,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "GET",
       "path": "/admin/menus/new/inexistant",
@@ -3293,12 +3293,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "GET",
       "path": "/admin/menus/1/edit/inexistant",
@@ -3379,12 +3379,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "GET",
       "path": "/admin/menus/1/delete/inexistant",
@@ -3449,12 +3449,12 @@
     },
     "router": {
      "status": 405,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"METHOD_NOT_ALLOWED\",\n    \"message\": \"Method not allowed\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "GET",
       "path": "/admin/ingredients/inexistant",
@@ -3519,12 +3519,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "GET",
       "path": "/admin/ingredients/new/inexistant",
@@ -3589,12 +3589,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "GET",
       "path": "/admin/ingredients/35/edit/inexistant",
@@ -3675,12 +3675,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "GET",
       "path": "/admin/ingredients/35/delete/inexistant",
@@ -3761,12 +3761,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "GET",
       "path": "/admin/ingredients/35/restock/inexistant",
@@ -3831,12 +3831,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "GET",
       "path": "/admin/ingredients/35/inventory/inexistant",
@@ -3901,12 +3901,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "GET",
       "path": "/admin/ingredients/35/adjust/inexistant",
@@ -3971,12 +3971,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "GET",
       "path": "/admin/ingredients/35/movements/inexistant",
@@ -5031,7 +5031,7 @@
      "cache-control": "no-store, private",
      "content-type": "application/json; charset=utf-8"
     },
-    "body": "{\n  \"data\": [\n    {\n      \"order_number\": \"K1\",\n      \"source\": \"kiosk\",\n      \"service_mode\": \"takeaway\",\n      \"service_tag\": null,\n      \"status\": \"pending_payment\",\n      \"total_ttc_cents\": 190,\n      \"created_at\": \"2026-09-28 11:50:20\",\n      \"paid_at\": null\n    }\n  ],\n  \"total\": 1\n}",
+    "body": "{\n  \"data\": [\n    {\n      \"order_number\": \"K1\",\n      \"source\": \"kiosk\",\n      \"service_mode\": \"takeaway\",\n      \"service_tag\": null,\n      \"status\": \"pending_payment\",\n      \"total_ttc_cents\": 190,\n      \"created_at\": \"2026-09-28 12:38:43\",\n      \"paid_at\": null\n    }\n  ],\n  \"total\": 1\n}",
     "request": {
      "method": "GET",
      "path": "/admin/api/orders",
@@ -5083,7 +5083,7 @@
      "cache-control": "no-store, private",
      "content-type": "application/json; charset=utf-8"
     },
-    "body": "{\n  \"data\": {\n    \"order_number\": \"K1\",\n    \"source\": \"kiosk\",\n    \"service_mode\": \"takeaway\",\n    \"service_tag\": null,\n    \"status\": \"pending_payment\",\n    \"total_ttc_cents\": 190,\n    \"created_at\": \"2026-09-28 11:50:20\",\n    \"paid_at\": null\n  }\n}",
+    "body": "{\n  \"data\": {\n    \"order_number\": \"K1\",\n    \"source\": \"kiosk\",\n    \"service_mode\": \"takeaway\",\n    \"service_tag\": null,\n    \"status\": \"pending_payment\",\n    \"total_ttc_cents\": 190,\n    \"created_at\": \"2026-09-28 12:38:43\",\n    \"paid_at\": null\n  }\n}",
     "request": {
      "method": "GET",
      "path": "/admin/api/orders/K1",
@@ -5226,7 +5226,7 @@
      "headers": {
       "Content-Type": "application/json"
      },
-     "body": "{\n  \"idempotency_key\": \"cap-1790589022817-2\",\n  \"service_mode\": \"takeaway\",\n  \"items\": [\n    {\n      \"type\": \"product\",\n      \"product_id\": 14,\n      \"quantity\": 1\n    }\n  ]\n}"
+     "body": "{\n  \"idempotency_key\": \"cap-1790591925354-2\",\n  \"service_mode\": \"takeaway\",\n  \"items\": [\n    {\n      \"type\": \"product\",\n      \"product_id\": 14,\n      \"quantity\": 1\n    }\n  ]\n}"
     },
     "how": "commande de la borne sur la pile de test"
    },
@@ -5245,7 +5245,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"idempotency_key\": \"cap-1790589022800-0\",\n  \"service_mode\": \"takeaway\",\n  \"items\": [\n    {\n      \"type\": \"product\",\n      \"product_id\": 999999,\n      \"quantity\": 1\n    }\n  ]\n}"
+      "body": "{\n  \"idempotency_key\": \"cap-1790591925339-0\",\n  \"service_mode\": \"takeaway\",\n  \"items\": [\n    {\n      \"type\": \"product\",\n      \"product_id\": 999999,\n      \"quantity\": 1\n    }\n  ]\n}"
      },
      "how": "produit inexistant dans la commande"
     },
@@ -5282,7 +5282,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"idempotency_key\": \"cap-1790589022812-1\",\n  \"service_mode\": \"takeaway\",\n  \"items\": [\n    {\n      \"type\": \"product\",\n      \"product_id\": 14,\n      \"quantity\": 1\n    }\n  ]\n}"
+      "body": "{\n  \"idempotency_key\": \"cap-1790591925350-1\",\n  \"service_mode\": \"takeaway\",\n  \"items\": [\n    {\n      \"type\": \"product\",\n      \"product_id\": 14,\n      \"quantity\": 1\n    }\n  ]\n}"
      },
      "how": "chemin inconnu du routeur"
     }
@@ -5411,7 +5411,7 @@
      "location": "/admin/api/categories/10",
      "content-type": "application/json; charset=utf-8"
     },
-    "body": "{\n  \"data\": {\n    \"id\": 10,\n    \"name\": \"Demo mul2h0xl\",\n    \"slug\": \"demo-mul2h0xl\",\n    \"image_path\": null,\n    \"display_order\": 50,\n    \"is_active\": true\n  }\n}",
+    "body": "{\n  \"data\": {\n    \"id\": 10,\n    \"name\": \"Demo mul478is\",\n    \"slug\": \"demo-mul478is\",\n    \"image_path\": null,\n    \"display_order\": 50,\n    \"is_active\": true\n  }\n}",
     "request": {
      "method": "POST",
      "path": "/admin/api/categories",
@@ -5419,7 +5419,7 @@
       "Content-Type": "application/json",
       "X-CSRF-Token": "<jeton de la session>"
      },
-     "body": "{\n  \"name\": \"Demo mul2h0xl\",\n  \"slug\": \"demo-mul2h0xl\",\n  \"display_order\": 50\n}"
+     "body": "{\n  \"name\": \"Demo mul478is\",\n  \"slug\": \"demo-mul478is\",\n  \"display_order\": 50\n}"
     },
     "how": "collection Postman, « Creer une categorie »"
    },
@@ -5438,7 +5438,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"name\": \"Demo mul2h6me\",\n  \"slug\": \"demo-mul2h6me\",\n  \"display_order\": 50\n}"
+      "body": "{\n  \"name\": \"Demo mul47eg0\",\n  \"slug\": \"demo-mul47eg0\",\n  \"display_order\": 50\n}"
      },
      "how": "sans cookie de session"
     },
@@ -5457,7 +5457,7 @@
        "X-CSRF-Token": "<jeton de la session>",
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"name\": \"Demo mul2h6me\",\n  \"slug\": \"demo-mul2h6me\",\n  \"display_order\": 50\n}"
+      "body": "{\n  \"name\": \"Demo mul47eg0\",\n  \"slug\": \"demo-mul47eg0\",\n  \"display_order\": 50\n}"
      },
      "how": "compte cuisine@wakdo.local, sans category.manage"
     },
@@ -5475,7 +5475,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"name\": \"Demo mul2h6me\",\n  \"slug\": \"demo-mul2h6me\",\n  \"display_order\": 50\n}"
+      "body": "{\n  \"name\": \"Demo mul47eg0\",\n  \"slug\": \"demo-mul47eg0\",\n  \"display_order\": 50\n}"
      },
      "how": "sans en-tete X-CSRF-Token"
     },
@@ -5532,7 +5532,7 @@
        "Content-Type": "application/json",
        "X-CSRF-Token": "<jeton de la session>"
       },
-      "body": "{\n  \"name\": \"Demo mul2h6me\",\n  \"slug\": \"demo-mul2h6me\",\n  \"display_order\": 50\n}"
+      "body": "{\n  \"name\": \"Demo mul47eg0\",\n  \"slug\": \"demo-mul47eg0\",\n  \"display_order\": 50\n}"
      },
      "how": "chemin inconnu du routeur"
     }
@@ -5546,7 +5546,7 @@
      "cache-control": "no-store, private",
      "content-type": "application/json; charset=utf-8"
     },
-    "body": "{\n  \"data\": {\n    \"id\": 10,\n    \"name\": \"Demo mul2h0xl v2\",\n    \"slug\": \"demo-mul2h0xl\",\n    \"image_path\": null,\n    \"display_order\": 51,\n    \"is_active\": true\n  }\n}",
+    "body": "{\n  \"data\": {\n    \"id\": 10,\n    \"name\": \"Demo mul478is v2\",\n    \"slug\": \"demo-mul478is\",\n    \"image_path\": null,\n    \"display_order\": 51,\n    \"is_active\": true\n  }\n}",
     "request": {
      "method": "PUT",
      "path": "/admin/api/categories/10",
@@ -5554,7 +5554,7 @@
       "Content-Type": "application/json",
       "X-CSRF-Token": "<jeton de la session>"
      },
-     "body": "{\n  \"name\": \"Demo mul2h0xl v2\",\n  \"slug\": \"demo-mul2h0xl\",\n  \"display_order\": 51\n}"
+     "body": "{\n  \"name\": \"Demo mul478is v2\",\n  \"slug\": \"demo-mul478is\",\n  \"display_order\": 51\n}"
     },
     "how": "collection Postman, « Modifier une categorie »"
    },
@@ -5573,7 +5573,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"name\": \"Demo mul2h6me v2\",\n  \"slug\": \"demo-mul2h6me\",\n  \"display_order\": 51\n}"
+      "body": "{\n  \"name\": \"Demo mul47eg0 v2\",\n  \"slug\": \"demo-mul47eg0\",\n  \"display_order\": 51\n}"
      },
      "how": "sans cookie de session"
     },
@@ -5592,7 +5592,7 @@
        "X-CSRF-Token": "<jeton de la session>",
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"name\": \"Demo mul2h6me v2\",\n  \"slug\": \"demo-mul2h6me\",\n  \"display_order\": 51\n}"
+      "body": "{\n  \"name\": \"Demo mul47eg0 v2\",\n  \"slug\": \"demo-mul47eg0\",\n  \"display_order\": 51\n}"
      },
      "how": "compte cuisine@wakdo.local, sans category.manage"
     },
@@ -5610,7 +5610,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"name\": \"Demo mul2h6me v2\",\n  \"slug\": \"demo-mul2h6me\",\n  \"display_order\": 51\n}"
+      "body": "{\n  \"name\": \"Demo mul47eg0 v2\",\n  \"slug\": \"demo-mul47eg0\",\n  \"display_order\": 51\n}"
      },
      "how": "sans en-tete X-CSRF-Token"
     },
@@ -5667,7 +5667,7 @@
        "Content-Type": "application/json",
        "X-CSRF-Token": "<jeton de la session>"
       },
-      "body": "{\n  \"name\": \"Demo mul2h6me v2\",\n  \"slug\": \"demo-mul2h6me\",\n  \"display_order\": 51\n}"
+      "body": "{\n  \"name\": \"Demo mul47eg0 v2\",\n  \"slug\": \"demo-mul47eg0\",\n  \"display_order\": 51\n}"
      },
      "how": "chemin inconnu du routeur"
     },
@@ -5686,7 +5686,7 @@
        "Content-Type": "application/json",
        "X-CSRF-Token": "<jeton de la session>"
       },
-      "body": "{\n  \"name\": \"Demo mul2h6me v2\",\n  \"slug\": \"demo-mul2h6me\",\n  \"display_order\": 51\n}"
+      "body": "{\n  \"name\": \"Demo mul47eg0 v2\",\n  \"slug\": \"demo-mul47eg0\",\n  \"display_order\": 51\n}"
      },
      "how": "identifiant inexistant"
     }
@@ -6108,7 +6108,7 @@
      "location": "/admin/api/products/61",
      "content-type": "application/json; charset=utf-8"
     },
-    "body": "{\n  \"data\": {\n    \"id\": 61,\n    \"category_id\": 3,\n    \"name\": \"Produit Demo mul2h0xl\",\n    \"description\": null,\n    \"price_cents\": 490,\n    \"vat_rate\": 100,\n    \"size_cl\": null,\n    \"base_product_id\": null,\n    \"maxi_variant_product_id\": null,\n    \"image_path\": null,\n    \"is_available\": true,\n    \"display_order\": 99\n  }\n}",
+    "body": "{\n  \"data\": {\n    \"id\": 61,\n    \"category_id\": 3,\n    \"name\": \"Produit Demo mul478is\",\n    \"description\": null,\n    \"price_cents\": 490,\n    \"vat_rate\": 100,\n    \"size_cl\": null,\n    \"base_product_id\": null,\n    \"maxi_variant_product_id\": null,\n    \"image_path\": null,\n    \"is_available\": true,\n    \"display_order\": 99\n  }\n}",
     "request": {
      "method": "POST",
      "path": "/admin/api/products",
@@ -6116,7 +6116,7 @@
       "Content-Type": "application/json",
       "X-CSRF-Token": "<jeton de la session>"
      },
-     "body": "{\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mul2h0xl\",\n  \"price_cents\": 490,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99\n}"
+     "body": "{\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mul478is\",\n  \"price_cents\": 490,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99\n}"
     },
     "how": "collection Postman, « Creer un produit »"
    },
@@ -6135,7 +6135,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mul2h6me\",\n  \"price_cents\": 490,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99\n}"
+      "body": "{\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mul47eg0\",\n  \"price_cents\": 490,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99\n}"
      },
      "how": "sans cookie de session"
     },
@@ -6154,7 +6154,7 @@
        "X-CSRF-Token": "<jeton de la session>",
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mul2h6me\",\n  \"price_cents\": 490,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99\n}"
+      "body": "{\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mul47eg0\",\n  \"price_cents\": 490,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99\n}"
      },
      "how": "compte cuisine@wakdo.local, sans product.create"
     },
@@ -6172,7 +6172,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mul2h6me\",\n  \"price_cents\": 490,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99\n}"
+      "body": "{\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mul47eg0\",\n  \"price_cents\": 490,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99\n}"
      },
      "how": "sans en-tete X-CSRF-Token"
     },
@@ -6229,7 +6229,7 @@
        "Content-Type": "application/json",
        "X-CSRF-Token": "<jeton de la session>"
       },
-      "body": "{\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mul2h6me\",\n  \"price_cents\": 490,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99\n}"
+      "body": "{\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mul47eg0\",\n  \"price_cents\": 490,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99\n}"
      },
      "how": "chemin inconnu du routeur"
     }
@@ -6243,7 +6243,7 @@
      "cache-control": "no-store, private",
      "content-type": "application/json; charset=utf-8"
     },
-    "body": "{\n  \"data\": {\n    \"id\": 61,\n    \"category_id\": 3,\n    \"name\": \"Produit Demo mul2h0xl renomme\",\n    \"description\": null,\n    \"price_cents\": 490,\n    \"vat_rate\": 100,\n    \"size_cl\": null,\n    \"base_product_id\": null,\n    \"maxi_variant_product_id\": null,\n    \"image_path\": null,\n    \"is_available\": true,\n    \"display_order\": 99\n  }\n}",
+    "body": "{\n  \"data\": {\n    \"id\": 61,\n    \"category_id\": 3,\n    \"name\": \"Produit Demo mul478is renomme\",\n    \"description\": null,\n    \"price_cents\": 490,\n    \"vat_rate\": 100,\n    \"size_cl\": null,\n    \"base_product_id\": null,\n    \"maxi_variant_product_id\": null,\n    \"image_path\": null,\n    \"is_available\": true,\n    \"display_order\": 99\n  }\n}",
     "request": {
      "method": "PUT",
      "path": "/admin/api/products/61",
@@ -6251,7 +6251,7 @@
       "Content-Type": "application/json",
       "X-CSRF-Token": "<jeton de la session>"
      },
-     "body": "{\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mul2h0xl renomme\",\n  \"price_cents\": 490,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99\n}"
+     "body": "{\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mul478is renomme\",\n  \"price_cents\": 490,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99\n}"
     },
     "how": "collection Postman, « Modifier un produit (sans changement de prix/TVA) »"
    },
@@ -6270,7 +6270,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mul2h6me renomme\",\n  \"price_cents\": 490,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99\n}"
+      "body": "{\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mul47eg0 renomme\",\n  \"price_cents\": 490,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99\n}"
      },
      "how": "sans cookie de session"
     },
@@ -6289,7 +6289,7 @@
        "X-CSRF-Token": "<jeton de la session>",
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mul2h6me renomme\",\n  \"price_cents\": 490,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99\n}"
+      "body": "{\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mul47eg0 renomme\",\n  \"price_cents\": 490,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99\n}"
      },
      "how": "compte cuisine@wakdo.local, sans product.update"
     },
@@ -6307,7 +6307,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mul2h6me renomme\",\n  \"price_cents\": 490,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99\n}"
+      "body": "{\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mul47eg0 renomme\",\n  \"price_cents\": 490,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99\n}"
      },
      "how": "sans en-tete X-CSRF-Token"
     },
@@ -6364,7 +6364,7 @@
        "Content-Type": "application/json",
        "X-CSRF-Token": "<jeton de la session>"
       },
-      "body": "{\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mul2h6me renomme\",\n  \"price_cents\": 590,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99,\n  \"pin_email\": \"comptoir2@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mul47eg0 renomme\",\n  \"price_cents\": 590,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99,\n  \"pin_email\": \"comptoir2@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "code personnel faux"
     },
@@ -6383,7 +6383,7 @@
        "Content-Type": "application/json",
        "X-CSRF-Token": "<jeton de la session>"
       },
-      "body": "{\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mul2h6me renomme\",\n  \"price_cents\": 490,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99\n}"
+      "body": "{\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mul47eg0 renomme\",\n  \"price_cents\": 490,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99\n}"
      },
      "how": "chemin inconnu du routeur"
     },
@@ -6402,7 +6402,7 @@
        "Content-Type": "application/json",
        "X-CSRF-Token": "<jeton de la session>"
       },
-      "body": "{\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mul2h6me renomme\",\n  \"price_cents\": 490,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99\n}"
+      "body": "{\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mul47eg0 renomme\",\n  \"price_cents\": 490,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99\n}"
      },
      "how": "identifiant inexistant"
     }
@@ -6885,7 +6885,7 @@
      "location": "/admin/api/menus/14",
      "content-type": "application/json; charset=utf-8"
     },
-    "body": "{\n  \"data\": {\n    \"id\": 14,\n    \"category_id\": 1,\n    \"burger_product_id\": 1,\n    \"name\": \"Menu Demo mul2h0xl\",\n    \"price_normal_cents\": 890,\n    \"price_maxi_cents\": 990,\n    \"is_available\": true,\n    \"display_order\": 50\n  }\n}",
+    "body": "{\n  \"data\": {\n    \"id\": 14,\n    \"category_id\": 1,\n    \"burger_product_id\": 1,\n    \"name\": \"Menu Demo mul478is\",\n    \"price_normal_cents\": 890,\n    \"price_maxi_cents\": 990,\n    \"is_available\": true,\n    \"display_order\": 50\n  }\n}",
     "request": {
      "method": "POST",
      "path": "/admin/api/menus",
@@ -6893,7 +6893,7 @@
       "Content-Type": "application/json",
       "X-CSRF-Token": "<jeton de la session>"
      },
-     "body": "{\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul2h0xl\",\n  \"price_normal_cents\": 890,\n  \"price_maxi_cents\": 990,\n  \"is_available\": true,\n  \"display_order\": 50,\n  \"slots\": [\n    {\n      \"name\": \"Boisson\",\n      \"slot_type\": \"drink\",\n      \"is_required\": true,\n      \"options\": [\n        \"14\"\n      ]\n    }\n  ]\n}"
+     "body": "{\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul478is\",\n  \"price_normal_cents\": 890,\n  \"price_maxi_cents\": 990,\n  \"is_available\": true,\n  \"display_order\": 50,\n  \"slots\": [\n    {\n      \"name\": \"Boisson\",\n      \"slot_type\": \"drink\",\n      \"is_required\": true,\n      \"options\": [\n        \"14\"\n      ]\n    }\n  ]\n}"
     },
     "how": "collection Postman, « Creer un menu »"
    },
@@ -6912,7 +6912,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul2h6me\",\n  \"price_normal_cents\": 890,\n  \"price_maxi_cents\": 990,\n  \"is_available\": true,\n  \"display_order\": 50,\n  \"slots\": [\n    {\n      \"name\": \"Boisson\",\n      \"slot_type\": \"drink\",\n      \"is_required\": true,\n      \"options\": [\n        \"14\"\n      ]\n    }\n  ]\n}"
+      "body": "{\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul47eg0\",\n  \"price_normal_cents\": 890,\n  \"price_maxi_cents\": 990,\n  \"is_available\": true,\n  \"display_order\": 50,\n  \"slots\": [\n    {\n      \"name\": \"Boisson\",\n      \"slot_type\": \"drink\",\n      \"is_required\": true,\n      \"options\": [\n        \"14\"\n      ]\n    }\n  ]\n}"
      },
      "how": "sans cookie de session"
     },
@@ -6931,7 +6931,7 @@
        "X-CSRF-Token": "<jeton de la session>",
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul2h6me\",\n  \"price_normal_cents\": 890,\n  \"price_maxi_cents\": 990,\n  \"is_available\": true,\n  \"display_order\": 50,\n  \"slots\": [\n    {\n      \"name\": \"Boisson\",\n      \"slot_type\": \"drink\",\n      \"is_required\": true,\n      \"options\": [\n        \"14\"\n      ]\n    }\n  ]\n}"
+      "body": "{\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul47eg0\",\n  \"price_normal_cents\": 890,\n  \"price_maxi_cents\": 990,\n  \"is_available\": true,\n  \"display_order\": 50,\n  \"slots\": [\n    {\n      \"name\": \"Boisson\",\n      \"slot_type\": \"drink\",\n      \"is_required\": true,\n      \"options\": [\n        \"14\"\n      ]\n    }\n  ]\n}"
      },
      "how": "compte cuisine@wakdo.local, sans menu.create"
     },
@@ -6949,7 +6949,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul2h6me\",\n  \"price_normal_cents\": 890,\n  \"price_maxi_cents\": 990,\n  \"is_available\": true,\n  \"display_order\": 50,\n  \"slots\": [\n    {\n      \"name\": \"Boisson\",\n      \"slot_type\": \"drink\",\n      \"is_required\": true,\n      \"options\": [\n        \"14\"\n      ]\n    }\n  ]\n}"
+      "body": "{\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul47eg0\",\n  \"price_normal_cents\": 890,\n  \"price_maxi_cents\": 990,\n  \"is_available\": true,\n  \"display_order\": 50,\n  \"slots\": [\n    {\n      \"name\": \"Boisson\",\n      \"slot_type\": \"drink\",\n      \"is_required\": true,\n      \"options\": [\n        \"14\"\n      ]\n    }\n  ]\n}"
      },
      "how": "sans en-tete X-CSRF-Token"
     },
@@ -7006,7 +7006,7 @@
        "Content-Type": "application/json",
        "X-CSRF-Token": "<jeton de la session>"
       },
-      "body": "{\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul2h6me\",\n  \"price_normal_cents\": 890,\n  \"price_maxi_cents\": 990,\n  \"is_available\": true,\n  \"display_order\": 50,\n  \"slots\": [\n    {\n      \"name\": \"Boisson\",\n      \"slot_type\": \"drink\",\n      \"is_required\": true,\n      \"options\": [\n        \"14\"\n      ]\n    }\n  ]\n}"
+      "body": "{\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul47eg0\",\n  \"price_normal_cents\": 890,\n  \"price_maxi_cents\": 990,\n  \"is_available\": true,\n  \"display_order\": 50,\n  \"slots\": [\n    {\n      \"name\": \"Boisson\",\n      \"slot_type\": \"drink\",\n      \"is_required\": true,\n      \"options\": [\n        \"14\"\n      ]\n    }\n  ]\n}"
      },
      "how": "chemin inconnu du routeur"
     }
@@ -7020,7 +7020,7 @@
      "cache-control": "no-store, private",
      "content-type": "application/json; charset=utf-8"
     },
-    "body": "{\n  \"data\": {\n    \"id\": 14,\n    \"category_id\": 1,\n    \"burger_product_id\": 1,\n    \"name\": \"Menu Demo mul2h0xl v2\",\n    \"price_normal_cents\": 890,\n    \"price_maxi_cents\": 990,\n    \"is_available\": true,\n    \"display_order\": 50\n  }\n}",
+    "body": "{\n  \"data\": {\n    \"id\": 14,\n    \"category_id\": 1,\n    \"burger_product_id\": 1,\n    \"name\": \"Menu Demo mul478is v2\",\n    \"price_normal_cents\": 890,\n    \"price_maxi_cents\": 990,\n    \"is_available\": true,\n    \"display_order\": 50\n  }\n}",
     "request": {
      "method": "PUT",
      "path": "/admin/api/menus/14",
@@ -7028,7 +7028,7 @@
       "Content-Type": "application/json",
       "X-CSRF-Token": "<jeton de la session>"
      },
-     "body": "{\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul2h0xl v2\",\n  \"price_normal_cents\": 890,\n  \"price_maxi_cents\": 990,\n  \"is_available\": true,\n  \"display_order\": 50,\n  \"slots\": [\n    {\n      \"name\": \"Boisson\",\n      \"slot_type\": \"drink\",\n      \"is_required\": true,\n      \"options\": [\n        \"14\"\n      ]\n    }\n  ]\n}"
+     "body": "{\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul478is v2\",\n  \"price_normal_cents\": 890,\n  \"price_maxi_cents\": 990,\n  \"is_available\": true,\n  \"display_order\": 50,\n  \"slots\": [\n    {\n      \"name\": \"Boisson\",\n      \"slot_type\": \"drink\",\n      \"is_required\": true,\n      \"options\": [\n        \"14\"\n      ]\n    }\n  ]\n}"
     },
     "how": "collection Postman, « Modifier un menu »"
    },
@@ -7047,7 +7047,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul2h6me v2\",\n  \"price_normal_cents\": 890,\n  \"price_maxi_cents\": 990,\n  \"is_available\": true,\n  \"display_order\": 50,\n  \"slots\": [\n    {\n      \"name\": \"Boisson\",\n      \"slot_type\": \"drink\",\n      \"is_required\": true,\n      \"options\": [\n        \"14\"\n      ]\n    }\n  ]\n}"
+      "body": "{\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul47eg0 v2\",\n  \"price_normal_cents\": 890,\n  \"price_maxi_cents\": 990,\n  \"is_available\": true,\n  \"display_order\": 50,\n  \"slots\": [\n    {\n      \"name\": \"Boisson\",\n      \"slot_type\": \"drink\",\n      \"is_required\": true,\n      \"options\": [\n        \"14\"\n      ]\n    }\n  ]\n}"
      },
      "how": "sans cookie de session"
     },
@@ -7066,7 +7066,7 @@
        "X-CSRF-Token": "<jeton de la session>",
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul2h6me v2\",\n  \"price_normal_cents\": 890,\n  \"price_maxi_cents\": 990,\n  \"is_available\": true,\n  \"display_order\": 50,\n  \"slots\": [\n    {\n      \"name\": \"Boisson\",\n      \"slot_type\": \"drink\",\n      \"is_required\": true,\n      \"options\": [\n        \"14\"\n      ]\n    }\n  ]\n}"
+      "body": "{\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul47eg0 v2\",\n  \"price_normal_cents\": 890,\n  \"price_maxi_cents\": 990,\n  \"is_available\": true,\n  \"display_order\": 50,\n  \"slots\": [\n    {\n      \"name\": \"Boisson\",\n      \"slot_type\": \"drink\",\n      \"is_required\": true,\n      \"options\": [\n        \"14\"\n      ]\n    }\n  ]\n}"
      },
      "how": "compte cuisine@wakdo.local, sans menu.update"
     },
@@ -7084,7 +7084,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul2h6me v2\",\n  \"price_normal_cents\": 890,\n  \"price_maxi_cents\": 990,\n  \"is_available\": true,\n  \"display_order\": 50,\n  \"slots\": [\n    {\n      \"name\": \"Boisson\",\n      \"slot_type\": \"drink\",\n      \"is_required\": true,\n      \"options\": [\n        \"14\"\n      ]\n    }\n  ]\n}"
+      "body": "{\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul47eg0 v2\",\n  \"price_normal_cents\": 890,\n  \"price_maxi_cents\": 990,\n  \"is_available\": true,\n  \"display_order\": 50,\n  \"slots\": [\n    {\n      \"name\": \"Boisson\",\n      \"slot_type\": \"drink\",\n      \"is_required\": true,\n      \"options\": [\n        \"14\"\n      ]\n    }\n  ]\n}"
      },
      "how": "sans en-tete X-CSRF-Token"
     },
@@ -7141,7 +7141,7 @@
        "Content-Type": "application/json",
        "X-CSRF-Token": "<jeton de la session>"
       },
-      "body": "{\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul2h6me v2\",\n  \"price_normal_cents\": 890,\n  \"price_maxi_cents\": 990,\n  \"is_available\": true,\n  \"display_order\": 50,\n  \"slots\": [\n    {\n      \"name\": \"Boisson\",\n      \"slot_type\": \"drink\",\n      \"is_required\": true,\n      \"options\": [\n        \"14\"\n      ]\n    }\n  ]\n}"
+      "body": "{\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul47eg0 v2\",\n  \"price_normal_cents\": 890,\n  \"price_maxi_cents\": 990,\n  \"is_available\": true,\n  \"display_order\": 50,\n  \"slots\": [\n    {\n      \"name\": \"Boisson\",\n      \"slot_type\": \"drink\",\n      \"is_required\": true,\n      \"options\": [\n        \"14\"\n      ]\n    }\n  ]\n}"
      },
      "how": "chemin inconnu du routeur"
     },
@@ -7160,7 +7160,7 @@
        "Content-Type": "application/json",
        "X-CSRF-Token": "<jeton de la session>"
       },
-      "body": "{\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul2h6me v2\",\n  \"price_normal_cents\": 890,\n  \"price_maxi_cents\": 990,\n  \"is_available\": true,\n  \"display_order\": 50,\n  \"slots\": [\n    {\n      \"name\": \"Boisson\",\n      \"slot_type\": \"drink\",\n      \"is_required\": true,\n      \"options\": [\n        \"14\"\n      ]\n    }\n  ]\n}"
+      "body": "{\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul47eg0 v2\",\n  \"price_normal_cents\": 890,\n  \"price_maxi_cents\": 990,\n  \"is_available\": true,\n  \"display_order\": 50,\n  \"slots\": [\n    {\n      \"name\": \"Boisson\",\n      \"slot_type\": \"drink\",\n      \"is_required\": true,\n      \"options\": [\n        \"14\"\n      ]\n    }\n  ]\n}"
      },
      "how": "identifiant inexistant"
     }
@@ -7475,7 +7475,7 @@
      "location": "/admin/api/ingredients/51",
      "content-type": "application/json; charset=utf-8"
     },
-    "body": "{\n  \"data\": {\n    \"id\": 51,\n    \"name\": \"Ingredient Demo Plain mul2h0xl\",\n    \"unit\": \"unite\",\n    \"family\": \"dosette\",\n    \"stock_quantity\": 0,\n    \"stock_capacity\": 500,\n    \"pack_size\": 50,\n    \"pack_label\": \"carton de 50\",\n    \"low_stock_pct\": 20,\n    \"critical_stock_pct\": 5,\n    \"is_active\": true\n  }\n}",
+    "body": "{\n  \"data\": {\n    \"id\": 51,\n    \"name\": \"Ingredient Demo Plain mul478is\",\n    \"unit\": \"unite\",\n    \"family\": \"dosette\",\n    \"stock_quantity\": 0,\n    \"stock_capacity\": 500,\n    \"pack_size\": 50,\n    \"pack_label\": \"carton de 50\",\n    \"low_stock_pct\": 20,\n    \"critical_stock_pct\": 5,\n    \"is_active\": true\n  }\n}",
     "request": {
      "method": "POST",
      "path": "/admin/api/ingredients",
@@ -7483,7 +7483,7 @@
       "Content-Type": "application/json",
       "X-CSRF-Token": "<jeton de la session>"
      },
-     "body": "{\n  \"name\": \"Ingredient Demo Plain mul2h0xl\",\n  \"unit\": \"unite\",\n  \"family\": \"dosette\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}"
+     "body": "{\n  \"name\": \"Ingredient Demo Plain mul478is\",\n  \"unit\": \"unite\",\n  \"family\": \"dosette\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}"
     },
     "how": "collection Postman, « Creer un ingredient (a supprimer) »"
    },
@@ -7502,7 +7502,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"name\": \"Ingredient Demo Plain mul2h6me\",\n  \"unit\": \"unite\",\n  \"family\": \"dosette\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}"
+      "body": "{\n  \"name\": \"Ingredient Demo Plain mul47eg0\",\n  \"unit\": \"unite\",\n  \"family\": \"dosette\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}"
      },
      "how": "sans cookie de session"
     },
@@ -7521,7 +7521,7 @@
        "X-CSRF-Token": "<jeton de la session>",
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"name\": \"Ingredient Demo Plain mul2h6me\",\n  \"unit\": \"unite\",\n  \"family\": \"dosette\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}"
+      "body": "{\n  \"name\": \"Ingredient Demo Plain mul47eg0\",\n  \"unit\": \"unite\",\n  \"family\": \"dosette\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}"
      },
      "how": "compte cuisine@wakdo.local, sans ingredient.manage"
     },
@@ -7539,7 +7539,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"name\": \"Ingredient Demo Plain mul2h6me\",\n  \"unit\": \"unite\",\n  \"family\": \"dosette\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}"
+      "body": "{\n  \"name\": \"Ingredient Demo Plain mul47eg0\",\n  \"unit\": \"unite\",\n  \"family\": \"dosette\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}"
      },
      "how": "sans en-tete X-CSRF-Token"
     },
@@ -7596,7 +7596,7 @@
        "Content-Type": "application/json",
        "X-CSRF-Token": "<jeton de la session>"
       },
-      "body": "{\n  \"name\": \"Ingredient Demo Plain mul2h6me\",\n  \"unit\": \"unite\",\n  \"family\": \"dosette\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}"
+      "body": "{\n  \"name\": \"Ingredient Demo Plain mul47eg0\",\n  \"unit\": \"unite\",\n  \"family\": \"dosette\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}"
      },
      "how": "chemin inconnu du routeur"
     }
@@ -7610,7 +7610,7 @@
      "cache-control": "no-store, private",
      "content-type": "application/json; charset=utf-8"
     },
-    "body": "{\n  \"data\": {\n    \"id\": 51,\n    \"name\": \"Ingredient Demo Plain mul2h0xl v2\",\n    \"unit\": \"unite\",\n    \"family\": \"sauce\",\n    \"stock_quantity\": 0,\n    \"stock_capacity\": 500,\n    \"pack_size\": 50,\n    \"pack_label\": \"carton de 50\",\n    \"low_stock_pct\": 20,\n    \"critical_stock_pct\": 5,\n    \"is_active\": true\n  }\n}",
+    "body": "{\n  \"data\": {\n    \"id\": 51,\n    \"name\": \"Ingredient Demo Plain mul478is v2\",\n    \"unit\": \"unite\",\n    \"family\": \"sauce\",\n    \"stock_quantity\": 0,\n    \"stock_capacity\": 500,\n    \"pack_size\": 50,\n    \"pack_label\": \"carton de 50\",\n    \"low_stock_pct\": 20,\n    \"critical_stock_pct\": 5,\n    \"is_active\": true\n  }\n}",
     "request": {
      "method": "PUT",
      "path": "/admin/api/ingredients/51",
@@ -7618,7 +7618,7 @@
       "Content-Type": "application/json",
       "X-CSRF-Token": "<jeton de la session>"
      },
-     "body": "{\n  \"name\": \"Ingredient Demo Plain mul2h0xl v2\",\n  \"unit\": \"unite\",\n  \"family\": \"sauce\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}"
+     "body": "{\n  \"name\": \"Ingredient Demo Plain mul478is v2\",\n  \"unit\": \"unite\",\n  \"family\": \"sauce\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}"
     },
     "how": "collection Postman, « Modifier un ingredient »"
    },
@@ -7637,7 +7637,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"name\": \"Ingredient Demo Plain mul2h6me v2\",\n  \"unit\": \"unite\",\n  \"family\": \"sauce\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}"
+      "body": "{\n  \"name\": \"Ingredient Demo Plain mul47eg0 v2\",\n  \"unit\": \"unite\",\n  \"family\": \"sauce\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}"
      },
      "how": "sans cookie de session"
     },
@@ -7656,7 +7656,7 @@
        "X-CSRF-Token": "<jeton de la session>",
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"name\": \"Ingredient Demo Plain mul2h6me v2\",\n  \"unit\": \"unite\",\n  \"family\": \"sauce\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}"
+      "body": "{\n  \"name\": \"Ingredient Demo Plain mul47eg0 v2\",\n  \"unit\": \"unite\",\n  \"family\": \"sauce\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}"
      },
      "how": "compte cuisine@wakdo.local, sans ingredient.manage"
     },
@@ -7674,7 +7674,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"name\": \"Ingredient Demo Plain mul2h6me v2\",\n  \"unit\": \"unite\",\n  \"family\": \"sauce\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}"
+      "body": "{\n  \"name\": \"Ingredient Demo Plain mul47eg0 v2\",\n  \"unit\": \"unite\",\n  \"family\": \"sauce\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}"
      },
      "how": "sans en-tete X-CSRF-Token"
     },
@@ -7731,7 +7731,7 @@
        "Content-Type": "application/json",
        "X-CSRF-Token": "<jeton de la session>"
       },
-      "body": "{\n  \"name\": \"Ingredient Demo Plain mul2h6me v2\",\n  \"unit\": \"unite\",\n  \"family\": \"sauce\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}"
+      "body": "{\n  \"name\": \"Ingredient Demo Plain mul47eg0 v2\",\n  \"unit\": \"unite\",\n  \"family\": \"sauce\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}"
      },
      "how": "chemin inconnu du routeur"
     },
@@ -7750,7 +7750,7 @@
        "Content-Type": "application/json",
        "X-CSRF-Token": "<jeton de la session>"
       },
-      "body": "{\n  \"name\": \"Ingredient Demo Plain mul2h6me v2\",\n  \"unit\": \"unite\",\n  \"family\": \"sauce\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}"
+      "body": "{\n  \"name\": \"Ingredient Demo Plain mul47eg0 v2\",\n  \"unit\": \"unite\",\n  \"family\": \"sauce\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}"
      },
      "how": "identifiant inexistant"
     }
@@ -7904,7 +7904,7 @@
      "cache-control": "no-store, private",
      "content-type": "application/json; charset=utf-8"
     },
-    "body": "{\n  \"data\": {\n    \"id\": 52,\n    \"name\": \"Ingredient Demo Stock mul2h0xl\",\n    \"unit\": \"unite\",\n    \"family\": null,\n    \"stock_quantity\": 250,\n    \"stock_capacity\": 500,\n    \"pack_size\": 50,\n    \"pack_label\": \"carton de 50\",\n    \"low_stock_pct\": 20,\n    \"critical_stock_pct\": 5,\n    \"is_active\": true,\n    \"applied_delta\": 250,\n    \"requested_delta\": 250,\n    \"clamped\": false\n  }\n}",
+    "body": "{\n  \"data\": {\n    \"id\": 52,\n    \"name\": \"Ingredient Demo Stock mul478is\",\n    \"unit\": \"unite\",\n    \"family\": null,\n    \"stock_quantity\": 250,\n    \"stock_capacity\": 500,\n    \"pack_size\": 50,\n    \"pack_label\": \"carton de 50\",\n    \"low_stock_pct\": 20,\n    \"critical_stock_pct\": 5,\n    \"is_active\": true,\n    \"applied_delta\": 250,\n    \"requested_delta\": 250,\n    \"clamped\": false\n  }\n}",
     "request": {
      "method": "POST",
      "path": "/admin/api/ingredients/52/restock",
@@ -8058,7 +8058,7 @@
      "cache-control": "no-store, private",
      "content-type": "application/json; charset=utf-8"
     },
-    "body": "{\n  \"data\": {\n    \"id\": 52,\n    \"name\": \"Ingredient Demo Stock mul2h0xl\",\n    \"unit\": \"unite\",\n    \"family\": null,\n    \"stock_quantity\": 250,\n    \"stock_capacity\": 600,\n    \"pack_size\": 50,\n    \"pack_label\": \"carton de 50\",\n    \"low_stock_pct\": 20,\n    \"critical_stock_pct\": 5,\n    \"is_active\": true\n  }\n}",
+    "body": "{\n  \"data\": {\n    \"id\": 52,\n    \"name\": \"Ingredient Demo Stock mul478is\",\n    \"unit\": \"unite\",\n    \"family\": null,\n    \"stock_quantity\": 250,\n    \"stock_capacity\": 600,\n    \"pack_size\": 50,\n    \"pack_label\": \"carton de 50\",\n    \"low_stock_pct\": 20,\n    \"critical_stock_pct\": 5,\n    \"is_active\": true\n  }\n}",
     "request": {
      "method": "PUT",
      "path": "/admin/api/ingredients/52/thresholds",
@@ -8212,7 +8212,7 @@
      "cache-control": "no-store, private",
      "content-type": "application/json; charset=utf-8"
     },
-    "body": "{\n  \"data\": {\n    \"id\": 52,\n    \"name\": \"Ingredient Demo Stock mul2h0xl\",\n    \"unit\": \"unite\",\n    \"family\": null,\n    \"stock_quantity\": 42,\n    \"stock_capacity\": 600,\n    \"pack_size\": 50,\n    \"pack_label\": \"carton de 50\",\n    \"low_stock_pct\": 20,\n    \"critical_stock_pct\": 5,\n    \"is_active\": true,\n    \"applied_delta\": -208,\n    \"requested_delta\": -208,\n    \"clamped\": false\n  }\n}",
+    "body": "{\n  \"data\": {\n    \"id\": 52,\n    \"name\": \"Ingredient Demo Stock mul478is\",\n    \"unit\": \"unite\",\n    \"family\": null,\n    \"stock_quantity\": 42,\n    \"stock_capacity\": 600,\n    \"pack_size\": 50,\n    \"pack_label\": \"carton de 50\",\n    \"low_stock_pct\": 20,\n    \"critical_stock_pct\": 5,\n    \"is_active\": true,\n    \"applied_delta\": -208,\n    \"requested_delta\": -208,\n    \"clamped\": false\n  }\n}",
     "request": {
      "method": "POST",
      "path": "/admin/api/ingredients/52/inventory",
@@ -8366,7 +8366,7 @@
      "cache-control": "no-store, private",
      "content-type": "application/json; charset=utf-8"
     },
-    "body": "{\n  \"data\": {\n    \"id\": 52,\n    \"name\": \"Ingredient Demo Stock mul2h0xl\",\n    \"unit\": \"unite\",\n    \"family\": null,\n    \"stock_quantity\": 39,\n    \"stock_capacity\": 600,\n    \"pack_size\": 50,\n    \"pack_label\": \"carton de 50\",\n    \"low_stock_pct\": 20,\n    \"critical_stock_pct\": 5,\n    \"is_active\": true,\n    \"applied_delta\": -3,\n    \"requested_delta\": -3,\n    \"clamped\": false\n  }\n}",
+    "body": "{\n  \"data\": {\n    \"id\": 52,\n    \"name\": \"Ingredient Demo Stock mul478is\",\n    \"unit\": \"unite\",\n    \"family\": null,\n    \"stock_quantity\": 39,\n    \"stock_capacity\": 600,\n    \"pack_size\": 50,\n    \"pack_label\": \"carton de 50\",\n    \"low_stock_pct\": 20,\n    \"critical_stock_pct\": 5,\n    \"is_active\": true,\n    \"applied_delta\": -3,\n    \"requested_delta\": -3,\n    \"clamped\": false\n  }\n}",
     "request": {
      "method": "POST",
      "path": "/admin/api/ingredients/52/adjust",
@@ -8802,7 +8802,7 @@
      "location": "/admin/api/roles/6",
      "content-type": "application/json; charset=utf-8"
     },
-    "body": "{\n  \"data\": {\n    \"id\": 6,\n    \"code\": \"demo_role_mul2h0xl\",\n    \"label\": \"Role Demo mul2h0xl\",\n    \"description\": null,\n    \"default_route\": null,\n    \"order_source\": null,\n    \"is_active\": true,\n    \"permission_ids\": [\n      1\n    ],\n    \"visible_sources\": [\n      \"counter\"\n    ]\n  }\n}",
+    "body": "{\n  \"data\": {\n    \"id\": 6,\n    \"code\": \"demo_role_mul478is\",\n    \"label\": \"Role Demo mul478is\",\n    \"description\": null,\n    \"default_route\": null,\n    \"order_source\": null,\n    \"is_active\": true,\n    \"permission_ids\": [\n      1\n    ],\n    \"visible_sources\": [\n      \"counter\"\n    ]\n  }\n}",
     "request": {
      "method": "POST",
      "path": "/admin/api/roles",
@@ -8810,7 +8810,7 @@
       "Content-Type": "application/json",
       "X-CSRF-Token": "<jeton de la session>"
      },
-     "body": "{\n  \"code\": \"demo_role_mul2h0xl\",\n  \"label\": \"Role Demo mul2h0xl\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\"\n  ],\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+     "body": "{\n  \"code\": \"demo_role_mul478is\",\n  \"label\": \"Role Demo mul478is\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\"\n  ],\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
     },
     "how": "collection Postman, « Creer un role (PIN requis) »"
    },
@@ -8829,7 +8829,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"code\": \"demo_role_mul2h6me\",\n  \"label\": \"Role Demo mul2h6me\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\"\n  ],\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"code\": \"demo_role_mul47eg0\",\n  \"label\": \"Role Demo mul47eg0\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\"\n  ],\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "sans cookie de session"
     },
@@ -8848,7 +8848,7 @@
        "X-CSRF-Token": "<jeton de la session>",
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"code\": \"demo_role_mul2h6me\",\n  \"label\": \"Role Demo mul2h6me\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\"\n  ],\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"code\": \"demo_role_mul47eg0\",\n  \"label\": \"Role Demo mul47eg0\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\"\n  ],\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "compte cuisine@wakdo.local, sans role.manage"
     },
@@ -8866,7 +8866,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"code\": \"demo_role_mul2h6me\",\n  \"label\": \"Role Demo mul2h6me\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\"\n  ],\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"code\": \"demo_role_mul47eg0\",\n  \"label\": \"Role Demo mul47eg0\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\"\n  ],\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "sans en-tete X-CSRF-Token"
     },
@@ -8923,7 +8923,7 @@
        "Content-Type": "application/json",
        "X-CSRF-Token": "<jeton de la session>"
       },
-      "body": "{\n  \"code\": \"demo_role_mul2h6me\",\n  \"label\": \"Role Demo mul2h6me\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\"\n  ],\n  \"pin_email\": \"comptoir2@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"code\": \"demo_role_mul47eg0\",\n  \"label\": \"Role Demo mul47eg0\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\"\n  ],\n  \"pin_email\": \"comptoir2@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "code personnel faux"
     },
@@ -8942,7 +8942,7 @@
        "Content-Type": "application/json",
        "X-CSRF-Token": "<jeton de la session>"
       },
-      "body": "{\n  \"code\": \"demo_role_mul2h6me\",\n  \"label\": \"Role Demo mul2h6me\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\"\n  ],\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"code\": \"demo_role_mul47eg0\",\n  \"label\": \"Role Demo mul47eg0\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\"\n  ],\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "chemin inconnu du routeur"
     }
@@ -8956,7 +8956,7 @@
      "cache-control": "no-store, private",
      "content-type": "application/json; charset=utf-8"
     },
-    "body": "{\n  \"data\": {\n    \"id\": 6,\n    \"code\": \"demo_role_mul2h0xl\",\n    \"label\": \"Role Demo mul2h0xl v2\",\n    \"description\": null,\n    \"default_route\": null,\n    \"order_source\": null,\n    \"is_active\": true,\n    \"permission_ids\": [\n      1\n    ],\n    \"visible_sources\": [\n      \"counter\",\n      \"drive\"\n    ]\n  }\n}",
+    "body": "{\n  \"data\": {\n    \"id\": 6,\n    \"code\": \"demo_role_mul478is\",\n    \"label\": \"Role Demo mul478is v2\",\n    \"description\": null,\n    \"default_route\": null,\n    \"order_source\": null,\n    \"is_active\": true,\n    \"permission_ids\": [\n      1\n    ],\n    \"visible_sources\": [\n      \"counter\",\n      \"drive\"\n    ]\n  }\n}",
     "request": {
      "method": "PUT",
      "path": "/admin/api/roles/6",
@@ -8964,7 +8964,7 @@
       "Content-Type": "application/json",
       "X-CSRF-Token": "<jeton de la session>"
      },
-     "body": "{\n  \"label\": \"Role Demo mul2h0xl v2\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\",\n    \"drive\"\n  ],\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+     "body": "{\n  \"label\": \"Role Demo mul478is v2\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\",\n    \"drive\"\n  ],\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
     },
     "how": "collection Postman, « Modifier un role (PIN requis) »"
    },
@@ -8983,7 +8983,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"label\": \"Role Demo mul2h6me v2\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\",\n    \"drive\"\n  ],\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"label\": \"Role Demo mul47eg0 v2\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\",\n    \"drive\"\n  ],\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "sans cookie de session"
     },
@@ -9002,7 +9002,7 @@
        "X-CSRF-Token": "<jeton de la session>",
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"label\": \"Role Demo mul2h6me v2\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\",\n    \"drive\"\n  ],\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"label\": \"Role Demo mul47eg0 v2\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\",\n    \"drive\"\n  ],\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "compte cuisine@wakdo.local, sans role.manage"
     },
@@ -9020,7 +9020,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"label\": \"Role Demo mul2h6me v2\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\",\n    \"drive\"\n  ],\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"label\": \"Role Demo mul47eg0 v2\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\",\n    \"drive\"\n  ],\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "sans en-tete X-CSRF-Token"
     },
@@ -9077,7 +9077,7 @@
        "Content-Type": "application/json",
        "X-CSRF-Token": "<jeton de la session>"
       },
-      "body": "{\n  \"label\": \"Role Demo mul2h6me v2\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\",\n    \"drive\"\n  ],\n  \"pin_email\": \"comptoir2@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"label\": \"Role Demo mul47eg0 v2\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\",\n    \"drive\"\n  ],\n  \"pin_email\": \"comptoir2@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "code personnel faux"
     },
@@ -9096,7 +9096,7 @@
        "Content-Type": "application/json",
        "X-CSRF-Token": "<jeton de la session>"
       },
-      "body": "{\n  \"label\": \"Role Demo mul2h6me v2\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\",\n    \"drive\"\n  ],\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"label\": \"Role Demo mul47eg0 v2\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\",\n    \"drive\"\n  ],\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "chemin inconnu du routeur"
     },
@@ -9115,7 +9115,7 @@
        "Content-Type": "application/json",
        "X-CSRF-Token": "<jeton de la session>"
       },
-      "body": "{\n  \"label\": \"Role Demo mul2h6me v2\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\",\n    \"drive\"\n  ],\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"label\": \"Role Demo mul47eg0 v2\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\",\n    \"drive\"\n  ],\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "identifiant inexistant"
     }
@@ -9131,7 +9131,7 @@
      "location": "/admin/api/users/7",
      "content-type": "application/json; charset=utf-8"
     },
-    "body": "{\n  \"data\": {\n    \"id\": 7,\n    \"email\": \"equipier-mul2h0xl@wakdo.local\",\n    \"first_name\": \"Demo\",\n    \"last_name\": \"Equipier mul2h0xl\",\n    \"role_id\": 1,\n    \"is_active\": true,\n    \"anonymized_at\": null\n  }\n}",
+    "body": "{\n  \"data\": {\n    \"id\": 7,\n    \"email\": \"equipier-mul478is@wakdo.local\",\n    \"first_name\": \"Demo\",\n    \"last_name\": \"Equipier mul478is\",\n    \"role_id\": 1,\n    \"is_active\": true,\n    \"anonymized_at\": null\n  }\n}",
     "request": {
      "method": "POST",
      "path": "/admin/api/users",
@@ -9139,7 +9139,7 @@
       "Content-Type": "application/json",
       "X-CSRF-Token": "<jeton de la session>"
      },
-     "body": "{\n  \"email\": \"equipier-mul2h0xl@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul2h0xl\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+     "body": "{\n  \"email\": \"equipier-mul478is@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul478is\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
     },
     "how": "collection Postman, « Creer un utilisateur (PIN requis) »"
    },
@@ -9158,7 +9158,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"email\": \"equipier-mul2h6me@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul2h6me\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"email\": \"equipier-mul47eg0@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul47eg0\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "sans cookie de session"
     },
@@ -9177,7 +9177,7 @@
        "X-CSRF-Token": "<jeton de la session>",
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"email\": \"equipier-mul2h6me@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul2h6me\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"email\": \"equipier-mul47eg0@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul47eg0\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "compte cuisine@wakdo.local, sans user.create"
     },
@@ -9195,7 +9195,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"email\": \"equipier-mul2h6me@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul2h6me\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"email\": \"equipier-mul47eg0@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul47eg0\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "sans en-tete X-CSRF-Token"
     },
@@ -9252,7 +9252,7 @@
        "Content-Type": "application/json",
        "X-CSRF-Token": "<jeton de la session>"
       },
-      "body": "{\n  \"email\": \"equipier-mul2h6me@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul2h6me\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"pin_email\": \"comptoir2@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"email\": \"equipier-mul47eg0@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul47eg0\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"pin_email\": \"comptoir2@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "code personnel faux"
     },
@@ -9271,7 +9271,7 @@
        "Content-Type": "application/json",
        "X-CSRF-Token": "<jeton de la session>"
       },
-      "body": "{\n  \"email\": \"equipier-mul2h6me@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul2h6me\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"email\": \"equipier-mul47eg0@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul47eg0\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "chemin inconnu du routeur"
     }
@@ -9285,7 +9285,7 @@
      "cache-control": "no-store, private",
      "content-type": "application/json; charset=utf-8"
     },
-    "body": "{\n  \"data\": {\n    \"id\": 7,\n    \"email\": \"equipier-mul2h0xl@wakdo.local\",\n    \"first_name\": \"Demo\",\n    \"last_name\": \"Equipier mul2h0xl v2\",\n    \"role_id\": 1,\n    \"is_active\": true,\n    \"anonymized_at\": null\n  }\n}",
+    "body": "{\n  \"data\": {\n    \"id\": 7,\n    \"email\": \"equipier-mul478is@wakdo.local\",\n    \"first_name\": \"Demo\",\n    \"last_name\": \"Equipier mul478is v2\",\n    \"role_id\": 1,\n    \"is_active\": true,\n    \"anonymized_at\": null\n  }\n}",
     "request": {
      "method": "PUT",
      "path": "/admin/api/users/7",
@@ -9293,7 +9293,7 @@
       "Content-Type": "application/json",
       "X-CSRF-Token": "<jeton de la session>"
      },
-     "body": "{\n  \"email\": \"equipier-mul2h0xl@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul2h0xl v2\",\n  \"role_id\": \"1\",\n  \"is_active\": true,\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+     "body": "{\n  \"email\": \"equipier-mul478is@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul478is v2\",\n  \"role_id\": \"1\",\n  \"is_active\": true,\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
     },
     "how": "collection Postman, « Modifier un utilisateur (PIN requis) »"
    },
@@ -9312,7 +9312,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"email\": \"equipier-mul2h6me@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul2h6me v2\",\n  \"role_id\": \"1\",\n  \"is_active\": true,\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"email\": \"equipier-mul47eg0@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul47eg0 v2\",\n  \"role_id\": \"1\",\n  \"is_active\": true,\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "sans cookie de session"
     },
@@ -9331,7 +9331,7 @@
        "X-CSRF-Token": "<jeton de la session>",
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"email\": \"equipier-mul2h6me@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul2h6me v2\",\n  \"role_id\": \"1\",\n  \"is_active\": true,\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"email\": \"equipier-mul47eg0@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul47eg0 v2\",\n  \"role_id\": \"1\",\n  \"is_active\": true,\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "compte cuisine@wakdo.local, sans user.update"
     },
@@ -9349,7 +9349,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"email\": \"equipier-mul2h6me@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul2h6me v2\",\n  \"role_id\": \"1\",\n  \"is_active\": true,\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"email\": \"equipier-mul47eg0@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul47eg0 v2\",\n  \"role_id\": \"1\",\n  \"is_active\": true,\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "sans en-tete X-CSRF-Token"
     },
@@ -9406,7 +9406,7 @@
        "Content-Type": "application/json",
        "X-CSRF-Token": "<jeton de la session>"
       },
-      "body": "{\n  \"email\": \"equipier-mul2h6me@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul2h6me v2\",\n  \"role_id\": \"1\",\n  \"is_active\": true,\n  \"pin_email\": \"comptoir2@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"email\": \"equipier-mul47eg0@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul47eg0 v2\",\n  \"role_id\": \"1\",\n  \"is_active\": true,\n  \"pin_email\": \"comptoir2@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "code personnel faux"
     },
@@ -9425,7 +9425,7 @@
        "Content-Type": "application/json",
        "X-CSRF-Token": "<jeton de la session>"
       },
-      "body": "{\n  \"email\": \"equipier-mul2h6me@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul2h6me v2\",\n  \"role_id\": \"1\",\n  \"is_active\": true,\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"email\": \"equipier-mul47eg0@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul47eg0 v2\",\n  \"role_id\": \"1\",\n  \"is_active\": true,\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "chemin inconnu du routeur"
     },
@@ -9444,7 +9444,7 @@
        "Content-Type": "application/json",
        "X-CSRF-Token": "<jeton de la session>"
       },
-      "body": "{\n  \"email\": \"equipier-mul2h6me@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul2h6me v2\",\n  \"role_id\": \"1\",\n  \"is_active\": true,\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"email\": \"equipier-mul47eg0@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul47eg0 v2\",\n  \"role_id\": \"1\",\n  \"is_active\": true,\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "identifiant inexistant"
     }
@@ -10114,7 +10114,7 @@
      "cache-control": "no-store, private",
      "content-type": "application/json; charset=utf-8"
     },
-    "body": "{\n  \"data\": {\n    \"order_number\": \"C3\",\n    \"source\": \"counter\",\n    \"service_mode\": \"dine_in\",\n    \"service_tag\": null,\n    \"status\": \"ready\",\n    \"total_ttc_cents\": 260,\n    \"created_at\": \"2026-09-28 11:50:28\",\n    \"paid_at\": \"2026-09-28 11:50:28\"\n  }\n}",
+    "body": "{\n  \"data\": {\n    \"order_number\": \"C3\",\n    \"source\": \"counter\",\n    \"service_mode\": \"dine_in\",\n    \"service_tag\": null,\n    \"status\": \"ready\",\n    \"total_ttc_cents\": 260,\n    \"created_at\": \"2026-09-28 12:38:50\",\n    \"paid_at\": \"2026-09-28 12:38:50\"\n  }\n}",
     "request": {
      "method": "POST",
      "path": "/admin/api/orders/C3/ready",
@@ -10221,7 +10221,7 @@
      "cache-control": "no-store, private",
      "content-type": "application/json; charset=utf-8"
     },
-    "body": "{\n  \"data\": {\n    \"order_number\": \"C3\",\n    \"source\": \"counter\",\n    \"service_mode\": \"dine_in\",\n    \"service_tag\": null,\n    \"status\": \"delivered\",\n    \"total_ttc_cents\": 260,\n    \"created_at\": \"2026-09-28 11:50:28\",\n    \"paid_at\": \"2026-09-28 11:50:28\"\n  }\n}",
+    "body": "{\n  \"data\": {\n    \"order_number\": \"C3\",\n    \"source\": \"counter\",\n    \"service_mode\": \"dine_in\",\n    \"service_tag\": null,\n    \"status\": \"delivered\",\n    \"total_ttc_cents\": 260,\n    \"created_at\": \"2026-09-28 12:38:50\",\n    \"paid_at\": \"2026-09-28 12:38:50\"\n  }\n}",
     "request": {
      "method": "POST",
      "path": "/admin/api/orders/C3/deliver",
@@ -10740,12 +10740,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "POST",
       "path": "/admin/orders/C8/deliver/inexistant",
@@ -10828,12 +10828,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "POST",
       "path": "/admin/orders/C7/ready/inexistant",
@@ -10948,12 +10948,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "POST",
       "path": "/admin/orders/C9/cancel/inexistant",
@@ -10995,7 +10995,7 @@
      "method": "POST",
      "path": "/counter/orders",
      "headers": {},
-     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"items_json\": \"[{\\\"type\\\":\\\"product\\\",\\\"product_id\\\":14,\\\"quantity\\\":1}]\",\n  \"service_mode\": \"dine_in\",\n  \"service_tag\": \"Capture mul2hit8\"\n}"
+     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"items_json\": \"[{\\\"type\\\":\\\"product\\\",\\\"product_id\\\":14,\\\"quantity\\\":1}]\",\n  \"service_mode\": \"dine_in\",\n  \"service_tag\": \"Capture mul47qit\"\n}"
     },
     "how": "formulaire du back-office rempli sur la pile de test"
    },
@@ -11014,7 +11014,7 @@
       "method": "POST",
       "path": "/counter/orders",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"items_json\": \"[{\\\"type\\\":\\\"product\\\",\\\"product_id\\\":14,\\\"quantity\\\":1}]\",\n  \"service_mode\": \"dine_in\",\n  \"service_tag\": \"Capture mul2hit8\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"items_json\": \"[{\\\"type\\\":\\\"product\\\",\\\"product_id\\\":14,\\\"quantity\\\":1}]\",\n  \"service_mode\": \"dine_in\",\n  \"service_tag\": \"Capture mul47qit\"\n}"
      },
      "how": "sans cookie de session"
     },
@@ -11030,7 +11030,7 @@
       "method": "POST",
       "path": "/counter/orders",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"items_json\": \"[{\\\"type\\\":\\\"product\\\",\\\"product_id\\\":14,\\\"quantity\\\":1}]\",\n  \"service_mode\": \"dine_in\",\n  \"service_tag\": \"Capture mul2hit8\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"items_json\": \"[{\\\"type\\\":\\\"product\\\",\\\"product_id\\\":14,\\\"quantity\\\":1}]\",\n  \"service_mode\": \"dine_in\",\n  \"service_tag\": \"Capture mul47qit\"\n}"
      },
      "how": "compte cuisine@wakdo.local, sans order.create"
     },
@@ -11046,23 +11046,23 @@
       "method": "POST",
       "path": "/counter/orders",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"\",\n  \"items_json\": \"[{\\\"type\\\":\\\"product\\\",\\\"product_id\\\":14,\\\"quantity\\\":1}]\",\n  \"service_mode\": \"dine_in\",\n  \"service_tag\": \"Capture mul2hit8\"\n}"
+      "body": "{\n  \"_csrf\": \"\",\n  \"items_json\": \"[{\\\"type\\\":\\\"product\\\",\\\"product_id\\\":14,\\\"quantity\\\":1}]\",\n  \"service_mode\": \"dine_in\",\n  \"service_tag\": \"Capture mul47qit\"\n}"
      },
      "how": "formulaire sans jeton"
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "POST",
       "path": "/counter/orders/inexistant",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"items_json\": \"[{\\\"type\\\":\\\"product\\\",\\\"product_id\\\":14,\\\"quantity\\\":1}]\",\n  \"service_mode\": \"dine_in\",\n  \"service_tag\": \"Capture mul2hit8\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"items_json\": \"[{\\\"type\\\":\\\"product\\\",\\\"product_id\\\":14,\\\"quantity\\\":1}]\",\n  \"service_mode\": \"dine_in\",\n  \"service_tag\": \"Capture mul47qit\"\n}"
      },
      "how": "chemin inconnu du routeur"
     }
@@ -11140,12 +11140,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "POST",
       "path": "/drive/orders/inexistant",
@@ -11171,7 +11171,7 @@
      "method": "POST",
      "path": "/admin/users",
      "headers": {},
-     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"email\": \"capture-mul2hit8-email@wakdo.local\",\n  \"first_name\": \"Capture mul2hit8\",\n  \"last_name\": \"Capture mul2hit8\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"email\": \"capture-mul47qit-email@wakdo.local\",\n  \"first_name\": \"Capture mul47qit\",\n  \"last_name\": \"Capture mul47qit\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
     },
     "how": "formulaire du back-office rempli sur la pile de test"
    },
@@ -11190,7 +11190,7 @@
       "method": "POST",
       "path": "/admin/users",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"email\": \"capture-mul2hit8-email@wakdo.local\",\n  \"first_name\": \"Capture mul2hit8\",\n  \"last_name\": \"Capture mul2hit8\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"email\": \"capture-mul47qit-email@wakdo.local\",\n  \"first_name\": \"Capture mul47qit\",\n  \"last_name\": \"Capture mul47qit\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "sans cookie de session"
     },
@@ -11206,7 +11206,7 @@
       "method": "POST",
       "path": "/admin/users",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"email\": \"capture-mul2hit8-email@wakdo.local\",\n  \"first_name\": \"Capture mul2hit8\",\n  \"last_name\": \"Capture mul2hit8\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"email\": \"capture-mul47qit-email@wakdo.local\",\n  \"first_name\": \"Capture mul47qit\",\n  \"last_name\": \"Capture mul47qit\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "compte cuisine@wakdo.local, sans user.create"
     },
@@ -11222,7 +11222,7 @@
       "method": "POST",
       "path": "/admin/users",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"\",\n  \"email\": \"capture-mul2hit8-email@wakdo.local\",\n  \"first_name\": \"Capture mul2hit8\",\n  \"last_name\": \"Capture mul2hit8\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"_csrf\": \"\",\n  \"email\": \"capture-mul47qit-email@wakdo.local\",\n  \"first_name\": \"Capture mul47qit\",\n  \"last_name\": \"Capture mul47qit\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "formulaire sans jeton"
     },
@@ -11254,7 +11254,7 @@
       "method": "POST",
       "path": "/admin/users",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"email\": \"capture-mul2hit8-email@wakdo.local\",\n  \"first_name\": \"Capture mul2hit8\",\n  \"last_name\": \"Capture mul2hit8\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"pin_email\": \"comptoir2@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"email\": \"capture-mul47qit-email@wakdo.local\",\n  \"first_name\": \"Capture mul47qit\",\n  \"last_name\": \"Capture mul47qit\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"pin_email\": \"comptoir2@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "code personnel faux"
     },
@@ -11270,7 +11270,7 @@
       "method": "POST",
       "path": "/admin/users/inexistant",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"email\": \"capture-mul2hit8-email@wakdo.local\",\n  \"first_name\": \"Capture mul2hit8\",\n  \"last_name\": \"Capture mul2hit8\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"email\": \"capture-mul47qit-email@wakdo.local\",\n  \"first_name\": \"Capture mul47qit\",\n  \"last_name\": \"Capture mul47qit\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "chemin inconnu du routeur"
     }
@@ -11291,7 +11291,7 @@
      "method": "POST",
      "path": "/admin/users/9",
      "headers": {},
-     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"email\": \"equipier-mul2hit8use5@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul2hit8use5\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"is_active\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"email\": \"equipier-mul47qituse5@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul47qituse5\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"is_active\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
     },
     "how": "formulaire du back-office rempli sur la pile de test"
    },
@@ -11310,7 +11310,7 @@
       "method": "POST",
       "path": "/admin/users/9",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"email\": \"equipier-mul2hit8use5@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul2hit8use5\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"is_active\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"email\": \"equipier-mul47qituse5@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul47qituse5\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"is_active\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "sans cookie de session"
     },
@@ -11326,7 +11326,7 @@
       "method": "POST",
       "path": "/admin/users/9",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"email\": \"equipier-mul2hit8use5@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul2hit8use5\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"is_active\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"email\": \"equipier-mul47qituse5@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul47qituse5\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"is_active\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "compte cuisine@wakdo.local, sans user.update"
     },
@@ -11342,7 +11342,7 @@
       "method": "POST",
       "path": "/admin/users/9",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"\",\n  \"email\": \"equipier-mul2hit8use5@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul2hit8use5\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"is_active\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"_csrf\": \"\",\n  \"email\": \"equipier-mul47qituse5@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul47qituse5\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"is_active\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "formulaire sans jeton"
     },
@@ -11374,23 +11374,23 @@
       "method": "POST",
       "path": "/admin/users/9",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"email\": \"equipier-mul2hit8use5@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul2hit8use5\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"is_active\": \"1\",\n  \"pin_email\": \"comptoir2@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"email\": \"equipier-mul47qituse5@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul47qituse5\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"is_active\": \"1\",\n  \"pin_email\": \"comptoir2@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "code personnel faux"
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "POST",
       "path": "/admin/users/9/inexistant",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"email\": \"equipier-mul2hit8use5@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul2hit8use5\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"is_active\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"email\": \"equipier-mul47qituse5@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul47qituse5\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"is_active\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "chemin inconnu du routeur"
     },
@@ -11406,7 +11406,7 @@
       "method": "POST",
       "path": "/admin/users/999999",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"email\": \"equipier-mul2hit8use5@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul2hit8use5\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"is_active\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"email\": \"equipier-mul47qituse5@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul47qituse5\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"is_active\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "identifiant inexistant"
     }
@@ -11500,12 +11500,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "POST",
       "path": "/admin/users/9/reset-pin/inexistant",
@@ -11547,7 +11547,7 @@
      "method": "POST",
      "path": "/admin/roles",
      "headers": {},
-     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"Capture mul2hit8\",\n  \"code\": \"capture_mul2hit8\",\n  \"description\": \"Capture mul2hit8\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"Capture mul47qit\",\n  \"code\": \"capture_mul47qit\",\n  \"description\": \"Capture mul47qit\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
     },
     "how": "formulaire du back-office rempli sur la pile de test"
    },
@@ -11566,7 +11566,7 @@
       "method": "POST",
       "path": "/admin/roles",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"Capture mul2hit8\",\n  \"code\": \"capture_mul2hit8\",\n  \"description\": \"Capture mul2hit8\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"Capture mul47qit\",\n  \"code\": \"capture_mul47qit\",\n  \"description\": \"Capture mul47qit\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "sans cookie de session"
     },
@@ -11582,7 +11582,7 @@
       "method": "POST",
       "path": "/admin/roles",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"Capture mul2hit8\",\n  \"code\": \"capture_mul2hit8\",\n  \"description\": \"Capture mul2hit8\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"Capture mul47qit\",\n  \"code\": \"capture_mul47qit\",\n  \"description\": \"Capture mul47qit\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "compte cuisine@wakdo.local, sans role.manage"
     },
@@ -11598,7 +11598,7 @@
       "method": "POST",
       "path": "/admin/roles",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"\",\n  \"label\": \"Capture mul2hit8\",\n  \"code\": \"capture_mul2hit8\",\n  \"description\": \"Capture mul2hit8\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"_csrf\": \"\",\n  \"label\": \"Capture mul47qit\",\n  \"code\": \"capture_mul47qit\",\n  \"description\": \"Capture mul47qit\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "formulaire sans jeton"
     },
@@ -11614,7 +11614,7 @@
       "method": "POST",
       "path": "/admin/roles",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"\",\n  \"code\": \"\",\n  \"description\": \"Capture mul2hit8\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"\",\n  \"code\": \"\",\n  \"description\": \"Capture mul47qit\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "champs obligatoires vides"
     },
@@ -11630,7 +11630,7 @@
       "method": "POST",
       "path": "/admin/roles",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"Capture mul2hit8\",\n  \"code\": \"capture_mul2hit8\",\n  \"description\": \"Capture mul2hit8\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"pin_email\": \"comptoir2@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"Capture mul47qit\",\n  \"code\": \"capture_mul47qit\",\n  \"description\": \"Capture mul47qit\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"pin_email\": \"comptoir2@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "code personnel faux"
     },
@@ -11646,7 +11646,7 @@
       "method": "POST",
       "path": "/admin/roles/inexistant",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"Capture mul2hit8\",\n  \"code\": \"capture_mul2hit8\",\n  \"description\": \"Capture mul2hit8\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"Capture mul47qit\",\n  \"code\": \"capture_mul47qit\",\n  \"description\": \"Capture mul47qit\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "chemin inconnu du routeur"
     }
@@ -11667,7 +11667,7 @@
      "method": "POST",
      "path": "/admin/roles/8",
      "headers": {},
-     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"Role Demo mul2hit8rol6\",\n  \"description\": \"Capture mul2hit8\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"is_active\": \"1\",\n  \"perm_1\": \"1\",\n  \"source_counter\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"Role Demo mul47qitrol6\",\n  \"description\": \"Capture mul47qit\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"is_active\": \"1\",\n  \"perm_1\": \"1\",\n  \"source_counter\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
     },
     "how": "formulaire du back-office rempli sur la pile de test"
    },
@@ -11686,7 +11686,7 @@
       "method": "POST",
       "path": "/admin/roles/8",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"Role Demo mul2hit8rol6\",\n  \"description\": \"Capture mul2hit8\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"is_active\": \"1\",\n  \"perm_1\": \"1\",\n  \"source_counter\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"Role Demo mul47qitrol6\",\n  \"description\": \"Capture mul47qit\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"is_active\": \"1\",\n  \"perm_1\": \"1\",\n  \"source_counter\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "sans cookie de session"
     },
@@ -11702,7 +11702,7 @@
       "method": "POST",
       "path": "/admin/roles/8",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"Role Demo mul2hit8rol6\",\n  \"description\": \"Capture mul2hit8\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"is_active\": \"1\",\n  \"perm_1\": \"1\",\n  \"source_counter\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"Role Demo mul47qitrol6\",\n  \"description\": \"Capture mul47qit\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"is_active\": \"1\",\n  \"perm_1\": \"1\",\n  \"source_counter\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "compte cuisine@wakdo.local, sans role.manage"
     },
@@ -11718,7 +11718,7 @@
       "method": "POST",
       "path": "/admin/roles/8",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"\",\n  \"label\": \"Role Demo mul2hit8rol6\",\n  \"description\": \"Capture mul2hit8\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"is_active\": \"1\",\n  \"perm_1\": \"1\",\n  \"source_counter\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"_csrf\": \"\",\n  \"label\": \"Role Demo mul47qitrol6\",\n  \"description\": \"Capture mul47qit\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"is_active\": \"1\",\n  \"perm_1\": \"1\",\n  \"source_counter\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "formulaire sans jeton"
     },
@@ -11734,7 +11734,7 @@
       "method": "POST",
       "path": "/admin/roles/8",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"\",\n  \"description\": \"Capture mul2hit8\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"is_active\": \"1\",\n  \"perm_1\": \"1\",\n  \"source_counter\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"\",\n  \"description\": \"Capture mul47qit\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"is_active\": \"1\",\n  \"perm_1\": \"1\",\n  \"source_counter\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "champs obligatoires vides"
     },
@@ -11750,23 +11750,23 @@
       "method": "POST",
       "path": "/admin/roles/8",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"Role Demo mul2hit8rol6\",\n  \"description\": \"Capture mul2hit8\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"is_active\": \"1\",\n  \"perm_1\": \"1\",\n  \"source_counter\": \"1\",\n  \"pin_email\": \"comptoir2@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"Role Demo mul47qitrol6\",\n  \"description\": \"Capture mul47qit\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"is_active\": \"1\",\n  \"perm_1\": \"1\",\n  \"source_counter\": \"1\",\n  \"pin_email\": \"comptoir2@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "code personnel faux"
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "POST",
       "path": "/admin/roles/8/inexistant",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"Role Demo mul2hit8rol6\",\n  \"description\": \"Capture mul2hit8\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"is_active\": \"1\",\n  \"perm_1\": \"1\",\n  \"source_counter\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"Role Demo mul47qitrol6\",\n  \"description\": \"Capture mul47qit\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"is_active\": \"1\",\n  \"perm_1\": \"1\",\n  \"source_counter\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "chemin inconnu du routeur"
     },
@@ -11782,7 +11782,7 @@
       "method": "POST",
       "path": "/admin/roles/999999",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"Role Demo mul2hit8rol6\",\n  \"description\": \"Capture mul2hit8\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"is_active\": \"1\",\n  \"perm_1\": \"1\",\n  \"source_counter\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"Role Demo mul47qitrol6\",\n  \"description\": \"Capture mul47qit\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"is_active\": \"1\",\n  \"perm_1\": \"1\",\n  \"source_counter\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "identifiant inexistant"
     }
@@ -11803,7 +11803,7 @@
      "method": "POST",
      "path": "/admin/categories",
      "headers": {},
-     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"name\": \"Capture mul2hit8\",\n  \"slug\": \"capture-mul2hit8\",\n  \"display_order\": \"0\",\n  \"image_path\": \"Capture mul2hit8\"\n}"
+     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"name\": \"Capture mul47qit\",\n  \"slug\": \"capture-mul47qit\",\n  \"display_order\": \"0\",\n  \"image_path\": \"Capture mul47qit\"\n}"
     },
     "how": "formulaire du back-office rempli sur la pile de test"
    },
@@ -11907,7 +11907,7 @@
      "method": "POST",
      "path": "/admin/categories/12",
      "headers": {},
-     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"name\": \"Demo mul2hit8cat1\",\n  \"slug\": \"demo-mul2hit8cat1\",\n  \"display_order\": \"50\",\n  \"image_path\": \"Capture mul2hit8\"\n}"
+     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"name\": \"Demo mul47qitcat1\",\n  \"slug\": \"demo-mul47qitcat1\",\n  \"display_order\": \"50\",\n  \"image_path\": \"Capture mul47qit\"\n}"
     },
     "how": "formulaire du back-office rempli sur la pile de test"
    },
@@ -11980,12 +11980,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "POST",
       "path": "/admin/categories/12/inexistant",
@@ -12084,12 +12084,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "POST",
       "path": "/admin/categories/12/move/inexistant",
@@ -12120,7 +12120,7 @@
      "method": "POST",
      "path": "/admin/products",
      "headers": {},
-     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"category_id\": \"13\",\n  \"name\": \"Capture mul2hit8\",\n  \"description\": \"Capture mul2hit8\",\n  \"price_cents\": \"500\",\n  \"vat_rate\": \"100\",\n  \"image_path\": \"Capture mul2hit8\",\n  \"display_order\": \"0\",\n  \"is_available\": \"1\",\n  \"size_cl\": \"1\",\n  \"base_product_id\": \"38\",\n  \"maxi_variant_product_id\": \"38\",\n  \"composition_json\": \"[]\"\n}"
+     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"category_id\": \"13\",\n  \"name\": \"Capture mul47qit\",\n  \"description\": \"Capture mul47qit\",\n  \"price_cents\": \"500\",\n  \"vat_rate\": \"100\",\n  \"image_path\": \"Capture mul47qit\",\n  \"display_order\": \"0\",\n  \"is_available\": \"1\",\n  \"size_cl\": \"1\",\n  \"base_product_id\": \"38\",\n  \"maxi_variant_product_id\": \"38\",\n  \"composition_json\": \"[]\"\n}"
     },
     "how": "formulaire du back-office rempli sur la pile de test"
    },
@@ -12224,7 +12224,7 @@
      "method": "POST",
      "path": "/admin/products/63",
      "headers": {},
-     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mul2hit8pro2\",\n  \"description\": \"Capture mul2hit8\",\n  \"price_cents\": \"4,90\",\n  \"vat_rate\": \"100\",\n  \"image_path\": \"Capture mul2hit8\",\n  \"display_order\": \"99\",\n  \"is_available\": \"1\",\n  \"size_cl\": \"1\",\n  \"base_product_id\": \"38\",\n  \"maxi_variant_product_id\": \"38\",\n  \"composition_json\": \"[]\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mul47qitpro2\",\n  \"description\": \"Capture mul47qit\",\n  \"price_cents\": \"4,90\",\n  \"vat_rate\": \"100\",\n  \"image_path\": \"Capture mul47qit\",\n  \"display_order\": \"99\",\n  \"is_available\": \"1\",\n  \"size_cl\": \"1\",\n  \"base_product_id\": \"38\",\n  \"maxi_variant_product_id\": \"38\",\n  \"composition_json\": \"[]\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
     },
     "how": "formulaire du back-office rempli sur la pile de test"
    },
@@ -12302,12 +12302,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "POST",
       "path": "/admin/products/63/inexistant",
@@ -12406,12 +12406,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "POST",
       "path": "/admin/products/14/move/inexistant",
@@ -12499,12 +12499,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "POST",
       "path": "/admin/products/63/recipe/inexistant",
@@ -12601,12 +12601,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "POST",
       "path": "/admin/products/import/preview/inexistant",
@@ -12694,12 +12694,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "POST",
       "path": "/admin/products/import/confirm/inexistant",
@@ -12725,7 +12725,7 @@
      "method": "POST",
      "path": "/admin/menus",
      "headers": {},
-     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"category_id\": \"13\",\n  \"burger_product_id\": \"66\",\n  \"name\": \"Capture mul2hit8\",\n  \"price_normal_cents\": \"900\",\n  \"price_maxi_cents\": \"1100\",\n  \"display_order\": \"0\",\n  \"is_available\": \"1\",\n  \"slots_json\": \"[{\\\"name\\\":\\\"Boisson\\\",\\\"slot_type\\\":\\\"drink\\\",\\\"is_required\\\":1,\\\"options\\\":[14]}]\"\n}"
+     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"category_id\": \"13\",\n  \"burger_product_id\": \"66\",\n  \"name\": \"Capture mul47qit\",\n  \"price_normal_cents\": \"900\",\n  \"price_maxi_cents\": \"1100\",\n  \"display_order\": \"0\",\n  \"is_available\": \"1\",\n  \"slots_json\": \"[{\\\"name\\\":\\\"Boisson\\\",\\\"slot_type\\\":\\\"drink\\\",\\\"is_required\\\":1,\\\"options\\\":[14]}]\"\n}"
     },
     "how": "formulaire du back-office rempli sur la pile de test"
    },
@@ -12744,7 +12744,7 @@
       "method": "POST",
       "path": "/admin/menus",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"category_id\": \"13\",\n  \"burger_product_id\": \"66\",\n  \"name\": \"Capture mul2hit8\",\n  \"price_normal_cents\": \"900\",\n  \"price_maxi_cents\": \"1100\",\n  \"display_order\": \"0\",\n  \"is_available\": \"1\",\n  \"slots_json\": \"[{\\\"name\\\":\\\"Boisson\\\",\\\"slot_type\\\":\\\"drink\\\",\\\"is_required\\\":1,\\\"options\\\":[14]}]\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"category_id\": \"13\",\n  \"burger_product_id\": \"66\",\n  \"name\": \"Capture mul47qit\",\n  \"price_normal_cents\": \"900\",\n  \"price_maxi_cents\": \"1100\",\n  \"display_order\": \"0\",\n  \"is_available\": \"1\",\n  \"slots_json\": \"[{\\\"name\\\":\\\"Boisson\\\",\\\"slot_type\\\":\\\"drink\\\",\\\"is_required\\\":1,\\\"options\\\":[14]}]\"\n}"
      },
      "how": "sans cookie de session"
     },
@@ -12760,7 +12760,7 @@
       "method": "POST",
       "path": "/admin/menus",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"category_id\": \"13\",\n  \"burger_product_id\": \"66\",\n  \"name\": \"Capture mul2hit8\",\n  \"price_normal_cents\": \"900\",\n  \"price_maxi_cents\": \"1100\",\n  \"display_order\": \"0\",\n  \"is_available\": \"1\",\n  \"slots_json\": \"[{\\\"name\\\":\\\"Boisson\\\",\\\"slot_type\\\":\\\"drink\\\",\\\"is_required\\\":1,\\\"options\\\":[14]}]\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"category_id\": \"13\",\n  \"burger_product_id\": \"66\",\n  \"name\": \"Capture mul47qit\",\n  \"price_normal_cents\": \"900\",\n  \"price_maxi_cents\": \"1100\",\n  \"display_order\": \"0\",\n  \"is_available\": \"1\",\n  \"slots_json\": \"[{\\\"name\\\":\\\"Boisson\\\",\\\"slot_type\\\":\\\"drink\\\",\\\"is_required\\\":1,\\\"options\\\":[14]}]\"\n}"
      },
      "how": "compte cuisine@wakdo.local, sans menu.create"
     },
@@ -12776,7 +12776,7 @@
       "method": "POST",
       "path": "/admin/menus",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"\",\n  \"category_id\": \"13\",\n  \"burger_product_id\": \"66\",\n  \"name\": \"Capture mul2hit8\",\n  \"price_normal_cents\": \"900\",\n  \"price_maxi_cents\": \"1100\",\n  \"display_order\": \"0\",\n  \"is_available\": \"1\",\n  \"slots_json\": \"[{\\\"name\\\":\\\"Boisson\\\",\\\"slot_type\\\":\\\"drink\\\",\\\"is_required\\\":1,\\\"options\\\":[14]}]\"\n}"
+      "body": "{\n  \"_csrf\": \"\",\n  \"category_id\": \"13\",\n  \"burger_product_id\": \"66\",\n  \"name\": \"Capture mul47qit\",\n  \"price_normal_cents\": \"900\",\n  \"price_maxi_cents\": \"1100\",\n  \"display_order\": \"0\",\n  \"is_available\": \"1\",\n  \"slots_json\": \"[{\\\"name\\\":\\\"Boisson\\\",\\\"slot_type\\\":\\\"drink\\\",\\\"is_required\\\":1,\\\"options\\\":[14]}]\"\n}"
      },
      "how": "formulaire sans jeton"
     },
@@ -12808,7 +12808,7 @@
       "method": "POST",
       "path": "/admin/menus/inexistant",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"category_id\": \"13\",\n  \"burger_product_id\": \"66\",\n  \"name\": \"Capture mul2hit8\",\n  \"price_normal_cents\": \"900\",\n  \"price_maxi_cents\": \"1100\",\n  \"display_order\": \"0\",\n  \"is_available\": \"1\",\n  \"slots_json\": \"[{\\\"name\\\":\\\"Boisson\\\",\\\"slot_type\\\":\\\"drink\\\",\\\"is_required\\\":1,\\\"options\\\":[14]}]\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"category_id\": \"13\",\n  \"burger_product_id\": \"66\",\n  \"name\": \"Capture mul47qit\",\n  \"price_normal_cents\": \"900\",\n  \"price_maxi_cents\": \"1100\",\n  \"display_order\": \"0\",\n  \"is_available\": \"1\",\n  \"slots_json\": \"[{\\\"name\\\":\\\"Boisson\\\",\\\"slot_type\\\":\\\"drink\\\",\\\"is_required\\\":1,\\\"options\\\":[14]}]\"\n}"
      },
      "how": "chemin inconnu du routeur"
     }
@@ -12829,7 +12829,7 @@
      "method": "POST",
      "path": "/admin/menus/16",
      "headers": {},
-     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul2hit8men4\",\n  \"price_normal_cents\": \"8,90\",\n  \"price_maxi_cents\": \"9,90\",\n  \"display_order\": \"50\",\n  \"is_available\": \"1\",\n  \"slots_json\": \"[{\\\"name\\\":\\\"Boisson\\\",\\\"slot_type\\\":\\\"drink\\\",\\\"is_required\\\":1,\\\"options\\\":[14]}]\"\n}"
+     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul47qitmen4\",\n  \"price_normal_cents\": \"8,90\",\n  \"price_maxi_cents\": \"9,90\",\n  \"display_order\": \"50\",\n  \"is_available\": \"1\",\n  \"slots_json\": \"[{\\\"name\\\":\\\"Boisson\\\",\\\"slot_type\\\":\\\"drink\\\",\\\"is_required\\\":1,\\\"options\\\":[14]}]\"\n}"
     },
     "how": "formulaire du back-office rempli sur la pile de test"
    },
@@ -12848,7 +12848,7 @@
       "method": "POST",
       "path": "/admin/menus/16",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul2hit8men4\",\n  \"price_normal_cents\": \"8,90\",\n  \"price_maxi_cents\": \"9,90\",\n  \"display_order\": \"50\",\n  \"is_available\": \"1\",\n  \"slots_json\": \"[{\\\"name\\\":\\\"Boisson\\\",\\\"slot_type\\\":\\\"drink\\\",\\\"is_required\\\":1,\\\"options\\\":[14]}]\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul47qitmen4\",\n  \"price_normal_cents\": \"8,90\",\n  \"price_maxi_cents\": \"9,90\",\n  \"display_order\": \"50\",\n  \"is_available\": \"1\",\n  \"slots_json\": \"[{\\\"name\\\":\\\"Boisson\\\",\\\"slot_type\\\":\\\"drink\\\",\\\"is_required\\\":1,\\\"options\\\":[14]}]\"\n}"
      },
      "how": "sans cookie de session"
     },
@@ -12864,7 +12864,7 @@
       "method": "POST",
       "path": "/admin/menus/16",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul2hit8men4\",\n  \"price_normal_cents\": \"8,90\",\n  \"price_maxi_cents\": \"9,90\",\n  \"display_order\": \"50\",\n  \"is_available\": \"1\",\n  \"slots_json\": \"[{\\\"name\\\":\\\"Boisson\\\",\\\"slot_type\\\":\\\"drink\\\",\\\"is_required\\\":1,\\\"options\\\":[14]}]\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul47qitmen4\",\n  \"price_normal_cents\": \"8,90\",\n  \"price_maxi_cents\": \"9,90\",\n  \"display_order\": \"50\",\n  \"is_available\": \"1\",\n  \"slots_json\": \"[{\\\"name\\\":\\\"Boisson\\\",\\\"slot_type\\\":\\\"drink\\\",\\\"is_required\\\":1,\\\"options\\\":[14]}]\"\n}"
      },
      "how": "compte cuisine@wakdo.local, sans menu.update"
     },
@@ -12880,7 +12880,7 @@
       "method": "POST",
       "path": "/admin/menus/16",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"\",\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul2hit8men4\",\n  \"price_normal_cents\": \"8,90\",\n  \"price_maxi_cents\": \"9,90\",\n  \"display_order\": \"50\",\n  \"is_available\": \"1\",\n  \"slots_json\": \"[{\\\"name\\\":\\\"Boisson\\\",\\\"slot_type\\\":\\\"drink\\\",\\\"is_required\\\":1,\\\"options\\\":[14]}]\"\n}"
+      "body": "{\n  \"_csrf\": \"\",\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul47qitmen4\",\n  \"price_normal_cents\": \"8,90\",\n  \"price_maxi_cents\": \"9,90\",\n  \"display_order\": \"50\",\n  \"is_available\": \"1\",\n  \"slots_json\": \"[{\\\"name\\\":\\\"Boisson\\\",\\\"slot_type\\\":\\\"drink\\\",\\\"is_required\\\":1,\\\"options\\\":[14]}]\"\n}"
      },
      "how": "formulaire sans jeton"
     },
@@ -12902,17 +12902,17 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "POST",
       "path": "/admin/menus/16/inexistant",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul2hit8men4\",\n  \"price_normal_cents\": \"8,90\",\n  \"price_maxi_cents\": \"9,90\",\n  \"display_order\": \"50\",\n  \"is_available\": \"1\",\n  \"slots_json\": \"[{\\\"name\\\":\\\"Boisson\\\",\\\"slot_type\\\":\\\"drink\\\",\\\"is_required\\\":1,\\\"options\\\":[14]}]\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul47qitmen4\",\n  \"price_normal_cents\": \"8,90\",\n  \"price_maxi_cents\": \"9,90\",\n  \"display_order\": \"50\",\n  \"is_available\": \"1\",\n  \"slots_json\": \"[{\\\"name\\\":\\\"Boisson\\\",\\\"slot_type\\\":\\\"drink\\\",\\\"is_required\\\":1,\\\"options\\\":[14]}]\"\n}"
      },
      "how": "chemin inconnu du routeur"
     },
@@ -12928,7 +12928,7 @@
       "method": "POST",
       "path": "/admin/menus/999999",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul2hit8men4\",\n  \"price_normal_cents\": \"8,90\",\n  \"price_maxi_cents\": \"9,90\",\n  \"display_order\": \"50\",\n  \"is_available\": \"1\",\n  \"slots_json\": \"[{\\\"name\\\":\\\"Boisson\\\",\\\"slot_type\\\":\\\"drink\\\",\\\"is_required\\\":1,\\\"options\\\":[14]}]\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul47qitmen4\",\n  \"price_normal_cents\": \"8,90\",\n  \"price_maxi_cents\": \"9,90\",\n  \"display_order\": \"50\",\n  \"is_available\": \"1\",\n  \"slots_json\": \"[{\\\"name\\\":\\\"Boisson\\\",\\\"slot_type\\\":\\\"drink\\\",\\\"is_required\\\":1,\\\"options\\\":[14]}]\"\n}"
      },
      "how": "identifiant inexistant"
     }
@@ -12949,7 +12949,7 @@
      "method": "POST",
      "path": "/admin/ingredients",
      "headers": {},
-     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"name\": \"Capture mul2hit8\",\n  \"unit\": \"pièce\",\n  \"family\": \"pain\",\n  \"stock_capacity\": \"100\",\n  \"pack_size\": \"1\",\n  \"pack_label\": \"carton de 10\",\n  \"low_stock_pct\": \"10\",\n  \"critical_stock_pct\": \"5\"\n}"
+     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"name\": \"Capture mul47qit\",\n  \"unit\": \"pièce\",\n  \"family\": \"pain\",\n  \"stock_capacity\": \"100\",\n  \"pack_size\": \"1\",\n  \"pack_label\": \"carton de 10\",\n  \"low_stock_pct\": \"10\",\n  \"critical_stock_pct\": \"5\"\n}"
     },
     "how": "formulaire du back-office rempli sur la pile de test"
    },
@@ -12968,7 +12968,7 @@
       "method": "POST",
       "path": "/admin/ingredients",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"name\": \"Capture mul2hit8\",\n  \"unit\": \"pièce\",\n  \"family\": \"pain\",\n  \"stock_capacity\": \"100\",\n  \"pack_size\": \"1\",\n  \"pack_label\": \"carton de 10\",\n  \"low_stock_pct\": \"10\",\n  \"critical_stock_pct\": \"5\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"name\": \"Capture mul47qit\",\n  \"unit\": \"pièce\",\n  \"family\": \"pain\",\n  \"stock_capacity\": \"100\",\n  \"pack_size\": \"1\",\n  \"pack_label\": \"carton de 10\",\n  \"low_stock_pct\": \"10\",\n  \"critical_stock_pct\": \"5\"\n}"
      },
      "how": "sans cookie de session"
     },
@@ -12984,7 +12984,7 @@
       "method": "POST",
       "path": "/admin/ingredients",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"name\": \"Capture mul2hit8\",\n  \"unit\": \"pièce\",\n  \"family\": \"pain\",\n  \"stock_capacity\": \"100\",\n  \"pack_size\": \"1\",\n  \"pack_label\": \"carton de 10\",\n  \"low_stock_pct\": \"10\",\n  \"critical_stock_pct\": \"5\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"name\": \"Capture mul47qit\",\n  \"unit\": \"pièce\",\n  \"family\": \"pain\",\n  \"stock_capacity\": \"100\",\n  \"pack_size\": \"1\",\n  \"pack_label\": \"carton de 10\",\n  \"low_stock_pct\": \"10\",\n  \"critical_stock_pct\": \"5\"\n}"
      },
      "how": "compte cuisine@wakdo.local, sans ingredient.manage"
     },
@@ -13000,7 +13000,7 @@
       "method": "POST",
       "path": "/admin/ingredients",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"\",\n  \"name\": \"Capture mul2hit8\",\n  \"unit\": \"pièce\",\n  \"family\": \"pain\",\n  \"stock_capacity\": \"100\",\n  \"pack_size\": \"1\",\n  \"pack_label\": \"carton de 10\",\n  \"low_stock_pct\": \"10\",\n  \"critical_stock_pct\": \"5\"\n}"
+      "body": "{\n  \"_csrf\": \"\",\n  \"name\": \"Capture mul47qit\",\n  \"unit\": \"pièce\",\n  \"family\": \"pain\",\n  \"stock_capacity\": \"100\",\n  \"pack_size\": \"1\",\n  \"pack_label\": \"carton de 10\",\n  \"low_stock_pct\": \"10\",\n  \"critical_stock_pct\": \"5\"\n}"
      },
      "how": "formulaire sans jeton"
     },
@@ -13032,7 +13032,7 @@
       "method": "POST",
       "path": "/admin/ingredients/inexistant",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"name\": \"Capture mul2hit8\",\n  \"unit\": \"pièce\",\n  \"family\": \"pain\",\n  \"stock_capacity\": \"100\",\n  \"pack_size\": \"1\",\n  \"pack_label\": \"carton de 10\",\n  \"low_stock_pct\": \"10\",\n  \"critical_stock_pct\": \"5\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"name\": \"Capture mul47qit\",\n  \"unit\": \"pièce\",\n  \"family\": \"pain\",\n  \"stock_capacity\": \"100\",\n  \"pack_size\": \"1\",\n  \"pack_label\": \"carton de 10\",\n  \"low_stock_pct\": \"10\",\n  \"critical_stock_pct\": \"5\"\n}"
      },
      "how": "chemin inconnu du routeur"
     }
@@ -13053,7 +13053,7 @@
      "method": "POST",
      "path": "/admin/ingredients/55",
      "headers": {},
-     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"name\": \"Ingredient Demo Plain mul2hit8ing3\",\n  \"unit\": \"unite\",\n  \"family\": \"dosette\",\n  \"stock_capacity\": \"500\",\n  \"pack_size\": \"50\",\n  \"pack_label\": \"carton de 50\",\n  \"low_stock_pct\": \"20\",\n  \"critical_stock_pct\": \"5\"\n}"
+     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"name\": \"Ingredient Demo Plain mul47qiting3\",\n  \"unit\": \"unite\",\n  \"family\": \"dosette\",\n  \"stock_capacity\": \"500\",\n  \"pack_size\": \"50\",\n  \"pack_label\": \"carton de 50\",\n  \"low_stock_pct\": \"20\",\n  \"critical_stock_pct\": \"5\"\n}"
     },
     "how": "formulaire du back-office rempli sur la pile de test"
    },
@@ -13072,7 +13072,7 @@
       "method": "POST",
       "path": "/admin/ingredients/55",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"name\": \"Ingredient Demo Plain mul2hit8ing3\",\n  \"unit\": \"unite\",\n  \"family\": \"dosette\",\n  \"stock_capacity\": \"500\",\n  \"pack_size\": \"50\",\n  \"pack_label\": \"carton de 50\",\n  \"low_stock_pct\": \"20\",\n  \"critical_stock_pct\": \"5\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"name\": \"Ingredient Demo Plain mul47qiting3\",\n  \"unit\": \"unite\",\n  \"family\": \"dosette\",\n  \"stock_capacity\": \"500\",\n  \"pack_size\": \"50\",\n  \"pack_label\": \"carton de 50\",\n  \"low_stock_pct\": \"20\",\n  \"critical_stock_pct\": \"5\"\n}"
      },
      "how": "sans cookie de session"
     },
@@ -13088,7 +13088,7 @@
       "method": "POST",
       "path": "/admin/ingredients/55",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"name\": \"Ingredient Demo Plain mul2hit8ing3\",\n  \"unit\": \"unite\",\n  \"family\": \"dosette\",\n  \"stock_capacity\": \"500\",\n  \"pack_size\": \"50\",\n  \"pack_label\": \"carton de 50\",\n  \"low_stock_pct\": \"20\",\n  \"critical_stock_pct\": \"5\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"name\": \"Ingredient Demo Plain mul47qiting3\",\n  \"unit\": \"unite\",\n  \"family\": \"dosette\",\n  \"stock_capacity\": \"500\",\n  \"pack_size\": \"50\",\n  \"pack_label\": \"carton de 50\",\n  \"low_stock_pct\": \"20\",\n  \"critical_stock_pct\": \"5\"\n}"
      },
      "how": "compte cuisine@wakdo.local, sans ingredient.manage"
     },
@@ -13104,7 +13104,7 @@
       "method": "POST",
       "path": "/admin/ingredients/55",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"\",\n  \"name\": \"Ingredient Demo Plain mul2hit8ing3\",\n  \"unit\": \"unite\",\n  \"family\": \"dosette\",\n  \"stock_capacity\": \"500\",\n  \"pack_size\": \"50\",\n  \"pack_label\": \"carton de 50\",\n  \"low_stock_pct\": \"20\",\n  \"critical_stock_pct\": \"5\"\n}"
+      "body": "{\n  \"_csrf\": \"\",\n  \"name\": \"Ingredient Demo Plain mul47qiting3\",\n  \"unit\": \"unite\",\n  \"family\": \"dosette\",\n  \"stock_capacity\": \"500\",\n  \"pack_size\": \"50\",\n  \"pack_label\": \"carton de 50\",\n  \"low_stock_pct\": \"20\",\n  \"critical_stock_pct\": \"5\"\n}"
      },
      "how": "formulaire sans jeton"
     },
@@ -13126,17 +13126,17 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "POST",
       "path": "/admin/ingredients/55/inexistant",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"name\": \"Ingredient Demo Plain mul2hit8ing3\",\n  \"unit\": \"unite\",\n  \"family\": \"dosette\",\n  \"stock_capacity\": \"500\",\n  \"pack_size\": \"50\",\n  \"pack_label\": \"carton de 50\",\n  \"low_stock_pct\": \"20\",\n  \"critical_stock_pct\": \"5\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"name\": \"Ingredient Demo Plain mul47qiting3\",\n  \"unit\": \"unite\",\n  \"family\": \"dosette\",\n  \"stock_capacity\": \"500\",\n  \"pack_size\": \"50\",\n  \"pack_label\": \"carton de 50\",\n  \"low_stock_pct\": \"20\",\n  \"critical_stock_pct\": \"5\"\n}"
      },
      "how": "chemin inconnu du routeur"
     },
@@ -13152,7 +13152,7 @@
       "method": "POST",
       "path": "/admin/ingredients/999999",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"name\": \"Ingredient Demo Plain mul2hit8ing3\",\n  \"unit\": \"unite\",\n  \"family\": \"dosette\",\n  \"stock_capacity\": \"500\",\n  \"pack_size\": \"50\",\n  \"pack_label\": \"carton de 50\",\n  \"low_stock_pct\": \"20\",\n  \"critical_stock_pct\": \"5\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"name\": \"Ingredient Demo Plain mul47qiting3\",\n  \"unit\": \"unite\",\n  \"family\": \"dosette\",\n  \"stock_capacity\": \"500\",\n  \"pack_size\": \"50\",\n  \"pack_label\": \"carton de 50\",\n  \"low_stock_pct\": \"20\",\n  \"critical_stock_pct\": \"5\"\n}"
      },
      "how": "identifiant inexistant"
     }
@@ -13246,12 +13246,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "POST",
       "path": "/admin/ingredients/55/restock/inexistant",
@@ -13366,12 +13366,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "POST",
       "path": "/admin/ingredients/55/thresholds/inexistant",
@@ -13486,12 +13486,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "POST",
       "path": "/admin/ingredients/55/inventory/inexistant",
@@ -13606,12 +13606,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "POST",
       "path": "/admin/ingredients/55/adjust/inexistant",
@@ -13710,12 +13710,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "POST",
       "path": "/admin/ingredients/55/enrich/inexistant",
@@ -13757,7 +13757,7 @@
      "method": "POST",
      "path": "/admin/ingredients/55/allergens",
      "headers": {},
-     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"source\": \"Capture mul2hit8\"\n}"
+     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"source\": \"Capture mul47qit\"\n}"
     },
     "how": "formulaire du back-office rempli sur la pile de test"
    },
@@ -13776,7 +13776,7 @@
       "method": "POST",
       "path": "/admin/ingredients/55/allergens",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"source\": \"Capture mul2hit8\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"source\": \"Capture mul47qit\"\n}"
      },
      "how": "sans cookie de session"
     },
@@ -13792,7 +13792,7 @@
       "method": "POST",
       "path": "/admin/ingredients/55/allergens",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"source\": \"Capture mul2hit8\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"source\": \"Capture mul47qit\"\n}"
      },
      "how": "compte cuisine@wakdo.local, sans ingredient.manage"
     },
@@ -13808,7 +13808,7 @@
       "method": "POST",
       "path": "/admin/ingredients/55/allergens",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"\",\n  \"source\": \"Capture mul2hit8\"\n}"
+      "body": "{\n  \"_csrf\": \"\",\n  \"source\": \"Capture mul47qit\"\n}"
      },
      "how": "formulaire sans jeton"
     },
@@ -13830,17 +13830,17 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "POST",
       "path": "/admin/ingredients/55/allergens/inexistant",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"source\": \"Capture mul2hit8\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"source\": \"Capture mul47qit\"\n}"
      },
      "how": "chemin inconnu du routeur"
     },
@@ -13856,7 +13856,7 @@
       "method": "POST",
       "path": "/admin/ingredients/999999/allergens",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"source\": \"Capture mul2hit8\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"source\": \"Capture mul47qit\"\n}"
      },
      "how": "identifiant inexistant"
     }
@@ -13934,12 +13934,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "POST",
       "path": "/admin/categories/12/toggle/inexistant",
@@ -14038,12 +14038,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "POST",
       "path": "/admin/menus/16/toggle/inexistant",
@@ -14142,12 +14142,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "POST",
       "path": "/admin/ingredients/55/toggle/inexistant",
@@ -14262,12 +14262,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "POST",
       "path": "/admin/users/10/deactivate/inexistant",
@@ -14382,12 +14382,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "POST",
       "path": "/admin/users/11/erase/inexistant",
@@ -14502,12 +14502,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "POST",
       "path": "/admin/products/64/delete/inexistant",
@@ -14622,12 +14622,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "POST",
       "path": "/admin/menus/17/delete/inexistant",
@@ -14726,12 +14726,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "POST",
       "path": "/admin/ingredients/56/delete/inexistant",
@@ -14812,12 +14812,12 @@
     },
     "router": {
      "status": 404,
-     "type": "application/json",
+     "type": "text/html",
      "headers": {
       "cache-control": "no-store, private",
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "text/html; charset=utf-8"
      },
-     "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
+     "body": "<!doctype html> … page HTML de 789 caractères, extrait :\n<title>Page introuvable - Wakdo Admin</title>\n<h1>Page introuvable</h1>",
      "request": {
       "method": "POST",
       "path": "/login/inexistant",
@@ -14977,12 +14977,12 @@
   },
   "html": {
    "status": 500,
-   "type": "application/json",
+   "type": "text/html",
    "headers": {
     "cache-control": "no-store, private",
-    "content-type": "application/json; charset=utf-8"
+    "content-type": "text/html; charset=utf-8"
    },
-   "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"INTERNAL_ERROR\",\n    \"message\": \"Internal server error\"\n  }\n}",
+   "body": "<!doctype html> … page HTML de 849 caractères, extrait :\n<title>Une erreur est survenue - Wakdo Admin</title>\n<h1>Une erreur est survenue</h1>",
    "request": {
     "method": "GET",
     "path": "/admin/products",

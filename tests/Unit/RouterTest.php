@@ -96,6 +96,17 @@ final class RouterTest extends TestCase
         self::assertSame([], RouteProbeController::$capturedParams);
     }
 
+    public function testUnknownBackOfficePathReturnsAnHtml404ForTheTeam(): void
+    {
+        $router = $this->router();
+        $router->add('GET', '/admin/products', [RouteProbeController::class, 'show']);
+
+        $response = $router->dispatch($this->request('GET', '/admin/nope'));
+
+        self::assertSame(404, $response->status());
+        self::assertStringStartsWith('text/html', (string) $response->header('Content-Type'));
+    }
+
     public function testKnownPathWrongMethodReturns405(): void
     {
         $router = $this->router();

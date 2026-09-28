@@ -3460,3 +3460,11 @@ details.form-advanced > summary:focus-visible {
     .health-route-row { flex-wrap: wrap; }
     .health-route-console-btn { margin: 6px var(--space-3) var(--space-2); }
 }
+
+/* Page d'erreur du back-office (App\Core\ErrorResponse) : adresse inconnue, action
+   impossible, erreur serveur. Reprend la carte de la page de connexion. */
+.error-page { display: grid; gap: var(--space-3); }
+.error-page__code { margin: 0; font-size: var(--text-sm); text-transform: uppercase; letter-spacing: .06em; color: var(--color-text-muted, #56626f); }
+.error-page__title { margin: 0; font-size: var(--text-xl, 1.5rem); }
+.error-page__links { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: var(--space-2) 0 0; }
+.error-page__detail { margin: 0; padding: var(--space-3); background: #f3f4f6; border-radius: 6px; font-size: 12.5px; white-space: pre-wrap; overflow-wrap: anywhere; }

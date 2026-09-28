@@ -74,8 +74,14 @@ s'appelle `health-amap`, et les groupes à cinq colonnes passent en fiches sous 
 - **Une clé d'idempotence de plus de 36 caractères faisait échouer la commande en 500** (la
   colonne est un `VARCHAR(36)`). Corrigé par #186, déployé par #187 : 422
   `INVALID_IDEMPOTENCY_KEY`, vérifié sur la production.
-- **Une adresse inconnue du back-office, et une exception, répondent en JSON** au lieu d'une
-  page HTML. Relevé, non traité ici.
+- **Une adresse inconnue du back-office, et une exception, répondaient en JSON brut** à
+  l'équipier. Corrigé dans la foulée : `App\Core\ErrorResponse` choisit le format selon la
+  surface. L'API (`/api`, `/admin/api`, `/admin/me`) garde son enveloppe JSON ; le back-office
+  affiche une page lisible (« Page introuvable », « Une erreur est survenue »), sans détail
+  interne hors mode débogage, et sans reprendre l'adresse demandée. Un `GET` vers une adresse
+  qui n'existe qu'en envoi de formulaire affiche aussi « Page introuvable » (le code reste 405).
+  Test navigateur : `tests/e2e/admin-error-pages.spec.js`, accessibilité comprise (axe-core,
+  0 violation).
 - **Le chiffre d'accessibilité d'hier comptait un bug.** L'audit rejoué donne 935 mesures au
   lieu de 946 : l'aperçu d'import du 27/09 affichait le tableau d'erreurs du défaut des accents,
   corrigé depuis par #178. Détail dans `docs/soutenance/preuves/06-audit-accessibilite-mesure.md`.
