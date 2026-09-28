@@ -90,3 +90,15 @@ qui lance Playwright contre la pile jetable.
 `causes.js` rattache chaque famille d'échec à sa cause probable (fichier:ligne) et, le
 cas échéant, au bug déjà documenté dans l'audit UX (`BUG-01`, `ERG-02`...). Une famille
 sans règle apparaît « cause à analyser » dans le rapport.
+
+## Page technique admise
+
+La page Santé (`/admin/health`, ADR-0019) a pour fonction de montrer l'API à
+l'administrateur : chemins, codes de permission et identifiants y sont le contenu, pas
+un défaut. Pour cette seule page, la vérification « texte technique » admet ces quatre
+règles (chemin d'URL interne, code de permission, identifiant `snake_case`, code
+affiché seul), plus le nom d'un fichier `.php` (le trajet d'un appel nomme
+`routes.php`) ; les autres (trace ou alerte PHP, `undefined`, « Array », erreur interne
+brute) restent des échecs. Le relevé admis reste écrit dans `tableau-complet.csv`, préfixé
+« admis, page technique (ADR-0019) », pour que l'exception se lise au lieu de se cacher.
+La liste tient dans `TECHNICAL_PAGES` et `TECHNICAL_ADMITTED`, en tête du fichier de test.

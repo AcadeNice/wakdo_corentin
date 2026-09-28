@@ -45,10 +45,34 @@ Les panneaux de réponse portaient l'attribut `hidden`, mais leur règle CSS (`d
 un faux DOM sans feuille de style, ne pouvaient pas le voir. Corrigé par une règle ciblée sur ces
 seuls panneaux ; le test navigateur vérifie désormais qu'ils sont fermés au chargement.
 
+## Un second defaut, trouve le lendemain par le balayage du back-office
+
+Le 2026-09-28, le balayage de mise en page (`tests/e2e/backoffice-sweep.spec.js`) a ete rejoue
+sur la version deployee. La page Sante n'avait pas encore ete balayee : le dernier chiffre publie
+(4630 verifications) lui etait anterieur. Trois echecs, tous sur cette page :
+
+- **Une connexion de demonstration vide partait au serveur.** Le formulaire portait
+  `novalidate` sans faire lui-meme le controle : un clic sur « Se connecter » champs vides
+  envoyait la requete, recevait un 422 et comptait un essai dans la limitation des connexions
+  par adresse (deux echecs du balayage : la console et le reseau signalent ce 422). Corrige :
+  le formulaire rejoint le controle de saisie commun du back-office (`form-validation.js`,
+  messages sous les champs), et `health.js` refuse d'envoyer un formulaire incomplet, quel que
+  soit l'ordre des scripts. Quatre tests JS ecrits avant la correction, rouges puis verts, et
+  un scenario navigateur qui verifie qu'aucune requete ne part.
+- **La regle « texte technique » signalait `/api/health`.** Cette regle protege les equipiers
+  d'un code ou d'un chemin affiche par erreur ; sur la page Sante, montrer les chemins de l'API
+  est la fonction de la page, et le trajet d'un appel y nomme `routes.php`. Plutot que de
+  masquer le releve, le balayage admet, pour cette seule page, les regles liees a l'API
+  (chemin, code de permission, identifiant, nom de fichier `.php`), et ecrit le releve admis
+  dans son tableau, prefixe. Une trace PHP ou un `undefined` y restent des echecs.
+
 ## Mesures
 
-- **Tests JavaScript : 428, 0 échec** (399 avant ce lot).
+- **Tests JavaScript : 428, 0 échec** (399 avant ce lot) ; 432 après la correction du 28/09.
 - **Test navigateur de la page : 5 scénarios sur 5** sur une pile jetable.
 - **PHPStan et PHPUnit inchangés** (aucun fichier PHP modifié).
 - **Audit d'accessibilité mesuré : 19 écrans, 946 mesures de contraste, 85 combinaisons, 0
   violation**. Seule la page Santé change : 65 mesures (62 avant), 28 règles conformes (26).
+- **Balayage du back-office, le 28/09** : 3 échecs à la première passe sur la page Santé, puis
+  **4807 vérifications, 0 échec** après correction (5 rôles connectés plus l'état non connecté,
+  111 pages-rôles, 4 largeurs). Test navigateur de la page : 6 scénarios sur 6.

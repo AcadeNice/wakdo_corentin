@@ -1525,6 +1525,17 @@
             }
             var email = emailInput.value.trim();
             var password = passwordInput.value;
+            // Un essai incomplet n'irait chercher qu'un 422 et compterait dans la
+            // limitation des connexions par adresse : on s'arrête avant l'envoi. Les
+            // messages sous les champs viennent de form-validation.js.
+            var incomplete = email === '' || password === ''
+                || (typeof form.checkValidity === 'function' && !form.checkValidity());
+            if (incomplete) {
+                if (statusEl) {
+                    statusEl.textContent = 'Saisis l’email et le mot de passe d’un compte de démonstration : rien n’a été envoyé.';
+                }
+                return;
+            }
             lastToken = null;
             if (tokenRow) {
                 tokenRow.hidden = true;

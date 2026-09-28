@@ -5,7 +5,9 @@
 //   - la console appelle une route GET avec la session de la page, parametre compris ;
 //   - la connexion de demonstration (credentials: 'omit') renvoie un jeton SANS remplacer la
 //     session de qui regarde la page : apres elle, /admin/api/auth/me repond encore role admin ;
-//   - les panneaux de reponse restent fermes tant qu'aucun appel n'est lance.
+//   - les panneaux de reponse restent fermes tant qu'aucun appel n'est lance ;
+//   - une connexion de demonstration incomplete n'est pas envoyee (pas de 422, pas d'essai
+//     compte dans la limitation des connexions).
 // Identifiants publics des comptes de demonstration (db/seeds/0001 et 0009,
 // docs/demo/comptes-demo.md) ; URLs absolues sur admin.wakdo.test (meme convention que admin.spec.js).
 const { test, expect } = require('@playwright/test');
@@ -73,6 +75,19 @@ test.describe('Page Sante : console de lecture et connexion de demonstration', (
     await page.click('#health-console-send');
     await expect(page.locator('#health-console-result')).toBeVisible();
     await expect(page.locator('#health-console-resp-status')).toContainText('200');
+  });
+
+  test('la connexion de demonstration vide n est pas envoyee et les champs disent quoi completer', async ({ page }) => {
+    const sent = [];
+    page.on('request', (r) => { if (r.url().endsWith('/admin/api/auth/login')) sent.push(r.url()); });
+    await page.locator('#health-login-form button[type="submit"]').click();
+
+    // Le controle de saisie commun (form-validation.js) arrete l'envoi le premier et met le
+    // focus sur le premier champ en erreur ; health.js garde son propre refus en second filet.
+    await expect(page.locator('#health-login-form .form-error').first()).toBeVisible();
+    await expect(page.locator('#health-login-email')).toBeFocused();
+    await expect(page.locator('#health-login-result')).toBeHidden();
+    expect(sent).toEqual([]);
   });
 
   test('la connexion de demonstration renvoie un jeton sans remplacer la session de la page', async ({ page }) => {
