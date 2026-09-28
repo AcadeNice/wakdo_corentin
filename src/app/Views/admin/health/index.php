@@ -311,7 +311,7 @@ $activityKnown = array_key_exists('orders_created', $activity) && $activity['ord
          ============================================================ -->
     <section class="health-section" id="health-routes" aria-labelledby="h-health-routes">
         <h2 id="h-health-routes">La carte des routes</h2>
-        <p class="health-section-lede">Toutes les routes déclarées dans le contrôleur frontal, avec ce que chacune exige. Clique une ligne pour la suivre dans le trajet ci-dessus.</p>
+        <p class="health-section-lede">Toutes les routes déclarées dans le contrôleur frontal, rangées par action : la page qui affiche le formulaire (GET), l'envoi de ce formulaire, et la même action dans l'API JSON. Une action a donc souvent deux ou trois routes : afficher puis envoyer sont deux requêtes, un formulaire HTML ne connaît que GET et POST (d'où <code>POST …/delete</code> côté back-office et <code>DELETE</code> côté API), et l'API refait les mêmes actions en JSON, avec les mêmes permissions et le même code personnel. Clique une route pour la suivre dans le trajet ci-dessus.</p>
 
         <noscript><p class="health-noscript">Active JavaScript pour afficher et filtrer la carte des routes.</p></noscript>
 

@@ -1568,6 +1568,107 @@
         };
     }
 
+    /*
+     * Regroupement par ACTION. Une même action existe jusqu'à trois fois, pour trois
+     * raisons : la page qui affiche le formulaire (GET) puis son envoi (POST), parce que
+     * ce sont deux requêtes ; l'envoi en POST …/delete côté back-office, parce qu'un
+     * formulaire HTML ne connaît que GET et POST ; la même action dans l'API JSON, pour
+     * Postman ou Bruno. Sans ce regroupement, la carte montre des lignes qui semblent
+     * répétées.
+     */
+    var ACTION_LABELS = {
+        toggle: 'Activer / désactiver', move: "Changer l'ordre", restock: 'Réapprovisionner',
+        thresholds: 'Régler les seuils', inventory: 'Inventaire', adjust: 'Ajuster le stock',
+        movements: 'Historique des mouvements', enrich: 'Données nutritionnelles (Open Food Facts)',
+        allergens: 'Allergènes', recipe: 'Recette', cancel: 'Annuler une commande',
+        ready: 'Marquer prête', deliver: 'Remettre au client', pay: 'Payer (borne)',
+        'reset-pin': 'Réinitialiser le code personnel', erase: 'Anonymiser (RGPD)',
+        deactivate: 'Désactiver le compte', 'delete': 'Supprimer',
+    };
+    var FIXED_LABELS = {
+        '/': 'Accueil (redirection)', '/login': 'Se connecter', '/logout': 'Se déconnecter', '/admin/me': 'Qui suis-je',
+        '/forgot_password': 'Mot de passe oublié', '/reset_password': 'Nouveau mot de passe',
+        '/admin/profile/pin': 'Définir son code personnel', '/admin/health': "Santé de l'application",
+        '/api/health': 'Santé (sonde publique)', '/admin/privacy': 'Données personnelles',
+        '/admin/products/import': 'Importer : choisir le fichier', '/admin/products/import/apply': "Importer : aperçu puis application",
+        '/admin/products/import/template': 'Importer : modèle à télécharger', '/admin/products/by-category': 'Produits par catégorie',
+        '/admin/dashboard': 'Tableau de bord', '/admin/stats': 'Statistiques', '/kitchen/display': 'Écran cuisine',
+        '/counter/orders': 'Caisse comptoir', '/drive/orders': 'Caisse drive',
+        '/api/orders': 'Passer commande (borne)', '/api/categories': 'Catégories (borne)', '/api/products': 'Produits (borne)',
+        '/api/menus': 'Menus (borne)', '/api/allergens': 'Allergènes (borne)',
+    };
+    var COLLECTION_RE = /\/(categories|products|menus|ingredients|users|roles|orders)$/;
+
+    /** Clé d'action commune aux colonnes, et colonne de la route (borne, page, form, api). */
+    function actionOf(r) {
+        var col = r.s === 'borne' ? 'borne' : (r.s === 'api' ? 'api' : (r.m === 'GET' ? 'page' : 'form'));
+        var base = r.s === 'api' ? r.p.replace(/^\/admin\/api\//, '/admin/') : r.p;
+        var special = { '/admin/auth/login': '/login', '/admin/auth/logout': '/logout', '/admin/auth/me': '/admin/me', '/admin/products/import': '/admin/products/import/apply' };
+        if (r.s === 'api' && special[base]) base = special[base];
+        if (r.s === 'bo' && (r.p === '/admin/products/import/preview' || r.p === '/admin/products/import/confirm')) base = '/admin/products/import/apply';
+        if (/\/new$/.test(base)) return { key: base.slice(0, -4) + ' #create', col: col };
+        if (/\/edit$/.test(base)) return { key: base.slice(0, -5) + ' #update', col: col };
+        if (r.s === 'api' && r.m === 'DELETE' && /\}$/.test(base)) {
+            // Pour un compte ou une catégorie, le DELETE de l'API désactive (is_active=0,
+            // l'historique reste) : même action que « désactiver » du back-office.
+            return { key: base + (/^\/admin\/(users|categories)\//.test(base) ? '/deactivate' : '/delete'), col: col };
+        }
+        if ((r.s === 'api' && r.m === 'PUT' || r.s === 'bo' && r.m === 'POST') && /\}$/.test(base)) return { key: base + ' #update', col: col };
+        if (r.m === 'POST' && r.s !== 'borne' && COLLECTION_RE.test(base)) return { key: base + ' #create', col: col };
+        if (r.m === 'GET' && /\}$/.test(base)) return { key: base + ' #show', col: col };
+        return { key: base, col: col };
+    }
+
+    var NOUNS = {
+        categories: ['une catégorie', 'les catégories'], products: ['un produit', 'les produits'], menus: ['un menu', 'les menus'],
+        ingredients: ['un ingrédient', 'les ingrédients'], users: ['un compte', 'les comptes'], roles: ['un rôle', 'les rôles'],
+        orders: ['une commande', 'les commandes'],
+    };
+
+    function actionLabel(key) {
+        var parts = key.split(' #');
+        var path = parts[0];
+        var m = path.match(/^\/(admin|api|counter|drive|kitchen)\/([a-z-]+)/);
+        var noun = m && NOUNS[m[2]] ? NOUNS[m[2]] : null;
+        var where = m && m[1] === 'counter' ? ' au comptoir' : (m && m[1] === 'drive' ? ' au drive' : (m && m[1] === 'api' ? ' (borne)' : ''));
+        if (noun && parts[1] === 'create') return 'Créer ' + noun[0] + where;
+        if (noun && parts[1] === 'update') return 'Modifier ' + noun[0];
+        if (noun && parts[1] === 'show') return 'Voir ' + noun[0] + where;
+        var last = path.replace(/\/$/, '').split('/').pop();
+        if (noun && (last === 'delete' || last === 'deactivate')) return (last === 'delete' ? 'Supprimer ' : 'Désactiver ') + noun[0];
+        if (ACTION_LABELS[last]) return ACTION_LABELS[last];
+        if (FIXED_LABELS[path]) return FIXED_LABELS[path];
+        if (noun && COLLECTION_RE.test(path)) return 'Lister ' + noun[1];
+        return path;
+    }
+
+    /**
+     * Regroupe des routes (par INDEX dans `routes`) en actions, groupe par groupe, dans
+     * l'ordre de déclaration du routeur.
+     *
+     * @returns {Array<{g: string, hasBorne: boolean, actions: Array<{key: string, label: string, cols: object}>}>}
+     */
+    function groupByAction(routes, indexes) {
+        var byGroup = {};
+        indexes.forEach(function (i) {
+            var r = routes[i];
+            var a = actionOf(r);
+            var grp = byGroup[r.g] = byGroup[r.g] || { g: r.g, hasBorne: false, actions: [], byKey: {} };
+            var act = grp.byKey[a.key];
+            if (!act) {
+                act = { key: a.key, label: actionLabel(a.key), cols: { borne: [], page: [], form: [], api: [] } };
+                grp.byKey[a.key] = act;
+                grp.actions.push(act);
+            }
+            act.cols[a.col].push(i);
+            if (a.col === 'borne') grp.hasBorne = true;
+        });
+        var out = [];
+        GROUPS.forEach(function (g) { if (byGroup[g]) { delete byGroup[g].byKey; out.push(byGroup[g]); } });
+        Object.keys(byGroup).forEach(function (g) { if (GROUPS.indexOf(g) < 0) { delete byGroup[g].byKey; out.push(byGroup[g]); } });
+        return out;
+    }
+
     var markCurrentRoute = function (doc, ri) {
         var rows = doc.querySelectorAll('#health-routes-groups [data-ri]');
         rows.forEach(function (b) { b.setAttribute('aria-current', String(+b.getAttribute('data-ri') === ri)); });
@@ -1591,45 +1692,55 @@
             return b.join('');
         }
 
+        function routeHtml(i) {
+            var r = routes[i];
+            // Un <button> ne peut pas en contenir un autre : le bouton "Ouvrir dans la
+            // console" (GET uniquement) est un FRÈRE de .health-route, jamais imbriqué.
+            var h = '<div class="health-route-row">'
+                + '<button type="button" class="health-route" data-ri="' + i + '" aria-current="' + (i === currentRi) + '">'
+                + '<span class="health-meth health-meth--' + r.m + '">' + r.m + '</span>'
+                + '<span class="health-route__path">' + pathHtml(r.p) + '</span>'
+                + '<span class="health-badges">' + badgesHtml(r) + '</span>'
+                + '<span class="health-route__handler">' + esc(r.c) + 'Controller::' + esc(r.a) + '()</span></button>';
+            if (r.m === 'GET') {
+                // aria-label distinct par ligne : au clavier, la carte peut afficher des
+                // dizaines de boutons au même texte visible.
+                h += '<button type="button" class="btn btn-ghost btn-sm health-route-console-btn" data-console-ri="' + i + '" aria-label="Ouvrir ' + esc(r.m + ' ' + r.p) + ' dans la console">Ouvrir dans la console</button>';
+            }
+            return h + '</div>';
+        }
+
+        function cellHtml(list, colName) {
+            if (!list.length) return '<div class="health-arow__cell health-arow__cell--empty" data-col="' + colName + '"><span class="health-arow__none">—</span></div>';
+            return '<div class="health-arow__cell" data-col="' + colName + '">' + list.map(routeHtml).join('') + '</div>';
+        }
+
         function render() {
             var filters = readFilters(doc);
             var kept = filterRoutes(routes, filters);
-            var byGroup = {};
-            kept.forEach(function (i) {
-                var g = routes[i].g;
-                (byGroup[g] = byGroup[g] || []).push(i);
-            });
+            var groups = groupByAction(routes, kept);
+            var nActions = 0;
             var html = '';
-            GROUPS.forEach(function (g) {
-                var list = byGroup[g];
-                if (!list) return;
-                html += '<div class="health-group"><h3 class="health-group__title">' + esc(g) + ' <span class="mono">' + list.length + '</span></h3>';
-                list.forEach(function (i) {
-                    var r = routes[i];
-                    // Un <button> ne peut pas en contenir un autre : le bouton "Ouvrir
-                    // dans la console" (GET uniquement) est un FRÈRE de .health-route
-                    // dans une enveloppe, jamais imbriqué dedans.
-                    html += '<div class="health-route-row">';
-                    html += '<button type="button" class="health-route" data-ri="' + i + '" aria-current="' + (i === currentRi) + '">'
-                        + '<span class="health-meth health-meth--' + r.m + '">' + r.m + '</span>'
-                        + '<span class="health-route__path">' + pathHtml(r.p) + '</span>'
-                        + '<span class="health-badges">' + '<span class="pill ' + surfPillClass(r.s) + '">' + SURF[r.s] + '</span>' + badgesHtml(r) + '</span>'
-                        + '<span class="health-route__handler">' + esc(r.c) + 'Controller::' + esc(r.a) + '()</span></button>';
-                    if (r.m === 'GET') {
-                        // aria-label distinct par ligne (pas juste "Ouvrir dans la
-                        // console" répété) : au clavier/lecteur d'écran, la carte peut
-                        // afficher des dizaines de lignes GET, toutes avec le même texte
-                        // visible.
-                        html += '<button type="button" class="btn btn-ghost btn-sm health-route-console-btn" data-console-ri="' + i + '" aria-label="Ouvrir ' + esc(r.m + ' ' + r.p) + ' dans la console">Ouvrir dans la console</button>';
-                    }
-                    html += '</div>';
+            groups.forEach(function (grp) {
+                var n = 0;
+                grp.actions.forEach(function (a) { n += a.cols.borne.length + a.cols.page.length + a.cols.form.length + a.cols.api.length; });
+                nActions += grp.actions.length;
+                var cols = (grp.hasBorne ? [['borne', 'Borne (JSON public)']] : []).concat([['page', 'Page affichée (GET)'], ['form', 'Envoi du formulaire'], ['api', "API d'administration (JSON)"]]);
+                html += '<div class="health-group"><h3 class="health-group__title">' + esc(grp.g) + ' <span class="mono">' + n + ' route' + (n > 1 ? 's' : '') + ' · ' + grp.actions.length + ' action' + (grp.actions.length > 1 ? 's' : '') + '</span></h3>'
+                    + '<div class="health-amap' + (grp.hasBorne ? ' health-amap--borne' : '') + '" role="table" aria-label="' + esc(grp.g) + ' : routes par action">'
+                    + '<div class="health-arow health-arow--head" role="row"><div role="columnheader">Action</div>'
+                    + cols.map(function (c) { return '<div role="columnheader">' + esc(c[1]) + '</div>'; }).join('') + '</div>';
+                grp.actions.forEach(function (a) {
+                    html += '<div class="health-arow" role="row"><div class="health-arow__label" role="rowheader">' + esc(a.label) + '</div>'
+                        + cols.map(function (c) { return cellHtml(a.cols[c[0]], c[1]).replace('<div class="health-arow__cell', '<div role="cell" class="health-arow__cell'); }).join('')
+                        + '</div>';
                 });
-                html += '</div>';
+                html += '</div></div>';
             });
             groupsEl.innerHTML = html || '<p class="health-empty">Aucune route ne correspond à ces filtres.</p>';
             var count = byId(doc, 'health-count');
             if (count) {
-                count.textContent = kept.length + ' route' + (kept.length > 1 ? 's' : '') + ' sur ' + routes.length;
+                count.textContent = kept.length + ' route' + (kept.length > 1 ? 's' : '') + ' sur ' + routes.length + ' · ' + nActions + ' action' + (nActions > 1 ? 's' : '');
             }
         }
 
@@ -1896,6 +2007,7 @@
         probeMatches: probeMatches,
         matchesFilters: matchesFilters,
         filterRoutes: filterRoutes,
+        groupByAction: groupByAction,
         applyReport: applyReport,
         pollHealth: pollHealth,
         runProbe: runProbe,

@@ -701,10 +701,10 @@ admin-sante-api;conforme;a[href$="#health-trajet"];#1a1a1a;#f9fafb;16,65;4.5:1;9
 admin-sante-api;conforme;a[href$="#health-routes"];#1a1a1a;#f9fafb;16,65;4.5:1;9.8pt (13px);normal;<a href="#health-routes">La carte des routes</a>
 admin-sante-api;conforme;a[href$="#health-login"];#1a1a1a;#f9fafb;16,65;4.5:1;9.8pt (13px);normal;<a href="#health-login">Connexion (démonstration API)</a>
 admin-sante-api;conforme;#h-health-etat;#1a1a1a;#f5f5f5;15,96;3:1;15.0pt (20px);bold;<h2 id="h-health-etat">État en direct</h2>
-admin-sante-api;conforme;#health-etat > .health-section-lede;#69707d;#f5f5f5;4,57;4.5:1;10.5pt (14px);normal;<p class="health-section-lede">Généré le 28/09/2026 12:03:05, puis relu automatiquement toutes les 1
+admin-sante-api;conforme;#health-etat > .health-section-lede;#69707d;#f5f5f5;4,57;4.5:1;10.5pt (14px);normal;<p class="health-section-lede">Généré le 28/09/2026 12:22:17, puis relu automatiquement toutes les 1
 admin-sante-api;conforme;.kpi-card:nth-child(1) > .kpi-label;#69707d;#ffffff;4,98;4.5:1;9.0pt (12px);normal;<p class="kpi-label">Base de données</p>
 admin-sante-api;conforme;#health-db-pill;#065f46;#d1fae5;6,77;4.5:1;9.0pt (12px);normal;<span class="pill pill-success" id="health-db-pill">Joignable</span>
-admin-sante-api;conforme;#health-db-detail;#69707d;#ffffff;4,98;4.5:1;9.0pt (12px);normal;<p class="health-kpi-detail" id="health-db-detail">0.3 ms · 11.4.10-MariaDB-ubu2404</p>
+admin-sante-api;conforme;#health-db-detail;#69707d;#ffffff;4,98;4.5:1;9.0pt (12px);normal;<p class="health-kpi-detail" id="health-db-detail">0.2 ms · 11.4.10-MariaDB-ubu2404</p>
 admin-sante-api;conforme;.kpi-card:nth-child(2) > .kpi-label;#69707d;#ffffff;4,98;4.5:1;9.0pt (12px);normal;<p class="kpi-label">Affichage des erreurs</p>
 admin-sante-api;conforme;#health-debug-pill;#991b1b;#fee2e2;6,8;4.5:1;9.0pt (12px);normal;<span class="pill pill-danger" id="health-debug-pill">Actif</span>
 admin-sante-api;conforme;#health-debug-detail;#69707d;#ffffff;4,98;4.5:1;9.0pt (12px);normal;<p class="health-kpi-detail" id="health-debug-detail">Environnement dev · débogage activé · PHP 8.3.
@@ -720,7 +720,7 @@ admin-sante-api;conforme;.kpi-card:nth-child(6) > .kpi-label;#69707d;#ffffff;4,9
 admin-sante-api;conforme;#health-activity;#1a1a1a;#ffffff;17,4;3:1;18.0pt (24px);bold;<p class="kpi-value" id="health-activity">0 créées</p>
 admin-sante-api;conforme;#health-activity-detail;#69707d;#ffffff;4,98;4.5:1;9.0pt (12px);normal;<p class="health-kpi-detail" id="health-activity-detail">0 payées · 1 ligne d'audit · 0 échecs de co
 admin-sante-api;conforme;#health-refresh-status;#69707d;#f5f5f5;4,57;4.5:1;9.0pt (12px);normal;<p class="health-refresh-status" id="health-refresh-status" role="status" aria-live="polite"> Derniè
-admin-sante-api;conforme;#health-refresh-time;#69707d;#f5f5f5;4,57;4.5:1;9.0pt (12px);normal;<time id="health-refresh-time">28/09/2026 12:03:05</time>
+admin-sante-api;conforme;#health-refresh-time;#69707d;#f5f5f5;4,57;4.5:1;9.0pt (12px);normal;<time id="health-refresh-time">28/09/2026 12:22:17</time>
 admin-sante-api;conforme;#h-health-sondes;#1a1a1a;#f5f5f5;15,96;3:1;15.0pt (20px);bold;<h2 id="h-health-sondes">Appels réels</h2>
 admin-sante-api;conforme;#health-sondes > .health-section-lede;#69707d;#f5f5f5;4,57;4.5:1;10.5pt (14px);normal;<p class="health-section-lede">Sept appels réels, envoyés à l'API depuis ce navigateur. Aucun n'écri
 admin-sante-api;conforme;li[data-probe-id="sante"] > .health-probe-head > .health-meth--GET.health-meth;#1e40af;#dbeafe;7,14;4.5:1;8.6pt (11.5px);normal;<span class="health-meth health-meth--GET">GET</span>

@@ -392,6 +392,95 @@ function setupRoutesMapDom() {
     return dom.window.document;
 }
 
+// Routes d'une meme famille, sur les trois surfaces : de la forme de RouteMap::rows().
+function R(m, p, s, extra) {
+    return Object.assign({ m: m, p: p, c: 'X', a: 'a', s: s, anon: false, perm: 'ingredient.manage', w: m !== 'GET', csrf: m === 'GET' ? null : (s === 'api' ? 'header' : 'form'), pin: null, re: null, f: s === 'bo' ? (m === 'GET' ? 'html' : 'redirect') : 'json', g: 'Ingrédients et stock' }, extra || {});
+}
+const FAMILY = [
+    R('GET', '/admin/ingredients', 'bo'),
+    R('GET', '/admin/ingredients/new', 'bo'),
+    R('POST', '/admin/ingredients', 'bo'),
+    R('GET', '/admin/ingredients/{id}/edit', 'bo'),
+    R('POST', '/admin/ingredients/{id}', 'bo'),
+    R('GET', '/admin/ingredients/{id}/delete', 'bo'),
+    R('POST', '/admin/ingredients/{id}/delete', 'bo'),
+    R('GET', '/admin/ingredients/{id}/restock', 'bo'),
+    R('POST', '/admin/ingredients/{id}/restock', 'bo'),
+    R('GET', '/admin/ingredients/{id}/movements', 'bo'),
+    R('GET', '/admin/api/ingredients', 'api'),
+    R('GET', '/admin/api/ingredients/{id}', 'api'),
+    R('POST', '/admin/api/ingredients', 'api'),
+    R('PUT', '/admin/api/ingredients/{id}', 'api'),
+    R('DELETE', '/admin/api/ingredients/{id}', 'api'),
+    R('POST', '/admin/api/ingredients/{id}/restock', 'api'),
+    R('DELETE', '/admin/api/users/{id}', 'api', { g: 'Comptes' }),
+    R('GET', '/admin/users/{id}/deactivate', 'bo', { g: 'Comptes' }),
+    R('POST', '/admin/users/{id}/deactivate', 'bo', { g: 'Comptes' }),
+    R('GET', '/api/products', 'borne', { g: 'Catalogue', anon: true, perm: null }),
+];
+
+function actionIn(groups, g, label) {
+    const grp = groups.filter((x) => x.g === g)[0];
+    return grp ? grp.actions.filter((a) => a.label === label)[0] : undefined;
+}
+function paths(list) { return list.map((i) => FAMILY[i].m + ' ' + FAMILY[i].p); }
+
+test('groupByAction() : la page, l\'envoi du formulaire et l\'API d\'une même action sur une seule ligne', () => {
+    const groups = health.groupByAction(FAMILY, FAMILY.map((_, i) => i));
+    const restock = actionIn(groups, 'Ingrédients et stock', 'Réapprovisionner');
+    assert.deepEqual(paths(restock.cols.page), ['GET /admin/ingredients/{id}/restock']);
+    assert.deepEqual(paths(restock.cols.form), ['POST /admin/ingredients/{id}/restock']);
+    assert.deepEqual(paths(restock.cols.api), ['POST /admin/api/ingredients/{id}/restock']);
+
+    const create = actionIn(groups, 'Ingrédients et stock', 'Créer un ingrédient');
+    assert.deepEqual(paths(create.cols.page), ['GET /admin/ingredients/new']);
+    assert.deepEqual(paths(create.cols.form), ['POST /admin/ingredients']);
+    assert.deepEqual(paths(create.cols.api), ['POST /admin/api/ingredients']);
+
+    const update = actionIn(groups, 'Ingrédients et stock', 'Modifier un ingrédient');
+    assert.deepEqual(paths(update.cols.page), ['GET /admin/ingredients/{id}/edit']);
+    assert.deepEqual(paths(update.cols.form), ['POST /admin/ingredients/{id}']);
+    assert.deepEqual(paths(update.cols.api), ['PUT /admin/api/ingredients/{id}']);
+
+    const del = actionIn(groups, 'Ingrédients et stock', 'Supprimer un ingrédient');
+    assert.deepEqual(paths(del.cols.form), ['POST /admin/ingredients/{id}/delete']);
+    assert.deepEqual(paths(del.cols.api), ['DELETE /admin/api/ingredients/{id}']);
+
+    const list = actionIn(groups, 'Ingrédients et stock', 'Lister les ingrédients');
+    assert.deepEqual(paths(list.cols.page), ['GET /admin/ingredients']);
+    assert.deepEqual(paths(list.cols.api), ['GET /admin/api/ingredients']);
+
+    const moves = actionIn(groups, 'Ingrédients et stock', 'Historique des mouvements');
+    assert.deepEqual(paths(moves.cols.page), ['GET /admin/ingredients/{id}/movements']);
+    assert.equal((moves.cols.api || []).length, 0);
+});
+
+test('groupByAction() : supprimer un compte dans l\'API, c\'est le désactiver dans le back-office', () => {
+    const groups = health.groupByAction(FAMILY, FAMILY.map((_, i) => i));
+    const deact = actionIn(groups, 'Comptes', 'Désactiver un compte');
+    assert.deepEqual(paths(deact.cols.form), ['POST /admin/users/{id}/deactivate']);
+    assert.deepEqual(paths(deact.cols.api), ['DELETE /admin/api/users/{id}']);
+});
+
+test('groupByAction() : les routes de la borne ont leur propre colonne', () => {
+    const groups = health.groupByAction(FAMILY, FAMILY.map((_, i) => i));
+    const grp = groups.filter((x) => x.g === 'Catalogue')[0];
+    assert.equal(grp.hasBorne, true);
+    assert.deepEqual(paths(grp.actions[0].cols.borne), ['GET /api/products']);
+});
+
+test('wireRoutesMap : une ligne par action, les routes gardent leur bouton et le compte dit routes et actions', () => {
+    const doc = setupRoutesMapDom();
+    health.wireRoutesMap(doc, FAMILY, function () {});
+    assert.equal(doc.querySelectorAll('#health-routes-groups [data-ri]').length, FAMILY.length, 'chaque route reste cliquable');
+    const rows = doc.querySelectorAll('#health-routes-groups .health-arow');
+    assert.ok(rows.length < FAMILY.length, 'moins de lignes que de routes : les actions regroupent');
+    const restockRow = Array.from(rows).filter((row) => /Réapprovisionner/.test(row.textContent))[0];
+    assert.equal(restockRow.querySelectorAll('[data-ri]').length, 3);
+    assert.match(doc.getElementById('health-count').textContent, /20 routes sur 20/);
+    assert.match(doc.getElementById('health-count').textContent, /actions/);
+});
+
 test('wireRoutesMap : changer le filtre de surface réduit la liste affichée', () => {
     const doc = setupRoutesMapDom();
     health.wireRoutesMap(doc, ROUTES, function () {});

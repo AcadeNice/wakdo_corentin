@@ -3405,6 +3405,41 @@ details.form-advanced > summary:focus-visible {
 .health-route-row .health-route { border-top: 0; flex: 1; min-width: 0; }
 .health-route-console-btn { align-self: center; margin: 0 var(--space-3); flex-shrink: 0; white-space: nowrap; }
 
+/* Bloc 4 : une ligne par ACTION (page affichée, envoi du formulaire, API JSON, et la
+   borne quand le groupe en a) ; chaque route y garde son bouton. Sous 900 px (1280 px
+   pour les groupes à cinq colonnes), chaque ligne devient une fiche, et chaque cellule
+   porte le nom de sa colonne. Nommée amap, pas « actions » : dans ce projet, une classe
+   en *actions désigne une barre de boutons alignés (form-actions, card__actions), ce
+   que cette grille n'est pas. */
+.health-amap { display: grid; border-top: 1px solid var(--h-line); }
+.health-arow { display: grid; grid-template-columns: minmax(8rem, 11rem) repeat(3, minmax(0, 1fr)); border-bottom: 1px solid var(--h-line); }
+.health-amap--borne .health-arow { grid-template-columns: minmax(8rem, 11rem) repeat(4, minmax(0, 1fr)); }
+.health-arow > * { min-width: 0; padding: 8px; }
+.health-arow--head { font-size: var(--text-xs); text-transform: uppercase; letter-spacing: .06em; color: var(--h-muted); font-weight: 700; background: var(--h-surface-2); }
+.health-arow__label { font-weight: 600; color: var(--h-ink); padding-left: var(--space-4); }
+.health-arow__cell { display: grid; gap: 6px; align-content: start; border-left: 1px solid var(--h-line); }
+.health-arow__none { color: var(--h-muted); }
+.health-arow__cell .health-route-row { flex-direction: column; align-items: stretch; border: 1px solid var(--h-line); border-radius: 8px; background: var(--h-surface); }
+.health-arow__cell .health-route { grid-template-columns: auto minmax(0, 1fr); gap: 4px 8px; padding: 6px 8px; border-radius: 8px; }
+.health-arow__cell .health-badges { grid-row: auto; grid-column: 1 / -1; justify-content: flex-start; }
+.health-arow__cell .health-route__handler { grid-column: 1 / -1; }
+.health-arow__cell .health-route-console-btn { align-self: flex-start; margin: 0 8px 8px; }
+
+@media (max-width: 1280px) {
+    .health-amap--borne .health-arow { grid-template-columns: minmax(0, 1fr); }
+    .health-amap--borne .health-arow--head { display: none; }
+    .health-amap--borne .health-arow__cell { border-left: 0; }
+    .health-amap--borne .health-arow__cell::before { content: attr(data-col); font-size: var(--text-xs); text-transform: uppercase; letter-spacing: .06em; color: var(--h-muted); }
+    .health-amap--borne .health-arow__cell--empty { display: none; }
+}
+@media (max-width: 900px) {
+    .health-arow { grid-template-columns: minmax(0, 1fr); }
+    .health-arow--head { display: none; }
+    .health-arow__cell { border-left: 0; }
+    .health-arow__cell::before { content: attr(data-col); font-size: var(--text-xs); text-transform: uppercase; letter-spacing: .06em; color: var(--h-muted); }
+    .health-arow__cell--empty { display: none; }
+}
+
 /* Bloc 5 : connexion JSON de démonstration. */
 .health-login-card { padding: var(--space-4); display: grid; gap: var(--space-4); }
 .health-login-card form { display: grid; gap: var(--space-1); max-width: 48ch; }

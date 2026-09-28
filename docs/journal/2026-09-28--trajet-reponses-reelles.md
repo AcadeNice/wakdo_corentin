@@ -39,6 +39,23 @@ annonçait `Resource not found`.
 - **Plus aucun corps écrit à la main** : les fonctions qui les fabriquaient ont été retirées. Si
   le fichier capturé manque, la page le dit et n'affiche rien.
 
+## La carte des routes, rangée par action
+
+L'auteur, en lisant les 29 routes des ingrédients : « il y a pas de doublon tu vas me dire ».
+Il n'y en avait pas, mais la carte alignait les routes à plat, et trois routes d'une même action
+se lisaient comme des répétitions. La carte range désormais les routes **par action**, avec une
+colonne pour la page affichée (GET), une pour l'envoi du formulaire, une pour l'API JSON, et une
+pour la borne dans les groupes qui en ont. Les ingrédients passent de 29 lignes à 13 actions ;
+l'ensemble, de 157 routes à 80 actions. Chaque route garde son bouton (trajet, console). Le texte
+de la section explique les trois raisons d'avoir jusqu'à trois routes par action. Deux
+corrections de nommage au passage : le `DELETE` d'un compte et celui d'une catégorie
+**désactivent** (`is_active = 0`), ils sont rangés avec « Désactiver », pas avec « Supprimer ».
+
+Le balayage du back-office a refusé la première version : à 1024 px, les groupes à cinq colonnes
+se chevauchaient, et la grille, nommée `health-actions`, était lue comme une barre de boutons
+(dans ce projet, une classe en `*actions` désigne une barre de boutons alignés). La grille
+s'appelle `health-amap`, et les groupes à cinq colonnes passent en fiches sous 1280 px.
+
 ## Pourquoi — decisions et alternatives
 
 - **Capturer plutôt qu'appeler la production pour les écritures.** L'auteur avait tranché la
@@ -82,7 +99,8 @@ annonçait `Resource not found`.
 - Tests JavaScript : 442, 0 échec.
 - Tests navigateur sur pile jetable : console, trajet et balayage, 22 scénarios sur 22 ;
   balayage du back-office : 4807 vérifications, 0 échec.
-- Audit d'accessibilité : 19 écrans, 935 mesures, 85 combinaisons, 0 violation.
+- Audit d'accessibilité : 19 écrans, 935 mesures, 85 combinaisons, 0 violation (rejoué après la
+  carte par action : inchangé).
 
 ## Questions anticipees du jury
 
