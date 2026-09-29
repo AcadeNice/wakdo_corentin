@@ -111,18 +111,18 @@ return static function (Router $router): void {
 
     // Commandes (P4, order.read) : liste lecture seule du domaine commande.
     $router->add('GET', '/admin/orders', [OrderAdminController::class, 'index']);
-    // Remise au client : paid -> delivered (order.deliver, geste unique, POST + CSRF).
+    // Remise au client : paid|preparing|ready -> delivered (order.deliver, geste unique, POST + CSRF).
     $router->add('POST', '/admin/orders/{number}/deliver', [OrderAdminController::class, 'deliver']);
     // Etat de cuisine (retour oral #8) : marquer une commande prete. Le passage en
     // preparation est automatique au paiement (pay()), il n'y a plus de geste manuel.
     // Segment {number}/ready, pas de collision avec /deliver, /cancel ni la liste.
     $router->add('POST', '/admin/orders/{number}/ready', [OrderAdminController::class, 'ready']);
-    // Annulation : pending_payment|paid -> cancelled (CANCEL_ORDER mlt 7.1, order.cancel).
+    // Annulation : pending_payment|paid|preparing|ready -> cancelled (CANCEL_ORDER mlt 7.1, order.cancel).
     // PIN equipier + audit + restock conditionnel (RG-T13/T14). {number} = un seul
     // segment (numero K/C/D + id) ; /cancel ne chevauche ni /deliver ni la liste.
     $router->add('GET', '/admin/orders/{number}/cancel', [OrderAdminController::class, 'confirmCancel']);
     $router->add('POST', '/admin/orders/{number}/cancel', [OrderAdminController::class, 'cancel']);
-    // Affichage cuisine (KDS) : file des commandes payees (order.read). Landing du role
+    // Affichage cuisine (KDS) : file des commandes paid, preparing et ready (order.read). Landing du role
     // kitchen (seed role.default_route = /kitchen/display) ; corrige le 404 d'apres-login.
     $router->add('GET', '/kitchen/display', [KitchenController::class, 'display']);
 

@@ -16,8 +16,14 @@
 > (CI) verifie que chaque route a sa capture (ou une raison ecrite), qu'aucune capture ne vise
 > une route disparue, et que le fichier ne contient ni jeton ni mot de passe. Independamment,
 > la carte a ete rangee **par action** plutot qu'a plat : les 158 routes se lisent desormais en
-> 80 actions (une colonne par surface : page, formulaire, API JSON, borne). Livre par #188 et
-> #189. Detail : `docs/journal/2026-09-28--trajet-reponses-reelles.md`.
+> 80 actions (une colonne par surface : page, formulaire, API JSON, borne). Le rangement par
+> action et le programme de capture sont livres par #188 et #189 (157 routes a ce moment) ;
+> la 158e route (`/admin/api/ingredients/{id}/movements`) arrive par #191, le meme jour. Le
+> champ `commit` de `captured-responses.json` (`edea94c`) date de #190, avant #191 : il ne
+> reflete donc que 157 routes au registre du routeur a ce commit precis, meme si le fichier
+> contient bien 158 captures (la capture a ete rejouee apres #191 sans que ce champ de
+> provenance soit remis a jour — a corriger au prochain rafraichissement). Detail :
+> `docs/journal/2026-09-28--trajet-reponses-reelles.md`.
 
 ## Contexte
 

@@ -116,7 +116,7 @@ class OrderAdminController extends AdminController
             $this->setFlash(
                 $exception->getMessage() === 'ORDER_NOT_FOUND'
                     ? 'Commande introuvable.'
-                    : 'Transition invalide : la commande n\'est pas au statut payé.',
+                    : 'Transition invalide : la commande n\'est pas encore payée, ou elle a été annulée.',
             );
         }
 

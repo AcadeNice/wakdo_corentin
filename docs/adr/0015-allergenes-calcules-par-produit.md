@@ -5,10 +5,13 @@
 
 > **Complement (ADR-0018).** La limite de modelisation nommee ci-dessous en consequence
 > (`Gobelet` porte comme ingredient de recette faute de distinguer aliment et materiau, et
-> le drapeau `is_food` envisage comme correction) est levee : ADR-0018 introduit une
-> classification par FAMILLE d'ingredient (dont la famille `contenant`), qui repond a la
-> fois a ce cas et au filtrage du constructeur de recette, sans ajouter le drapeau binaire
-> envisage ici.
+> le drapeau `is_food` envisage comme correction) est prise en compte **dans le modele**
+> par ADR-0018 : une classification par FAMILLE d'ingredient (dont la famille `contenant`)
+> et une methode `IngredientFamily::isFood()` capable de trancher le cas, sans ajouter le
+> drapeau binaire envisage ici. Elle n'est **pas encore exploitee par le code** : `isFood()`
+> n'est appelee par aucun chemin de production (seul le filtrage du constructeur de recette,
+> par famille, est cable). `Gobelet` continue donc d'etre marque revu comme un aliment sur
+> l'ecran allergenes, la donnee restant correcte pour la raison expliquee plus bas.
 
 ## Contexte
 
@@ -159,15 +162,14 @@ accompagnement et chaque boisson porte les siens, consultables dans le composeur
   a l'ecran. C'est la valeur centrale du lot.
 - (+) La liste affichee est un sur-ensemble de toute personnalisation : l'ecart penche
   du cote prudent, verifiable a la lecture du SQL (aucun filtre sur `is_removable`).
-- (+) Deux requetes groupees pour tout le catalogue (58 lignes de la table `product`,
-  variantes de taille comprises — 53 produits de base + 5 variantes 50cl), pas une par
-  produit : pas de N+1 sur le chemin le plus chaud de la borne. Verrouille par test.
+- (+) Deux requetes groupees pour tout le catalogue (58 produits), pas une par produit :
+  pas de N+1 sur le chemin le plus chaud de la borne. Verrouille par test.
 - (+) Tracabilite complete : la source par ingredient est lisible **depuis
   l'application**, sans ouvrir un fichier de seed.
 - (+) Zero permission ajoutee (catalogue gele a 23).
-- (-) 8 produits sur 53 (produits de base du catalogue, hors variantes de taille)
-  affichent « information non disponible ». Assume : c'est le resultat correct de la
-  regle, pas un manque. Chacun se leve en lisant la fiche du produit reellement achete.
+- (-) 8 produits sur 53 affichent « information non disponible ». Assume : c'est le
+  resultat correct de la regle, pas un manque. Chacun se leve en lisant la fiche du
+  produit reellement achete.
 - (-) **Donnees de demonstration datees.** Ce n'est pas un substitut aux fiches
   techniques fournisseur d'un etablissement reel : une mise en service exige de relire
   chaque ligne. Le seed le dit, le back-office permet la correction.
@@ -188,3 +190,12 @@ Fichiers : `db/migrations/0011_ingredient_allergen_review.sql`,
 `src/public/borne/assets/js/allergens.js`, `src/public/borne/assets/js/data.js`,
 `src/public/borne/assets/js/page-products.js`. Modele :
 `docs/merise/dictionary.md` note 15, `docs/merise/mld.md` 4.6.
+
+## Errata
+- Erratum (2026-09-28, audit #195) : les deux consequences ci-dessus ont ete precisees sur
+  place. Precision exacte, restauree ici : la table `product` porte 58 lignes, variantes de
+  taille comprises — 53 produits de base (seed `db/seeds/0002_catalogue.sql`) + 5 variantes
+  50cl des sodas fontaine (seed `db/seeds/0005_drink_sizes.sql`, en place depuis le
+  2026-06-22, avant cette fiche) ; et les 8 produits « information non disponible » sont
+  comptes parmi les 53 produits de base, hors variantes de taille (une variante herite de
+  la revue de sa base).

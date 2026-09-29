@@ -15,43 +15,59 @@ automatique des commandes restees en attente de paiement.
   voir [ADR-0016](../adr/0016-modification-commande-avant-paiement.md)), renvoi a
   l'identique si elle est deja encaissee, `409 ORDER_CANCELLED` si elle est `cancelled`.
 - `POST /api/orders/{number}/pay` (`OrderController::pay`) : encaissement,
-  `pending_payment -> preparing` (le passage intermediaire par `paid` est instantane
-  dans la meme transaction), decrement de stock atomique (RG-T20).
+  `pending_payment -> preparing` directement (un seul `UPDATE` pose `status`, `paid_at`
+  ET `preparing_at` ensemble) ; `paid` reste un statut encaisse valide mais ne subsiste
+  que pour d'anciennes commandes, decrement de stock atomique (RG-T20).
 - `GET /api/orders/{number}` (`OrderController::show`) : suivi public du statut par
-  numero, lecture seule, anonyme.
+  numero, lecture seule, anonyme — ne repond que pour les commandes de source `kiosk`
+  (404 pour une commande d'un autre canal comme pour un numero inconnu, meme reponse
+  anti-enumeration, `OrderController::show` ~81-84, chantier RBAC canal #156).
 
 ### Cuisine
 - `GET /kitchen/display` (`KitchenController::display`, `order.read`) : file des
   commandes payees, landing du role `kitchen`.
 - `POST /admin/orders/{number}/ready` (`OrderAdminController::ready`, `order.read` —
   pas `order.deliver` : marquer une commande prete est un geste de cuisine, pas de
-  remise) : `preparing -> ready`.
+  remise) : `paid` ou `preparing -> ready` (idempotent si deja `ready`).
 
 ### Remise au client
 - `POST /admin/orders/{number}/deliver` (`OrderAdminController::deliver`,
-  `order.deliver`) : `ready -> delivered`, geste unique.
+  `order.deliver`) : `paid`, `preparing` ou `ready -> delivered` — une commande peut
+  etre remise sans passer par les etats de cuisine (retour oral #8).
 
 ### Comptoir et drive
-- `GET|POST /counter/orders[/new]` et `GET|POST /drive/orders[/new]`
-  (`CounterOrderController`, `order.create`) : UN controleur, deux canaux ; la source
-  (`counter`/`drive`) est deduite du chemin visite, apres un `channelGuard()` qui verifie
-  que le role visitant a bien ce canal (fixe ou visible). Encaissement direct, sans PIN
-  (`order.create` suffit) : pas d'etape `pending_payment` intermediaire cote comptoir.
+- `GET /counter/orders`, `GET /counter/orders/new`, `POST /counter/orders` — et
+  l'equivalent exact cote drive (`GET /drive/orders`, `GET /drive/orders/new`,
+  `POST /drive/orders`) — (`CounterOrderController`, `order.create`) : UN controleur,
+  deux canaux ; la source (`counter`/`drive`) est deduite du chemin visite, apres un
+  `channelGuard()` qui exige les DEUX conditions ensemble (canal fixe du role s'il en a
+  un, ET visibilite du canal dans `role_visible_source`, `CounterOrderController::channelGuard`
+  ~412). Encaissement direct, sans PIN (`order.create` suffit) : le comptoir insere la
+  commande en `pending_payment` (`persist()`), puis encaisse via `pay()` dans une
+  SECONDE transaction (`createStaffOrder`), sans etape intermediaire visible pour
+  l'equipier.
 
 ### Annulation
 - `GET /admin/orders/{number}/cancel` (confirmation) et
   `POST /admin/orders/{number}/cancel` (`OrderAdminController::cancel`, `order.cancel`) :
-  `pending_payment|paid -> cancelled`, PIN equipier + `audit_log` + remise en stock
-  conditionnelle (si la commande etait encaissee) dans la meme transaction
-  (RG-T13/RG-T14). Le refus « canal non visible » et le refus « numero inconnu » rendent
-  tous deux `403`, verifie AVANT le PIN, pour ne pas reveler par le code HTTP qu'une
-  commande d'un autre canal existe.
+  `pending_payment`, `paid`, `preparing` ou `ready -> cancelled`
+  (`OrderRepository::cancel` ~786, 802), PIN equipier + `audit_log` + remise en stock
+  conditionnelle (si la commande avait des mouvements de vente, donc si elle etait
+  encaissee) dans la meme transaction (RG-T13/RG-T14). Le refus « canal non visible » et
+  le refus « numero inconnu » rendent tous deux `403`, verifie AVANT le PIN, pour ne pas
+  reveler par le code HTTP qu'une commande d'un autre canal existe.
+
+### Vue d'ensemble back-office
+- `GET /admin/orders` (`OrderAdminController::index`, `order.read`) : liste filtree par
+  les sources visibles du role (RG-T12), meme regle que la file cuisine et la file
+  comptoir/drive.
 
 ### API JSON d'administration (`/admin/api/orders`, [ADR-0017](../adr/0017-api-admin-json.md))
 Un seul endpoint de creation (contrairement au HTML qui a une page par canal) :
 - `GET /admin/api/orders` / `GET /admin/api/orders/{number}` (`order.read`)
 - `POST /admin/api/orders` (`order.create`) : source deduite du role si canal fixe,
-  choisie dans le corps sinon (et alors verifiee contre les sources visibles du role)
+  choisie dans le corps sinon — dans les DEUX cas, verifiee contre les sources visibles
+  du role (`OrderApiController::apiStore` ~165)
 - `POST /admin/api/orders/{number}/ready` (`order.read`, comme son equivalent HTML)
 - `POST /admin/api/orders/{number}/deliver` (`order.deliver`)
 - `POST /admin/api/orders/{number}/cancel` (`order.cancel`, PIN)
@@ -74,9 +90,9 @@ automatique d'une annulation humaine).
   parcours borne complet.
 - RG-T19 (idempotence) et RG-T20 (decrement de stock atomique a l'encaissement, pas de
   verrou prealable sur `ingredient`) : voir `docs/merise/mlt.md` section 2.
-- RG-T09 : `source = 'drive'` implique `service_mode = 'drive'`, verifiee a la creation
-  et rejouee a la modification (`resolveHeader`, partage entre creation et
-  `replaceItems`).
+- RG-T09 : `source = 'drive'` implique `service_mode = 'drive'`, verifiee separement a la
+  creation staff (`OrderRepository::createStaffOrder` ~283) et a la modification
+  (`OrderRepository::replaceItems` ~214) — pas dans un `resolveHeader` partage.
 - RG-T12 : filtre par canal du tableau de bord des commandes, base sur les sources
   visibles du role (`role_visible_source`).
 - RG-T13/T14 : l'annulation est l'unique action sensible du domaine commande (PIN +
@@ -89,11 +105,13 @@ automatique d'une annulation humaine).
   et le drive gardent leur propre annulation.
 
 ## Decisions
-[ADR-0014](../adr/0014-expiration-commandes-pending.md) (expiration cron 02h00),
-[ADR-0016](../adr/0016-modification-commande-avant-paiement.md) (modification avant
-paiement + verrou de ligne), [ADR-0017](../adr/0017-api-admin-json.md) (API JSON,
-section commande), [ADR-0020](../adr/0020-responsable-annule-commande.md) (responsable
-peut annuler), [ADR-0006](../adr/0006-http-409-conflit-422-validation.md) (409/422).
+[ADR-0011](../adr/0011-pos-tactile-tuiles-comptoir-drive.md) (POS tactile a tuiles pour
+la saisie comptoir/drive), [ADR-0014](../adr/0014-expiration-commandes-pending.md)
+(expiration cron 02h00), [ADR-0016](../adr/0016-modification-commande-avant-paiement.md)
+(modification avant paiement + verrou de ligne), [ADR-0017](../adr/0017-api-admin-json.md)
+(API JSON, section commande), [ADR-0020](../adr/0020-responsable-annule-commande.md)
+(responsable peut annuler), [ADR-0006](../adr/0006-http-409-conflit-422-validation.md)
+(409/422).
 
 ## Tables
 `customer_order`, `order_item`, `order_item_modifier`, `order_item_selection`,

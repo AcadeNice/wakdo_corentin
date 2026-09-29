@@ -638,10 +638,10 @@ class OrderRepository
     }
 
     /**
-     * Transition paid -> delivered (DELIVER_ORDER, geste unique de remise, mlt 6.1).
+     * Transition paid|preparing|ready -> delivered (DELIVER_ORDER, geste unique de remise, mlt 6.1).
      * NON PIN-gated : operation routiniere, hors ensemble sensible RG-T13. Idempotente
      * (une commande deja delivered est renvoyee sans erreur). 404 si inconnue ;
-     * INVALID_TRANSITION si la commande n'est pas au statut paid (pending / cancelled).
+     * INVALID_TRANSITION si la commande n'est ni paid, ni preparing, ni ready (pending_payment / cancelled).
      *
      * @return array{id:int, order_number:string, total_ttc_cents:int, status:string}
      * @throws OrderValidationException
@@ -742,12 +742,13 @@ class OrderRepository
 
     /**
      * Annulation d'une commande (CANCEL_ORDER, mlt 7.1). Transition gardee
-     * pending_payment|paid -> cancelled, re-credit de stock CONDITIONNEL et ecriture
-     * audit_log dans UNE transaction (RG-T07/T08/T11/T14).
+     * pending_payment|paid|preparing|ready -> cancelled, re-credit de stock CONDITIONNEL
+     * et ecriture audit_log dans UNE transaction (RG-T07/T08/T11/T14).
      *
-     * Le re-credit n'a lieu que si la commande etait `paid` AVANT l'annulation : une
-     * commande `pending_payment` n'avait jamais decremente le stock (le decrement est
-     * pose a la transition `paid`, cf. pay()), il n'y a donc rien a re-crediter. Le
+     * Le re-credit n'a lieu que si la commande porte des mouvements `sale`
+     * (hasSaleMovements) : une commande `pending_payment` n'avait jamais decremente le
+     * stock (le decrement est pose par pay(), a l'encaissement), il n'y a donc rien a
+     * re-crediter. Le
      * re-credit reutilise consumption() (memes unites que le decrement de pay()),
      * inversees (delta positif) ; un ingredient entierement retire (modifieur remove)
      * n'a pas ete decremente -> consumption() ne le retourne pas -> pas de re-credit.

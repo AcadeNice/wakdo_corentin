@@ -1,8 +1,8 @@
 # Diagramme de sequence securite - Annulation de commande avec PIN (CANCEL_ORDER)
 
 **Phase UML** : P1 - Conception, complement UML (passe security-by-design)
-**Statut** : v0.4 - realigne sur le code livre (`OrderAdminController`, `OrderRepository::cancel`)
-**Date** : 2026-06-12 (v0.2), 2026-09-24 (v0.3), 2026-09-28 (v0.4)
+**Statut** : v0.5 - realigne sur le code livre (`OrderAdminController`, `OrderRepository::cancel`)
+**Date** : 2026-06-12 (v0.2), 2026-09-24 (v0.3), 2026-09-28 (v0.4), 2026-09-29 (v0.5)
 **Historique** : v0.3 (2026-09-24) - mise en coherence avec le code livre (2a09597) : route
 `/admin/orders/{number}/cancel` (page de confirmation en GET, envoi en POST) au lieu de
 `POST /api/orders/{id}/cancel` ; PIN saisi avec la demande et verifie en premier ; echec de PIN
@@ -13,7 +13,11 @@ ajoute aux acteurs autorises (ADR-0020, migration `0018`) ; garde de visibilite 
 (PRE-3/RG-T12) ajoutee en GET et en POST, apres la garde de permission + CSRF et AVANT le PIN — un numero
 inconnu et un canal non visible rendent tous deux 403 (anti-enumeration), le 404 restant reserve a la course
 theorique ou la commande disparaitrait entre deux lectures ; parcours JSON `POST /admin/api/orders/{number}/cancel`
-documente en section 4.4.
+documente en section 4.4. v0.5 (2026-09-29) - contre-audit independant (base MariaDB jetable) : le diagramme
+corrige (`sourceVisibleToRole` est une methode du CONTROLEUR `OrderAdminController` qui lit `source` par une
+requete SQL INLINE (`orderSource()`, pas un appel a une classe Repository), puis appelle seulement
+`OrderQueryRepository::visibleSources(role)` pour la liste des canaux autorises du role — le flux precedent
+montrait a tort `sourceVisibleToRole` comme un appel Repo de bout en bout.
 **Branche** : `feat/p1-conception`
 **Auteur methodologie** : BYAN
 
@@ -81,8 +85,10 @@ sequenceDiagram
     else Permission absente
         Ctrl-->>Equipier: 403 page Acces refuse
     else Autorise
-        Ctrl->>Repo: sourceVisibleToRole(number,<br/>role) : source de la<br/>commande dans role_visible_source ?
-        Repo->>BDD: lire source de<br/>customer_order (RG-T12)
+        Ctrl->>Ctrl: sourceVisibleToRole(number,<br/>role) : methode du CONTROLEUR<br/>(pas du Repo)
+        Ctrl->>BDD: orderSource() lit<br/>directement `source` de<br/>customer_order (SQL inline,<br/>meme couture que logFailedPin)
+        Ctrl->>Repo: visibleSources(role)<br/>(RG-T12, cote Repo)
+        Repo->>BDD: lire role_visible_source
         alt Numero inconnu OU<br/>canal non visible
             Ctrl-->>Equipier: 403 page Acces refuse<br/>(meme reponse, anti-<br/>enumeration -- AVANT tout PIN)
         else Canal visible
@@ -106,7 +112,7 @@ sequenceDiagram
     alt Jeton CSRF invalide
         Ctrl-->>Equipier: 403 Requete invalide
     else Jeton valide
-        Ctrl->>Repo: sourceVisibleToRole(number,<br/>role), PUIS findByNumber
+        Ctrl->>Ctrl: sourceVisibleToRole(number,<br/>role) (SQL inline +<br/>Repo.visibleSources), PUIS findByNumber
         alt Numero inconnu OU<br/>canal non visible
             Ctrl-->>Equipier: 403 (meme reponse,<br/>anti-enumeration --<br/>AVANT toute verification PIN)
         else Canal visible et commande trouvee

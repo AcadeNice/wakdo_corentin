@@ -1,8 +1,12 @@
 # Registre des decisions d'architecture (ADR)
 
 Une fiche courte par decision structurante : **contexte**, **decision**, **consequences**.
-Format inspire des Architecture Decision Records (M. Nygard). Les ADR sont immuables :
-une decision revisee donne une nouvelle fiche qui *supersede* l'ancienne (statut mis a jour).
+Format inspire des Architecture Decision Records (M. Nygard). La decision d'origine d'une
+fiche reste inchangee apres coup : une revision profonde donne une nouvelle fiche qui
+*supersede* l'ancienne (statut mis a jour). Un ajustement plus leger (precision, correction
+d'un fait errone, evolution mineure) se pose en **complement** ou en **erratum**, date et
+attribue, ajoute a la fin de la section concernee ou dans un bloc « Errata » en fin de
+fiche, plutot que reecrit dans le corps d'origine sans marque.
 
 **Auteur : BYAN** (formalisation ; arbitrage et validation par l'auteur).
 
@@ -11,7 +15,7 @@ une decision revisee donne une nouvelle fiche qui *supersede* l'ancienne (statut
 | [0001](0001-php-from-scratch-sans-composer.md) | PHP from scratch, sans framework ni Composer | Accepte |
 | [0002](0002-back-office-mvc-rendu-serveur.md) | Back-office en MVC rendu serveur (pas de SPA) | Accepte, complete le 2026-09-25 par ADR-0017 |
 | [0003](0003-stock-pourcentage-dispo-calculee.md) | Stock en pourcentage + disponibilite produit calculee (RG-T21) | Accepte |
-| [0004](0004-pin-action-sensible-audit.md) | PIN d'action sensible (equipier) + audit dans la meme transaction | Accepte |
+| [0004](0004-pin-action-sensible-audit.md) | PIN d'action sensible (equipier) + audit dans la meme transaction | Accepte, precise le 2026-09-27 par ADR-0020 |
 | [0005](0005-throttle-pin-separe-du-login.md) | Throttle du PIN separe des compteurs de connexion (RG-T22) | Accepte |
 | [0006](0006-http-409-conflit-422-validation.md) | HTTP 409 (conflit) vs 422 (validation) | Accepte |
 | [0007](0007-rgpd-anonymisation-tombstone.md) | Effacement RGPD par anonymisation (tombstone), pas DELETE | Accepte |
@@ -21,7 +25,7 @@ une decision revisee donne une nouvelle fiche qui *supersede* l'ancienne (statut
 | [0011](0011-pos-tactile-tuiles-comptoir-drive.md) | POS tactile a tuiles pour la saisie comptoir/drive | Accepte |
 | [0012](0012-page-stock-tableau-de-bord.md) | Page Stock en tableau de bord (alertes + reapprovisionnement en avant) | Accepte |
 | [0013](0013-vue-produits-groupee-par-categorie.md) | Vue back-office du catalogue groupee par categorie (en plus de la liste plate) | Accepte |
-| [0014](0014-expiration-commandes-pending.md) | Expiration des commandes restees en attente de paiement (cron 02h00) | Accepte, amende le 2026-07-31 par ADR-0016 |
+| [0014](0014-expiration-commandes-pending.md) | Expiration des commandes restees en attente de paiement | Accepte, amende le 2026-07-31 par ADR-0016 |
 | [0015](0015-allergenes-calcules-par-produit.md) | Allergenes calcules par produit, avec etat de revue explicite | Accepte, complete le 2026-09-27 par ADR-0018 |
 | [0016](0016-modification-commande-avant-paiement.md) | Modifier une commande avant paiement, et le verrou qui va avec | Accepte |
 | [0017](0017-api-admin-json.md) | API d'administration JSON, en complement du MVC rendu serveur | Accepte |

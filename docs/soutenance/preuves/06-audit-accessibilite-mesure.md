@@ -130,6 +130,27 @@ de design, les jetons d'espacement, les tailles de cible et les contrastes. **C'
 precisement pour ca que cette campagne a ete rejouee** : toute modification de ces
 fichiers invalide les chiffres, et il faut relancer `tests/e2e/run-a11y.sh`.
 
+**Empreintes datees au 29/09 : `admin.css` et `layout.php` ont encore change depuis la
+colonne « Perimetre elargi (09-26) », `style.css` non.** La page Sante de l'API (#175,
+#180, #183, #188, #189) et la correction #190 (page d'erreur du back-office) ont continue
+a toucher `admin.css` et `layout.php` apres le 26/09. Ce document ne cache pas cette
+derive : voici l'empreinte SHA-256 actuelle des trois memes fichiers, calculee le
+2026-09-29 (`sha256sum <fichier> | cut -c1-16`), sans relancer la campagne de mesure
+elle-meme (qui reste datee du 2026-09-28, section 1.2 du plan d'oral) :
+
+| Fichier | Perimetre elargi (09-26) | Etat au 29/09 |
+|---|---|---|
+| `src/public/borne/assets/css/style.css` | `184fd2db6132fb80` | `184fd2db6132fb80` (inchange) |
+| `src/public/admin/assets/css/admin.css` | `e5abb181bd470728` | `12a6bd272c91ec14` (change) |
+| `src/app/Views/admin/layout.php` | `ff7a3697d633e7dc` | `e873662e3be9ea86` (change) |
+
+`style.css` (borne) n'a pas bouge depuis le 26/09 : les mesures de contraste du perimetre
+borne restent valables telles quelles. `admin.css` et `layout.php`, eux, ont change : par
+prudence, il faudrait rejouer `tests/e2e/run-a11y.sh` pour confirmer que les mesures de
+contraste du back-office (section 4 et suivantes) tiennent encore sur l'etat exact du
+29/09 — ce qui n'a pas ete refait pour ce document. Les 0 violation mesures au 28/09
+restent la derniere mesure reelle disponible.
+
 ---
 
 ## 3. Perimetre analyse

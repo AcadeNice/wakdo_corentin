@@ -1,8 +1,8 @@
 # Diagramme de cas d'utilisation - Wakdo
 
 **Phase UML** : P1 - Conception, complement UML (apres MCD)
-**Statut** : v0.4 - prod-like, 5 roles RBAC + catalogue de 23 permissions
-**Historique** : v0.3 (2026-09-24) - mise en coherence avec le code livre (2a09597) : cas "Marquer une commande prete" ajoute (kitchen, counter, drive, admin, permission `order.read`), mention "lecture seule" retiree du role kitchen, "Saisir le numero de retrait" remplace par "Saisir le numero de chevalet (sur place)" en extension, admin relie a la saisie et a la remise, parcours de commande en deux appels (creation puis encaissement), aucun modificateur d'ingredient construit par la borne. v0.4 (2026-09-28) - audit final sur pieces : manager relie a "Consulter la file de preparation", "Marquer une commande prete" et "Annuler une commande" (`order.read` + `order.cancel` depuis ADR-0020, #176) sans `order.create` ni `order.deliver` ; cas livres absents ajoutes (page Sante, historique des mouvements, ajustement libre de stock, seuils, import CSV, enrichissement Open Food Facts, effacement RGPD, reinitialisation du PIN d'un equipier, choix de son propre PIN, mot de passe oublie, page confidentialite, API JSON d'administration, suivi public de commande) dans un second diagramme (section 3bis) pour garder le premier lisible ; UC51 "Se deconnecter" relie aux acteurs back-office ; statistiques (UC "Consulter les statistiques") realignees sur le code livre ; seuils de stock corriges en pourcentage de `stock_capacity`.
+**Statut** : v0.5 - prod-like, 5 roles RBAC + catalogue de 23 permissions
+**Historique** : v0.3 (2026-09-24) - mise en coherence avec le code livre (2a09597) : cas "Marquer une commande prete" ajoute (kitchen, counter, drive, admin, permission `order.read`), mention "lecture seule" retiree du role kitchen, "Saisir le numero de retrait" remplace par "Saisir le numero de chevalet (sur place)" en extension, admin relie a la saisie et a la remise, parcours de commande en deux appels (creation puis encaissement), aucun modificateur d'ingredient construit par la borne. v0.4 (2026-09-28) - audit final sur pieces : manager relie a "Consulter la file de preparation", "Marquer une commande prete" et "Annuler une commande" (`order.read` + `order.cancel` depuis ADR-0020, #176) sans `order.create` ni `order.deliver` ; cas livres absents ajoutes (page Sante, historique des mouvements, ajustement libre de stock, seuils, import CSV, enrichissement Open Food Facts, effacement RGPD, reinitialisation du PIN d'un equipier, choix de son propre PIN, mot de passe oublie, page confidentialite, API JSON d'administration, suivi public de commande) dans un second diagramme (section 3bis) pour garder le premier lisible ; UC51 "Se deconnecter" relie aux acteurs back-office ; statistiques (UC "Consulter les statistiques") realignees sur le code livre ; seuils de stock corriges en pourcentage de `stock_capacity`. v0.5 (2026-09-29) - contre-audit independant (base MariaDB jetable) : reference au MCT mise a jour (30 -> 40 operations) ; references `mct.md 13` corrigees en `mct.md 5.2` pour MARK_READY (fiche ajoutee a cette section, pas a la section 13 "machine a etats") ; cas manager/admin "Consulter la file de preparation" precise (`/admin/orders` = 50 commandes recentes TOUS statuts, distinct de `/kitchen/display` qui filtre sur `paid`/`preparing`/`ready`).
 **Date** : 2026-06-11
 **Branche** : `feat/p1-conception`
 **Auteur methodologie** : BYAN
@@ -14,7 +14,7 @@
 Ce document recense les **cas d'utilisation** de Wakdo, c'est-a-dire les
 fonctionnalites observables du systeme du point de vue de ses acteurs. Il
 complete le MCD (`docs/merise/mcd.md`), le dictionnaire
-(`docs/merise/dictionary.md`) et le MCT (`docs/merise/mct.md`, 30 operations) en
+(`docs/merise/dictionary.md`) et le MCT (`docs/merise/mct.md`, 40 operations) en
 passant de la vue **donnees / traitements** a la vue **usages**.
 
 Le diagramme reste au niveau conceptuel : il identifie qui fait quoi, sans
@@ -345,7 +345,7 @@ avec `counter`/`drive`, a cumuler les cinq.
 |---|---|---|---|---|
 | Saisir une commande comptoir/drive | 4.1 CREATE_COUNTER_ORDER | `order.create` | Composer une commande pour un client au comptoir (`counter`) ou au drive (`drive`). Logique identique a CREATE_ORDER. Le canal est deduit du CHEMIN emprunte (`/counter/orders` ou `/drive/orders`, `channelGuard()`) puis auto-tague en `source` depuis `role.order_source` pour un role a canal fixe ; l'admin (sans canal fixe) le choisit explicitement dans le corps de la requete API. Numero prefixe canal + id (`C<id>`/`D<id>`, voir dictionnaire note 4). | `customer_order`, `order_item`, `order_item_selection`, `order_item_modifier`, `ingredient`, `stock_movement` |
 | Consulter la file de preparation | 5.1 LIST_ORDERS_DISPLAY | `order.read` | Voir les commandes `paid`, `preparing` et `ready` triees par `paid_at` croissant, filtrees par `role_visible_source` (counter voit kiosk+counter ; drive voit drive ; admin voit tout). Couleur KDS = `now - paid_at`. | `customer_order`, `order_item`, `order_item_selection`, `order_item_modifier`, `role_visible_source` |
-| Marquer une commande prete | MARK_READY (`mct.md` 13) | `order.read` | Depuis la file, passer une commande `paid` ou `preparing` a `ready`, `ready_at = NOW()` (`POST /admin/orders/{number}/ready`). | `customer_order` |
+| Marquer une commande prete | MARK_READY (`mct.md` 5.2) | `order.read` | Depuis la file, passer une commande `paid` ou `preparing` a `ready`, `ready_at = NOW()` (`POST /admin/orders/{number}/ready`). | `customer_order` |
 | Remettre la commande | 6.1 DELIVER_ORDER | `order.deliver` | Geste unique vers `delivered` depuis `paid`, `preparing` ou `ready`, `delivered_at = NOW()`. Admin inclus (seul manager en est exclu, cf. 4.2bis). | `customer_order` |
 | Annuler une commande | 7.1 CANCEL_ORDER | `order.cancel` + PIN | Transition vers `cancelled` depuis `pending_payment`, `paid`, `preparing` ou `ready`, `cancelled_at = NOW()`, apres verification du PIN de l'equipier. Re-credit du stock si des mouvements `sale` existent ; trace `audit_log`. | `customer_order`, `ingredient`, `stock_movement`, `audit_log` |
 
@@ -357,8 +357,8 @@ agit sur `/admin/orders`, la meme liste que l'admin, avec `order.read` + `order.
 
 | Cas | Operation MCT | Permission | Description | Entites |
 |---|---|---|---|---|
-| Consulter la file de preparation | 5.1 LIST_ORDERS_DISPLAY | `order.read` | Voit `/admin/orders` comme l'admin (toutes sources, pas de filtre par canal). | `customer_order`, `order_item`, `order_item_selection`, `order_item_modifier`, `role_visible_source` |
-| Marquer une commande prete | MARK_READY (`mct.md` 13) | `order.read` | Meme bouton « Prete » que kitchen/counter/drive/admin. | `customer_order` |
+| Consulter les commandes | 5.1 LIST_ORDERS_DISPLAY (elargie) | `order.read` | Voit `/admin/orders` (`OrderAdminController::index`) comme l'admin, toutes sources, pas de filtre par canal — mais ce n'est PAS la file de preparation stricte : `/admin/orders` liste les 50 commandes les PLUS RECENTES TOUS STATUTS confondus (historique + action), la ou `/kitchen/display` (KitchenController, le vrai equivalent de LIST_ORDERS_DISPLAY 5.1) ne montre QUE `paid`/`preparing`/`ready`. Le manager n'a pas d'ecran `/kitchen/display` dedie ; `/admin/orders` lui sert des deux (consultation large + actions ready/cancel). | `customer_order`, `order_item`, `order_item_selection`, `order_item_modifier`, `role_visible_source` |
+| Marquer une commande prete | MARK_READY (`mct.md` 5.2) | `order.read` | Meme bouton « Prete » que kitchen/counter/drive/admin. | `customer_order` |
 | Annuler une commande | 7.1 CANCEL_ORDER | `order.cancel` + PIN | Meme flux PIN + audit que counter/drive/admin (7.1). | `customer_order`, `ingredient`, `stock_movement`, `audit_log` |
 
 ### 4.3 Acteur Kitchen (role `kitchen`)
@@ -366,7 +366,7 @@ agit sur `/admin/orders`, la meme liste que l'admin, avec `order.read` + `order.
 | Cas | Operation MCT | Permission | Description | Entites |
 |---|---|---|---|---|
 | Consulter la file de preparation | 5.1 LIST_ORDERS_DISPLAY | `order.read` | Voir toutes les sources (kiosk, counter, drive). | `customer_order`, `order_item`, `order_item_selection`, `order_item_modifier`, `role_visible_source` |
-| Marquer une commande prete | MARK_READY (`mct.md` 13) | `order.read` | Bouton « Prete » de la file (`KitchenController`, `OrderAdminController::ready`) : seule transition de statut ouverte a la cuisine. | `customer_order` |
+| Marquer une commande prete | MARK_READY (`mct.md` 5.2) | `order.read` | Bouton « Prete » de la file (`KitchenController`, `OrderAdminController::ready`) : seule transition de statut ouverte a la cuisine. | `customer_order` |
 
 ### 4.4 Stock (Kitchen, Counter, Drive, Manager, Admin)
 

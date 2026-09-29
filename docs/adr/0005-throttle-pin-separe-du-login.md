@@ -4,10 +4,9 @@
 - Date : 2026-06-15
 
 ## Contexte
-Le PIN d'action sensible (ADR-0004) est court (4 a 12 chiffres, `STAFF_PIN_MIN_LENGTH`/
-`STAFF_PIN_MAX_LENGTH`) : il faut limiter le brute-force. Question : reutiliser les
-compteurs de login (`user.lockout_until` / `login_throttle`) ou un compteur dedie ? Et sur
-quelle dimension compter ?
+Le PIN d'action sensible (ADR-0004) est court (4 chiffres) : il faut limiter le
+brute-force. Question : reutiliser les compteurs de login (`user.lockout_until` /
+`login_throttle`) ou un compteur dedie ? Et sur quelle dimension compter ?
 
 ## Decision
 Table **`pin_throttle`** dediee, **separee** des compteurs de connexion. La dimension
@@ -22,3 +21,11 @@ verification ; sous verrou actif, pas de nouvelle ligne `pin.failed` (anti-ampli
 - (+) Detection : un pic de `pin.failed` reste alertable.
 - (-) Un compteur de plus a purger (cron, comme `login_throttle`).
 - Brique : `App\Auth\PinThrottle`. Regle : RG-T22. Cf. ADR-0004.
+
+## Errata
+- Erratum (2026-09-28, audit #195) : le contexte ci-dessus dit « PIN (ADR-0004) est court
+  (4 chiffres) » ; le PIN est en realite long de 4 a 12 chiffres
+  (`STAFF_PIN_MIN_LENGTH`/`STAFF_PIN_MAX_LENGTH`, `App\Auth\PinVerifier` lignes 134/139),
+  vrai depuis la creation de la brique (commit `7c35f8e`, 2026-06-15). Le raisonnement de
+  cette fiche (compteur dedie, dimension utilisateur agissant) reste valide quelle que soit
+  la longueur exacte du PIN.

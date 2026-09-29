@@ -65,25 +65,31 @@ Client                Borne (Bloc 1)           API (Bloc 2)          BDD
 - Format **Normal / Maxi** au niveau du menu (deux prix : `price_normal_cents`, `price_maxi_cents`) ; le Maxi agrandit accompagnement + boisson uniquement
 - **Personnalisation des ingredients** (retirer = gratuit, ajouter = supplement) sur les sandwichs composes, via le configurateur (`ingredient`, `product_ingredient`, `order_item_modifier`)
 - **TVA portee par le produit** (`vat_rate` : 10% defaut, 5,5% contenant conservable), calculee ligne par ligne et snapshotee sur `order_item` (fact-check BOFiP, voir `dictionary.md` note 9)
-- Une **commande** a un **numero** saisi par le client, prefixe par canal `K`/`C`/`D` (remplace le paiement dans le cadre de l'exam)
-- Statuts commande (machine a **6 etats**, migration `0009_order_prep_states.sql`) : `pending_payment` -> `paid` -> `preparing` -> `ready` -> `delivered`, plus `cancelled` (terminal, atteignable depuis tout etat non termine). L'encaissement (saisie du numero) fait passer atomiquement `pending_payment` -> `preparing` (`paid_at` ET `preparing_at` poses dans la meme transaction ; `paid` reste un etat encaisse valide, conserve pour les commandes anterieures et pour l'idempotence). La cuisine (KDS) fait avancer `preparing` -> `ready` (`OrderRepository::markReady`). La remise accepte tout etat encaisse (`paid`, `preparing` ou `ready`) -> `delivered`, sans obliger a transiter par les etats de cuisine
+- Une **commande** a un **numero genere par le serveur** (prefixe canal `K`/`C`/`D` + id auto-incremente, ex. `K42`), retourne par l'API a la creation -- le client le RECOIT, il ne le saisit pas (le paiement reel est ce qui est remplace dans le cadre de l'exam, pas la numerotation)
+- Statuts commande (machine a **6 etats**, migration `0009_order_prep_states.sql`) : `pending_payment` -> `paid` -> `preparing` -> `ready` -> `delivered`, plus `cancelled` (terminal, atteignable depuis tout etat non termine). Le paiement (carte/especes) est simule par un bouton d'interface, pas par la saisie du numero de commande : sur la borne, `POST /api/orders` cree la commande en `pending_payment`, puis un second appel `POST /api/orders/{number}/pay` l'encaisse et la fait passer directement a `preparing` (`paid_at` ET `preparing_at` poses dans la meme transaction ; `paid` reste un etat valide de l'enum, conserve pour compatibilite, mais aucun chemin de code actuel ne l'ecrit). Au comptoir/drive, `createStaffOrder()` enchaine les deux memes etapes en interne (deux transactions distinctes). La cuisine (KDS) fait avancer `preparing` -> `ready` (`OrderRepository::markReady`). La remise accepte tout etat encaisse (`paid`, `preparing` ou `ready`) -> `delivered`, sans obliger a transiter par les etats de cuisine
 - **Source commande** (trace sur chaque commande) : `kiosk` (borne autonome) | `counter` (comptoir) | `drive` (drive-thru)
 - Le canal de prepa (`kitchen`/`counter`/`drive`) voit la file des commandes actives (`paid`, `preparing`, `ready`) triee par `paid_at` **croissant**, filtree par `role_visible_source` (kitchen voit tout ; counter voit kiosk+counter ; drive voit drive)
 - **Horaires service** : 10h00 → 01h00 du matin (service continu 15h, pas de fermeture intermediaire)
 - **Pas de notion de "session de service" a modeliser** : les equipiers se relaient, chacun se connecte a sa prise de poste et se deconnecte a la fin. Pas de "shift" a tracer dans la BDD (hors scope RNCP)
 - **Fenetre de maintenance systeme** : 01h30 → 09h30 (crons lourds, backups, agregations) — evite toute interference avec le service actif
-- **Notion de "jour de service"** (important pour les stats et l'agregation) :
+- **Notion de "jour de service"** (concu pour les stats et l'agregation, **non implemente** a ce stade) :
   - Un jour de service J = toutes les commandes creees entre **J 10h00** et **J+1 01h00**
   - Exemple : la soiree du 22/04 = commandes `22/04 10:00 → 23/04 01:00`, regroupees sous `service_day = 2026-04-22`
   - Une commande creee a 23h55 le 22/04 et livree a 00h30 le 23/04 appartient au meme jour de service (22/04)
-  - **Implementation** : colonne `service_day` calculee sur la table `orders`, ou vue SQL :
+  - **Implementation prevue** : colonne `service_day` calculee sur la table `orders`, ou vue SQL :
     ```sql
     service_day = CASE
       WHEN HOUR(created_at) < 10 THEN DATE(created_at - INTERVAL 1 DAY)
       ELSE DATE(created_at)
     END
     ```
-  - Les requetes de stats (CA jour, produits top, etc.) utilisent `service_day` et non `DATE(created_at)` brut
+  - **Etat reel du code livre** : aucune colonne ni vue `service_day` n'existe
+    (`grep service_day src/app` ne trouve qu'un commentaire de
+    `OrderRepository::createStaffOrder()` expliquant que ce compteur n'a pas ete retenu
+    pour la numerotation). Les stats livrees (`OrderQueryRepository::salesKpis()` /
+    `salesByDay()`) agregent sur le jour CALENDAIRE (`CURDATE()` / `DATE(created_at)`),
+    pas sur cette fenetre 10h-01h ; il n'existe pas non plus de requete "produits top".
+    Le concept metier reste documente ici comme cible, a distinguer de ce qui est livre
 
 ---
 
@@ -131,9 +137,9 @@ Client                Borne (Bloc 1)           API (Bloc 2)          BDD
 | FQDN | Role | Bloc | Auth |
 |---|---|---|---|
 | `corentin-wakdo.stark.a3n.fr` | Borne client (kiosk tactile) | Bloc 1 | Public |
-| `corentin-wakdo-admin.stark.a3n.fr` | Back-office + API REST (sous `/api/*`) | Bloc 2 | Session (cookie `WAKDO_SID`) + jeton CSRF (en-tete `X-CSRF-Token`) sur toute mutation ; PIN equipier pour les actions sensibles. Pas de jeton d'acces separe. |
+| `corentin-wakdo-admin.stark.a3n.fr` | Back-office + API REST : `/api/*` (catalogue + commande, PUBLIC, sans CSRF) et `/admin/api/*` (administration, prefixe DISTINCT) | Bloc 2 | `/admin/api/*` : session (cookie `WAKDO_SID`) + jeton CSRF (en-tete `X-CSRF-Token`) sur toute mutation ; PIN equipier pour les actions sensibles. Pas de jeton d'acces separe. `/api/*` : aucune authentification. |
 
-**CORS** : la borne (`corentin-wakdo.stark.a3n.fr`) consomme l'API (`corentin-wakdo-admin.stark.a3n.fr/api/*`). Headers CORS explicites avec origine precise (pas de wildcard `*`), argumentable comme durcissement securite face au jury.
+**CORS** : la borne (`corentin-wakdo.stark.a3n.fr`) consomme `/api/*` en **meme origine**, pas via CORS -- le vhost kiosk (`docker/apache/vhost.conf`) relaie `/api/*` au front controller admin via PHP-FPM (`ProxyPassMatch`), donc aucune requete cross-origine sur ce parcours. Le middleware `App\Core\Cors` (origine exacte, pas de wildcard `*`) reste en place en defense en profondeur pour un eventuel consommateur cross-origine, mais n'est pas sur le chemin de la borne (`docs/api/conventions.md` section 10).
 
 ### Services Docker
 
@@ -211,7 +217,7 @@ Reseaux :
 **IN scope :**
 - Affichage dynamique menus + produits (charges par `fetch` depuis l'API `/api/*`)
 - Composition panier : produits unitaires OU menus (burger + accompagnement + boisson + sauce)
-- Options taille (normale / grande, +0,50 € sur grande) pour accompagnements et boissons
+- Options de taille, propres a chaque famille de produit (pas un delta fixe unique) : les boissons fontaine ont une variante 50 cl a +0,50 € sur la base 30 cl (seed 0005) ; les frites/potatoes existent en plusieurs formats, chacun avec son propre prix (seed 0002) ; le format Maxi d'un menu (burger + accompagnement + boisson agrandis) ajoute +1,50 € (`price_maxi_cents = price_normal_cents + 150`, seed 0002/0006)
 - Options de personnalisation simples (ex : sans oignon, avec fromage)
 - Recapitulatif panier (ajout, modification quantite, suppression)
 - Validation commande + saisie numero (remplace paiement)
@@ -230,7 +236,7 @@ Reseaux :
 ### Bloc 2 — Back-office + API (Back)
 
 **IN scope — Back-office :**
-- Authentification sessions securisees (hash bcrypt/argon2, protection CSRF, fixation session) — duree de session adaptee a un poste complet d'equipier (idle timeout 4h, absolute timeout 10h)
+- Authentification sessions securisees (hash argon2id, protection CSRF, fixation session) — duree de session adaptee a un poste complet d'equipier (idle timeout 4h, absolute timeout 10h)
 - 5 roles RBAC seed : `admin`, `manager`, `kitchen`, `counter`, `drive` (RBAC permission-driven, 23 permissions figees au seed ; roles personnalises possibles)
 - **Admin** : CRUD complet catalogue (+ suppressions), gestion utilisateurs, roles et permissions (RBAC), stats
 - **Manager** : catalogue (create/update), stock (reappro + inventaire), statistiques ; utilisateurs en **lecture seule** (`user.read`, pas de creation/modification/desactivation), pas d'acces RBAC ; consultation et annulation des commandes tous canaux (`order.read` + `order.cancel`, ADR-0020)
@@ -238,15 +244,15 @@ Reseaux :
 - **Counter** / **Drive** : saisir une commande (comptoir / drive-thru via casque/intercom), bouton "declarer livree" (`paid`/`preparing`/`ready` -> `delivered`), annuler ; `source` auto-tague depuis `role.order_source` ; inventaire
 - Upload images produits : **implemente et teste** (`App\Core\ImageUploader`, `tests/Unit/Core/ImageUploaderTest.php`) — type reel detecte cote serveur (finfo + getimagesize), sans se fier a l'extension du nom d'origine ni au type annonce par le navigateur, nom de fichier regenere, stockage dans `public/uploads` (voisin des deux racines web, non execute directement) ; taille et formats acceptes regles par l'environnement (`UPLOAD_MAX_SIZE_MB`, `UPLOAD_ALLOWED_MIME`). Correction du 2026-09-24 : cette ligne annoncait a tort l'upload comme non implemente.
 - Historique commandes par statut
-- Stats de base (commandes du jour, CA jour, produits top)
+- Stats de base livrees : compteurs catalogue, sante du stock, CA encaisse (total et du jour calendaire, `CURDATE()`), panier moyen, repartition par statut, mini-graphe 7 jours (`OrderQueryRepository::salesKpis()`/`salesByDay()`) — pas de notion de "produits top" ni de jour de service (voir section 2)
 
 **IN scope — API REST :**
 - `GET /api/categories` — liste categories produits
-- `GET /api/products` — liste produits (filtrable par categorie)
-- `GET /api/menus` — liste menus avec compositions et options
+- `GET /api/products` — liste produits (non filtrable par categorie a ce stade : aucun parametre de requete n'est lu par `CatalogueController::products()`)
+- `GET /api/menus` — liste menus (sans compositions ; les slots ne sont renvoyes que par le detail `GET /api/menus/{id}`)
 - `POST /api/orders` — creer une commande (body JSON, retour `{id, order_number, status, total_ttc_cents}`)
 - `GET /api/orders/{number}` — recuperer statut commande
-- Headers CORS explicites pour l'origine borne
+- Middleware CORS present en defense en profondeur (origine exacte, sans wildcard) ; la borne consomme en realite `/api/*` en meme origine via le proxy du vhost kiosk, pas via CORS (section 5)
 - Reponses JSON standardisees : `{data: ...}` (succes) ou `{data: null, error: {code, message}}` (echec)
 
 **IN scope — Transverse :**
@@ -275,7 +281,7 @@ Reseaux :
   - `15 4 * * *` — purge du journal d'audit au-dela de la fenetre de retention (~12 mois)
   - `45 4 * * *` — purge des compteurs de throttle expires
   - Differes (templates commentes dans `docker/cron/crontab`, a activer plus tard) : purge des sessions expirees, agregation des stats sur le jour de service
-- **CI Forgejo Actions** (act_runner auto-heberge) : lint PHP + PHPStan + PHPUnit + secret-scan (gitleaks) + js-tests sur PR -> dev
+- **CI Forgejo Actions** (act_runner auto-heberge, `ci.yml`, cinq travaux independants) : `secret-scan` (gitleaks), `php-lint`, `static-tests` (PHPStan + PHPUnit avec service MariaDB), `js-tests`, `shell-tests` -- sur PR vers `dev` ET `main`
 - **CD : deploiement automatique, declenche par un push sur `main`** (`.forgejo/workflows/deploy.yml`,
   `on: push: branches: [main]`, deux travaux `cle-de-deploiement` + `deploiement`) : le job
   n'a pas le socket Docker (mesure du 2026-09-22) et ne pilote pas Docker lui-meme. Il ouvre
@@ -360,7 +366,9 @@ Reseaux :
 
 **Branches :**
 ```
-main            ← production (tag vX.Y.Z sur chaque release)
+main            ← production (tag vX.Y.Z sur chaque release ;
+                   etat au 29/09 : seules v0.1.0 et v0.2.0 sont posees,
+                   les releases suivantes sont identifiees par le titre de leur PR)
   dev           ← integration
     feat/*      ← nouvelles features
     fix/*       ← corrections
@@ -398,7 +406,7 @@ fait regle) :
   - `feat(front): ajouter l'ecran de composition de menu avec options de taille`
   - `fix(api): corriger le calcul du total commande pour la grande taille`
   - `db: ajouter la migration 003 orders avec fk vers users`
-  - `docker: ajouter le service cron avec sauvegarde quotidienne`
+  - `chore(docker): ajouter le service cron avec sauvegarde quotidienne`
   - `ci: ajouter le workflow phpunit sur pull_request`
 
 ### Code PHP
@@ -454,7 +462,7 @@ fait regle) :
 | 6 | MariaDB 11 LTS | LTS 2028, compatible MySQL |
 | 7 | Apache Alpine + PHP-FPM Alpine | Demande utilisateur (admin sys), images legeres |
 | 8 | 2 FQDN | Separation claire borne publique / admin+API interne, defensible jury |
-| 9 | API sous `/api` sur le FQDN admin | Simplicite d'exploitation, CORS explicite gere |
+| 9 | API publique sous `/api` (catalogue + commande) et API admin sous `/admin/api` (distinct), toutes deux sur le FQDN admin | Simplicite d'exploitation ; la borne consomme `/api` en meme origine via le proxy du vhost kiosk (pas de CORS sur ce chemin) |
 | 10 | Service cron dedie | Cr 7.b.3 explicite + realiste prod |
 | 11 | Orchestration `docker compose up` (service wakdo-migrate) | Cr 7.c.4 + demonstration DevOps |
 | 12 | Conventional Commits + hooks | Cr 4.f.x + discipline de versioning |
@@ -530,7 +538,7 @@ Buffer : ~8 h pour imprevus. Cible effective : ~264 h sur 20 semaines = **~13 h/
 | Complexite MCT (statuts commande) mal modelisee | Moyenne | Fort | Valider MCT avec un pair ou prof avant d'implementer Bloc 2 |
 | Dockerfile PHP extensions manquantes decouvert tard | Moyenne | Faible | Tester `docker compose up -d` + un vrai appel BDD des P0 |
 | Conflit reseau Docker `wakdo_internal` existant | Faible | Faible | Verifie au setup, fallback nom `wakdo_backend` |
-| CORS mal configure bloque la borne | Moyenne | Moyen | Test immediat apres setup 2 FQDN |
+| CORS mal configure bloque la borne | Faible (la borne consomme `/api/*` en meme origine via le proxy du vhost kiosk, pas via CORS ; le middleware CORS n'est pas sur ce chemin) | Moyen | Verifie a la mise en place du vhost kiosk (section 5) ; le middleware CORS reste teste pour un eventuel consommateur cross-origine |
 | Performance borne sur ecran tactile reel | Faible | Fort | Optimiser images + lazy loading + tests sur device tactile si possible |
 | Scope creep (ajout fonctionnalites non RNCP) | Haute | Fort | Sticker le scope, OUT scope documente ici, refuser les ajouts |
 | Gestion secrets (`.env`) leaked sur Git | Faible | Tres fort | `.env` liste dans `.gitignore` des P0, pre-commit hook check secrets futur |
@@ -546,7 +554,7 @@ Buffer : ~8 h pour imprevus. Cible effective : ~264 h sur 20 semaines = **~13 h/
 | **Borne** | Ecran tactile autonome dans le restaurant, le client compose lui-meme (canal `kiosk`) |
 | **Comptoir** | Guichet physique, equipier saisit la commande pour le client (canal `counter`) |
 | **Drive** | Piste drive-thru : client en voiture, borne intercom + haut-parleur, equipier avec casque + tablette saisit la commande (canal `drive`) |
-| **Jour de service** | Periode d'activite 10h J -> 01h J+1 (15h continu), unite d'agregation pour toutes les stats commerciales |
+| **Jour de service** | Periode d'activite 10h J -> 01h J+1 (15h continu) ; concept metier cible pour l'agregation des stats commerciales, **non implemente** dans les stats livrees (qui agregent sur le jour calendaire, voir section 2) |
 | **Fenetre de maintenance** | Periode 01h30 -> 09h30 reservee aux taches systeme (backups, stats, purges) |
 | **Accompagnement** | Frite, salade, potatoes — option avec taille |
 | **Supplement** | Ajout optionnel sur un produit (fromage, bacon) — peut impacter prix |
@@ -578,16 +586,16 @@ Le jury Bloc 2 demande **capacite a modifier le code en direct** (Cr 4.a.1). Il 
 
 - **Connaitre son code** : pouvoir expliquer chaque fichier et la raison de sa presence
 - **Argumenter les choix** : pas Laravel ? pourquoi pas. POO + heritage ? demontrer l'arbre. MVC ? montrer qu'une route traverse un controller puis un model puis une vue
-- **Justifier l'archi Docker** : pourquoi 4 services, pourquoi Alpine, pourquoi Traefik
+- **Justifier l'archi Docker** : pourquoi 5 services, pourquoi Alpine, pourquoi Traefik
 - **Comprendre la BDD** : defendre les cardinalites, les contraintes, les index
-- **Expliquer les choix securite** : PDO prepared, bcrypt, CSRF, sessions, CORS
+- **Expliquer les choix securite** : PDO prepared, argon2id, CSRF, sessions, CORS
 - **Avoir un plan B** : savoir repondre "si le jury vous demande d'ajouter X, par ou commencer"
 
 Preparer des **questions frequentes** :
 - "Pourquoi pas Laravel/Symfony ?" → Sujet impose from scratch + demo maitrise des fondamentaux
 - "Pourquoi pas Composer ?" → Criteres Cr 4.c.3 autorise manuel, plus defendable "from scratch"
 - "Comment gerez-vous l'injection SQL ?" → PDO prepared statements exclusivement, montrer exemple dans un Repository
-- "Votre API ne gere pas X role" → Fallback : middleware RBAC par role, montrer code
+- "Votre API ne gere pas X role" → Fallback : RBAC permission-driven (le code teste une permission, pas un nom de role), montrer code
 - "Comment deploieriez-vous en prod vrai ?" → Ajouter monitoring, blue-green, IaC, secrets manager
 
 ---
@@ -700,7 +708,7 @@ Ces regles tiennent lieu de garde-fous pendant toute la duree du projet. Les enf
 6. **Zero requete SQL sans prepared statement** (anti-SQLi)
 7. **Zero hash mdp en clair** (bcrypt ou argon2)
 8. **Zero CORS `*`** (origine explicite uniquement)
-9. **Deploiement scripte et trace** (`scripts/deploy.sh`), declenche par l'exploitant ; pas de modification manuelle ad hoc en prod
+9. **Deploiement scripte et trace** (`scripts/deploy.sh`) : automatique sur chaque push vers `main` (`.forgejo/workflows/deploy.yml`), et declenchable a la main par l'exploitant (`workflow_dispatch`) ; pas de modification manuelle ad hoc en prod
 10. **Zero feature hors scope** sans mise a jour de ce document
 
 ---
@@ -807,8 +815,12 @@ deltas sans l'identite de l'acteur (`mlt.md` 9.3 RG-4). Les credentials (`passwo
 plutot qu'un lock indefini, dans les deux dimensions compte (`user.lockout_until`) et IP
 (`login_throttle.lockout_until`, `mlt.md` 12.1 RG-8) : une saisie maladroite ne bloque pas une
 cuisine en plein service de 15h continu. L'idempotence (RG-T19) absorbe les doubles-soumissions
-de retry reseau sur le kiosk anonyme. Le decrement de stock atomique (RG-T20) evite tout
-contentieux de verrou (pas de `SELECT ... FOR UPDATE`, pas d'ordre de deadlock).
+de retry reseau sur le kiosk anonyme. Le decrement de stock (RG-T20) repose sur un `UPDATE`
+auto-verrouillant par ingredient ; la commande elle-meme (`customer_order`, `order_item`,
+`order_item_selection`, `order_item_modifier`) est en revanche verrouillee explicitement
+(`SELECT ... FOR UPDATE`, `OrderRepository::lockOrder()` et `consumption()`), et les `UPDATE`
+de stock sont ordonnes par `ingredient_id` (ordre de verrou stable, `ksort()`) pour eviter tout
+deadlock entre commandes concurrentes qui partagent des ingredients.
 
 **Elevation of privilege.** Le RBAC est permission-driven : le code teste une permission, pas
 un nom de role (catalogue de 23 permissions fige au seed, `dictionary.md` 3.17). Les

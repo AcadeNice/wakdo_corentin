@@ -1,8 +1,8 @@
 # Dictionnaire de Donnees — Wakdo
 
 **Phase Merise** : P1 - Conception, etape 1 (dictionnaire de donnees d'abord, mantra #33)
-**Version** : v0.4 — prod-like, 23 entites (19 prod-like + couche security-by-design + classement des ingredients, incl. les entites `login_throttle`, `pin_throttle` et `category_ingredient_family`)
-**Date** : 2026-06-04 (ajouts security-by-design 2026-06-11 ; classement des ingredients 2026-09-27 ; corrections d'audit 2026-09-28)
+**Version** : v0.5 — prod-like, 23 entites (19 prod-like + couche security-by-design + classement des ingredients, incl. les entites `login_throttle`, `pin_throttle` et `category_ingredient_family`)
+**Date** : 2026-06-04 (ajouts security-by-design 2026-06-11 ; classement des ingredients 2026-09-27 ; corrections d'audit 2026-09-28 ; contre-audit independant 2026-09-29)
 **Branche** : `feat/p1-conception`
 **Statut** : prod-like — toutes les decisions D1-D8 + stock appliquees (voir `docs/journal/2026-06-04--conception-prodlike-revision.md` pour D1-D3 et `docs/journal/2026-06-04--p1-merise-v0.2-rewrite-and-forgejo-migration.md` pour D4-D8 + stock) ; couche security-by-design en cours (voir note 13) ; colonnes additives post-v0.3 des migrations 0003/0005/0006/0007 alignees sur le deploye (voir note 14)
 **Auteur** : BYAN (couche methodologie)
@@ -124,7 +124,11 @@ Un article vendable unique, disponible a la carte ou comme composant dans un slo
 | `created_at` | DATETIME | NO | CURRENT_TIMESTAMP | — | — | audit |
 | `updated_at` | DATETIME | NO | CURRENT_TIMESTAMP ON UPDATE | — | — | audit |
 
-**Volume** : ~53 lignes a l'init (66 lignes dans `produits.json` moins 13 menus deplaces vers `menu`).
+**Volume** : 53 lignes a l'init (`0002_catalogue.sql`, 66 lignes dans `produits.json` moins 13 menus
+deplaces vers `menu`), **58 au total apres tous les seeds** : le seed `0005_drink_sizes.sql` insere 5
+lignes VARIANTE 50 cl (une par boisson fontaine — Coca Cola, Coca Sans Sucres, Fanta Orange, Ice Tea
+Pêche, Ice Tea Citron), reliees a leur base 30 cl (`base_product_id`) puis pointees en variante Maxi
+(`0006_drink_maxi_variant.sql`, `maxi_variant_product_id`).
 
 ---
 
@@ -214,14 +218,15 @@ Ingredient elementaire utilise dans la composition des produits. Porte les donne
 
 **CHECK au niveau table** : `critical_stock_pct < low_stock_pct` (le seuil critique se situe sous la bande d’alerte).
 
-**Regle de decrement de stock** : a la transition `paid`, chaque ingredient est decremente de
-`product_ingredient.quantity_normal` ou `quantity_maxi` (selectionne par `order_item.format`)
-multiplie par `order_item.quantity`, puis ajuste par les lignes `order_item_modifier`. Voir note 7.
+**Regle de decrement de stock** : a la transition vers `preparing` (encaissement, PAY_ORDER), chaque
+ingredient est decremente de `product_ingredient.quantity_normal` ou `quantity_maxi` (selectionne par
+`order_item.format`) multiplie par `order_item.quantity`, puis ajuste par les lignes `order_item_modifier`.
+Voir note 7. `paid` reste dans l'ENUM mais aucun chemin de code actuel ne l'ecrit plus.
 **Regle de reapprovisionnement** : `stock_quantity += N * pack_size` (reapprovisionne en packs complets),
 plafonne a `stock_capacity` (`IngredientRepository::restock`, delta reellement applique renvoye a l'appelant).
 **Regle d'annulation** : le recredit est conditionnel a l'existence de mouvements `sale` pour la commande
 (pose au decrement de l'encaissement) plutot qu'au statut lu avant la transaction (insensible a la course
-`pending_payment -> paid -> cancel`) ; sans mouvement `sale`, rien n'est recredite. Le recredit est lui
+`pending_payment -> preparing -> cancel`) ; sans mouvement `sale`, rien n'est recredite. Le recredit est lui
 aussi plafonne a `stock_capacity` (`OrderRepository::cancel`).
 **Modele de stock (base sur le pourcentage, trois bandes)** : le seuil d'alerte absolu est remplace par un
 modele en pourcentage ancre sur `stock_capacity` (la reference 100%). Le pourcentage de stock est
@@ -401,8 +406,10 @@ d'un menu : retrait (gratuit) ou ajout (avec supplement optionnel).
   Aucune FK supplementaire n'est necessaire : etant donne `order_item_id`, le burger est
   `order_item.menu_id -> menu.burger_product_id`.
 
-**Impact stock** : chaque modificateur affecte le stock d'ingredient a la transition `paid`
-(`remove` -> pas de decrement pour cet ingredient ; `add` -> decrement supplementaire).
+**Impact stock** : chaque modificateur affecte le stock d'ingredient a la transition vers `preparing`
+(encaissement, PAY_ORDER) (`remove` -> pas de decrement pour cet ingredient ; `add` -> decrement
+supplementaire). `paid` reste dans l'ENUM `customer_order.status` mais aucun chemin de code actuel ne
+l'ecrit plus (voir note sur `customer_order.status` et `mlt.md` 3.3ter).
 
 ---
 
@@ -416,12 +423,12 @@ ne sont pas authentifies et n'ont pas de ligne ici.
 | `id` | INT UNSIGNED | NO | AUTO_INCREMENT | PK | |
 | `email` | VARCHAR(254) | NO | — | UNIQUE | longueur max selon RFC 5321 |
 | `password_hash` | VARCHAR(255) | NO | — | — | hash argon2id, code en dur dans `PasswordHasher` (choix security-by-design non configurable ; il n'existe pas de variable `PASSWORD_ALGO`, seuls les couts `ARGON2_MEMORY_COST`/`ARGON2_TIME_COST`/`ARGON2_THREADS` se lisent depuis `.env`) ; longueur typique 96 caracteres, marge jusqu'a 255 |
+| `pin_hash` | VARCHAR(255) | YES | NULL | — | hash argon2id du PIN par membre du personnel qui autorise les actions sensibles (prix/RBAC/utilisateur/annulation/inventaire). NULL = aucun PIN defini. Security-by-design, voir note 13. Colonne posee juste apres `password_hash` (migration `0001_init_schema.sql`), pas en fin de table |
 | `first_name` | VARCHAR(60) | NO | — | — | |
 | `last_name` | VARCHAR(60) | NO | — | — | |
 | `role_id` | INT UNSIGNED | NO | — | FK -> `role(id)`, ON DELETE RESTRICT | un utilisateur ne peut exister sans role |
 | `is_active` | TINYINT(1) | NO | 1 | — | desactivation sans suppression |
 | `last_login_at` | DATETIME | YES | NULL | — | utile pour l'audit et la detection de comptes dormants |
-| `pin_hash` | VARCHAR(255) | YES | NULL | — | hash argon2id du PIN par membre du personnel qui autorise les actions sensibles (prix/RBAC/utilisateur/annulation/inventaire). NULL = aucun PIN defini. Security-by-design, voir note 13 |
 | `failed_login_attempts` | SMALLINT UNSIGNED | NO | 0 | — | logins echoues consecutifs ; pilote le throttling degressif (note 13) |
 | `last_failed_login_at` | DATETIME | YES | NULL | — | timestamp du dernier login echoue |
 | `lockout_until` | DATETIME | YES | NULL | — | fin de la fenetre de throttling courante (backoff degressif, pas un verrouillage dur indefini) |
@@ -570,7 +577,7 @@ Journal d'audit append-only de tous les changements de stock par ingredient.
 | `movement_type` | ENUM('sale','cancellation','restock','inventory_correction','adjustment') | NO | — | INDEX | nature du mouvement |
 | `delta` | INT | NO | — | — | changement signe : negatif pour la consommation (vente), positif pour reapprovisionnement/annulation/correction |
 | `order_id` | INT UNSIGNED | YES | NULL | FK -> `customer_order(id)`, ON DELETE SET NULL | commande liee pour les mouvements `sale` et `cancellation` ; NULL pour restock/correction |
-| `user_id` | INT UNSIGNED | YES | NULL | FK -> `user(id)`, ON DELETE SET NULL | utilisateur AGISSANT ayant declenche le mouvement : l'equipier de session pour une vente counter/drive ou une annulation, le manager/admin pour un reapprovisionnement/une correction. NULL uniquement pour les ventes de la borne (`kiosk`, anonyme) |
+| `user_id` | INT UNSIGNED | YES | NULL | FK -> `user(id)`, ON DELETE SET NULL | utilisateur AGISSANT ayant declenche le mouvement, resolu differemment par type : `sale` (vente counter/drive) et `restock` portent l'utilisateur DE SESSION (`$guard->userId`, sans PIN) ; `cancellation`, `inventory_correction` et `adjustment` portent l'equipier RESOLU PAR PIN (RG-T13, n'importe quel role detenant la permission, pas necessairement manager/admin). NULL uniquement pour les ventes de la borne (`kiosk`, anonyme) |
 | `note` | VARCHAR(255) | YES | NULL | — | note humaine optionnelle (ex. raison de la correction, reference de pack) |
 | `created_at` | DATETIME | NO | CURRENT_TIMESTAMP | INDEX | timestamp immuable |
 
@@ -826,8 +833,13 @@ modele de stock reste fidele.
 
 **Cote stock** — modelise via un multiplicateur de format sur la recette :
 - `product_ingredient` porte `quantity_normal` et `quantity_maxi`.
-- A la transition `paid`, le decrement utilise `quantity_maxi` quand `order_item.format='maxi'`,
-  sinon `quantity_normal`.
+- A la transition vers `preparing` (encaissement), le decrement utilise `quantity_maxi` quand
+  `order_item.format='maxi'`, sinon `quantity_normal`.
+- Un seul produit `Frite` a la carte au sens commercial, mais TROIS lignes `product` en base pour
+  cette famille (Petite Frite, Moyenne Frite, Grande Frite, plus Potatoes/Grande Potatoes pour l'autre
+  accompagnement) : le seed `0004_menu_side_maxi.sql` les lie en variantes Maxi (`maxi_variant_product_id`)
+  et retire Petite Frite/Grande Frite/Grande Potatoes des options de slot de menu (elles restent a la
+  carte hors menu) — elles ne sont pas creees par ce seed, elles existent des `0002_catalogue.sql`.
 - Pour les ingredients burger et sauce, `quantity_maxi = quantity_normal` (invariants au format).
 - Pour les ingredients accompagnement et boisson, `quantity_maxi > quantity_normal` (le Maxi consomme plus).
 - Le format se propage de la ligne de menu (`order_item.format`) a ses selections de slot ; une
@@ -947,9 +959,12 @@ remplacent aucune decision v0.2 ; ils ajoutent imputabilite, cycle de vie d'auth
 **Imputabilite — compte partage hybride + PIN.** Les sessions back-office restent partagees par
 poste de travail pour le flux de routine (un terminal fast-food est partage, les `equipiers` tournent). Un
 PIN par membre du personnel (`user.pin_hash`, argon2id) autorise un ensemble defini d'**actions sensibles**
-(editions prix/menu 8.2/8.3/8.6, annulation de commande 7.1, correction d'inventaire 9.2, gestion
-des utilisateurs 10.1-10.3, RBAC 10.4). Ces actions ecrivent le `user_id` agissant dans `audit_log`
-(3.20). Cela resout la justification circulaire qui avait retire `commande_event` en v0.1
+(editions prix/menu 8.2/8.3/8.6, annulation de commande 7.1, correction d'inventaire 9.2, ajustement libre
+de stock 9.4, gestion des utilisateurs 10.1-10.3, RBAC 10.4). La plupart de ces actions ecrivent le
+`user_id` agissant dans `audit_log` (3.20) ; les TROIS operations de stock (reapprovisionnement 9.1,
+correction d'inventaire 9.2, ajustement 9.4) font EXCEPTION — elles capturent l'acteur uniquement dans
+`stock_movement.user_id` (3.19), sans ligne `audit_log` separee (RG-T14 : la trace de mouvement suffit,
+pas de double journal). Cela resout la justification circulaire qui avait retire `commande_event` en v0.1
 (les events etaient juges inutiles parce que les comptes etaient partages) : l'imputabilite est enregistree
 la ou elle importe, a friction quasi nulle pour les 95% de routine. `customer_order.acting_user_id`
 capture le personnel pour les commandes counter/drive, via l'utilisateur de la SESSION authentifiee (la

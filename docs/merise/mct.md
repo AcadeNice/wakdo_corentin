@@ -1,11 +1,11 @@
 # Modele Conceptuel des Traitements (MCT) — Wakdo
 
 **Phase Merise** : P1 - Conception, etape 3 (apres le MCD)
-**Version** : v0.4 — prod-like, machine a 6 etats (+ couche security-by-design 2026-06-11)
-**Historique** : v0.3 (2026-09-24) — mise en coherence avec le code livre (2a09597) : CREATE_ORDER (3.3) ne decrit plus que la creation, nouvelle operation PAY_ORDER (3.3ter) pour l'encaissement, CREATE_COUNTER_ORDER (4.1) en deux transactions, DISPLAY_CONFIRMATION (3.4) sur le statut `preparing`, COMPOSE_CART (3.2) sans modificateur d'ingredient cote borne, CANCEL_ORDER (7.1) sur quatre statuts avec re-credit conditionne aux mouvements `sale`, modificateurs d'ingredient envoyes par la saisie comptoir et drive (et non par la borne), role `kitchen` qui marque une commande prete, tableau des operations complete (30 operations), matrice de verification croisee MCT -> MCD (section 15) mise a jour, dont `pin_throttle`. v0.4 (2026-09-28) — audit final sur pieces : `manager` ajoute a CANCEL_ORDER/LIST_ORDERS_DISPLAY/MARK_READY (a `order.read` + `order.cancel` depuis ADR-0020) ; operation `ADJUST` (ajustement libre de stock) et operations RBAC/catalogue manquantes ajoutees (35 operations) ; DELETE_PRODUCT et MANAGE_CATEGORY realignes sur le comportement reel du code (pas de pre-controle PHP listant les blocages, pas de proposition de desactivation en cascade) ; LOAD_CATALOGUE sans controle horaire applicatif ; READ_STATS decrit sur les seuls indicateurs codes ; footnotes de la section 15 renumerotees.
+**Version** : v0.5 — prod-like, machine a 6 etats (+ couche security-by-design 2026-06-11)
+**Historique** : v0.3 (2026-09-24) — mise en coherence avec le code livre (2a09597) : CREATE_ORDER (3.3) ne decrit plus que la creation, nouvelle operation PAY_ORDER (3.3ter) pour l'encaissement, CREATE_COUNTER_ORDER (4.1) en deux transactions, DISPLAY_CONFIRMATION (3.4) sur le statut `preparing`, COMPOSE_CART (3.2) sans modificateur d'ingredient cote borne, CANCEL_ORDER (7.1) sur quatre statuts avec re-credit conditionne aux mouvements `sale`, modificateurs d'ingredient envoyes par la saisie comptoir et drive (et non par la borne), role `kitchen` qui marque une commande prete, tableau des operations complete (30 operations), matrice de verification croisee MCT -> MCD (section 15) mise a jour, dont `pin_throttle`. v0.4 (2026-09-28) — audit final sur pieces : `manager` ajoute a CANCEL_ORDER/LIST_ORDERS_DISPLAY/MARK_READY (a `order.read` + `order.cancel` depuis ADR-0020) ; operation `ADJUST` (ajustement libre de stock) et operations RBAC/catalogue manquantes ajoutees (35 operations) ; DELETE_PRODUCT et MANAGE_CATEGORY realignes sur le comportement reel du code (pas de pre-controle PHP listant les blocages, pas de proposition de desactivation en cascade) ; LOAD_CATALOGUE sans controle horaire applicatif ; READ_STATS decrit sur les seuls indicateurs codes ; footnotes de la section 15 renumerotees. v0.5 (2026-09-29) — contre-audit independant (base MariaDB jetable) : RESET_USER_PIN (10.6) corrigee (met `pin_hash` a NULL, pas de PIN de remplacement ; audit `user.update` avec `details={"fields":["pin_hash"]}`, pas `user.reset_pin`) ; SET_OWN_PIN (10.7) corrigee (ecrit bien une ligne `audit_log` `pin.set`) ; CREATE_PRODUCT (8.1) corrigee (categorie EXISTANTE, pas necessairement active) ; DELETE_MENU (8.6) alignee sur l'absence de pre-verification et le message HTTP 409 exact ; MANAGE_CATEGORY (8.7) corrigee (aucune suppression physique, seule la bascule `is_active` existe) ; MANAGE_INGREDIENT (8.8) complete (ecrit `audit_log` `ingredient.allergens`) ; nouvelle section 5.2 MARK_READY (fiche absente malgre la mention dans le tableau et le texte) ; tableau §14 complete de 5 operations absentes (IMPORT... deja present ; ajout de `ENRICH_INGREDIENT`, `REORDER_CATALOGUE`, `TRACK_ORDER_PUBLIC`, `READ_HEALTH`, `EXPIRE_ORDER`) et recompte (40 operations).
 **Date** : 2026-06-04 (ajouts security-by-design 2026-06-11)
 **Branche** : `feat/p1-conception`
-**Statut** : prod-like — toutes les decisions D1-D8 + stock appliquees (voir `docs/journal/2026-06-04--conception-prodlike-revision.md` pour D1-D3 et `docs/journal/2026-06-04--p1-merise-v0.2-rewrite-and-forgejo-migration.md` pour D4-D8 + stock ; ADR-0020 remplace D5 sur l'annulation) ; operations security-by-design ajoutees (ERASE_USER_PII, RESET_PASSWORD, ensemble sensible protege par PIN, ecritures audit_log, throttling d'authentification) — 35 operations (PAY_ORDER, MARK_READY et ADJUST notamment, voir section 14)
+**Statut** : prod-like — toutes les decisions D1-D8 + stock appliquees (voir `docs/journal/2026-06-04--conception-prodlike-revision.md` pour D1-D3 et `docs/journal/2026-06-04--p1-merise-v0.2-rewrite-and-forgejo-migration.md` pour D4-D8 + stock ; ADR-0020 remplace D5 sur l'annulation) ; operations security-by-design ajoutees (ERASE_USER_PII, RESET_PASSWORD, ensemble sensible protege par PIN, ecritures audit_log, throttling d'authentification) — 40 operations (PAY_ORDER, MARK_READY et ADJUST notamment, voir section 14)
 **Auteur** : BYAN (couche methodologie)
 
 ---
@@ -226,9 +226,24 @@ Pour chaque operation, le document fournit :
 | **Synchronisation** | Aucune |
 | **Condition** | L'acteur est authentifie et detient la permission `order.read`. |
 | **Operation** | LIST_ORDERS_DISPLAY |
-| **Description** | Lecture des lignes `customer_order` avec statut `paid`, `preparing` ou `ready` (file active de preparation — `OrderQueryRepository::paidQueue`), filtrees par les sources visibles selon le role de l'acteur (depuis `role_visible_source`) : la cuisine voit toutes les sources ; le comptoir voit kiosk+counter ; le drive voit drive. Les commandes sont triees par `paid_at` ascendant (les plus anciennes en premier). Pour chaque commande, afficher : numero de commande, source, contenu (`order_item` avec `label_snapshot`, `quantity`, format, selections de slots, modificateurs d'ingredient). La couleur KDS est calculee a partir de `now - paid_at` par rapport au seuil de SLA (approx. 10 min), non stockee. LIST_ORDERS_DISPLAY elle-meme est en lecture seule ; le meme ecran cuisine expose separement l'operation `MARK_READY` (section 13), qui, elle, ecrit une transition de statut. |
+| **Description** | Lecture des lignes `customer_order` avec statut `paid`, `preparing` ou `ready` (file active de preparation — `OrderQueryRepository::paidQueue`), filtrees par les sources visibles selon le role de l'acteur (depuis `role_visible_source`) : la cuisine voit toutes les sources ; le comptoir voit kiosk+counter ; le drive voit drive. Les commandes sont triees par `paid_at` ascendant (les plus anciennes en premier). Pour chaque commande, afficher : numero de commande, source, contenu (`order_item` avec `label_snapshot`, `quantity`, format, selections de slots, modificateurs d'ingredient). La couleur KDS est calculee a partir de `now - paid_at` par rapport au seuil de SLA (approx. 10 min), non stockee. LIST_ORDERS_DISPLAY elle-meme est en lecture seule ; le meme ecran cuisine expose separement l'operation `MARK_READY` (5.2), qui, elle, ecrit une transition de statut. |
 | **Entites MCD** | R: `customer_order` (status IN (`paid`,`preparing`,`ready`)), `order_item`, `order_item_selection`, `order_item_modifier`, `role_visible_source` |
 | **Resultat** | Liste d'affichage de preparation montree, triee par heure de paiement ascendante |
+
+---
+
+### 5.2 MARK_READY
+
+| Champ | Valeur |
+|-------|-------|
+| **Evenement declencheur** | Le personnel cuisine (ou comptoir/drive/manager/admin) marque une commande prete depuis l'ecran de preparation |
+| **Acteur** | KITCHEN (ou COUNTER, DRIVE, MANAGER, ADMIN) |
+| **Synchronisation** | Aucune |
+| **Condition** | L'acteur est authentifie et detient la permission `order.read` (pas de permission dediee). La commande est visible pour son role (meme filtre `role_visible_source` que LIST_ORDERS_DISPLAY, controle en defense en profondeur cote serveur, pas seulement cote affichage). Aucun PIN requis (hors ensemble sensible RG-T13) : la transition ne touche pas le stock. |
+| **Operation** | MARK_READY |
+| **Description** | Transition `paid`/`preparing` -> `ready`, avec `AND status IN ('paid','preparing')` dans le WHERE (RG-T07, protection de concurrence). Positionne `ready_at = NOW()` et `updated_at = NOW()`. Idempotente : une commande deja `ready` renvoie le meme resultat sans nouvelle ecriture ; tout autre statut (`pending_payment`, `delivered`, `cancelled`) est refuse (`INVALID_TRANSITION`). Aucun mouvement de stock, aucune ligne `audit_log` (`OrderAdminController::ready`, `OrderRepository::markReady`, route `POST /admin/orders/{number}/ready`). |
+| **Entites MCD** | R: `role_visible_source` — W: `customer_order` (UPDATE status `paid`/`preparing` -> `ready`, `ready_at = NOW()`, si non deja `ready`) |
+| **Resultat** | Commande au statut `ready`, visible sur l'ecran de preparation, en attente de DELIVER_ORDER |
 
 ---
 
@@ -243,7 +258,7 @@ Pour chaque operation, le document fournit :
 | **Synchronisation** | AND |
 | **Condition** | La commande a le statut `paid`, `preparing` ou `ready`. L'acteur detient la permission `order.deliver`. Le role de l'acteur est coherent avec la source de la commande (le personnel comptoir traite les commandes kiosk+counter ; le personnel drive traite les commandes drive — filtre par role_visible_source). |
 | **Operation** | DELIVER_ORDER |
-| **Description** | Transition en geste unique vers `delivered`, depuis `paid`, `preparing` ou `ready`. Positionne `delivered_at = NOW()`. La commande passe en historique. Passer par `ready` est optionnel (MARK_READY, section 13) : la confirmation visuelle de la cuisine suffit avant cette action, avec ou sans ce jalon intermediaire. |
+| **Description** | Transition en geste unique vers `delivered`, depuis `paid`, `preparing` ou `ready`. Positionne `delivered_at = NOW()`. La commande passe en historique. Passer par `ready` est optionnel (MARK_READY, 5.2) : la confirmation visuelle de la cuisine suffit avant cette action, avec ou sans ce jalon intermediaire. |
 | **Entites MCD** | W: `customer_order` (UPDATE status `paid`/`preparing`/`ready` -> `delivered`, `delivered_at = NOW()`) |
 | **Resultat** | Commande au statut `delivered`, cycle de vie complet |
 
@@ -275,7 +290,7 @@ Pour chaque operation, le document fournit :
 | **Evenement declencheur** | L'admin ou le manager soumet le formulaire de creation de produit |
 | **Acteur** | ADMIN ou MANAGER |
 | **Synchronisation** | Aucune |
-| **Condition** | L'acteur detient la permission `product.create`. La categorie cible existe et `is_active=1`. `name` est non vide. `price_cents > 0`. |
+| **Condition** | L'acteur detient la permission `product.create`. La categorie cible existe (`ProductRepository::categoryExists`, simple existence — une categorie desactivee reste une cible valide, sans controle de `is_active`). `name` est non vide. `price_cents > 0`. |
 | **Operation** | CREATE_PRODUCT |
 | **Description** | INSERT d'un nouveau `product` avec sa categorie, son nom, son prix en centimes, son taux de TVA en pour-mille (`vat_rate` : 100=10%, 55=5.5%, defaut 100), chemin d'image optionnel. `is_available=1` par defaut. |
 | **Entites MCD** | R: `category` (FK validation) — W: `product` (INSERT) |
@@ -350,11 +365,11 @@ Pour chaque operation, le document fournit :
 | **Evenement declencheur** | L'admin confirme la suppression d'un menu |
 | **Acteur** | ADMIN |
 | **Synchronisation** | Aucune |
-| **Condition** | L'acteur detient la permission `menu.delete`. Le menu n'est reference dans aucune ligne historique `order_item` (FK `ON DELETE RESTRICT`). Verification prealable requise. |
+| **Condition** | L'acteur detient la permission `menu.delete` et s'est re-autorise par PIN (RG-T13). Le menu existe. Aucune pre-verification applicative des references : la suppression est tentee directement, c'est la contrainte FK `ON DELETE RESTRICT` (`order_item.menu_id`) qui refuse seule si le menu est reference (`MenuController::destroy`, meme pattern que DELETE_PRODUCT 8.3). |
 | **Operation** | DELETE_MENU |
-| **Description** | Si aucun `order_item` ne reference ce menu : DELETE `menu_slot_option` (CASCADE from `menu_slot`), DELETE `menu_slot` (CASCADE from `menu`), DELETE `menu`. Si des references historiques existent, proposer la desactivation (`is_available=0`) a la place. |
-| **Entites MCD** | W: `menu_slot_option` (DELETE CASCADE), `menu_slot` (DELETE CASCADE), `menu` (DELETE — blocked if referenced in `order_item`) |
-| **Resultat** | Menu supprime OU erreur « menu present dans des commandes historiques » |
+| **Description** | DELETE `menu` tente directement (dans une transaction avec l'ecriture `audit_log`) ; `menu_slot`/`menu_slot_option` sont en CASCADE et partent avec le menu. Si la FK `order_item.menu_id` (RESTRICT) bloque (SQLSTATE 23000), l'exception est interceptee et rendue en HTTP 409 avec le message exact « Menu référencé par des commandes : suppression impossible. Désactivez-le plutôt. » (`MenuController::destroy`) ; aucune desactivation automatique n'est declenchee, le message invite seulement l'acteur a le faire lui-meme via MANAGE_CATEGORY/le bouton dedie. |
+| **Entites MCD** | W: `menu_slot_option` (DELETE CASCADE), `menu_slot` (DELETE CASCADE), `menu` (DELETE — bloque par FK RESTRICT sur `order_item.menu_id`), `audit_log` (INSERT `menu.delete`, si suppression effective) |
+| **Resultat** | Menu supprime OU HTTP 409 « Menu référencé par des commandes : suppression impossible. Désactivez-le plutôt. » |
 
 ---
 
@@ -367,9 +382,9 @@ Pour chaque operation, le document fournit :
 | **Synchronisation** | OR (creation, modification, desactivation) |
 | **Condition** | L'acteur detient la permission `category.manage`. Pour la desactivation : les produits et menus de la categorie ne sont pas auto-desactives en base (pas de CASCADE sur `is_active`) ; la couche applicative NE propose PAS de les desactiver a la volee (`CategoryController::toggle` bascule `is_active` et affiche un message, sans autre effet). |
 | **Operation** | MANAGE_CATEGORY |
-| **Description** | CRUD sur `category`. La desactivation (`is_active=0`) masque la categorie du kiosk ; ses produits/menus restent `is_available=1` en base mais deviennent invisibles cote kiosk (le filtre `category.is_active=1` de LOAD_CATALOGUE les masque implicitement), sans suppression physique. La suppression physique est bloquee si des produits ou des menus referencent cette categorie (FK `ON DELETE RESTRICT`). |
-| **Entites MCD** | W: `category` (INSERT / UPDATE / conditional DELETE) |
-| **Resultat** | Categorie creee / modifiee / desactivee |
+| **Description** | CRUD sur `category`, sans route de suppression physique : le back-office HTML n'expose pas de suppression de categorie, et `DELETE /admin/api/categories/{id}` (`CategoryApiController::apiDestroy`) se limite a basculer `is_active=0`, de facon idempotente (une categorie deja masquee le reste, sans erreur) — le verbe HTTP DELETE bascule un drapeau, il n'efface pas la ligne. La desactivation masque la categorie du kiosk ; ses produits/menus restent `is_available=1` en base mais deviennent invisibles cote kiosk (le filtre `category.is_active=1` de LOAD_CATALOGUE les masque implicitement). |
+| **Entites MCD** | W: `category` (INSERT / UPDATE / UPDATE `is_active` — pas de DELETE code) |
+| **Resultat** | Categorie creee / modifiee / masquee (la suppression physique n'est pas implementee) |
 
 ---
 
@@ -382,8 +397,8 @@ Pour chaque operation, le document fournit :
 | **Synchronisation** | OR (creer ingredient, modifier ingredient, modifier composition, modifier mapping allergene) |
 | **Condition** | L'acteur detient la permission `ingredient.manage`. |
 | **Operation** | MANAGE_INGREDIENT |
-| **Description** | CRUD sur `ingredient` (name, unit, pack_size, pack_label, stock_capacity, low_stock_pct, critical_stock_pct, is_active). Gestion de la composition `product_ingredient` (quantity_normal, quantity_maxi, is_removable, is_addable, extra_price_cents) pour tout produit. Gestion du mapping `ingredient_allergen` (14 allergenes reglementes UE). Desactiver un ingredient (`is_active=0`) le masque du configurateur sans suppression. La suppression physique de `ingredient` est bloquee s'il est reference dans `product_ingredient` (FK `ON DELETE RESTRICT`) ou `stock_movement` (FK `ON DELETE RESTRICT`). |
-| **Entites MCD** | R: `product` (FK validation), `allergen` (FK validation) — W: `ingredient` (INSERT/UPDATE/DELETE conditional), `product_ingredient` (INSERT/UPDATE/DELETE), `ingredient_allergen` (INSERT/DELETE) |
+| **Description** | CRUD sur `ingredient` (name, unit, pack_size, pack_label, stock_capacity, low_stock_pct, critical_stock_pct, is_active). Gestion de la composition `product_ingredient` (quantity_normal, quantity_maxi, is_removable, is_addable, extra_price_cents) pour tout produit. Gestion du mapping `ingredient_allergen` (14 allergenes reglementes UE) : la sauvegarde re-ecrit `ingredient_allergen` pour l'ingredient, pose `ingredient.allergens_reviewed_at`/`allergens_source`, et ajoute dans la MEME transaction une ligne `audit_log` (`action_code='ingredient.allergens'`) — seule sous-operation de 8.8 qui journalise (`IngredientRepository::saveAllergens`). Desactiver un ingredient (`is_active=0`) le masque du configurateur sans suppression. La suppression physique de `ingredient` est bloquee s'il est reference dans `product_ingredient` (FK `ON DELETE RESTRICT`) ou `stock_movement` (FK `ON DELETE RESTRICT`). |
+| **Entites MCD** | R: `product` (FK validation), `allergen` (FK validation) — W: `ingredient` (INSERT/UPDATE/DELETE conditional), `product_ingredient` (INSERT/UPDATE/DELETE), `ingredient_allergen` (INSERT/DELETE), `audit_log` (INSERT `ingredient.allergens`, seulement pour le mapping allergene) |
 | **Resultat** | Ingredient / composition / mapping allergene mis a jour |
 
 ---
@@ -566,7 +581,7 @@ Pour chaque operation, le document fournit :
 | **Synchronisation** | Aucune |
 | **Condition** | L'acteur detient la permission `user.update` et s'est re-autorise par PIN (RG-T13 : reinitialiser le PIN d'un tiers est une action sensible). L'utilisateur cible existe. |
 | **Operation** | RESET_USER_PIN |
-| **Description** | UPDATE `user.pin_hash = NULL` (ou un nouveau hash si un PIN de remplacement est saisi), forcant l'equipier a en choisir un nouveau via SET_OWN_PIN (10.7) a sa prochaine action sensible. Une ligne `audit_log` (`action_code='user.reset_pin'`, `entity_type='user'`) est ecrite. Routes : `GET`/`POST /admin/users/{id}/reset-pin`, `POST /admin/api/users/{id}/reset-pin`. |
+| **Description** | UPDATE `user.pin_hash = NULL` (`UserRepository::clearPin`) : l'admin ne pose pas de PIN de remplacement (il n'a pas a connaitre le PIN d'autrui), il efface seulement l'existant, forcant l'equipier a en choisir un nouveau via SET_OWN_PIN (10.7) a sa prochaine action sensible. Une ligne `audit_log` est ecrite dans la meme transaction avec `action_code='user.update'` (pas un code `user.reset_pin` dedie — ce code n'existe pas dans le code livre), `entity_type='user'`, `details={"fields":["pin_hash"]}` (RG-T14 : noms de champs modifies, pas la valeur). Routes : `GET`/`POST /admin/users/{id}/reset-pin` (`UserController::resetPin`), `POST /admin/api/users/{id}/reset-pin` (`UserApiController`). |
 | **Entites MCD** | W: `user` (UPDATE pin_hash), `audit_log` (INSERT) |
 | **Resultat** | PIN de l'equipier cible reinitialise ; une ligne `audit_log` enregistree |
 
@@ -581,8 +596,8 @@ Pour chaque operation, le document fournit :
 | **Synchronisation** | Aucune |
 | **Condition** | Une session valide est ouverte (aucune permission specifique requise : tout compte actif peut poser son propre PIN). La confirmation exige une re-authentification par MOT DE PASSE (pas par l'ancien PIN, qui peut etre absent ou oublie). |
 | **Operation** | SET_OWN_PIN |
-| **Description** | UPDATE `user.pin_hash` (argon2id) pour le compte de SESSION uniquement (`GET`/`POST /admin/profile/pin`, sans permission dediee, `reauth: password`). Cette action n'est pas dans l'ensemble sensible RG-T13 (elle EST le mecanisme qui l'alimente) et n'ecrit pas de ligne `audit_log` distincte. |
-| **Entites MCD** | W: `user` (UPDATE pin_hash, sur son propre compte) |
+| **Description** | UPDATE `user.pin_hash` (argon2id) pour le compte de SESSION uniquement (`GET`/`POST /admin/profile/pin`, sans permission dediee, `reauth: password`). Cette action n'est pas dans l'ensemble sensible RG-T13 (elle EST le mecanisme qui l'alimente), mais elle ecrit bien une ligne `audit_log` (`action_code='pin.set'`, `entity_type='user'`, `entity_id`=l'utilisateur de session, aucune valeur sensible dans le `summary`) juste apres l'UPDATE, hors transaction (`ProfileController::writePinAudit`) ; le libelle distingue premiere definition et changement sans le tracer dans le code, seulement dans le texte du `summary`. |
+| **Entites MCD** | W: `user` (UPDATE pin_hash, sur son propre compte), `audit_log` (INSERT `pin.set`) |
 | **Resultat** | PIN personnel pose ou change, utilisable des la prochaine action sensible |
 
 ---
@@ -748,28 +763,37 @@ manager, qui n'a pas `order.deliver`, en est exclu.
 | 27 | ERASE_USER_PII | RBAC | ADMIN | user, audit_log | user |
 | 28 | RESET_PASSWORD | Auth | ALL BACK | user, audit_log | user |
 | 29 | PAY_ORDER | Order kiosk / counter / drive | CUSTOMER/COUNTER/DRIVE/ADMIN | customer_order, ingredient, stock_movement | order_item, order_item_modifier, product_ingredient |
-| 30 | MARK_READY | Preparation | KITCHEN/COUNTER/DRIVE/MANAGER/ADMIN | customer_order | — |
+| 30 | MARK_READY | Preparation | KITCHEN/COUNTER/DRIVE/MANAGER/ADMIN | customer_order | role_visible_source |
 | 31 | ADJUST | Stock | KITCHEN/COUNTER/DRIVE/MANAGER/ADMIN | ingredient, stock_movement | ingredient |
 | 32 | IMPORT_PRODUCTS | Catalogue | ADMIN/MANAGER | product, ingredient, product_ingredient, audit_log | category, product, ingredient |
 | 33 | SET_STOCK_THRESHOLDS | Stock | MANAGER/ADMIN | ingredient | ingredient |
 | 34 | RESET_USER_PIN | RBAC | ADMIN | user, audit_log | user |
-| 35 | SET_OWN_PIN | Auth | ALL BACK | user | — |
+| 35 | SET_OWN_PIN | Auth | ALL BACK | user, audit_log | user |
+| 36 | ENRICH_INGREDIENT | Catalogue | ADMIN/MANAGER | ingredient | ingredient (source externe OpenFoodFacts, pas une entite MCD) |
+| 37 | REORDER_CATALOGUE | Catalogue | ADMIN/MANAGER | product OU category (`display_order`) | product OU category |
+| 38 | TRACK_ORDER_PUBLIC | Order kiosk | CUSTOMER | — | customer_order (canal kiosk seulement) |
+| 39 | READ_HEALTH | Ops | ADMIN (page back-office) / SYS (sonde publique) | — | category (sonde de connectivite, pas un releve metier) |
+| 40 | EXPIRE_ORDER | Order kiosk | SYS (cron `order-expire.php`) | customer_order, audit_log | customer_order |
 
-**Total : 35 operations** (26 prod-like + `ERASE_USER_PII` et `RESET_PASSWORD` de la
+**Total : 40 operations** (26 prod-like + `ERASE_USER_PII` et `RESET_PASSWORD` de la
 couche security-by-design + `PAY_ORDER` et `MARK_READY`, ajoutees au tableau en v0.3 pour refleter le code livre
 + `ADJUST`, `IMPORT_PRODUCTS`, `SET_STOCK_THRESHOLDS`, `RESET_USER_PIN` et `SET_OWN_PIN`, ajoutees en v0.4 : ces
-cinq operations existaient deja dans le code livre mais manquaient au tableau).
-MODIFY_PENDING_ORDER (`mlt.md` 3.3bis) et l'expiration planifiee (`mlt.md` 13.6) completent CREATE_ORDER sans
-figurer comme lignes separees.
+cinq operations existaient deja dans le code livre mais manquaient au tableau
++ `ENRICH_INGREDIENT`, `REORDER_CATALOGUE`, `TRACK_ORDER_PUBLIC`, `READ_HEALTH` et `EXPIRE_ORDER`, ajoutees en
+v0.5 sur le meme constat : ces cinq operations existaient deja dans le code livre mais manquaient au tableau).
+MODIFY_PENDING_ORDER (`mlt.md` 3.3bis) complete CREATE_ORDER sans figurer comme ligne separee ; l'expiration
+planifiee (`mlt.md` 13.6) figure desormais comme ligne 40 (`EXPIRE_ORDER`).
 
 **Ecritures du journal d'audit (security-by-design)** : les operations sensibles 7.1 (annulation), 8.2/8.3
 (modification/suppression de produit), 8.6 (suppression de menu), 10.1-10.5 (utilisateur/RBAC/effacement),
-10.6 (`RESET_USER_PIN`), 8.9 (`IMPORT_PRODUCTS`) et 12.1 (connexion)
-ecrivent egalement une ligne `audit_log` (entite W non repetee par ligne ci-dessus pour garder le tableau lisible).
-Les operations de stock 9.1/9.2/9.4 (`RESTOCK`/`INVENTORY_COUNT`/`ADJUST`) enregistrent leur attribution via
-`stock_movement.user_id`, sans ligne `audit_log` separee. `SET_STOCK_THRESHOLDS` (9.5) et `SET_OWN_PIN` (10.7)
-ne sont ni sous PIN ni auditees : la premiere est un parametrage sans mouvement, la seconde EST le mecanisme
-qui alimente le PIN. Ensemble protege par PIN selon `mlt.md` RG-T13.
+10.6 (`RESET_USER_PIN`), 8.9 (`IMPORT_PRODUCTS`), 12.1 (connexion) et `EXPIRE_ORDER` (ligne 40, `action_code='order.expire'`,
+cron `mlt.md` 13.6) ecrivent egalement une ligne `audit_log` (entite W non repetee par ligne ci-dessus pour garder
+le tableau lisible). Le mapping allergene de 8.8 (`MANAGE_INGREDIENT`) en ecrit une aussi (`ingredient.allergens`) ;
+SET_OWN_PIN (10.7) egalement (`pin.set`), bien qu'elle ne fasse pas partie de l'ensemble sensible RG-T13 (elle EST
+le mecanisme qui l'alimente). Les operations de stock 9.1/9.2/9.4 (`RESTOCK`/`INVENTORY_COUNT`/`ADJUST`) enregistrent
+leur attribution via `stock_movement.user_id`, sans ligne `audit_log` separee. `SET_STOCK_THRESHOLDS` (9.5) et
+`ENRICH_INGREDIENT` (ligne 36) ne sont ni sous PIN ni auditees : de simples parametrages/imports externes sans
+mouvement ni cible sensible. Ensemble protege par PIN selon `mlt.md` RG-T13.
 
 ---
 
@@ -779,26 +803,26 @@ Verification que chaque entite MCD participe a au moins une operation MCT.
 
 | Entite MCD | Operations en lecture | Operations en ecriture | Couverture |
 |------------|---------------------|----------------------|----------|
-| `category` | 1, 9, 12, 15 | 15 | OK |
-| `product` | 1, 2, 3, 5, 9, 11, 12, 32 | 9, 10, 11, 32 | OK |
+| `category` | 1, 9, 12, 15, 37 | 15, 37 | OK |
+| `product` | 1, 2, 3, 5, 9, 11, 12, 32, 37 | 9, 10, 11, 32, 37 | OK |
 | `menu` | 1, 2, 3, 5, 12, 14 | 12, 13, 14 | OK |
 | `menu_slot` | 1, 2, 5 | 12, 13, 14 | OK |
 | `menu_slot_option` | 1, 2, 5, 11 | 12, 13, 14 | OK |
-| `ingredient` | 1, 3, 5, 8, 16, 17, 18, 19, 32 | 5, 8, 16, 17, 18, 29, 31, 32, 33 | OK |
+| `ingredient` | 1, 3, 5, 8, 16, 17, 18, 19, 32, 36 | 5, 8, 16, 17, 18, 29, 31, 32, 33, 36 | OK |
 | `product_ingredient` | 3, 5, 8, 29 | 16, 32 | OK |
 | `allergen` | 1 | — (seed statique) | OK (1) |
 | `ingredient_allergen` | 1 | 16 | OK |
-| `customer_order` | 6, 8, 24, 29 | 3, 5, 7, 8, 29, 30 | OK |
+| `customer_order` | 6, 8, 24, 29, 38 | 3, 5, 7, 8, 29, 30, 40 | OK |
 | `order_item` | 6, 8, 14, 24, 29 | 3, 5 | OK |
 | `order_item_selection` | 6 | 3, 5 | OK |
 | `order_item_modifier` | 6, 8, 29 | 3, 5 (seulement quand le corps en porte) | OK |
 | `user` | 8, 25 | 20, 21, 22, 25, 34, 35 | OK |
 | `role` | 20, 23, 25 | 23 | OK |
-| `role_visible_source` | 6 | 23 | OK |
+| `role_visible_source` | 6, 30 | 23 | OK |
 | `permission` | 23 | — (seed statique) | OK (1) |
 | `role_permission` | 25 | 23 | OK |
 | `stock_movement` | 8, 19 | 5, 8, 17, 18, 29, 31 | OK |
-| `audit_log` | (vue d'audit admin) | 8, 10, 11, 14, 20, 21, 22, 23, 25, 27, 28, 32, 34 | OK (2) |
+| `audit_log` | (vue d'audit admin) | 8, 10, 11, 14, 16, 20, 21, 22, 23, 25, 27, 28, 32, 34, 35, 40 | OK (2) |
 | `login_throttle` | 25 | 25 | OK (3) |
 | `pin_throttle` | 8, 10, 11, 14, 18, 20, 21, 22, 23, 27, 31, 32, 34 | 8, 10, 11, 14, 18, 20, 21, 22, 23, 27, 31, 32, 34 | OK (4) |
 | `category_ingredient_family` | (constructeur de recette) | — (seed, migration 0017) | OK (5) |

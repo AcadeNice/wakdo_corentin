@@ -1,8 +1,8 @@
 # Modele Logique des Traitements (MLT) — Wakdo
 
 **Phase Merise** : P1 - Conception, etape 4 (derivee du MCT)
-**Version** : v0.4 — prod-like, machine a 6 etats (+ couche security-by-design 2026-06-11)
-**Historique** : v0.3 (2026-09-24) — mise en coherence avec le code livre (2a09597) : COMPOSE_CART (3.2) sans modificateur construit par la borne, CREATE_ORDER (3.3) limitee a la creation, nouvelle section 3.3ter PAY_ORDER, DISPLAY_CONFIRMATION (3.4) et CREATE_COUNTER_ORDER (4.1) sur le statut `preparing`, LIST_ORDERS_DISPLAY (5.1) sur trois statuts, CANCEL_ORDER (7.1) realignee sur `OrderAdminController::cancel` et `OrderRepository::cancel`, note 15.3 sur le compteur de numero soldee. v0.4 (2026-09-28) — audit final sur pieces : DELIVER_ORDER (6.1) realignee sur `paid`/`preparing`/`ready` (idempotente, conflit `409 CONFLICT`) ; idempotence (RG-T19, 3.3 RG-8) precisee (remplacement sur `pending_payment`, 409 sur `cancelled`, 422 `INVALID_IDEMPOTENCY_KEY` au-dela de 36 caracteres, comptoir/drive sans cle) ; RG-T11/RG-T22 realignees (PAY_ORDER, ADJUST) ; nouvelle section 9.4 ADJUST ; DELETE_PRODUCT et MANAGE_CATEGORY realignes sur le comportement reel ; codes d'erreur reels corriges (10.3, 10.5) ; retention sauvegarde (14 jours) et purge du journal d'audit (`AUDIT_LOG_RETENTION_DAYS`, `INTERVAL n DAY`) alignees sur les scripts cron ; 13.1/13.2 marquees non actives (gabarit commente).
+**Version** : v0.5 — prod-like, machine a 6 etats (+ couche security-by-design 2026-06-11)
+**Historique** : v0.3 (2026-09-24) — mise en coherence avec le code livre (2a09597) : COMPOSE_CART (3.2) sans modificateur construit par la borne, CREATE_ORDER (3.3) limitee a la creation, nouvelle section 3.3ter PAY_ORDER, DISPLAY_CONFIRMATION (3.4) et CREATE_COUNTER_ORDER (4.1) sur le statut `preparing`, LIST_ORDERS_DISPLAY (5.1) sur trois statuts, CANCEL_ORDER (7.1) realignee sur `OrderAdminController::cancel` et `OrderRepository::cancel`, note 15.3 sur le compteur de numero soldee. v0.4 (2026-09-28) — audit final sur pieces : DELIVER_ORDER (6.1) realignee sur `paid`/`preparing`/`ready` (idempotente, conflit `409 CONFLICT`) ; idempotence (RG-T19, 3.3 RG-8) precisee (remplacement sur `pending_payment`, 409 sur `cancelled`, 422 `INVALID_IDEMPOTENCY_KEY` au-dela de 36 caracteres, comptoir/drive sans cle) ; RG-T11/RG-T22 realignees (PAY_ORDER, ADJUST) ; nouvelle section 9.4 ADJUST ; DELETE_PRODUCT et MANAGE_CATEGORY realignes sur le comportement reel ; codes d'erreur reels corriges (10.3, 10.5) ; retention sauvegarde (14 jours) et purge du journal d'audit (`AUDIT_LOG_RETENTION_DAYS`, `INTERVAL n DAY`) alignees sur les scripts cron ; 13.1/13.2 marquees non actives (gabarit commente). v0.5 (2026-09-29) — contre-audit independant (base MariaDB jetable) : LOAD_CATALOGUE (3.1) realignee (pas de fenetre horaire, 4 endpoints separes `{data,total}`, `INTERNAL_ERROR` et pas de repli JSON statique cote borne) ; CREATE_COUNTER_ORDER (4.1) ERR-2 corrigee (`VALIDATION_ERROR`/`fields.items` uniforme, pas de code `INVALID_SERVICE_MODE` distinct en sortie sur ce chemin) ; CREATE_PRODUCT (8.1) et MANAGE_CATEGORY (8.7) corrigees (categorie/`display_order` : existence seule, valeur du formulaire, pas de MAX+1, upload 5 Mo par defaut) ; CREATE_MENU (8.4) corrigee (burger = produit de base sans controle de disponibilite, options de slot non filtrees sur `is_available`) ; DELETE_MENU (8.6) et MANAGE_CATEGORY (8.7 RG-DELETE) alignees sur l'absence de pre-verification/suppression physique et le message HTTP 409 exact ; RESTOCK (9.1) et INVENTORY_COUNT (9.2) corrigees (ecretage a la capacite, attribution session vs PIN) ; READ_STOCK (9.3) corrigee (`stock_band` a 3 valeurs, pas de booleens `low_stock`/`critical_stock`, absent de l'API JSON).
 **Date** : 2026-06-04 (ajouts security-by-design 2026-06-11)
 **Branche** : `feat/p1-conception`
 **Statut** : prod-like — toutes les decisions D1-D8 + stock appliquees (voir `docs/journal/2026-06-04--conception-prodlike-revision.md` pour D1-D3 et `docs/journal/2026-06-04--p1-merise-v0.2-rewrite-and-forgejo-migration.md` pour D4-D8 + stock ; ADR-0020 remplace D5 sur l'annulation) ; regles security-by-design ajoutees (RG-T13-T22 : PIN, audit, escaping, allowlists, idempotence, decrement atomique, disponibilite produit calculee (RG-T21), throttling du PIN d'action sensible par utilisateur agissant (RG-T22) ; ops RESET_PASSWORD, ERASE_USER_PII, throttling d'authentification ; tables de throttle `login_throttle` (par IP) et `pin_throttle` (par acteur))
@@ -50,8 +50,8 @@ Ces regles s'appliquent a plusieurs operations et sont centralisees ici pour evi
 | **RG-T10** | Le calcul de TVA se fait ligne par ligne : chaque `order_item` porte son propre `vat_rate_snapshot` (entier pour-mille snapshote depuis `product.vat_rate`). Les totaux de commande (`total_ht_cents`, `total_vat_cents`, `total_ttc_cents`) sont la somme des montants au niveau des lignes. | 3.3, 4.1 |
 | **RG-T11** | Le decrement de stock a la transition `pending_payment -> preparing` (encaissement, PAY_ORDER 3.3ter) et le re-credit a l'annulation (7.1, depuis `pending_payment`/`paid`/`preparing`/`ready`, conditionne a l'existence de mouvements `sale` pour la commande) sont dans la meme transaction de base de donnees que la mise a jour du statut (pas de decrement orphelin). | 3.3ter, 4.1, 7.1 |
 | **RG-T12** | Filtre du tableau de bord par source : les sources visibles de chaque role sont lues depuis `role_visible_source` ; la requete utilise `WHERE customer_order.source IN (role_visible_sources)`. | 6.1 |
-| **RG-T13** | **PIN d'action sensible** (security-by-design) : l'ensemble des operations sensibles requiert une re-autorisation par PIN propre a chaque membre du personnel avant l'execution : verifier le PIN soumis contre `user.pin_hash` (`password_verify`, argon2id). En cas de succes, le `user_id` agissant est capture pour le journal d'audit ; en cas d'echec, l'operation est rejetee. Ensemble sensible : 7.1 (annulation), 8.2/8.3 (mise a jour/suppression produit), 8.6 (suppression menu), 9.2 (correction d'inventaire), 9.4 (ajustement libre de stock), 10.1/10.2/10.3 (gestion utilisateur), 10.4 (RBAC), 10.5 (effacement PII), reinitialisation du PIN d'un tiers par l'admin (`mct.md` 10.6). Les sessions restent partagees par poste de travail pour les 95% de routine. | 7.1, 8.2, 8.3, 8.6, 9.2, 9.4, 10.1-10.5 |
-| **RG-T14** | **Ecriture du journal d'audit** : les operations sensibles hors stock ajoutent une ligne `audit_log` immuable dans la meme transaction que leur effet : `actor_user_id` (issu du PIN RG-T13), `actor_role_id`, `action_code` (code de permission/operation), `entity_type` + `entity_id` de la ligne affectee, `summary` (description de changement non personnelle), `details` JSON (**noms** des champs modifies pour les actions ciblant un utilisateur, pas les valeurs PII). Aucun UPDATE/DELETE sur `audit_log`. Les actions de stock (9.1 restock, 9.2 inventaire) enregistrent leur attribution via `stock_movement.user_id` (capture par PIN), qui fournit deja la trace de stock append-only — elles ne sont pas doublement journalisees. | 7.1, 8.2, 8.3, 8.6, 10.1-10.5, 12.1 |
+| **RG-T13** | **PIN d'action sensible** (security-by-design) : l'ensemble des operations sensibles requiert une re-autorisation par PIN propre a chaque membre du personnel avant l'execution : verifier le PIN soumis contre `user.pin_hash` (`password_verify`, argon2id). En cas de succes, le `user_id` agissant est capture pour le journal d'audit ; en cas d'echec, l'operation est rejetee. Ensemble sensible : 7.1 (annulation), 8.2/8.3 (mise a jour/suppression produit), 8.6 (suppression menu), 8.9 (import CSV, CONDITIONNEL — uniquement si le fichier modifie un prix existant), 9.2 (correction d'inventaire), 9.4 (ajustement libre de stock), 10.1/10.2/10.3 (gestion utilisateur), 10.4 (RBAC), 10.5 (effacement PII), reinitialisation du PIN d'un tiers par l'admin (`mct.md` 10.6). PAS 9.1 (restock : acteur de SESSION, sans PIN) ni SET_OWN_PIN (10.7 : elle EST le mecanisme qui alimente le PIN, donc hors de l'ensemble qu'elle-meme protege). Les sessions restent partagees par poste de travail pour les 95% de routine. | 7.1, 8.2, 8.3, 8.6, 8.9, 9.2, 9.4, 10.1-10.6 |
+| **RG-T14** | **Ecriture du journal d'audit** : les operations sensibles hors stock ajoutent une ligne `audit_log` immuable dans la meme transaction que leur effet : `actor_user_id` (issu du PIN RG-T13 pour les operations sous PIN, de la SESSION pour SET_OWN_PIN 10.7), `actor_role_id`, `action_code` (code de permission/operation), `entity_type` + `entity_id` de la ligne affectee, `summary` (description de changement non personnelle), `details` JSON (**noms** des champs modifies pour les actions ciblant un utilisateur, pas les valeurs PII). Aucun UPDATE/DELETE sur `audit_log`. Les actions de stock (9.1 restock, 9.2 inventaire, 9.4 ajustement) enregistrent leur attribution via `stock_movement.user_id` UNIQUEMENT — pas de ligne `audit_log` separee ; l'acteur capture y differe : SESSION pour 9.1 restock (sans PIN), PIN pour 9.2/9.4 (RG-T13). Liste complete des operations qui ecrivent EFFECTIVEMENT `audit_log` (verifiee par grep des `INSERT INTO audit_log` dans `src/app`, `dictionary.md` note 13) : 7.1 (annulation), 8.2/8.3 (produit), 8.6 (menu), 8.8 (mapping allergene, `ingredient.allergens`), 8.9 (import CSV, seulement si changement de prix), 10.1-10.5 (utilisateur/RBAC/effacement), 10.6 (reinitialisation du PIN d'un tiers), 10.7 (SET_OWN_PIN, `pin.set`), 12.1 (connexion), 12.3 (reset de mot de passe), 13.6 (expiration automatique, `order.expire`, cron sans acteur humain). | 7.1, 8.2, 8.3, 8.6, 8.8, 8.9, 10.1-10.7, 12.1, 12.3, 13.6 |
 | **RG-T15** | **Echappement en sortie** (anti-XSS) : les champs de texte libre (`product.name`/`description`, `ingredient.name`, `user.first_name`/`last_name`, notes) sont echappes selon le contexte au rendu. Les vues admin rendues cote serveur utilisent `htmlspecialchars($v, ENT_QUOTES, 'UTF-8')` ; le kiosk en vanilla-JS injecte le texte via `textContent` (ou un echappeur explicite), pas `innerHTML`. | Toutes les vues rendant du texte stocke |
 | **RG-T16** | **Allowlist d'affectation de masse** : les instructions INSERT/UPDATE ne lient qu'une allowlist de colonnes explicite par operation issue de la requete ; les champs supplementaires/inconnus sont ecartes. Empeche l'alteration de `price_cents`, `vat_rate`, `role_id`, `is_active`, `status` via des champs de formulaire injectes. | 8.1, 8.2, 8.4, 8.5, 10.1, 10.2 |
 | **RG-T17** | **Allowlist d'identifiants dynamiques** : les tokens de colonne/direction utilises dans un `ORDER BY` / `GROUP BY` dynamique sont resolus contre une allowlist fixe de noms de colonnes avant la construction de la requete (RG-T06 couvre les valeurs via les parametres lies ; les identifiants SQL ne peuvent pas etre lies, ils sont donc en allowlist). | 5.1, 9.3, 11.1 |
@@ -81,7 +81,7 @@ Ces regles s'appliquent a plusieurs operations et sont centralisees ici pour evi
 | **[RG-6]** | Les prix sont retournes en centimes entiers ; la conversion EUR est effectuee cote client |
 | **[POST-1]** | Aucune ecriture en base ; etat de la base inchange |
 | **[OUT-1]** | Reponse JSON : `{data: {categories: [...], products: {...}, menus: [{..., slots: [{..., options: [...]}]}]}}` |
-| **[ERR-1]** | Base inaccessible : reponse `{data: null, error: {code: "DB_ERROR"}}` et le front-end bascule sur un JSON statique |
+| **[ERR-1]** | Base inaccessible ou toute exception non prevue : HTTP 500, `{data: null, error: {code: "INTERNAL_ERROR", message: "Internal server error"}}` (`ErrorResponse::internal`) ; le code `DB_ERROR` n'existe pas dans le code livre. Le front-end borne (`data.js`) ne bascule pas sur un JSON statique en cas d'echec : le repli statique des allergenes a ete retire (voir le commentaire d'en-tete de `data.js`), et les autres collections (categories, produits, menus) n'en ont pas non plus ; un `fetch` en echec rejette la promesse memoisee (`fetchCollection` leve, la promesse est reinitialisee pour un nouvel essai) sans repli. |
 
 ---
 
@@ -117,7 +117,7 @@ Ces regles s'appliquent a plusieurs operations et sont centralisees ici pour evi
 | **[RG-1]** | Verification de disponibilite cote serveur : chaque article est resolu tour a tour (`OrderRepository::resolveLine`) et le PREMIER article indisponible (`is_available = 0`, ou en rupture calculee RG-T21) interrompt la resolution et rejette la commande entiere ; il n'y a pas de liste consolidee de tous les articles indisponibles, seulement le code du premier rencontre. |
 | **[RG-2 — service_day]** | Le `service_day` d'une commande donnee est calcule a l'execution de la requete comme : `CASE WHEN HOUR(created_at) < 10 THEN DATE(created_at) - INTERVAL 1 DAY ELSE DATE(created_at) END`. La coupure est a 10:00. Ce n'est PAS stocke comme colonne — calcule uniquement a l'execution de la requete. La formule v0.1 avec `INTERVAL 4 HOUR 30 MINUTE` etait incorrecte et est abandonnee. |
 | **[RG-3 — order number]** | Format du numero de commande : prefixe canal + id auto-incremente, soit `K<id>` pour la source `kiosk` (ex. `K42`). Genere en deux temps dans la transaction : INSERT avec `order_number` provisoire vide, puis UPDATE `prefix . LAST_INSERT_ID()`. Pas de compteur par service_day (voir dictionnaire note 4). La source est `kiosk` (derivee de l'endpoint public). Le numero provisoire vide partage avant l'UPDATE reste une surface de robustesse a durcir sous forte concurrence (suivi au backlog). |
-| **[RG-4 — VAT by line]** | Pour chaque `order_item` : `vat_rate_snapshot` est copie depuis `product.vat_rate`. Montants de ligne : `unit_ttc = unit_price_cents_snapshot` ; `unit_ht = ROUND(unit_ttc * 1000 / (1000 + vat_rate_snapshot))` ; `unit_vat = unit_ttc - unit_ht`. Totaux de commande : `total_ttc_cents = SUM(unit_ttc * quantity)` sur toutes les lignes ; `total_ht_cents = SUM(unit_ht * quantity)` ; `total_vat_cents = total_ttc_cents - total_ht_cents`. Invariant : `total_ttc_cents = total_ht_cents + total_vat_cents` (verifie avant l'INSERT). |
+| **[RG-4 — VAT by line]** | Pour une ligne PRODUIT (`item_type='product'`) : `vat_rate_snapshot` est copie depuis `product.vat_rate` (`OrderRepository::resolveLine` ~l.1108). Pour une ligne MENU (`item_type='menu'`) : `vat_rate_snapshot` est copie depuis le `vat_rate` DU BURGER impose du menu (`burger_product_id`), PAS une colonne `vat_rate` propre a `menu` (qui n'existe pas) — avec repli a `100` (10%) si le burger est introuvable (`OrderRepository::resolveMenuLine` ~l.1129 ; l'accompagnement et la boisson du menu n'ont pas leur propre taux, tout le menu herite du taux du burger). Montants de ligne : `unit_ttc = unit_price_cents_snapshot` ; `unit_ht = ROUND(unit_ttc * 1000 / (1000 + vat_rate_snapshot))` ; `unit_vat = unit_ttc - unit_ht`. Totaux de commande : `total_ttc_cents = SUM(unit_ttc * quantity)` sur toutes les lignes ; `total_ht_cents = SUM(unit_ht * quantity)` ; `total_vat_cents = total_ttc_cents - total_ht_cents`. Invariant : `total_ttc_cents = total_ht_cents + total_vat_cents` (verifie avant l'INSERT). |
 | **[RG-5 — creation transaction]** | Creation dans une transaction propre, sans effet sur le stock : (1) INSERT `customer_order` (status `pending_payment`, source `kiosk`, service_mode depuis le panier, totaux calcules) ; (2) INSERT des lignes `order_item` (label_snapshot, unit_price_cents_snapshot, vat_rate_snapshot, quantity, format, item_type, product_id ou menu_id) ; (3) INSERT des lignes `order_item_selection` pour chaque slot rempli dans un article menu (order_item_id, menu_slot_id, product_id, label_snapshot) ; (4) INSERT des lignes `order_item_modifier` si le corps en porte. Les quatre etapes committent ensemble ou sont entierement annulees ; la commande reste au statut `pending_payment` (`OrderRepository::persist`). Le decrement du stock et le passage a `preparing` relevent de PAY_ORDER (3.3ter). |
 | **[RG-6 — cross-constraint]** | La source `kiosk` n'implique aucune contrainte particuliere de service_mode ; le client selectionne `dine_in` ou `takeaway`. La contrainte croisee drive (RG-T09) ne s'applique pas aux commandes provenant du kiosk. |
 | **[RG-7 — immutability]** | Apres l'INSERT, `label_snapshot`, `unit_price_cents_snapshot` et `vat_rate_snapshot` ne sont pas modifies meme si le produit source est renomme ou voit son prix change plus tard (voir RG-T05). |
@@ -155,7 +155,7 @@ tableau de bord.
 |-----|---------|
 | **[TRIGGER]** | `POST /api/orders` avec une `idempotency_key` DEJA connue, portant une commande au statut `pending_payment` |
 | **[PRE-1]** | La commande visee existe (sinon `ORDER_NOT_FOUND`, 404) |
-| **[PRE-2]** | Elle est encore `pending_payment`. Une commande deja encaissee (`paid`/`preparing`/`ready`/`delivered`) n'est pas modifiable -> `INVALID_TRANSITION` (409) ; une commande **annulee** suit un chemin distinct -> `ORDER_CANCELLED` (409, RG-8), pas `INVALID_TRANSITION` |
+| **[PRE-2]** | Elle est encore `pending_payment` au moment ou `OrderRepository::createPending` (3.3 RG-8) lit son statut : c'est CETTE lecture externe (non verrouillee) qui decide d'appeler `replaceItems` (le coeur de 3.3bis), UNIQUEMENT quand `status === 'pending_payment'`. Une commande deja encaissee (`paid`/`preparing`/`ready`/`delivered`) est ainsi detournee AVANT d'atteindre 3.3bis : elle reste dans la branche exterieure de 3.3 RG-8, qui renvoie HTTP 201 avec l'ETAT REEL de la commande (idempotent, aucune ecriture) — pas une erreur `INVALID_TRANSITION`. `replaceItems` re-verifie neanmoins le statut SOUS VERROU (`lockOrder`, RG-7) a son tour : si une course fait gagner PAY_ORDER entre la lecture externe et ce verrou, c'est alors `replaceItems` qui leve `INVALID_TRANSITION` sur son propre statut relu. Une commande **annulee** suit un chemin distinct -> `ORDER_CANCELLED` (409, RG-8), pas `INVALID_TRANSITION` |
 | **[RG-1]** | Le panier envoye est resolu et VALORISE SERVEUR par le meme chemin que la creation (`resolveAndTotal`) : prix, TVA par ligne et snapshots identiques. Une commande modifiee ne peut donc pas etre facturee autrement que la meme commande creee d'un coup (RG-T16). |
 | **[RG-2]** | La garde de rupture RG-T21 s'applique aussi a la modification : un article tombe en rupture depuis la creation ne peut pas etre reconduit -> `PRODUCT_UNAVAILABLE` / `MENU_UNAVAILABLE`. |
 | **[RG-3]** | Panier vide refuse (`EMPTY_ORDER`) : vider une commande la rendrait payable a 0 EUR. La validation precede la transaction, donc rien n'est ecrit. |
@@ -230,9 +230,9 @@ Sources : `OrderRepository::pay`, `OrderController::pay`, `src/app/Core/routes.p
 | **[POST-1]** | Une ligne `customer_order` avec `status = 'preparing'`, `source = 'counter'` ou `'drive'`, `paid_at` et `preparing_at` definis, `acting_user_id` defini. |
 | **[POST-2]** | N lignes `order_item` avec snapshots. Selections de slot et modificateurs ecrits a l'identique du flux kiosk. |
 | **[POST-3]** | Stock decremente ; mouvements journalises avec l'acteur `user_id`. |
-| **[OUT-1]** | Redirection vers la liste des commandes du canal (`/counter/orders` ou `/drive/orders`) ; le numero est communique au client. Echec de validation : formulaire reaffiche en 422 avec le message. |
-| **[ERR-1]** | Memes cas d'erreur que CREATE_ORDER (ERR-1, ERR-2, ERR-3) |
-| **[ERR-2]** | Violation de contrainte croisee (`source = drive` mais `service_mode != drive`) : HTTP 422, `{error: {code: "INVALID_SERVICE_MODE"}}` |
+| **[OUT-1]** | HTML (`CounterOrderController::store`) : redirection vers la liste des commandes du canal (`/counter/orders` ou `/drive/orders`) avec le numero en surbrillance ; le numero est communique au client. API (`OrderApiController::apiStore`) : HTTP 201, `{data: {..., source}}` (`createdResponse`). |
+| **[ERR-1]** | Panier vide : HTML -> formulaire reaffiche en 422 avec le message « Ajoutez au moins un produit ou un menu. » ; API -> HTTP 422 `{error: {code: "VALIDATION_ERROR", fields: {items: "Ajoutez au moins un produit ou un menu."}}}` (`validationErrorResponse`, `JsonApiTrait`). |
+| **[ERR-2]** | TOUTE `OrderValidationException` levee par `createStaffOrder` (y compris la violation de contrainte croisee `source=drive`/`service_mode!=drive`, RG-2) est interceptee et traduite en message humain par `messageFor()`, PUIS enveloppee UNIFORMEMENT : HTML -> formulaire reaffiche en HTTP 422 avec ce message (`renderForm`) ; API -> HTTP 422 `{error: {code: "VALIDATION_ERROR", fields: {items: <message>}}}` (`validationErrorResponse`). Le code `INVALID_SERVICE_MODE` (ou tout autre code d'exception) N'EST PAS renvoye tel quel sur ce chemin — contrairement a CREATE_ORDER (3.3 ERR-2), il n'y a pas de code d'erreur dedie en sortie API, seulement `VALIDATION_ERROR` avec un message dans `fields.items` (`CounterOrderController::store` l.190, `OrderApiController::apiStore` l.196). |
 
 ---
 
@@ -246,13 +246,32 @@ Sources : `OrderRepository::pay`, `OrderController::pay`, `src/app/Core/routes.p
 |-----|---------|
 | **[PRE-1]** | L'acteur est authentifie, `is_active = 1` |
 | **[PRE-2]** | L'acteur detient la permission `order.read` |
-| **[RG-1 — source filter]** | Recuperer les sources visibles pour le role de l'acteur : `SELECT source FROM role_visible_source WHERE role_id = :role_id`. La cuisine voit les trois ; le comptoir voit `kiosk` et `counter` ; le drive voit `drive`. |
-| **[RG-2 — query]** | Deux requetes distinctes selon l'ecran, sans `JOIN` direct `customer_order`/`order_item` : `SELECT ... FROM customer_order WHERE status IN ('paid', 'preparing', 'ready') AND source IN (:visible_sources) ORDER BY paid_at ASC, id ASC`, puis un chargement groupe des lignes par `order_id IN (...)` (anti N+1, 3 requetes au total quel que soit le nombre de commandes). L'ecran cuisine (`KitchenController`) appelle `OrderQueryRepository::paidQueueWithDetail` (memes commandes + `items`/`selections`/`modifiers`/`sla_band` par commande) ; l'ecran comptoir/drive (`CounterOrderController::index`) appelle `paidQueue` (memes commandes, sans le detail des lignes). |
+| **[RG-1 — source filter]** | DEUX mecanismes distincts selon l'ecran : l'ecran cuisine (`KitchenController`) recupere les sources visibles pour le role via `SELECT source FROM role_visible_source WHERE role_id = :role_id` (la cuisine voit les trois canaux) ; l'ecran comptoir/drive (`CounterOrderController::index`) NE consulte PAS `role_visible_source` pour sa file "en cours" — il filtre a la SEULE source de son propre canal de route (`$this->source()`, `'counter'` ou `'drive'` selon que la requete vient de `/counter/orders` ou `/drive/orders`), pour que l'equipier ne voie que ce qu'il sert lui-meme. |
+| **[RG-2 — query]** | Deux requetes distinctes selon l'ecran, sans `JOIN` direct `customer_order`/`order_item` : `SELECT ... FROM customer_order WHERE status IN ('paid', 'preparing', 'ready') AND source IN (:sources) ORDER BY paid_at ASC, id ASC`, puis un chargement groupe des lignes par `order_id IN (...)` (anti N+1, 3 requetes au total quel que soit le nombre de commandes). L'ecran cuisine appelle `OrderQueryRepository::paidQueueWithDetail($sources)` avec les sources de role (RG-1) et le detail (`items`/`selections`/`modifiers`/`sla_band`) ; l'ecran comptoir/drive appelle `paidQueue([$source])` avec UN SEUL element (son propre canal), sans le detail des lignes. |
 | **[RG-3 — item detail]** | `paidQueueWithDetail` seule charge le detail : pour chaque ligne de commande de type `menu`, les `order_item_selection` (choix de slot) ; pour toutes les lignes, les `order_item_modifier` (modifications d'ingredient). L'affichage utilise les snapshots (`label_snapshot`, `quantity`, `format`) ; aucune re-jointure sur les tables `product` ou `menu` necessaire. |
 | **[RG-4 — KDS colour]** | Indicateur de couleur calcule au rendu : `elapsed = NOW() - customer_order.paid_at` ; vert si elapsed < seuil SLA (configurable, approx. 10 min) ; ambre si en approche ; rouge si depasse. Non stocke ; calcule cote client ou en PHP avant la reponse. |
-| **[RG-5 — read only]** | Cette operation n'emet aucun UPDATE. Le meme ecran propose separement MARK_READY (`POST /admin/orders/{number}/ready`, permission `order.read`, section 14), qui ecrit la transition vers `ready`. |
+| **[RG-5 — read only]** | Cette operation n'emet aucun UPDATE. Le meme ecran propose separement MARK_READY (`POST /admin/orders/{number}/ready`, permission `order.read`, 5.2), qui ecrit la transition vers `ready`. |
 | **[POST-1]** | Aucune ecriture en base |
 | **[OUT-1]** | Liste des commandes aux statuts `paid`, `preparing` et `ready`, filtree par role, triee par `paid_at` croissant, avec le detail complet des articles (selections, modificateurs, couleur KDS) |
+
+---
+
+### 5.2 MARK_READY
+
+**Correspond a la section 5.2 du MCT (fiche ajoutee au MLT, absente jusqu'a la v0.5 malgre la reference croisee ci-dessus)**
+
+| Marqueur | Contenu |
+|-----|---------|
+| **[PRE-1]** | L'acteur est authentifie, `is_active = 1`, detient la permission `order.read` (pas de permission dediee a la transition) |
+| **[PRE-2]** | La commande existe (sinon `ORDER_NOT_FOUND`) et sa source est visible pour le role de l'acteur (`sourceVisibleToRole`, meme garde que DELIVER_ORDER/CANCEL_ORDER, defense en profondeur cote serveur) |
+| **[RG-1]** | `UPDATE customer_order SET status='ready', ready_at=NOW(), updated_at=NOW() WHERE id=:id AND status IN ('paid','preparing')` (RG-T07, garde de concurrence dans le WHERE) |
+| **[RG-2 — idempotence]** | Si la commande est deja `ready` (lue avant la tentative, ou 0 ligne affectee puis relue a `ready`), l'operation renvoie le MEME resultat sans nouvelle ecriture (`OrderRepository::markReady`). Tout autre statut (`pending_payment`, `delivered`, `cancelled`) leve `INVALID_TRANSITION`. |
+| **[RG-3 — pas de PIN, pas de stock]** | Hors ensemble sensible RG-T13 (aucun PIN requis) et sans effet sur `ingredient`/`stock_movement` : la transition est purement informative pour l'equipe. Aucune ligne `audit_log` ecrite. |
+| **[POST-1]** | `customer_order.status='ready'`, `ready_at`/`updated_at` positionnes (ou inchange si deja `ready`) |
+| **[OUT-1]** | Flash « Commande marquée prête. », retour a l'ecran d'origine (`/kitchen/display` ou `/admin/orders`) avec la ligne en surbrillance |
+| **[ERR-1]** | Commande introuvable : flash « Commande introuvable. » ; transition invalide (statut non `paid`/`preparing`/`ready`) : flash « Transition invalide pour cette commande. » ; source non visible pour le role : HTTP 403 |
+
+Sources : `src/app/Controllers/OrderAdminController.php` (`ready`), `src/app/Order/OrderRepository.php` (`markReady`), route `POST /admin/orders/{number}/ready` (et son miroir API `POST /admin/api/orders/{number}/ready`, `OrderApiController::apiReady`).
 
 ---
 
@@ -271,9 +290,9 @@ Sources : `OrderRepository::pay`, `OrderController::pay`, `src/app/Core/routes.p
 | **[RG-2 — concurrency]** | La clause `AND status IN (...)` dans l'UPDATE protege contre une double remise concurrente : si deux membres du personnel cliquent simultanement, seul le premier reussit (0 ligne affectee pour le second) ; si le statut relu ensuite est deja `delivered`, la reponse reste un succes idempotent, sinon `INVALID_TRANSITION`. |
 | **[RG-3]** | `delivered` est un statut terminal : aucune transition ulterieure n'est definie depuis ce statut (contrainte applicative, pas appliquee comme trigger DB). |
 | **[POST-1]** | `customer_order.status = 'delivered'`, `delivered_at` defini, cycle de vie complet. La commande passe a l'historique. |
-| **[OUT-1]** | HTTP 200 avec confirmation, y compris pour une commande deja remise (idempotent, aucun nouvel effet). La commande disparait de la file `paid`/`preparing`/`ready`. |
-| **[ERR-1]** | Transition invalide (le statut n'etait ni `paid`, `preparing`, `ready` ni deja `delivered` au moment de l'execution de l'UPDATE — course perdue vers `pending_payment` ou `cancelled`) : API JSON `409 CONFLICT` (`OrderApiController::transition`, generique — pas `INVALID_TRANSITION`) |
-| **[ERR-2]** | Source de commande hors des sources visibles de l'acteur, OU numero inconnu : `403 FORBIDDEN` (les deux cas rendent la meme reponse, anti-enumeration) |
+| **[OUT-1]** | HTML (`OrderAdminController::deliver`) : HTTP **302** redirection vers `/admin/orders` avec un flash « Commande remise (livrée). » (y compris pour une commande deja remise, idempotent, aucun nouvel effet) — PAS un HTTP 200 avec un corps de confirmation. API JSON (`OrderApiController::apiDeliver`) : HTTP 200 avec le corps `{data: {...}}`. La commande disparait de la file `paid`/`preparing`/`ready`. |
+| **[ERR-1]** | Transition invalide : HTML -> flash « Transition invalide : la commande n'est pas au statut payé. », redirection 302 vers `/admin/orders` ; API JSON -> `409 CONFLICT` (`OrderApiController::transition`, generique — pas `INVALID_TRANSITION`) |
+| **[ERR-2]** | Source de commande hors des sources visibles de l'acteur, OU numero inconnu : HTML -> `403 FORBIDDEN` (page Acces refuse) ; API -> `403 FORBIDDEN` (les deux cas rendent la meme reponse, anti-enumeration) |
 
 ---
 
@@ -316,11 +335,11 @@ Sources : `src/app/Controllers/OrderAdminController.php` (`confirmCancel`, `canc
 | Marqueur | Contenu |
 |-----|---------|
 | **[PRE-1]** | Acteur authentifie, detient la permission `product.create` |
-| **[PRE-2]** | `category_id` reference une categorie existante avec `is_active = 1` |
-| **[RG-1]** | Validation du formulaire : `name` non vide, `price_cents > 0`, `category_id` valide, `vat_rate` dans `(55, 100)` |
-| **[RG-2]** | Upload d'image (optionnel) : valider le type MIME (JPEG, PNG, WEBP), taille max configurable (suggestion : 2 MB), stocker sous `UPLOAD_DIR/products/`, enregistrer le chemin relatif dans `image_path` |
+| **[PRE-2]** | `category_id` reference une categorie EXISTANTE (`ProductRepository::categoryExists`, simple `SELECT id FROM category WHERE id = :id`) — aucun controle de `is_active` : une categorie masquee reste une cible valide pour un nouveau produit. |
+| **[RG-1]** | Validation du formulaire : `name` non vide, `price_cents > 0`, `category_id` valide (existence seule, voir PRE-2), `vat_rate` dans `(55, 100)` |
+| **[RG-2]** | Upload d'image (optionnel) : valider le type MIME (JPEG, PNG, WEBP), taille max configurable (`UPLOAD_MAX_MB`, defaut **5 Mo**, `ImageUploader::DEFAULT_MAX_MB`), stocker sous `UPLOAD_DIR/products/`, enregistrer le chemin relatif dans `image_path` |
 | **[RG-3]** | `is_available = 1` par defaut a l'INSERT |
-| **[RG-4]** | `display_order` defini a `MAX(display_order) + 1` pour la categorie cible, ou 0 si premier produit |
+| **[RG-4]** | `display_order` = valeur soumise dans le formulaire (`display_order`, entier 0-65535 valide en RG-T18), **0 par defaut si le champ est absent/vide** — PAS de calcul `MAX(display_order) + 1` (`ProductController::validate` : `trim($form['display_order'] ?? '0')`). Le reordonnancement se fait ensuite via REORDER_CATALOGUE (fleches haut/bas, `ProductController::move`). |
 | **[POST-1]** | Une ligne `product` dans la base avec tous les champs valides |
 | **[OUT-1]** | Redirection vers la liste des produits de la categorie avec message de succes |
 | **[ERR-1]** | Echec de validation : erreurs de champ affichees en ligne |
@@ -371,15 +390,15 @@ Sources : `src/app/Controllers/OrderAdminController.php` (`confirmCancel`, `canc
 | Marqueur | Contenu |
 |-----|---------|
 | **[PRE-1]** | Acteur authentifie, detient la permission `menu.create` |
-| **[PRE-2]** | `burger_product_id` reference un produit existant et disponible |
+| **[PRE-2]** | `burger_product_id` reference un produit qui est une BASE (`MenuRepository::productIsBase`, `base_product_id IS NULL`, R4) — SEUL ce controle est fait : la disponibilite (`is_available`) du burger n'est PAS verifiee a la creation du menu (`MenuController::validate` ~l.345-351). |
 | **[PRE-3]** | Au moins un `menu_slot` est defini avec au moins une `menu_slot_option` |
-| **[RG-1]** | Validation : `name` non vide, `price_normal_cents > 0`, `price_maxi_cents > 0`, `burger_product_id` valide, toutes les valeurs `product_id` des options de slot existent |
+| **[RG-1]** | Validation : `name` non vide, `price_normal_cents > 0`, `price_maxi_cents > 0`, `burger_product_id` valide (PRE-2), les `product_id` des options de slot existent et appartiennent au slot lors de la RESOLUTION en commande (`OrderRepository::resolveSelections` verifie l'appartenance au slot, PAS `is_available` de l'option — voir RG-T21bis ci-dessous) |
 | **[RG-2]** | Transaction : INSERT `menu`, puis INSERT des lignes `menu_slot` (name, slot_type, is_required, display_order), puis INSERT des lignes `menu_slot_option` (menu_slot_id, product_id) |
 | **[RG-3]** | Valeurs `slot_type` valides (depuis l'ENUM du dictionnaire) : `drink`, `side`, `sauce`, `dessert`, `extra` |
+| **[RG-T21bis — options de slot non filtrees]** | Ni a la creation/modification du menu, ni a LOAD_CATALOGUE (3.1), ni a la resolution d'une selection en commande (`resolveSelections`), le code ne filtre les options de slot sur `product.is_available` : un produit retire du catalogue (ou en rupture calculee RG-T21) reste propose comme option de slot tant qu'il figure dans `menu_slot_option`, et son choix en commande n'est PAS rejete pour ce motif (seule l'appartenance au slot, `in_array($pid, $optionsBySlot[$slotId])`, est verifiee). C'est un ecart reel par rapport au comportement attendu (afficher au moins un avertissement) — a corriger au backlog, non fait dans le code livre. |
 | **[POST-1]** | Une ligne `menu`, N lignes `menu_slot`, M lignes `menu_slot_option` dans la base |
 | **[OUT-1]** | Redirection vers la liste des menus avec message de succes |
 | **[ERR-1]** | Configuration invalide (pas de slot, pas d'option) : message d'erreur metier |
-| **[ERR-2]** | Produit d'option de slot indisponible : avertissement (le menu peut etre cree ; la disponibilite du produit est verifiee au moment de la commande) |
 
 ---
 
@@ -407,12 +426,12 @@ Sources : `src/app/Controllers/OrderAdminController.php` (`confirmCancel`, `canc
 |-----|---------|
 | **[PRE-1]** | Acteur authentifie, detient la permission `menu.delete` |
 | **[PRE-2]** | Le `menu.id` cible existe |
-| **[RG-1]** | Pre-verification (PHP) : le menu est-il reference dans `order_item.menu_id` ? FK `ON DELETE RESTRICT`. Si oui, proposer la desactivation (`is_available=0`) au lieu de la suppression. |
-| **[RG-2]** | Si aucune reference historique : DELETE `menu` declenche un CASCADE vers `menu_slot` (qui cascade vers `menu_slot_option`) |
-| **[RG-3 — PIN + audit]** | La suppression est une action sensible : PIN propre a chaque membre du personnel (RG-T13) + une ligne `audit_log` (RG-T14), `action_code='menu.delete'`, `entity_type='menu'`, `entity_id=:id`, `summary` capturant le nom du menu avant suppression. |
+| **[RG-1]** | AUCUNE pre-verification PHP : le code ne lit pas `order_item.menu_id` avant de tenter la suppression (meme pattern que DELETE_PRODUCT 8.3). La suppression est tentee directement (`MenuController::destroy` -> `MenuRepository::delete`). |
+| **[RG-2]** | DELETE `menu` declenche un CASCADE vers `menu_slot` (qui cascade vers `menu_slot_option`) si la suppression aboutit. Si `order_item.menu_id` (FK `ON DELETE RESTRICT`) reference ce menu, MariaDB refuse (SQLSTATE 23000) et rien n'est supprime (ni `menu`, ni `menu_slot`, ni `menu_slot_option`, l'echec de la contrainte annule l'instruction DELETE). |
+| **[RG-3 — PIN + audit]** | La suppression est une action sensible : PIN propre a chaque membre du personnel (RG-T13), verifie AVANT la tentative de suppression, + une ligne `audit_log` (RG-T14) ecrite SEULEMENT si la suppression aboutit (`$deleted === 1`), `action_code='menu.delete'`, `entity_type='menu'`, `entity_id=:id`, `summary` capturant le nom du menu avant suppression. |
 | **[POST-1]** | `menu`, ses lignes `menu_slot` et ses lignes `menu_slot_option` supprimes ; une ligne `audit_log` enregistree |
 | **[OUT-1]** | Redirection avec message de succes |
-| **[ERR-1]** | Menu dans des commandes historiques : message proposant la desactivation a la place |
+| **[ERR-1]** | Menu reference par des commandes (FK 23000 interceptee) : HTTP **409**, message exact « Menu référencé par des commandes : suppression impossible. Désactivez-le plutôt. » (`MenuController::destroy`) — aucune liste des commandes bloquantes n'est affichee, et aucune desactivation automatique n'est declenchee (l'acteur doit la faire lui-meme). |
 
 ---
 
@@ -423,12 +442,12 @@ Sources : `src/app/Controllers/OrderAdminController.php` (`confirmCancel`, `canc
 | Marqueur | Contenu |
 |-----|---------|
 | **[PRE-1]** | Acteur authentifie, detient la permission `category.manage` |
-| **[RG-CREATE]** | `name` et `slug` non vides et uniques dans la base ; `display_order` defini a MAX + 1 |
-| **[RG-UPDATE]** | UPDATE `name`, `slug`, `image_path`, `display_order`, `is_active` |
+| **[RG-CREATE]** | `name` et `slug` non vides et uniques dans la base ; `display_order` = valeur soumise dans le formulaire, 0 par defaut si absente/vide (`CategoryController::validate`, meme pattern que CREATE_PRODUCT 8.1 RG-4) — pas de calcul MAX + 1. |
+| **[RG-UPDATE]** | `UPDATE category SET name=:name, slug=:slug, image_path=:image, display_order=:ord WHERE id=:id` (`CategoryRepository::update`) — `is_active` N'EST PAS dans cette instruction : le formulaire d'edition normalise `is_active` a 1 en interne (`CategoryController::validate`), mais ce champ est ignore par le repository a l'ecriture (pas dans l'allowlist SQL de `update()`), donc editer une categorie masquee via le formulaire ne la reactive pas. Seule `setActive()` (RG-DEACTIVATE, la bascule dediee) modifie `is_active`. |
 | **[RG-DEACTIVATE]** | La desactivation (`is_active=0`) ne desactive pas automatiquement les produits/menus enfants dans la DB (pas de CASCADE sur `is_active`). `CategoryController::toggle` bascule uniquement `category.is_active` et affiche « Categorie masquee. » : la couche PHP NE propose PAS de desactiver les produits/menus enfants a la volee. Ils restent `is_available=1` en base mais deviennent invisibles cote kiosk, le filtre `category.is_active = 1` de LOAD_CATALOGUE les masquant implicitement. |
-| **[RG-DELETE]** | Suppression physique bloquee si `product.category_id` ou `menu.category_id` reference cette categorie (FK `ON DELETE RESTRICT`). Proposer la desactivation. |
+| **[RG-DELETE]** | Pas de suppression physique dans le code livre : aucune route HTML de suppression, et `DELETE /admin/api/categories/{id}` (`CategoryApiController::apiDestroy`) se limite a `setActive($id, false)` — bascule `is_active=0`, idempotente (une categorie deja masquee le reste, sans erreur), pas de `DELETE FROM category`. La FK `ON DELETE RESTRICT` de `product.category_id`/`menu.category_id` existe en base mais ne protege pas de chemin d'ecriture reel (aucun code n'emet de `DELETE FROM category`). |
 | **[POST-CREATE]** | Nouvelle ligne `category` dans la base |
-| **[POST-UPDATE]** | `category` mise a jour, `updated_at` rafraichi |
+| **[POST-UPDATE]** | `category` mise a jour, `updated_at` rafraichi ; ou `is_active` basculee (RG-DEACTIVATE), sans suppression de ligne |
 | **[OUT-1]** | Confirmation, redirection vers la liste des categories |
 
 ---
@@ -441,9 +460,9 @@ Sources : `src/app/Controllers/OrderAdminController.php` (`confirmCancel`, `canc
 |-----|---------|
 | **[PRE-1]** | Acteur authentifie, detient la permission `ingredient.manage` |
 | **[RG-CREATE-ING]** | `name` non vide et UNIQUE ; `unit` non vide ; `pack_size >= 1` ; `stock_capacity >= 1` (la reference 100%) ; `low_stock_pct` et `critical_stock_pct` dans 0-100 avec `critical_stock_pct < low_stock_pct` (defauts 10 / 5) ; `stock_quantity` par defaut a 0 a la creation |
-| **[RG-UPDATE-ING]** | UPDATE `name`, `unit`, `pack_size`, `pack_label`, `stock_capacity`, `low_stock_pct`, `critical_stock_pct`, `is_active` |
+| **[RG-UPDATE-ING]** | `UPDATE ingredient SET name=:name, unit=:unit, family=:family, stock_capacity=:cap, pack_size=:pack, pack_label=:label, low_stock_pct=:low, critical_stock_pct=:crit WHERE id=:id` (`IngredientRepository::update`) — MEME pattern que `category` : `is_active` N'EST PAS dans cette allowlist (RG-T16, docblock explicite : « les lier ici ouvrirait une affectation de masse non voulue »). Seule `setActive()` (RG-DEACTIVATE-ING) modifie `is_active`. |
 | **[RG-DEACTIVATE-ING]** | `is_active=0` masque l'ingredient du configurateur. Suppression physique bloquee si reference dans `product_ingredient` (FK `ON DELETE RESTRICT`) ou `stock_movement` (FK `ON DELETE RESTRICT`). |
-| **[RG-COMPOSITION]** | UPDATE `product_ingredient` : pour chaque ingredient de la recette d'un produit, definir `quantity_normal`, `quantity_maxi`, `is_removable`, `is_addable`, `extra_price_cents`. Pattern delete-and-reinsert en transaction. |
+| **[RG-COMPOSITION]** | UPDATE `product_ingredient` : pour chaque ingredient de la recette d'un produit, definir `quantity_normal`, `quantity_maxi`, `is_removable`, `is_addable`, `extra_price_cents`. Pattern delete-and-reinsert en transaction. L'editeur de recette est atteint DEPUIS la fiche produit (PR-B) mais gardee par sa PROPRE permission `ingredient.manage` (`ProductController::recipeForm`/`recipeSave`, distincte de `product.update` qui garde le reste du formulaire produit) — non documente avant v0.5 : un acteur avec `product.update` seul ne peut pas modifier la recette. |
 | **[RG-ALLERGEN]** | Gerer `ingredient_allergen` : l'ensemble des paires `(ingredient_id, allergen_id)` d'un ingredient est REMPLACE en bloc (delete-and-reinsert en transaction, comme RG-COMPOSITION). Les ids soumis sont valides contre le catalogue des 14 avant ecriture (RG-T18) ; la FK RESTRICT sur `allergen_id` est le filet, pas le controle. La liste des allergenes reste en lecture seule (14 lignes fixees par le reglement UE 1169/2011). |
 | **[RG-ALLERGEN-SOURCE]** | La provenance de la revue est **obligatoire** : champ vide -> re-affichage 422, aucune ecriture. Une revue dont on ne peut pas dire d'ou elle vient n'est pas verifiable, et l'information est montree au client. Tronquee a 120 caracteres (colonne) plutot que refusee : perdre la fin d'un libelle est moins grave que perdre la revue. |
 | **[RG-ALLERGEN-REVIEW]** | La meme transaction pose `ingredient.allergens_reviewed_at = NOW()` et `allergens_source`. C'est CE marquage qui rend la liste affirmable cote borne : un ensemble vide AVEC la date declare "verifie, aucun des 14" ; sans la date, la borne dit "information non disponible". Ne rien cocher est donc une declaration, pas un non-geste. |
@@ -463,6 +482,27 @@ Voir [ADR-0015](../adr/0015-allergenes-calcules-par-produit.md) et `dictionary.m
 
 ---
 
+### 8.9 IMPORT_PRODUCTS (import CSV)
+
+**Correspond a la section 8.9 du MCT (fiche ajoutee au MLT, absente jusqu'a la v0.5 malgre sa presence au tableau §14)**
+
+| Marqueur | Contenu |
+|-----|---------|
+| **[PRE-1]** | Acteur authentifie, detient la permission `product.create` |
+| **[PRE-2]** | Un apercu a ete genere prealablement (`GET`/`POST /admin/products/import`, `ProductController::importPreview`) : le CSV est mis en session sous une cle courte duree (`IMPORT_TTL_SECONDS`, 1800s) associee a un `import_token`. Un aperçu expire ou un token invalide -> redirection avec message, aucune ecriture. |
+| **[RG-1 — dry-run reproductible]** | `importConfirm` reconstruit le RAPPORT en rejouant `ProductImportService::preview` sur le MEME CSV, sans reutiliser un rapport mis en cache : la confirmation reste coherente avec ce qui a ete affiche, meme si le catalogue a change entre-temps (une categorie supprimee, par exemple, refait echouer la ligne a la confirmation). |
+| **[RG-2 — blocage sur erreur]** | Si `report['errors']` est non vide, l'aperçu est reaffiche en HTTP 422 : aucune ligne n'est appliquee (tout ou rien au niveau du fichier, pas ligne par ligne). |
+| **[RG-3 — PIN conditionnel]** | Un PIN (RG-T13) n'est exige QUE si `report['hasPriceChange']` est vrai (au moins une ligne modifie un prix existant) : creation pure ou import sans changement de prix ne demande pas de PIN. PIN refuse -> `pin.failed` dans `audit_log` + increment `pin_throttle`, meme transaction. |
+| **[RG-4 — application]** | `ProductImportService::apply` s'execute dans SA PROPRE transaction (RG-T08) : creation/mise a jour de `product`, `ingredient` (si de nouveaux ingredients sont references) et `product_ingredient` (recette), avec l'acteur (session si pas de changement de prix, resolu par PIN sinon) attribue a l'ecriture `audit_log`. |
+| **[RG-5 — filet d'exception]** | Une exception NON prevue par `apply()` remonte deja annulee (la transaction de `ProductImportService` a fait un rollback avant de propager) ; le controleur l'intercepte pour tracer et afficher un message lisible plutot que la page d'erreur brute du gestionnaire global. Un blocage metier explicite (`ImportBlockedException`) efface la session d'import et invite a renvoyer un fichier corrige. |
+| **[POST-1]** | Lignes `product`/`ingredient`/`product_ingredient` creees ou mises a jour selon le CSV ; une ligne `audit_log` si l'import a ete applique (RG-4) |
+| **[OUT-1]** | Redirection vers la liste des produits avec un resume (nombre de lignes creees/modifiees) |
+| **[ERR-1]** | Aperçu expire/token invalide : redirection avec message, aucune ecriture ; erreurs de validation du CSV : reaffichage 422 (RG-2) ; PIN refuse (RG-3) : reaffichage 422 avec « Email ou PIN invalide (requis : ce fichier modifie au moins un prix). » ; blocage metier (`ImportBlockedException`) : redirection avec message d'erreur |
+
+Sources : `src/app/Controllers/ProductController.php` (`importPreview`, `importConfirm`), `src/app/Catalogue/ProductImportService.php` (`preview`, `apply`). Routes : `GET`/`POST /admin/products/import`, `POST /admin/products/import/confirm`.
+
+---
+
 ## 9. Domaine 7 — Gestion du stock
 
 ### 9.1 RESTOCK
@@ -474,11 +514,11 @@ Voir [ADR-0015](../adr/0015-allergenes-calcules-par-produit.md) et `dictionary.m
 | **[PRE-1]** | Acteur authentifie, detient la permission `stock.manage` |
 | **[PRE-2]** | L'ingredient cible existe et `is_active = 1` |
 | **[PRE-3]** | Nombre de packs `N >= 1` |
-| **[RG-1]** | `delta = N * ingredient.pack_size` |
-| **[RG-2]** | Transaction : `UPDATE ingredient SET stock_quantity = stock_quantity + :delta WHERE id = :id` ; INSERT `stock_movement` (ingredient_id, movement_type=`restock`, delta=+delta, order_id=NULL, user_id=acteur, note=optionnelle) |
+| **[RG-1]** | `delta demande = N * ingredient.pack_size` |
+| **[RG-2]** | Transaction : `newQuantity = clampToCapacity(stock_quantity + delta_demande, stock_capacity)` (ECRETAGE a la capacite, meme plafonnement que INVENTORY_COUNT et ADJUST, migration `0008`) ; `UPDATE ingredient SET stock_quantity = :newQuantity WHERE id = :id` ; INSERT `stock_movement` (ingredient_id, movement_type=`restock`, delta = `newQuantity - stock_quantity` REELLEMENT applique apres ecretage — pas le delta demande, order_id=NULL, user_id=acteur DE SESSION (`$guard->userId`, pas de PIN : le reapprovisionnement n'est pas dans l'ensemble sensible RG-T13), note=optionnelle) |
 | **[RG-3]** | `stock_movement` est append-only : aucun UPDATE ou DELETE sur cette table (les corrections sont de nouvelles lignes) |
-| **[POST-1]** | `ingredient.stock_quantity` incremente de `delta`. Une ligne `stock_movement` de type `restock` inseree. |
-| **[OUT-1]** | Confirmation avec le nouveau niveau de stock affiche |
+| **[POST-1]** | `ingredient.stock_quantity` incremente de `delta`, plafonne a `stock_capacity` (peut etre inferieur au delta demande si l'ingredient est deja proche du plein). Une ligne `stock_movement` de type `restock` inseree avec le delta reellement applique. |
+| **[OUT-1]** | Confirmation avec le nouveau niveau de stock affiche ; message specifique si l'augmentation demandee a ete ecretee par le plafond de capacite (`IngredientController::restock`) |
 
 ---
 
@@ -491,12 +531,12 @@ Voir [ADR-0015](../adr/0015-allergenes-calcules-par-produit.md) et `dictionary.m
 | **[PRE-1]** | Acteur authentifie, detient la permission `stock.count` |
 | **[PRE-2]** | L'ingredient cible existe |
 | **[PRE-3]** | `actual_quantity >= 0` (le comptage physique est non negatif) |
-| **[RG-1]** | `delta = actual_quantity - ingredient.stock_quantity` (peut etre negatif si actual < theorique) |
-| **[RG-2]** | Transaction : `UPDATE ingredient SET stock_quantity = :actual_quantity WHERE id = :id` ; INSERT `stock_movement` (ingredient_id, movement_type=`inventory_correction`, delta=calcule, order_id=NULL, user_id=acteur, note=optionnelle) |
+| **[RG-1]** | `newQuantity = clampToCapacity(actual_quantity, stock_capacity)` (ECRETAGE a la capacite : un comptage physique superieur a la capacite configuree est retenu a la capacite, pas au chiffre saisi, meme plafonnement que RESTOCK/ADJUST) ; `delta = newQuantity - ingredient.stock_quantity` (peut etre negatif si le compte retenu est inferieur au theorique) |
+| **[RG-2]** | Transaction : `UPDATE ingredient SET stock_quantity = :newQuantity WHERE id = :id` ; INSERT `stock_movement` (ingredient_id, movement_type=`inventory_correction`, delta=calcule sur le compte ECRETE, order_id=NULL, user_id=equipier resolu par PIN, note=optionnelle) |
 | **[RG-3]** | `delta = 0` est une correction valide (le comptage physique correspond au theorique) ; une ligne de mouvement est tout de meme inseree pour la completude de l'audit |
 | **[RG-4 — PIN attribution]** | Une correction d'inventaire peut masquer de la demarque, elle requiert donc le PIN propre a chaque membre du personnel (RG-T13). Le `user_id` capture par PIN est ecrit dans `stock_movement.user_id`, rendant la correction imputable a une personne meme sur un poste de travail partage. Pas de ligne `audit_log` separee (la trace `stock_movement` l'enregistre deja). |
-| **[POST-1]** | `ingredient.stock_quantity = actual_quantity`. Une ligne `stock_movement` de type `inventory_correction` inseree avec le `user_id` agissant. |
-| **[OUT-1]** | Confirmation avec le niveau de stock reconcilie et l'ecart affiches |
+| **[POST-1]** | `ingredient.stock_quantity = actual_quantity` plafonne a `stock_capacity` (RG-1). Une ligne `stock_movement` de type `inventory_correction` inseree avec le `user_id` agissant. |
+| **[OUT-1]** | Confirmation avec le niveau de stock reconcilie et l'ecart affiches ; message specifique si le compte saisi a ete ecrete par le plafond de capacite (`IngredientController::inventory`) |
 
 ---
 
@@ -508,11 +548,11 @@ Voir [ADR-0015](../adr/0015-allergenes-calcules-par-produit.md) et `dictionary.m
 |-----|---------|
 | **[PRE-1]** | Acteur authentifie, detient la permission `stock.read` |
 | **[RG-1]** | `SELECT * FROM ingredient ORDER BY name ASC` (`IngredientRepository::all`) — la liste back-office N'EST PAS filtree sur `is_active` : elle inclut les ingredients inactifs, a la difference du catalogue kiosk (LOAD_CATALOGUE ne lit que `is_active = 1`). |
-| **[RG-2]** | Bandes de stock calculees au rendu depuis les seuils en pourcentage : `low_stock: true` quand `stock_quantity <= stock_capacity * low_stock_pct / 100`, `critical_stock: true` quand `stock_quantity <= stock_capacity * critical_stock_pct / 100` ; `stock_pct = ROUND(stock_quantity / stock_capacity * 100)` est aussi retourne. Non stockees comme colonnes. |
+| **[RG-2]** | Bande de stock a 3 niveaux calculee au rendu HTML (`IngredientRepository::stockBand`, arithmetique entiere) : `critical` si `quantity*100 <= capacity*critical_stock_pct`, `low` si `quantity*100 <= capacity*low_stock_pct`, sinon `normal` (une capacite `<= 0` tombe directement en `critical`). C'est UN champ `stock_band` (chaine a 3 valeurs), pas deux booleens `low_stock`/`critical_stock` distincts. `stock_pct` (pourcentage arrondi) est calcule de la meme facon. Ni `stock_band` ni `stock_pct` ne sont des colonnes stockees ; l'API JSON (`IngredientApiController::present`) NE renvoie PAS `stock_band` du tout — seulement `low_stock_pct`/`critical_stock_pct`/`stock_capacity`/`stock_quantity` bruts, au consommateur de recalculer la bande s'il en a besoin. |
 | **[RG-3]** | Historique des mouvements pour un ingredient donne : `SELECT * FROM stock_movement WHERE ingredient_id = :id ORDER BY created_at DESC, id DESC LIMIT 50` (`IngredientRepository::movements`) — les 50 plus recents, du plus recent au plus ancien, SANS filtre de plage de dates. Accessible en page (`GET /admin/ingredients/{id}/movements`) et en API JSON (`GET /admin/api/ingredients/{id}/movements`, permission `stock.read`). |
 | **[RG-4 — attribution visibility]** | Le `stock_movement.user_id` (qui a reapprovisionne / qui a corrige) est inclus pour `manager`/`admin` uniquement ; le personnel de ligne (`kitchen`/`counter`/`drive`) voit les deltas de mouvement sans l'identite de l'acteur. Cela limite l'exposition intra-equipe tout en preservant l'imputabilite pour ceux qui gerent. L'allowlist `details` est appliquee a la couche de requete/serialisation. |
 | **[POST-1]** | Aucune ecriture en base |
-| **[OUT-1]** | Liste des ingredients avec `stock_quantity`, `stock_capacity`, `stock_pct` calcule, `low_stock_pct`, `critical_stock_pct`, `pack_size`, `pack_label`, drapeaux `low_stock` / `critical_stock` ; historique des mouvements avec l'acteur visible pour manager/admin uniquement |
+| **[OUT-1]** | HTML : liste des ingredients avec `stock_quantity`, `stock_capacity`, `stock_pct` et `stock_band` (`normal`/`low`/`critical`) calcules, `low_stock_pct`, `critical_stock_pct`, `pack_size`, `pack_label`. API JSON : les memes champs bruts SANS `stock_band` (RG-2). Historique des mouvements avec l'acteur visible pour manager/admin uniquement |
 
 ---
 
@@ -532,6 +572,25 @@ Voir [ADR-0015](../adr/0015-allergenes-calcules-par-produit.md) et `dictionary.m
 | **[ERR-1]** | PIN refuse ou throttle actif : formulaire reaffiche en 422 avec « Email ou PIN invalide (requis pour l'ajustement). » |
 
 Sources : `src/app/Catalogue/IngredientRepository.php` (`adjust`, `clampToCapacity`), `src/app/Controllers/IngredientController.php` (`adjustForm`, `adjust`), migration `0010_stock_movement_adjustment.sql` (type `adjustment`). Routes : `GET`/`POST /admin/ingredients/{id}/adjust`, `POST /admin/api/ingredients/{id}/adjust`.
+
+---
+
+### 9.5 SET_STOCK_THRESHOLDS
+
+**Correspond a la section 9.5 du MCT (fiche ajoutee au MLT, absente jusqu'a la v0.5 malgre sa presence au tableau §14)**
+
+| Marqueur | Contenu |
+|-----|---------|
+| **[PRE-1]** | Acteur authentifie, detient la permission `stock.manage` |
+| **[PRE-2]** | L'ingredient cible existe |
+| **[RG-1]** | Validation (`IngredientController::validateThresholds`) : `stock_capacity` entier entre 1 et 2147483647 ; `low_stock_pct` et `critical_stock_pct` entre 0 et 100, avec `critical_stock_pct < low_stock_pct` (CHECK de table, doublee cote applicatif) |
+| **[RG-2 — capacite >= stock courant]** | `stock_capacity` ne peut pas etre abaisse SOUS `stock_quantity` courant (sinon `stock_pct` depasserait 100%) : rejet avec message invitant a faire d'abord un inventaire pour baisser le stock. Pas de troncature silencieuse du stock pour faire rentrer la capacite. |
+| **[RG-3]** | `UPDATE ingredient SET stock_capacity=:cap, low_stock_pct=:low, critical_stock_pct=:crit WHERE id=:id` (`IngredientRepository::updateThresholds`). PAS de PIN (hors ensemble sensible RG-T13 : parametrage de seuils, pas un mouvement de stock) ; PAS de ligne `audit_log`. |
+| **[POST-1]** | `ingredient.stock_capacity`/`low_stock_pct`/`critical_stock_pct` mis a jour. Aucun `stock_movement`, aucune ligne `audit_log`. |
+| **[OUT-1]** | Flash « Seuils mis à jour. », retour a la liste des ingredients |
+| **[ERR-1]** | Validation echouee (RG-1/RG-2) : la modale est rouverte avec le premier message d'erreur en bandeau |
+
+Sources : `src/app/Controllers/IngredientController.php` (`updateThresholds`, `validateThresholds`), `src/app/Catalogue/IngredientRepository.php` (`updateThresholds`). Route : `POST /admin/ingredients/{id}/thresholds`.
 
 ---
 
@@ -565,6 +624,7 @@ Sources : `src/app/Catalogue/IngredientRepository.php` (`adjust`, `clampToCapaci
 |-----|---------|
 | **[PRE-1]** | Acteur authentifie, detient la permission `user.update` |
 | **[PRE-2]** | Le `user.id` cible existe |
+| **[PRE-3 — anti-lockout, non documentee avant v0.5]** | Si la cible est le DERNIER admin ACTIF (`is_active=1` + role `admin` + un seul admin actif au total, `UserController::isLastActiveAdmin`), la desactiver (`is_active=0`) OU lui retirer le role `admin` est REFUSE (HTTP 422, « Impossible de retirer le dernier administrateur actif. ») : garde-fou anti-lockout du back-office, verifiee AVANT le PIN. Un changement qui ne touche NI `is_active` NI `role_id` (ex. changer l'email du dernier admin) n'est pas concerne. |
 | **[RG-1]** | Si un nouveau mot de passe est fourni (champ non vide) : re-hacher via `PASSWORD_ARGON2ID` et remplacer le hash existant |
 | **[RG-2]** | Si le champ mot de passe est vide : le hash existant est preserve inchange |
 | **[RG-3]** | Mise a jour d'email soumise a la contrainte UNIQUE (pre-verification avant l'UPDATE) |
@@ -582,6 +642,7 @@ Sources : `src/app/Catalogue/IngredientRepository.php` (`adjust`, `clampToCapaci
 |-----|---------|
 | **[PRE-1]** | Acteur authentifie, detient la permission `user.deactivate` |
 | **[PRE-2]** | L'acteur ne cible pas son propre compte (`$targetUserId !== $currentUserId`) |
+| **[PRE-3 — anti-lockout, non documentee avant v0.5]** | La cible n'est pas le DERNIER admin ACTIF (`UserController::isLastActiveAdmin`, meme garde que 10.2 PRE-3) : sinon HTTP 422, « Impossible de désactiver le dernier administrateur actif. » |
 | **[RG-1]** | `UPDATE user SET is_active = 0, updated_at = NOW() WHERE id = :id` |
 | **[RG-2]** | La session potentiellement active de l'utilisateur est invalidee a la requete suivante : le middleware verifie `user.is_active = 1` a chaque requete authentifiee |
 | **[RG-3 — PIN + audit]** | Action sensible : PIN propre a chaque membre du personnel (RG-T13) + une ligne `audit_log` (RG-T14), `action_code='user.deactivate'`, `entity_type='user'`, `entity_id=:id`. |
@@ -621,12 +682,50 @@ l'effacement RGPD (Cr 3.d) sans casser l'integrite referentielle ni la trace d'a
 | **[PRE-1]** | Acteur authentifie, detient la permission `user.update` (l'effacement est une operation admin) |
 | **[PRE-2]** | PIN propre a chaque membre du personnel verifie (RG-T13) — action sensible |
 | **[PRE-3]** | Le `user.id` cible existe et `anonymized_at IS NULL` (pas deja anonymise) |
+| **[PRE-4]** | L'acteur ne cible pas son propre compte : HTTP 403, « Vous ne pouvez pas anonymiser votre propre compte. » (meme garde de principe que DEACTIVATE_USER 10.3 PRE-2) |
+| **[PRE-5 — anti-lockout, non documentee avant v0.5]** | La cible n'est pas le DERNIER admin ACTIF (`UserController::isLastActiveAdmin`, meme garde que 10.2/10.3) : sinon HTTP 422, « Impossible d'anonymiser le dernier administrateur actif. » |
 | **[RG-1 — anonymise, not delete]** | En une transaction : `UPDATE user SET email = CONCAT('anon-', id, '@wakdo.invalid'), first_name = '', last_name = '', password_hash = '', pin_hash = NULL, password_reset_token_hash = NULL, is_active = 0, anonymized_at = NOW() WHERE id = :id`. Le domaine placeholder est reserve par la RFC 2606 (`.invalid`), garde `email` UNIQUE et non identifiant. |
 | **[RG-2 — preserve links]** | La ligne persiste, donc les FK pointant vers elle (`stock_movement.user_id`, `customer_order.acting_user_id`, `audit_log.actor_user_id`) restent valides et resolvent desormais vers un principal anonymise. L'imputabilite des actions passees est preservee dans sa forme (qui-en-tant-qu'id) sans conserver de PII. |
 | **[RG-3 — audit]** | Une ligne `audit_log` (RG-T14) : `action_code='user.erase_pii'`, `entity_type='user'`, `entity_id=:id`. Le `summary`/`details` enregistrent l'evenement d'effacement et sa base legale, pas les valeurs effacees. |
 | **[POST-1]** | Ligne `user` anonymisee : champs PII vides/placeholders, identifiants invalides, `anonymized_at` defini, `is_active = 0`. Liens referentiels intacts. |
 | **[OUT-1]** | Confirmation ; l'utilisateur disparait des listes actives, demeure comme tombstone anonymise dans l'historique. |
 | **[ERR-1]** | Deja anonymise : HTTP 409, `{error: {code: "CONFLICT"}}` (code generique reellement renvoye par `UserApiController::apiErase`/`conflictResponse` — pas un code dedie `ALREADY_ANONYMISED`) |
+
+---
+
+### 10.6 RESET_USER_PIN (admin, security-by-design)
+
+**Correspond a la section 10.6 du MCT (fiche ajoutee au MLT, absente jusqu'a la v0.5 malgre sa presence au tableau §14)**
+
+| Marqueur | Contenu |
+|-----|---------|
+| **[PRE-1]** | Acteur authentifie, detient la permission `user.update`, s'est re-autorise par PIN (RG-T13 : reinitialiser le PIN d'un tiers est sensible) |
+| **[PRE-2]** | L'utilisateur cible existe |
+| **[RG-1 — effacement, pas remplacement]** | `UPDATE user SET pin_hash = NULL WHERE id = :id` (`UserRepository::clearPin`) : l'admin efface le PIN existant, il n'en pose PAS un de remplacement (il n'a pas a connaitre le PIN d'un tiers). L'equipier redefinit son PIN via SET_OWN_PIN (10.7) a sa prochaine action sensible. |
+| **[RG-2 — audit]** | Une ligne `audit_log` dans la MEME transaction : `action_code='user.update'` (PAS un code `user.reset_pin` dedie — ce code n'existe pas dans le code livre), `entity_type='user'`, `entity_id=:id`, `details={"fields":["pin_hash"]}` (RG-T14 : noms de champs modifies, pas la valeur). |
+| **[POST-1]** | `user.pin_hash = NULL` ; une ligne `audit_log` `user.update` enregistree |
+| **[OUT-1]** | Flash « PIN réinitialisé : l'équipier doit le redéfinir. », redirection vers la liste des utilisateurs |
+| **[ERR-1]** | PIN de l'admin refuse : reaffichage 422 avec « Email ou PIN invalide (requis pour réinitialiser le PIN). » |
+
+Sources : `src/app/Controllers/UserController.php` (`resetPin`), `src/app/Controllers/Admin/Api/UserApiController.php`, `src/app/Auth/UserRepository.php` (`clearPin`). Routes : `GET`/`POST /admin/users/{id}/reset-pin`, `POST /admin/api/users/{id}/reset-pin`.
+
+---
+
+### 10.7 SET_OWN_PIN (tout equipier back-office)
+
+**Correspond a la section 10.7 du MCT (fiche ajoutee au MLT, absente jusqu'a la v0.5 malgre sa presence au tableau §14)**
+
+| Marqueur | Contenu |
+|-----|---------|
+| **[PRE-1]** | Session valide ouverte (aucune permission dediee : tout compte actif peut poser son propre PIN) |
+| **[PRE-2 — reauth]** | Confirmation par MOT DE PASSE (pas par l'ancien PIN, qui peut etre absent ou oublie) : `PasswordHasher::verify` contre `password_hash` de l'utilisateur de session, filtre a `is_active = 1` |
+| **[RG-1]** | `UPDATE user SET pin_hash = :hash WHERE id = :session_user_id` (argon2id), uniquement sur le compte DE SESSION. Gate sur 1 ligne affectee (defense en profondeur : une cible inexistante ne doit pas produire un faux succes). |
+| **[RG-2 — audit]** | Bien que hors ensemble sensible RG-T13 (cette action EST le mecanisme qui l'alimente), une ligne `audit_log` est ecrite juste apres l'UPDATE (hors transaction, `ProfileController::writePinAudit`) : `action_code='pin.set'`, `entity_type='user'`, `entity_id`=l'utilisateur de session, `summary` distinguant premiere definition (« PIN défini (self-service) ») et changement (« PIN modifié (self-service) ») sans valeur sensible. |
+| **[POST-1]** | `user.pin_hash` pose/change sur le compte de session ; une ligne `audit_log` `pin.set` enregistree |
+| **[OUT-1]** | Flash « PIN enregistré. », redirection vers `/admin/profile/pin` |
+| **[ERR-1]** | Mot de passe actuel incorrect : reaffichage 422 avec « Mot de passe actuel incorrect. » ; PIN hors bornes de longueur (`PinVerifier::meetsLengthPolicy`) : erreur de validation |
+
+Sources : `src/app/Controllers/ProfileController.php` (`showPin`, `updatePin`, `writePinAudit`), `src/app/Auth/UserRepository.php` (`setPinHash`, `pinIsSet`). Route : `GET`/`POST /admin/profile/pin`.
 
 ---
 
@@ -753,14 +852,15 @@ techniques, pas de declencheur utilisateur) mais sont documentes ici par coheren
 
 | Marqueur | Contenu |
 |-----|---------|
-| **[TRIGGER]** | Cron : `45 4 * * *` (fenetre de maintenance) |
-| **[RG-1]** | `DELETE FROM login_throttle WHERE (lockout_until IS NULL OR lockout_until < NOW()) AND last_attempt_at < NOW() - INTERVAL 24 HOUR` — purger les lignes sans verrouillage actif dont la derniere tentative echouee est plus ancienne que 24h. |
+| **[TRIGGER]** | Script `docker/cron/scripts/purge-throttle.sh`, cron `45 4 * * *` (fenetre de maintenance) |
+| **[RG-1]** | `DELETE FROM login_throttle WHERE (lockout_until IS NULL OR lockout_until < NOW()) AND last_attempt_at < NOW() - INTERVAL :hours HOUR`, avec `:hours = THROTTLE_PURGE_AFTER_HOURS` (variable d'env, defaut **24**, pas une valeur figee dans le SQL) — purger les lignes sans verrouillage actif dont la derniere tentative echouee est plus ancienne que ce seuil. |
 | **[RG-2]** | Les lignes servant encore un verrouillage actif sont conservees ; le compteur par IP (S1) est borne par cette purge de sorte que la table ne croit pas de maniere illimitee a cause de tentatives ponctuelles. |
 | **[POST-1]** | Lignes `login_throttle` obsoletes retirees ; throttles actifs et activite recente preserves. |
 
-La meme purge s'applique a `pin_throttle` (RG-T22), avec le meme predicat et le meme
-seuil `THROTTLE_PURGE_AFTER_HOURS` :
-`DELETE FROM pin_throttle WHERE (lockout_until IS NULL OR lockout_until < NOW()) AND last_attempt_at < NOW() - INTERVAL 24 HOUR`.
+Le MEME script (`purge-throttle.sh`) applique la MEME purge a `pin_throttle` (RG-T22), meme predicat,
+MEME variable d'env partagee `THROTTLE_PURGE_AFTER_HOURS` (les deux tables ne sont pas purgees par des
+scripts distincts ni des seuils distincts) :
+`DELETE FROM pin_throttle WHERE (lockout_until IS NULL OR lockout_until < NOW()) AND last_attempt_at < NOW() - INTERVAL :hours HOUR`.
 
 ### 13.6 Expiration des commandes jamais encaissees (cron 02h00)
 

@@ -38,9 +38,15 @@ Client (borne / navigateur back-office)
     -> wakdo-db (MariaDB, requetes preparees PDO uniquement)
 ```
 
-Consequence de nommage : le DocumentRoot du vhost admin est `src/public/admin`, donc le
-`REQUEST_URI` arrive **sans prefixe** `/admin`. Le Router voit `/login`, `/api/health`, etc.
-On n'ajoute pas de segment `/admin` dans les chemins de routes.
+Consequence de nommage : le DocumentRoot du vhost admin est `src/public/admin`, donc
+Apache n'ajoute pas lui-meme de prefixe `/admin` au `REQUEST_URI` -- une requete vers
+`/login` arrive au Router en `/login`, pas en `/admin/login`. Ce detachement ne dit rien
+du choix INVERSE fait par le code lui-meme : la majorite des routes (133 sur 158,
+`src/app/Core/routes.php`) prefixent volontairement leur propre chemin par `/admin/...`
+(pages back-office ET API `/admin/api/*`), pour les distinguer de `/api/*` (catalogue
+public, relaye aussi par le vhost kiosk, section 3). Les deux mecanismes sont
+independants : DocumentRoot ne prefixe rien automatiquement, mais rien n'empeche une
+route de porter `/admin` dans son propre motif.
 
 Code de reference : routes dans `src/app/Core/routes.php` (charge par le front controller
 `src/public/admin/index.php`), controleurs dans `src/app/Controllers/`, enveloppe de reponse
@@ -134,7 +140,7 @@ La borne est publique (aucune session) ; cf. `mlt.md` CREATE_ORDER, declencheur 
 | GET | `/api/menus/{id}` | (lecture publique) | READ_CATALOGUE | livre (slots de composition) |
 | GET | `/api/allergens` | (lecture publique) | READ_CATALOGUE | livre (14 allergenes INCO) |
 | POST | `/api/orders` | (kiosk public) | CREATE_ORDER (mlt 3.3) | livre (idempotency_key, RG-T19) |
-| POST | `/api/orders/{number}/pay` | (kiosk public) | (encaissement) | livre (paid + decrement stock RG-T20) |
+| POST | `/api/orders/{number}/pay` | (kiosk public) | (encaissement) | livre (passe directement a `preparing` -- `paid_at` ET `preparing_at` poses dans la meme transaction -- + decrement stock RG-T20 ; `OrderRepository::pay()`) |
 | GET | `/api/orders/{number}` | (lecture publique) | (suivi statut) | livre, RESTREINT AU CANAL KIOSK (relecture adverse, point 5b) : cet endpoint est public et anonyme, et les numeros sont sequentiels (prefixe canal + id auto-incremente) -- une commande comptoir/drive n'est PAS "kiosk anonyme" et son statut/total n'a pas a etre lisible sans authentification. Une commande d'un AUTRE canal rend la MEME reponse `404 ORDER_NOT_FOUND` qu'un numero inconnu (anti-enumeration). Champs renvoyes : `order_number`, `status` -- `total_ttc_cents` a ete RETIRE (aucun ecran borne ne le consomme sur cet endpoint ; `create()`/`pay()` continuent de le renvoyer, eux, car l'ecran de paiement en a besoin) |
 
 ### 5.3 API d'administration JSON (`/admin/api/*`, livre, session + permission + PIN)

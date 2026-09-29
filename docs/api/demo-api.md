@@ -150,7 +150,7 @@ demo par poste) puis 1-2 requetes qui prouvent la matrice de droits reelle du se
 
 | Poste | Autorise (exemple) | Refuse (exemple, `403 FORBIDDEN`) |
 |---|---|---|
-| Manager | `GET /admin/api/stats` (`stats.read`) et `POST /admin/api/orders/{n}/cancel` (`order.cancel`, ADR-0020, qui remplace la decision D5 sur ce point) | `POST /admin/api/users` (pas de `user.create`) |
+| Manager | `GET /admin/api/stats` (`stats.read`) et `GET /admin/api/orders` (`order.read`) | `POST /admin/api/users` (pas de `user.create`) |
 | Cuisine | `GET /admin/api/orders` (`order.read`) | `GET /admin/api/users` (pas `user.read`) |
 | Comptoir | `POST /admin/api/orders` avec `items: []` (`422`, permission `order.create` accordee AVANT la validation) | `DELETE /admin/api/products/{id}` (pas `product.delete`) |
 | Drive | Meme preuve non encaissee que Comptoir (`422`) | `DELETE /admin/api/products/{id}` (pas `product.delete`, meme ensemble de droits que Comptoir par construction du seed) |
@@ -166,11 +166,19 @@ verification de permission passe strictement AVANT la validation du corps, donc 
 codes restent distincts. Manager et Cuisine, eux, prouvent leur droit "Autorise" par une
 LECTURE simple (`GET`), deja sans effet de bord.
 
+`order.cancel` du manager (reel depuis [ADR-0020](../adr/0020-responsable-annule-commande.md),
+qui remplace la decision D5 sur ce point, et deja visible au tableau RBAC de
+`docs/demo/matrice-rbac.md`) n'a PAS de requete dediee dans ce dossier : le sous-dossier
+Manager s'en tient a deux lectures. Pour le demontrer avec cette collection, rejouer le
+scenario "annuler" du dossier **Commandes** (section 4) apres s'etre connecte en manager.
+
 Chaque requete de ce dossier porte son propre script de test (`pm.test`/`tests{}` selon
 l'outil) qui verifie le code HTTP attendu : Newman et `bru run` prouvent donc la matrice
-automatiquement (voir section 6). Ce dossier utilise volontairement des ids/numeros fixes
-(`1`, `K1`) plutot que les variables capturees par les dossiers precedents : il peut se rejouer
-seul, sans dependre de l'ordre d'execution du reste de la collection.
+automatiquement (voir section 6). Ce dossier utilise volontairement l'id fixe `1` (les
+requetes `DELETE /admin/api/products/1` de Comptoir/Drive) plutot que les variables
+capturees par les dossiers precedents : il peut se rejouer seul, sans dependre de l'ordre
+d'execution du reste de la collection. Aucune requete de ce dossier n'utilise un numero de
+commande fixe type `K1` a ce jour.
 
 ## 6. Executer en ligne de commande (CI, preuve automatisee)
 
@@ -242,6 +250,110 @@ Toute reponse suit l'enveloppe `{ "data": ... }` ou `{ "data": null, "error": { 
 | `VALIDATION_ERROR` | 422 | champ manquant/invalide, detail dans `error.fields` |
 | `CONFLICT` | 409 | doublon (slug/email/code) ou suppression bloquee par une reference |
 | `NOT_FOUND` | 404 | id absent en base (variable d'environnement pas encore renseignee ?) |
+
+## 8. Avec Insomnia, pas a pas
+
+Insomnia n'a pas de collection generee par ce depot (contrairement a Postman et Bruno,
+section 0) : c'est un outil tiers que chacun cable soi-meme, requete par requete, contre
+la meme API. Cette section decrit comment reproduire le meme scenario (section 4) a la
+main. **Postman et Bruno restent la collection DE REFERENCE, importable telle quelle** ;
+ce qui suit est une demarche manuelle equivalente, pas un troisieme export genere.
+
+### 8.1 Environnement
+
+Creer un environnement avec ces variables (valeurs VIDES dans ce document, a completer
+localement — aucun identifiant de demo n'est ecrit ici, voir `docs/demo/comptes-demo.md`) :
+
+```json
+{
+  "baseUrl": "https://corentin-wakdo-admin.stark.a3n.fr",
+  "csrf": "",
+  "pin_email": "",
+  "pin": ""
+}
+```
+
+Insomnia reference une variable d'environnement par `{{ _.nomDeVariable }}` (le prefixe
+`_` designe l'environnement actif) : par exemple `{{ _.baseUrl }}/admin/api/auth/login`
+comme URL de la requete de connexion.
+
+### 8.2 Se connecter
+
+Requete `POST {{ _.baseUrl }}/admin/api/auth/login`, corps en JSON :
+
+```json
+{ "email": "...", "password": "..." }
+```
+
+Reponse `200` : `{ "data": { "user": {...}, "permissions": [...], "csrf_token": "..." } }`
+(`AuthApiController::apiLogin()`). Deux effets a la reussite :
+
+- Le cookie de session `WAKDO_SID` (pose par la reponse via `Set-Cookie`) est garde par
+  Insomnia dans son pot a cookies par environnement/workspace (bouton **Cookies**, dans
+  la barre d'outils) et renvoye automatiquement sur les requetes suivantes vers
+  `{{ _.baseUrl }}` — meme principe que Postman/Bruno (section "Le pot a cookies"
+  ci-dessus) ; rien a copier a la main.
+- `data.csrf_token` doit etre reporte dans la variable d'environnement `csrf` (a la main,
+  ou par un script post-requete si vous en ecrivez un) : ce jeton alimente l'en-tete
+  `X-CSRF-Token` de toutes les ecritures suivantes.
+
+### 8.3 En-tete CSRF sur toute ecriture
+
+Sur chaque `POST`/`PUT`/`DELETE` sous `/admin/api/*` autre que la connexion elle-meme
+(qui n'a pas encore de session, donc pas de jeton synchroniseur a comparer — section 5.3bis
+de `conventions.md`), ajouter l'en-tete :
+
+```
+X-CSRF-Token: {{ _.csrf }}
+```
+
+Absent ou perime -> `403 CSRF_INVALID` (voir 8.6 ; relancer 8.2 pour un jeton frais).
+
+### 8.4 Identifiant dans l'adresse pour PUT/DELETE
+
+Comme pour Postman/Bruno, une ressource unitaire est adressee par son identifiant dans le
+CHEMIN, pas dans le corps (`docs/api/conventions.md` section 4) : par exemple
+`PUT {{ _.baseUrl }}/admin/api/products/<id>` ou
+`DELETE {{ _.baseUrl }}/admin/api/categories/<id>`.
+
+### 8.5 PIN dans le corps pour les actions sensibles
+
+La liste exacte des actions PIN-gated est la colonne PIN de
+`src/app/Health/RouteSecurity.php` (reprise dans `conventions.md` section 5.3) : annulation
+de commande, gestion utilisateur (creation/modification/desactivation/reinitialisation de
+PIN), effacement PII, gestion RBAC, suppression de produit, changement de prix produit,
+ajustement de stock, comptage d'inventaire. Pour ces requetes, ajouter dans le corps JSON
+les deux champs `pin_email`/`pin` (modele "identifiant equipier + PIN", RG-T13), en plus
+des eventuels autres champs de la requete :
+
+```json
+{ "pin_email": "{{ _.pin_email }}", "pin": "{{ _.pin }}" }
+```
+
+Le PIN doit avoir ete defini au prealable par son titulaire via `/admin/profile/pin`
+(page HTML uniquement, section 3 ci-dessus, pas d'equivalent JSON).
+
+### 8.6 Codes d'erreur utiles
+
+| Code | HTTP | Cause probable |
+|---|---|---|
+| `AUTH_REQUIRED` | 401 | pas de session valide (relancer la connexion, 8.2) |
+| `CSRF_INVALID` | 403 | `X-CSRF-Token` absent ou perime (8.3) |
+| `FORBIDDEN` | 403 | permission manquante pour le role connecte |
+| `UNSUPPORTED_MEDIA_TYPE` | 415 | corps non vide sans `Content-Type: application/json` |
+| `VALIDATION_ERROR` | 422 | champ manquant/invalide, detail dans `error.fields` |
+| `PIN_INVALID` | 422 | `pin_email`/`pin` absents, faux, ou compte agissant verrouille (8.7) |
+| `NOT_FOUND` | 404 | identifiant absent en base |
+| `METHOD_NOT_ALLOWED` | 405 | methode HTTP incorrecte pour cette adresse |
+
+### 8.7 Blocage du PIN apres 5 echecs
+
+Le compteur d'echecs de PIN est PAR UTILISATEUR AGISSANT et SEPARE du throttle de
+connexion (`pin_throttle`, RG-T22, `App\Auth\PinThrottle`). Au-dela de
+`PIN_THROTTLE_THRESHOLD` echecs consecutifs (5 par defaut, `.env.example`), un verrou
+degressif se pose (30 s, puis doublement jusqu'a 300 s par defaut) : pendant le verrou,
+`422 PIN_INVALID` continue d'etre renvoye meme avec le bon PIN (`App\Auth\PinGate::resolve()`).
+Un PIN correct reussi remet le compteur a zero.
 
 ## Effets de bord (ce que la collection laisse derriere elle)
 

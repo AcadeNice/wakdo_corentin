@@ -154,8 +154,14 @@ section absente.
   exact du test n'est donc pas cite `[UNVERIFIED]`.
 - La mesure de chargement est faite sur la pile de test (serveur local, debit simule), pas sur le
   serveur de production ; 5 passages par page.
-- Les textes generes par les fichiers JavaScript de la borne et du back-office restent sans
-  accents (« Recapitulatif », « Categories ») : a corriger dans un lot a part (F38).
+- **Reserve perimee — corrigee.** Cette reserve disait que les textes generes par les
+  fichiers JavaScript de la borne et du back-office restaient sans accents
+  (« Recapitulatif », « Categories »). C'est fait : le lot F38 (`567bb0a`, demande de
+  fusion **#150**, « accents, apostrophes et accords des textes affiches ») les a
+  corriges. Verifie sur le code actuel : `page-product-menu.js:478` affiche
+  « Récapitulatif », `category-strip.js:69,71` et `health.js:1528,1597` affichent
+  « Catégories »/« Catégorie » ; une recherche des formes sans accent ne remonte plus
+  rien dans `src/public/borne/assets/js/` ni `src/public/admin/assets/js/`.
 - La mesure de la section 6 desactive volontairement le cache HTTP par construction
   (`tests/e2e/perf-accueil.spec.js`, `Network.setCacheDisabled`) : elle ne mesure donc pas la
   politique de cache reelle de production. Cette politique existe et differe par zone

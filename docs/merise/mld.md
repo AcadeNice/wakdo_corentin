@@ -1,8 +1,8 @@
 # Modele Logique de Donnees (MLD) — Wakdo
 
 **Phase Merise** : P1 - Conception, etape 5 (apres MCD, MCT, MLT)
-**Version** : v0.6 — prod-like, 23 tables (19 prod-like + couche security-by-design + classement des ingredients)
-**Historique** : v0.6 (2026-09-28) — audit final : slots du composeur de menu alignes sur le seed reel (Accompagnement/Boisson/Sauce), `stock_movement.user_id`/`customer_order.acting_user_id` corriges (utilisateur de session, sans PIN, a la creation d'une commande counter/drive), calcul HT precise (arrondi par unite puis multiplie), section 8 recalee sur 23 tables (ajout de `category_ingredient_family`), sections 9 et 11 reecrites au present/passe pour refleter le livre reel, references vers `docs/notes/revue-alignement-p1.md` (non versionne) remplacees par les journaux traces `docs/journal/`. v0.5 (2026-09-27) — migration 0017 : colonne `ingredient.family` (nullable) et table `category_ingredient_family` (4.23), qui filtrent le selecteur d'ingredients du constructeur de recette selon la categorie du produit ; compte de tables 22 -> 23 ; voir `docs/adr/0018-familles-ingredients-filtre-recette.md`. v0.4 (2026-09-24) — mise en coherence avec le code livre (2a09597) : les quatre diagrammes relationnels re-extraits des migrations 0001 a 0011 (colonnes `preparing_at` / `ready_at` de 0009 et `allergens_*` de 0011, descriptions et chemins d'image), cle etrangere nullable notee en 0..1, relation `user` -> `pin_throttle` corrigee en 1 vers 0..1 (unicite de `actor_user_id`), rendus SVG regeneres avec `_diagrams/mermaid-config.json`.
+**Version** : v0.7 — prod-like, 23 tables (19 prod-like + couche security-by-design + classement des ingredients)
+**Historique** : v0.7 (2026-09-29) — contre-audit independant (base MariaDB jetable) : ordre reel des colonnes de `product` corrige (`size_cl`, `base_product_id` AVANT `maxi_variant_product_id`, migrations 0006/0007 posees au meme point d'ancrage `AFTER price_cents`) ; `vat_rate` note `DEFAULT 100` ; section 11 corrigee (`pin_throttle` n'est PAS creee par `0001_init_schema.sql`, elle est creee par la premiere migration additive `0002_pin_throttle.sql`) ; volumes de seed corriges (58 produits apres tous les seeds, 6 comptes utilisateur au total). v0.6 (2026-09-28) — audit final : slots du composeur de menu alignes sur le seed reel (Accompagnement/Boisson/Sauce), `stock_movement.user_id`/`customer_order.acting_user_id` corriges (utilisateur de session, sans PIN, a la creation d'une commande counter/drive), calcul HT precise (arrondi par unite puis multiplie), section 8 recalee sur 23 tables (ajout de `category_ingredient_family`), sections 9 et 11 reecrites au present/passe pour refleter le livre reel, references vers `docs/notes/revue-alignement-p1.md` (non versionne) remplacees par les journaux traces `docs/journal/`. v0.5 (2026-09-27) — migration 0017 : colonne `ingredient.family` (nullable) et table `category_ingredient_family` (4.23), qui filtrent le selecteur d'ingredients du constructeur de recette selon la categorie du produit ; compte de tables 22 -> 23 ; voir `docs/adr/0018-familles-ingredients-filtre-recette.md`. v0.4 (2026-09-24) — mise en coherence avec le code livre (2a09597) : les quatre diagrammes relationnels re-extraits des migrations 0001 a 0011 (colonnes `preparing_at` / `ready_at` de 0009 et `allergens_*` de 0011, descriptions et chemins d'image), cle etrangere nullable notee en 0..1, relation `user` -> `pin_throttle` corrigee en 1 vers 0..1 (unicite de `actor_user_id`), rendus SVG regeneres avec `_diagrams/mermaid-config.json`.
 **Date** : 2026-06-04 (ajouts security-by-design 2026-06-11)
 **Branche** : `feat/p1-conception`
 **Statut** : prod-like — toutes les decisions D1-D8 + stock appliquees (voir `docs/journal/2026-06-04--conception-prodlike-revision.md` pour D1-D3 et `docs/journal/2026-06-04--p1-merise-v0.2-rewrite-and-forgejo-migration.md` pour D4-D8 + stock) ; couche security-by-design (audit_log + colonnes imputabilite/auth) en cours
@@ -451,13 +451,13 @@ Pas de FK. Table racine du sous-domaine Catalogue.
 
 ```
 product (id, #category_id, name, [description], price_cents,
-         [#maxi_variant_product_id], [size_cl], [#base_product_id], vat_rate,
+         [size_cl], [#base_product_id], [#maxi_variant_product_id], vat_rate,
          [image_path], is_available, display_order, created_at, updated_at)
 
   PK  : id
   FK  : category_id             -> category(id) ON DELETE RESTRICT
-  FK  : maxi_variant_product_id -> product(id)  ON DELETE SET NULL
   FK  : base_product_id         -> product(id)  ON DELETE CASCADE
+  FK  : maxi_variant_product_id -> product(id)  ON DELETE SET NULL
   IDX : (category_id, is_available, display_order)
   CHK : price_cents > 0
   CHK : vat_rate IN (55, 100)
@@ -470,10 +470,10 @@ product (id, #category_id, name, [description], price_cents,
 | `name` | VARCHAR(120) | NO | Libelle du produit |
 | `description` | TEXT | YES | Description longue optionnelle |
 | `price_cents` | INT UNSIGNED | NO | Prix a la carte, TVA incluse, en centimes |
-| `maxi_variant_product_id` | INT UNSIGNED | YES | FK -> product (auto-reference), ON DELETE SET NULL ; variante servie en menu Maxi (migration 0006, voir note de table) |
-| `size_cl` | SMALLINT UNSIGNED | YES | Volume en cl d'une variante de taille de boisson ; NULL si pas de dimension taille (migration 0007) |
-| `base_product_id` | INT UNSIGNED | YES | FK -> product (auto-reference), ON DELETE CASCADE ; ligne de base d'une variante de taille, NULL = base/autonome (migration 0007) |
-| `vat_rate` | SMALLINT UNSIGNED | NO | Pour-mille : 100 = 10%, 55 = 5.5% |
+| `size_cl` | SMALLINT UNSIGNED | YES | Volume en cl d'une variante de taille de boisson ; NULL si pas de dimension taille (migration 0007, colonne posee `AFTER price_cents`) |
+| `base_product_id` | INT UNSIGNED | YES | FK -> product (auto-reference), ON DELETE CASCADE ; ligne de base d'une variante de taille, NULL = base/autonome (migration 0007, posee `AFTER size_cl`) |
+| `maxi_variant_product_id` | INT UNSIGNED | YES | FK -> product (auto-reference), ON DELETE SET NULL ; variante servie en menu Maxi (migration 0006, posee `AFTER price_cents`, puis repoussee apres `size_cl`/`base_product_id` par la migration 0007 qui s'insere au meme point d'ancrage) |
+| `vat_rate` | SMALLINT UNSIGNED NOT NULL DEFAULT 100 | NO | Pour-mille : 100 = 10%, 55 = 5.5% |
 | `image_path` | VARCHAR(255) | YES | Chemin relatif depuis la racine publique |
 | `is_available` | TINYINT(1) NOT NULL DEFAULT 1 | NO | Bascule de disponibilite manuelle |
 | `display_order` | SMALLINT UNSIGNED NOT NULL DEFAULT 0 | NO | Ordre d'affichage au sein de la categorie |
@@ -1490,21 +1490,26 @@ Cette section decrivait a l'origine un plan ; elle enregistre desormais ce qui a
 que le document reste exact une fois le travail fait.
 
 1. **DDL** : `db/migrations/0001_init_schema.sql` transcrit ce MLD en `CREATE TABLE`, dans l'ordre de
-   dependance (`category` -> `product`/`ingredient`/`allergen`/`role` -> `menu` -> `menu_slot` ->
-   `menu_slot_option` -> `product_ingredient` -> `ingredient_allergen` -> `user` ->
-   `role_visible_source`/`permission`/`role_permission` -> `customer_order` -> `order_item` ->
-   `order_item_selection`/`order_item_modifier` -> `stock_movement` -> `audit_log` -> `login_throttle` ->
-   `pin_throttle`). Seize migrations additives suivent dans `db/migrations/`, numerotees 0002 a 0018 (la
-   numerotation saute 0004), appliquees par un runner idempotent (`db/migrate.sh` cote hote,
-   `db/migrate-container.sh` en conteneur), suivi par nom de fichier dans `schema_migrations`.
+   dependance (`category` -> `ingredient` -> `allergen` -> `role` -> `permission` -> `login_throttle` ->
+   `product` -> `menu` -> `menu_slot` -> `menu_slot_option` -> `product_ingredient` ->
+   `ingredient_allergen` -> `user` -> `role_visible_source`/`role_permission` -> `customer_order` ->
+   `order_item` -> `order_item_selection`/`order_item_modifier` -> `stock_movement` -> `audit_log`).
+   `pin_throttle` n'y figure PAS : elle est creee par la premiere migration additive
+   (`0002_pin_throttle.sql`), pas par `0001_init_schema.sql`. Seize migrations additives suivent dans
+   `db/migrations/`, numerotees 0002 a 0018 (la numerotation saute 0004), appliquees par un runner
+   idempotent (`db/migrate.sh` cote hote, `db/migrate-container.sh` en conteneur), suivi par nom de
+   fichier dans `schema_migrations`.
 
 2. **Seed** : dix fichiers (`db/seeds/0001_rbac_and_reference.sql` a `0010_ingredient_families.sql`),
    pas un unique `0001_demo_data.sql` — chaque sous-domaine a le sien (RBAC + reference, catalogue,
    ingredients/recettes, variantes de menu/boisson, allergenes, comptes de demo, familles
    d'ingredients). Appliques par le meme runner, suivis dans `seeds_applied`. Couvrent : 9 categories +
-   53 produits + 13 menus (depuis les sources JSON `docs/merise/_sources/`), les slots et options de
-   slot, les 14 allergenes (INCO UE 1169/2011), le catalogue d'ingredients avec recettes, les 5 roles
-   avec matrice `role_permission` et donnees `role_visible_source`, un utilisateur admin bootstrap.
+   53 produits a l'init (58 apres les seeds 0005/0006, voir dictionary.md 3.2) + 13 menus (depuis les
+   sources JSON `docs/merise/_sources/`), les slots et options de slot, les 14 allergenes (INCO UE
+   1169/2011), le catalogue d'ingredients avec recettes, les 5 roles avec matrice `role_permission` et
+   donnees `role_visible_source`, **6 comptes utilisateur** au total : 1 admin bootstrap
+   (`0001_rbac_and_reference.sql`) + 5 comptes de demonstration, un par role
+   (`0009_demo_accounts.sql`).
 
 3. **Pas d'export JSON de fallback** : l'idee d'un mode borne isole servi par des fichiers statiques
    (`src/public/borne/data/*.json`) a ete abandonnee. La borne consomme l'API REST en lecture

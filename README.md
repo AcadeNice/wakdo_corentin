@@ -20,7 +20,7 @@ Trois canaux de prise de commande :
 - `counter` — comptoir (un equipier saisit pour le client au guichet)
 - `drive` — drive-thru (equipier saisit via intercom + casque)
 
-Statuts commande (machine a 6 etats) : `pending_payment` -> `paid` -> `preparing` -> `ready` -> `delivered`, plus `cancelled` (terminal, atteignable depuis tout etat non termine). La saisie du numero tient lieu de paiement : la creation passe atomiquement de `pending_payment` a `preparing` (`paid_at` et `preparing_at` poses ensemble). La cuisine (KDS) fait avancer `preparing` -> `ready` ; la remise accepte `paid`, `preparing` ou `ready` -> `delivered`.
+Statuts commande (machine a 6 etats) : `pending_payment` -> `paid` -> `preparing` -> `ready` -> `delivered`, plus `cancelled` (terminal, atteignable depuis tout etat non termine). Le paiement carte/especes n'est pas reel : il est simule par un bouton dans l'interface (`payment.html`). Sur la borne, deux appels HTTP distincts l'encaissent : `POST /api/orders` cree la commande (`pending_payment`), puis `POST /api/orders/{number}/pay` l'encaisse et la fait passer directement a `preparing` (`paid_at` et `preparing_at` poses dans la meme transaction ; `paid` reste un etat valide de l'enum, conserve pour compatibilite, mais aucun chemin de code actuel ne l'ecrit). Au comptoir/drive, l'equipier n'a rien a rejouer : `createStaffOrder()` enchaine les deux memes etapes en interne (`persist()` puis `pay()`, deux transactions distinctes). En sur-place, un numero de chevalet est demande avant paiement (transmis en `service_tag`) pour indiquer ou livrer en salle — il ne remplace pas le paiement. La cuisine (KDS) fait avancer `preparing` -> `ready` ; la remise accepte `paid`, `preparing` ou `ready` -> `delivered`.
 
 Scope metier complet, regles, horaires de service et fenetre de maintenance : voir `docs/PROJECT_CONTEXT.md`.
 
@@ -124,6 +124,11 @@ docker compose -f docker-compose.prod.yml up -d
 Avec un `.env` adapte : `APP_ENV=prod`, `APP_DEBUG=false`, mots de passe forts,
 `APP_HOST_*` / `APP_URL_*` / `CORS_ALLOWED_ORIGIN` en vrais FQDN HTTPS, et
 `REVERSE_PROXY_NETWORK` = reseau Docker du Traefik de l'hote (doit exister avant le up).
+Etat constate sur l'instance de demonstration le 29/09 : `GET /api/health` y renvoie
+`"app_env": "production"` (valeur lue dans le `.env` de l'hote ; `Config::appEnv()` retombe
+aussi sur `production` si la cle manque). Les reponses de `src/app/Health/captured-responses.json`
+viennent d'une pile de test jetable (`.env.example`, donc `dev`) : elles ne decrivent pas la
+production sur ce point.
 
 *Deploiement detaille : section Deploiement plus bas et `scripts/deploy.sh`.*
 
@@ -173,8 +178,8 @@ Avec un `.env` adapte : `APP_ENV=prod`, `APP_DEBUG=false`, mots de passe forts,
 ### Conventions
 
 - **Commits** : Conventional Commits en francais (`feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `ci`, `db`, `perf`, `style`). Format : `type(scope): description`. Correction du 2026-09-24 : premiers commits en anglais, en francais depuis mi-juin 2026 ; le francais fait regle. Voir `docs/PROJECT_CONTEXT.md` section 9.
-- **Branches** : `feat/*`, `fix/*`, `refactor/*`, `docs/*`, `ci/*`, `db/*`, `chore/*`, `test/*` depuis `dev`. Merge vers `dev` par PR squashee. Periodiquement `dev` -> `main` par PR avec tag semver.
-- `main` et `dev` sont proteges cote Forgejo (PR requise, force push bloque, checks requis : secret-scan / php-lint / static-tests).
+- **Branches** : `feat/*`, `fix/*`, `refactor/*`, `docs/*`, `ci/*`, `db/*`, `chore/*`, `test/*` depuis `dev`. Merge vers `dev` par PR squashee. Periodiquement `dev` -> `main` par PR avec tag semver. Etat au 29/09 : seules `v0.1.0` et `v0.2.0` sont posees ; les releases suivantes sont identifiees par le titre de leur PR.
+- `main` et `dev` sont proteges cote Forgejo (PR requise, force push bloque, 4 travaux de la CI requis sur les 5 du workflow).
 - Pas d'emoji dans le code, les commits ou les specs techniques (Mantra IA-23).
 
 - **Hooks Git** : `scripts/install-hooks.sh` active `pre-commit` (refus de commit direct sur `main`/`dev`, `php -l` des fichiers indexes) et `commit-msg` (format Conventional Commits, refus emoji).
@@ -189,7 +194,13 @@ Trois niveaux, sans dependance Composer cote PHP (priorite Unit > Integration > 
 - **PHP (PHPUnit `.phar`)** — unit + integration sur vraie MariaDB, via le conteneur applicatif :
 
   ```bash
+  # Unitaire seul (les tests d'integration s'auto-skippent sans reseau/WAKDO_DB_TESTS=1) :
   docker run --rm -v "$PWD":/app -w /app wakdo-wakdo-app php phpunit.phar -c phpunit.xml
+
+  # Unitaire + integration sur la vraie base (commande complete, voir docs/ARCHITECTURE.md section 9) :
+  docker run --rm --network wakdo_wakdo_internal --env-file .env -e WAKDO_DB_TESTS=1 \
+      -v "$PWD":/app -w /app wakdo-wakdo-app php phpunit.phar -c phpunit.xml
+
   docker run --rm -v "$PWD":/app -w /app wakdo-wakdo-app php -d memory_limit=-1 phpstan.phar analyse
   ```
 

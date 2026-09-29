@@ -62,11 +62,6 @@ session, sur toutes les actions sensibles. Garde comme evolution nommee.
 
 - (+) Le role de responsable correspond a son usage reel : il voit les commandes de son service
   et peut annuler une vente.
-- La permission `order.read` accordee ici est aussi celle qui garde l'ecran de cuisine
-  (`GET /kitchen/display`) et le geste « marquer prete » (`POST /admin/orders/{number}/ready`,
-  et son equivalent JSON `POST /admin/api/orders/{number}/ready`) : le responsable, qui n'avait
-  acces ni a l'un ni a l'autre avant cette fiche, y accede desormais aussi. Ce n'est pas une
-  permission distincte ajoutee pour ce lot, mais une consequence de celle qui l'est.
 - (+) Aucun garde-fou n'est affaibli : code personnel, audit, remise en stock et limitation des
   essais s'appliquent au responsable comme aux autres.
 - (+) Le catalogue de permissions reste a 23.
@@ -83,3 +78,14 @@ session, sur toutes les actions sensibles. Garde comme evolution nommee.
   `db/seeds/0001_rbac_and_reference.sql` (installation neuve), `tests/Integration/RouteMatrixRoleDbTest.php`,
   `docs/demo/matrice-rbac.md`, `docs/demo/comptes-demo.md`, `docs/api/demo-api.md`, collections
   Postman et Bruno regenerees depuis `scripts/gen_postman.py`.
+
+## Errata
+- Erratum (2026-09-28, audit #195) : une consequence avait ete inseree sans marque entre les
+  deux premieres puces ci-dessus, retiree pour l'enregistrement et reposee ici, datee. La
+  permission `order.read` accordee par cette fiche est aussi celle qui garde l'ecran de
+  cuisine (`GET /kitchen/display`, `KitchenController::display`, guard `order.read`) et le
+  geste « marquer prete » (`POST /admin/orders/{number}/ready` et son equivalent JSON
+  `POST /admin/api/orders/{number}/ready`, tous deux gardes par `order.read`) : le
+  responsable, qui n'avait acces ni a l'un ni a l'autre avant cette fiche, y accede desormais
+  aussi. Ce n'est pas une permission distincte ajoutee pour ce lot, mais une consequence de
+  celle qui l'est.

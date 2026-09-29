@@ -6,7 +6,7 @@
 ## Contexte
 Les controleurs renvoyaient 422 a la fois pour une validation qui echoue ET pour un
 conflit d'etat (unicite, suppression bloquee par FK RESTRICT). Le contrat documente
-(`docs/api/conventions.md`) attendait 409 pour les conflits. Derive a corriger.
+(`byan-api.md`) attendait 409 pour les conflits. Derive a corriger.
 
 ## Decision
 Convention harmonisee sur tous les controleurs :
@@ -23,3 +23,9 @@ Convention harmonisee sur tous les controleurs :
 - (-) Pages rendues serveur : un 200-avec-erreurs "marcherait" visuellement, mais le
   statut correct est verrouille par les tests (un oubli = test rouge).
 - Remediation : PR #33 (Category/Product/Menu) ; les controleurs suivants naissent en 409.
+
+## Errata
+- Erratum (2026-09-28, audit #195) : « le contrat documente (`byan-api.md`) » designe en
+  realite un fichier d'outillage BYAN generique (`.claude/rules/byan-api.md`, l'API du
+  meta-outil byan_web), sans rapport avec l'API Wakdo. Le contrat d'API reellement vise est
+  `docs/api/conventions.md`.

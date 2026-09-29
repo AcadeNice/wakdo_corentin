@@ -9,12 +9,16 @@
 > Chiffres arretes au 2026-09-26 sur `origin/dev`, au commit `1dd2620` (demande de fusion #166).
 > Recomptes le 2026-09-27 sur le commit deploye `main` `11271f7` (fusion de la demande #177) :
 > routes, controleurs, depots, vues, decisions d'architecture, migrations, jeux de donnees,
-> entites, commits et suites de tests. Le 2026-09-28, sur le commit deploye `1ccc9db`
-> (release #182) : audit d'accessibilite (artefact `preuves/rapports/resume.json` du
-> 27/09) et balayage de mise en page, rejoue. **Nouveau recomptage complet le 2026-09-28**,
-> sur le commit deploye `main` `04bece0` (release #194) : tous les chiffres du present
-> document (section 1.1 comprise) refletent cet etat, y compris l'artefact
-> `preuves/rapports/resume.json` regenere ce jour-la.
+> entites, commits et suites de tests. Le 2026-09-27, sur le commit deploye `main` `1ccc9db`
+> (release #182) : premiere passe d'audit d'accessibilite et de balayage de mise en page.
+> Le 2026-09-28, sur le commit dev `bb1a7f8` (#183) : balayage rejoue (4 807 verifications,
+> 3 echecs restants sur la page Sante corriges), et l'artefact `preuves/rapports/resume.json`
+> regenere le meme jour (horodatage interne `2026-09-28T10:22:25Z`). **Nouveau recomptage
+> complet le 2026-09-28**, sur le commit deploye `main` `04bece0` (release #194) : tous les
+> chiffres du present document (section 1.1 comprise) refletent cet etat, y compris
+> l'artefact `preuves/rapports/resume.json` regenere ce jour-la. La mesure de temps du canal
+> auxiliaire (section 1.2) date du 2026-09-26 et n'a pas ete rejouee depuis : aucun fichier
+> ne la versionne.
 
 ---
 
@@ -61,8 +65,8 @@ depot coute plus cher que le chiffre lui-meme.
 
 | Metrique | Valeur | Comment la revalider |
 |---|---|---|
-| Commits (sur `main`, commit deploye `04bece0`) | 242 | `git rev-list --count 04bece0` |
-| Demandes de fusion fusionnees | 192 (derniere : #194, la release deployee `04bece0`) | API de la forge : `GET /api/v1/repos/AcadeNice/corentin_wakdo/pulls?state=closed`, compter les entrees `merged: true` (le decompte par `git log` ne voit pas les anciennes fusions, dont le titre ne finit pas par `(#n)`) |
+| Commits (sur `main`, commit deploye `04bece0`, 28/09) | 242. **Etat au 29/09** (commit `main` `dc1829d`) : **244** | `git rev-list --count 04bece0` ; a la veille, revalider avec `git rev-list --count main` |
+| Demandes de fusion fusionnees | 192 (derniere au 28/09 : #194, la release deployee `04bece0`). **Etat au 29/09** : **194** fusionnees, derniere **#196** (release deployee `dc1829d`) | API de la forge : `GET /api/v1/repos/AcadeNice/corentin_wakdo/pulls?state=closed`, compter les entrees `merged: true` (le decompte par `git log` ne voit pas les anciennes fusions, dont le titre ne finit pas par `(#n)`) |
 | Repartition des commits | 111 `feat`, 42 `docs`, 41 `fix`, 11 `chore`, 8 `ci`, 4 `test`, 2 `refactor` | `git log --pretty=%s 04bece0 \| grep -oE '^[a-z]+' \| sort \| uniq -c` |
 | Lignes PHP livrees | 27 168 sur 137 fichiers | `find src -name '*.php' -type f -exec cat {} + \| wc -l` |
 | Lignes JavaScript livrees | 8 711 sur 30 fichiers | `find src -name '*.js' -type f -exec cat {} + \| wc -l` |
@@ -114,8 +118,11 @@ La lecture a donner au jury pour la troisieme : *"l'ecart entre les chemins est 
 petit que le bruit de ma propre mesure. Autrement dit, le temps de reponse ne permet
 pas de distinguer un compte qui existe d'un compte qui n'existe pas."*
 
-> Regle d'or : annoncer un chiffre seulement si on en est sur. En cas de doute,
-> dire "de l'ordre de" et proposer d'ouvrir le fichier.
+> Regle d'or : annoncer un chiffre seulement si on en est sur. En cas de doute sur
+> l'audit d'accessibilite ou le balayage de mise en page, dire "de l'ordre de" et
+> proposer d'ouvrir ou de relancer l'outil source. La mesure du canal auxiliaire par le
+> temps n'est PAS versionnee (aucun fichier, aucun script reproductible dans le depot) :
+> pour celle-la, dire "de l'ordre de" sans promettre d'ouvrir quoi que ce soit.
 
 ---
 
@@ -129,7 +136,7 @@ pas de distinguer un compte qui existe d'un compte qui n'existe pas."*
 | 08:00 - 15:00 | 7 min | D. L'accessibilite par conception (demonstration borne) | B1 | Borne en direct + le rapport de mesure |
 | 15:00 - 19:00 | 4 min | E. Le front sous le capot et le choix des bibliotheques | B1 | Un module JavaScript + la fiche C2.d |
 | 19:00 - 23:00 | 4 min | F. Le modele de donnees et l'API | B2 | Modele conceptuel + une route |
-| 23:00 - 30:00 | 7 min | G. La securite par conception (demonstration API + roles) | B2 | Postman ou Bruno en direct |
+| 23:00 - 30:00 | 7 min | G. La securite par conception (demonstration API + roles) | B2 | Insomnia en direct |
 | 30:00 - 35:30 | 5 min 30 | H. Conteneurs, integration continue, deploiement | B5 | Schema des 5 services + le pipeline |
 | 35:30 - 37:00 | 1 min 30 | I. Limites assumees et conclusion | - | La liste des limites |
 
@@ -219,12 +226,13 @@ paiement simule. Ils sont documentes dans le dossier.
 - **Merise Agile** : le dictionnaire de donnees d'abord, le modele ensuite, enrichi au
   fil des lots. Source unique : `docs/PROJECT_CONTEXT.md`, complete par `docs/merise/`
   (dictionnaire, modele conceptuel des donnees, modele logique, modele conceptuel des
-  traitements avec ses 30 operations).
+  traitements avec ses 35 operations).
 - **Developpement pilote par les tests** sur les chemins sensibles : commande, stock,
   authentification, droits.
 - **Tracabilite** : 20 decisions d'architecture datees et motivees, 16 entrees de
-  journal de bord, 242 commits en convention de nommage, chaque changement passe par
-  une demande de fusion (192 fusionnees au 28/09/2026).
+  journal de bord, 242 commits en convention de nommage au 28/09/2026 (244 au 29/09),
+  chaque changement passe par une demande de fusion (192 fusionnees au 28/09/2026,
+  194 au 29/09, derniere #196).
 
 **A dire, seconde moitie (90 s) - l'assistance IA, avant qu'on me la demande :**
 
@@ -268,10 +276,11 @@ auditable et livrable, ce sont les regles, les decisions d'architecture et le jo
 Derouler la borne ecran par ecran, en verbalisant a chaque fois **la contrainte
 d'acces**, pas l'esthetique :
 
-1. **Accueil** - ecran d'attente, appel a l'action unique. Les boutons de quantite de
-   la borne font 56 px de cote (`style.css`, `.qty-btn`), avec un plancher a 44 px sur
-   les elements interactifs - au-dela du seuil de 24 px du critere WCAG 2.2 sur la
-   taille des cibles, parce que la borne s'utilise debout, parfois avec des gants.
+1. **Accueil** - ecran d'attente qui propose deux choix, sur place ou a emporter
+   (`index.html`, l.115-145). Les boutons de quantite de la borne font 56 px de cote
+   (`style.css`, `.qty-btn`), avec un plancher a 44 px sur les elements interactifs -
+   au-dela du seuil de 24 px du critere WCAG 2.2 sur la taille des cibles, parce que la
+   borne s'utilise debout, parfois avec des gants.
 2. **Categories** - navigation tactile. Le lien d'evitement est le **premier element**
    du corps de page, sur les 5 pages de la borne comme dans le gabarit du back-office.
 3. **Produits** - grille de tuiles. Un produit en rupture porte **trois** signaux et
@@ -279,9 +288,13 @@ d'acces**, pas l'esthetique :
    correspondant dans son intitule accessible (`page-products.js`).
 4. **Composition d'un menu** - modales successives (taille, accompagnement, boisson).
    Le piege a tabulation est ecrit a la main dans `page-product-menu.js`
-   (`trapFocus`, l.531-540) : boucle sur la touche de tabulation, fermeture a
-   l'echappement, clic sur le fond, et restauration du focus sur l'element
-   declencheur a la fermeture.
+   (`trapFocus`, l.531-542) : boucle sur la touche de tabulation, plus la fermeture a
+   l'echappement (`escHandler`, l.283-287). Le composeur n'a ni clic sur le fond ni
+   retour du focus au declencheur : Annuler et Ajouter renvoient tous deux vers
+   `products.html` (l.498-499, l.554). Ces deux comportements-la existent sur l'autre
+   modale de la borne, celle de confirmation d'un geste destructeur (ex. Abandon de
+   commande) : `confirm-modal.js` ferme au clic sur le fond (l.62) et rend le focus a
+   l'element declencheur a la fermeture (`previouslyFocused`, l.19 et l.44-46).
 5. **Panier** - panneau persistant, compteur de quantite. Le total anime respecte la
    preference systeme de mouvement reduit.
 6. **Paiement puis confirmation** - mode de service, numero de commande.
@@ -510,12 +523,20 @@ Ne pas reciter les 22 regles. En choisir quatre et les tenir.
    transporte qu'un identifiant de produit et une quantite. Le prix est relu en base.
    Un client qui modifie le message ne change pas ce qu'il paie. Complement : une liste
    blanche de colonnes empeche d'injecter un champ non prevu, y compris `role_id`.
-2. **Le stock se decremente de facon atomique (RG-T20).** Un seul ordre SQL garde
-   (`UPDATE ... SET stock = stock - :q WHERE stock >= :q`), dans la meme transaction que
-   le changement d'etat de la commande. Pas de lecture puis ecriture, donc pas de
-   course entre deux bornes. A dire : *"deux bornes qui commandent le dernier article
-   en meme temps, il y en a une qui gagne et une qui recoit un conflit - et c'est la
-   base qui tranche, pas mon code."*
+2. **Le stock se decremente de facon atomique, sans plancher (RG-T20).** A l'encaissement,
+   chaque ingredient consomme par la commande est decremente par une seule instruction
+   SQL (`UPDATE ingredient SET stock_quantity = stock_quantity - :u WHERE id = :id`),
+   dans la meme transaction que le passage a `preparing`, et les ingredients sont
+   traites dans un ordre stable (tri croissant sur `id`, `OrderRepository::consumption`)
+   pour ecarter tout probleme d'ordonnancement entre deux encaissements concurrents. Il
+   n'y a ni lecture prealable ni plancher : deux bornes qui vendent en meme temps le
+   dernier article appliquent chacune leur decrement sans se bloquer, `stock_quantity`
+   pouvant alors passer sous zero. A dire : *"le decrement ne s'arrete pas a zero par
+   construction - c'est la disponibilite produit (RG-T21) qui masque, avant la
+   commande, ce qui est deja en rupture ; elle ne protege pas deux commandes qui
+   epuisent le meme article au meme instant. La survente residuelle est mesuree et
+   remontee aux managers, pas empechee : une decision de gestion assumee, pas un
+   oubli."*
 3. **L'encaissement est idempotent (RG-T19).** Une cle d'idempotence unique en base :
    si le client retape "Payer", la seconde requete renvoie la commande existante au
    lieu d'en creer une deuxieme.
@@ -582,7 +603,9 @@ Cr 4.f (discipline de versionnement), Cr 4.g (livraison testee).
 - Ce service a execution unique est le point a defendre : il fait qu'une seule commande,
   `docker compose up -d`, monte la base, la met a niveau, la remplit et demarre
   l'application. Parce que les migrations sont idempotentes, la relancer ne casse rien.
-- Reseaux separes : la base n'est pas exposee, seul le serveur web l'est.
+- Un seul reseau Docker (`wakdo_internal`, `docker-compose.yml`) : la base n'est pas
+  exposee non pas par une segmentation reseau, mais faute de section `ports` sur
+  `wakdo-db` ; seul `wakdo-web` publie un port sur l'hote.
 - Pas de machine virtuelle : choix assume, les conteneurs suffisent pour ce perimetre.
 - **4 taches planifiees actives** (plus 3 modeles commentes, laisses pour la suite) dans
   une fenetre de maintenance 01h30-09h30, choisie parce que le service client ferme a
@@ -682,7 +705,7 @@ de deux minutes. Chacune a son repli.
 | 08:00 | Accueil | Taille de cible, puis bascule de police adaptee et rechargement pour montrer la persistance |
 | 08:40 | Categories | Lien d'evitement en premier element, navigation au clavier |
 | 09:20 | Produits | Rupture signalee par trois canaux, pas par la seule couleur |
-| 10:00 | Composition d'un menu | Boucle de tabulation dans la modale, retour du focus au declencheur |
+| 10:00 | Composition d'un menu | Boucle de tabulation et fermeture a l'echappement dans la modale de composition |
 | 11:00 | Panier | Mouvement reduit respecte sur le total anime |
 | 11:30 | Paiement et confirmation | Numero de commande, remise a zero |
 
@@ -706,23 +729,51 @@ captures ouvertes dans un troisieme onglet.
 
 ### 4.2 Demonstration 2 - l'API et les droits (dans la section G, 28:00 - 30:00)
 
-Les deux collections sont livrees dans `docs/api/` : une pour Postman
-(`wakdo-admin.postman_collection.json`) et une pour Bruno (`docs/api/bruno/`). Le mode
-d'emploi complet est dans `docs/api/demo-api.md`. Choisir **un seul** outil et s'y tenir.
+L'outil de demonstration en direct est **Insomnia**, avec une collection construite par
+l'auteur lui-meme. Les deux collections livrees dans `docs/api/` restent la reference et
+le point de depart : une pour Postman (`wakdo-admin.postman_collection.json`) et une au
+format Bruno (`docs/api/bruno/`) ; toutes deux sont importables dans Insomnia (Postman
+directement, Bruno via ses fichiers `.bru`). Le mode d'emploi de reference, ecrit pour
+Postman et Bruno, est dans `docs/api/demo-api.md` : les noms de variables d'environnement
+(`baseUrl`, `email`, `csrf`, `pin_email`, `pin`...) et l'enchainement des requetes s'y
+retrouvent a l'identique dans la collection Insomnia.
 
-**Deroulement, en quatre gestes :**
+**Deroulement, en quatre gestes qui representent six requetes HTTP (les deux derniers
+gestes enchainent chacun une reconnexion puis une action) :**
 
-| Repere | Geste | Ce que ca montre |
-|---|---|---|
-| 28:00 | `POST /admin/api/auth/login` avec le compte administrateur | La connexion JSON, le cookie de session, le jeton anti-falsification renvoye |
-| 28:30 | `GET /admin/api/stats` | Une lecture autorisee, enveloppe `{ "data": ... }` |
-| 29:00 | Se reconnecter avec le compte cuisine, puis rejouer une annulation de commande | **403** : la cuisine *voit* les commandes (`order.read`) mais ne peut pas les annuler — la permission est decoupee au geste pres, et c'est le code qui la verifie, pas le nom du role |
-| 29:30 | Se reconnecter avec le compte comptoir, puis `POST /admin/api/orders` avec `{"items": []}` | **422** et non 403 : la permission passe, c'est la validation qui refuse |
+| Repere | Geste | Requetes | Ce que ca montre |
+|---|---|---|---|
+| 28:00 | Connexion administrateur | 1. `POST {{ _.baseUrl }}/admin/api/auth/login` (compte admin) | La connexion JSON, le cookie de session, le jeton anti-falsification renvoye |
+| 28:30 | Lecture des statistiques | 2. `GET {{ _.baseUrl }}/admin/api/stats` | Une lecture autorisee, enveloppe `{ "data": ... }` |
+| 29:00 | Cuisine tente d'annuler | 3. `POST {{ _.baseUrl }}/admin/api/auth/login` (compte cuisine) puis 4. `POST {{ _.baseUrl }}/admin/api/orders/K1/cancel` | **403** : la cuisine *voit* les commandes (`order.read`) mais ne peut pas les annuler — la permission est decoupee au geste pres, et c'est le code qui la verifie, pas le nom du role |
+| 29:30 | Comptoir cree une commande vide | 5. `POST {{ _.baseUrl }}/admin/api/auth/login` (compte comptoir) puis 6. `POST {{ _.baseUrl }}/admin/api/orders` avec `{"items": []}` | **422** et non 403 : la permission passe, c'est la validation qui refuse |
 
-Le quatrieme geste est le plus fin : il montre qu'une permission est accordee **sans**
-creer de commande reelle, donc sans effet de bord sur la base de demonstration. La
-difference entre les deux codes tient a l'ordre : le controle de droit s'execute avant la
-validation du corps. Le test
+**La requete du geste 29:00, telle qu'a preparer dans Insomnia :**
+
+```
+POST {{ _.baseUrl }}/admin/api/orders/K1/cancel
+Headers: X-CSRF-Token: {{ _.csrf }}
+Body (JSON): { "pin_email": "<email du compte cuisine>", "pin": "<PIN du compte cuisine>" }
+```
+
+Connecte avec le compte cuisine (role `kitchen`), cette requete rend **403 FORBIDDEN**
+(`"Permission manquante"`). La raison tient a l'ordre des controles dans
+`OrderApiController::apiCancel` : `guardApi('order.cancel')` (l.252-254) s'execute AVANT
+toute recherche de la commande et avant la verification du jeton CSRF — le role `kitchen`
+ne recoit que `order.read` au seed (`db/seeds/0001_rbac_and_reference.sql`), pas
+`order.cancel`, donc c'est le controle de permission qui refuse, pas une verification sur
+la commande `K1` elle-meme (celle-ci n'est meme pas recherchee a ce stade). A l'inverse,
+un numero de commande VIDE ne peut pas produire ce 403 : le segment de route `{number}` est
+compile en `(?P<number>[^/]+)` (`Router::compile`, `src/app/Core/Router.php`), qui exige au
+moins un caractere hors `/` ; une URL avec un segment vide (`/admin/api/orders//cancel`) ne
+correspond a aucune route enregistree, donc le routeur renvoie **404** avant meme
+d'instancier le controleur (`Router::dispatch`, branche `pathMatched === false`) — ce 404
+vient du routeur, pas de la logique metier de `apiCancel`.
+
+Le quatrieme geste (comptoir, commande vide) est le plus fin : il montre qu'une permission
+est accordee **sans** creer de commande reelle, donc sans effet de bord sur la base de
+demonstration. La difference entre les deux codes tient a l'ordre : le controle de droit
+s'execute avant la validation du corps. Le test
 `OrderApiControllerTest::testStoreWithoutPermissionReturns403EvenWithEmptyItems` verifie
 qu'un role sans la permission recoit bien 403 sur la meme requete.
 
@@ -741,7 +792,7 @@ quel role a agi et savoir **qui** a agi.
 
 **Repli :**
 
-1. L'outil graphique ne demarre pas -> la meme sequence en ligne de commande avec
+1. Insomnia ne demarre pas -> la meme sequence en ligne de commande avec
    `curl`, preparee dans un fichier texte a copier-coller.
 2. L'API de production ne repond pas -> la pile locale.
 3. Rien ne repond -> ouvrir le test
@@ -749,12 +800,17 @@ quel role a agi et savoir **qui** a agi.
    le lire a l'ecran. Un test qui exprime la regle vaut demonstration, a condition de
    dire qu'il tourne a chaque demande de fusion.
 
-**A preparer la veille :** collection importee, environnement renseigne, les quatre
-requetes deja ouvertes dans l'ordre, et la sequence `curl` de secours dans un fichier.
+**A preparer la veille :** collection Insomnia construite et importee, environnement
+renseigne (`baseUrl`, comptes, `pin_email`/`pin`), les six requetes ci-dessus deja
+ouvertes dans l'ordre, et la sequence `curl` de secours dans un fichier.
 
-**Precaution sur Bruno :** cet outil ecrit sur disque les variables posees par un script,
-y compris dans le fichier d'environnement versionne. Lancer la collection sur une
-**copie** hors du depot (`--env-file`), comme decrit dans `docs/api/demo-api.md`.
+**Precaution sur la collection Bruno du depot** (si on l'ouvre directement, en plus ou a
+la place d'Insomnia, pour verifier la reference) : cet outil ecrit sur disque les
+variables posees par un script, y compris dans le fichier d'environnement versionne.
+Lancer cette collection sur une **copie** hors du depot (`--env-file`), comme decrit dans
+`docs/api/demo-api.md`. La collection Insomnia de la demonstration, elle, est un espace
+de travail personnel non versionne : ce risque particulier ne s'y applique pas, mais toute
+valeur y restant apres l'oral (jeton, cookie) doit etre effacee comme pour tout outil.
 
 ### 4.3 Demonstration 3 - modifier du code en direct (sur demande du jury)
 
@@ -792,7 +848,7 @@ est en section 8. La proposer soi-meme si la question sur l'IA tombe.
 | B2 | Cr 4.c heritage | F.2 | Hierarchie des controleurs a 4 niveaux |
 | B2 | Cr 4.d separation des responsabilites | F.2 | Controleur, depot, vue |
 | B2 | Cr 4.e securite | G | 22 regles transverses, modelisation de la menace |
-| B2 | Cr 4.f versionnement | C | 242 commits, 192 demandes de fusion |
+| B2 | Cr 4.f versionnement | C | 242 commits, 192 demandes de fusion au 28/09 (244 / 194 au 29/09) |
 | B2 | Cr 4.g livraison testee | H.2 | Suites PHP et JS, PHPStan niveau 6 |
 | B5 | Cr 7.a analyse infrastructure | H.3 | Arbitrage sur le socket Docker |
 | B5 | Cr 7.b scripts et taches planifiees | H.1 | 4 taches actives, scripts de migration |
@@ -836,17 +892,16 @@ bonne reponse est *"le code fait foi, et voici pourquoi le document a pris du re
 | Nombre de tests | 755 PHP / 233 JS (dossier, deux endroits) | Derniere execution mesuree (28/09/2026, commit `04bece0`) : 2 386 PHP / 7 886 assertions / 446 JS. Comptage statique aujourd'hui : 1 295 methodes / 450 appels. |
 | Decisions d'architecture | "seize" (dossier, quatre endroits) | **20**. Les 0018-0020 portent les familles d'ingredients, la page Sante de l'API et l'annulation par le responsable. |
 | Migrations | "dix fichiers, 0001 a 0011" (dossier, C3.b) | **17 fichiers**, 0001 a 0018. Le saut sur 0004 reste volontaire et trace. |
-| Fichiers PHP de l'application | "103 fichiers" avec une repartition detaillee | **135** sous `src/app`, dont 34 controleurs (23 au premier niveau + 11 sous `Admin/Api`). |
+| Fichiers PHP de l'application | "103 fichiers" avec une repartition detaillee | **135** sous `src/app`, dont **33 controleurs + 1 trait** (23 au premier niveau + 10 controleurs et 1 trait `JsonApiTrait` sous `Admin/Api`). |
 | Modules de la borne | "18 modules, 2 979 lignes" | **21 modules, 3 311 lignes**. |
 | Feuille de style du back-office | "2 714 lignes" | **3 470 lignes** (refonte du 26 septembre, complements du 28). |
-| Operations du modele de traitements | "28 operations" | **30** depuis la version 0.3. |
+| Operations du modele de traitements | "28 operations" | **35**, depuis la version 0.4 (`docs/merise/mct.md` §14). |
 | Dependances de developpement | "deux" | **trois** (`@axe-core/playwright` en plus). Le fond tient : zero dependance de production. |
 | Nombre d'entites | 21 entites classifiees (dossier, section 19.4) | **23**. `pin_throttle` et `category_ingredient_family` sont desormais classees en INTERNAL (`PROJECT_CONTEXT.md` 19.4, corrige). |
 | Empreintes de mot de passe | "bcrypt ou argon2" (dossier, sections 7, 16, 18) | **argon2id**, et le dossier lui-meme l'ecrit en section 19.3. |
 | Services conteneurises | 4 en section 16, 5 ailleurs | **5**, dont un a execution unique. |
 | Regles transverses | "RG-T13 a RG-T21" en introduction de la section 19 | **22 regles**, RG-T22 comprise. |
 | Auditabilite des echanges avec l'IA | Annoncee en section 17.9 | Les journaux ne sont pas versionnes (section 17.6). Ne pas promettre cette preuve. |
-| Mesures de contraste | 407 (fiches 06 et README des preuves) | **935** dans l'artefact `rapports/resume.json` du 28 septembre ; la fiche 06 explique l'ecart avec les 946 du 27 (l'apercu d'import affichait alors le defaut des accents, corrige par #178). |
 
 **Un point deja regle, un point restant a verifier avant le 5 octobre** :
 
@@ -900,10 +955,12 @@ dessiner du HTML ; il coordonne."*
 
 **Q1.3 - Ou est l'heritage dans votre code ?**
 Une hierarchie a quatre niveaux. `src/app/Core/Controller.php` est abstraite ;
-`AdminController` en herite et ajoute le controle de permission, le rendu de vue et les
-messages ; les controleurs concrets en heritent. Sur les 23 fichiers du premier niveau :
-2 abstraits, 14 qui etendent `AdminController`, 6 `Controller`, 1
-`AuthenticatedController`. C'est le critere Cr 4.c.
+`AuthenticatedController` en herite et ajoute la verification de session ; `AdminController`
+herite a son tour d'`AuthenticatedController` et ajoute le controle de permission, le rendu
+de vue et les messages ; les controleurs concrets heritent de l'un des trois. Sur les 23
+fichiers du premier niveau : 2 abstraits (`AdminController`, `AuthenticatedController`),
+14 qui etendent `AdminController`, 6 qui etendent `Controller` directement, 1
+(`MeController`) qui etend `AuthenticatedController` directement. C'est le critere Cr 4.c.
 
 **Q1.4 - Pourquoi un routeur ecrit a la main plutot qu'une bibliotheque ?**
 Le sujet du Bloc 2 demande une realisation sans framework. Ecrire le routeur m'obligeait
@@ -919,11 +976,16 @@ relit le prix en base et recalcule (RG-T16, RG-T18). Une liste blanche de colonn
 empeche en plus d'injecter un champ non prevu, `role_id` compris.
 
 **Q2.2 - Et si deux bornes commandent le dernier article en meme temps ?**
-Le decrement est un seul ordre SQL garde, `WHERE stock >= :q`, dans la meme transaction
-que le changement d'etat (RG-T20). Pas de lecture puis ecriture, donc pas de course.
-L'une des deux commandes recoit un conflit. Nuance honnete : le registre des risques
+Le decrement est un seul ordre SQL par ingredient, sans plancher
+(`UPDATE ingredient SET stock_quantity = stock_quantity - :u WHERE id = :id`), dans la
+meme transaction que le changement d'etat de la commande (RG-T20). Les deux
+encaissements appliquent chacun leur delta sans se bloquer : ni lecture-gate ni conflit
+SQL, et `stock_quantity` peut passer sous zero. Ce que RG-T21 empeche, c'est de
+commander un produit deja en rupture avant l'encaissement (la disponibilite compare le
+stock au seuil critique) ; ca ne protege pas deux commandes simultanees sur le dernier
+exemplaire. Nuance honnete : le registre des risques (`PROJECT_CONTEXT.md`, risque R5)
 classe le risque residuel de survente comme moyen et **accepte** - la survente est
-mesuree, pas totalement empechee, c'est une decision metier.
+mesuree, pas empechee, c'est une decision metier.
 
 **Q2.3 - Que se passe-t-il si le client double-clique sur Payer ?**
 Une cle d'idempotence unique en base (RG-T19). La seconde requete renvoie la commande
@@ -1209,15 +1271,16 @@ journal. Les schemas du projet sont en tete parce que je l'ai construit. A evite
 dire "je n'ai pas besoin de l'IA", c'est invalidable en une question.
 
 **Q8.6 - L'IA a-t-elle decide de l'architecture de votre base ?**
-Non. Le modele part du dictionnaire de donnees et des 30 recits utilisateur ; chaque
-cardinalite et chaque transition d'etat est un arbitrage que j'ai pose. L'outil a
+Non. Le modele part du dictionnaire de donnees et des besoins fonctionnels du projet ;
+chaque cardinalite et chaque transition d'etat est un arbitrage que j'ai pose. L'outil a
 formalise les diagrammes a partir de ces arbitrages. C'est ecrit en section 17.4 du
 dossier, dans la liste de ce que l'outil ne fait pas.
 
 **Q8.7 - Vos echanges avec l'IA sont-ils verifiables ?** **(piege - eviter de sur-promettre)**
 Partiellement, et je prefere etre precis. Ce qui est versionne et que je peux vous
 montrer : les regles de methodologie, les 20 decisions d'architecture, le journal de
-bord, les 242 commits. Ce qui ne l'est pas : les journaux de conversation eux-memes.
+bord, les commits (242 au 28/09, 244 au 29/09). Ce qui ne l'est pas : les journaux de
+conversation eux-memes.
 Le dossier laisse entendre en section 17.9 qu'ils sont auditables ; c'est une imprecision
 que j'ai relevee, ils ne sont pas versionnes.
 
@@ -1274,9 +1337,10 @@ sans acces aux journaux.
 
 Je remonte la pile, en le disant a voix haute :
 
-1. **Base** : nouvelle migration `db/migrations/0019_category_description.sql`
-   (0016 est deja prise), `ALTER TABLE category ADD COLUMN description VARCHAR(255)
-   NULL`, avec une garde d'idempotence sur `information_schema`.
+1. **Base** : nouvelle migration `db/migrations/0019_category_description.sql` (la
+   derniere migration livree est `0018_manager_order_cancel.sql`, la prochaine est donc
+   `0019`), `ALTER TABLE category ADD COLUMN description VARCHAR(255) NULL`, avec une
+   garde d'idempotence sur `information_schema`.
 2. **Depot** : `src/app/Catalogue/CategoryRepository.php`, ajouter la colonne aux
    requetes et a la liste blanche de colonnes (RG-T16).
 3. **Controleur** : `CategoryController::validate()`, valider la longueur.
@@ -1285,8 +1349,9 @@ Je remonte la pile, en le disant a voix haute :
 
 ### 8.2 Ajouter une route
 
-1. Les routes sont declarees dans `src/app/Core/routes.php` (les points d'entree
-   `index.php` se contentent d'un `require` sur ce fichier) :
+1. Les routes sont declarees dans `src/app/Core/routes.php` (l'unique point d'entree PHP,
+   `src/public/admin/index.php`, se contente d'un `require` sur ce fichier ; la borne, elle,
+   ne passe par aucun routeur PHP - ce sont des pages HTML statiques) :
    `$router->add('GET', '/api/categories/{id}', [CatalogueController::class, 'category']);`
 2. L'action `category(array $params)` dans le controleur, qui lit `$params['id']`,
    appelle le depot et renvoie `$this->json([...])`.
@@ -1340,9 +1405,9 @@ evalue la demarche de navigation autant que la vitesse.
       reponse de `/api/health`, borne, back-office. Ecarter toute commande destructive
       (en particulier la suppression de volumes).
 - [ ] Demarrer une pile locale de secours et la laisser tourner.
-- [ ] Importer la collection d'API choisie, renseigner l'environnement, ouvrir les
-      quatre requetes de la section 4.2 dans l'ordre. Sur Bruno, pointer sur une copie
-      de l'environnement hors du depot.
+- [ ] Construire/importer la collection Insomnia, renseigner l'environnement, ouvrir les
+      six requetes de la section 4.2 dans l'ordre (quatre gestes, deux d'entre eux
+      enchainant une reconnexion puis une action).
 - [ ] Preparer la sequence `curl` de secours dans un fichier texte.
 - [ ] Ouvrir `docs/demo/comptes-demo.md` pour avoir les comptes sous la main.
 - [ ] Recapturer les ecrans du back-office si on compte montrer des captures : celles du

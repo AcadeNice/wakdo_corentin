@@ -25,19 +25,19 @@ Chaque affirmation est mappee au code de critere attendu (Cr 1.c.x) et sourcee e
 
 ### Images (RGAA theme 1)
 
-- **Images informatives avec `alt` pertinent.** Les cartes categorie sont generees depuis le catalogue et portent un `alt` egal au libelle de la categorie : `page-categories.js:69-70`. Une categorie sans visuel n'emet aucune balise `<img>` plutot qu'une image sans source (`page-categories.js:68-71`). Les boutons de choix d'accueil : `index.html:78-82` (`alt="Table et chaises - Sur place"`) et `index.html:92-96` (`alt="Sac a emporter"`).
-- **Image decorative neutralisee.** La photo de fond d'accueil porte `alt=""` **et** `aria-hidden="true"` : `index.html:52-57`. Le contenu utile vit dans la carte, l'image n'est donc pas annoncee.
-- **Logo.** Le logo d'en-tete porte `alt="Wakdo"` sur les pages concernees : `categories.html:27-31`, `products.html:31-35`, `payment.html:29-33`, `confirmation.html:22-26`.
-- **Icones SVG purement decoratives** marquees `aria-hidden="true"` + `focusable="false"` : SVG carte/especes de paiement `payment.html:61,77`, coche de confirmation `confirmation.html:34`.
-- **Images injectees dynamiquement.** Les cartes produit et categorie generees par JS recoivent un `alt` egal au nom de l'article. Le repli en cas d'echec de chargement passe par l'attribut `data-fallback`, lu par un ecouteur delegue au niveau du document — et non par un `onerror` en ligne, que la CSP stricte de la borne interdit : `page-products.js:128-136` et `page-categories.js:69-70` (`data-fallback="logo" data-fallback-alt="Image non disponible"`), coeur du repli `img-fallback.js:23-36`. L'icone corbeille du panneau de commande est decorative : `alt=""` + `aria-hidden="true"`, l'information etant portee par l'`aria-label` du bouton parent : `order-panel.js:132-139`.
+- **Images informatives avec `alt` pertinent.** Les cartes categorie sont generees depuis le catalogue et portent un `alt` egal au libelle de la categorie : `page-categories.js:69-70`. Une categorie sans visuel n'emet aucune balise `<img>` plutot qu'une image sans source (`page-categories.js:68-71`). Les boutons de choix d'accueil : `index.html:126` (`alt="Table et chaises - Sur place"`) et `index.html:141` (`alt="Sac a emporter"`).
+- **Image decorative neutralisee.** La photo de fond d'accueil porte `alt=""` **et** `aria-hidden="true"` : `index.html:88-99`. Le contenu utile vit dans la carte, l'image n'est donc pas annoncee.
+- **Logo.** Le logo d'en-tete porte `alt="Wakdo"` sur les pages concernees : `categories.html:47`, `products.html:52`, `payment.html:49`, `confirmation.html:42`.
+- **Icones SVG purement decoratives** marquees `aria-hidden="true"` + `focusable="false"` : SVG carte/especes de paiement `payment.html:78,94`, coche de confirmation `confirmation.html:51`.
+- **Images injectees dynamiquement.** Les cartes produit et categorie generees par JS recoivent un `alt` egal au nom de l'article. Le repli en cas d'echec de chargement passe par l'attribut `data-fallback`, lu par un ecouteur delegue au niveau du document — et non par un `onerror` en ligne, que la CSP stricte de la borne interdit : `page-products.js:128-136` et `page-categories.js:69-71` (`data-fallback="logo" data-fallback-alt="Image non disponible"`), coeur du repli `img-fallback.js:23-36`. L'icone corbeille du panneau de commande est decorative : `alt=""` + `aria-hidden="true"`, l'information etant portee par l'`aria-label` du bouton parent : `order-panel.js:152`.
 
 ### aria-label et roles sur les controles
 
-- **Liens-boutons d'accueil** : `role="button"` + `aria-label` explicite (`index.html:72-77`, `86-91`).
-- **Retours de navigation** : `aria-label="Retour a l'accueil"` (`categories.html:24`), `aria-label="Retour aux categories"` (`products.html:23-28`, `payment.html:22-26`).
+- **Liens-boutons d'accueil** : `role="button"` + `aria-label` explicite (`index.html:116-145`, les deux `<a class="choice-btn">`).
+- **Retours de navigation** : `aria-label="Retour a l'accueil"` (`categories.html:41`), `aria-label="Retour aux categories"` (`products.html:44`, `payment.html:41`).
 - **Cartes produit dynamiques** : `aria-label` combinant nom + prix, et `aria-disabled="true"` sur une tuile en rupture : `page-products.js:122,126`.
-- **Stepper de quantite** dans le panneau commande : chaque groupe `role="group"` + `aria-label="Quantite de <libelle>"`, boutons `aria-label="Diminuer/Augmenter la quantite de <libelle>"`, retrait `aria-label="Retirer <libelle> de la commande"` : `order-panel.js:115-137`.
-- **Boutons de paiement** : `aria-label="Payer par carte bancaire"` / `aria-label="Payer en especes"` : `payment.html:58,74`.
+- **Stepper de quantite** dans le panneau commande : chaque groupe `role="group"` + `aria-label="Quantite de <libelle>"`, boutons `aria-label="Diminuer/Augmenter la quantite de <libelle>"`, retrait `aria-label="Retirer <libelle> de la commande"` : `order-panel.js:115-153`.
+- **Boutons de paiement** : `aria-label="Payer par carte bancaire"` / `aria-label="Payer en especes"` : `payment.html:75,91`.
 - **Bouton d'information allergenes** : `aria-label="Informations allergenes"` + `title` : `allergens.js:62-63`.
 
 ### Landmarks et regions vivantes
@@ -95,12 +95,12 @@ avant/apres, et methode : `06-audit-accessibilite-mesure.md`.
 
 ### Focus visible
 
-- **Focus clavier stylise** sur la grande majorite des controles interactifs via `:focus-visible` (halo jaune ou `outline` epais) : 19 regles `:focus-visible` dans `style.css` (18 avant ce lot, plus `.skip-link` ajoute pour Cr 1.e.11, voir plus bas dans cette section), reperables par selecteur (choix accueil `.choice-btn`, retour `.site-header__back`, carte categorie `.category-card`, boutons `.btn--primary`/`.btn--secondary`, carte produit `.product-card`/`.product-card--unavailable`, quantite `.qty-btn`, paiement `.payment-choice`, carte composeur `.composer-card`, taille `.composer-taille__btn`, controles du panneau + bandeau `.order-panel__pay`/`.order-panel__abandon`/`.order-panel__remove`/`.category-strip__item`/`.category-strip__arrow`, saisie chevalet `.chevalet__input`, bascule a11y `.a11y-toggle`, lien d'evitement `.skip-link`).
+- **Focus clavier stylise** sur la grande majorite des controles interactifs via `:focus-visible` (halo jaune ou `outline` epais) : 19 selecteurs distincts portant `:focus-visible` dans `style.css` (18 avant ce lot, plus `.skip-link` ajoute pour Cr 1.e.11, voir plus bas dans cette section), reperables par selecteur (choix accueil `.choice-btn`, retour `.site-header__back`, carte categorie `.category-card`, boutons `.btn--primary`/`.btn--secondary`, carte produit `.product-card`/`.product-card--unavailable`, quantite `.qty-btn`, paiement `.payment-choice`, carte composeur `.composer-card`, taille `.size-btn` (l.2127, pas `.composer-taille__btn`, qui n'existe pas comme classe CSS), controles du panneau + bandeau `.order-panel__pay`/`.order-panel__abandon`/`.order-panel__remove`/`.category-strip__item`/`.category-strip__arrow`, saisie chevalet `.chevalet__input`, bascule a11y `.a11y-toggle`, lien d'evitement `.skip-link`).
 - **`outline: none` systematiquement compense.** Chaque `outline: none` s'accompagne dans la meme regle d'un indicateur de substitution (halo `box-shadow` ou changement de bordure) — verifie regle par regle (ex. `.choice-btn:focus-visible`, `.btn--primary:focus-visible`, `.composer-card:focus-visible` dans `style.css`). Il n'existe pas de suppression globale du focus : le reset (`style.css`, cherchez « box-sizing: border-box ») ne touche que `box-sizing`/`margin`/`padding`.
 
 ### Navigation native, pas de piege
 
-- **Navigation par liens HTML natifs.** Les choix d'accueil sont de simples `<a href>` servis directement dans le HTML : la tabulation et l'activation clavier y fonctionnent sans JavaScript (`index.html:72-98`, commentaire `index.html:44`). Les cartes categorie, elles, sont **generees par JavaScript** depuis `GET /api/categories` (`page-categories.js:63-79`) : cet ecran depend donc du JS pour s'afficher, comme les ecrans produits et paiement. Une fois rendues, ce sont de vrais `<a href>` — le focus, la tabulation et l'activation clavier sont natifs, pas simules (`page-categories.js:73`).
+- **Navigation par liens HTML natifs.** Les choix d'accueil sont de simples `<a href>` servis directement dans le HTML : la tabulation et l'activation clavier y fonctionnent sans JavaScript (`index.html:115-145`, commentaire `index.html:74`). Les cartes categorie, elles, sont **generees par JavaScript** depuis `GET /api/categories` (`page-categories.js:63-79`) : cet ecran depend donc du JS pour s'afficher, comme les ecrans produits et paiement. Une fois rendues, ce sont de vrais `<a href>` — le focus, la tabulation et l'activation clavier sont natifs, pas simules (`page-categories.js:74`).
 
   **Reserve assumee, a defendre a l'oral.** La page portait auparavant une liste de neuf cartes ecrite en dur, qui s'affichait sans JavaScript mais ne refletait pas le catalogue reel : une categorie desactivee, renommee ou ajoutee en back-office restait fausse a l'ecran. Le choix retenu est d'afficher le catalogue juste plutot que de fonctionner sans JavaScript sur un ecran qui, de toute facon, ne permet pas de commander sans JavaScript (composeur, panier et paiement en dependent). Un repli statique aurait reintroduit exactement la donnee codee en dur que ce lot supprime.
 - **Cartes produit focusables au clavier.** Bien que le clic ouvre une modale, la carte reste un `<a>` avec `href` pour conserver focus et activation clavier (`page-products.js:117-121`, commentaire l.119-120).
@@ -152,24 +152,24 @@ Verdicts : **conforme** (preuve dans le code) · **partiel** (couvert mais reser
 
 | Critere | Preuve (fichier:ligne) | Verdict | Commentaire |
 |---|---|---|---|
-| Focus clavier visible | `style.css`, 19 regles `:focus-visible` reperables par selecteur (`.choice-btn`, `.site-header__back`, `.category-card`, `.btn--primary`, `.btn--secondary`, `.product-card`, `.product-card--unavailable`, `.qty-btn`, `.payment-choice`, `.composer-card`, `.composer-taille__btn`, `.order-panel__pay`, `.order-panel__abandon`, `.order-panel__remove`, `.category-strip__item`, `.category-strip__arrow`, `.chevalet__input`, `.a11y-toggle`, `.skip-link`) | conforme | Halo jaune / `outline` epais decale. |
+| Focus clavier visible | `style.css`, 19 selecteurs distincts portant `:focus-visible` (`.choice-btn`, `.site-header__back`, `.category-card`, `.btn--primary`, `.btn--secondary`, `.product-card`, `.product-card--unavailable`, `.qty-btn`, `.payment-choice`, `.composer-card`, `.size-btn`, `.order-panel__pay`, `.order-panel__abandon`, `.order-panel__remove`, `.category-strip__item`, `.category-strip__arrow`, `.chevalet__input`, `.a11y-toggle`, `.skip-link`) | conforme | Halo jaune / `outline` epais decale. |
 | `outline:none` compense | `style.css` (`.choice-btn:focus-visible`, `.btn--primary:focus-visible`, `.composer-card:focus-visible`) | conforme | Chaque suppression a un substitut visible ; pas de reset global du focus. |
-| Coherence du style de focus | `style.css` (`.size-btn`, `.allergen-info-btn`, `.allergen-modal-close`) | partiel | Quelques controles secondaires reposent sur l'anneau natif (non perdu, mais non stylise). |
+| Coherence du style de focus | `style.css` (`.allergen-info-btn`, `.allergen-modal-close`) | partiel | Quelques controles secondaires reposent sur l'anneau natif (non perdu, mais non stylise). `.size-btn` a ete retire de cette liste : il a son propre `:focus-visible` (l.2127), meme convention que `.choice-btn`. |
 
 ### Theme 11 — Formulaires / controles
 
 | Critere | Preuve (fichier:ligne) | Verdict | Commentaire |
 |---|---|---|---|
-| Controle a une etiquette | `payment.html:58,74` ; `order-panel.js:115-137` ; `allergens.js:62` | conforme | `aria-label` sur boutons paiement, stepper, retrait, info allergenes. |
+| Controle a une etiquette | `payment.html:75,91` ; `order-panel.js:115-153` ; `allergens.js:62` | conforme | `aria-label` sur boutons paiement, stepper, retrait, info allergenes. |
 | Champ de saisie etiquete | `style.css` (cherchez « .chevalet__input ») | partiel | Le champ chevalet a un focus visible ; le libelle textuel proche vit dans une modale JS hors des 5 pages lues, a verifier. |
-| Etat desactive expose | `order-panel.js:182` ; `style.css` (cherchez « .btn--primary[aria-disabled » et « .order-panel__pay[aria-disabled ») | conforme | `aria-disabled` sur « Payer » panier vide et boutons desactives. |
+| Etat desactive expose | `order-panel.js:165` (commentaire) et `:207` (code) ; `style.css` (cherchez « .btn--primary[aria-disabled » et « .order-panel__pay[aria-disabled ») | conforme | `aria-disabled` sur « Payer » panier vide et boutons desactives. |
 
 ### Theme 12 — Navigation
 
 | Critere | Preuve (fichier:ligne) | Verdict | Commentaire |
 |---|---|---|---|
-| Landmarks / zones | `index.html:46,66` ; `products.html:39,41,61` ; `payment.html:37,48` | conforme | `main`, `nav`, `aside`, `header` etiquetes. |
-| Navigation clavier sans piege bloquant | `index.html:72-98` ; `page-products.js:117-121` ; `confirm-modal.js:50-59` | conforme | Liens natifs ; modales sortables (Echap + boucle Tab). |
+| Landmarks / zones | `index.html:76,110` (`main`, `nav`) ; `products.html:57,59,84` (`main`, `nav`, `aside`) ; `payment.html:54` (`main`) | conforme | `main`, `nav`, `aside` etiquetes par `aria-label`. Le `<header>` de chaque page (`products.html:39`, `payment.html:37`) est un landmark implicite non etiquete par `aria-label` : un seul par page, donc pas d'ambiguite pour une technologie d'assistance. |
+| Navigation clavier sans piege bloquant | `index.html:115-145` ; `page-products.js:117-121` ; `confirm-modal.js:50-59` | conforme | Liens natifs ; modales sortables (Echap + boucle Tab). |
 | Titre de page pertinent | `index.html:25` ; `categories.html:9` ; `payment.html:9` ; `confirmation.html:9` | conforme | `<title>` distinct par ecran, mis a jour dynamiquement (`page-products.js:87`). |
 | Langue de la page | 5 pages `html lang="fr"` | conforme | Verifie : 1 occurrence par fichier. |
 | Lien d'evitement (Cr 1.e.11) | 5 pages borne + `admin/layout.php` (cherchez `class="skip-link"` dans chaque fichier) | conforme | Absent avant ce lot (zero `href="#"` dans tout le depot). Voir section 5 pour le detail. |
@@ -180,7 +180,7 @@ Verdicts : **conforme** (preuve dans le code) · **partiel** (couvert mais reser
 |---|---|---|---|
 | Police auto-hebergee + `@font-face` | `assets/fonts/*.woff2` ; `style.css` (cherchez « self-hosted under assets/fonts ») | conforme | Poids 400/700, `font-display: swap`, licence OFL presente. |
 | Bascule utilisateur persistante | `a11y.js:40-125` ; `style.css` (cherchez « html.dys-font ») | conforme | Classe `.dys-font` sur `<html>`, persistance `localStorage`. |
-| Presence sur tous les ecrans | 5 pages chargent `a11y.js` | conforme | `index:104`,`categories:184`,`products:68`,`payment:92`,`confirmation:70`. |
+| Presence sur tous les ecrans | 5 pages chargent `a11y.js` | conforme | `index.html:155`, `categories.html:85`, `products.html:91`, `payment.html:109`, `confirmation.html:88`. |
 | Etat expose a l'assistance | `a11y.js:73,89-95` | conforme | `aria-pressed` reflete l'etat ; couvert par tests. |
 | Couverture de test | `tests/js/a11y.test.js:39-106` | conforme | 7 cas jsdom (dont storage en echec). |
 
@@ -198,7 +198,7 @@ Verdicts : **conforme** (preuve dans le code) · **partiel** (couvert mais reser
 
 1. **Aucun audit avec lecteur d'ecran reel.** Le mapping ARIA est correct dans le code, mais le rendu effectif sous NVDA/VoiceOver/TalkBack n'a pas ete teste sur cette borne. Toute affirmation de restitution vocale reelle est [UNVERIFIED].
 2. **Ratios de contraste non mesures a l'outil — RESOLU, voir `06-audit-accessibilite-mesure.md`.** Cette reserve disait que les tokens etaient choisis pour viser AA sans rapport d'outil joint. Depuis, `axe-core` a mesure 407 ratios sur 11 ecrans reels ; 10 noeuds sous le seuil AA ont ete trouves (dont un sur ce perimetre borne, `#767676` sur un fond gris a 4,16:1), corriges (`#767676` -> `#6E6E6E`), puis remesures conformes sur les 11 ecrans. La campagne a ete rejouee et **elargie a 18 ecrans (858 mesures) le 2026-09-26**, apres la refonte du back-office : le resultat reste a 0 violation. Le detail, les chiffres avant/apres et la methode sont dans le document cite.
-3. **Coherence du style de focus partielle.** Le focus n'est pas perdu (pas de reset global), mais quelques controles secondaires (`.size-btn`, bouton info allergenes `.allergen-info-btn`, fermeture modale allergenes `.allergen-modal-close`, tous reperables par selecteur dans `style.css`) reposent sur l'anneau de focus natif du navigateur plutot que sur le halo jaune maison. C'est conforme (focus visible) mais visuellement heterogene.
+3. **Coherence du style de focus partielle.** Le focus n'est pas perdu (pas de reset global), mais quelques controles secondaires (bouton info allergenes `.allergen-info-btn`, fermeture modale allergenes `.allergen-modal-close`, reperables par selecteur dans `style.css`) reposent sur l'anneau de focus natif du navigateur plutot que sur le halo jaune maison. C'est conforme (focus visible) mais visuellement heterogene. `.size-btn` (la carte de choix de taille) n'en fait PAS partie : il porte son propre `:focus-visible` (`style.css:2127`), meme convention que `.choice-btn`.
 4. **Champ chevalet hors des 5 pages lues.** Le picker de chevalet (sur place) a un focus visible en CSS (`style.css`, cherchez « .chevalet__input ») mais son etiquette textuelle vit dans une modale JS non incluse dans les 5 pages de ce perimetre ; verdict « partiel » par prudence.
 5. **Contenu genere = surface a re-tester.** Les cartes produit et le panneau commande sont construits en JavaScript. Les attributs ARIA sont poses dans le code (`page-products.js`, `order-panel.js`), mais leur presence a l'ecran depend de l'execution correcte du rendu ; a demontrer en live plutot qu'a affirmer.
 
@@ -226,7 +226,7 @@ Le module `assets/js/a11y.js` est **reutilise physiquement**, pas reecrit : `src
 
 - **`@font-face` propre a l'admin.** Deux poids (400/700), `font-display: swap` : `admin.css` (cherchez `@font-face`, juste au-dessus de `html.dys-font`).
 - **Bascule par classe racine adaptee au design system admin.** `html.dys-font` redefinit `--font` (le token de police de l'admin, distinct de `--font-family-base` cote borne) : `admin.css` (cherchez `html.dys-font`).
-- **Chargement sur chaque page admin.** Une seule injection suffit : `layout.php` (cherchez `<script type="module" src="/assets/js/a11y.js">`) enveloppe toutes les vues back-office.
+- **Chargement sur chaque page admin.** Une seule injection suffit : `layout.php:193` (cherchez `$asset('/assets/js/a11y.js')` — chemin passe par l'assistant de versionnement d'assets depuis #173, plus un chemin litteral) enveloppe toutes les vues back-office.
 - **Position du bouton adaptee au layout admin.** Bas-droite (`admin.css`, cherchez `.a11y-toggle`) plutot que bas-gauche comme sur la borne : la sidebar admin occupe tout le bord gauche sur chaque page (`admin.css`, cherchez `.sidebar {`), le coin bas-gauche n'y est donc pas libre.
 - **Non-regression testee, pas seulement la premiere fois.** `tests/Unit/Admin/AdminAccessibilityAssetsTest.php` (cherchez `testDyslexiaToggleScriptIsSharedWithBorneNotDuplicated`) compare le contenu du fichier admin a celui de la borne octet pour octet : une divergence future (edition d'un seul cote) ferait echouer ce test avant de devenir un bug silencieux en production.
 
@@ -243,7 +243,7 @@ Verifie par regex negative (pas seulement les quatre selecteurs cites) : `tests/
 
 ### 10.3 Favicon
 
-Absent du gabarit admin avant ce lot. Ajoute par le meme mecanisme de partage physique que les polices : `layout.php` (cherchez `<link rel="icon" type="image/svg+xml" href="/assets/images/favicon.svg">`), `src/public/admin/assets/images/favicon.svg` est un lien symbolique vers le fichier de la borne. Verifie par `tests/Unit/Admin/AdminAccessibilityAssetsTest.php` (cherchez `testFaviconIsReachableFromAdminOrigin`).
+Absent du gabarit admin avant ce lot. Ajoute par le meme mecanisme de partage physique que les polices : `layout.php:68` (cherchez `$asset('/assets/images/favicon.svg')` — chemin passe par l'assistant de versionnement d'assets depuis #173, plus un chemin litteral), `src/public/admin/assets/images/favicon.svg` est un lien symbolique vers le fichier de la borne. Verifie par `tests/Unit/Admin/AdminAccessibilityAssetsTest.php` (cherchez `testFaviconIsReachableFromAdminOrigin`).
 
 ### 10.4 Semantique du gabarit — verification, aucune correction necessaire
 
@@ -278,7 +278,10 @@ code** : gabarit, assets partages, focus, semantique. L'audit mesure (`axe-core`
 couvrait que **cinq** ecrans du back-office. Il en couvre **douze** depuis le 2026-09-26,
 dont les cinq surfaces que le navigateur construit de toutes pieces : les lignes de recette
 du formulaire produit, le bloc de slot du formulaire menu, la caisse comptoir, son composeur
-de menu, et la caisse drive.
+de menu, et la caisse drive. La page Sante de l'API (`#175`, ajoutee le 2026-09-27) porte ce
+total a **treize** ecrans back-office (19 au total avec la borne) dans la campagne courante
+du 2026-09-28 (`rapports/resume.json`) : les deux chiffres, douze et treize, sont corrects
+chacun a sa date, pas contradictoires.
 
 Deux resultats a retenir pour l'oral :
 
@@ -295,4 +298,4 @@ Deux resultats a retenir pour l'oral :
 
 ---
 
-Perimetre couvert : Cr 1.c.1 (conforme), Cr 1.c.2 (conforme), Cr 1.c.3 (conforme, reserve contraste), Cr 1.c.4 (conforme, reserve coherence de focus), Cr 1.e.11 (conforme, borne + admin, section 5), back-office (parite d'accessibilite, section 10 ; Cr 1.e hors 1.e.11 non applicable par decision documentee). Les preuves de ce document combinent deux conventions : les citations historiques `fichier:ligne` (perimetre borne d'origine) et des citations par texte cherchable pour tout ce qui a ete ajoute depuis (moins sensible a la derive des numeros de ligne au fil des commits). Toutes sont verifiees dans le code du depot.
+Perimetre couvert : Cr 1.c.1 (conforme), Cr 1.c.2 (conforme), Cr 1.c.3 (conforme, reserve contraste levee — section 4), Cr 1.c.4 (conforme, reserve coherence de focus), Cr 1.e.11 (conforme, borne + admin, section 5), back-office (parite d'accessibilite, section 10 ; Cr 1.e hors 1.e.11 non applicable par decision documentee). Les preuves de ce document combinent deux conventions : les citations historiques `fichier:ligne` (perimetre borne d'origine) et des citations par texte cherchable pour tout ce qui a ete ajoute depuis (moins sensible a la derive des numeros de ligne au fil des commits). Toutes sont verifiees dans le code du depot.

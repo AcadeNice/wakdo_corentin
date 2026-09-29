@@ -150,8 +150,8 @@
         <p class="muted">Tests avant code sur les chemins critiques
           (commande, stock, securite). 1 295 methodes de test PHP.</p></div>
       <div class="card"><h3>Git discipline</h3>
-        <p class="muted">242 commits Conventional, branches feat/*, PR vers dev,
-          hooks protegeant main/dev.</p></div>
+        <p class="muted">244 commits Conventional au 29/09 (242 au 28/09), branches feat/*,
+          PR vers dev, hooks protegeant main/dev.</p></div>
       <div class="card"><h3>Tracabilite</h3>
         <p class="muted">20 ADR (decisions datees) + 16 entrees de journal de bord.
           Transparence IA portee dans la doc.</p></div>
@@ -209,7 +209,7 @@
         </ul></div>
       <div class="card"><h3>HTML semantique + SEO (Cr 1.e)</h3>
         <ul class="muted">
-          <li>Balises main / nav / article</li>
+          <li>Balises main / nav / header / aside</li>
           <li>Donnees structurees, meta, favicon</li>
           <li>5 pages HTML conformes maquette</li>
         </ul></div>
@@ -291,8 +291,9 @@ GET  /api/orders/{n}        -> consultation statut</div>
         <p class="muted">idempotency_key UNIQUE : re-cliquer "Payer" ne facture pas deux fois.
           <span class="mono">RG-T19</span></p></div>
       <div class="card"><h3>Stock atomique</h3>
-        <p class="muted">Decrement en une instruction SQL gardee, dans la transaction de paiement.
-          Pas de course critique. <span class="mono">RG-T20</span></p></div>
+        <p class="muted">Decrement en une instruction SQL par ingredient, sans plancher,
+          dans la transaction de paiement. La disponibilite produit (RG-T21) masque en amont
+          ce qui est deja en rupture. <span class="mono">RG-T20</span></p></div>
     </div>
     <p class="muted">22 regles transverses RG-T01 a RG-T22 (SQLi, XSS, CSRF, RBAC, audit...).</p>
   </section>
@@ -303,18 +304,20 @@ GET  /api/orders/{n}        -> consultation statut</div>
     <div class="flow" style="margin:3vh 0">
       <div class="pill">pending_payment</div>
       <span class="arrow">&rarr;</span>
-      <div class="pill">paid <span class="muted">(+ decrement stock)</span></div>
-      <span class="arrow">&rarr;</span>
-      <div class="pill">preparing</div>
+      <div class="pill">preparing <span class="muted">(paid_at + decrement stock)</span></div>
       <span class="arrow">&rarr;</span>
       <div class="pill">ready</div>
       <span class="arrow">&rarr;</span>
       <div class="pill">delivered</div>
-      <span style="margin-left:2vw" class="muted">+ cancelled</span>
+      <span style="margin-left:2vw" class="muted">+ paid, + cancelled</span>
     </div>
-    <p class="muted">preparing et ready sont optionnels et visibles au KDS (retour oral,
-      migration 0009) : ready accepte aussi paid en direct, deliver accepte
-      paid|preparing|ready. Immuabilite des snapshots (libelle, prix, TVA figes a la commande).</p>
+    <p class="muted">L'encaissement pose DIRECTEMENT le statut sur preparing (pas sur paid :
+      retour oral, une commande payee part en cuisine sans geste manuel) ; paid_at est
+      quand meme horodate. paid reste une valeur d'etat valide (robustesse, commandes
+      anterieures), mais aucun chemin actuel ne l'ecrit sur une nouvelle commande
+      (`OrderRepository`, commentaire au-dessus de la transition d'encaissement). ready
+      accepte aussi paid en direct, deliver accepte paid|preparing|ready (migration 0009).
+      Immuabilite des snapshots (libelle, prix, TVA figes a la commande).</p>
   </section>
 
   <!-- 17 RBAC + PIN -->
@@ -343,7 +346,7 @@ GET  /api/orders/{n}        -> consultation statut</div>
       <div class="card"><h3>db</h3><p class="muted">MariaDB 11.4</p></div>
       <div class="card"><h3>cron</h3><p class="muted">backups + purges RGPD</p></div>
       <div class="card"><h3>migrate</h3><p class="muted">one-shot, idempotent</p></div>
-      <div class="card center"><p class="muted">Reseaux segmentes :<br>la base n'est pas exposee.</p></div>
+      <div class="card center"><p class="muted">Un seul reseau Docker :<br>la base n'a pas de port publie.</p></div>
     </div>
   </section>
 
@@ -361,8 +364,10 @@ GET  /api/orders/{n}        -> consultation statut</div>
       <span class="arrow">&rarr;</span>
       <div class="pill">shell-tests</div>
     </div>
-    <p class="muted">A chaque PR (<code>ci.yml</code>). Auto-merge en squash quand les checks
-      requis passent au vert. Deploiement continu separe (<code>deploy.yml</code>) sur
+    <p class="muted">A chaque PR (<code>ci.yml</code>). Auto-merge quand les checks requis
+      passent au vert : en squash pour les PR de travail vers <code>dev</code> (un commit par
+      PR, historique lineaire), en fusion classique (2 parents) pour les releases
+      <code>dev -> main</code>. Deploiement continu separe (<code>deploy.yml</code>) sur
       <code>main</code> : "la meme commande qui marche sur ma machine est celle qui deploie."</p>
   </section>
 
@@ -370,7 +375,7 @@ GET  /api/orders/{n}        -> consultation statut</div>
   <section class="slide">
     <h2>Le projet en chiffres</h2>
     <div class="kpis" style="margin-bottom:1.6vh">
-      <div class="kpi"><b>242</b><span>commits Conventional</span></div>
+      <div class="kpi"><b>244</b><span>commits Conventional (29/09, 242 au 28/09)</span></div>
       <div class="kpi"><b>1 295</b><span>methodes de test PHP</span></div>
       <div class="kpi"><b>23</b><span>entites Merise</span></div>
       <div class="kpi"><b>22</b><span>regles securite RG-T</span></div>
