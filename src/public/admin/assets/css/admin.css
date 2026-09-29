@@ -1941,6 +1941,12 @@ tbody td.mono {
     box-shadow: var(--shadow-card);
     transform: none;
 }
+/* La tuile grisee reste atteignable au clavier (aria-disabled, pas disabled) : sans
+   anneau propre, le focus y devenait invisible (WCAG 2.4.7), constat du balayage. */
+.pos-tile--unavailable:focus-visible {
+    outline: 3px solid var(--color-text);
+    outline-offset: 2px;
+}
 /* Badge "Indisponible" : pose en haut a gauche pour ne pas chevaucher le badge
    "Menu"/"A composer" (top-right) sur une tuile menu en rupture. */
 .pos-tile__badge--unavailable {

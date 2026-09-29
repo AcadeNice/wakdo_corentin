@@ -126,7 +126,7 @@ test.describe('Ligne mise en evidence apres creation + encaissement', () => {
     // commande valide -- aria-haspopup distingue une tuile "a composer" d'un ajout
     // direct (D, deja couvert par tests/js/counter-order.test.js).
     await page.getByRole('tab', { name: 'Boissons', exact: true }).click();
-    await page.locator('.pos-tile:not([aria-haspopup])').first().click();
+    await page.locator('.pos-tile:not([aria-haspopup]):not([aria-disabled="true"])').first().click();
 
     await page.locator('#order-submit').click();
     await expect(page).toHaveURL(/\/counter\/orders\?highlight=/);
