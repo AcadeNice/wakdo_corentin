@@ -10,6 +10,7 @@ use App\Auth\LogMailer;
 use App\Auth\Mailer;
 use App\Auth\PasswordHasher;
 use App\Auth\PasswordResetService;
+use App\Auth\PasswordResetThrottle;
 use App\Auth\SessionManager;
 use App\Auth\SmtpClient;
 use App\Auth\SmtpMailer;
@@ -58,11 +59,32 @@ class PasswordResetController extends Controller
         }
 
         $email = trim($form['email'] ?? '');
+        $ip = $this->request->clientIp();
+        $blocked = false;
 
-        // Reponse neutre quoi qu'il arrive (existence, validite, meme panne base).
+        // Defaut corrige (avant : aucune limite, 30 demandes consecutives pour la
+        // meme adresse passaient toutes). Gate AVANT tout travail, comme la porte
+        // de throttling du login (PRE-3) : si l'adresse OU l'IP source est
+        // verrouillee, on ne fait NI recherche NI envoi -- mais la reponse rendue
+        // reste EXACTEMENT la meme (statut 429, meme notice neutre) que l'adresse
+        // existe ou non, pour ne rien reveler par ce canal (anti-enumeration).
+        //
+        // Throttle et envoi DANS LE MEME try/catch (panne base y comprise) : cette
+        // route reste "fail neutral" quoi qu'il arrive (existence, validite du
+        // throttle, meme panne base) -- une base injoignable ne doit ni faire
+        // fuiter de detail (try/catch existant avant ce lot) ni, desormais,
+        // transformer une lecture de throttle en 500 (le throttle est une defense
+        // en profondeur contre l'abus, pas un controle dont l'echec doit priver
+        // l'utilisateur legitime de la reponse neutre habituelle -- fail-open ICI,
+        // a la difference du login qui reste fail-closed sur son AUTHENTIFICATION).
         if ($email !== '' && strlen($email) <= 254) {
             try {
-                $this->resetService()->requestReset($email, $this->baseUrl());
+                $blocked = $this->resetThrottle()->isBlocked($email, $ip);
+
+                if (!$blocked) {
+                    $this->resetThrottle()->recordAttempt($email, $ip);
+                    $this->resetService()->requestReset($email, $this->baseUrl());
+                }
             } catch (Throwable $exception) {
                 error_log('[wakdo][auth] reset request failure: ' . $exception->getMessage());
             }
@@ -72,7 +94,7 @@ class PasswordResetController extends Controller
             'title'     => 'Mot de passe oublié - Wakdo Admin',
             'csrfToken' => Csrf::token($this->sessionManager()),
             'notice'    => self::NEUTRAL_NOTICE,
-        ]);
+        ], $blocked ? 429 : 200);
     }
 
     /**
@@ -130,6 +152,11 @@ class PasswordResetController extends Controller
             new PasswordHasher($this->config),
             $this->mailer(),
         );
+    }
+
+    protected function resetThrottle(): PasswordResetThrottle
+    {
+        return new PasswordResetThrottle($this->database, $this->config);
     }
 
     /**

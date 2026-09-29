@@ -11,6 +11,7 @@ declare(strict_types=1);
  */
 
 use App\Auth\SessionManager;
+use App\Auth\SessionRoutePolicy;
 use App\Core\Autoloader;
 use App\Core\Config;
 use App\Core\Cors;
@@ -52,8 +53,14 @@ try {
     $database = new Database($config);
 
     // Demarre la session du vhost admin avant le dispatch (effet de bord global,
-    // hors du Core stateless). Les controleurs y rattachent leur SessionManager.
-    (new SessionManager($config))->start();
+    // hors du Core stateless), SEULEMENT pour les routes qui en ont besoin
+    // (SessionRoutePolicy) : l'API kiosk publique sous /api/* (y compris la sonde
+    // /api/health), relayee telle quelle a l'hote borne, reste entierement
+    // anonyme -- aucun Set-Cookie, aucun fichier de session ouvert cote serveur
+    // pour ce trafic. Les controleurs proteges y rattachent leur SessionManager.
+    if (SessionRoutePolicy::needsSession($request->path())) {
+        (new SessionManager($config))->start();
+    }
 
     $router = new Router($config, $database);
     (require dirname(__DIR__, 2) . '/app/Core/routes.php')($router);

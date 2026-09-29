@@ -8,6 +8,7 @@ use PHPUnit\Framework\TestCase;
 use App\Auth\Csrf;
 use App\Auth\PasswordHasher;
 use App\Auth\PasswordResetService;
+use App\Auth\PasswordResetThrottle;
 use App\Auth\SessionManager;
 use App\Controllers\PasswordResetController;
 use App\Core\Config;
@@ -41,6 +42,11 @@ final class TestPasswordResetController extends PasswordResetController
     protected function resetService(): PasswordResetService
     {
         return new PasswordResetService($this->fakeDb, $this->config, new PasswordHasher($this->config), $this->spyMailer);
+    }
+
+    protected function resetThrottle(): PasswordResetThrottle
+    {
+        return new PasswordResetThrottle($this->fakeDb, $this->config);
     }
 }
 
@@ -135,9 +141,84 @@ final class PasswordResetControllerTest extends TestCase
         self::assertStringContainsString('Si un compte', $response->body());
         self::assertSame([], $mailer->sent);
         // Anti-enumeration : un leurre (UPDATE no-op sur id = 0) aligne le profil
-        // d'ecritures sur le chemin email-connu ; rien n'est persiste.
-        self::assertCount(1, $db->writes);
-        self::assertStringContainsString('WHERE id = 0', $db->writes[0]['sql']);
+        // d'ecritures sur le chemin email-connu ; rien n'est persiste EN PLUS des
+        // deux dimensions de throttle (enregistrees que l'adresse existe ou non,
+        // PasswordResetThrottle ne sachant meme pas si elle resout un compte) :
+        // upsert + verrou pour l'email, upsert + verrou pour l'IP, puis le leurre.
+        self::assertCount(5, $db->writes);
+        self::assertStringContainsString('WHERE id = 0', $db->writes[4]['sql']);
+    }
+
+    public function testSubmitRequestBlockedByThrottleIsNeutralAndSilentWith429(): void
+    {
+        // Defaut corrige : avant ce lot, aucune limite n'existait sur
+        // POST /forgot_password (30 demandes consecutives passaient toutes).
+        $session = new SessionManager(new Config(), true);
+        $token = Csrf::token($session);
+        $db = new FakeDatabase();
+        $db->emailLookupRow = ['id' => 7];
+        $db->passwordResetEmailLockoutUntil = date('Y-m-d H:i:s', time() + 60);
+        $mailer = new SpyMailer();
+
+        $request = $this->post(['_csrf' => $token, 'email' => 'admin@wakdo.local'], '/forgot_password');
+        $response = $this->controller($request, $session, $db, $mailer)->submitRequest();
+
+        self::assertSame(429, $response->status());
+        // Reponse identique (meme notice) que non-throttlee : pas d'oracle par le
+        // corps de la reponse -- seul le statut differe.
+        self::assertStringContainsString('Si un compte', $response->body());
+        self::assertSame([], $mailer->sent, 'bloque : aucun travail, aucun envoi');
+        self::assertSame([], $db->writes, 'bloque : aucune ecriture (ni throttle ni leurre/envoi)');
+    }
+
+    /**
+     * Anti-enumeration : le throttle ne doit rien reveler par le NOMBRE
+     * d'ecritures. Une adresse connue (mail reellement envoye) et une adresse
+     * inconnue (leurre) produisent le meme nombre d'ecritures.
+     */
+    public function testSubmitRequestKnownAndUnknownEmailProduceTheSameWriteCount(): void
+    {
+        $session = new SessionManager(new Config(), true);
+        $token = Csrf::token($session);
+
+        $knownDb = new FakeDatabase();
+        $knownDb->emailLookupRow = ['id' => 7];
+        $knownRequest = $this->post(['_csrf' => $token, 'email' => 'admin@wakdo.local'], '/forgot_password');
+        $this->controller($knownRequest, $session, $knownDb, new SpyMailer())->submitRequest();
+
+        $unknownSession = new SessionManager(new Config(), true);
+        $unknownToken = Csrf::token($unknownSession);
+        $unknownDb = new FakeDatabase();
+        $unknownDb->emailLookupRow = null;
+        $unknownRequest = $this->post(['_csrf' => $unknownToken, 'email' => 'ghost@wakdo.local'], '/forgot_password');
+        $this->controller($unknownRequest, $unknownSession, $unknownDb, new SpyMailer())->submitRequest();
+
+        self::assertCount(5, $knownDb->writes);
+        self::assertSame(count($knownDb->writes), count($unknownDb->writes));
+    }
+
+    /**
+     * Regression (relue contre tests/e2e/security-dbdown.spec.js) : une base
+     * injoignable pendant la LECTURE du throttle ne doit jamais transformer cette
+     * route en 500 -- elle doit degrader vers la MEME reponse neutre que le
+     * catch(Throwable) deja existant autour de resetService() (fail-open sur le
+     * throttle, fail-neutral sur toute la route ; seule l'AUTHENTIFICATION reste
+     * fail-closed, cf. AuthService).
+     */
+    public function testSubmitRequestDegradesNeutrallyWhenThrottleReadFails(): void
+    {
+        $session = new SessionManager(new Config(), true);
+        $token = Csrf::token($session);
+        $db = new FakeDatabase();
+        $db->emailLookupRow = ['id' => 7];
+        $db->failOnFetch = new \RuntimeException('base injoignable');
+        $mailer = new SpyMailer();
+
+        $request = $this->post(['_csrf' => $token, 'email' => 'admin@wakdo.local'], '/forgot_password');
+        $response = $this->controller($request, $session, $db, $mailer)->submitRequest();
+
+        self::assertSame(200, $response->status());
+        self::assertStringContainsString('Si un compte', $response->body());
     }
 
     public function testSubmitConfirmPasswordMismatchRendersError(): void

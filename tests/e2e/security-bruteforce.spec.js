@@ -214,11 +214,11 @@ test.describe('Force brute et enumeration', () => {
     await ctx.dispose();
   });
 
-  test('mot de passe oublie : pas de limitation du nombre de demandes', async () => {
-    // CONSTAT (mineur) : /forgot_password n'a ni verrou par IP ni verrou par adresse
-    // (PasswordResetController::submitRequest). 30 demandes de suite pour la meme adresse
-    // passent toutes ; avec un SMTP configure, chacune envoie un e-mail (inondation de la
-    // boite du compte vise) et remplace le lien precedent.
+  test('mot de passe oublie : limitation du nombre de demandes par adresse', async () => {
+    // Verrou par ADRESSE (PASSWORD_RESET_EMAIL_THROTTLE_THRESHOLD=5, .env.example) :
+    // les 5 premieres demandes passent, les suivantes sont bloquees (429) tant que
+    // le verrou tient -- sans quoi 30 demandes de suite pour la meme adresse
+    // passeraient toutes et, SMTP configure, inonderaient la boite du compte vise.
     const ctx = await ctxFrom(ip(8));
     const page = await (await ctx.get(`${ADMIN}/forgot_password`)).text();
     const csrf = page.match(/name="_csrf" value="([^"]+)"/)[1];
@@ -227,8 +227,7 @@ test.describe('Force brute et enumeration', () => {
       const res = await ctx.post(`${ADMIN}/forgot_password`, { form: { _csrf: csrf, email: 'manager@wakdo.local' }, maxRedirects: 0 });
       statuses.push(res.status());
     }
-    expect(statuses.every((st) => st === 200)).toBe(true);
-    test.fail(true, 'aucune limitation sur POST /forgot_password (src/app/Controllers/PasswordResetController.php, submitRequest)');
+    expect(statuses.slice(0, 5).every((st) => st === 200), statuses.join(',')).toBe(true);
     expect(statuses.slice(20).some((st) => st === 429)).toBe(true);
     await ctx.dispose();
   });

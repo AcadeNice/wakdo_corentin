@@ -56,7 +56,8 @@ final class FakeDatabase implements DatabaseInterface
     public ?array $emailLookupRow = null;
 
     /**
-     * Reponse de la verification is_active du SessionGuard (RG-T02) ; null = absent.
+     * Reponse de la verification is_active + role_id + session_epoch du
+     * SessionGuard (RG-T02) ; null = absent.
      *
      * @var array<string, mixed>|null
      */
@@ -439,8 +440,25 @@ final class FakeDatabase implements DatabaseInterface
     /** Compteur pin_throttle relu apres l'upsert (PinThrottle::recordFailure) ; 1 par defaut. */
     public int $pinThrottleAttempts = 1;
 
+    /**
+     * lockout_until renvoyes pour les deux dimensions de PasswordResetThrottle
+     * (POST /forgot_password) ; null = pas de verrou pour cette dimension.
+     */
+    public ?string $passwordResetEmailLockoutUntil = null;
+    public ?string $passwordResetIpLockoutUntil = null;
+
+    /**
+     * Compteurs password_reset_throttle relus apres l'upsert, un par dimension
+     * (PasswordResetThrottle::increment()) ; 1 par defaut.
+     */
+    public int $passwordResetEmailAttempts = 1;
+    public int $passwordResetIpAttempts = 1;
+
     /** Si non nul, execute() leve cette exception (simulation panne DB / violation de contrainte). */
     public ?Throwable $failOnExecute = null;
+
+    /** Si non nul, fetch() leve cette exception (simulation panne DB en LECTURE, ex. base arretee). */
+    public ?Throwable $failOnFetch = null;
 
     /** Nombre de lignes affectees renvoye par execute() (1 par defaut). */
     public int $executeRowCount = 1;
@@ -462,6 +480,10 @@ final class FakeDatabase implements DatabaseInterface
 
     public function fetch(string $sql, array $params = []): ?array
     {
+        if ($this->failOnFetch !== null) {
+            throw $this->failOnFetch;
+        }
+
         $this->reads[] = ['sql' => $sql, 'params' => $params];
 
         // Doit passer AVANT le lookup auth : la requete displayInfo contient aussi
@@ -527,7 +549,7 @@ final class FakeDatabase implements DatabaseInterface
             return $this->emailLookupRow;
         }
 
-        if (str_contains($sql, 'SELECT is_active FROM user WHERE id')) {
+        if (str_contains($sql, 'SELECT is_active, role_id, session_epoch FROM user WHERE id')) {
             return $this->guardUserRow;
         }
 
@@ -688,6 +710,32 @@ final class FakeDatabase implements DatabaseInterface
 
         if (str_contains($sql, 'failed_attempts FROM pin_throttle')) {
             return ['failed_attempts' => $this->pinThrottleAttempts];
+        }
+
+        if (str_contains($sql, 'lockout_until FROM password_reset_throttle')) {
+            $kind = $params['kind'] ?? null;
+
+            if ($kind === 'email') {
+                return ['lockout_until' => $this->passwordResetEmailLockoutUntil];
+            }
+            if ($kind === 'ip') {
+                return ['lockout_until' => $this->passwordResetIpLockoutUntil];
+            }
+
+            return null;
+        }
+
+        if (str_contains($sql, 'failed_attempts FROM password_reset_throttle')) {
+            $kind = $params['kind'] ?? null;
+
+            if ($kind === 'email') {
+                return ['failed_attempts' => $this->passwordResetEmailAttempts];
+            }
+            if ($kind === 'ip') {
+                return ['failed_attempts' => $this->passwordResetIpAttempts];
+            }
+
+            return null;
         }
 
         if (str_contains($sql, 'SELECT lockout_until FROM login_throttle')) {
