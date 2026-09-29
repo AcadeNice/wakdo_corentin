@@ -190,6 +190,69 @@ final class RoleApiControllerTest extends TestCase
         self::assertFalse($db->wrote('INSERT INTO role'));
     }
 
+    /**
+     * Minimisation RGPD (art. 5.1.c), cote API JSON (PinGate::resolve(), reutilise
+     * par les 7 ressources). L'adresse SAISIE (`pin_email`, 'e@e.fr' par defaut,
+     * cf. validBody()) ne doit plus jamais apparaitre dans `audit_log`.
+     */
+    public function testStoreWithInvalidPinNeverWritesTheAttemptedEmail(): void
+    {
+        $db = $this->permittedDb();
+        $request = $this->jsonRequest('POST', '/admin/api/roles', $this->validBody(['pin' => 'wrong']));
+
+        $this->controller($request, $db)->apiStore();
+
+        $write = $this->auditWrite($db);
+        self::assertNotNull($write);
+        self::assertStringNotContainsString('e@e.fr', (string) $write['params']['summary']);
+        self::assertStringNotContainsString('e@e.fr', (string) $write['params']['details']);
+    }
+
+    public function testStoreWithInvalidPinRecordsTargetUserIdWhenEmailMatchesAnAccount(): void
+    {
+        $db = $this->permittedDb();
+        $db->pinFailedTargetUserRow = ['target_user_id' => 3];
+        $request = $this->jsonRequest('POST', '/admin/api/roles', $this->validBody(['pin' => 'wrong']));
+
+        $this->controller($request, $db)->apiStore();
+
+        $write = $this->auditWrite($db);
+        self::assertNotNull($write);
+        $details = json_decode((string) $write['params']['details'], true);
+        self::assertSame(3, $details['target_user_id'] ?? null);
+        self::assertStringNotContainsString('inconnue', (string) $write['params']['summary']);
+    }
+
+    public function testStoreWithInvalidPinRecordsUnknownAddressWhenEmailMatchesNoAccount(): void
+    {
+        $db = $this->permittedDb();
+        $db->pinFailedTargetUserRow = null;
+        $request = $this->jsonRequest('POST', '/admin/api/roles', $this->validBody(['pin' => 'wrong']));
+
+        $this->controller($request, $db)->apiStore();
+
+        $write = $this->auditWrite($db);
+        self::assertNotNull($write);
+        $details = json_decode((string) $write['params']['details'], true);
+        self::assertArrayHasKey('target_user_id', $details);
+        self::assertNull($details['target_user_id']);
+        self::assertStringContainsString('adresse inconnue', (string) $write['params']['summary']);
+    }
+
+    /**
+     * @return array{sql: string, params: array<string, mixed>}|null
+     */
+    private function auditWrite(FakeDatabase $db): ?array
+    {
+        foreach ($db->writes as $candidate) {
+            if (str_contains($candidate['sql'], 'INSERT INTO audit_log')) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
     public function testStoreValidCreatesRoleWithPermissions(): void
     {
         $db = $this->permittedDb();

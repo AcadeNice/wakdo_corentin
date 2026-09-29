@@ -1,8 +1,8 @@
 # Diagramme de sequence securite - Annulation de commande avec PIN (CANCEL_ORDER)
 
 **Phase UML** : P1 - Conception, complement UML (passe security-by-design)
-**Statut** : v0.4 - realigne sur le code livre (`OrderAdminController`, `OrderRepository::cancel`)
-**Date** : 2026-06-12 (v0.2), 2026-09-24 (v0.3), 2026-09-28 (v0.4)
+**Statut** : v0.7 - realigne sur le code livre (`OrderAdminController`, `OrderRepository::cancel`)
+**Date** : 2026-06-12 (v0.2), 2026-09-24 (v0.3), 2026-09-28 (v0.4), 2026-09-29 (v0.5, v0.6, v0.7)
 **Historique** : v0.3 (2026-09-24) - mise en coherence avec le code livre (2a09597) : route
 `/admin/orders/{number}/cancel` (page de confirmation en GET, envoi en POST) au lieu de
 `POST /api/orders/{id}/cancel` ; PIN saisi avec la demande et verifie en premier ; echec de PIN
@@ -13,7 +13,17 @@ ajoute aux acteurs autorises (ADR-0020, migration `0018`) ; garde de visibilite 
 (PRE-3/RG-T12) ajoutee en GET et en POST, apres la garde de permission + CSRF et AVANT le PIN — un numero
 inconnu et un canal non visible rendent tous deux 403 (anti-enumeration), le 404 restant reserve a la course
 theorique ou la commande disparaitrait entre deux lectures ; parcours JSON `POST /admin/api/orders/{number}/cancel`
-documente en section 4.4.
+documente en section 4.4. v0.5 (2026-09-29) - contre-audit independant (base MariaDB jetable) : le diagramme
+corrige (`sourceVisibleToRole` est une methode du CONTROLEUR `OrderAdminController` qui lit `source` par une
+requete SQL INLINE (`orderSource()`, pas un appel a une classe Repository), puis appelle seulement
+`OrderQueryRepository::visibleSources(role)` pour la liste des canaux autorises du role — le flux precedent
+montrait a tort `sourceVisibleToRole` comme un appel Repo de bout en bout. v0.6 (2026-09-29) - correctif
+merge apres le contre-audit : l'etape 6 (PIN refuse) precisee — le point d'ecriture reel de `pin.failed`
+est `PinGate::auditFailedPin()` (partage par les 6 controleurs HTML, dont `OrderAdminController::logFailedPin`,
+et par l'API), corrige pour ne plus ecrire l'adresse saisie au formulaire dans `summary` (RGPD art. 5.1.c,
+migration `0019_pin_failed_audit_minimisation.sql`). v0.7 (2026-09-29) - correctif de
+securite merge : pas 1 precise — `SessionGuard::check()` relit desormais `role_id` et
+`session_epoch` en base en plus de `is_active`, a chaque requete (RG-T02, commit `ef7fd37`).
 **Branche** : `feat/p1-conception`
 **Auteur methodologie** : BYAN
 
@@ -81,8 +91,10 @@ sequenceDiagram
     else Permission absente
         Ctrl-->>Equipier: 403 page Acces refuse
     else Autorise
-        Ctrl->>Repo: sourceVisibleToRole(number,<br/>role) : source de la<br/>commande dans role_visible_source ?
-        Repo->>BDD: lire source de<br/>customer_order (RG-T12)
+        Ctrl->>Ctrl: sourceVisibleToRole(number,<br/>role) : methode du CONTROLEUR<br/>(pas du Repo)
+        Ctrl->>BDD: orderSource() lit<br/>directement `source` de<br/>customer_order (SQL inline,<br/>meme couture que logFailedPin)
+        Ctrl->>Repo: visibleSources(role)<br/>(RG-T12, cote Repo)
+        Repo->>BDD: lire role_visible_source
         alt Numero inconnu OU<br/>canal non visible
             Ctrl-->>Equipier: 403 page Acces refuse<br/>(meme reponse, anti-<br/>enumeration -- AVANT tout PIN)
         else Canal visible
@@ -106,7 +118,7 @@ sequenceDiagram
     alt Jeton CSRF invalide
         Ctrl-->>Equipier: 403 Requete invalide
     else Jeton valide
-        Ctrl->>Repo: sourceVisibleToRole(number,<br/>role), PUIS findByNumber
+        Ctrl->>Ctrl: sourceVisibleToRole(number,<br/>role) (SQL inline +<br/>Repo.visibleSources), PUIS findByNumber
         alt Numero inconnu OU<br/>canal non visible
             Ctrl-->>Equipier: 403 (meme reponse,<br/>anti-enumeration --<br/>AVANT toute verification PIN)
         else Canal visible et commande trouvee
@@ -169,11 +181,19 @@ sequenceDiagram
 | 3 | POST : jeton CSRF (403 sinon) | `RG-T01` | `OrderAdminController::cancel`, `Csrf::validate` |
 | 4 | Verrou du throttle evalue avant la verification, leurre de temps | `RG-T22` | `PinThrottle::isLocked`, `PinVerifier::payTimingDecoy` |
 | 5 | Equipier resolu par email + PIN (compte actif, argon2id) | `RG-T13` | `PinVerifier::resolveActingUser` |
-| 6 | PIN refuse : `pin.failed` dans `audit_log` + echec compte, une transaction, 422 | `RG-T14`, `RG-T22`, `RG-T08` | `OrderAdminController::logFailedPin`, `PinThrottle::recordFailureWithin` |
+| 6 | PIN refuse : `pin.failed` dans `audit_log` (summary sans l'adresse saisie, RGPD art. 5.1.c, corrige le 2026-09-29) + echec compte, une transaction, 422 | `RG-T14`, `RG-T22`, `RG-T08` | `OrderAdminController::logFailedPin` -> `PinGate::auditFailedPin`, `PinThrottle::recordFailureWithin` |
 | 7 | `UPDATE ... WHERE status IN ('pending_payment','paid','preparing','ready')` | 7.1 RG-1, `RG-T07` | `OrderRepository::cancel` |
 | 8 | Re-credit si des mouvements `sale` existent, plafonne a la capacite | 7.1 RG-3, `RG-T11` | `OrderRepository::hasSaleMovements`, `IngredientRepository::clampToCapacity` |
 | 9 | `audit_log` `order.cancel` dans la meme transaction | 7.1 RG-6, `RG-T14` | `OrderRepository::cancel` |
 | 10 | Remise a zero du throttle, message, redirection vers `/admin/orders` | 7.1 OUT-1, ERR-1, ERR-2 | `OrderAdminController::cancel` |
+
+**Precision du 2026-09-29 (commit `ef7fd37`) sur le pas 1** : `guard(order.cancel)` (`RG-T02`)
+relit desormais `is_active`, `role_id` et `session_epoch` en base, dans la MEME requete SQL, a
+chaque requete authentifiee (`SessionGuard::check()`) — avant cette date, seule `is_active`
+etait ainsi revalidee, le `role_id` utilise pour verifier la permission `order.cancel` restant
+celui pose en session a la connexion jusqu'a une reconnexion. Un retrait de `order.cancel`
+(changement de role) s'applique donc des la requete suivante, y compris en cours de flux
+d'annulation.
 
 ### 4.1 Re-credit conditionnel du stock (`RG-T11`)
 

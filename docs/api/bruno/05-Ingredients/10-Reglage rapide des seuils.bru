@@ -24,3 +24,7 @@ body {
 docs {
 stock.manage, pas de PIN (calibrage, pas un comptage).
 }
+
+tests {
+  test('200 OK', function () { expect(res.getStatus()).to.equal(200); });
+}

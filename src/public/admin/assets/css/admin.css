@@ -1941,6 +1941,20 @@ tbody td.mono {
     box-shadow: var(--shadow-card);
     transform: none;
 }
+/* La tuile grisee reste atteignable au clavier (aria-disabled, pas disabled) : sans
+   anneau propre, le focus y devenait invisible (WCAG 2.4.7), constat du balayage.
+   L'anneau herite de l'opacite du parent (`opacity` compose TOUT le rendu de
+   l'element, anneau compris, pas seulement son contenu) : a 0.55 (opacite de repos
+   de la tuile), son contraste mesure tombe a ~3,9:1 -- relevee lors du contre-audit
+   comme insuffisante pour un indicateur de focus (WCAG 1.4.11/2.4.7, cible >= 3:1
+   dans le pire cas de fond). On releve l'opacite au focus clavier (0.9, la tuile
+   redevient quasi pleine, contraste plein pour l'anneau) sans toucher l'opacite de
+   repos/hover (0.55, qui continue de signaler "indisponible" a la souris). */
+.pos-tile--unavailable:focus-visible {
+    opacity: 0.9;
+    outline: 3px solid var(--color-text);
+    outline-offset: 2px;
+}
 /* Badge "Indisponible" : pose en haut a gauche pour ne pas chevaucher le badge
    "Menu"/"A composer" (top-right) sur une tuile menu en rupture. */
 .pos-tile__badge--unavailable {
@@ -3210,7 +3224,7 @@ details.form-advanced > summary:focus-visible {
     gap: var(--space-4);
     margin-bottom: var(--space-3);
 }
-.health-kpi-detail { font-size: var(--text-sm); color: var(--h-muted); margin-top: var(--space-1); }
+.health-kpi-detail { font-size: var(--text-sm); color: var(--h-muted); margin-top: var(--space-1); overflow-wrap: anywhere; }
 .health-refresh-status { font-size: var(--text-sm); color: var(--h-muted); margin: 0; }
 .health-refresh-status--error { color: var(--h-bad-ink); font-weight: 600; }
 /* Le message d'echec (#health-refresh-error) reste dans le flux (hidden natif,

@@ -13,5 +13,5 @@ La cuisine n'a AUCUNE permission user.*. 403 FORBIDDEN attendu.
 }
 
 tests {
-  expect(res.getStatus()).to.equal(403);
+  test('403 FORBIDDEN (user.read absent)', function () { expect(res.getStatus()).to.equal(403); });
 }

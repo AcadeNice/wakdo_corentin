@@ -23,3 +23,7 @@ body {
 docs {
 stock.manage, pas de PIN (mlt 9.1). L'ingredient doit etre actif. Pose un stock_movement : bloque desormais toute suppression DURE (409), voir plus bas.
 }
+
+tests {
+  test('200 OK', function () { expect(res.getStatus()).to.equal(200); });
+}

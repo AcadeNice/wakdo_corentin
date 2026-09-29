@@ -13,5 +13,5 @@ Preuve de nettoyage : suppression dure, la ressource n'existe plus.
 }
 
 tests {
-  expect(res.getStatus()).to.equal(404);
+  test('404 NOT_FOUND', function () { expect(res.getStatus()).to.equal(404); });
 }

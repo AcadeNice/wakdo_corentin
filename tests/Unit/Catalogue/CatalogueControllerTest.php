@@ -436,6 +436,12 @@ final class CatalogueControllerTest extends TestCase
             ['id' => '7', 'name' => 'Boisson', 'slot_type' => 'drink', 'is_required' => '1', 'display_order' => '1', 'product_id' => '28'],
             ['id' => '8', 'name' => 'Sauce', 'slot_type' => 'sauce', 'is_required' => '0', 'display_order' => '2', 'product_id' => '40'],
         ];
+        // Disponibilite (RG-T21/F2) des trois options, toutes commandables ici.
+        $db->productByIdRows = [
+            27 => ['id' => 27, 'name' => 'Coca Cola', 'is_available' => 1],
+            28 => ['id' => 28, 'name' => 'Eau', 'is_available' => 1],
+            40 => ['id' => 40, 'name' => 'Ketchup', 'is_available' => 1],
+        ];
 
         $response = $this->controller($db, '/api/menus/1')->menu(['id' => '1']);
 
@@ -450,15 +456,216 @@ final class CatalogueControllerTest extends TestCase
         self::assertCount(2, $menu['slots']);
 
         $drink = $menu['slots'][0];
-        self::assertSame(['id', 'name', 'slot_type', 'is_required', 'display_order', 'option_product_ids'], array_keys($drink));
+        self::assertSame(['id', 'name', 'slot_type', 'is_required', 'display_order', 'option_product_ids', 'option_is_orderable', 'option_is_orderable_maxi', 'option_names'], array_keys($drink));
         self::assertSame(7, $drink['id']);
         self::assertSame('drink', $drink['slot_type']);
         self::assertTrue($drink['is_required']);            // tinyint 1 -> bool true
         self::assertSame([27, 28], $drink['option_product_ids']); // ints groupes
+        self::assertSame(['27' => true, '28' => true], $drink['option_is_orderable']);
+        self::assertSame(['27' => 'Coca Cola', '28' => 'Eau'], $drink['option_names']);
 
         $sauce = $menu['slots'][1];
         self::assertFalse($sauce['is_required']);           // tinyint 0 -> bool false
         self::assertSame([40], $sauce['option_product_ids']);
+        self::assertSame(['40' => true], $sauce['option_is_orderable']);
+        self::assertSame(['40' => 'Ketchup'], $sauce['option_names']);
+    }
+
+    public function testMenuDetailOptionInStockRuptureIsMarkedNotOrderable(): void
+    {
+        // RG-T21 : une option de slot dont le stock calcule est en rupture (meme regle
+        // que la disponibilite produit/menu) est marquee non commandable, alors que sa
+        // seule appartenance au slot (option_product_ids) ne le dit pas.
+        $db = new FakeCatalogueDatabase();
+        $db->menuRow = [
+            'id' => '1', 'category_id' => '1', 'burger_product_id' => '5',
+            'name' => 'Menu', 'description' => null,
+            'price_normal_cents' => '990', 'price_maxi_cents' => '1190',
+            'image_path' => null, 'display_order' => '1',
+        ];
+        $db->menuSlotRows = [
+            ['id' => '8', 'name' => 'Accompagnement', 'slot_type' => 'side', 'is_required' => '1', 'display_order' => '1', 'product_id' => '23'],
+        ];
+        $db->productByIdRows = [23 => ['id' => 23, 'name' => 'Frites', 'is_available' => 1]];
+        $db->autoUnavailableRows = [['product_id' => '23']];
+
+        $response = $this->controller($db, '/api/menus/1')->menu(['id' => '1']);
+
+        self::assertSame(200, $response->status());
+        $slot = $this->decode($response->body())['data']['slots'][0];
+        self::assertSame(['23' => false], $slot['option_is_orderable']);
+        self::assertSame(['23' => 'Frites'], $slot['option_names']);
+    }
+
+    /**
+     * Contre-audit (constat 1, important, cohérence RG-T21) : option_is_orderable
+     * (jusqu'ici) ne regarde QUE la disponibilite du produit de BASE, alors que le
+     * serveur (OrderRepository::resolveSelections) substitue la VARIANTE Maxi
+     * (maxi_variant_product_id) des que le menu est commande au format Maxi -- une
+     * base disponible dont la variante Maxi est en rupture est proposee par la
+     * borne/caisse, puis refusee en 422 OPTION_UNAVAILABLE au paiement. Ce nouveau
+     * champ option_is_orderable_maxi expose la disponibilite de l'option
+     * REELLEMENT servie en Maxi (la variante quand elle existe, sinon la base),
+     * pour que le composeur grise/desélectionne AVANT le paiement, plus jamais apres.
+     */
+    public function testMenuDetailExposesOptionIsOrderableMaxiEqualToBaseWhenNoVariant(): void
+    {
+        // Sans variante Maxi (maxi_variant_product_id NULL) : la disponibilite Maxi
+        // est celle de la base, a l'identique.
+        $db = new FakeCatalogueDatabase();
+        $db->menuRow = [
+            'id' => '1', 'category_id' => '1', 'burger_product_id' => '5',
+            'name' => 'Menu', 'description' => null,
+            'price_normal_cents' => '990', 'price_maxi_cents' => '1190',
+            'image_path' => null, 'display_order' => '1',
+        ];
+        $db->menuSlotRows = [
+            ['id' => '8', 'name' => 'Boisson', 'slot_type' => 'drink', 'is_required' => '1', 'display_order' => '1', 'product_id' => '40'],
+        ];
+        $db->productByIdRows = [40 => ['id' => 40, 'name' => 'Ketchup', 'is_available' => 1, 'maxi_variant_product_id' => null]];
+
+        $response = $this->controller($db, '/api/menus/1')->menu(['id' => '1']);
+
+        $slot = $this->decode($response->body())['data']['slots'][0];
+        self::assertSame(['40' => true], $slot['option_is_orderable']);
+        self::assertSame(['40' => true], $slot['option_is_orderable_maxi']);
+    }
+
+    public function testMenuDetailOptionIsOrderableMaxiFalseWhenVariantInStockRupture(): void
+    {
+        // La BASE (22, "Moyenne Frite") est disponible ; sa variante Maxi (23,
+        // "Grande Frite") est en rupture calculee -- l'option reste proposable en
+        // Normal, mais doit etre grisee des que le format Maxi est choisi.
+        $db = new FakeCatalogueDatabase();
+        $db->menuRow = [
+            'id' => '1', 'category_id' => '1', 'burger_product_id' => '5',
+            'name' => 'Menu', 'description' => null,
+            'price_normal_cents' => '990', 'price_maxi_cents' => '1190',
+            'image_path' => null, 'display_order' => '1',
+        ];
+        $db->menuSlotRows = [
+            ['id' => '8', 'name' => 'Accompagnement', 'slot_type' => 'side', 'is_required' => '1', 'display_order' => '1', 'product_id' => '22'],
+        ];
+        $db->productByIdRows = [
+            22 => ['id' => 22, 'name' => 'Moyenne Frite', 'is_available' => 1, 'maxi_variant_product_id' => 23],
+            23 => ['id' => 23, 'name' => 'Grande Frite', 'is_available' => 1, 'maxi_variant_product_id' => null],
+        ];
+        $db->autoUnavailableRows = [['product_id' => '23']]; // seule la variante est en rupture
+
+        $response = $this->controller($db, '/api/menus/1')->menu(['id' => '1']);
+
+        $slot = $this->decode($response->body())['data']['slots'][0];
+        self::assertSame(['22' => true], $slot['option_is_orderable']);       // base OK
+        self::assertSame(['22' => false], $slot['option_is_orderable_maxi']); // variante en rupture
+    }
+
+    public function testMenuDetailOptionIsOrderableMaxiFalseWhenVariantManuallyUnavailable(): void
+    {
+        // Meme scenario, mais la variante est retiree manuellement (is_available=0)
+        // plutot qu'en rupture calculee : meme resultat attendu.
+        $db = new FakeCatalogueDatabase();
+        $db->menuRow = [
+            'id' => '1', 'category_id' => '1', 'burger_product_id' => '5',
+            'name' => 'Menu', 'description' => null,
+            'price_normal_cents' => '990', 'price_maxi_cents' => '1190',
+            'image_path' => null, 'display_order' => '1',
+        ];
+        $db->menuSlotRows = [
+            ['id' => '8', 'name' => 'Accompagnement', 'slot_type' => 'side', 'is_required' => '1', 'display_order' => '1', 'product_id' => '22'],
+        ];
+        $db->productByIdRows = [
+            22 => ['id' => 22, 'name' => 'Moyenne Frite', 'is_available' => 1, 'maxi_variant_product_id' => 23],
+            23 => ['id' => 23, 'name' => 'Grande Frite', 'is_available' => 0, 'maxi_variant_product_id' => null],
+        ];
+
+        $response = $this->controller($db, '/api/menus/1')->menu(['id' => '1']);
+
+        $slot = $this->decode($response->body())['data']['slots'][0];
+        self::assertSame(['22' => true], $slot['option_is_orderable']);
+        self::assertSame(['22' => false], $slot['option_is_orderable_maxi']);
+    }
+
+    public function testMenuDetailOptionIsOrderableMaxiTrueWhileBaseRuptureIsTheInverseCase(): void
+    {
+        // L'inverse (mentionne au constat) : la BASE est en rupture calculee mais sa
+        // variante Maxi est disponible -- l'option doit rester grisee en Normal tout
+        // en restant proposable en Maxi.
+        $db = new FakeCatalogueDatabase();
+        $db->menuRow = [
+            'id' => '1', 'category_id' => '1', 'burger_product_id' => '5',
+            'name' => 'Menu', 'description' => null,
+            'price_normal_cents' => '990', 'price_maxi_cents' => '1190',
+            'image_path' => null, 'display_order' => '1',
+        ];
+        $db->menuSlotRows = [
+            ['id' => '8', 'name' => 'Accompagnement', 'slot_type' => 'side', 'is_required' => '1', 'display_order' => '1', 'product_id' => '22'],
+        ];
+        $db->productByIdRows = [
+            22 => ['id' => 22, 'name' => 'Moyenne Frite', 'is_available' => 1, 'maxi_variant_product_id' => 23],
+            23 => ['id' => 23, 'name' => 'Grande Frite', 'is_available' => 1, 'maxi_variant_product_id' => null],
+        ];
+        $db->autoUnavailableRows = [['product_id' => '22']]; // la base est en rupture, pas la variante
+
+        $response = $this->controller($db, '/api/menus/1')->menu(['id' => '1']);
+
+        $slot = $this->decode($response->body())['data']['slots'][0];
+        self::assertSame(['22' => false], $slot['option_is_orderable']);     // base en rupture
+        self::assertSame(['22' => true], $slot['option_is_orderable_maxi']); // variante OK
+    }
+
+    public function testMenuDetailOptionManuallyUnavailableIsMarkedNotOrderable(): void
+    {
+        // Retrait manuel (is_available=0, ex. via le back-office) : meme resultat que la
+        // rupture calculee, alors que le produit a totalement disparu de
+        // /api/products (availableForCatalogue filtre is_available=1) -- c'est
+        // pourquoi ce champ ne peut pas se contenter de croiser la liste produits.
+        $db = new FakeCatalogueDatabase();
+        $db->menuRow = [
+            'id' => '1', 'category_id' => '1', 'burger_product_id' => '5',
+            'name' => 'Menu', 'description' => null,
+            'price_normal_cents' => '990', 'price_maxi_cents' => '1190',
+            'image_path' => null, 'display_order' => '1',
+        ];
+        $db->menuSlotRows = [
+            ['id' => '8', 'name' => 'Accompagnement', 'slot_type' => 'side', 'is_required' => '1', 'display_order' => '1', 'product_id' => '23'],
+        ];
+        $db->productByIdRows = [23 => ['id' => 23, 'name' => 'Frites', 'is_available' => 0]];
+
+        $response = $this->controller($db, '/api/menus/1')->menu(['id' => '1']);
+
+        self::assertSame(200, $response->status());
+        $slot = $this->decode($response->body())['data']['slots'][0];
+        self::assertSame(['23' => false], $slot['option_is_orderable']);
+        // Le nom reste expose meme indisponible : le composeur ne peut plus le
+        // resoudre via /api/products (qui exclut deja is_available=0), c'est
+        // desormais son SEUL moyen d'afficher "Frites -- Indisponible".
+        self::assertSame(['23' => 'Frites'], $slot['option_names']);
+    }
+
+    public function testMenuDetailOptionOfUnknownProductIsMarkedNotOrderable(): void
+    {
+        // Option configuree mais dont le produit n'est plus lisible (cas defensif : la
+        // FK RESTRICT rend ce cas normalement inatteignable en production) : sans
+        // preuve de disponibilite, l'option est traitee comme indisponible plutot que
+        // par defaut commandable.
+        $db = new FakeCatalogueDatabase();
+        $db->menuRow = [
+            'id' => '1', 'category_id' => '1', 'burger_product_id' => '5',
+            'name' => 'Menu', 'description' => null,
+            'price_normal_cents' => '990', 'price_maxi_cents' => '1190',
+            'image_path' => null, 'display_order' => '1',
+        ];
+        $db->menuSlotRows = [
+            ['id' => '8', 'name' => 'Accompagnement', 'slot_type' => 'side', 'is_required' => '1', 'display_order' => '1', 'product_id' => '23'],
+        ];
+        $db->productByIdRows = [];
+
+        $response = $this->controller($db, '/api/menus/1')->menu(['id' => '1']);
+
+        self::assertSame(200, $response->status());
+        $slot = $this->decode($response->body())['data']['slots'][0];
+        self::assertSame(['23' => false], $slot['option_is_orderable']);
+        self::assertSame(['23' => ''], $slot['option_names']);
     }
 
     public function testMenuDetailUnknownReturns404(): void
@@ -507,6 +714,8 @@ final class CatalogueControllerTest extends TestCase
         self::assertCount(1, $slots);
         self::assertSame('extra', $slots[0]['slot_type']);
         self::assertSame([], $slots[0]['option_product_ids']);
+        self::assertSame([], $slots[0]['option_is_orderable']);
+        self::assertSame([], $slots[0]['option_names']);
     }
 
     // -------------------------------------------------------------------------

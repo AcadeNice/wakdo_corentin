@@ -32,6 +32,43 @@ class OrderRepository
     /** Largeur de customer_order.idempotency_key (VARCHAR(36), migration 0001) : un UUID. */
     private const IDEMPOTENCY_KEY_MAX = 36;
 
+    /**
+     * Plage de quantite acceptee PAR LIGNE. Avant ce correctif, seule une borne BASSE
+     * existait (`max(1, ...)`) : une commande borne anonyme (POST /api/orders sans
+     * session) pouvait porter une quantite de 65535 sur une seule ligne, vider le stock
+     * d'un ingredient en deux requetes (creation + /pay), et au-dela de 65535 declencher
+     * une erreur SQL (order_item.quantity est un SMALLINT UNSIGNED) remontee en 500. La
+     * borne haute retenue est celle d'une commande de fast-food credible. Attenue (pas
+     * empeche) le deni de service sur le catalogue : elle borne ce qu'UNE commande peut
+     * consommer, pas le nombre de commandes SUCCESSIVES depuis la meme source (voir le
+     * registre des risques, docs/PROJECT_CONTEXT.md section 19.2, R10).
+     */
+    private const MIN_QUANTITY = 1;
+    private const MAX_QUANTITY_PER_LINE = 20;
+
+    /**
+     * Nombre maximal de LIGNES distinctes par commande. Meme raisonnement que la borne
+     * de quantite ci-dessus, applique au nombre d'articles differents : une fois la
+     * quantite unitaire plafonnee, un panier de taille arbitraire (des milliers de
+     * lignes, chacune a une quantite VALIDE) resterait un vecteur de deni de service
+     * (transaction d'insertion demesuree, charge memoire/BDD). Une commande de
+     * fast-food n'a pas besoin de dizaines de lignes distinctes.
+     */
+    private const MAX_LINES_PER_ORDER = 50;
+
+    /**
+     * Nombre maximal d'ARTICLES au total (somme des quantites de TOUTES les lignes)
+     * par commande. Les deux bornes ci-dessus se combinent au lieu de s'additionner :
+     * meme chacune respectee individuellement, MAX_LINES_PER_ORDER lignes a
+     * MAX_QUANTITY_PER_LINE chacune restait possible (50 x 20 = 1000 articles) dans
+     * UNE seule commande anonyme de la borne, payee par un bouton simule -- de quoi
+     * vider le stock d'un produit en une seule requete. Un plateau de fast-food reel
+     * reste tres en dessous de ce plafond ; il borne le DEBIT de stock qu'une seule
+     * commande anonyme peut consommer. Le nombre de commandes SUCCESSIVES n'est pas
+     * limite par cette regle (voir docs).
+     */
+    private const MAX_ITEMS_PER_ORDER = 50;
+
     public function __construct(
         private readonly DatabaseInterface $db,
         private readonly ProductRepository $products,
@@ -280,7 +317,11 @@ class OrderRepository
         // RG-T09 / RG-2 (4.1) : la contrainte croisee drive est verifiee AVANT l'INSERT.
         // service_mode est valide par persist() (in [dine_in, takeaway, drive]) ; on
         // n'ajoute ici que le resserrement specifique au canal drive.
-        if ($source === 'drive' && (string) ($req['service_mode'] ?? '') !== 'drive') {
+        // is_string(...) plutot que (string) (...) : un service_mode envoye en tableau
+        // declenchait un avertissement PHP ("Array to string conversion") avant de toute
+        // facon echouer plus bas -- meme motif que resolveLine()/$type ci-dessous.
+        $rawServiceMode = $req['service_mode'] ?? null;
+        if ($source === 'drive' && (!is_string($rawServiceMode) || $rawServiceMode !== 'drive')) {
             throw new OrderValidationException('INVALID_SERVICE_MODE');
         }
 
@@ -394,7 +435,15 @@ class OrderRepository
      */
     private function idempotencyKey(array $req): string
     {
-        $key = trim((string) ($req['idempotency_key'] ?? ''));
+        $raw = $req['idempotency_key'] ?? '';
+        // Un tableau (ex. idempotency_key envoyee en JSON comme ["a","b"]) n'est PAS une
+        // cle : le cast (string) qui suivait le castait en silence en la chaine litterale
+        // "Array" (avec un avertissement PHP), ce qui faisait partager la MEME cle a des
+        // clients distincts. Refuse explicitement plutot que caste.
+        if (!is_string($raw)) {
+            throw new OrderValidationException('INVALID_IDEMPOTENCY_KEY');
+        }
+        $key = trim($raw);
         if (mb_strlen($key) > self::IDEMPOTENCY_KEY_MAX) {
             throw new OrderValidationException('INVALID_IDEMPOTENCY_KEY');
         }
@@ -417,11 +466,23 @@ class OrderRepository
      */
     private function resolveHeader(array $req): array
     {
-        $serviceMode = (string) ($req['service_mode'] ?? '');
+        // is_string(...) plutot que (string) (...) sur service_mode ET service_tag :
+        // un tableau caste en chaine ("service_tag" => ["x"]) declenchait un
+        // avertissement PHP ("Array to string conversion") ET produisait la valeur
+        // litterale "Array" -- silencieusement persistee en base pour service_tag
+        // (un tableau reussissait la limite de longueur, 5 caracteres). Un type non
+        // chaine est desormais refuse explicitement (memes codes qu'avant, aucun
+        // nouveau code introduit).
+        $rawServiceMode = $req['service_mode'] ?? null;
+        $serviceMode = is_string($rawServiceMode) ? $rawServiceMode : '';
         if (!in_array($serviceMode, ['dine_in', 'takeaway', 'drive'], true)) {
             throw new OrderValidationException('INVALID_SERVICE_MODE');
         }
-        $serviceTag = $serviceMode === 'dine_in' ? trim((string) ($req['service_tag'] ?? '')) : '';
+        $rawServiceTag = $req['service_tag'] ?? null;
+        if ($rawServiceTag !== null && !is_string($rawServiceTag)) {
+            throw new OrderValidationException('INVALID_SERVICE_TAG');
+        }
+        $serviceTag = $serviceMode === 'dine_in' ? trim((string) ($rawServiceTag ?? '')) : '';
         if ($serviceTag !== '' && mb_strlen($serviceTag) > 20) {
             throw new OrderValidationException('INVALID_SERVICE_TAG');
         }
@@ -445,6 +506,13 @@ class OrderRepository
         if ($items === []) {
             throw new OrderValidationException('EMPTY_ORDER');
         }
+        // Meme raisonnement que la borne de quantite (MAX_QUANTITY_PER_LINE) : un panier
+        // de taille arbitraire reste un vecteur de deni de service (transaction demesuree)
+        // meme quand chaque ligne, prise isolement, est valide. Verifie AVANT de resoudre
+        // quoi que ce soit : aucune lecture catalogue inutile pour un panier deja refuse.
+        if (count($items) > self::MAX_LINES_PER_ORDER) {
+            throw new OrderValidationException('TOO_MANY_ITEMS');
+        }
 
         // RG-T21 : garde a la creation ET a la modification de commande. Un produit (ou le
         // burger d'un menu) en rupture calculee par le stock est REFUSE, quel que soit le
@@ -454,13 +522,33 @@ class OrderRepository
         // depuis la creation ne peut pas etre reconduit dans le panier modifie.
         $unavailable = array_fill_keys($this->products->autoUnavailableIds(), true);
 
-        $lines = array_map(fn (array $item): array => $this->resolveLine($item, $unavailable), $items);
+        // foreach plutot qu'array_map(fn (array $item)...) : le type-hint `array` du
+        // parametre, sous declare(strict_types=1), levait un TypeError (500) des qu'une
+        // ligne du panier n'etait pas un objet JSON (ex. items:["x"]) -- une entree mal
+        // formee est desormais un refus metier (422), pas une fatale.
+        $lines = [];
+        foreach ($items as $item) {
+            if (!is_array($item)) {
+                throw new OrderValidationException('INVALID_ITEM_TYPE');
+            }
+            $lines[] = $this->resolveLine($item, $unavailable);
+        }
 
         $totalTtc = 0;
         $totalHt = 0;
+        $totalQuantity = 0;
         foreach ($lines as $l) {
             $totalTtc += $l['unit_ttc'] * $l['quantity'];
             $totalHt += $l['unit_ht'] * $l['quantity'];
+            $totalQuantity += $l['quantity'];
+        }
+        // MAX_ITEMS_PER_ORDER : plafond sur la SOMME des quantites, distinct du plafond
+        // de lignes ci-dessus. Verifie ici (lignes deja resolues, quantites deja
+        // validees individuellement) plutot qu'avant resolveLine() : la combinaison
+        // (nombre de lignes x quantite par ligne) ne se lit qu'une fois les deux
+        // bornes individuelles appliquees.
+        if ($totalQuantity > self::MAX_ITEMS_PER_ORDER) {
+            throw new OrderValidationException('ORDER_TOO_LARGE');
         }
         if ($totalTtc <= 0) {
             throw new OrderValidationException('EMPTY_ORDER');
@@ -638,10 +726,10 @@ class OrderRepository
     }
 
     /**
-     * Transition paid -> delivered (DELIVER_ORDER, geste unique de remise, mlt 6.1).
+     * Transition paid|preparing|ready -> delivered (DELIVER_ORDER, geste unique de remise, mlt 6.1).
      * NON PIN-gated : operation routiniere, hors ensemble sensible RG-T13. Idempotente
      * (une commande deja delivered est renvoyee sans erreur). 404 si inconnue ;
-     * INVALID_TRANSITION si la commande n'est pas au statut paid (pending / cancelled).
+     * INVALID_TRANSITION si la commande n'est ni paid, ni preparing, ni ready (pending_payment / cancelled).
      *
      * @return array{id:int, order_number:string, total_ttc_cents:int, status:string}
      * @throws OrderValidationException
@@ -742,12 +830,13 @@ class OrderRepository
 
     /**
      * Annulation d'une commande (CANCEL_ORDER, mlt 7.1). Transition gardee
-     * pending_payment|paid -> cancelled, re-credit de stock CONDITIONNEL et ecriture
-     * audit_log dans UNE transaction (RG-T07/T08/T11/T14).
+     * pending_payment|paid|preparing|ready -> cancelled, re-credit de stock CONDITIONNEL
+     * et ecriture audit_log dans UNE transaction (RG-T07/T08/T11/T14).
      *
-     * Le re-credit n'a lieu que si la commande etait `paid` AVANT l'annulation : une
-     * commande `pending_payment` n'avait jamais decremente le stock (le decrement est
-     * pose a la transition `paid`, cf. pay()), il n'y a donc rien a re-crediter. Le
+     * Le re-credit n'a lieu que si la commande porte des mouvements `sale`
+     * (hasSaleMovements) : une commande `pending_payment` n'avait jamais decremente le
+     * stock (le decrement est pose par pay(), a l'encaissement), il n'y a donc rien a
+     * re-crediter. Le
      * re-credit reutilise consumption() (memes unites que le decrement de pay()),
      * inversees (delta positif) ; un ingredient entierement retire (modifieur remove)
      * n'a pas ete decremente -> consumption() ne le retourne pas -> pas de re-credit.
@@ -1091,12 +1180,15 @@ class OrderRepository
      */
     private function resolveLine(array $item, array $unavailable = []): array
     {
-        $type = (string) ($item['type'] ?? '');
-        $quantity = max(1, (int) ($item['quantity'] ?? 1));
+        // is_string(...) plutot que (string) ($item['type'] ?? '') : un 'type' envoye en
+        // tableau declenchait un avertissement PHP ("Array to string conversion") avant de
+        // toute facon echouer plus bas -- aucun avertissement ne doit fuiter dans la reponse.
+        $type = is_string($item['type'] ?? null) ? $item['type'] : '';
+        $quantity = $this->resolveQuantity($item);
         $format = ($item['format'] ?? 'normal') === 'maxi' ? 'maxi' : 'normal';
 
         if ($type === 'product') {
-            $product = $this->products->find((int) ($item['product_id'] ?? 0));
+            $product = $this->products->find($this->positiveId($item['product_id'] ?? null));
             if ($product === null || (int) ($product['is_available'] ?? 0) !== 1) {
                 throw new OrderValidationException('PRODUCT_UNAVAILABLE');
             }
@@ -1113,7 +1205,7 @@ class OrderRepository
         }
 
         if ($type === 'menu') {
-            $menu = $this->menus->find((int) ($item['menu_id'] ?? 0));
+            $menu = $this->menus->find($this->positiveId($item['menu_id'] ?? null));
             if ($menu === null || (int) ($menu['is_available'] ?? 0) !== 1) {
                 throw new OrderValidationException('MENU_UNAVAILABLE');
             }
@@ -1128,7 +1220,7 @@ class OrderRepository
             $burger = $this->products->find((int) $menu['burger_product_id']);
             $vat = $burger !== null ? (int) $burger['vat_rate'] : 100;
             $unitBase = $format === 'maxi' ? (int) $menu['price_maxi_cents'] : (int) $menu['price_normal_cents'];
-            $selections = $this->resolveSelections($item, (int) $menu['id'], $format);
+            $selections = $this->resolveSelections($item, (int) $menu['id'], $format, $unavailable);
             $modifiers = $this->resolveModifiers($item, (int) $menu['burger_product_id']);
             $unitTtc = $unitBase + $this->modifiersExtra($modifiers);
 
@@ -1136,6 +1228,62 @@ class OrderRepository
         }
 
         throw new OrderValidationException('INVALID_ITEM_TYPE');
+    }
+
+    /**
+     * Quantite d'une ligne, strictement validee : entre MIN_QUANTITY et
+     * MAX_QUANTITY_PER_LINE, et un ENTIER exact (une chaine/un nombre qui en
+     * represente un, jamais un flottant non entier ni un booleen). Absent -> 1 (une
+     * ligne sans quantite explicite reste un article). Avant ce correctif,
+     * `max(1, (int) ...)` ramenait toute valeur hors bornes a 1 EN SILENCE (0, -5,
+     * 65535...) au lieu de refuser : un panier absurde devenait un panier "normal"
+     * sans que le client (borne, comptoir/drive) en soit informe, et une quantite
+     * superieure a 65535 (order_item.quantity est un SMALLINT UNSIGNED) atteignait
+     * meme l'ecriture SQL et y echouait (500).
+     *
+     * @param array<string, mixed> $item
+     * @throws OrderValidationException INVALID_QUANTITY
+     */
+    private function resolveQuantity(array $item): int
+    {
+        if (!array_key_exists('quantity', $item) || $item['quantity'] === null) {
+            return self::MIN_QUANTITY;
+        }
+        $raw = $item['quantity'];
+        $isWholeNumber = is_int($raw)
+            || (is_string($raw) && $raw !== '' && $raw !== '-' && ctype_digit(ltrim($raw, '-')))
+            || (is_float($raw) && floor($raw) === $raw);
+        if (!$isWholeNumber) {
+            throw new OrderValidationException('INVALID_QUANTITY');
+        }
+        $quantity = (int) $raw;
+        if ($quantity < self::MIN_QUANTITY || $quantity > self::MAX_QUANTITY_PER_LINE) {
+            throw new OrderValidationException('INVALID_QUANTITY');
+        }
+
+        return $quantity;
+    }
+
+    /**
+     * Identifiant catalogue strictement positif. Toute forme qui n'est pas un entier
+     * exact (tableau, booleen, flottant non entier, chaine non numerique) devient 0,
+     * qui echoue ensuite la recherche catalogue (find(0) === null -- meme famille de
+     * refus, PRODUCT_UNAVAILABLE/MENU_UNAVAILABLE/INVALID_SELECTION/INVALID_MODIFIER,
+     * qu'un identifiant simplement inconnu) plutot qu'un cast PHP silencieux : un
+     * product_id envoye en tableau devient (int) 1 par un cast nu, un produit qui
+     * existe peut-etre, jamais celui vise par le client.
+     */
+    private function positiveId(mixed $raw): int
+    {
+        $isWholeNumber = is_int($raw)
+            || (is_string($raw) && $raw !== '' && ctype_digit($raw))
+            || (is_float($raw) && floor($raw) === $raw);
+        if (!$isWholeNumber) {
+            return 0;
+        }
+        $id = (int) $raw;
+
+        return $id > 0 ? $id : 0;
     }
 
     /**
@@ -1165,9 +1313,12 @@ class OrderRepository
      * substitution est une mecanique serveur invisible.
      *
      * @param array<string, mixed> $item
+     * @param array<int, bool> $unavailable set des product_id en rupture calculee (RG-T21),
+     *        partage avec resolveAndTotal (pas de second appel a autoUnavailableIds()).
      * @return list<array{menu_slot_id:int,product_id:int,label:string}>
+     * @throws OrderValidationException INVALID_SELECTION, OPTION_UNAVAILABLE
      */
-    private function resolveSelections(array $item, int $menuId, string $format): array
+    private function resolveSelections(array $item, int $menuId, string $format, array $unavailable = []): array
     {
         $slots = $this->menus->slotsWithOptions($menuId);
         /** @var array<int, list<int>> $optionsBySlot */
@@ -1179,8 +1330,9 @@ class OrderRepository
         $out = [];
         $raw = isset($item['selections']) && is_array($item['selections']) ? $item['selections'] : [];
         foreach ($raw as $sel) {
-            $slotId = (int) ($sel['menu_slot_id'] ?? 0);
-            $pid = (int) ($sel['product_id'] ?? 0);
+            $selArr = is_array($sel) ? $sel : [];
+            $slotId = $this->positiveId($selArr['menu_slot_id'] ?? null);
+            $pid = $this->positiveId($selArr['product_id'] ?? null);
             if (!isset($optionsBySlot[$slotId]) || !in_array($pid, $optionsBySlot[$slotId], true)) {
                 throw new OrderValidationException('INVALID_SELECTION');
             }
@@ -1191,15 +1343,33 @@ class OrderRepository
             // sauce) n'ont pas de variante et restent inchanges, sans garde sur le
             // slot_type. find() relit la variante (id + label) pour son snapshot.
             $variantId = $product !== null ? (int) ($product['maxi_variant_product_id'] ?? 0) : 0;
+            $effectiveId = $pid;
+            $effectiveProduct = $product;
+            $label = $product !== null ? (string) $product['name'] : '';
             if ($format === 'maxi' && $variantId > 0) {
                 $variant = $this->products->find($variantId);
                 if ($variant !== null) {
-                    $out[] = ['menu_slot_id' => $slotId, 'product_id' => $variantId, 'label' => (string) $variant['name']];
-                    continue;
+                    $effectiveId = $variantId;
+                    $effectiveProduct = $variant;
+                    $label = (string) $variant['name'];
                 }
             }
 
-            $out[] = ['menu_slot_id' => $slotId, 'product_id' => $pid, 'label' => $product !== null ? (string) $product['name'] : ''];
+            // RG-T21 : MEME regle de disponibilite qu'un produit a l'unite ou le burger
+            // d'un menu (is_available ET rupture calculee, ProductRepository::
+            // autoUnavailableIds), appliquee a l'option EFFECTIVEMENT servie (la
+            // variante Maxi si substituee, jamais la base choisie par le client).
+            // Avant ce correctif, seule l'appartenance au slot etait verifiee : une
+            // option retiree (is_available=0) ou en rupture de stock restait
+            // commandable des lors qu'elle figurait dans la configuration du slot.
+            if ($effectiveProduct === null
+                || (int) ($effectiveProduct['is_available'] ?? 0) !== 1
+                || isset($unavailable[$effectiveId])
+            ) {
+                throw new OrderValidationException('OPTION_UNAVAILABLE');
+            }
+
+            $out[] = ['menu_slot_id' => $slotId, 'product_id' => $effectiveId, 'label' => $label];
         }
 
         return $out;
@@ -1223,8 +1393,8 @@ class OrderRepository
 
         $out = [];
         foreach ($raw as $mod) {
-            $ingId = (int) ($mod['ingredient_id'] ?? 0);
-            $action = ($mod['action'] ?? '') === 'add' ? 'add' : 'remove';
+            $ingId = $this->positiveId(is_array($mod) ? ($mod['ingredient_id'] ?? null) : null);
+            $action = is_array($mod) && ($mod['action'] ?? '') === 'add' ? 'add' : 'remove';
             if (!isset($recipe[$ingId])) {
                 throw new OrderValidationException('INVALID_MODIFIER');
             }

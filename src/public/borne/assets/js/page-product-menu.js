@@ -45,9 +45,77 @@ export function optionLabel(option, size) {
 /* ------------------------------------------------------------------ */
 
 /**
+ * Options resolues d'un slot, DISPONIBILITE COMPRISE (RG-T21/F2, defaut #4). Une
+ * option encore au catalogue (byId[pid] existe) garde toute sa richesse
+ * d'affichage (image, variante Maxi...) ; une option retiree au back-office
+ * (absente de byId, puisque /api/products EXCLUT deja is_available=0) retombe sur
+ * un objet minimal construit depuis option_names, pour rester AFFICHABLE (grisee)
+ * plutot que de disparaitre en silence -- MAIS seulement si le SERVEUR sait de
+ * quoi il s'agit (option_names porte une entree pour cet id) : un id absent de
+ * byId ET de option_names est un DESYNC catalogue reel (configuration perimee,
+ * ex. tests avec un id fictif), pas une option retiree, et reste FILTRE comme
+ * avant ce correctif -- anti-perte silencieuse, pas anti-affichage silencieux
+ * d'un id que meme le serveur ne reconnait pas. isOrderable vient TOUJOURS du
+ * serveur (option_is_orderable), jamais d'une simple absence dans byId : sans ce
+ * champ (API anterieure a ce correctif), une option est traitee comme commandable
+ * par defaut (compat), meme convention que `commandable` dans data.js.
+ *
+ * isOrderableMaxi (contre-audit constat 1, RG-T21) : disponibilite de l'option
+ * REELLEMENT servie au format Maxi (option_is_orderable_maxi, calculee serveur sur
+ * la VARIANTE quand elle existe, sinon egale a la base). Absent (API anterieure a
+ * ce correctif) -> repli sur isOrderable, meme convention de compat. Sans ce champ
+ * propre, une base disponible dont la variante Maxi est en rupture (ou l'inverse)
+ * restait proposee dans le mauvais format, pour se faire refuser 422
+ * OPTION_UNAVAILABLE au paiement (OrderRepository::resolveSelections). Pur.
+ * @param {Object} slot — entree brute de detail.slots (forme canonique API)
+ * @param {Object<number,Object>} byId
+ * @returns {Array<Object>}
+ */
+function buildSlotOptions(slot, byId) {
+    const orderableById = slot.option_is_orderable ?? {};
+    const orderableMaxiById = slot.option_is_orderable_maxi ?? {};
+    const namesById = slot.option_names ?? {};
+    const out = [];
+    for (const pid of slot.option_product_ids ?? []) {
+        const isOrderable = orderableById[pid] !== false;
+        const isOrderableMaxi = pid in orderableMaxiById ? orderableMaxiById[pid] !== false : isOrderable;
+        const resolved = byId[pid];
+        if (resolved) {
+            out.push({ ...resolved, isOrderable, isOrderableMaxi });
+            continue;
+        }
+        const name = namesById[pid];
+        if (name === undefined) continue; // desync catalogue : aucune info, meme cote serveur
+        out.push({
+            id: pid,
+            nom: name || 'Option',
+            image: null,
+            maxiNom: null,
+            maxiImage: null,
+            sizes: [],
+            isOrderable,
+            isOrderableMaxi,
+        });
+    }
+    return out;
+}
+
+/**
+ * Disponibilite d'une option pour un FORMAT donne (contre-audit constat 1) : lit
+ * isOrderableMaxi en Maxi, isOrderable en Normal -- jamais toujours le meme champ,
+ * sous peine de rejouer le desaccord borne/paiement que ce champ corrige. Pur.
+ * @param {Object} option — sortie de buildSlotOptions
+ * @param {'N'|'M'} size
+ * @returns {boolean}
+ */
+function optionOrderableForSize(option, size) {
+    return size === 'M' ? option.isOrderableMaxi !== false : option.isOrderable !== false;
+}
+
+/**
  * Construit le modele d'etapes a partir du detail menu (slots) et de l'index
- * produit par id. Resout les option_product_ids en produits affichables, trie les
- * slots par display_order. Pur.
+ * produit par id. Resout les option_product_ids en produits affichables (avec leur
+ * disponibilite, buildSlotOptions), trie les slots par display_order. Pur.
  * @param {Object} detail — sortie de loadMenu()
  * @param {Object<number,Object>} byId — sortie de loadProductsById()
  * @returns {{burger: Object|null, slots: Array, priceNormalCents: number, priceMaxiCents: number}}
@@ -68,7 +136,7 @@ export function buildComposerSteps(detail, byId) {
             name: slot.name,
             slotType: slot.slot_type,
             isRequired: !!slot.is_required,
-            options: (slot.option_product_ids ?? []).map(pid => byId[pid]).filter(Boolean),
+            options: buildSlotOptions(slot, byId),
         }));
     return {
         burger,
@@ -99,7 +167,15 @@ export function buildMenuCartItem(menu, model, { size, selections }) {
     };
 
     for (const slot of model.slots) {
-        const chosen = slot.options.find(o => o.id === selections[slot.id]);
+        // optionOrderableForSize(o, size) : garde-fou defensif (RG-T21/F2, contre-audit
+        // constat 1) -- une option devenue indisponible entre l'ouverture du composeur
+        // et l'ajout au panier ne doit jamais atteindre le panier client ; le serveur
+        // la refuserait de toute facon (OrderRepository::resolveSelections,
+        // OPTION_UNAVAILABLE), mais mieux vaut ne pas construire une ligne vouee a
+        // l'echec. La disponibilite verifiee est celle du FORMAT choisi (isMaxi) : la
+        // base peut etre commandable alors que la variante Maxi effectivement servie
+        // ne l'est pas, et inversement.
+        const chosen = slot.options.find(o => o.id === selections[slot.id] && optionOrderableForSize(o, size));
         if (!chosen) continue; // slot optionnel laisse "sans"
         const field = SLOT_FIELD[slot.slotType];
         if (!field) continue;
@@ -131,27 +207,70 @@ export function buildMenuCartItem(menu, model, { size, selections }) {
 }
 
 /**
- * Indique si toutes les etapes obligatoires ont une selection. Pur.
+ * Indique si toutes les etapes obligatoires ont une selection COMMANDABLE. Pur.
+ * Une option devenue indisponible (RG-T21/F2) ne compte pas comme une selection
+ * valide, meme si elle est encore techniquement presente dans `selections` (ex.
+ * pre-selection posee avant que sa disponibilite soit connue).
+ *
+ * `size` (contre-audit constat 1, defaut 'N') : la disponibilite verifiee suit le
+ * FORMAT courant (isOrderableMaxi en Maxi) -- une option valide en Normal peut ne
+ * plus l'etre en Maxi (variante en rupture), et inversement.
  * @param {Object} model
  * @param {Object<number,number>} selections
+ * @param {'N'|'M'} [size]
  * @returns {boolean}
  */
-export function selectionsComplete(model, selections) {
+export function selectionsComplete(model, selections, size = 'N') {
     return model.slots
         .filter(s => s.isRequired)
-        .every(s => s.options.some(o => o.id === selections[s.id]));
+        .every(s => s.options.some(o => o.id === selections[s.id] && optionOrderableForSize(o, size)));
 }
 
 /**
  * Le menu est-il composable ? Faux si le burger impose est introuvable, ou si un
- * slot REQUIS n'a aucune option resolue (catalogue desync). Pur. Garde-fou : eviter
- * d'ouvrir une modale ou une etape requise serait impassable.
+ * slot REQUIS n'a AUCUNE option COMMANDABLE (catalogue desync, ou toutes les
+ * options du slot en rupture/retirees). Pur. Garde-fou : eviter d'ouvrir une
+ * modale ou une etape requise serait impassable -- avant ce correctif, une
+ * option indisponible comptait encore comme une option valable (options.length),
+ * ce qui pouvait ouvrir une etape ou plus rien n'etait selectionnable en pratique.
+ *
+ * `size` (contre-audit constat 1, defaut 'N') : meme logique par-format que
+ * selectionsComplete().
  * @param {Object} model
+ * @param {'N'|'M'} [size]
  * @returns {boolean}
  */
-export function composerIsViable(model) {
+export function composerIsViable(model, size = 'N') {
     if (!model.burger) return false;
-    return model.slots.filter(s => s.isRequired).every(s => s.options.length > 0);
+    return model.slots.filter(s => s.isRequired).every(s => s.options.some(o => optionOrderableForSize(o, size)));
+}
+
+/**
+ * Reconcilie les selections courantes avec un CHANGEMENT DE FORMAT (contre-audit
+ * constat 1) : retire du modele de selections toute selection dont l'option choisie
+ * devient indisponible dans le format cible (variante Maxi en rupture, ou
+ * l'inverse). Ne mute pas `selections` en entree (nouvel objet retourne) ; renvoie
+ * aussi la liste des slots dont la selection a ete retiree, pour que l'appelant
+ * puisse signaler le changement au client plutot que de le laisser filer en
+ * silence jusqu'au refus serveur (422 OPTION_UNAVAILABLE). Pur.
+ * @param {Object} model — sortie de buildComposerSteps
+ * @param {Object<number,number>} selections
+ * @param {'N'|'M'} size — format CIBLE (celui vers lequel on bascule)
+ * @returns {{selections: Object<number,number>, cleared: Array<Object>}}
+ */
+export function reconcileSelectionsForSize(model, selections, size) {
+    const next = { ...selections };
+    const cleared = [];
+    for (const slot of model.slots) {
+        const chosenId = next[slot.id];
+        if (chosenId == null) continue;
+        const option = slot.options.find(o => o.id === chosenId);
+        if (option && !optionOrderableForSize(option, size)) {
+            delete next[slot.id];
+            cleared.push(slot);
+        }
+    }
+    return { selections: next, cleared };
 }
 
 /* ------------------------------------------------------------------ */
@@ -249,9 +368,26 @@ export async function openMenuComposer(menu, returnCategory) {
     }
 
     const model = buildComposerSteps(detail, byId);
-    if (!composerIsViable(model)) {
-        console.error('Menu composer: menu non composable (burger absent ou slot requis sans option)', menu.id);
+    if (!model.burger) {
+        // Burger impose introuvable : configuration catalogue rompue, pas une simple
+        // rupture de stock -- aucune tuile de secours n'a de sens ici (contrairement a
+        // un slot d'accompagnement/boisson, ce burger EST le menu). Reste une erreur
+        // technique loggee, pas un message client (cas non atteignable en usage normal :
+        // le burger d'un menu commandable existe toujours au catalogue).
+        console.error('Menu composer: burger impose introuvable', menu.id);
         return;
+    }
+    // Defaut #4 : un slot obligatoire dont TOUTES les options sont indisponibles
+    // (rupture RG-T21 ou retrait back-office) N'EMPECHE PLUS d'ouvrir le composeur
+    // (avant ce correctif : window.alert() bloquant, puis un correctif intermediaire
+    // fermait tout AVANT ouverture -- une alerte navigateur/un refus muet ne convient
+    // pas sur une borne tactile). Le client voit desormais le composeur, avance
+    // jusqu'a l'etape du slot concerne, et y trouve un message clair (role="alert",
+    // renderSlotStep) juste au-dessus des tuiles toutes grisees, plutot qu'un refus
+    // sans contexte. composerIsViable() reste la source de verite (tests), utilisee
+    // ici seulement pour tracer l'anomalie.
+    if (!composerIsViable(model)) {
+        console.warn('Menu composer: au moins un slot obligatoire n a plus d option commandable', menu.id);
     }
 
     const state = {
@@ -260,11 +396,16 @@ export async function openMenuComposer(menu, returnCategory) {
         model,
         byId,                       // index produit complet (A3) : resout les variantes de taille
         size: 'N',                  // 'N' (Normal) | 'M' (Maxi)
-        selections: {},             // slotId -> productId ; pre-selection du 1er requis
+        selections: {},             // slotId -> productId ; pre-selection du 1er requis COMMANDABLE
         currentStep: 0,             // 0 = format ; 1..N = slots ; N+1 = recap
     };
     for (const slot of model.slots) {
-        if (slot.isRequired && slot.options[0]) state.selections[slot.id] = slot.options[0].id;
+        // optionOrderableForSize(o, state.size) : ne jamais pre-selectionner une
+        // option indisponible pour le format COURANT (RG-T21/F2, contre-audit
+        // constat 1) -- composerIsViable garantit qu'il en existe au moins une pour
+        // chaque slot obligatoire dans ce format (Normal a l'ouverture).
+        const firstAvailable = slot.options.find(o => optionOrderableForSize(o, state.size));
+        if (slot.isRequired && firstAvailable) state.selections[slot.id] = firstAvailable.id;
     }
 
     const modal = buildModalShell(menu);
@@ -397,7 +538,9 @@ function renderFormatStep(body, footer, modal, state) {
                 </button>
             </li>
         </ul>
+        <p class="composer-step__notice" role="status" hidden></p>
     `;
+    const notice = body.querySelector('.composer-step__notice');
     body.querySelectorAll('[data-size]').forEach(btn => {
         btn.addEventListener('click', () => {
             state.size = btn.dataset.size;
@@ -406,6 +549,23 @@ function renderFormatStep(body, footer, modal, state) {
                 b.classList.toggle('composer-card--selected', active);
                 b.setAttribute('aria-pressed', active ? 'true' : 'false');
             });
+            // Contre-audit (constat 1, RG-T21) : le changement de format peut rendre
+            // indisponible une option DEJA choisie (variante Maxi en rupture, ou
+            // l'inverse) -- la deselectionner ici, avant que le client n'avance,
+            // plutot que de laisser filer une selection vouee au refus serveur (422
+            // OPTION_UNAVAILABLE). Le client est informe : une selection retiree en
+            // silence serait pire qu'un refus explicite.
+            const { selections, cleared } = reconcileSelectionsForSize(state.model, state.selections, state.size);
+            state.selections = selections;
+            if (cleared.length) {
+                const names = cleared.map(s => s.name).join(', ');
+                notice.textContent = `Votre choix pour « ${names} » n'est plus disponible en format `
+                    + `${state.size === 'M' ? 'Maxi' : 'Normal'} : sélectionnez-le à nouveau.`;
+                notice.hidden = false;
+            } else {
+                notice.textContent = '';
+                notice.hidden = true;
+            }
         });
     });
     renderFooter(footer, modal, state, { canAdvance: () => true });
@@ -414,8 +574,21 @@ function renderFormatStep(body, footer, modal, state) {
 /* Etapes 1..N — un slot (drink/side/sauce) */
 function renderSlotStep(body, footer, modal, state, slot) {
     const optional = !slot.isRequired;
+    // Defaut #4 (RG-T21) : un slot OBLIGATOIRE dont plus aucune option n'est
+    // commandable (rupture de stock ou retrait back-office) ne bloque plus
+    // l'ouverture du composeur (voir openMenuComposer) -- le message clair
+    // apparait ICI, pres des tuiles concernees, toutes grisees juste en-dessous.
+    // role="alert" : annonce immediate au lecteur d'ecran des l'arrivee sur
+    // l'etape, sans action supplementaire du client. Une alerte navigateur
+    // (window.alert) n'a pas sa place sur une borne tactile en libre-service.
+    const deadEnd = slot.isRequired && !slot.options.some(o => optionOrderableForSize(o, state.size));
     body.innerHTML = `
         <p class="composer-step__subtitle">${escHtml(slot.name)}${optional ? ' (optionnel)' : ''}</p>
+        ${deadEnd ? `
+            <p class="composer-step__alert" role="alert">
+                Aucune option n'est disponible pour « ${escHtml(slot.name)} » pour le moment.
+                Un équipier peut vous proposer une alternative au comptoir.
+            </p>` : ''}
         <ul class="composer-grid" role="list" id="slot-grid">
             ${optional ? `
                 <li>
@@ -428,22 +601,29 @@ function renderSlotStep(body, footer, modal, state, slot) {
                 // En Maxi, l'accompagnement s'affiche sous sa variante agrandie
                 // ("Grande Frite") : le client choisit en connaissance de cause.
                 const label = optionLabel(o, state.size);
+                // RG-T21/F2 (defaut #4) : une option en rupture ou retiree au
+                // back-office est GRISEE (disabled + aria-disabled, pas seulement une
+                // couleur -- lecteur d'ecran compris) et porte la mention
+                // "Indisponible", plutot que de disparaitre ou de rester
+                // selectionnable comme n'importe quelle autre.
+                const unavailable = !optionOrderableForSize(o, state.size);
                 return `
                 <li>
-                    <button class="composer-card ${state.selections[slot.id] === o.id ? 'composer-card--selected' : ''}"
-                        type="button" data-pid="${o.id}"
+                    <button class="composer-card ${state.selections[slot.id] === o.id ? 'composer-card--selected' : ''} ${unavailable ? 'composer-card--unavailable' : ''}"
+                        type="button" data-pid="${o.id}" ${unavailable ? 'disabled aria-disabled="true"' : ''}
                         aria-pressed="${state.selections[slot.id] === o.id}"
-                        aria-label="${escHtml(label)}">
+                        aria-label="${escHtml(label)}${unavailable ? ', indisponible' : ''}">
                         <img class="composer-card__image" src="${escHtml(o.image)}" alt="${escHtml(label)}"
                              data-fallback="logo">
                         <span class="composer-card__name">${escHtml(label)}</span>
+                        ${unavailable ? '<span class="composer-card__unavailable">Indisponible</span>' : ''}
                     </button>
                 </li>
             `;
             }).join('')}
         </ul>
     `;
-    body.querySelectorAll('#slot-grid .composer-card').forEach(btn => {
+    body.querySelectorAll('#slot-grid .composer-card:not([disabled])').forEach(btn => {
         btn.addEventListener('click', () => {
             const raw = btn.dataset.pid;
             if (raw === '') delete state.selections[slot.id];
@@ -457,8 +637,23 @@ function renderSlotStep(body, footer, modal, state, slot) {
         });
     });
     renderFooter(footer, modal, state, {
-        canAdvance: () => optional || state.selections[slot.id] != null,
+        // Une selection ne "compte" que si l'option est encore commandable (defense
+        // en profondeur : le clic ne peut deja plus poser d'id indisponible, voir
+        // ci-dessus, mais la pre-selection initiale passe par le meme chemin). Un
+        // slot en impasse (deadEnd) ne peut jamais avoir de selection valable : ce
+        // predicat renvoie deja false pour lui, sans cas particulier.
+        canAdvance: () => optional || slot.options.some(o => o.id === state.selections[slot.id] && optionOrderableForSize(o, state.size)),
     });
+    if (deadEnd) {
+        // Renforce le message d'alerte ci-dessus : "Suivant" est visiblement
+        // desactive (pas seulement un clic sans effet, comme les autres etapes
+        // incompletes) tant qu'aucune option de ce slot obligatoire n'est commandable.
+        const nextBtn = footer.querySelector('#composer-next');
+        if (nextBtn) {
+            nextBtn.disabled = true;
+            nextBtn.setAttribute('aria-disabled', 'true');
+        }
+    }
 }
 
 /* Etape finale — recap + ajout */

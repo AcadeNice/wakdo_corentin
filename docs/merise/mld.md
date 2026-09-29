@@ -1,11 +1,11 @@
 # Modele Logique de Donnees (MLD) — Wakdo
 
 **Phase Merise** : P1 - Conception, etape 5 (apres MCD, MCT, MLT)
-**Version** : v0.6 — prod-like, 23 tables (19 prod-like + couche security-by-design + classement des ingredients)
-**Historique** : v0.6 (2026-09-28) — audit final : slots du composeur de menu alignes sur le seed reel (Accompagnement/Boisson/Sauce), `stock_movement.user_id`/`customer_order.acting_user_id` corriges (utilisateur de session, sans PIN, a la creation d'une commande counter/drive), calcul HT precise (arrondi par unite puis multiplie), section 8 recalee sur 23 tables (ajout de `category_ingredient_family`), sections 9 et 11 reecrites au present/passe pour refleter le livre reel, references vers `docs/notes/revue-alignement-p1.md` (non versionne) remplacees par les journaux traces `docs/journal/`. v0.5 (2026-09-27) — migration 0017 : colonne `ingredient.family` (nullable) et table `category_ingredient_family` (4.23), qui filtrent le selecteur d'ingredients du constructeur de recette selon la categorie du produit ; compte de tables 22 -> 23 ; voir `docs/adr/0018-familles-ingredients-filtre-recette.md`. v0.4 (2026-09-24) — mise en coherence avec le code livre (2a09597) : les quatre diagrammes relationnels re-extraits des migrations 0001 a 0011 (colonnes `preparing_at` / `ready_at` de 0009 et `allergens_*` de 0011, descriptions et chemins d'image), cle etrangere nullable notee en 0..1, relation `user` -> `pin_throttle` corrigee en 1 vers 0..1 (unicite de `actor_user_id`), rendus SVG regeneres avec `_diagrams/mermaid-config.json`.
-**Date** : 2026-06-04 (ajouts security-by-design 2026-06-11)
-**Branche** : `feat/p1-conception`
-**Statut** : prod-like — toutes les decisions D1-D8 + stock appliquees (voir `docs/journal/2026-06-04--conception-prodlike-revision.md` pour D1-D3 et `docs/journal/2026-06-04--p1-merise-v0.2-rewrite-and-forgejo-migration.md` pour D4-D8 + stock) ; couche security-by-design (audit_log + colonnes imputabilite/auth) en cours
+**Version** : v0.9 — prod-like, 24 tables (19 prod-like + couche security-by-design + classement des ingredients)
+**Historique** : v0.9 (2026-09-29) — deux correctifs de securite merges : colonne `user.session_epoch` et nouvelle table `password_reset_throttle` (throttle de la demande de reinitialisation par adresse et par IP), migration `0020_session_invalidation.sql`, commit `ef7fd37` ; compte de tables 23 -> 24 (section 8). v0.8 (2026-09-29) — correctif merge apres le contre-audit : `audit_log.summary`/`details` precises sur le cas `pin.failed` (minimisation RGPD art. 5.1.c, migration `0019_pin_failed_audit_minimisation.sql`). v0.7 (2026-09-29) — contre-audit independant (base MariaDB jetable) : ordre reel des colonnes de `product` corrige (`size_cl`, `base_product_id` AVANT `maxi_variant_product_id`, migrations 0006/0007 posees au meme point d'ancrage `AFTER price_cents`) ; `vat_rate` note `DEFAULT 100` ; section 11 corrigee (`pin_throttle` n'est PAS creee par `0001_init_schema.sql`, elle est creee par la premiere migration additive `0002_pin_throttle.sql`) ; volumes de seed corriges (58 produits apres tous les seeds, 6 comptes utilisateur au total). v0.6 (2026-09-28) — audit final : slots du composeur de menu alignes sur le seed reel (Accompagnement/Boisson/Sauce), `stock_movement.user_id`/`customer_order.acting_user_id` corriges (utilisateur de session, sans PIN, a la creation d'une commande counter/drive), calcul HT precise (arrondi par unite puis multiplie), section 8 recalee sur 23 tables (ajout de `category_ingredient_family`), sections 9 et 11 reecrites au present/passe pour refleter le livre reel, references vers `docs/notes/revue-alignement-p1.md` (non versionne) remplacees par les journaux traces `docs/journal/`. v0.5 (2026-09-27) — migration 0017 : colonne `ingredient.family` (nullable) et table `category_ingredient_family` (4.23), qui filtrent le selecteur d'ingredients du constructeur de recette selon la categorie du produit ; compte de tables 22 -> 23 ; voir `docs/adr/0018-familles-ingredients-filtre-recette.md`. v0.4 (2026-09-24) — mise en coherence avec le code livre (2a09597) : les quatre diagrammes relationnels re-extraits des migrations 0001 a 0011 (colonnes `preparing_at` / `ready_at` de 0009 et `allergens_*` de 0011, descriptions et chemins d'image), cle etrangere nullable notee en 0..1, relation `user` -> `pin_throttle` corrigee en 1 vers 0..1 (unicite de `actor_user_id`), rendus SVG regeneres avec `_diagrams/mermaid-config.json`.
+**Date** : 2026-06-04 (premiere redaction ; derniere mise a jour 2026-09-29)
+**Branche** : premiere redaction sur `feat/p1-conception` ; etat actuel sur `docs/contre-audit` (29/09), en production apres la release du 29/09
+**Statut** : prod-like — toutes les decisions D1-D8 + stock appliquees (voir `docs/journal/2026-06-04--conception-prodlike-revision.md` pour D1-D3 et `docs/journal/2026-06-04--p1-merise-v0.2-rewrite-and-forgejo-migration.md` pour D4-D8 + stock) ; couche security-by-design (audit_log + colonnes imputabilite/auth + tables de limitation) livree, DDL dans `db/migrations/` (20 fichiers, 0001 a 0021 sans 0004)
 **Auteur** : BYAN (couche methodologique)
 
 ---
@@ -17,8 +17,8 @@ association traduite selon sa cardinalite, contraintes referentielles materialis
 index dimensionnes pour les patterns d'acces frequents.
 
 C'est l'etape qui transforme la modelisation conceptuelle en une specification implementable.
-Le DDL SQL (`db/migrations/0001_init_schema.sql`) sera derive directement de ce
-document en P2.
+Le DDL SQL (`db/migrations/0001_init_schema.sql`, puis les migrations additives) a ete
+derive de ce document en P2 ; il est livre (section 11).
 
 **Sources** :
 - `docs/merise/dictionary.md` (v0.2 — types et contraintes par attribut, source de verite)
@@ -95,14 +95,14 @@ en plus de la PK composite des FK. Applique a `product_ingredient`.
 
 ---
 
-## 4. Schema relationnel (23 tables)
+## 4. Schema relationnel (24 tables)
 
 Les tables sont ordonnees par dependance (tables sans FK d'abord, puis tables qui en dependent).
 
 ### Diagrammes relationnels (par sous-domaine)
 
 Le schema relationnel est presente sous forme de quatre vues Mermaid `erDiagram`, une par sous-domaine (meme
-decomposition que le MCD ; un unique diagramme de 23 tables ne se disposerait pas proprement). Elles different
+decomposition que le MCD ; un unique diagramme de 24 tables ne se disposerait pas proprement). Elles different
 du MCD : les entites associatives sont resolues en tables de jointure avec PK composites, le
 polymorphisme de `order_item` apparait sous forme de deux FK nullables (`product_id` / `menu_id`), et chaque
 cle etrangere est explicite. Les horodatages d'audit (`created_at` / `updated_at`) sont presents sur la plupart des
@@ -363,6 +363,7 @@ erDiagram
         datetime lockout_until
         varchar password_reset_token_hash
         datetime password_reset_expires_at
+        int session_epoch
         datetime anonymized_at
     }
     role_visible_source {
@@ -406,6 +407,15 @@ erDiagram
         datetime lockout_until
         datetime last_attempt_at
     }
+    password_reset_throttle {
+        int id PK
+        enum throttle_kind
+        varchar identifier
+        smallint failed_attempts
+        datetime window_started_at
+        datetime lockout_until
+        datetime last_attempt_at
+    }
 
     user }o--|| role : "role_id (RESTRICT)"
     role ||--o{ role_visible_source : "role_id (CASCADE)"
@@ -419,6 +429,9 @@ erDiagram
 > `login_throttle` n'a pas de FK (une IP n'est pas une entite modelisee) ; elle est autonome, cle par
 > `ip_address`. `pin_throttle` (RG-T22) est cle par `actor_user_id` (FK -> `user`, ON DELETE CASCADE) :
 > le throttle du PIN porte sur l'utilisateur AGISSANT, dimension distincte du login.
+> `password_reset_throttle` (ajoutee le 2026-09-29, migration `0020_session_invalidation.sql`) n'a pas
+> de FK non plus : cle UNIQUE composite `(throttle_kind, identifier)`, sur une adresse email (qui peut
+> ne resoudre vers aucun compte) ou une IP source.
 
 ---
 
@@ -451,13 +464,13 @@ Pas de FK. Table racine du sous-domaine Catalogue.
 
 ```
 product (id, #category_id, name, [description], price_cents,
-         [#maxi_variant_product_id], [size_cl], [#base_product_id], vat_rate,
+         [size_cl], [#base_product_id], [#maxi_variant_product_id], vat_rate,
          [image_path], is_available, display_order, created_at, updated_at)
 
   PK  : id
   FK  : category_id             -> category(id) ON DELETE RESTRICT
-  FK  : maxi_variant_product_id -> product(id)  ON DELETE SET NULL
   FK  : base_product_id         -> product(id)  ON DELETE CASCADE
+  FK  : maxi_variant_product_id -> product(id)  ON DELETE SET NULL
   IDX : (category_id, is_available, display_order)
   CHK : price_cents > 0
   CHK : vat_rate IN (55, 100)
@@ -470,10 +483,10 @@ product (id, #category_id, name, [description], price_cents,
 | `name` | VARCHAR(120) | NO | Libelle du produit |
 | `description` | TEXT | YES | Description longue optionnelle |
 | `price_cents` | INT UNSIGNED | NO | Prix a la carte, TVA incluse, en centimes |
-| `maxi_variant_product_id` | INT UNSIGNED | YES | FK -> product (auto-reference), ON DELETE SET NULL ; variante servie en menu Maxi (migration 0006, voir note de table) |
-| `size_cl` | SMALLINT UNSIGNED | YES | Volume en cl d'une variante de taille de boisson ; NULL si pas de dimension taille (migration 0007) |
-| `base_product_id` | INT UNSIGNED | YES | FK -> product (auto-reference), ON DELETE CASCADE ; ligne de base d'une variante de taille, NULL = base/autonome (migration 0007) |
-| `vat_rate` | SMALLINT UNSIGNED | NO | Pour-mille : 100 = 10%, 55 = 5.5% |
+| `size_cl` | SMALLINT UNSIGNED | YES | Volume en cl d'une variante de taille de boisson ; NULL si pas de dimension taille (migration 0007, colonne posee `AFTER price_cents`) |
+| `base_product_id` | INT UNSIGNED | YES | FK -> product (auto-reference), ON DELETE CASCADE ; ligne de base d'une variante de taille, NULL = base/autonome (migration 0007, posee `AFTER size_cl`) |
+| `maxi_variant_product_id` | INT UNSIGNED | YES | FK -> product (auto-reference), ON DELETE SET NULL ; variante servie en menu Maxi (migration 0006, posee `AFTER price_cents`, puis repoussee apres `size_cl`/`base_product_id` par la migration 0007 qui s'insere au meme point d'ancrage) |
+| `vat_rate` | SMALLINT UNSIGNED NOT NULL DEFAULT 100 | NO | Pour-mille : 100 = 10%, 55 = 5.5% |
 | `image_path` | VARCHAR(255) | YES | Chemin relatif depuis la racine publique |
 | `is_available` | TINYINT(1) NOT NULL DEFAULT 1 | NO | Bascule de disponibilite manuelle |
 | `display_order` | SMALLINT UNSIGNED NOT NULL DEFAULT 0 | NO | Ordre d'affichage au sein de la categorie |
@@ -772,7 +785,7 @@ Pas de FK. Table racine pour le RBAC.
 user (id, email, password_hash, [pin_hash], first_name, last_name, #role_id,
       is_active, [last_login_at], failed_login_attempts, [last_failed_login_at],
       [lockout_until], [password_reset_token_hash], [password_reset_expires_at],
-      [anonymized_at], created_at, updated_at)
+      session_epoch, [anonymized_at], created_at, updated_at)
 
   PK  : id
   UK  : email
@@ -796,6 +809,7 @@ user (id, email, password_hash, [pin_hash], first_name, last_name, #role_id,
 | `lockout_until` | DATETIME | YES | Fin de la fenetre de throttling courante (backoff, pas un verrou indefini) |
 | `password_reset_token_hash` | VARCHAR(255) | YES | Hash du token de reinitialisation (pas le token brut) |
 | `password_reset_expires_at` | DATETIME | YES | Expiration du token de reinitialisation |
+| `session_epoch` | INT UNSIGNED NOT NULL DEFAULT 0 | NO | Compteur d'invalidation de session (security-by-design, migration `0020_session_invalidation.sql`, 2026-09-29) ; incremente a la confirmation d'une reinitialisation de mot de passe, ferme les sessions ouvertes avant l'incrementation |
 | `anonymized_at` | DATETIME | YES | Marqueur tombstone RGPD ; PII annulees/remplacees quand defini |
 | `created_at` | DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP | NO | Audit |
 | `updated_at` | DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP | NO | Audit |
@@ -1109,7 +1123,7 @@ stock_movement (id, #ingredient_id, movement_type, delta,
 | `movement_type` | ENUM('sale','cancellation','restock','inventory_correction','adjustment') | NO | Nature du mouvement |
 | `delta` | INT | NO | Changement signe : negatif pour consommation, positif pour reapprovisionnement/annulation/correction |
 | `order_id` | INT UNSIGNED | YES | FK -> customer_order ; non-null pour `sale` et `cancellation` |
-| `user_id` | INT UNSIGNED | YES | FK -> user ; utilisateur AGISSANT (equipier de session pour vente counter/drive ou annulation, manager/admin pour reapprovisionnement/correction) ; null uniquement pour les ventes de la borne (kiosk, anonyme) |
+| `user_id` | INT UNSIGNED | YES | FK -> user ; utilisateur AGISSANT. Selon `movement_type` : `sale` = equipier de SESSION (comptoir/drive, `OrderRepository::createStaffOrder`), NULL pour une vente borne (kiosk, anonyme) ; `cancellation` = equipier resolu par PIN (`OrderRepository::cancel`) ; `restock` = equipier de SESSION (9.1, sans PIN) ; `inventory_correction`/`adjustment` = equipier resolu par PIN (9.2/9.4, `IngredientApiController::apiInventory`/`apiAdjust`) |
 | `note` | VARCHAR(255) | YES | Note humaine optionnelle |
 | `created_at` | DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP | NO | Horodatage immuable |
 
@@ -1156,8 +1170,8 @@ audit_log (id, [#actor_user_id], [#actor_role_id], action_code,
 | `action_code` | VARCHAR(60) | NO | Code d'operation MCT / permission, p. ex. `product.update`, `order.cancel` |
 | `entity_type` | VARCHAR(40) | YES | Nom de la table affectee |
 | `entity_id` | INT UNSIGNED | YES | PK de la ligne affectee |
-| `summary` | VARCHAR(255) | YES | Description courte non personnelle du changement |
-| `details` | JSON | YES | Diff avant/apres optionnel (noms de champs pour les actions ciblant un utilisateur, pas les valeurs PII) |
+| `summary` | VARCHAR(255) | YES | Description courte non personnelle du changement ; pour `pin.failed`, contexte fixe sans l'adresse saisie (corrige le 2026-09-29, RGPD art. 5.1.c, migration 0019) |
+| `details` | JSON | YES | Diff avant/apres optionnel (noms de champs pour les actions ciblant un utilisateur, pas les valeurs PII) ; pour `pin.failed`, `{"target_user_id": <id ou null>, "context": ...}` au lieu d'un diff |
 | `created_at` | DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP | NO | Horodatage immuable |
 
 **ON DELETE SET NULL** sur les deux FK : la piste est preservee quand un utilisateur est anonymise/supprime
@@ -1272,11 +1286,57 @@ Pas d'horodatages. Table de correspondance pure.
 
 ---
 
+### 4.24 `password_reset_throttle`
+
+Throttle de la demande de reinitialisation de mot de passe (POST `/forgot_password`), par ADRESSE et par
+IP source (security-by-design, ajoutee le 2026-09-29, migration `0020_session_invalidation.sql`, apres un
+contre-audit : avant cette date, aucune limite n'existait). Deux dimensions orthogonales dans une seule
+table, discriminees par `throttle_kind` — meme motif que `role_visible_source` (discriminant +
+identifiant generique) plutot que deux tables.
+
+```
+password_reset_throttle (id, throttle_kind, identifier, failed_attempts,
+                          window_started_at, [lockout_until], last_attempt_at)
+
+  PK  : id
+  UK  : (throttle_kind, identifier)
+  IDX : lockout_until
+```
+
+| Colonne | Type | NULL | Notes |
+|---|---|---|---|
+| `id` | INT UNSIGNED AUTO_INCREMENT | NO | PK |
+| `throttle_kind` | ENUM('email','ip') | NO | Dimension de la ligne : adresse demandee ou IP source |
+| `identifier` | VARCHAR(254) | NO | Pour `throttle_kind = 'ip'` : adresse IP en clair. Pour `throttle_kind = 'email'` : empreinte SHA-256 de l'adresse normalisee (minuscules, espaces de bord retires) depuis la migration 0021 — l'adresse en clair, ecrite par la migration 0020, a ete convertie (minimisation RGPD art. 5.1.c). Fait partie de la cle UNIQUE composite avec `throttle_kind` |
+| `failed_attempts` | SMALLINT UNSIGNED NOT NULL DEFAULT 0 | NO | Demandes consecutives dans la fenetre courante |
+| `window_started_at` | DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP | NO | Debut de la fenetre de comptage courante |
+| `lockout_until` | DATETIME | YES | Fin de la fenetre de backoff degressif ; NULL = pas throttle |
+| `last_attempt_at` | DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP | NO | Horodatage de la derniere demande |
+
+**Pas de FK** : `identifier` peut porter une adresse email qui ne resout vers aucun compte —
+l'anti-enumeration (RG-2, `mlt.md` 12.3) exige de throttler une adresse inconnue exactement comme une
+adresse connue. Meme backoff degressif que le login (RG-8) et le PIN (RG-T22), bornes propres
+(`PASSWORD_RESET_EMAIL_THROTTLE_THRESHOLD`, `PASSWORD_RESET_IP_THROTTLE_THRESHOLD`,
+`PASSWORD_RESET_THROTTLE_BASE_SECONDS`, `PASSWORD_RESET_THROTTLE_MAX_SECONDS`, `.env.example`), seuils
+distincts par dimension (l'IP tolere plus de tentatives que l'adresse). Meme purge cron que
+`login_throttle`/`pin_throttle` (`THROTTLE_PURGE_AFTER_HOURS`, `docker/cron/scripts/purge-throttle.sh`,
+`docker/cron/crontab` 04h45). Pas de `updated_at` (lignes upsertees, pas editees via une UI).
+
+**Empreinte de l'adresse (migration 0021)** : `App\Auth\PasswordResetThrottle::hashEmail()` calcule le
+SHA-256 de l'adresse normalisee avant chaque lecture/ecriture de la dimension `email` ; la table ne sert
+qu'a comparer deux tentatives entre elles par egalite exacte sur la cle unique, sans lire ni envoyer
+d'adresse (l'envoi de l'e-mail est fait separement par `PasswordResetService`, depuis l'adresse fournie
+par l'appelant).
+
+---
+
 ## 5. Resume de l'integrite referentielle
 
 | Colonne FK | References | ON DELETE | Justification |
 |---|---|---|---|
 | `product.category_id` | `category(id)` | RESTRICT | Pas de produit orphelin |
+| `product.base_product_id` | `product(id)` | CASCADE | Une variante de taille disparait avec son produit de base (migration 0007) |
+| `product.maxi_variant_product_id` | `product(id)` | SET NULL | Le produit reste, seul le lien vers sa variante Maxi est rompu (migration 0006) |
 | `menu.category_id` | `category(id)` | RESTRICT | Idem |
 | `menu.burger_product_id` | `product(id)` | RESTRICT | La definition du menu requiert son burger d'ancrage |
 | `menu_slot.menu_id` | `menu(id)` | CASCADE | Les slots n'ont pas de sens sans leur menu |
@@ -1367,6 +1427,7 @@ MCT / MLT.
 | `audit_log` | `(action_code, created_at)` | Audit par type d'action sur une plage de temps |
 | `login_throttle` | `lockout_until` | Purge cron quotidienne des lignes sans verrouillage actif |
 | `pin_throttle` | `lockout_until` | Purge cron quotidienne des lignes sans verrouillage actif (RG-T22) |
+| `password_reset_throttle` | `lockout_until` | Meme purge cron (`idx_password_reset_throttle_lockout_until`, migration 0020) |
 
 **Index non ajoutes** (intentionnel) :
 - `customer_order.order_number` : l'index UK suffit ; aucune requete de plage attendue sur cette colonne.
@@ -1378,7 +1439,7 @@ MCT / MLT.
 
 ## 8. Validation croisee MLD <-> MCD
 
-Verification que les 23 entites MCD (19 prod-like + 3 security-by-design + `category_ingredient_family`)
+Verification que les 24 entites MCD (19 prod-like + 4 security-by-design + `category_ingredient_family`)
 correspondent a une table, et que toutes les tables se rattachent au MCD.
 
 | Entite MCD | Table MLD | Type de mapping | Notes |
@@ -1406,12 +1467,13 @@ correspondent a une table, et que toutes les tables se rattachent au MCD.
 | `login_throttle` (R7) | `login_throttle` (4.21) | entite 1:1 | Nouvelle entite (security-by-design) |
 | `pin_throttle` (R9) | `pin_throttle` (4.22) | entite 1:1 | Nouvelle entite (security-by-design, RG-T22) |
 | `category_ingredient_family` (I8) | `category_ingredient_family` (4.23) | Table de jointure (PK composite) | Nouvelle table (migration 0017) — attribut multivalue de `category` sorti par la 1FN, voir `mcd.md` 5.3 |
+| `password_reset_throttle` | `password_reset_throttle` (4.24) | entite 1:1 | Nouvelle entite (security-by-design, migration `0020_session_invalidation.sql`, 2026-09-29) |
 
-**Resultat** : 23/23 entites mappees (19 prod-like + `audit_log`, `login_throttle`, `pin_throttle`
-security-by-design + `category_ingredient_family`). Aucune entite sans table ; aucune table hors du
-MCD. Nouvelles colonnes sur les tables existantes : `user` (cycle de vie auth + `pin_hash` +
-`anonymized_at`), `customer_order` (`idempotency_key`, `acting_user_id`), `ingredient`
-(`stock_capacity`, `low_stock_pct`, `critical_stock_pct` ; `low_stock_threshold` reaffecte ;
+**Resultat** : 24/24 entites mappees (19 prod-like + `audit_log`, `login_throttle`, `pin_throttle`,
+`password_reset_throttle` security-by-design + `category_ingredient_family`). Aucune entite sans table ;
+aucune table hors du MCD. Nouvelles colonnes sur les tables existantes : `user` (cycle de vie auth +
+`pin_hash` + `anonymized_at` + `session_epoch`), `customer_order` (`idempotency_key`, `acting_user_id`),
+`ingredient` (`stock_capacity`, `low_stock_pct`, `critical_stock_pct` ; `low_stock_threshold` reaffecte ;
 `allergens_reviewed_at`, `allergens_source`, `family`).
 
 **Abandonne depuis v0.1** : `commande_event` (remplace par les horodatages de phase `paid_at`, `delivered_at`, `cancelled_at`
@@ -1446,7 +1508,8 @@ sur `customer_order` — decision 2.A) ; le modele de composition fixe `menu_pro
 | `audit_log` | ~5k-10k | 200 octets | ~2 MB |
 | `login_throttle` | ~100-1k | 80 octets | < 1 MB |
 | `pin_throttle` | ~10-100 | 80 octets | < 1 MB (1 ligne par user back-office) |
-| `category_ingredient_family` | ~20-30 | 40 octets | < 1 KB (8 des 9 categories, 2 a 5 familles chacune) |
+| `category_ingredient_family` | ~20-30 | 40 octets | < 1 KB (8 des 9 categories, 1 a 5 familles chacune) |
+| `password_reset_throttle` | ~10-100 | 110 octets | < 1 MB (lignes ephemeres, purgees par le cron) |
 
 **Total estime** : ~190 MB de donnees + ~60-80 MB pour les index = ~250-270 MB sur 6 mois
 (`audit_log` est negligeable : les actions sensibles sont d'un ordre de grandeur plus rares que les commandes).
@@ -1490,21 +1553,26 @@ Cette section decrivait a l'origine un plan ; elle enregistre desormais ce qui a
 que le document reste exact une fois le travail fait.
 
 1. **DDL** : `db/migrations/0001_init_schema.sql` transcrit ce MLD en `CREATE TABLE`, dans l'ordre de
-   dependance (`category` -> `product`/`ingredient`/`allergen`/`role` -> `menu` -> `menu_slot` ->
-   `menu_slot_option` -> `product_ingredient` -> `ingredient_allergen` -> `user` ->
-   `role_visible_source`/`permission`/`role_permission` -> `customer_order` -> `order_item` ->
-   `order_item_selection`/`order_item_modifier` -> `stock_movement` -> `audit_log` -> `login_throttle` ->
-   `pin_throttle`). Seize migrations additives suivent dans `db/migrations/`, numerotees 0002 a 0018 (la
-   numerotation saute 0004), appliquees par un runner idempotent (`db/migrate.sh` cote hote,
-   `db/migrate-container.sh` en conteneur), suivi par nom de fichier dans `schema_migrations`.
+   dependance (`category` -> `ingredient` -> `allergen` -> `role` -> `permission` -> `login_throttle` ->
+   `product` -> `menu` -> `menu_slot` -> `menu_slot_option` -> `product_ingredient` ->
+   `ingredient_allergen` -> `user` -> `role_visible_source`/`role_permission` -> `customer_order` ->
+   `order_item` -> `order_item_selection`/`order_item_modifier` -> `stock_movement` -> `audit_log`).
+   `pin_throttle` n'y figure PAS : elle est creee par la premiere migration additive
+   (`0002_pin_throttle.sql`), pas par `0001_init_schema.sql`. Dix-neuf migrations additives suivent dans
+   `db/migrations/`, numerotees 0002 a 0021 (la numerotation saute 0004 ; 20 fichiers au total, mesure du 29/09), appliquees par un runner
+   idempotent (`db/migrate.sh` cote hote, `db/migrate-container.sh` en conteneur), suivi par nom de
+   fichier dans `schema_migrations`.
 
 2. **Seed** : dix fichiers (`db/seeds/0001_rbac_and_reference.sql` a `0010_ingredient_families.sql`),
    pas un unique `0001_demo_data.sql` — chaque sous-domaine a le sien (RBAC + reference, catalogue,
    ingredients/recettes, variantes de menu/boisson, allergenes, comptes de demo, familles
    d'ingredients). Appliques par le meme runner, suivis dans `seeds_applied`. Couvrent : 9 categories +
-   53 produits + 13 menus (depuis les sources JSON `docs/merise/_sources/`), les slots et options de
-   slot, les 14 allergenes (INCO UE 1169/2011), le catalogue d'ingredients avec recettes, les 5 roles
-   avec matrice `role_permission` et donnees `role_visible_source`, un utilisateur admin bootstrap.
+   53 produits a l'init (58 apres les seeds 0005/0006, voir dictionary.md 3.2) + 13 menus (depuis les
+   sources JSON `docs/merise/_sources/`), les slots et options de slot, les 14 allergenes (INCO UE
+   1169/2011), le catalogue d'ingredients avec recettes, les 5 roles avec matrice `role_permission` et
+   donnees `role_visible_source`, **6 comptes utilisateur** au total : 1 admin bootstrap
+   (`0001_rbac_and_reference.sql`) + 5 comptes de demonstration, un par role
+   (`0009_demo_accounts.sql`).
 
 3. **Pas d'export JSON de fallback** : l'idee d'un mode borne isole servi par des fichiers statiques
    (`src/public/borne/data/*.json`) a ete abandonnee. La borne consomme l'API REST en lecture
@@ -1513,5 +1581,7 @@ que le document reste exact une fois le travail fait.
 
 4. **Tests de validation** : les contraintes CHECK et les comportements ON DELETE sont exerces par la
    suite d'integration (`tests/Integration/*DbTest.php`, execution sur une vraie base) plutot que par
-   une suite dediee au DDL seul ; deux tests ciblent directement une migration
-   (`ManagerOrderCancelMigrationDbTest`, `IngredientFamilyMigrationDbTest`).
+   une suite dediee au DDL seul ; cinq tests ciblent directement une migration
+   (`IngredientFamilyMigrationDbTest`, `ManagerOrderCancelMigrationDbTest`,
+   `PinFailedAuditMinimisationMigrationDbTest`, `SessionInvalidationMigrationDbTest`,
+   `PasswordResetThrottleHashMigrationDbTest`, sous `tests/Integration/`).

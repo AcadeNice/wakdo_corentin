@@ -23,6 +23,7 @@ erDiagram
         datetime lockout_until
         varchar password_reset_token_hash
         datetime password_reset_expires_at
+        int session_epoch
         datetime anonymized_at
     }
     role_visible_source {
@@ -61,6 +62,15 @@ erDiagram
     pin_throttle {
         int id PK
         int actor_user_id FK,UK
+        smallint failed_attempts
+        datetime window_started_at
+        datetime lockout_until
+        datetime last_attempt_at
+    }
+    password_reset_throttle {
+        int id PK
+        enum throttle_kind
+        varchar identifier
         smallint failed_attempts
         datetime window_started_at
         datetime lockout_until

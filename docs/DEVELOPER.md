@@ -76,10 +76,18 @@ docker run --rm -v "$PWD":/app -w /app wakdo-wakdo-app \
 docker run --rm --network wakdo_wakdo_internal --env-file .env -e WAKDO_DB_TESTS=1 \
   -v "$PWD":/app -w /app wakdo-wakdo-app php phpunit.phar -c phpunit.xml
 
-# Analyse statique PHPStan niveau 6
+# Analyse statique PHPStan niveau 6 (memory_limit=-1, comme la CI : l'analyse
+# parallele depasse les 128M par defaut du php-cli)
 docker run --rm -v "$PWD":/app -w /app wakdo-wakdo-app \
-  php -d memory_limit=512M phpstan.phar analyse -c phpstan.neon --no-progress
+  php -d memory_limit=-1 phpstan.phar analyse -c phpstan.neon --no-progress
 ```
+
+> Precaution avec `--env-file` : Docker n'interprete pas les commentaires en fin de
+> ligne dans un fichier `.env` (contrairement a un `.env` charge par PHP) — un
+> `KEY=valeur    # commentaire` comme on en trouve dans `.env.example` risque de
+> transmettre le commentaire comme partie de la valeur. Verifier (ou passer par une
+> copie sans commentaires en fin de ligne) avant d'utiliser `--env-file` sur un `.env`
+> qui en contient.
 
 Tests front borne (Node + jsdom) :
 
@@ -98,8 +106,10 @@ npm run test:js      # node --test tests/js/
 
 - **PSR-4 manuel** : namespace `App\` -> `src/app/`. Pas de framework.
 - **Controleurs** : non-`final` (seam de test ; les tests sous-classent et injectent
-  des doubles via `db()` / `sessionManager()`). Heritent de `AdminController`
-  (back-office) ou `AuthenticatedController`.
+  des doubles via `db()` / `sessionManager()`), sauf `HomeController` qui est `final`.
+  La plupart heritent de `AdminController` (back-office) ou `AuthenticatedController` ;
+  six (`AuthController`, `CatalogueController`, `HealthController`, `HomeController`,
+  `OrderController`, `PasswordResetController`) etendent `Controller` directement.
 - **Acces donnees** : un repository par entite, dependant de `DatabaseInterface`
   (PDO en prod, `FakeDatabase` en test). Requetes preparees uniquement.
 - **Mutations** : CSRF (`Csrf::validate`) + validation serveur bornee (RG-T18) +
@@ -123,7 +133,8 @@ auth, borne, catalogue, commande...).
   francais depuis mi-juin 2026 ; le francais fait regle.
 - **Branches** depuis `dev` : `feat/*`, `fix/*`, `docs/*`, `chore/*`, `ci/*`, `db/*`,
   `refactor/*`, `test/*`. Merge vers `dev` par **PR squashee**. Periodiquement
-  `dev -> main` avec tag semver.
+  `dev -> main` avec tag semver. Etat au 29/09 : seules `v0.1.0` et `v0.2.0` sont
+  posees ; les releases suivantes sont identifiees par le titre de leur PR.
 - **Auto-merge** : l'ouverture de la PR programme la fusion squash automatique des que
   les checks requis passent (auto-merge NATIF Forgejo `merge_when_checks_succeed`, sans
   label ni job CI). Script : `scripts/forgejo-pr-automerge.sh`.

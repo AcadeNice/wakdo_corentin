@@ -148,12 +148,12 @@
           Source de verite unique : PROJECT_CONTEXT.md + dossier merise/.</p></div>
       <div class="card"><h3>TDD</h3>
         <p class="muted">Tests avant code sur les chemins critiques
-          (commande, stock, securite). 1 295 methodes de test PHP.</p></div>
+          (commande, stock, securite). 1 410 methodes de test PHP (29/09).</p></div>
       <div class="card"><h3>Git discipline</h3>
-        <p class="muted">242 commits Conventional, branches feat/*, PR vers dev,
-          hooks protegeant main/dev.</p></div>
+        <p class="muted">244 commits Conventional au 29/09 (242 au 28/09), branches feat/*,
+          PR vers dev, hooks protegeant main/dev.</p></div>
       <div class="card"><h3>Tracabilite</h3>
-        <p class="muted">20 ADR (decisions datees) + 16 entrees de journal de bord.
+        <p class="muted">20 ADR (decisions datees) + 17 entrees de journal de bord.
           Transparence IA portee dans la doc.</p></div>
     </div>
   </section>
@@ -205,11 +205,11 @@
           <li>Cibles tactiles larges, contrastes</li>
           <li>Navigation au clavier</li>
           <li>Information non portee par la seule couleur</li>
-          <li><b>Mesure</b> : 19 ecrans, 935 mesures de contraste, 0 violation (axe-core)</li>
+          <li><b>Mesure</b> : 19 ecrans, 934 mesures de contraste, 0 violation (axe-core, 29/09)</li>
         </ul></div>
       <div class="card"><h3>HTML semantique + SEO (Cr 1.e)</h3>
         <ul class="muted">
-          <li>Balises main / nav / article</li>
+          <li>Balises main / nav / header / aside</li>
           <li>Donnees structurees, meta, favicon</li>
           <li>5 pages HTML conformes maquette</li>
         </ul></div>
@@ -223,7 +223,7 @@
       <div>
         <p class="muted">HTML5 + CSS3 + JavaScript ES6+ modulaire.
           <b>Zero dependance</b> : ni jQuery, ni framework, ni bundler.
-          3 311 lignes JS sur 21 modules (borne).</p>
+          3 551 lignes JS sur 21 modules (borne, 29/09).</p>
         <ul class="muted">
           <li><code>data.js</code> - recuperation catalogue (fetch)</li>
           <li><code>state.js</code> - panier en localStorage</li>
@@ -255,14 +255,14 @@
 
   <!-- 13 MERISE -->
   <section class="slide">
-    <h2>Modele de donnees Merise - 23 entites</h2>
+    <h2>Modele de donnees Merise - 24 entites</h2>
     <div class="grid" style="flex:1;grid-template-columns:repeat(3,1fr)">
       <div class="card"><h3>Catalogue</h3><p class="muted">category, product, menu, menu_slot, menu_slot_option, category_ingredient_family</p></div>
       <div class="card"><h3>Ingredients & Stock</h3><p class="muted">ingredient, product_ingredient, allergen, ingredient_allergen, stock_movement</p></div>
       <div class="card"><h3>Order</h3><p class="muted">customer_order, order_item, order_item_selection, order_item_modifier</p></div>
       <div class="card"><h3>RBAC</h3><p class="muted">user, role, permission, role_permission, role_visible_source</p></div>
-      <div class="card"><h3>Security-by-design</h3><p class="muted">audit_log, login_throttle, pin_throttle</p></div>
-      <div class="card center"><p class="big">17 migrations<br>10 seeds</p><p class="muted">idempotentes</p></div>
+      <div class="card"><h3>Security-by-design</h3><p class="muted">audit_log, login_throttle, pin_throttle, password_reset_throttle</p></div>
+      <div class="card center"><p class="big">20 migrations<br>10 seeds</p><p class="muted">idempotentes</p></div>
     </div>
   </section>
 
@@ -291,8 +291,9 @@ GET  /api/orders/{n}        -> consultation statut</div>
         <p class="muted">idempotency_key UNIQUE : re-cliquer "Payer" ne facture pas deux fois.
           <span class="mono">RG-T19</span></p></div>
       <div class="card"><h3>Stock atomique</h3>
-        <p class="muted">Decrement en une instruction SQL gardee, dans la transaction de paiement.
-          Pas de course critique. <span class="mono">RG-T20</span></p></div>
+        <p class="muted">Decrement en une instruction SQL par ingredient, sans plancher,
+          dans la transaction de paiement. La disponibilite produit (RG-T21) masque en amont
+          ce qui est deja en rupture. <span class="mono">RG-T20</span></p></div>
     </div>
     <p class="muted">22 regles transverses RG-T01 a RG-T22 (SQLi, XSS, CSRF, RBAC, audit...).</p>
   </section>
@@ -303,18 +304,20 @@ GET  /api/orders/{n}        -> consultation statut</div>
     <div class="flow" style="margin:3vh 0">
       <div class="pill">pending_payment</div>
       <span class="arrow">&rarr;</span>
-      <div class="pill">paid <span class="muted">(+ decrement stock)</span></div>
-      <span class="arrow">&rarr;</span>
-      <div class="pill">preparing</div>
+      <div class="pill">preparing <span class="muted">(paid_at + decrement stock)</span></div>
       <span class="arrow">&rarr;</span>
       <div class="pill">ready</div>
       <span class="arrow">&rarr;</span>
       <div class="pill">delivered</div>
-      <span style="margin-left:2vw" class="muted">+ cancelled</span>
+      <span style="margin-left:2vw" class="muted">+ paid, + cancelled</span>
     </div>
-    <p class="muted">preparing et ready sont optionnels et visibles au KDS (retour oral,
-      migration 0009) : ready accepte aussi paid en direct, deliver accepte
-      paid|preparing|ready. Immuabilite des snapshots (libelle, prix, TVA figes a la commande).</p>
+    <p class="muted">L'encaissement pose DIRECTEMENT le statut sur preparing (pas sur paid :
+      retour oral, une commande payee part en cuisine sans geste manuel) ; paid_at est
+      quand meme horodate. paid reste une valeur d'etat valide (robustesse, commandes
+      anterieures), mais aucun chemin actuel ne l'ecrit sur une nouvelle commande
+      (`OrderRepository`, commentaire au-dessus de la transition d'encaissement). ready
+      accepte aussi paid en direct, deliver accepte paid|preparing|ready (migration 0009).
+      Immuabilite des snapshots (libelle, prix, TVA figes a la commande).</p>
   </section>
 
   <!-- 17 RBAC + PIN -->
@@ -343,7 +346,7 @@ GET  /api/orders/{n}        -> consultation statut</div>
       <div class="card"><h3>db</h3><p class="muted">MariaDB 11.4</p></div>
       <div class="card"><h3>cron</h3><p class="muted">backups + purges RGPD</p></div>
       <div class="card"><h3>migrate</h3><p class="muted">one-shot, idempotent</p></div>
-      <div class="card center"><p class="muted">Reseaux segmentes :<br>la base n'est pas exposee.</p></div>
+      <div class="card center"><p class="muted">Un seul reseau Docker :<br>la base n'a pas de port publie.</p></div>
     </div>
   </section>
 
@@ -361,8 +364,10 @@ GET  /api/orders/{n}        -> consultation statut</div>
       <span class="arrow">&rarr;</span>
       <div class="pill">shell-tests</div>
     </div>
-    <p class="muted">A chaque PR (<code>ci.yml</code>). Auto-merge en squash quand les checks
-      requis passent au vert. Deploiement continu separe (<code>deploy.yml</code>) sur
+    <p class="muted">A chaque PR (<code>ci.yml</code>). Auto-merge quand les checks requis
+      passent au vert : en squash pour les PR de travail vers <code>dev</code> (un commit par
+      PR, historique lineaire), en fusion classique (2 parents) pour les releases
+      <code>dev -> main</code>. Deploiement continu separe (<code>deploy.yml</code>) sur
       <code>main</code> : "la meme commande qui marche sur ma machine est celle qui deploie."</p>
   </section>
 
@@ -370,7 +375,7 @@ GET  /api/orders/{n}        -> consultation statut</div>
   <section class="slide">
     <h2>Le projet en chiffres</h2>
     <div class="kpis" style="margin-bottom:1.6vh">
-      <div class="kpi"><b>242</b><span>commits Conventional</span></div>
+      <div class="kpi"><b>244</b><span>commits Conventional (29/09, 242 au 28/09)</span></div>
       <div class="kpi"><b>1 295</b><span>methodes de test PHP</span></div>
       <div class="kpi"><b>23</b><span>entites Merise</span></div>
       <div class="kpi"><b>22</b><span>regles securite RG-T</span></div>
@@ -389,7 +394,7 @@ GET  /api/orders/{n}        -> consultation statut</div>
     <table>
       <tr><th>Bloc</th><th>Demontre par</th><th>Preuve</th></tr>
       <tr><td><span class="tag b1">B1 Front</span></td><td>Demo borne, accessibilite, JS vanilla</td><td>5 pages + modules JS</td></tr>
-      <tr><td><span class="tag b2">B2 Back</span></td><td>Merise, API REST, securite by-design</td><td>23 entites + RG-T + tests</td></tr>
+      <tr><td><span class="tag b2">B2 Back</span></td><td>Merise, API REST, securite by-design</td><td>24 entites + RG-T + tests</td></tr>
       <tr><td><span class="tag b5">B5 DevOps</span></td><td>Docker une commande, CI/CD, crons</td><td>5 services + pipeline Forgejo</td></tr>
     </table>
     <p class="muted" style="margin-top:2vh">Seuil : 50 % minimum par bloc et 50 % de moyenne globale.</p>

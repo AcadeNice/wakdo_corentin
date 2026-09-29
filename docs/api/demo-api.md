@@ -1,4 +1,4 @@
-# Demo de l'API d'administration en 5 minutes (Postman ou Bruno)
+# Demo de l'API d'administration en 5 minutes (Postman, Bruno ou Insomnia)
 
 L'API d'administration JSON (`/admin/api/*`, [docs/api/conventions.md](conventions.md)
 section 5.3) se demontre desormais de bout en bout SANS navigateur : la connexion se fait
@@ -6,10 +6,13 @@ par `POST /admin/api/auth/login` (section 5.3bis), qui pose le cookie de session
 le jeton CSRF dans le corps de sa reponse — plus besoin d'ouvrir les outils de developpement
 pour copier un cookie a la main.
 
-Deux outils sont couverts, memes fichiers sources, deux rendus : **Postman**
+Trois outils sont couverts : **Postman**
 (`docs/api/wakdo-admin.postman_collection.json` + `docs/api/wakdo.postman_environment.json`,
 generes par `scripts/gen_postman.py`) et **Bruno** (`docs/api/bruno/`, genere par
-`scripts/gen_bruno.py`, natif — un fichier `.bru` par requete, versionnable comme du code).
+`scripts/gen_bruno.py`, natif — un fichier `.bru` par requete, versionnable comme du code)
+partagent les memes fichiers sources generes ; **Insomnia** (section 8) n'a pas de collection
+generee par ce depot — sa collection se construit a la main, en suivant le meme scenario, et
+les deux collections generees ci-dessus servent de reference pour la construire.
 
 ## 0. Choisir son outil
 
@@ -45,7 +48,7 @@ votre instance ecoute ailleurs.
 1. Dans l'environnement, renseignez `email` et `password` avec le compte de demo du seed
    (cf. `db/seeds/0001_rbac_and_reference.sql`, section "bootstrap administrator" — pas
    recopie ici pour ne pas dupliquer un identifiant de demonstration dans un fichier distinct).
-2. Executez **0. Connexion > Se connecter**. Reponse `200` :
+2. Executez **1. Connexion > Se connecter**. Reponse `200` :
    `{ data: { user: {id, email, display_name, role}, permissions: [...], csrf_token } }`.
    Le script de test de la requete range `csrf_token` dans la variable d'environnement
    `csrf`, reutilisee par toutes les requetes suivantes via l'en-tete `X-CSRF-Token`, et pose
@@ -150,7 +153,7 @@ demo par poste) puis 1-2 requetes qui prouvent la matrice de droits reelle du se
 
 | Poste | Autorise (exemple) | Refuse (exemple, `403 FORBIDDEN`) |
 |---|---|---|
-| Manager | `GET /admin/api/stats` (`stats.read`) et `POST /admin/api/orders/{n}/cancel` (`order.cancel`, ADR-0020, qui remplace la decision D5 sur ce point) | `POST /admin/api/users` (pas de `user.create`) |
+| Manager | `GET /admin/api/stats` (`stats.read`) et `GET /admin/api/orders` (`order.read`) | `POST /admin/api/users` (pas de `user.create`) |
 | Cuisine | `GET /admin/api/orders` (`order.read`) | `GET /admin/api/users` (pas `user.read`) |
 | Comptoir | `POST /admin/api/orders` avec `items: []` (`422`, permission `order.create` accordee AVANT la validation) | `DELETE /admin/api/products/{id}` (pas `product.delete`) |
 | Drive | Meme preuve non encaissee que Comptoir (`422`) | `DELETE /admin/api/products/{id}` (pas `product.delete`, meme ensemble de droits que Comptoir par construction du seed) |
@@ -166,11 +169,19 @@ verification de permission passe strictement AVANT la validation du corps, donc 
 codes restent distincts. Manager et Cuisine, eux, prouvent leur droit "Autorise" par une
 LECTURE simple (`GET`), deja sans effet de bord.
 
+`order.cancel` du manager (reel depuis [ADR-0020](../adr/0020-responsable-annule-commande.md),
+qui remplace la decision D5 sur ce point, et deja visible au tableau RBAC de
+`docs/demo/matrice-rbac.md`) n'a PAS de requete dediee dans ce dossier : le sous-dossier
+Manager s'en tient a deux lectures. Pour le demontrer avec cette collection, rejouer le
+scenario "annuler" du dossier **Commandes** (section 4) apres s'etre connecte en manager.
+
 Chaque requete de ce dossier porte son propre script de test (`pm.test`/`tests{}` selon
 l'outil) qui verifie le code HTTP attendu : Newman et `bru run` prouvent donc la matrice
-automatiquement (voir section 6). Ce dossier utilise volontairement des ids/numeros fixes
-(`1`, `K1`) plutot que les variables capturees par les dossiers precedents : il peut se rejouer
-seul, sans dependre de l'ordre d'execution du reste de la collection.
+automatiquement (voir section 6). Ce dossier utilise volontairement l'id fixe `1` (les
+requetes `DELETE /admin/api/products/1` de Comptoir/Drive) plutot que les variables
+capturees par les dossiers precedents : il peut se rejouer seul, sans dependre de l'ordre
+d'execution du reste de la collection. Aucune requete de ce dossier n'utilise un numero de
+commande fixe type `K1` a ce jour.
 
 ## 6. Executer en ligne de commande (CI, preuve automatisee)
 
@@ -186,8 +197,26 @@ fichier commis.
 ```bash
 npx --yes newman run docs/api/wakdo-admin.postman_collection.json \
   -e docs/api/wakdo.postman_environment.json \
-  --env-var email=admin@wakdo.local --env-var password='...'
+  --env-var email=admin@wakdo.local --env-var password='...' \
+  --env-var pin='...' \
+  --env-var email_manager='...' --env-var password_manager='...' \
+  --env-var email_cuisine='...' --env-var password_cuisine='...' \
+  --env-var email_comptoir='...' --env-var password_comptoir='...' \
+  --env-var email_drive='...' --env-var password_drive='...'
 ```
+
+`pin` alimente les actions marquees **PIN** de la section 4 (le PIN doit d'abord
+exister sur le compte admin, section 3 ci-dessus — sans lui, ces requetes echouent
+en `422 PIN_INVALID` au lieu du code attendu par la collection). Les quatre
+paires `email_<role>`/`password_<role>` alimentent le dossier `RBAC : preuve des
+droits` (section 5) : absentes de la commande, elles restent a la valeur vide de
+l'environnement commis (liste blanche, plus bas), et la connexion de ce dossier
+echoue alors en `422 VALIDATION_ERROR` sur le champ `email` (`AuthApiController::
+apiLogin()` borne l'email AVANT tout appel a `AuthService`, cf. section 7) — PAS
+en `401 INVALID_CREDENTIALS`, qui ne survient que si `email`/`password` sont
+renseignes mais FAUX, ou visent une base sans le seed de comptes de demo (voir la
+note en fin de section). Valeurs reelles (mots de passe, PIN) : `docs/demo/
+comptes-demo.md`, pas recopiees ici.
 
 **Bruno (`bru run`) — sur une COPIE de l'environnement, pas le fichier commis.** A la
 difference de Newman, Bruno PERSISTE sur disque toute variable posee par un script via
@@ -205,26 +234,36 @@ run sur une copie, en dehors du depot :
 cp docs/api/bruno/environments/wakdo.bru /tmp/wakdo-demo.bru
 cd docs/api/bruno
 npx --yes @usebruno/cli run --env-file /tmp/wakdo-demo.bru \
-  --env-var email=admin@wakdo.local --env-var password='...'
+  --env-var email=admin@wakdo.local --env-var password='...' \
+  --env-var pin='...' \
+  --env-var email_manager='...' --env-var password_manager='...' \
+  --env-var email_cuisine='...' --env-var password_cuisine='...' \
+  --env-var email_comptoir='...' --env-var password_comptoir='...' \
+  --env-var email_drive='...' --env-var password_drive='...'
 # la copie /tmp/wakdo-demo.bru accumule les valeurs d'execution ; le fichier
-# COMMIS (environments/wakdo.bru) reste, lui, intact.
+# COMMIS (environments/wakdo.bru) reste, lui, intact. Memes variables pin/
+# email_*/password_* que la commande Newman ci-dessus, meme raison d'etre.
 ```
 
 Un garde-fou (`node --test tests/js/api-collection-secrets.test.js`) applique une LISTE
 BLANCHE sur les deux fichiers d'environnement commis (Bruno et Postman), sur les variables
-de collection Postman, et sur les corps de requete `.bru` : toute cle y porte une valeur
-vide, a deux exceptions pres (`baseUrl`, et `pin_email` qui doit valoir exactement
+de collection Postman, et sur les corps de requete `.bru` ET Postman : toute cle y porte une
+valeur vide, a deux exceptions pres (`baseUrl`, et `pin_email` qui doit valoir exactement
 `{{email}}`) ; tout champ `password*`/`pin*` d'un corps de requete doit contenir une
-reference `{{...}}` plutot qu'un litteral fixe. Il echoue si le fichier commis venait malgre
-tout a porter une valeur hors de cette liste blanche.
+reference `{{...}}` plutot qu'un litteral fixe ; `baseUrl`, la seule cle non vide autorisee,
+doit en plus rester une adresse LOCALE (`localhost`, `*.localhost` ou `*.test`, pas un hote
+de production). Il echoue si le fichier commis venait malgre tout a porter une valeur hors
+de cette liste blanche.
 
 Les deux outils se lancent via `npx`/`--yes`, sans installation globale — verifie pendant ce
 chantier (`npx --yes @usebruno/cli --version` repond directement ; voir aussi le rapport de
 verification E2E cite dans le commit). Le dossier `RBAC : preuve des droits` suppose que le
 seed de comptes de demo par poste existe sur la base ciblee (`docs/demo/comptes-demo.md`,
-chantier separe) — sur une pile sans ce seed, ses requetes de connexion echouent avec
-`INVALID_CREDENTIALS` (401), ce qui n'affecte pas le reste de la collection (dossiers
-independants).
+chantier separe) : `email_<role>`/`password_<role>` RENSEIGNES mais FAUX (ou visant une base
+sans ce seed) echouent en `401 INVALID_CREDENTIALS` ; ABSENTS de la commande (valeur vide de
+l'environnement commis), ils echouent plus tot, en `422 VALIDATION_ERROR` sur le champ
+`email` (voir plus haut) — dans les deux cas, sans affecter le reste de la collection
+(dossiers independants).
 
 ## 7. Lire les erreurs
 
@@ -242,6 +281,113 @@ Toute reponse suit l'enveloppe `{ "data": ... }` ou `{ "data": null, "error": { 
 | `VALIDATION_ERROR` | 422 | champ manquant/invalide, detail dans `error.fields` |
 | `CONFLICT` | 409 | doublon (slug/email/code) ou suppression bloquee par une reference |
 | `NOT_FOUND` | 404 | id absent en base (variable d'environnement pas encore renseignee ?) |
+
+## 8. Avec Insomnia, pas a pas
+
+Insomnia n'a pas de collection generee par ce depot (contrairement a Postman et Bruno,
+section 0) : c'est un outil tiers que chacun cable soi-meme, requete par requete, contre
+la meme API. Cette section decrit comment reproduire le meme scenario (section 4) a la
+main. **Postman et Bruno restent la collection DE REFERENCE, importable telle quelle** ;
+ce qui suit est une demarche manuelle equivalente, pas un troisieme export genere.
+
+### 8.1 Environnement
+
+Creer un environnement avec ces variables (valeurs VIDES dans ce document, a completer
+localement — aucun identifiant de demo n'est ecrit ici, voir `docs/demo/comptes-demo.md`) :
+
+```json
+{
+  "baseUrl": "https://corentin-wakdo-admin.stark.a3n.fr",
+  "csrf": "",
+  "pin_email": "",
+  "pin": ""
+}
+```
+
+Insomnia reference une variable d'environnement par `{{ _.nomDeVariable }}` (le prefixe
+`_` designe l'environnement actif) : par exemple `{{ _.baseUrl }}/admin/api/auth/login`
+comme URL de la requete de connexion.
+
+### 8.2 Se connecter
+
+Requete `POST {{ _.baseUrl }}/admin/api/auth/login`, corps en JSON :
+
+```json
+{ "email": "...", "password": "..." }
+```
+
+Reponse `200` : `{ "data": { "user": {...}, "permissions": [...], "csrf_token": "..." } }`
+(`AuthApiController::apiLogin()`). Deux effets a la reussite :
+
+- Le cookie de session `WAKDO_SID` (pose par la reponse via `Set-Cookie`) est garde par
+  Insomnia dans son pot a cookies par environnement/workspace (bouton **Cookies**, dans
+  la barre d'outils) et renvoye automatiquement sur les requetes suivantes vers
+  `{{ _.baseUrl }}` — meme principe que Postman/Bruno (section "Le pot a cookies"
+  ci-dessus) ; rien a copier a la main.
+- `data.csrf_token` doit etre reporte dans la variable d'environnement `csrf` (a la main,
+  ou par un script post-requete si vous en ecrivez un) : ce jeton alimente l'en-tete
+  `X-CSRF-Token` de toutes les ecritures suivantes.
+
+### 8.3 En-tete CSRF sur toute ecriture
+
+Sur chaque `POST`/`PUT`/`DELETE` sous `/admin/api/*` autre que la connexion elle-meme
+(qui n'a pas encore de session, donc pas de jeton synchroniseur a comparer — section 5.3bis
+de `conventions.md`), ajouter l'en-tete :
+
+```
+X-CSRF-Token: {{ _.csrf }}
+```
+
+Absent ou perime -> `403 CSRF_INVALID` (voir 8.6 ; relancer 8.2 pour un jeton frais).
+
+### 8.4 Identifiant dans l'adresse pour PUT/DELETE
+
+Comme pour Postman/Bruno, une ressource unitaire est adressee par son identifiant dans le
+CHEMIN, pas dans le corps (`docs/api/conventions.md` section 4) : par exemple
+`PUT {{ _.baseUrl }}/admin/api/products/<id>` ou
+`DELETE {{ _.baseUrl }}/admin/api/categories/<id>`.
+
+### 8.5 PIN dans le corps pour les actions sensibles
+
+La liste exacte des actions PIN-gated est la colonne PIN de
+`src/app/Health/RouteSecurity.php` (reprise dans `conventions.md` section 5.3) : annulation
+de commande, gestion utilisateur (creation/modification/desactivation/reinitialisation de
+PIN), effacement PII, gestion RBAC, suppression de produit, changement de prix produit,
+suppression de menu, import CSV de produits quand il change un prix (`POST
+/admin/api/products/import`, champ `price`), ajustement de stock, comptage d'inventaire.
+Pour ces requetes, ajouter dans le corps JSON
+les deux champs `pin_email`/`pin` (modele "identifiant equipier + PIN", RG-T13), en plus
+des eventuels autres champs de la requete :
+
+```json
+{ "pin_email": "{{ _.pin_email }}", "pin": "{{ _.pin }}" }
+```
+
+Le PIN doit avoir ete defini au prealable par son titulaire via `/admin/profile/pin`
+(page HTML uniquement, section 3 ci-dessus, pas d'equivalent JSON).
+
+### 8.6 Codes d'erreur utiles
+
+| Code | HTTP | Cause probable |
+|---|---|---|
+| `AUTH_REQUIRED` | 401 | pas de session valide (relancer la connexion, 8.2) |
+| `CSRF_INVALID` | 403 | `X-CSRF-Token` absent ou perime (8.3) |
+| `FORBIDDEN` | 403 | permission manquante pour le role connecte |
+| `UNSUPPORTED_MEDIA_TYPE` | 415 | corps non vide sans `Content-Type: application/json`, sur une route qui lit un corps (`JsonApiTrait::requireJsonBody()`) |
+| `VALIDATION_ERROR` | 422 | champ manquant/invalide, detail dans `error.fields` |
+| `PIN_INVALID` | 422 | `pin_email`/`pin` absents, faux, ou compte agissant verrouille (8.7) |
+| `NOT_FOUND` | 404 | identifiant absent en base ; exception : un numero de commande inconnu sur `/admin/api/orders/{number}` renvoie `403 FORBIDDEN`, comme un canal non visible, pour ne pas reveler quels numeros existent (`OrderApiController`) |
+| `METHOD_NOT_ALLOWED` | 405 | methode HTTP incorrecte pour cette adresse |
+
+### 8.7 Blocage du PIN apres 5 echecs
+
+Le compteur d'echecs de PIN est PAR UTILISATEUR AGISSANT et SEPARE du throttle de
+connexion (`pin_throttle`, RG-T22, `App\Auth\PinThrottle`). Des le
+`PIN_THROTTLE_THRESHOLD`-ieme echec (5 par defaut, `.env.example`, `ThrottlePolicy`), les echecs
+etant comptes sur une fenetre glissante de `PIN_THROTTLE_WINDOW_SECONDS` (900 s par defaut), un
+verrou degressif se pose (30 s, puis doublement jusqu'a 300 s par defaut) : pendant le verrou,
+`422 PIN_INVALID` continue d'etre renvoye meme avec le bon PIN (`App\Auth\PinGate::resolve()`).
+Un PIN correct reussi remet le compteur a zero.
 
 ## Effets de bord (ce que la collection laisse derriere elle)
 
@@ -283,11 +429,11 @@ au meme modele de menace qu'un deploiement derriere Traefik.
 
 ## Ce que couvre la collection
 
-Onze dossiers, dans l'ordre ou les enchainer : 0. Connexion (login/qui suis-je),
+Onze dossiers, dans l'ordre ou les enchainer : 1. Connexion (login/qui suis-je),
 Categories, Produits (dont recette et rangement), Menus, Ingredients (dont seuils,
 inventaire, ajustement, allergenes), Roles (RBAC), Utilisateurs (dont reinitialisation de
 PIN et anonymisation RGPD), Commandes (liste filtree par canal, saisie comptoir/drive,
-cuisine, remise, annulation), Statistiques, RBAC : preuve des droits (section 5), et 9. Fin
+cuisine, remise, annulation), Statistiques, RBAC : preuve des droits (section 5), et 11. Fin
 de demo (deconnexion). Le contrat complet, methode par methode, est dans
 `docs/api/conventions.md` section 5.3 (+ 5.3bis pour la connexion).
 

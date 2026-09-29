@@ -38,9 +38,12 @@ test('productCartItem: forme item, quantite et categorie du produit', () => {
     });
 });
 
-test('productCartItem: quantite bornee a [1,99], categorie de repli = slug', () => {
+test('productCartItem: quantite bornee a [1,20] (contre-audit : alignee sur le serveur, plus 99), categorie de repli = slug', () => {
+    // Le serveur refuse au-dela de 20 par ligne (OrderRepository::
+    // MAX_QUANTITY_PER_LINE, INVALID_QUANTITY) : la borne acceptait jusqu'ici 99,
+    // laissant composer un panier voue au refus (422) au paiement.
     assert.equal(productCartItem({ id: 1, nom: 'X', prix: 100, image: 'x.png' }, 'frites', 0).quantite, 1);
-    assert.equal(productCartItem(product, 'boissons', 9999).quantite, 99);
+    assert.equal(productCartItem(product, 'boissons', 9999).quantite, 20);
     assert.equal(productCartItem({ id: 1, nom: 'X', prix: 100, image: 'x.png' }, 'frites', 2).categorie, 'frites');
 });
 
@@ -69,6 +72,15 @@ test('openProductOptions: quantite plancher a 1', () => {
     const minus = document.querySelector('.qty-btn--minus');
     minus.click(); minus.click(); minus.click();
     assert.equal(document.querySelector('#po-qty').textContent, '1');
+});
+
+test('openProductOptions: le stepper + est plafonne a 20 (contre-audit : alignee sur le serveur)', () => {
+    // Avant ce correctif, QTY_MAX valait 99 : un client pouvait composer une ligne
+    // que le serveur refuse en bloc (422 INVALID_QUANTITY, borne 1-20 par ligne).
+    openProductOptions(product, 'boissons');
+    const plus = document.querySelector('.qty-btn--plus');
+    for (let i = 0; i < 30; i += 1) plus.click();
+    assert.equal(document.querySelector('#po-qty').textContent, '20');
 });
 
 test('openProductOptions: Ajouter met l item (avec quantite) au panier et ferme la modale', () => {

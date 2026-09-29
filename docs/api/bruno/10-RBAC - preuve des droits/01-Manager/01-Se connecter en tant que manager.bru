@@ -29,5 +29,5 @@ script:post-response {
 }
 
 tests {
-  expect(res.getStatus()).to.equal(200);
+  test('200 OK (connexion)', function () { expect(res.getStatus()).to.equal(200); });
 }

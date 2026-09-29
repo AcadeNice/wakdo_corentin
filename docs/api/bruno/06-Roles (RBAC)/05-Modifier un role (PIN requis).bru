@@ -31,3 +31,7 @@ body {
 docs {
 Garde-fou anti-lockout (422) : le role 'admin' doit garder role.manage et rester actif -- non pertinent ici (role fraichement cree, pas 'admin').
 }
+
+tests {
+  test('200 OK', function () { expect(res.getStatus()).to.equal(200); });
+}

@@ -27,3 +27,7 @@ body {
 docs {
 Aucun PIN requis tant que price_cents et vat_rate ne changent pas (mlt 8.2 RG-4). price_cents reste un entier de centimes strict (voir la requete de creation).
 }
+
+tests {
+  test('200 OK', function () { expect(res.getStatus()).to.equal(200); });
+}

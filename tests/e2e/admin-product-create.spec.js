@@ -91,6 +91,10 @@ test.describe('Modification de categorie (back-office)', () => {
     await page.goto(`${ADMIN}/admin/categories`);
     await page.locator('a.btn:has-text("Modifier")').first().click();
     await expect(page).toHaveURL(/\/admin\/categories\/\d+\/edit/);
+    const editUrl = page.url();
+    // La premiere categorie est « Menus », que lot-7-menus.spec.js selectionne par
+    // son libelle : on la remet en l'etat pour que l'ordre des fichiers ne compte pas.
+    const libelleOrigine = await page.inputValue('#name');
 
     const nouveauLibelle = 'Catégorie E2E modifiée';
     await page.fill('#name', nouveauLibelle);
@@ -99,5 +103,11 @@ test.describe('Modification de categorie (back-office)', () => {
     await expect(page).toHaveURL(/\/admin\/categories$/);
     await expect(page.locator('body')).not.toContainText('Requête invalide');
     await expect(page.locator('body')).toContainText(nouveauLibelle);
+
+    await page.goto(editUrl);
+    await page.fill('#name', libelleOrigine);
+    await page.locator('form.form-card button[type="submit"]').click();
+    await expect(page).toHaveURL(/\/admin\/categories$/);
+    await expect(page.locator('body')).toContainText(libelleOrigine);
   });
 });

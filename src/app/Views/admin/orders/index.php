@@ -7,7 +7,7 @@ declare(strict_types=1);
  * numero, mode, chevalet, statut, total ttc, date. Une colonne d'actions affiche le
  * lien Annuler (CANCEL_ORDER 7.1) pour les commandes non terminales (pending_payment,
  * paid, et les etats de cuisine preparing/ready depuis la migration 0009) quand le
- * role detient order.cancel (manager ne l'a PAS, D5) ; l'ensemble affiche est celui
+ * role detient order.cancel (manager l'a depuis ADR-0020, migration 0018) ; l'ensemble affiche est celui
  * du domaine (OrderRepository::cancel), pas seulement pending_payment/paid (E15,
  * audit schemas 6.3). Tri du plus recent au plus ancien (cf.
  * OrderQueryRepository::recent). Toute valeur est echappee (RG-T15).

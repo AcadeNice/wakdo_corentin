@@ -13,5 +13,5 @@ role.manage, lecture seule : version servie, base, migrations, activite des 24 d
 }
 
 tests {
-  expect(res.getStatus()).to.equal(200);
+  test('200 OK', function () { expect(res.getStatus()).to.equal(200); });
 }

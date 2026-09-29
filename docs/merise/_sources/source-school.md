@@ -117,8 +117,8 @@ du seed normalise, pas de ces fichiers.
 
 1. Extraction des entites + attributs vers le **dictionnaire de donnees**.
 2. Derivation du **MCD** (entites + relations) en enrichissant les ecarts ci-dessus.
-3. Generation du **DDL** (`db/migrations/0001_init_schema.sql`, complete par dix-sept migrations
-   additives 0002-0018).
+3. Generation du **DDL** (`db/migrations/0001_init_schema.sql`, complete par dix-huit migrations
+   additives 0002-0019, sans 0004).
 4. Transformation en **seed**, avec normalisation des prix — pas un fichier unique mais dix fichiers
    par sous-domaine (`db/seeds/0001_rbac_and_reference.sql` a `0010_ingredient_families.sql`),
    appliques par un runner idempotent (`db/migrate.sh` / `db/migrate-container.sh`).

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Order;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use App\Controllers\OrderController;
 use App\Core\Config;
@@ -261,5 +262,214 @@ final class OrderControllerTest extends TestCase
         $response = $this->controller($db, '', '/api/orders/')->show(['number' => '']);
 
         self::assertSame(404, $response->status());
+    }
+
+    // -------------------------------------------------------------------------
+    // Securite / integrite : quantite hors bornes (defaut 1, cf. tests/e2e/
+    // security-order-integrity.spec.js) -- couvre le chemin REEL POST (json_decode
+    // du corps brut), pas seulement OrderRepository en PHP direct.
+    // -------------------------------------------------------------------------
+
+    /**
+     * @return array<string, array{0: int|string|float}>
+     */
+    public static function outOfRangeQuantities(): array
+    {
+        return [
+            'negative'          => [-5],
+            'zero'              => [0],
+            'int min (32 bits)' => [-2147483648],
+            'au-dessus de 20'   => [21],
+            // Au-dela de SMALLINT UNSIGNED (order_item.quantity, migration 0001) :
+            // avant ce correctif, l'exception PDO remontait en 500.
+            'au-dela de la colonne SQL' => [70000],
+        ];
+    }
+
+    #[DataProvider('outOfRangeQuantities')]
+    public function testCreateWithOutOfRangeQuantityReturns422NotAServerError(int|string|float $quantity): void
+    {
+        $db = new FakeOrderDatabase();
+        $db->products[12] = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 890, 'vat_rate' => 100, 'is_available' => 1];
+        $body = $this->jsonBody(['service_mode' => 'takeaway', 'items' => [['type' => 'product', 'product_id' => 12, 'quantity' => $quantity]]]);
+
+        $response = $this->controller($db, $body)->create();
+
+        self::assertSame(422, $response->status());
+        $data = json_decode($response->body(), true);
+        self::assertIsArray($data);
+        self::assertSame('INVALID_QUANTITY', $data['error']['code'] ?? null);
+    }
+
+    public function testCreateWithNonIntegerQuantityReturns422(): void
+    {
+        // 2.5 exemplaires d'un article n'a pas de sens : refuse plutot que tronque en
+        // silence a 2 (ce qu'un cast (int) nu ferait).
+        $db = new FakeOrderDatabase();
+        $db->products[12] = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 890, 'vat_rate' => 100, 'is_available' => 1];
+        $body = $this->jsonBody(['service_mode' => 'takeaway', 'items' => [['type' => 'product', 'product_id' => 12, 'quantity' => 2.5]]]);
+
+        $response = $this->controller($db, $body)->create();
+
+        self::assertSame(422, $response->status());
+        $data = json_decode($response->body(), true);
+        self::assertSame('INVALID_QUANTITY', $data['error']['code'] ?? null);
+    }
+
+    public function testCreateWithMaximumAllowedQuantityIsAccepted(): void
+    {
+        // Borne HAUTE incluse (20) : ne doit pas etre refusee comme "hors bornes".
+        $db = new FakeOrderDatabase();
+        $db->products[12] = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 100, 'vat_rate' => 100, 'is_available' => 1];
+        $body = $this->jsonBody(['service_mode' => 'takeaway', 'items' => [['type' => 'product', 'product_id' => 12, 'quantity' => 20]]]);
+
+        $response = $this->controller($db, $body)->create();
+
+        self::assertSame(201, $response->status());
+        $data = json_decode($response->body(), true);
+        self::assertSame(2000, $data['data']['total_ttc_cents'] ?? null);
+    }
+
+    /**
+     * @return array<string, array{0: mixed}>
+     */
+    public static function malformedOrderBodies(): array
+    {
+        return [
+            'ligne scalaire (chaine)' => [['service_mode' => 'takeaway', 'items' => ['pas-un-objet']]],
+            'ligne scalaire (nombre)' => [['service_mode' => 'takeaway', 'items' => [42]]],
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    #[DataProvider('malformedOrderBodies')]
+    public function testCreateWithMalformedItemReturns422NotAServerError(array $payload): void
+    {
+        // Avant ce correctif : array_map(fn (array $item) ...) sous strict_types leve un
+        // TypeError (500) des qu'une ligne n'est pas un tableau/objet JSON.
+        $db = new FakeOrderDatabase();
+        $body = $this->jsonBody($payload);
+
+        $response = $this->controller($db, $body)->create();
+
+        self::assertSame(422, $response->status());
+        $data = json_decode($response->body(), true);
+        self::assertIsArray($data);
+        self::assertSame('INVALID_ITEM_TYPE', $data['error']['code'] ?? null);
+    }
+
+    public function testCreateWithArrayIdempotencyKeyReturns422NotArrayString(): void
+    {
+        // Avant ce correctif : (string) ['a','b'] devient la chaine litterale "Array"
+        // (avec un avertissement PHP), une cle partagee par tous les clients qui
+        // omettent ce champ correctement.
+        $db = new FakeOrderDatabase();
+        $db->products[12] = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 890, 'vat_rate' => 100, 'is_available' => 1];
+        $body = $this->jsonBody([
+            'idempotency_key' => ['a', 'b'],
+            'service_mode' => 'takeaway',
+            'items' => [['type' => 'product', 'product_id' => 12, 'quantity' => 1]],
+        ]);
+
+        $response = $this->controller($db, $body)->create();
+
+        self::assertSame(422, $response->status());
+        $data = json_decode($response->body(), true);
+        self::assertSame('INVALID_IDEMPOTENCY_KEY', $data['error']['code'] ?? null);
+    }
+
+    public function testCreateWithMoreThanFiftyLinesReturns422(): void
+    {
+        $db = new FakeOrderDatabase();
+        $db->products[12] = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 100, 'vat_rate' => 100, 'is_available' => 1];
+        $items = array_fill(0, 51, ['type' => 'product', 'product_id' => 12, 'quantity' => 1]);
+        $body = $this->jsonBody(['service_mode' => 'takeaway', 'items' => $items]);
+
+        $response = $this->controller($db, $body)->create();
+
+        self::assertSame(422, $response->status());
+        $data = json_decode($response->body(), true);
+        self::assertSame('TOO_MANY_ITEMS', $data['error']['code'] ?? null);
+    }
+
+    public function testCreateWithFiftyLinesIsAccepted(): void
+    {
+        // Borne HAUTE incluse (50 lignes) : ne doit pas etre refusee comme "trop de lignes".
+        $db = new FakeOrderDatabase();
+        $db->products[12] = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 100, 'vat_rate' => 100, 'is_available' => 1];
+        $items = array_fill(0, 50, ['type' => 'product', 'product_id' => 12, 'quantity' => 1]);
+        $body = $this->jsonBody(['service_mode' => 'takeaway', 'items' => $items]);
+
+        $response = $this->controller($db, $body)->create();
+
+        self::assertSame(201, $response->status());
+    }
+
+    public function testCreateWithTotalQuantityAboveFiftyReturns422(): void
+    {
+        // Chaque ligne respecte individuellement MAX_QUANTITY_PER_LINE (<=20) et le
+        // nombre de lignes respecte MAX_LINES_PER_ORDER (<=50) ; seule la SOMME des
+        // quantites (51) depasse le plafond global d'articles (couvre le chemin REEL
+        // POST, pas seulement OrderRepository en PHP direct -- cf. security-order-
+        // integrity.spec.js).
+        $db = new FakeOrderDatabase();
+        $db->products[12] = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 100, 'vat_rate' => 100, 'is_available' => 1];
+        $items = [
+            ['type' => 'product', 'product_id' => 12, 'quantity' => 20],
+            ['type' => 'product', 'product_id' => 12, 'quantity' => 20],
+            ['type' => 'product', 'product_id' => 12, 'quantity' => 11],
+        ];
+        $body = $this->jsonBody(['service_mode' => 'takeaway', 'items' => $items]);
+
+        $response = $this->controller($db, $body)->create();
+
+        self::assertSame(422, $response->status());
+        $data = json_decode($response->body(), true);
+        self::assertSame('ORDER_TOO_LARGE', $data['error']['code'] ?? null);
+    }
+
+    public function testCreateWithTotalQuantityOfExactlyFiftyIsAccepted(): void
+    {
+        // Borne HAUTE incluse (50 articles au total) : ne doit pas etre refusee comme
+        // "commande trop volumineuse".
+        $db = new FakeOrderDatabase();
+        $db->products[12] = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 100, 'vat_rate' => 100, 'is_available' => 1];
+        $items = [
+            ['type' => 'product', 'product_id' => 12, 'quantity' => 20],
+            ['type' => 'product', 'product_id' => 12, 'quantity' => 20],
+            ['type' => 'product', 'product_id' => 12, 'quantity' => 10],
+        ];
+        $body = $this->jsonBody(['service_mode' => 'takeaway', 'items' => $items]);
+
+        $response = $this->controller($db, $body)->create();
+
+        self::assertSame(201, $response->status());
+        $data = json_decode($response->body(), true);
+        self::assertSame(5000, $data['data']['total_ttc_cents'] ?? null);
+    }
+
+    public function testCreateMenuWithUnavailableOptionReturns422(): void
+    {
+        // Defaut #4 : une option de menu en rupture calculee (RG-T21) reste refusee
+        // meme par acces direct a l'API, pas seulement grisee sur la borne.
+        $db = new FakeOrderDatabase();
+        $db->menus[5] = ['id' => 5, 'burger_product_id' => 12, 'name' => 'Menu', 'price_normal_cents' => 990, 'price_maxi_cents' => 1200, 'is_available' => 1];
+        $db->products[12] = ['id' => 12, 'name' => 'Burger', 'price_cents' => 600, 'vat_rate' => 100, 'is_available' => 1];
+        $db->products[20] = ['id' => 20, 'name' => 'Coca', 'price_cents' => 250, 'vat_rate' => 100, 'is_available' => 1];
+        $db->slotRows[5] = [['id' => 7, 'name' => 'Boisson', 'slot_type' => 'drink', 'is_required' => 1, 'display_order' => 0, 'product_id' => 20]];
+        $db->autoUnavailableRows = [['product_id' => 20]];
+
+        $body = $this->jsonBody([
+            'service_mode' => 'takeaway',
+            'items' => [['type' => 'menu', 'menu_id' => 5, 'quantity' => 1, 'format' => 'normal',
+                'selections' => [['menu_slot_id' => 7, 'product_id' => 20]]]],
+        ]);
+        $response = $this->controller($db, $body)->create();
+
+        self::assertSame(422, $response->status());
+        $data = json_decode($response->body(), true);
+        self::assertSame('OPTION_UNAVAILABLE', $data['error']['code'] ?? null);
     }
 }

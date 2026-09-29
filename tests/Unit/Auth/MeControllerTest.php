@@ -101,7 +101,7 @@ final class MeControllerTest extends TestCase
         $session->set('last_activity', $now - 50);
 
         $db = new FakeDatabase();
-        $db->guardUserRow = ['is_active' => 1];
+        $db->guardUserRow = ['is_active' => 1, 'role_id' => 3, 'session_epoch' => 0];
         $db->roleRow = ['code' => 'manager'];
         $db->permissionCodes = ['product.read', 'stats.read'];
 

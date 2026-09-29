@@ -85,6 +85,33 @@ final class UserRepositoryDbTest extends TestCase
         return $id;
     }
 
+    /**
+     * Constat d'audit corrige le 2026-09-29 (RG-T02, migration 0020) : un
+     * changement de mot de passe fait par un admin doit fermer les sessions
+     * deja ouvertes du compte -- SessionGuard::check() relit session_epoch en
+     * base a chaque requete et rejette toute session posee a une valeur
+     * anterieure.
+     */
+    public function testSetPasswordHashIncrementsSessionEpoch(): void
+    {
+        $repo = new UserRepository($this->db);
+
+        $before = (int) ($this->db->fetch('SELECT session_epoch FROM user WHERE id = :id', ['id' => $this->userId])['session_epoch'] ?? -1);
+        self::assertSame(0, $before, 'precondition : compte fraichement cree, epoch 0');
+
+        $repo->setPasswordHash($this->userId, '$argon2id$placeholder-new');
+
+        $after = $this->db->fetch('SELECT password_hash, session_epoch FROM user WHERE id = :id', ['id' => $this->userId]);
+        self::assertNotNull($after);
+        self::assertSame('$argon2id$placeholder-new', (string) $after['password_hash']);
+        self::assertSame(1, (int) $after['session_epoch'], 'le changement de mot de passe doit incrementer session_epoch');
+
+        $repo->setPasswordHash($this->userId, '$argon2id$placeholder-second');
+        $twice = $this->db->fetch('SELECT session_epoch FROM user WHERE id = :id', ['id' => $this->userId]);
+        self::assertNotNull($twice);
+        self::assertSame(2, (int) $twice['session_epoch'], 'un second changement doit incrementer a nouveau (pas de reset)');
+    }
+
     public function testSetPinHashAndPinIsSet(): void
     {
         $repo = new UserRepository($this->db);

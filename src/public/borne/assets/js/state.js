@@ -16,6 +16,20 @@
 const STORAGE_KEY_MODE = 'wakdo_mode';
 const STORAGE_KEY_CART = 'wakdo_cart';
 
+/**
+ * Quantite maximale d'une LIGNE de panier (produit ou menu), ALIGNEE sur la borne
+ * serveur (OrderRepository::MAX_QUANTITY_PER_LINE, source unique : le serveur
+ * refuse en bloc, 422 INVALID_QUANTITY, toute ligne au-dela). Contre-audit : avant
+ * ce plafond central, product-options.js appliquait sa propre borne (99) sans
+ * rapport avec celle du serveur, et le stepper du panneau de commande
+ * (updateQuantity) n'en appliquait AUCUNE -- un client pouvait composer, pas a pas
+ * ou par ajouts repetes du meme produit (addToCart fusionne les quantites), une
+ * ligne que le serveur refuse integralement au paiement, sans le savoir avant
+ * l'echec. Vivre ICI (le coeur du panier) garantit que les DEUX chemins
+ * (addToCart, updateQuantity) respectent la meme borne.
+ */
+export const MAX_LINE_QUANTITY = 20;
+
 /* --- Consumption mode ---------------------------------------------------- */
 
 /**
@@ -89,12 +103,15 @@ export function addToCart(item) {
     if (item.type !== 'menu') {
         const existing = cart.find(c => c.id === item.id && c.type === item.type);
         if (existing) {
-            existing.quantite += item.quantite ?? 1;
+            // Plafonnee a MAX_LINE_QUANTITY : la FUSION (tap repetes sur la meme
+            // tuile) ne doit jamais faire depasser la borne serveur, meme quand
+            // chaque ajout pris seul la respecte.
+            existing.quantite = Math.min(MAX_LINE_QUANTITY, existing.quantite + (item.quantite ?? 1));
             setCart(cart);
             return;
         }
     }
-    cart.push({ quantite: 1, ...item });
+    cart.push({ ...item, quantite: Math.min(MAX_LINE_QUANTITY, item.quantite ?? 1) });
     setCart(cart);
 }
 
@@ -110,7 +127,9 @@ export function removeFromCart(index) {
 
 /**
  * Sets the quantity for the item at the given index.
- * If qty reaches 0, the item is removed.
+ * If qty reaches 0, the item is removed. Plafonnee a MAX_LINE_QUANTITY (contre-audit) :
+ * le stepper du panneau de commande passe par cette fonction, elle doit respecter
+ * la meme borne serveur que addToCart, jamais une saisie libre.
  * @param {number} index
  * @param {number} qty
  */
@@ -119,7 +138,7 @@ export function updateQuantity(index, qty) {
     if (qty <= 0) {
         cart.splice(index, 1);
     } else {
-        cart[index].quantite = qty;
+        cart[index].quantite = Math.min(MAX_LINE_QUANTITY, qty);
     }
     setCart(cart);
 }

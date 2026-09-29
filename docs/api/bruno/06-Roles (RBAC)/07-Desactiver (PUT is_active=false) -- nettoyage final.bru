@@ -30,5 +30,13 @@ body {
 }
 
 docs {
-Aucun endpoint DELETE pour les roles (limite documentee, conventions.md section 5.3 -- un role est rattache a des comptes). Le nettoyage correct est la desactivation, PUT PARTIEL comme pour les utilisateurs.
+Aucun endpoint DELETE pour les roles (limite documentee, conventions.md section 5.3 -- un role est rattache a des comptes). Le nettoyage correct est la desactivation, PUT PARTIEL comme pour les utilisateurs. RoleApiController::apiUpdate() renvoie le role a jour (dont is_active) : assertion directe sur CETTE reponse, pas seulement sur la relecture qui suit.
+}
+
+tests {
+  const body = res.getBody();
+  test('200, is_active=false', function () {
+      expect(res.getStatus()).to.equal(200);
+      expect(body.data.is_active).to.equal(false);
+  });
 }

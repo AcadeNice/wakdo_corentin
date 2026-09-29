@@ -11,3 +11,7 @@ get {
 docs {
 order.read. Filtre par role_visible_source (RG-T12), meme regle que la file cuisine.
 }
+
+tests {
+  test('200 OK', function () { expect(res.getStatus()).to.equal(200); });
+}

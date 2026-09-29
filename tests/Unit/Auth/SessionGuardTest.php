@@ -73,7 +73,7 @@ final class SessionGuardTest extends TestCase
     public function testValidSessionWithinWindowsRefreshesActivity(): void
     {
         $this->seedSession(self::NOW - 100, self::NOW - 50);
-        $this->db->guardUserRow = ['is_active' => 1];
+        $this->db->guardUserRow = ['is_active' => 1, 'role_id' => 3, 'session_epoch' => 0];
 
         $result = $this->guard()->check(self::NOW);
 
@@ -83,6 +83,58 @@ final class SessionGuardTest extends TestCase
         self::assertNull($result->reason);
         // Fenetre idle glissante : last_activity rafraichi a now.
         self::assertSame(self::NOW, $this->session->getInt('last_activity'));
+    }
+
+    /**
+     * RG-T02 (relecture adverse) : un changement de role d'un compte connecte
+     * doit s'appliquer DES LA PROCHAINE REQUETE, pas seulement a la prochaine
+     * connexion. La session porte encore l'ancien role_id (pose une fois par
+     * AuthService a la connexion) ; check() doit ignorer cette valeur et
+     * renvoyer celle lue EN BASE dans la meme requete que is_active.
+     */
+    public function testRoleChangeAppliesImmediatelyFromDatabaseNotSession(): void
+    {
+        $this->seedSession(self::NOW - 100, self::NOW - 50); // pose role_id = 3 en session
+        $this->db->guardUserRow = ['is_active' => 1, 'role_id' => 9, 'session_epoch' => 0];
+
+        $result = $this->guard()->check(self::NOW);
+
+        self::assertTrue($result->authenticated);
+        self::assertSame(9, $result->roleId, 'le role doit venir de la base, pas de la session (retrograde/promu)');
+    }
+
+    /**
+     * RG-T02 : une session ouverte AVANT une reinitialisation de mot de passe
+     * doit etre invalidee. session_epoch est pose en session a la connexion
+     * (valeur lue a cet instant) et compare a la valeur courante en base ; une
+     * reinitialisation incremente cette derniere (PasswordResetService), ce qui
+     * doit desormais rejeter toute session anterieure.
+     */
+    public function testSessionEpochMismatchInvalidatesSession(): void
+    {
+        $this->seedSession(self::NOW - 100, self::NOW - 50);
+        $this->session->set('session_epoch', 0); // valeur lue a la connexion
+        $this->db->guardUserRow = ['is_active' => 1, 'role_id' => 3, 'session_epoch' => 1]; // mot de passe reinitialise depuis
+
+        $result = $this->guard()->check(self::NOW);
+
+        self::assertFalse($result->authenticated);
+        self::assertSame('password_changed', $result->reason);
+    }
+
+    /**
+     * Une session ouverte AVANT que cette colonne existe (ou avant la toute
+     * premiere connexion posterieure a ce lot) ne porte pas 'session_epoch' :
+     * absence en session == epoch 0 (valeur par defaut en base), pas un rejet.
+     */
+    public function testMissingSessionEpochDefaultsToZeroAndIsNotRejected(): void
+    {
+        $this->seedSession(self::NOW - 100, self::NOW - 50); // ne pose pas 'session_epoch'
+        $this->db->guardUserRow = ['is_active' => 1, 'role_id' => 3, 'session_epoch' => 0];
+
+        $result = $this->guard()->check(self::NOW);
+
+        self::assertTrue($result->authenticated);
     }
 
     public function testIdleTimeoutIsRejected(): void

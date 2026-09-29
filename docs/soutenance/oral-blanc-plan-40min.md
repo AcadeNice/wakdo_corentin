@@ -9,12 +9,55 @@
 > Chiffres arretes au 2026-09-26 sur `origin/dev`, au commit `1dd2620` (demande de fusion #166).
 > Recomptes le 2026-09-27 sur le commit deploye `main` `11271f7` (fusion de la demande #177) :
 > routes, controleurs, depots, vues, decisions d'architecture, migrations, jeux de donnees,
-> entites, commits et suites de tests. Le 2026-09-28, sur le commit deploye `1ccc9db`
-> (release #182) : audit d'accessibilite (artefact `preuves/rapports/resume.json` du
-> 27/09) et balayage de mise en page, rejoue. **Nouveau recomptage complet le 2026-09-28**,
-> sur le commit deploye `main` `04bece0` (release #194) : tous les chiffres du present
-> document (section 1.1 comprise) refletent cet etat, y compris l'artefact
-> `preuves/rapports/resume.json` regenere ce jour-la.
+> entites, commits et suites de tests. Le 2026-09-27, sur le commit deploye `main` `1ccc9db`
+> (release #182) : premiere passe d'audit d'accessibilite et de balayage de mise en page.
+> Le 2026-09-28, sur le commit dev `bb1a7f8` (#183) : balayage rejoue (4 807 verifications,
+> 3 echecs restants sur la page Sante corriges), et l'artefact `preuves/rapports/resume.json`
+> regenere le meme jour (horodatage interne `2026-09-28T10:22:25Z`). **Nouveau recomptage
+> complet le 2026-09-28**, sur le commit deploye `main` `04bece0` (release #194) : tous les
+> chiffres du present document (section 1.1 comprise) refletent cet etat, y compris
+> l'artefact `preuves/rapports/resume.json` regenere ce jour-la. La mesure de temps du canal
+> auxiliaire (section 1.2) date du 2026-09-26 et n'a pas ete rejouee depuis : aucun fichier
+> ne la versionne. **Le 2026-09-29**, deux correctifs de contre-audit sont merges (menu
+> deja commande modifiable sans erreur serveur, journal d'audit `pin.failed` sans l'adresse
+> saisie, migration 0019) : les comptes qui en dependent sont mis a jour dans ce document
+> (18 migrations, 40 operations du MCT, deja a jour dans `docs/merise/mct.md` depuis le
+> 28/09 mais restees a 35 ici) ; le nombre de tests n'est pas rejoue dans cette passe.
+> Le meme jour, une suite de tests de securite executables (100 Playwright + 5 PHP,
+> `docs/soutenance/preuves/10-tests-securite.md`) trouve 11 ecarts, tous corriges par
+> trois commits (`08d7a96`, `ef7fd37`, `fce3085`) : 19 migrations, 24 entites (nouvelle
+> entite `password_reset_throttle`, migration 0020) ; la suite a ete rejouee ensuite
+> (voir les deux recomptages ci-dessous, section G.5, Q2.11).
+> **Recomptage du matin du 2026-09-29, sur le commit `2fe8a4a`** (branche `docs/contre-audit`,
+> pas encore fusionnee - apres un contre-audit independant a 5 relecteurs qui a trouve une
+> nouvelle regression, corrigee en TDD) : PHPUnit **2 508 tests, 8 626 assertions, 0 echec,
+> 0 depreciation** ; PHPStan niveau 6, **0 erreur**. Tests JavaScript : **461, 0 echec**.
+> Suite navigateur complete (36 fichiers de specs, pile jetable) : **197 reussis, 12 sautes**
+> (tests qui exigent une phase ou un reglage particulier), **0 echec** ; balayage du
+> back-office : **4 812 verifications, 0 echec**. Suite de securite
+> `tests/e2e/run-security.sh` (3 phases, `APP_DEBUG=false`) : phase principale 95 reussis
+> (8 sautes, joues dans les phases suivantes), phase reinitialisation 4 reussis, phase base
+> arretee 4 reussis ; **0 echec, 0 test marque en echec restant** (plus 5 tests PHP de
+> securite, compris dans les 2 508 ci-dessus). Reponses capturees de la page Sante :
+> **158 succes sur 158, 670 refus obtenus sur 689 tentes** (capture du 2026-09-29 sur le
+> commit `33538c6`, `src/app/Health/captured-responses.json`). Routes : 158. Tables : 24.
+> Migrations : 19 fichiers (0001 a 0020, sans 0004). Decisions d'architecture : 20.
+> **L'audit d'accessibilite a ete rejoue le 2026-09-29 (09:49 UTC) apres les correctifs**,
+> sur le commit `3fd08c4` : **19 ecrans, 935 mesures, 0 violation**, chiffres inchanges par
+> rapport au 28/09 (seule la date change dans `docs/soutenance/preuves/rapports/resume.json`).
+> **Recomptage final de l'apres-midi du 2026-09-29**, apres la revue adversariale des
+> correctifs (`680820f`, `e9f00d8`, `186c5d7`, `c2b8c1c`), sur une copie figee du code
+> (`186c5d7` pour les tests, `c2b8c1c`/`fe8b738` pour le reste) : PHPUnit **2 535 tests,
+> 8 716 assertions, 0 echec, 0 depreciation** ; PHPStan niveau 6, **0 erreur** ; tests
+> JavaScript **492, 0 echec** ; tests shell **47 assertions, 0 echec**. Suite navigateur
+> complete : **214 tests, 202 reussis, 11 sautes, 1 echec** (debordement de la carte
+> « Migrations » de la page Sante, corrige par `c2b8c1c`, balayage rejoue : **4 807
+> verifications, 0 echec**). Suite de securite : phase principale **99 reussis + 8 sautes
+> (107 tests)**, reinitialisation 4 sur 4, base arretee 4 sur 4. Page Sante recapturee sur
+> `c2b8c1c` : **158 succes sur 158, 670 refus obtenus sur 689 tentes**. Accessibilite
+> (12:44 UTC, `fe8b738`) : **19 ecrans, 934 mesures, 0 violation**. Migrations : **20
+> fichiers (0001 a 0021, sans 0004)**. **Production** : tout le 29/09 est sur la branche
+> `docs/contre-audit` ; la production (`dc1829d`) ne l'aura qu'apres la release du 29/09.
 
 ---
 
@@ -61,39 +104,42 @@ depot coute plus cher que le chiffre lui-meme.
 
 | Metrique | Valeur | Comment la revalider |
 |---|---|---|
-| Commits (sur `main`, commit deploye `04bece0`) | 242 | `git rev-list --count 04bece0` |
-| Demandes de fusion fusionnees | 192 (derniere : #194, la release deployee `04bece0`) | API de la forge : `GET /api/v1/repos/AcadeNice/corentin_wakdo/pulls?state=closed`, compter les entrees `merged: true` (le decompte par `git log` ne voit pas les anciennes fusions, dont le titre ne finit pas par `(#n)`) |
+| Commits (sur `main`, commit deploye `04bece0`, 28/09) | 242. **Etat au 29/09** (commit `main` `dc1829d`) : **244** | `git rev-list --count 04bece0` ; a la veille, revalider avec `git rev-list --count main` |
+| Demandes de fusion fusionnees | 192 (derniere au 28/09 : #194, la release deployee `04bece0`). **Etat au 29/09** : **194** fusionnees, derniere **#196** (release deployee `dc1829d`) | API de la forge : `GET /api/v1/repos/AcadeNice/corentin_wakdo/pulls?state=closed`, compter les entrees `merged: true` (le decompte par `git log` ne voit pas les anciennes fusions, dont le titre ne finit pas par `(#n)`) |
 | Repartition des commits | 111 `feat`, 42 `docs`, 41 `fix`, 11 `chore`, 8 `ci`, 4 `test`, 2 `refactor` | `git log --pretty=%s 04bece0 \| grep -oE '^[a-z]+' \| sort \| uniq -c` |
-| Lignes PHP livrees | 27 168 sur 137 fichiers | `find src -name '*.php' -type f -exec cat {} + \| wc -l` |
-| Lignes JavaScript livrees | 8 711 sur 30 fichiers | `find src -name '*.js' -type f -exec cat {} + \| wc -l` |
-| dont borne client | 3 311 sur 21 modules | `wc -l src/public/borne/assets/js/*.js` |
-| Lignes CSS | 5 792 (borne 2 322 + back-office 3 470) | `wc -l src/public/*/assets/css/*.css` |
-| Methodes de test PHP | 1 295 sur 116 fichiers | `grep -rhoE 'public function test[A-Za-z0-9_]*' tests --include='*.php' \| wc -l` |
-| Appels de test JavaScript | 450 sur 29 fichiers | `grep -rhoE "\b(it\|test)\(" tests/js --include='*.test.js' \| wc -l` |
-| Scenarios de bout en bout | 92 sur 22 specs | `grep -rhoE '^\s*test\(' tests/e2e --include='*.spec.js' \| wc -l` |
+| Lignes PHP livrees | 28 264 sur 140 fichiers (29/09, `fe8b738`) | `find src -name '*.php' -type f -exec cat {} + \| wc -l` |
+| Lignes JavaScript livrees | 9 210 sur 30 fichiers (29/09) | `find src -name '*.js' -type f -exec cat {} + \| wc -l` |
+| dont borne client | 3 551 sur 21 modules (29/09) | `wc -l src/public/borne/assets/js/*.js` |
+| Lignes CSS | 5 806 (borne 2 322 + back-office 3 484, 29/09) | `wc -l src/public/*/assets/css/*.css` |
+| Methodes de test PHP | 1 410 sur 124 fichiers (29/09) | `grep -rhoE 'public function test[A-Za-z0-9_]*' tests --include='*.php' \| wc -l` |
+| Appels de test JavaScript | 498 sur 31 fichiers (29/09) | `grep -rhoE "\b(it\|test)\(" tests/js --include='*.test.js' \| wc -l` |
+| Scenarios de bout en bout | 191 appels `test(` sur 36 specs (29/09 ; 214 tests a l'execution, certains etant generes par boucle) | `grep -rhoE '^\s*test\(' tests/e2e --include='*.spec.js' \| wc -l` |
 | Analyse statique | PHPStan niveau 6, sans erreur | `phpstan.neon` (`level: 6`) |
-| Entites du modele | 23 | `docs/merise/dictionary.md` (3.1 a 3.23) |
-| Migrations / jeux de donnees | 17 / 10, idempotents | `ls db/migrations/*.sql \| wc -l` ; `ls db/seeds/*.sql \| wc -l` |
+| Entites du modele | 24 | `docs/merise/dictionary.md` (3.1 a 3.24) |
+| Migrations / jeux de donnees | 20 / 10, idempotents (0001 a 0021, sans 0004) | `ls db/migrations/*.sql \| wc -l` ; `ls db/seeds/*.sql \| wc -l` |
 | Roles / permissions | 5 / 23 | `db/seeds/0001_rbac_and_reference.sql` |
 | Routes declarees | 158 (77 GET, 67 POST, 9 PUT, 5 DELETE) dans `src/app/Core/routes.php` | `grep -c "router->add(" src/app/Core/routes.php` |
 | Controleurs | 23 au premier niveau (2 abstraits, 14 `AdminController`, 6 `Controller`, 1 `AuthenticatedController`) + 11 sous `Admin/Api` (10 concrets + 1 trait `JsonApiTrait`) | `ls src/app/Controllers/*.php src/app/Controllers/Admin/Api/*.php \| wc -l` |
 | Depots / vues | 11 / 41 | `find src/app -name '*Repository.php' \| wc -l` ; `find src/app/Views -name '*.php' \| wc -l` |
 | Regles transverses de securite | 22 (RG-T01 a RG-T22) | `docs/merise/mlt.md`, lignes 41-62 |
 | Decisions d'architecture | 20 | `ls docs/adr/0*.md \| wc -l` |
-| Entrees de journal de bord | 16 | `ls docs/journal/2026-*.md \| wc -l` |
+| Entrees de journal de bord | 17 | `ls docs/journal/2026-*.md \| wc -l` |
 | Services conteneurises | 5 | `docker-compose.yml` |
 | Travaux d'integration continue | 5 (`secret-scan`, `php-lint`, `static-tests`, `js-tests`, `shell-tests`) + deploiement continu separe | `.forgejo/workflows/ci.yml` (+ `deploy.yml` pour le CD) |
 | Taches planifiees actives | 4 (+ 3 modeles commentes) | `docker/cron/crontab` |
 
 **Sur les suites de tests - une precaution de formulation.** La derniere execution
-complete mesuree donne **2 386 tests PHP pour 7 886 assertions** (avec la base de test)
-et **446 tests JavaScript** (mesure du 2026-09-28, sur le commit deploye `04bece0`).
+complete mesuree donne **2 535 tests PHP pour 8 716 assertions, 0 echec, 0 depreciation**
+et **492 tests JavaScript, 0 echec** (mesure de l'apres-midi du 2026-09-29, sur le commit
+`186c5d7`, branche `docs/contre-audit`). La suite navigateur complete (36 fichiers de specs,
+214 tests) donne **202 reussis, 11 sautes, 1 echec** corrige ensuite par `c2b8c1c` ; le
+balayage du back-office rejoue donne **4 807 verifications, 0 echec**.
 Ces chiffres continuent de croitre a chaque demande de fusion : ce sont donc un
 **plancher**, pas un plafond. Deux options a l'oral, au choix :
 
 - relancer les suites la veille et annoncer le resultat exact ;
-- dire *"plus de 2 380 tests PHP et plus de 440 tests JavaScript, derniere execution
-  complete le 28 septembre"*.
+- dire *"plus de 2 500 tests PHP et pres de 500 tests JavaScript, derniere execution
+  complete le 29 septembre"*.
 
 L'ecart entre le comptage statique de methodes et le nombre de tests executes s'explique
 et doit etre su : une methode associee a un fournisseur de donnees s'execute une fois par
@@ -106,16 +152,19 @@ distincts**, et les confondre serait une erreur qu'un jury technique reperera.
 
 | Mesure | Outil | Resultat | Source |
 |---|---|---|---|
-| Audit d'accessibilite | axe-core 4.13.0 via Playwright, regles WCAG 2.0 A/AA et WCAG 2.1 A/AA | **19 ecrans** (6 borne, 13 back-office), **0 violation** toutes gravites, **935 rapports de contraste**, **0 sous le seuil**, minimum releve **3,59**. Resolutions : 1080x1920 pour la borne, 1440x900 pour le back-office. **Un seul role : administrateur** | `docs/soutenance/preuves/rapports/resume.json`, campagne du 2026-09-28 |
-| Balayage de mise en page et d'ergonomie | outil ecrit pour le projet (`tests/e2e/backoffice-sweep/`), 12 familles de verifications | **4 807 verifications, 0 echec** - 5 roles connectes plus l'etat non connecte, toutes les pages atteignables (111 pages-roles), **4 largeurs** (1366, 1024, 768, 390 px). Trajectoire : **104 echecs avant la refonte, 11 apres le premier lot, 0 le 26/09 ; le 28/09, 3 echecs sur la page Sante, qui n'avait pas encore ete balayee, corriges (#183), 0 a nouveau** | mesure du 2026-09-28 sur `1ccc9db` plus la correction #183. Les sorties de cet outil ne sont pas versionnees : le relancer pour produire le rapport |
+| Audit d'accessibilite | axe-core 4.13.0 via Playwright, regles WCAG 2.0 A/AA et WCAG 2.1 A/AA | **19 ecrans** (6 borne, 13 back-office), **0 violation** toutes gravites, **935 rapports de contraste**, **0 sous le seuil**, minimum releve **3,59**. Resolutions : 1080x1920 pour la borne, 1440x900 pour le back-office. **Un seul role : administrateur** | `docs/soutenance/preuves/rapports/resume.json`, campagne du 2026-09-28, rejouee a l'identique le 2026-09-29 (commit `3fd08c4`) |
+| Balayage de mise en page et d'ergonomie | outil ecrit pour le projet (`tests/e2e/backoffice-sweep/`), 12 familles de verifications | **4 812 verifications, 0 echec** - 5 roles connectes plus l'etat non connecte, toutes les pages atteignables (111 pages-roles), **4 largeurs** (1366, 1024, 768, 390 px). Trajectoire : **104 echecs avant la refonte, 11 apres le premier lot, 0 le 26/09 ; le 28/09, 3 echecs sur la page Sante, qui n'avait pas encore ete balayee, corriges (#183), 0 a nouveau ; le 29/09, mesure a 4 812** | mesure du 2026-09-29 sur `2fe8a4a`. Les sorties de cet outil ne sont pas versionnees : le relancer pour produire le rapport |
 | Canal auxiliaire par le temps sur la connexion | mesure directe des 4 chemins | compte inexistant 257,4 ms / mot de passe faux 251,4 ms / compte verrouille 253,3 ms / connexion reussie 252,6 ms. **Ecart maximal 6,0 ms pour un bruit de mesure de 13,8 ms** | mesure du 2026-09-26 |
 
 La lecture a donner au jury pour la troisieme : *"l'ecart entre les chemins est plus
 petit que le bruit de ma propre mesure. Autrement dit, le temps de reponse ne permet
 pas de distinguer un compte qui existe d'un compte qui n'existe pas."*
 
-> Regle d'or : annoncer un chiffre seulement si on en est sur. En cas de doute,
-> dire "de l'ordre de" et proposer d'ouvrir le fichier.
+> Regle d'or : annoncer un chiffre seulement si on en est sur. En cas de doute sur
+> l'audit d'accessibilite ou le balayage de mise en page, dire "de l'ordre de" et
+> proposer d'ouvrir ou de relancer l'outil source. La mesure du canal auxiliaire par le
+> temps n'est PAS versionnee (aucun fichier, aucun script reproductible dans le depot) :
+> pour celle-la, dire "de l'ordre de" sans promettre d'ouvrir quoi que ce soit.
 
 ---
 
@@ -129,7 +178,7 @@ pas de distinguer un compte qui existe d'un compte qui n'existe pas."*
 | 08:00 - 15:00 | 7 min | D. L'accessibilite par conception (demonstration borne) | B1 | Borne en direct + le rapport de mesure |
 | 15:00 - 19:00 | 4 min | E. Le front sous le capot et le choix des bibliotheques | B1 | Un module JavaScript + la fiche C2.d |
 | 19:00 - 23:00 | 4 min | F. Le modele de donnees et l'API | B2 | Modele conceptuel + une route |
-| 23:00 - 30:00 | 7 min | G. La securite par conception (demonstration API + roles) | B2 | Postman ou Bruno en direct |
+| 23:00 - 30:00 | 7 min | G. La securite par conception (demonstration API + roles) | B2 | Insomnia en direct |
 | 30:00 - 35:30 | 5 min 30 | H. Conteneurs, integration continue, deploiement | B5 | Schema des 5 services + le pipeline |
 | 35:30 - 37:00 | 1 min 30 | I. Limites assumees et conclusion | - | La liste des limites |
 
@@ -219,12 +268,17 @@ paiement simule. Ils sont documentes dans le dossier.
 - **Merise Agile** : le dictionnaire de donnees d'abord, le modele ensuite, enrichi au
   fil des lots. Source unique : `docs/PROJECT_CONTEXT.md`, complete par `docs/merise/`
   (dictionnaire, modele conceptuel des donnees, modele logique, modele conceptuel des
-  traitements avec ses 30 operations).
+  traitements avec ses 40 operations).
 - **Developpement pilote par les tests** sur les chemins sensibles : commande, stock,
-  authentification, droits.
-- **Tracabilite** : 20 decisions d'architecture datees et motivees, 16 entrees de
-  journal de bord, 242 commits en convention de nommage, chaque changement passe par
-  une demande de fusion (192 fusionnees au 28/09/2026).
+  authentification, droits. Exemple concret (2026-09-29) : le contre-audit a rejoue
+  `MenuRepositoryDbTest` sur une base reelle et reproduit une erreur serveur 500 des
+  qu'un menu deja commande etait modifie (delete-and-reinsert contre une FK `RESTRICT`) ;
+  le correctif reconcilie les emplacements en place et refuse en 409 le retrait d'un
+  emplacement deja commande, verifie par un test qui echouait avant le correctif.
+- **Tracabilite** : 20 decisions d'architecture datees et motivees, 17 entrees de
+  journal de bord (au 29/09), 242 commits en convention de nommage au 28/09/2026 (244 au 29/09),
+  chaque changement passe par une demande de fusion (192 fusionnees au 28/09/2026,
+  194 au 29/09, derniere #196).
 
 **A dire, seconde moitie (90 s) - l'assistance IA, avant qu'on me la demande :**
 
@@ -268,10 +322,11 @@ auditable et livrable, ce sont les regles, les decisions d'architecture et le jo
 Derouler la borne ecran par ecran, en verbalisant a chaque fois **la contrainte
 d'acces**, pas l'esthetique :
 
-1. **Accueil** - ecran d'attente, appel a l'action unique. Les boutons de quantite de
-   la borne font 56 px de cote (`style.css`, `.qty-btn`), avec un plancher a 44 px sur
-   les elements interactifs - au-dela du seuil de 24 px du critere WCAG 2.2 sur la
-   taille des cibles, parce que la borne s'utilise debout, parfois avec des gants.
+1. **Accueil** - ecran d'attente qui propose deux choix, sur place ou a emporter
+   (`index.html`, l.115-145). Les boutons de quantite de la borne font 56 px de cote
+   (`style.css`, `.qty-btn`), avec un plancher a 44 px sur les elements interactifs -
+   au-dela du seuil de 24 px du critere WCAG 2.2 sur la taille des cibles, parce que la
+   borne s'utilise debout, parfois avec des gants.
 2. **Categories** - navigation tactile. Le lien d'evitement est le **premier element**
    du corps de page, sur les 5 pages de la borne comme dans le gabarit du back-office.
 3. **Produits** - grille de tuiles. Un produit en rupture porte **trois** signaux et
@@ -279,9 +334,13 @@ d'acces**, pas l'esthetique :
    correspondant dans son intitule accessible (`page-products.js`).
 4. **Composition d'un menu** - modales successives (taille, accompagnement, boisson).
    Le piege a tabulation est ecrit a la main dans `page-product-menu.js`
-   (`trapFocus`, l.531-540) : boucle sur la touche de tabulation, fermeture a
-   l'echappement, clic sur le fond, et restauration du focus sur l'element
-   declencheur a la fermeture.
+   (`trapFocus`, l.726-737 au 29/09) : boucle sur la touche de tabulation, plus la fermeture a
+   l'echappement (`escHandler`, l.424-428). Le composeur n'a ni clic sur le fond ni
+   retour du focus au declencheur : Annuler et Ajouter renvoient tous deux vers
+   `products.html` (l.694 et `cancelComposer`, l.746-749). Ces deux comportements-la existent sur l'autre
+   modale de la borne, celle de confirmation d'un geste destructeur (ex. Abandon de
+   commande) : `confirm-modal.js` ferme au clic sur le fond (l.62) et rend le focus a
+   l'element declencheur a la fermeture (`previouslyFocused`, l.19 et l.44-46).
 5. **Panier** - panneau persistant, compteur de quantite. Le total anime respecte la
    preference systeme de mouvement reduit.
 6. **Paiement puis confirmation** - mode de service, numero de commande.
@@ -314,7 +373,7 @@ Distinguer clairement les deux outils - c'est ce qui montre qu'on sait ce qu'on 
 - **Le balayage de mise en page**, ecrit pour le projet, qui mesure ce qu'axe ne regarde
   pas : chevauchement d'elements, texte coupe, defilement horizontal, taille de cible,
   alignement, ordre de tabulation et visibilite du focus, contraste des messages
-  d'erreur reellement declenches. **4 807 verifications, 0 echec**, sur 5 roles connectes
+  d'erreur reellement declenches. **4 807 verifications, 0 echec** (rejeu du 29/09 apres-midi), sur 5 roles connectes
   plus l'etat non connecte, et **4 largeurs** : 1366, 1024, 768 et 390 px.
 
 **La trajectoire est le vrai argument.** Dire cette suite de trois nombres :
@@ -424,7 +483,7 @@ et supprimer le reste.
 
 **F.1 - Le modele (19:00 - 21:00)**
 
-- **23 entites**, reparties en cinq domaines :
+- **24 entites**, reparties en cinq domaines :
   - Catalogue : `category`, `product`, `menu`, `menu_slot`, `menu_slot_option`,
     `category_ingredient_family`
   - Ingredients et stock : `ingredient`, `product_ingredient`, `allergen`,
@@ -432,11 +491,12 @@ et supprimer le reste.
   - Commande : `customer_order`, `order_item`, `order_item_selection`,
     `order_item_modifier`
   - Droits : `user`, `role`, `permission`, `role_permission`, `role_visible_source`
-  - Securite : `audit_log`, `login_throttle`, `pin_throttle`
-- Le point a souligner : les trois entites du domaine securite viennent de la
+  - Securite : `audit_log`, `login_throttle`, `pin_throttle`, `password_reset_throttle`
+    (ajoutee le 2026-09-29, migration 0020)
+- Le point a souligner : les quatre entites du domaine securite viennent de la
   modelisation de la menace, pas du besoin fonctionnel. Un modele qui porte ses propres
   contre-mesures, c'est ce que veut dire "par conception".
-- Construction de la base : **17 migrations et 10 jeux de donnees de reference**, tous
+- Construction de la base : **20 migrations et 10 jeux de donnees de reference**, tous
   idempotents et rejouables, suivis par une table de migrations. Le saut sur le numero
   0004 est une decision tracee, pas un oubli.
 - Montrer le diagramme du modele conceptuel (`docs/merise/_diagrams/`).
@@ -453,7 +513,17 @@ et supprimer le reste.
   d'architecture 0017.
 - Enveloppe de reponse uniforme : `{ "data": ... }` en succes,
   `{ "data": null, "error": { "code", "message" } }` en echec. Codes HTTP coherents :
-  201 a la creation, 409 sur conflit, 422 sur validation, 403 sur droit refuse.
+  201 a la creation, 409 sur conflit, 422 sur validation, 403 sur droit refuse. Sur la
+  commande, le 422 de validation porte un code precis (`OrderRepository`) : `EMPTY_ORDER`
+  (panier vide), `INVALID_QUANTITY` (quantite hors 1-20 ou non entiere), `TOO_MANY_ITEMS`
+  (plus de 50 lignes), `ORDER_TOO_LARGE` (plus de 50 articles au total, corrige le
+  2026-09-29, commit `33538c6`), `INVALID_ITEM_TYPE` et `INVALID_IDEMPOTENCY_KEY` (corps
+  mal forme, corrige le 2026-09-29, commit `fce3085`), `OPTION_UNAVAILABLE` (option de menu
+  indisponible pour le format servi, completee le 29/09 apres-midi par `186c5d7`). Ces codes
+  sont ceux de l'API de la borne (`POST /api/orders`). Cote API d'administration
+  (`POST /admin/api/orders`), les memes refus ressortent en `422 VALIDATION_ERROR`, avec le
+  message dans `error.fields.items` : par exemple « Ajoutez au moins un produit ou un menu. »
+  pour une commande vide.
 - Le trajet complet d'une requete, a savoir dire d'une traite :
   *"point d'entree, routeur, controleur, depot, base - puis retour en HTML ou en JSON."*
 
@@ -491,7 +561,7 @@ Ce qui distingue une securite pensee d'une securite ajoutee, c'est qu'elle comme
 une analyse, pas par une liste de correctifs.
 
 - Le dossier porte une **modelisation de la menace** (section 19) construite en trois
-  niveaux : 5 frontieres de confiance, un registre de 9 risques, et une analyse par
+  niveaux : 5 frontieres de confiance, un registre de 11 risques (R1 a R11), et une analyse par
   categories de menaces (usurpation, alteration, repudiation, divulgation, deni de
   service, elevation de privilege).
 - Les donnees sont classees en 4 niveaux de sensibilite. Les empreintes de mot de passe
@@ -510,12 +580,20 @@ Ne pas reciter les 22 regles. En choisir quatre et les tenir.
    transporte qu'un identifiant de produit et une quantite. Le prix est relu en base.
    Un client qui modifie le message ne change pas ce qu'il paie. Complement : une liste
    blanche de colonnes empeche d'injecter un champ non prevu, y compris `role_id`.
-2. **Le stock se decremente de facon atomique (RG-T20).** Un seul ordre SQL garde
-   (`UPDATE ... SET stock = stock - :q WHERE stock >= :q`), dans la meme transaction que
-   le changement d'etat de la commande. Pas de lecture puis ecriture, donc pas de
-   course entre deux bornes. A dire : *"deux bornes qui commandent le dernier article
-   en meme temps, il y en a une qui gagne et une qui recoit un conflit - et c'est la
-   base qui tranche, pas mon code."*
+2. **Le stock se decremente de facon atomique, sans plancher (RG-T20).** A l'encaissement,
+   chaque ingredient consomme par la commande est decremente par une seule instruction
+   SQL (`UPDATE ingredient SET stock_quantity = stock_quantity - :u WHERE id = :id`),
+   dans la meme transaction que le passage a `preparing`, et les ingredients sont
+   traites dans un ordre stable (tri croissant sur `id`, `OrderRepository::consumption`)
+   pour ecarter tout probleme d'ordonnancement entre deux encaissements concurrents. Il
+   n'y a ni lecture prealable ni plancher : deux bornes qui vendent en meme temps le
+   dernier article appliquent chacune leur decrement sans se bloquer, `stock_quantity`
+   pouvant alors passer sous zero. A dire : *"le decrement ne s'arrete pas a zero par
+   construction - c'est la disponibilite produit (RG-T21) qui masque, avant la
+   commande, ce qui est deja en rupture ; elle ne protege pas deux commandes qui
+   epuisent le meme article au meme instant. La survente residuelle est mesuree et
+   remontee aux managers, pas empechee : une decision de gestion assumee, pas un
+   oubli."*
 3. **L'encaissement est idempotent (RG-T19).** Une cle d'idempotence unique en base :
    si le client retape "Payer", la seconde requete renvoie la commande existante au
    lieu d'en creer une deuxieme.
@@ -525,6 +603,10 @@ Ne pas reciter les 22 regles. En choisir quatre et les tenir.
    re-autorisation par identifiant d'equipier plus code personnel ; la ligne de journal
    d'audit est ecrite **dans la meme transaction** que l'action - soit les deux, soit
    aucune. Un compteur de tentatives separe de celui de la connexion protege ce code.
+   Le contenu de cette ligne est lui-meme minimise (RGPD art. 5.1.c) : depuis le
+   2026-09-29, un code personnel faux n'ecrit plus l'adresse saisie au formulaire, mais
+   seulement le contexte de l'action et, quand elle correspond a un compte existant, son
+   identifiant stable (`PinGate::auditFailedPin()`, migration `0019`).
 
 **G.3 - Le detail qui montre le niveau : le canal auxiliaire par le temps (27:00 - 28:00)**
 
@@ -563,6 +645,31 @@ Voir la section 4.2 pour le deroulement precis. L'idee a verbaliser :
 > montrer : le meme appel, avec deux comptes differents, donne 403 pour l'un et passe
 > pour l'autre - et ce n'est pas moi qui l'affirme, c'est le serveur qui repond."*
 
+**G.5 - La suite de securite executable, et ce qu'elle a trouve**
+
+A dire sans attendre la question, avant que le jury ne pense que la securite n'a ete
+qu'affirmee : une suite de tests Playwright (100 a sa creation, 107 en phase principale au
+dernier rejeu) et 5 tests PHP attaque l'application
+**de l'exterieur**, sur une pile complete, comme le ferait un client malveillant
+(`docs/soutenance/preuves/10-tests-securite.md`). Elle a trouve deux defauts importants
+- une commande anonyme sans plafond de quantite pouvait vider le stock d'un ingredient en
+deux requetes, et un changement de role n'etait applique qu'a la prochaine connexion, pas
+a une session deja ouverte - et neuf mineurs (en-tetes manquants, sessions ouvertes sans
+necessite, mot de passe oublie sans limite). Les onze ont ete corriges le jour meme,
+test d'abord : chaque test restait rouge, marque, jusqu'a ce que le correctif le fasse
+passer. La suite a ete rejouee le 2026-09-29 apres ces correctifs (sur le commit `2fe8a4a`) :
+phase principale 95 reussis (8 sautes, joues dans les phases suivantes), phase
+reinitialisation 4 reussis, phase base arretee 4 reussis, 0 echec, **0 test marque en echec
+restant** - plus les 5 tests PHP de securite, egalement verts. L'apres-midi, une relecture
+par des agents qui n'avaient pas ecrit ces correctifs a trouve des manques (table de
+limitation du mot de passe oublie jamais purgee et gardant l'adresse en clair, sessions non
+fermees quand l'admin change un mot de passe, option de menu indisponible en Maxi seulement,
+quantite corrigee en silence au comptoir), corriges eux aussi test d'abord ; rejeu sur
+`c2b8c1c` : phase principale 99 reussis + 8 sautes, reinitialisation 4, base arretee 4,
+0 echec. **Statut de production a dire juste** : corrige dans le code le 29/09, en
+production apres la release du 29/09 (a verifier sur `/api/health`, champ `version`, avant
+l'oral). Confirmation par la commande `bash tests/e2e/run-security.sh` (detail dans la fiche).
+
 **Criteres servis :** Cr 3.d (donnees personnelles), Cr 4.e (securite),
 Cr 4.f (discipline de versionnement), Cr 4.g (livraison testee).
 
@@ -582,7 +689,9 @@ Cr 4.f (discipline de versionnement), Cr 4.g (livraison testee).
 - Ce service a execution unique est le point a defendre : il fait qu'une seule commande,
   `docker compose up -d`, monte la base, la met a niveau, la remplit et demarre
   l'application. Parce que les migrations sont idempotentes, la relancer ne casse rien.
-- Reseaux separes : la base n'est pas exposee, seul le serveur web l'est.
+- Un seul reseau Docker (`wakdo_internal`, `docker-compose.yml`) : la base n'est pas
+  exposee non pas par une segmentation reseau, mais faute de section `ports` sur
+  `wakdo-db` ; seul `wakdo-web` publie un port sur l'hote.
 - Pas de machine virtuelle : choix assume, les conteneurs suffisent pour ce perimetre.
 - **4 taches planifiees actives** (plus 3 modeles commentes, laisses pour la suite) dans
   une fenetre de maintenance 01h30-09h30, choisie parce que le service client ferme a
@@ -682,7 +791,7 @@ de deux minutes. Chacune a son repli.
 | 08:00 | Accueil | Taille de cible, puis bascule de police adaptee et rechargement pour montrer la persistance |
 | 08:40 | Categories | Lien d'evitement en premier element, navigation au clavier |
 | 09:20 | Produits | Rupture signalee par trois canaux, pas par la seule couleur |
-| 10:00 | Composition d'un menu | Boucle de tabulation dans la modale, retour du focus au declencheur |
+| 10:00 | Composition d'un menu | Boucle de tabulation et fermeture a l'echappement dans la modale de composition |
 | 11:00 | Panier | Mouvement reduit respecte sur le total anime |
 | 11:30 | Paiement et confirmation | Numero de commande, remise a zero |
 
@@ -706,23 +815,57 @@ captures ouvertes dans un troisieme onglet.
 
 ### 4.2 Demonstration 2 - l'API et les droits (dans la section G, 28:00 - 30:00)
 
-Les deux collections sont livrees dans `docs/api/` : une pour Postman
-(`wakdo-admin.postman_collection.json`) et une pour Bruno (`docs/api/bruno/`). Le mode
-d'emploi complet est dans `docs/api/demo-api.md`. Choisir **un seul** outil et s'y tenir.
+L'outil de demonstration en direct est **Insomnia**, avec une collection construite par
+l'auteur lui-meme. Les deux collections livrees dans `docs/api/` restent la reference et
+le point de depart : une pour Postman (`wakdo-admin.postman_collection.json`) et une au
+format Bruno (`docs/api/bruno/`) ; toutes deux sont importables dans Insomnia (Postman
+directement, Bruno via ses fichiers `.bru`). Le mode d'emploi de reference, ecrit pour
+Postman et Bruno, est dans `docs/api/demo-api.md` : les noms de variables d'environnement
+(`baseUrl`, `email`, `csrf`, `pin_email`, `pin`...) et l'enchainement des requetes s'y
+retrouvent a l'identique dans la collection Insomnia.
 
-**Deroulement, en quatre gestes :**
+**Deroulement, en quatre gestes qui representent six requetes HTTP (les deux derniers
+gestes enchainent chacun une reconnexion puis une action) :**
 
-| Repere | Geste | Ce que ca montre |
-|---|---|---|
-| 28:00 | `POST /admin/api/auth/login` avec le compte administrateur | La connexion JSON, le cookie de session, le jeton anti-falsification renvoye |
-| 28:30 | `GET /admin/api/stats` | Une lecture autorisee, enveloppe `{ "data": ... }` |
-| 29:00 | Se reconnecter avec le compte cuisine, puis rejouer une annulation de commande | **403** : la cuisine *voit* les commandes (`order.read`) mais ne peut pas les annuler — la permission est decoupee au geste pres, et c'est le code qui la verifie, pas le nom du role |
-| 29:30 | Se reconnecter avec le compte comptoir, puis `POST /admin/api/orders` avec `{"items": []}` | **422** et non 403 : la permission passe, c'est la validation qui refuse |
+| Repere | Geste | Requetes | Ce que ca montre |
+|---|---|---|---|
+| 28:00 | Connexion administrateur | 1. `POST {{ _.baseUrl }}/admin/api/auth/login` (compte admin) | La connexion JSON, le cookie de session, le jeton anti-falsification renvoye |
+| 28:30 | Lecture des statistiques | 2. `GET {{ _.baseUrl }}/admin/api/stats` | Une lecture autorisee, enveloppe `{ "data": ... }` |
+| 29:00 | Cuisine tente d'annuler | 3. `POST {{ _.baseUrl }}/admin/api/auth/login` (compte cuisine) puis 4. `POST {{ _.baseUrl }}/admin/api/orders/K1/cancel` | **403** : la cuisine *voit* les commandes (`order.read`) mais ne peut pas les annuler — la permission est decoupee au geste pres, et c'est le code qui la verifie, pas le nom du role |
+| 29:30 | Comptoir cree une commande vide | 5. `POST {{ _.baseUrl }}/admin/api/auth/login` (compte comptoir) puis 6. `POST {{ _.baseUrl }}/admin/api/orders` avec `{"items": []}`, en-tetes `X-CSRF-Token` et `Content-Type: application/json` | **422** `VALIDATION_ERROR`, message dans `error.fields.items` (« Ajoutez au moins un produit ou un menu. ») et non 403 : la permission passe, c'est la validation qui refuse (`EMPTY_ORDER` est le code de l'API de la borne, pas de celle-ci) |
 
-Le quatrieme geste est le plus fin : il montre qu'une permission est accordee **sans**
-creer de commande reelle, donc sans effet de bord sur la base de demonstration. La
-difference entre les deux codes tient a l'ordre : le controle de droit s'execute avant la
-validation du corps. Le test
+**La requete du geste 29:00, telle qu'a preparer dans Insomnia :**
+
+```
+POST {{ _.baseUrl }}/admin/api/orders/K1/cancel
+Headers: X-CSRF-Token: {{ _.csrf }}
+Body (JSON): { "pin_email": "<email du compte cuisine>", "pin": "<PIN du compte cuisine>" }
+```
+
+**Le jeton anti-falsification change a chaque connexion.** Apres chaque requete de
+connexion (1, 3 et 5), relire `data.csrf_token` dans la reponse et le reporter dans la
+variable `csrf` ; sinon la requete suivante rend `403 CSRF_INVALID`. Les requetes qui
+envoient un corps JSON (4 et 6) portent aussi `Content-Type: application/json`, sinon
+`415 UNSUPPORTED_MEDIA_TYPE`.
+
+Connecte avec le compte cuisine (role `kitchen`), cette requete rend **403 FORBIDDEN**
+(`"Permission manquante"`). La raison tient a l'ordre des controles dans
+`OrderApiController::apiCancel` : `guardApi('order.cancel')` (l.261-263 au 29/09) s'execute AVANT
+toute recherche de la commande et avant la verification du jeton CSRF — le role `kitchen`
+ne recoit que `order.read` au seed (`db/seeds/0001_rbac_and_reference.sql`), pas
+`order.cancel`, donc c'est le controle de permission qui refuse, pas une verification sur
+la commande `K1` elle-meme (celle-ci n'est meme pas recherchee a ce stade). A l'inverse,
+un numero de commande VIDE ne peut pas produire ce 403 : le segment de route `{number}` est
+compile en `(?P<number>[^/]+)` (`Router::compile`, `src/app/Core/Router.php`), qui exige au
+moins un caractere hors `/` ; une URL avec un segment vide (`/admin/api/orders//cancel`) ne
+correspond a aucune route enregistree, donc le routeur renvoie **404** avant meme
+d'instancier le controleur (`Router::dispatch`, branche `pathMatched === false`) — ce 404
+vient du routeur, pas de la logique metier de `apiCancel`.
+
+Le quatrieme geste (comptoir, commande vide) est le plus fin : il montre qu'une permission
+est accordee **sans** creer de commande reelle, donc sans effet de bord sur la base de
+demonstration. La difference entre les deux codes tient a l'ordre : le controle de droit
+s'execute avant la validation du corps. Le test
 `OrderApiControllerTest::testStoreWithoutPermissionReturns403EvenWithEmptyItems` verifie
 qu'un role sans la permission recoit bien 403 sur la meme requete.
 
@@ -741,7 +884,7 @@ quel role a agi et savoir **qui** a agi.
 
 **Repli :**
 
-1. L'outil graphique ne demarre pas -> la meme sequence en ligne de commande avec
+1. Insomnia ne demarre pas -> la meme sequence en ligne de commande avec
    `curl`, preparee dans un fichier texte a copier-coller.
 2. L'API de production ne repond pas -> la pile locale.
 3. Rien ne repond -> ouvrir le test
@@ -749,12 +892,17 @@ quel role a agi et savoir **qui** a agi.
    le lire a l'ecran. Un test qui exprime la regle vaut demonstration, a condition de
    dire qu'il tourne a chaque demande de fusion.
 
-**A preparer la veille :** collection importee, environnement renseigne, les quatre
-requetes deja ouvertes dans l'ordre, et la sequence `curl` de secours dans un fichier.
+**A preparer la veille :** collection Insomnia construite et importee, environnement
+renseigne (`baseUrl`, comptes, `pin_email`/`pin`), les six requetes ci-dessus deja
+ouvertes dans l'ordre, et la sequence `curl` de secours dans un fichier.
 
-**Precaution sur Bruno :** cet outil ecrit sur disque les variables posees par un script,
-y compris dans le fichier d'environnement versionne. Lancer la collection sur une
-**copie** hors du depot (`--env-file`), comme decrit dans `docs/api/demo-api.md`.
+**Precaution sur la collection Bruno du depot** (si on l'ouvre directement, en plus ou a
+la place d'Insomnia, pour verifier la reference) : cet outil ecrit sur disque les
+variables posees par un script, y compris dans le fichier d'environnement versionne.
+Lancer cette collection sur une **copie** hors du depot (`--env-file`), comme decrit dans
+`docs/api/demo-api.md`. La collection Insomnia de la demonstration, elle, est un espace
+de travail personnel non versionne : ce risque particulier ne s'y applique pas, mais toute
+valeur y restant apres l'oral (jeton, cookie) doit etre effacee comme pour tout outil.
 
 ### 4.3 Demonstration 3 - modifier du code en direct (sur demande du jury)
 
@@ -784,15 +932,15 @@ est en section 8. La proposer soi-meme si la question sur l'IA tombe.
 | B1 | Cr 2.b validation de formulaire | G.2 | Validation serveur (RG-T18) |
 | B1 | Cr 2.c echanges asynchrones | E | `data.js`, memoisation de promesse |
 | B1 | Cr 2.d bibliotheques externes | E | **Non couvert au sens strict, argumente** |
-| B2 | Cr 3.a analyse et modele | F.1 | Dictionnaire, 23 entites |
-| B2 | Cr 3.b construction de la base | F.1, H.1 | 17 migrations, 10 jeux de donnees |
+| B2 | Cr 3.a analyse et modele | F.1 | Dictionnaire, 24 entites |
+| B2 | Cr 3.b construction de la base | F.1, H.1 | 20 migrations, 10 jeux de donnees |
 | B2 | Cr 3.c SQL | G.2 | Decrement atomique, depots PDO |
 | B2 | Cr 3.d donnees personnelles | G.1 | Classification 4 niveaux, anonymisation |
 | B2 | Cr 4.b developpement serveur | F.2 | 158 routes, API JSON complete |
 | B2 | Cr 4.c heritage | F.2 | Hierarchie des controleurs a 4 niveaux |
 | B2 | Cr 4.d separation des responsabilites | F.2 | Controleur, depot, vue |
 | B2 | Cr 4.e securite | G | 22 regles transverses, modelisation de la menace |
-| B2 | Cr 4.f versionnement | C | 242 commits, 192 demandes de fusion |
+| B2 | Cr 4.f versionnement | C | 242 commits, 192 demandes de fusion au 28/09 (244 / 194 au 29/09) |
 | B2 | Cr 4.g livraison testee | H.2 | Suites PHP et JS, PHPStan niveau 6 |
 | B5 | Cr 7.a analyse infrastructure | H.3 | Arbitrage sur le socket Docker |
 | B5 | Cr 7.b scripts et taches planifiees | H.1 | 4 taches actives, scripts de migration |
@@ -833,27 +981,26 @@ bonne reponse est *"le code fait foi, et voici pourquoi le document a pris du re
 | Ecart | Le document dit | Le code dit |
 |---|---|---|
 | **API `PUT`/`DELETE`** | "reste au stade prevu" (dossier, C4.b) | **Livree** : 57 routes sous `/admin/api/`, dont 9 `PUT` et 5 `DELETE`, 10 controleurs dedies, decision d'architecture 0017. **C'est l'ecart le plus important** : le dossier declare absente une fonctionnalite demontrable. |
-| Nombre de tests | 755 PHP / 233 JS (dossier, deux endroits) | Derniere execution mesuree (28/09/2026, commit `04bece0`) : 2 386 PHP / 7 886 assertions / 446 JS. Comptage statique aujourd'hui : 1 295 methodes / 450 appels. |
+| Nombre de tests | 755 PHP / 233 JS (dossier, deux endroits) | Derniere execution mesuree (29/09/2026 apres-midi, commit `186c5d7`) : 2 535 PHP / 8 716 assertions / 492 JS. Comptage statique le meme jour : 1 410 methodes / 498 appels. |
 | Decisions d'architecture | "seize" (dossier, quatre endroits) | **20**. Les 0018-0020 portent les familles d'ingredients, la page Sante de l'API et l'annulation par le responsable. |
-| Migrations | "dix fichiers, 0001 a 0011" (dossier, C3.b) | **17 fichiers**, 0001 a 0018. Le saut sur 0004 reste volontaire et trace. |
-| Fichiers PHP de l'application | "103 fichiers" avec une repartition detaillee | **135** sous `src/app`, dont 34 controleurs (23 au premier niveau + 11 sous `Admin/Api`). |
-| Modules de la borne | "18 modules, 2 979 lignes" | **21 modules, 3 311 lignes**. |
-| Feuille de style du back-office | "2 714 lignes" | **3 470 lignes** (refonte du 26 septembre, complements du 28). |
-| Operations du modele de traitements | "28 operations" | **30** depuis la version 0.3. |
+| Migrations | "dix fichiers, 0001 a 0011" (dossier, C3.b) | **20 fichiers**, 0001 a 0021 (sans 0004, mesure du 29/09). Le saut sur 0004 reste volontaire et trace. |
+| Fichiers PHP de l'application | "103 fichiers" avec une repartition detaillee | **138** sous `src/app` (29/09), dont **33 controleurs + 1 trait** (23 au premier niveau + 10 controleurs et 1 trait `JsonApiTrait` sous `Admin/Api`). |
+| Modules de la borne | "18 modules, 2 979 lignes" | **21 modules, 3 551 lignes** (29/09). |
+| Feuille de style du back-office | "2 714 lignes" | **3 484 lignes** (29/09 ; refonte du 26 septembre, complements du 28 et du 29). |
+| Operations du modele de traitements | "28 operations" | **40**, depuis la version 0.5 (`docs/merise/mct.md` §14). |
 | Dependances de developpement | "deux" | **trois** (`@axe-core/playwright` en plus). Le fond tient : zero dependance de production. |
-| Nombre d'entites | 21 entites classifiees (dossier, section 19.4) | **23**. `pin_throttle` et `category_ingredient_family` sont desormais classees en INTERNAL (`PROJECT_CONTEXT.md` 19.4, corrige). |
+| Nombre d'entites | 21 entites classifiees (dossier, section 19.4) | **24**. `pin_throttle`, `category_ingredient_family` et `password_reset_throttle` sont classees en INTERNAL (`PROJECT_CONTEXT.md` 19.4, corrige). |
 | Empreintes de mot de passe | "bcrypt ou argon2" (dossier, sections 7, 16, 18) | **argon2id**, et le dossier lui-meme l'ecrit en section 19.3. |
 | Services conteneurises | 4 en section 16, 5 ailleurs | **5**, dont un a execution unique. |
 | Regles transverses | "RG-T13 a RG-T21" en introduction de la section 19 | **22 regles**, RG-T22 comprise. |
 | Auditabilite des echanges avec l'IA | Annoncee en section 17.9 | Les journaux ne sont pas versionnes (section 17.6). Ne pas promettre cette preuve. |
-| Mesures de contraste | 407 (fiches 06 et README des preuves) | **935** dans l'artefact `rapports/resume.json` du 28 septembre ; la fiche 06 explique l'ecart avec les 946 du 27 (l'apercu d'import affichait alors le defaut des accents, corrige par #178). |
 
 **Un point deja regle, un point restant a verifier avant le 5 octobre** :
 
 1. **Regle.** Le dossier indiquait que la production servait encore le mode de deboguage
    detaille et que `/api/health` annonçait un environnement de developpement. C'est
    desormais un fait etabli et verifiable en direct : `/api/health` annonce
-   `"app_env":"production"` (`src/app/Controllers/HealthController.php:47`). Le dossier
+   `"app_env":"production"` (`src/app/Controllers/HealthController.php:52` au 29/09). Le dossier
    reste a corriger sur ce point s'il n'est pas deja mis a jour.
 2. **A verifier.** Les captures d'annexe du back-office datent du 24 septembre, avant la
    refonte du 26. Les recapturer, ou dater la mesure dans le dossier.
@@ -900,10 +1047,12 @@ dessiner du HTML ; il coordonne."*
 
 **Q1.3 - Ou est l'heritage dans votre code ?**
 Une hierarchie a quatre niveaux. `src/app/Core/Controller.php` est abstraite ;
-`AdminController` en herite et ajoute le controle de permission, le rendu de vue et les
-messages ; les controleurs concrets en heritent. Sur les 23 fichiers du premier niveau :
-2 abstraits, 14 qui etendent `AdminController`, 6 `Controller`, 1
-`AuthenticatedController`. C'est le critere Cr 4.c.
+`AuthenticatedController` en herite et ajoute la verification de session ; `AdminController`
+herite a son tour d'`AuthenticatedController` et ajoute le controle de permission, le rendu
+de vue et les messages ; les controleurs concrets heritent de l'un des trois. Sur les 23
+fichiers du premier niveau : 2 abstraits (`AdminController`, `AuthenticatedController`),
+14 qui etendent `AdminController`, 6 qui etendent `Controller` directement, 1
+(`MeController`) qui etend `AuthenticatedController` directement. C'est le critere Cr 4.c.
 
 **Q1.4 - Pourquoi un routeur ecrit a la main plutot qu'une bibliotheque ?**
 Le sujet du Bloc 2 demande une realisation sans framework. Ecrire le routeur m'obligeait
@@ -919,11 +1068,16 @@ relit le prix en base et recalcule (RG-T16, RG-T18). Une liste blanche de colonn
 empeche en plus d'injecter un champ non prevu, `role_id` compris.
 
 **Q2.2 - Et si deux bornes commandent le dernier article en meme temps ?**
-Le decrement est un seul ordre SQL garde, `WHERE stock >= :q`, dans la meme transaction
-que le changement d'etat (RG-T20). Pas de lecture puis ecriture, donc pas de course.
-L'une des deux commandes recoit un conflit. Nuance honnete : le registre des risques
+Le decrement est un seul ordre SQL par ingredient, sans plancher
+(`UPDATE ingredient SET stock_quantity = stock_quantity - :u WHERE id = :id`), dans la
+meme transaction que le changement d'etat de la commande (RG-T20). Les deux
+encaissements appliquent chacun leur delta sans se bloquer : ni lecture-gate ni conflit
+SQL, et `stock_quantity` peut passer sous zero. Ce que RG-T21 empeche, c'est de
+commander un produit deja en rupture avant l'encaissement (la disponibilite compare le
+stock au seuil critique) ; ca ne protege pas deux commandes simultanees sur le dernier
+exemplaire. Nuance honnete : le registre des risques (`PROJECT_CONTEXT.md`, risque R5)
 classe le risque residuel de survente comme moyen et **accepte** - la survente est
-mesuree, pas totalement empechee, c'est une decision metier.
+mesuree, pas empechee, c'est une decision metier.
 
 **Q2.3 - Que se passe-t-il si le client double-clique sur Payer ?**
 Une cle d'idempotence unique en base (RG-T19). La seconde requete renvoie la commande
@@ -978,14 +1132,32 @@ La suppression d'un compte se fait par anonymisation plutot que par effacement d
 preserver l'integrite des commandes passees : l'adresse devient une valeur neutre, la
 ligne reste, une date d'anonymisation est posee (decision d'architecture 0007). Le role
 est denormalise dans le journal d'audit pour qu'il survive a l'anonymisation. Purges de
-retention automatisees : journal d'audit environ 12 mois, compteurs de tentatives 24 h.
+retention automatisees : journal d'audit environ 12 mois, compteurs de tentatives 24 h
+(connexion, PIN et mot de passe oublie : cette derniere table n'etait purgee par aucun cron
+avant le correctif du 29/09, `680820f`, et elle ne garde plus qu'une empreinte SHA-256 de
+l'adresse).
+
+**Q2.11 - Avez-vous fait des tests de securite ?** **(rude)**
+Oui, une suite executable qui attaque l'application de l'exterieur : 100 tests
+Playwright et 5 tests PHP contre une pile reelle (Apache, PHP-FPM, MariaDB), pas
+seulement des tests unitaires (`docs/soutenance/preuves/10-tests-securite.md`). Elle a
+trouve 11 ecarts le 29 septembre - deux importants (deni de service par quantite de
+commande, changement de role non applique a une session ouverte) et neuf mineurs
+(en-tetes manquants, sessions ouvertes sans necessite, mot de passe oublie sans limite) -
+tous corriges le jour meme, test d'abord, et la suite rejouee le meme jour confirme 0 test
+marque en echec restant (dernier rejeu : 99 reussis et 8 sautes en phase principale, puis
+4 et 4). Ces correctifs sont dans le code le 29/09 et en production apres la release du
+29/09. Ce que je NE fais PAS, et que je dis avant qu'on
+me le demande : pas de scanner automatique (ZAP, sqlmap, Burp), les charges sont ecrites a
+la main et la liste est bornee ; HTTPS et TLS relevent de Traefik, hors de mon code, et ne
+sont pas testes sur la pile locale.
 
 ### 7.3 Accessibilite
 
 **Q3.1 - Qu'est-ce qui vous permet de dire que votre site est accessible ?**
 Je ne dis pas qu'il est accessible : je dis qu'il ne porte aucune violation detectable
 automatiquement. axe-core 4.13.0 sur les regles WCAG 2.0 A/AA et 2.1 A/AA, 19 ecrans,
-0 violation toutes gravites, 935 rapports de contraste, 0 sous le seuil. Et 4 807
+0 violation toutes gravites, 934 rapports de contraste (29/09 apres-midi), 0 sous le seuil. Et 4 807
 verifications sans echec au balayage de mise en page, sur 5 roles et 4 largeurs.
 
 **Q3.2 - Quelle est la limite de votre audit ?** **(rude)**
@@ -1034,7 +1206,7 @@ passaient.
 
 **Q4.1 - Comment deploie-t-on votre application ?**
 Une seule commande : `docker compose up -d`. Un service a execution unique applique les
-17 migrations et les 10 jeux de donnees, tous idempotents, puis s'arrete ; l'application
+20 migrations et les 10 jeux de donnees, tous idempotents, puis s'arrete ; l'application
 demarre ensuite. En production, le deploiement part sur chaque arrivee dans `main` et
 peut etre relance a la demande.
 
@@ -1082,11 +1254,11 @@ sauvegarde pour que le cliche de la nuit contienne l'etat nettoye.
 ### 7.5 Base de donnees
 
 **Q5.1 - Presentez votre modele de donnees.**
-23 entites en cinq domaines : catalogue, ingredients et stock, commande, droits,
+24 entites en cinq domaines : catalogue, ingredients et stock, commande, droits,
 securite. Le dictionnaire de donnees a ete pose avant le modele, et le modele a ete
-enrichi lot par lot. Point a souligner : les trois entites du domaine securite - journal
-d'audit et les deux compteurs de tentatives - viennent de la modelisation de la menace,
-pas du besoin fonctionnel.
+enrichi lot par lot. Point a souligner : les quatre entites du domaine securite - journal
+d'audit et les trois compteurs de tentatives (login/IP, PIN, reinitialisation de mot de
+passe) - viennent de la modelisation de la menace, pas du besoin fonctionnel.
 
 **Q5.2 - Pourquoi figer le libelle et le prix dans la ligne de commande ?**
 Pour que l'historique reste fidele. Si le prix du catalogue change demain, la commande
@@ -1101,7 +1273,7 @@ montants sont stockes et calcules en entiers, et convertis en euros seulement a
 l'affichage (RG-T04).
 
 **Q5.4 - Comment construisez-vous la base sur une machine neuve ?**
-17 migrations puis 10 jeux de donnees, appliques dans l'ordre lexicographique par un
+20 migrations puis 10 jeux de donnees, appliques dans l'ordre lexicographique par un
 service a execution unique, avec un suivi en table. Tous sont idempotents : les rejouer
 ne casse rien, ce qui rend l'operation sure a relancer. L'integration continue applique
 exactement la meme sequence sur une base ephemere avant de lancer les tests.
@@ -1151,9 +1323,9 @@ code de production.
 
 **Q7.1 - Votre couverture de tests mesure quoi exactement ?** **(rude)**
 Je n'ai pas de taux de couverture : je n'ai pas active l'instrumentation qui le calcule,
-et c'est un manque. Ce que j'ai, ce sont des nombres de tests - plus de 2 380 tests PHP
-pour plus de 7 800 assertions, plus de 440 tests JavaScript, 92 scenarios de bout en
-bout - et surtout le **choix de ce qui est teste** : les chemins de commande, de stock,
+et c'est un manque. Ce que j'ai, ce sont des nombres de tests - plus de 2 500 tests PHP
+pour plus de 8 600 assertions, plus de 460 tests JavaScript, 197 scenarios de bout en
+bout sur 36 fichiers de specs - et surtout le **choix de ce qui est teste** : les chemins de commande, de stock,
 d'authentification et de droits. Un taux eleve sur du code sans risque ne m'aurait rien
 appris ; un test d'integration qui verifie qu'un role sans permission recoit 403, si.
 
@@ -1161,7 +1333,7 @@ appris ; un test d'integration qui verifie qu'un role sans permission recoit 403
 C'est precisement le piege que j'ai ferme. Sans base de donnees, ils s'ignoreraient
 tout seuls et le pipeline serait vert. Le drapeau `--fail-on-skipped` fait echouer
 l'integration des qu'un test est ignore. L'integration monte une base MariaDB ephemere,
-lui applique les 17 migrations et les 10 jeux de donnees, puis lance la suite. La
+lui applique les 20 migrations et les 10 jeux de donnees, puis lance la suite. La
 configuration refuse aussi les tests douteux et ceux qui n'assertent rien.
 
 **Q7.3 - Avez-vous pratique le developpement pilote par les tests ?**
@@ -1170,7 +1342,7 @@ compteurs de tentatives et les droits. Honnetement, pas partout : sur des ecrans
 back-office, le test est venu apres. Je prefere le dire que pretendre une discipline
 uniforme.
 
-**Q7.4 - Vous annoncez 1 295 methodes mais plus de 2 300 tests. D'ou vient l'ecart ?**
+**Q7.4 - Vous annoncez 1 410 methodes mais plus de 2 500 tests. D'ou vient l'ecart ?**
 Des jeux de donnees de test. Une methode associee a un fournisseur de donnees s'execute
 une fois par jeu, et compte pour autant de tests. C'est ce qui permet de couvrir de
 nombreux cas de validation sans dupliquer le code du test.
@@ -1209,15 +1381,16 @@ journal. Les schemas du projet sont en tete parce que je l'ai construit. A evite
 dire "je n'ai pas besoin de l'IA", c'est invalidable en une question.
 
 **Q8.6 - L'IA a-t-elle decide de l'architecture de votre base ?**
-Non. Le modele part du dictionnaire de donnees et des 30 recits utilisateur ; chaque
-cardinalite et chaque transition d'etat est un arbitrage que j'ai pose. L'outil a
+Non. Le modele part du dictionnaire de donnees et des besoins fonctionnels du projet ;
+chaque cardinalite et chaque transition d'etat est un arbitrage que j'ai pose. L'outil a
 formalise les diagrammes a partir de ces arbitrages. C'est ecrit en section 17.4 du
 dossier, dans la liste de ce que l'outil ne fait pas.
 
 **Q8.7 - Vos echanges avec l'IA sont-ils verifiables ?** **(piege - eviter de sur-promettre)**
 Partiellement, et je prefere etre precis. Ce qui est versionne et que je peux vous
 montrer : les regles de methodologie, les 20 decisions d'architecture, le journal de
-bord, les 242 commits. Ce qui ne l'est pas : les journaux de conversation eux-memes.
+bord, les commits (242 au 28/09, 244 au 29/09). Ce qui ne l'est pas : les journaux de
+conversation eux-memes.
 Le dossier laisse entendre en section 17.9 qu'ils sont auditables ; c'est une imprecision
 que j'ai relevee, ils ne sont pas versionnes.
 
@@ -1274,9 +1447,11 @@ sans acces aux journaux.
 
 Je remonte la pile, en le disant a voix haute :
 
-1. **Base** : nouvelle migration `db/migrations/0019_category_description.sql`
-   (0016 est deja prise), `ALTER TABLE category ADD COLUMN description VARCHAR(255)
-   NULL`, avec une garde d'idempotence sur `information_schema`.
+1. **Base** : nouvelle migration `db/migrations/0022_category_description.sql` (la
+   derniere migration livree est `0021_password_reset_throttle_hash_identifier.sql`
+   (empreinte SHA-256 de l'adresse, 2026-09-29), la prochaine est donc `0022` ; relire
+   `ls db/migrations` la veille), `ALTER TABLE category ADD COLUMN description VARCHAR(255) NULL`, avec une
+   garde d'idempotence sur `information_schema`.
 2. **Depot** : `src/app/Catalogue/CategoryRepository.php`, ajouter la colonne aux
    requetes et a la liste blanche de colonnes (RG-T16).
 3. **Controleur** : `CategoryController::validate()`, valider la longueur.
@@ -1285,8 +1460,9 @@ Je remonte la pile, en le disant a voix haute :
 
 ### 8.2 Ajouter une route
 
-1. Les routes sont declarees dans `src/app/Core/routes.php` (les points d'entree
-   `index.php` se contentent d'un `require` sur ce fichier) :
+1. Les routes sont declarees dans `src/app/Core/routes.php` (l'unique point d'entree PHP,
+   `src/public/admin/index.php`, se contente d'un `require` sur ce fichier ; la borne, elle,
+   ne passe par aucun routeur PHP - ce sont des pages HTML statiques) :
    `$router->add('GET', '/api/categories/{id}', [CatalogueController::class, 'category']);`
 2. L'action `category(array $params)` dans le controleur, qui lit `$params['id']`,
    appelle le depot et renvoie `$this->json([...])`.
@@ -1340,9 +1516,9 @@ evalue la demarche de navigation autant que la vitesse.
       reponse de `/api/health`, borne, back-office. Ecarter toute commande destructive
       (en particulier la suppression de volumes).
 - [ ] Demarrer une pile locale de secours et la laisser tourner.
-- [ ] Importer la collection d'API choisie, renseigner l'environnement, ouvrir les
-      quatre requetes de la section 4.2 dans l'ordre. Sur Bruno, pointer sur une copie
-      de l'environnement hors du depot.
+- [ ] Construire/importer la collection Insomnia, renseigner l'environnement, ouvrir les
+      six requetes de la section 4.2 dans l'ordre (quatre gestes, deux d'entre eux
+      enchainant une reconnexion puis une action).
 - [ ] Preparer la sequence `curl` de secours dans un fichier texte.
 - [ ] Ouvrir `docs/demo/comptes-demo.md` pour avoir les comptes sous la main.
 - [ ] Recapturer les ecrans du back-office si on compte montrer des captures : celles du
@@ -1391,7 +1567,7 @@ evalue la demarche de navigation autant que la vitesse.
 | Comptes de demonstration | `docs/demo/comptes-demo.md` |
 | Matrice des droits | `docs/demo/matrice-rbac.md` |
 | Decisions d'architecture | `docs/adr/` (20 decisions) |
-| Journal de bord | `docs/journal/` (16 entrees) |
+| Journal de bord | `docs/journal/` (17 entrees) |
 | Integration continue | `.forgejo/workflows/ci.yml` |
 | Deploiement | `.forgejo/workflows/deploy.yml` |
 | Conteneurs | `docker-compose.yml`, `docker/` |

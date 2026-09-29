@@ -1,7 +1,7 @@
 {
   "page": "admin-tableau-de-bord",
   "url": "http://admin.wakdo.test/admin/dashboard",
-  "date": "2026-09-28T10:22:11.746Z",
+  "date": "2026-09-29T12:44:19.545Z",
   "moteur": {
     "axe": {
       "name": "axe-core",
@@ -68,7 +68,7 @@
           "all": [],
           "none": [],
           "impact": "serious",
-          "html": "<text class=\"dash-label\" x=\"60.3\" y=\"180\" text-anchor=\"middle\">22/09</text>",
+          "html": "<text class=\"dash-label\" x=\"60.3\" y=\"180\" text-anchor=\"middle\">23/09</text>",
           "target": [
             "text[x=\"60.3\"]"
           ],
@@ -100,7 +100,7 @@
           "all": [],
           "none": [],
           "impact": "serious",
-          "html": "<text class=\"dash-label\" x=\"156.9\" y=\"180\" text-anchor=\"middle\">23/09</text>",
+          "html": "<text class=\"dash-label\" x=\"156.9\" y=\"180\" text-anchor=\"middle\">24/09</text>",
           "target": [
             "text[x=\"156.9\"]"
           ],
@@ -132,7 +132,7 @@
           "all": [],
           "none": [],
           "impact": "serious",
-          "html": "<text class=\"dash-label\" x=\"253.4\" y=\"180\" text-anchor=\"middle\">24/09</text>",
+          "html": "<text class=\"dash-label\" x=\"253.4\" y=\"180\" text-anchor=\"middle\">25/09</text>",
           "target": [
             "text[x=\"253.4\"]"
           ],
@@ -164,7 +164,7 @@
           "all": [],
           "none": [],
           "impact": "serious",
-          "html": "<text class=\"dash-label\" x=\"350\" y=\"180\" text-anchor=\"middle\">25/09</text>",
+          "html": "<text class=\"dash-label\" x=\"350\" y=\"180\" text-anchor=\"middle\">26/09</text>",
           "target": [
             "text[x=\"350\"]"
           ],
@@ -196,7 +196,7 @@
           "all": [],
           "none": [],
           "impact": "serious",
-          "html": "<text class=\"dash-label\" x=\"446.6\" y=\"180\" text-anchor=\"middle\">26/09</text>",
+          "html": "<text class=\"dash-label\" x=\"446.6\" y=\"180\" text-anchor=\"middle\">27/09</text>",
           "target": [
             "text[x=\"446.6\"]"
           ],
@@ -228,7 +228,7 @@
           "all": [],
           "none": [],
           "impact": "serious",
-          "html": "<text class=\"dash-label\" x=\"543.1\" y=\"180\" text-anchor=\"middle\">27/09</text>",
+          "html": "<text class=\"dash-label\" x=\"543.1\" y=\"180\" text-anchor=\"middle\">28/09</text>",
           "target": [
             "text[x=\"543.1\"]"
           ],
@@ -260,7 +260,7 @@
           "all": [],
           "none": [],
           "impact": "serious",
-          "html": "<text class=\"dash-label\" x=\"639.7\" y=\"180\" text-anchor=\"middle\">28/09</text>",
+          "html": "<text class=\"dash-label\" x=\"639.7\" y=\"180\" text-anchor=\"middle\">29/09</text>",
           "target": [
             "text[x=\"639.7\"]"
           ],

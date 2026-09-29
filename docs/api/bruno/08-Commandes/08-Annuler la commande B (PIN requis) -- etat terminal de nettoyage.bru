@@ -23,3 +23,7 @@ body {
 docs {
 order.cancel + PIN (RG-T13). Restocke automatiquement les ingredients consommes (RG-T20) : "cancelled" est aussi un etat terminal normal.
 }
+
+tests {
+  test('200 OK', function () { expect(res.getStatus()).to.equal(200); });
+}

@@ -7,6 +7,7 @@ namespace App\Controllers;
 use App\Auth\Csrf;
 use App\Auth\GuardResult;
 use App\Auth\PasswordHasher;
+use App\Auth\PinGate;
 use App\Auth\PinThrottle;
 use App\Auth\PinVerifier;
 use App\Catalogue\MenuRepository;
@@ -116,7 +117,7 @@ class OrderAdminController extends AdminController
             $this->setFlash(
                 $exception->getMessage() === 'ORDER_NOT_FOUND'
                     ? 'Commande introuvable.'
-                    : 'Transition invalide : la commande n\'est pas au statut payé.',
+                    : 'Transition invalide : la commande n\'est pas encore payée, ou elle a été annulée.',
             );
         }
 
@@ -358,21 +359,12 @@ class OrderAdminController extends AdminController
     /**
      * Trace une tentative de PIN echouee sur l'annulation (RG-T14) : rend le
      * brute-force d'attribution detectable. Acteur inconnu (PIN non resolu).
+     * Delegue a `PinGate::auditFailedPin()` (RGPD art. 5.1.c, minimisation) : plus
+     * aucune adresse en clair dans `audit_log`, voir le POURQUOI complet la-bas.
      */
     private function logFailedPin(DatabaseInterface $db, string $email, int $orderId): void
     {
-        $db->execute(
-            'INSERT INTO audit_log (actor_user_id, actor_role_id, action_code, entity_type, entity_id, summary) '
-            . 'VALUES (:uid, :rid, :code, :etype, :eid, :summary)',
-            [
-                'uid'     => null,
-                'rid'     => null,
-                'code'    => 'pin.failed',
-                'etype'   => 'customer_order',
-                'eid'     => $orderId,
-                'summary' => 'Échec PIN annulation (email tenté: ' . $email . ')',
-            ],
-        );
+        PinGate::auditFailedPin($db, $email, 'customer_order', $orderId, 'annulation');
     }
 
     /**

@@ -159,13 +159,10 @@ Le filtre par famille se place en amont de cette garde, il ne la remplace pas et
 durcit pas.
 
 **Rendre la correspondance modifiable depuis le back-office.** Ecarte pour l'instant : la
-table `category_ingredient_family` est peuplee par le jeu de donnees
-`db/seeds/0010_ingredient_families.sql` (23 lignes, reparties sur 8 des 9 categories --
-`menus` n'en recoit volontairement aucune, cf. decision (d)) et reste modifiable par
-migration, ce qui couvre le besoin reel constate. Un ecran d'administration pour ces 23
-lignes de correspondance ajouterait une surface a tester et a rendre accessible sans
-demande qui le justifie. La decision est reversible : la donnee est deja au bon endroit
-pour qu'un ecran vienne se poser dessus.
+table est modifiable par migration, ce qui couvre le besoin reel constate. Un ecran
+d'administration pour neuf lignes de correspondance ajouterait une surface a tester et a
+rendre accessible sans demande qui le justifie. La decision est reversible : la donnee est
+deja au bon endroit pour qu'un ecran vienne se poser dessus.
 
 ## Consequences
 
@@ -206,3 +203,10 @@ pour qu'un ecran vienne se poser dessus.
 - (-) Dix familles sont un compromis. Elles collent aux 50 ingredients d'aujourd'hui ; un
   catalogue qui grossirait beaucoup demanderait de les revoir, et cette fiche serait alors
   remplacee plutot que modifiee.
+
+## Errata
+- Erratum (ecrit le 2026-09-29 par BYAN, `02609c5`, constat de l'audit #195 du 28/09) : « neuf lignes de correspondance » restaure le chiffre
+  d'origine de cette fiche, mais ce chiffre etait deja faux le jour de sa redaction (meme
+  commit `ab0c553`, 2026-09-27) : le jeu de donnees `db/seeds/0010_ingredient_families.sql`
+  compte 23 lignes, reparties sur 8 des 9 categories (`menus` n'en recoit volontairement
+  aucune, cf. decision (d)) — pas neuf.

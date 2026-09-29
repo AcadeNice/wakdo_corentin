@@ -2,10 +2,18 @@
 #
 # Wakdo - purge des compteurs de throttle sans verrou actif (mlt.md 13.5).
 #
-# Borne la croissance de login_throttle (per-IP, RG-8) et pin_throttle
-# (per-acteur, RG-T22) : supprime les lignes dont le verrou n'est plus actif
-# ET dont la derniere tentative est plus ancienne que THROTTLE_PURGE_AFTER_HOURS.
-# Les lignes servant encore un verrou actif sont conservees.
+# Borne la croissance de login_throttle (per-IP, RG-8), pin_throttle
+# (per-acteur, RG-T22) et password_reset_throttle (per-adresse ET per-IP,
+# migration 0020) : supprime les lignes dont le verrou n'est plus actif ET dont
+# la derniere tentative est plus ancienne que THROTTLE_PURGE_AFTER_HOURS. Les
+# lignes servant encore un verrou actif sont conservees.
+#
+# password_reset_throttle porte l'ADRESSE demandee (dimension 'email', y compris
+# pour une adresse qui ne correspond a AUCUN compte, RG-2 anti-enumeration) :
+# constat d'audit corrige le 2026-09-29 -- la migration 0020 documentait deja
+# cette purge en commentaire, mais le script ne traitait que login_throttle et
+# pin_throttle ; l'adresse tapee survivait donc indefiniment. Meme predicat que
+# les deux autres tables (aucune raison de traiter cette dimension autrement).
 #
 # Variables d'env (injectees par docker-compose depuis .env) :
 #   DB_HOST DB_PORT DB_NAME DB_USER DB_PASSWORD
@@ -30,8 +38,10 @@ db() {
         --default-character-set=utf8mb4 -N -B "$DB_NAME" -e "$1"
 }
 
-# login_throttle et pin_throttle partagent le meme predicat (mlt.md 13.5).
-for table in login_throttle pin_throttle; do
+# login_throttle, pin_throttle et password_reset_throttle partagent le meme
+# predicat (mlt.md 13.5) : leurs trois colonnes lockout_until/last_attempt_at
+# ont la meme forme (migrations 0002/0020).
+for table in login_throttle pin_throttle password_reset_throttle; do
     if ! n="$(db "DELETE FROM ${table} WHERE (lockout_until IS NULL OR lockout_until < NOW()) AND last_attempt_at < NOW() - INTERVAL ${HOURS} HOUR; SELECT ROW_COUNT();")"; then
         log "ERROR: purge ${table} a echoue"
         exit 2

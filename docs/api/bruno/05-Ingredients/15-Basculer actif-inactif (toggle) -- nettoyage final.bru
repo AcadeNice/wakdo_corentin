@@ -16,3 +16,7 @@ headers {
 docs {
 Pas de DELETE possible ici : cet ingredient porte des stock_movement (restock/inventaire/ajustement ci-dessus), donc 409 CONFLICT sur une suppression dure (conventions.md section 5.3, comportement voulu -- une demarque non tracee serait pire). La bascule vers inactif est le nettoyage correct pour CETTE ressource.
 }
+
+tests {
+  test('200 OK', function () { expect(res.getStatus()).to.equal(200); });
+}

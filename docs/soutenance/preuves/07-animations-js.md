@@ -242,10 +242,16 @@ garantit que l'element atteint immediatement son etat final visible : rien ne
 reste bloque a l'etat de depart (invisible ou deplace) le temps quasi nul de
 l'animation raccourcie.
 
-`src/public/admin/assets/css/admin.css` (back-office) a ete verifie et ne
-contient aucun `@keyframes` ni `animation:` : il n'y avait rien d'autre a
-couvrir pour que le mouvement reduit soit respecte sur l'ensemble du code CSS
-de ce depot.
+`src/public/admin/assets/css/admin.css` (back-office) portait, au moment de ce
+lot, aucun `@keyframes` ni `animation:`. Ce n'est plus le cas aujourd'hui :
+`.row-highlight` (`admin.css:3005-3007` au 29/09) anime un fondu de 4 secondes sur la
+ligne de commande venant d'etre creee au comptoir (`@keyframes
+row-highlight-fade`, `admin.css:3008-3011`), ajoutee apres ce lot. Cette
+animation-la respecte elle aussi `prefers-reduced-motion: reduce`
+(`admin.css:3029` et suivantes, meme principe que la section 4.3 ci-dessus) :
+le code CSS du depot reste couvert dans son ensemble, mais par deux points de
+verification distincts plutot que par l'absence totale d'animation admin
+affirmee au moment ou ce document a ete ecrit.
 
 ---
 
@@ -282,12 +288,14 @@ plutot que passe sous silence.
 **Non-regression verifiee.** Aucun des ecrans ni interactions couverts par
 `tests/e2e/a11y.spec.js` ne declenche de changement de total sur un panneau
 deja rendu : le panier y est seme directement en `localStorage` avant le
-chargement de la page, et la modale d'options y est ouverte sans qu'aucun clic
-ne soit envoye sur « Ajouter a ma commande » (cherchez `ETAT_CLIENT` et
-`po-add` dans ce fichier). Le chemin anime n'est exerce par aucun des 11
-ecrans mesures. La barriere `ACCEPTE` de ce test (zero violation) reste donc
-sans lien de cause a effet avec ce lot, et a ete rejouee sans regression
-(section 7).
+chargement de la page (cherchez `ETAT_CLIENT`, l.60 et suivantes), et la
+modale d'options y est mesuree telle qu'elle s'ouvre normalement, sans passer
+par un clic sur le bouton « Ajouter a ma commande » (`#po-add`) — ce fichier ne
+reference d'ailleurs pas `po-add` du tout : l'identifiant n'apparait que dans
+`tests/e2e/borne.spec.js` et `tests/e2e/borne-abandon.spec.js`, pas ici. Le
+chemin anime n'est exerce par aucun des 11 ecrans mesures. La barriere
+`ACCEPTE` de ce test (zero violation) reste donc sans lien de cause a effet
+avec ce lot, et a ete rejouee sans regression (section 7).
 
 ---
 

@@ -144,6 +144,29 @@ final class PasswordResetServiceTest extends TestCase
     }
 
     /**
+     * RG-T02 (relecture adverse) : une session ouverte AVANT la reinitialisation
+     * doit etre fermee apres -- session_epoch est incremente EN BASE (relu par
+     * SessionGuard::check() a chaque requete), dans la MEME ecriture que le
+     * nouveau hash (pas d'etat intermediaire ou le mot de passe aurait change
+     * sans que les sessions existantes ne soient closes).
+     */
+    public function testConfirmValidTokenIncrementsSessionEpochInvalidatingExistingSessions(): void
+    {
+        $raw = 'a-valid-raw-token';
+        $this->db->resetUserRow = [
+            'id' => 7,
+            'role_id' => 3,
+            'password_reset_token_hash' => hash('sha256', $raw),
+        ];
+
+        $this->service()->confirmReset($raw, 'brandnewpassword', self::NOW);
+
+        $write = $this->firstWrite('SET password_hash = :hash');
+        self::assertStringContainsString('session_epoch = session_epoch + 1', $write['sql']);
+        self::assertSame(7, $write['params']['id'] ?? null);
+    }
+
+    /**
      * @return array{sql: string, params: array<string|int, mixed>}
      */
     private function firstWrite(string $needle): array

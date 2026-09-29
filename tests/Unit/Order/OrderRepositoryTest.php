@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Order;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use App\Catalogue\MenuRepository;
 use App\Catalogue\ProductRepository;
@@ -221,6 +222,335 @@ final class OrderRepositoryTest extends TestCase
         $sel = $db->firstWrite('INSERT INTO order_item_selection');
         self::assertSame(23, $sel['pid']); // pas de swap -> Moyenne Frite
         self::assertSame('Moyenne Frite', $sel['label']);
+    }
+
+    // -------------------------------------------------------------------------
+    // Securite / integrite : quantite, forme des lignes, disponibilite des options
+    // de menu (cf. tests/e2e/security-order-integrity.spec.js).
+    // -------------------------------------------------------------------------
+
+    /**
+     * @return array<string, array{0: int}>
+     */
+    public static function outOfRangeQuantities(): array
+    {
+        return [
+            'negative'        => [-5],
+            'zero'            => [0],
+            'au-dessus de 20' => [21],
+            'tres au-dessus'  => [65535],
+        ];
+    }
+
+    #[DataProvider('outOfRangeQuantities')]
+    public function testQuantityOutOfRangeIsRejectedRatherThanClampedToOne(int $quantity): void
+    {
+        // Avant ce correctif : max(1, (int) ...) ramenait toute valeur hors bornes a 1
+        // EN SILENCE, y compris une quantite negative ou nulle. Refuse desormais (422).
+        $db = new FakeOrderDatabase();
+        $db->products[12] = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 890, 'vat_rate' => 100, 'is_available' => 1];
+
+        try {
+            $this->repo($db)->createPending([
+                'service_mode' => 'takeaway',
+                'items' => [['type' => 'product', 'product_id' => 12, 'quantity' => $quantity]],
+            ]);
+            self::fail("quantite {$quantity} doit etre refusee");
+        } catch (OrderValidationException $exception) {
+            self::assertSame('INVALID_QUANTITY', $exception->getMessage());
+        }
+        self::assertSame(0, $db->countWrites('INSERT INTO customer_order'));
+    }
+
+    public function testQuantityAtBoundsIsAccepted(): void
+    {
+        $db = new FakeOrderDatabase();
+        $db->products[12] = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 100, 'vat_rate' => 100, 'is_available' => 1];
+
+        $res = $this->repo($db)->createPending([
+            'service_mode' => 'takeaway',
+            'items' => [['type' => 'product', 'product_id' => 12, 'quantity' => 20]],
+        ]);
+
+        self::assertSame(2000, $res['total_ttc_cents']);
+    }
+
+    public function testMissingQuantityDefaultsToOne(): void
+    {
+        $db = new FakeOrderDatabase();
+        $db->products[12] = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 100, 'vat_rate' => 100, 'is_available' => 1];
+
+        $res = $this->repo($db)->createPending([
+            'service_mode' => 'takeaway',
+            'items' => [['type' => 'product', 'product_id' => 12]],
+        ]);
+
+        self::assertSame(100, $res['total_ttc_cents']);
+    }
+
+    public function testNonIntegerQuantityIsRejected(): void
+    {
+        $db = new FakeOrderDatabase();
+        $db->products[12] = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 100, 'vat_rate' => 100, 'is_available' => 1];
+
+        try {
+            $this->repo($db)->createPending([
+                'service_mode' => 'takeaway',
+                'items' => [['type' => 'product', 'product_id' => 12, 'quantity' => 2.5]],
+            ]);
+            self::fail('une quantite non entiere doit etre refusee');
+        } catch (OrderValidationException $exception) {
+            self::assertSame('INVALID_QUANTITY', $exception->getMessage());
+        }
+    }
+
+    public function testMoreThanFiftyLinesIsRejected(): void
+    {
+        $db = new FakeOrderDatabase();
+        $db->products[12] = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 100, 'vat_rate' => 100, 'is_available' => 1];
+
+        try {
+            $this->repo($db)->createPending([
+                'service_mode' => 'takeaway',
+                'items' => array_fill(0, 51, ['type' => 'product', 'product_id' => 12, 'quantity' => 1]),
+            ]);
+            self::fail('51 lignes doivent etre refusees');
+        } catch (OrderValidationException $exception) {
+            self::assertSame('TOO_MANY_ITEMS', $exception->getMessage());
+        }
+        self::assertSame(0, $db->countWrites('INSERT INTO customer_order'));
+    }
+
+    /**
+     * Combinaisons ou CHAQUE ligne, prise isolement, respecte MAX_QUANTITY_PER_LINE
+     * (<=20) et le nombre de lignes respecte MAX_LINES_PER_ORDER (<=50), mais dont la
+     * SOMME des quantites depasse MAX_ITEMS_PER_ORDER (50) : avant ce correctif, rien
+     * ne bornait cette combinaison, et une commande anonyme de la borne pouvait porter
+     * jusqu'a 50 x 20 = 1000 articles.
+     *
+     * @return array<string, array{0: list<array<string, mixed>>}>
+     */
+    public static function orderTotalsAboveFifty(): array
+    {
+        return [
+            'trois lignes valides, somme 51' => [
+                [
+                    ['type' => 'product', 'product_id' => 12, 'quantity' => 20],
+                    ['type' => 'product', 'product_id' => 12, 'quantity' => 20],
+                    ['type' => 'product', 'product_id' => 12, 'quantity' => 11],
+                ],
+            ],
+            'vingt-six lignes a quantite 2, somme 52' => [
+                array_fill(0, 26, ['type' => 'product', 'product_id' => 12, 'quantity' => 2]),
+            ],
+        ];
+    }
+
+    /**
+     * @param list<array<string, mixed>> $items
+     */
+    #[DataProvider('orderTotalsAboveFifty')]
+    public function testTotalQuantityAboveFiftyIsRejectedEvenWhenEachLineIsIndividuallyValid(array $items): void
+    {
+        $db = new FakeOrderDatabase();
+        $db->products[12] = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 100, 'vat_rate' => 100, 'is_available' => 1];
+
+        try {
+            $this->repo($db)->createPending([
+                'service_mode' => 'takeaway',
+                'items' => $items,
+            ]);
+            self::fail('une somme de quantites superieure a 50 doit etre refusee');
+        } catch (OrderValidationException $exception) {
+            self::assertSame('ORDER_TOO_LARGE', $exception->getMessage());
+        }
+        self::assertSame(0, $db->countWrites('INSERT INTO customer_order'));
+    }
+
+    public function testTotalQuantityOfExactlyFiftyIsAccepted(): void
+    {
+        // Borne HAUTE incluse (50 articles au total, repartis sur plusieurs lignes) :
+        // ne doit pas etre refusee comme "commande trop volumineuse".
+        $db = new FakeOrderDatabase();
+        $db->products[12] = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 100, 'vat_rate' => 100, 'is_available' => 1];
+
+        $res = $this->repo($db)->createPending([
+            'service_mode' => 'takeaway',
+            'items' => [
+                ['type' => 'product', 'product_id' => 12, 'quantity' => 20],
+                ['type' => 'product', 'product_id' => 12, 'quantity' => 20],
+                ['type' => 'product', 'product_id' => 12, 'quantity' => 10],
+            ],
+        ]);
+
+        self::assertSame(5000, $res['total_ttc_cents']);
+    }
+
+    public function testProductIdSentAsArrayIsTreatedAsUnknownProduct(): void
+    {
+        // Un product_id envoye en tableau ne doit JAMAIS etre caste (int) en silence
+        // (ce que ferait (int) ['x'] === 1, un produit qui existe peut-etre) : il
+        // devient 0, qui echoue la recherche catalogue comme un id simplement inconnu.
+        $db = new FakeOrderDatabase();
+        $db->products[1] = ['id' => 1, 'name' => 'Autre chose', 'price_cents' => 890, 'vat_rate' => 100, 'is_available' => 1];
+
+        $this->expectException(OrderValidationException::class);
+        $this->expectExceptionMessage('PRODUCT_UNAVAILABLE');
+        $this->repo($db)->createPending([
+            'service_mode' => 'takeaway',
+            'items' => [['type' => 'product', 'product_id' => ['x'], 'quantity' => 1]],
+        ]);
+    }
+
+    public function testItemTypeSentAsArrayIsRejectedWithoutPhpWarning(): void
+    {
+        $db = new FakeOrderDatabase();
+
+        $this->expectException(OrderValidationException::class);
+        $this->expectExceptionMessage('INVALID_ITEM_TYPE');
+        $this->repo($db)->createPending([
+            'service_mode' => 'takeaway',
+            'items' => [['type' => ['product'], 'product_id' => 12, 'quantity' => 1]],
+        ]);
+    }
+
+    public function testServiceModeSentAsArrayIsRejectedWithoutPhpWarning(): void
+    {
+        // Meme defaut que le type d'item : (string) ['x'] declenchait un
+        // avertissement PHP ("Array to string conversion") AVANT ce correctif,
+        // remontant comme une erreur non maitrisee plutot qu'un 422 propre.
+        $db = new FakeOrderDatabase();
+        $db->products[12] = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 890, 'vat_rate' => 100, 'is_available' => 1];
+
+        $this->expectException(OrderValidationException::class);
+        $this->expectExceptionMessage('INVALID_SERVICE_MODE');
+        $this->repo($db)->createPending([
+            'service_mode' => ['dine_in'],
+            'items' => [['type' => 'product', 'product_id' => 12, 'quantity' => 1]],
+        ]);
+    }
+
+    public function testServiceTagSentAsArrayIsRejectedInsteadOfBecomingTheLiteralStringArray(): void
+    {
+        // Defaut releve en audit : service_tag ["x"] devenait la chaine litterale
+        // "Array" (avec avertissement PHP) et passait le controle de longueur
+        // (<= 20) -- persistee telle quelle en base. Desormais refuse en 422.
+        $db = new FakeOrderDatabase();
+        $db->products[12] = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 890, 'vat_rate' => 100, 'is_available' => 1];
+
+        $this->expectException(OrderValidationException::class);
+        $this->expectExceptionMessage('INVALID_SERVICE_TAG');
+        $this->repo($db)->createPending([
+            'service_mode' => 'dine_in',
+            'service_tag' => ['x'],
+            'items' => [['type' => 'product', 'product_id' => 12, 'quantity' => 1]],
+        ]);
+    }
+
+    public function testStaffOrderDriveServiceModeSentAsArrayIsRejectedWithoutPhpWarning(): void
+    {
+        // Meme defaut que testStaffOrderDriveRejectsNonDriveServiceMode, mais avec un
+        // type non chaine sur le resserrement specifique au canal drive (createStaffOrder,
+        // AVANT l'appel a resolveHeader()).
+        $db = new FakeOrderDatabase();
+        $db->products[12] = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 890, 'vat_rate' => 100, 'is_available' => 1];
+
+        try {
+            $this->repo($db)->createStaffOrder([
+                'service_mode' => ['drive'],
+                'items' => [['type' => 'product', 'product_id' => 12, 'quantity' => 1]],
+            ], 7, 'drive');
+            self::fail('expected OrderValidationException');
+        } catch (OrderValidationException $exception) {
+            self::assertSame('INVALID_SERVICE_MODE', $exception->getMessage());
+        }
+
+        self::assertSame(0, $db->countWrites('INSERT INTO customer_order'));
+    }
+
+    public function testMenuSelectionOfManuallyUnavailableOptionRejected(): void
+    {
+        // Defaut #4 : une option retiree au back-office (is_available=0) reste
+        // acceptee AVANT ce correctif des lors qu'elle appartient au slot -- seule
+        // l'appartenance etait verifiee, jamais la disponibilite.
+        $db = new FakeOrderDatabase();
+        $db->menus[5] = ['id' => 5, 'burger_product_id' => 12, 'name' => 'Menu', 'price_normal_cents' => 990, 'price_maxi_cents' => 1200, 'is_available' => 1];
+        $db->products[12] = ['id' => 12, 'name' => 'Burger', 'price_cents' => 600, 'vat_rate' => 100, 'is_available' => 1];
+        $db->products[20] = ['id' => 20, 'name' => 'Coca', 'price_cents' => 250, 'vat_rate' => 100, 'is_available' => 0];
+        $db->slotRows[5] = [['id' => 7, 'name' => 'Boisson', 'slot_type' => 'drink', 'is_required' => 1, 'display_order' => 0, 'product_id' => 20]];
+
+        $this->expectException(OrderValidationException::class);
+        $this->expectExceptionMessage('OPTION_UNAVAILABLE');
+        $this->repo($db)->createPending([
+            'service_mode' => 'takeaway',
+            'items' => [['type' => 'menu', 'menu_id' => 5, 'quantity' => 1, 'format' => 'normal',
+                'selections' => [['menu_slot_id' => 7, 'product_id' => 20]]]],
+        ]);
+    }
+
+    public function testMenuSelectionOfAutoUnavailableOptionRejected(): void
+    {
+        // RG-T21 : meme refus qu'un retrait manuel, pour une option en rupture
+        // calculee (is_available=1 mais stock critique).
+        $db = new FakeOrderDatabase();
+        $db->menus[5] = ['id' => 5, 'burger_product_id' => 12, 'name' => 'Menu', 'price_normal_cents' => 990, 'price_maxi_cents' => 1200, 'is_available' => 1];
+        $db->products[12] = ['id' => 12, 'name' => 'Burger', 'price_cents' => 600, 'vat_rate' => 100, 'is_available' => 1];
+        $db->products[23] = ['id' => 23, 'name' => 'Moyenne Frite', 'price_cents' => 275, 'vat_rate' => 100, 'is_available' => 1];
+        $db->slotRows[5] = [['id' => 8, 'name' => 'Accompagnement', 'slot_type' => 'side', 'is_required' => 1, 'display_order' => 2, 'product_id' => 23]];
+        $db->autoUnavailableRows = [['product_id' => 23]];
+
+        $this->expectException(OrderValidationException::class);
+        $this->expectExceptionMessage('OPTION_UNAVAILABLE');
+        $this->repo($db)->createPending([
+            'service_mode' => 'takeaway',
+            'items' => [['type' => 'menu', 'menu_id' => 5, 'quantity' => 1, 'format' => 'normal',
+                'selections' => [['menu_slot_id' => 8, 'product_id' => 23]]]],
+        ]);
+    }
+
+    public function testMenuMaxiSelectionRejectedWhenSubstitutedVariantIsUnavailable(): void
+    {
+        // La base (Moyenne Frite) est disponible, mais la variante EFFECTIVEMENT
+        // servie en Maxi (Grande Frite) est en rupture : c'est elle qui doit etre
+        // verifiee, pas la base choisie par le client (RG-T21, substitution Maxi).
+        $db = new FakeOrderDatabase();
+        $db->menus[5] = ['id' => 5, 'burger_product_id' => 12, 'name' => 'Menu', 'price_normal_cents' => 990, 'price_maxi_cents' => 1200, 'is_available' => 1];
+        $db->products[12] = ['id' => 12, 'name' => 'Burger', 'price_cents' => 600, 'vat_rate' => 100, 'is_available' => 1];
+        $db->products[23] = ['id' => 23, 'name' => 'Moyenne Frite', 'price_cents' => 275, 'vat_rate' => 100, 'is_available' => 1, 'maxi_variant_product_id' => 24];
+        $db->products[24] = ['id' => 24, 'name' => 'Grande Frite', 'price_cents' => 350, 'vat_rate' => 100, 'is_available' => 0, 'maxi_variant_product_id' => null];
+        $db->slotRows[5] = [['id' => 8, 'name' => 'Accompagnement', 'slot_type' => 'side', 'is_required' => 1, 'display_order' => 2, 'product_id' => 23]];
+
+        $this->expectException(OrderValidationException::class);
+        $this->expectExceptionMessage('OPTION_UNAVAILABLE');
+        $this->repo($db)->createPending([
+            'service_mode' => 'takeaway',
+            'items' => [['type' => 'menu', 'menu_id' => 5, 'quantity' => 1, 'format' => 'maxi',
+                'selections' => [['menu_slot_id' => 8, 'product_id' => 23]]]], // borne envoie la Moyenne
+        ]);
+    }
+
+    public function testMenuMaxiSelectionAcceptedWhenOnlyBaseIsUnavailableButVariantIsFine(): void
+    {
+        // Symetrique du test precedent : la base (non servie en Maxi) est en
+        // rupture, mais la variante EFFECTIVEMENT servie (Grande Frite) est
+        // disponible -> la ligne est acceptee (la disponibilite verifiee est celle
+        // de l'option REELLEMENT consommee, pas celle du choix affiche).
+        $db = new FakeOrderDatabase();
+        $db->menus[5] = ['id' => 5, 'burger_product_id' => 12, 'name' => 'Menu', 'price_normal_cents' => 990, 'price_maxi_cents' => 1200, 'is_available' => 1];
+        $db->products[12] = ['id' => 12, 'name' => 'Burger', 'price_cents' => 600, 'vat_rate' => 100, 'is_available' => 1];
+        $db->products[23] = ['id' => 23, 'name' => 'Moyenne Frite', 'price_cents' => 275, 'vat_rate' => 100, 'is_available' => 0, 'maxi_variant_product_id' => 24];
+        $db->products[24] = ['id' => 24, 'name' => 'Grande Frite', 'price_cents' => 350, 'vat_rate' => 100, 'is_available' => 1, 'maxi_variant_product_id' => null];
+        $db->slotRows[5] = [['id' => 8, 'name' => 'Accompagnement', 'slot_type' => 'side', 'is_required' => 1, 'display_order' => 2, 'product_id' => 23]];
+
+        $res = $this->repo($db)->createPending([
+            'service_mode' => 'takeaway',
+            'items' => [['type' => 'menu', 'menu_id' => 5, 'quantity' => 1, 'format' => 'maxi',
+                'selections' => [['menu_slot_id' => 8, 'product_id' => 23]]]],
+        ]);
+
+        self::assertSame(1200, $res['total_ttc_cents']);
+        $sel = $db->firstWrite('INSERT INTO order_item_selection');
+        self::assertSame(24, $sel['pid']);
     }
 
     public function testAddModifierAddsExtraToLine(): void

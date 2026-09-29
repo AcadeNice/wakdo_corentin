@@ -23,3 +23,7 @@ body {
 docs {
 Efface le PIN de la cible ; elle le redefinit ensuite en self-service (/admin/profile/pin).
 }
+
+tests {
+  test('200 OK', function () { expect(res.getStatus()).to.equal(200); });
+}

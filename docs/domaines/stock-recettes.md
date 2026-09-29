@@ -15,10 +15,13 @@ la composition des produits (recettes). Sous-tend la disponibilite produit calcu
   (`POST /admin/ingredients/{id}/inventory`, `stock.count` + PIN), ADJUST
   (`POST /admin/ingredients/{id}/adjust`, `stock.count` + PIN — correction libre,
   meme garde-fou que l'inventaire), mouvements (`GET /admin/ingredients/{id}/movements`,
-  `stock.read`). `IngredientApiController` expose le meme CRUD et les memes actions en
-  JSON sous `/admin/api/ingredients/...`, dont `GET /admin/api/ingredients/{id}/movements`
-  (`stock.read` ; le champ `actor` n'est renvoye qu'aux detenteurs de `stock.manage`,
-  absent sinon — pas seulement vide).
+  `stock.read`), ENRICH (`POST /admin/ingredients/{id}/enrich`, `ingredient.manage`,
+  sans PIN — enrichissement nutritionnel opt-in depuis l'API externe Open Food Facts,
+  `routes.php` ~255). `IngredientApiController` expose le meme CRUD et les memes actions
+  de stock en JSON sous `/admin/api/ingredients/...`, dont
+  `GET /admin/api/ingredients/{id}/movements` (`stock.read` ; le champ `actor` n'est
+  renvoye qu'aux detenteurs de `stock.manage`, absent sinon — pas seulement vide) ; PAS
+  d'equivalent JSON pour ENRICH, HTML seulement.
 - `ProductRepository` : composition (`product_ingredient`), `setComposition`
   (delete-and-reinsert tx), `isOrderable` (RG-T21), `autoUnavailableIds`.
 - Editeur de recette (`ProductController::recipeForm/saveRecipe`, `ingredient.manage`).

@@ -1,0 +1,21 @@
+meta {
+  name: Relire apres suppression (is_active=false)
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{baseUrl}}/admin/api/categories/{{created_category_id}}
+}
+
+docs {
+Preuve de nettoyage : la categorie existe toujours (pas de suppression dure) mais est desactivee -- transition reellement due au DELETE ci-dessus (arrivait active, grace a la bascule 2/2), pas a la bascule 1/2 (deja neutralisee par la bascule 2/2).
+}
+
+tests {
+  const body = res.getBody();
+  test('200, is_active=false', function () {
+      expect(res.getStatus()).to.equal(200);
+      expect(body.data.is_active).to.equal(false);
+  });
+}

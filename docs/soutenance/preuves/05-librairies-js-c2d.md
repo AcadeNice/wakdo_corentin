@@ -33,14 +33,18 @@ librairie tierce ajoutee. C'est un choix, pas un oubli.
 
 Preuves de l'absence de dependance externe :
 
-- Aucun import externe dans le code de la borne. Une recherche sur
-  `http`, `cdn`, `unpkg`, `jsdelivr`, `node_modules`, `npm:` dans
-  `src/public/borne/assets/js/*.js` ne remonte rien : tous les imports sont
-  relatifs (`./data.js`, `./state.js`, `./nav.js`...). Verifie sur les 21
-  modules.
+- Aucun import externe dans le code de la borne. Une recherche sur `cdn`,
+  `unpkg`, `jsdelivr`, `node_modules`, `npm:` dans `src/public/borne/assets/js/*.js`
+  ne remonte rien : tous les imports sont relatifs (`./data.js`, `./state.js`,
+  `./nav.js`...). La recherche sur `http` seul remonte trois lignes de
+  `seo.js:11-13` (`https://schema.org`, `https://schema.org/InStock`,
+  `https://schema.org/OutOfStock`) : ce sont des identifiants de vocabulaire
+  schema.org dans une chaine de caracteres, pas un `import` ni une balise
+  `<script src="http...">` — a signaler pour ne pas laisser croire a un
+  faux-negatif de la recherche. Verifie sur les 21 modules.
 - Aucune balise `<script src="http...">` ni reference CDN dans les 5 pages
   HTML de la borne (`src/public/borne/*.html`). Tous les scripts sont charges
-  en `type="module"` depuis `assets/js/` (ex. `products.html:64-68`).
+  en `type="module"` depuis `assets/js/` (ex. `products.html:87-91`).
 - `package.json` (racine) ne declare aucune dependance de production :
   seulement trois `devDependencies` d'outillage de test
   (`@playwright/test`, `jsdom`, et `@axe-core/playwright` ajoute pour l'audit
@@ -93,7 +97,7 @@ Deux modules concentrent la logique reutilisable :
   `getTotalCents`/`getCartCount`, `formatPrice`, `escHtml`. C'est l'equivalent
   fonctionnel d'un mini-store client (persistance `localStorage`, prix en
   centimes entiers, echappement HTML anti-XSS centralise).
-- **`data.js`** — couche d'acces aux donnees. 10 exports (`data.js:49-234`) :
+- **`data.js`** — couche d'acces aux donnees. 10 exports (`data.js:49-250`) :
   `loadCategories`, `loadProducts`, `loadProductsById`, `loadMenu`,
   `loadAllergens`, `getProductsByCategory`, `getCategoryById`, `findProduct`,
   et les tables `CATEGORY_ID_TO_SLUG` / `CATEGORY_SLUG_TO_ID`. Elle resout une
@@ -135,8 +139,12 @@ et a l'echelle du projet.
 
 **Une librairie externe integree, puis retiree.** Entre les deux etats, une
 vraie librairie tierce (`a11y-dialog`) a ete cablee pour la gestion des
-modales, avant d'etre retiree sur decision de l'auteur au profit du piege a
-tabulation ecrit a la main (`confirm-modal` `1452bc0`, `docs/journal/2026-09-22--remediation-cd-mono-hote-et-bloc1.md`) :
+modales (`1452bc0`, demande de fusion **#141**, "librairie externe a11y-dialog
+et audit d'accessibilite mesure"), avant d'etre retiree sur decision de
+l'auteur au profit du piege a tabulation ecrit a la main (`7bfe967`, demande de
+fusion **#142**, "complement de #141 fusionnee trop tot - contrastes, borne
+sans a11y-dialog, total anime" ; verifie par `git log --oneline --all`) et
+portee dans `confirm-modal.js` :
 l'episode reste la preuve la plus concrete que l'ecart avec C2.d est un choix
 assume, pas une meconnaissance de l'ecosysteme.
 

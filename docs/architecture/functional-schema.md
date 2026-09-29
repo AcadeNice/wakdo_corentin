@@ -92,8 +92,8 @@ flowchart TD
     CNT -.->|remise de commande| KIT
     DRV -.->|remise de commande| KIT
 
-    CAT -.->|action sensible : prix/TVA, suppression| PIN["PIN equipier + audit_log\n(meme transaction)"]
-    STK -.->|inventaire| PIN
+    CAT -.->|action sensible : prix ou suppression PRODUIT\n(pas suppression ingredient/categorie, sans PIN)| PIN["PIN equipier + audit_log\n(meme transaction)"]
+    STK -.->|ajustement + inventaire\n(pas reappro, sans PIN)| PIN
     USR -.->|mutation compte / matrice RBAC / effacement| PIN
 ```
 
@@ -103,7 +103,7 @@ flowchart TD
 |---|---|---|
 | Acces a toute page `/admin/*` | `SessionGuard::check()` : session valide (idle 4h, absolu 10h, compte actif) | RG-6 / RG-T02 |
 | Acces a une fonction | `Authorizer::can(role_id, permission)` : teste une permission, pas un nom de role | RG-T03 |
-| Action sensible (annulation, prix/TVA, suppression, gestion compte/RBAC, inventaire, effacement PII) | PIN equipier verifie + ecriture `audit_log` dans la meme transaction | RG-T13 / RG-T14 |
+| Action sensible (liste exacte : colonne PIN de `App\Health\RouteSecurity`) : annulation de commande, prix produit, suppression de produit, ajustement de stock, comptage d'inventaire, gestion compte/RBAC, effacement PII — PAS suppression d'ingredient, PAS reappro, PAS suppression de categorie (le back-office HTML n'en propose pas) | PIN equipier verifie + ecriture `audit_log` dans la meme transaction | RG-T13 / RG-T14 |
 | Echec de PIN | trace `pin.failed` + throttle degressif | RG-T22 |
 
 **Landing par role** (seed `role.default_route`) : admin -> `/admin/dashboard`,
@@ -124,10 +124,11 @@ detail des routes.
 | (aucun client livre) | `GET /api/products/{id}` | detail d'un produit : route exposee (`CatalogueController::product`), non appelee par la borne |
 | Borne | `POST /api/orders`, `POST /api/orders/{number}/pay` | commande (anonyme, idempotent) |
 | (aucun client livre) | `GET /api/orders/{number}` | suivi du statut par numero : route exposee (`OrderController::show`), non appelee par la borne |
-| Back-office | pages rendues serveur sous `/admin/*` + `GET /admin/me` | session + RBAC |
+| Back-office | pages rendues serveur sous `/admin/*` + `GET /admin/me` + API JSON `/admin/api/*` | session + RBAC + CSRF (+ PIN pour les actions sensibles) |
 
-CORS : la borne et le back-office partagent l'origine via une passerelle `/api/*`
-(meme origine) ; le middleware CORS reste en defense (origine exacte, sans joker).
+CORS : la borne consomme `/api/*` en meme origine via le proxy du vhost kiosk (pas de
+requete cross-origine sur ce parcours) ; le middleware CORS reste en defense en
+profondeur pour un eventuel consommateur cross-origine (origine exacte, sans joker).
 
 ---
 
