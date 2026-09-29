@@ -56,6 +56,17 @@ final class FakeCatalogueDatabase implements DatabaseInterface
     public ?array $productRow = null;
 
     /**
+     * Lignes renvoyees par ProductRepository::find(id), indexees par id. Sert au
+     * detail menu (CatalogueController::menu()) pour la disponibilite de CHAQUE
+     * option de slot (option_is_orderable, RG-T21) : find() n'est PAS filtre par
+     * is_available, contrairement a availableForCatalogue() -- une option retiree
+     * au back-office doit rester LISIBLE (pour etre grisee), pas disparaitre.
+     *
+     * @var array<int, array<string, mixed>>
+     */
+    public array $productByIdRows = [];
+
+    /**
      * Lignes renvoyees par MenuRepository::availableForCatalogue().
      *
      * @var list<array<string, mixed>>
@@ -175,6 +186,13 @@ final class FakeCatalogueDatabase implements DatabaseInterface
 
         if (str_contains($sql, 'FROM menu m JOIN category') && str_contains($sql, 'WHERE m.id = :id')) {
             return $this->menuRow;
+        }
+
+        // ProductRepository::find() : lecture NON filtree par is_available (contrairement
+        // a la branche 'FROM product p JOIN category' ci-dessus, qui est
+        // availableForCatalogue()/findForCatalogue()). Desambiguee par l'absence d'alias 'p'.
+        if (str_contains($sql, 'FROM product WHERE id = :id')) {
+            return $this->productByIdRows[(int) ($params['id'] ?? 0)] ?? null;
         }
 
         // F11b : nombre d'ingredients non revus d'UN produit (unreviewedCountForProduct).

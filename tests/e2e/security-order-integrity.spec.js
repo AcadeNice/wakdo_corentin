@@ -126,23 +126,14 @@ test.describe('Integrite de la commande borne', () => {
       const res = await order({ service_mode: 'takeaway', items: [line(fixture.productId, quantity)] });
       results.push([quantity, res.status(), (await res.json()).data?.total_ttc_cents]);
     }
-    // CONSTAT (mineur) : OrderRepository::resolveLine() ramene la quantite a 1
-    // (max(1, (int) ...)) au lieu de la refuser : -5 devient une commande d'UN produit
-    // (201). Pas d'argent en jeu (le total reste positif et calcule par le serveur), mais
-    // une saisie invalide est acceptee en silence.
     expect(results.every(([, st]) => st === 201 || st === 422)).toBe(true);
-    test.fail(true, 'quantite <= 0 ramenee a 1 au lieu d un refus (src/app/Order/OrderRepository.php, resolveLine)');
     expect(results.map(([q, st]) => [q, st])).toEqual([[-5, 422], [0, 422], [-2147483648, 422]]);
   });
 
   test('quantite hors bornes de la base : 422 attendu, pas 500', async () => {
     const res = await order({ service_mode: 'takeaway', items: [line(fixture.productId, 70000)] });
     const status = res.status();
-    // CONSTAT (important) : aucune borne haute cote serveur. 70 000 depasse SMALLINT
-    // UNSIGNED (order_item.quantity) : l'exception PDO remonte en 500 ; avec APP_DEBUG=true
-    // le message SQL est renvoye au client ("Out of range value for column 'quantity'").
     expect([422, 500]).toContain(status);
-    test.fail(true, 'aucune borne haute de quantite (src/app/Order/OrderRepository.php, resolveLine)');
     expect(status).toBe(422);
   });
 
@@ -157,13 +148,7 @@ test.describe('Integrite de la commande borne', () => {
       const res = await kiosk.post(`${KIOSK}/api/orders`, { data });
       statuses.push(res.status());
     }
-    // CONSTAT (mineur) : une ligne scalaire provoque un TypeError (500) dans
-    // OrderRepository::resolveAndTotal() (array_map type array) ; une cle d'idempotence
-    // tableau est convertie en la chaine "Array" (OrderRepository::idempotencyKey(), cast
-    // (string)) : avec APP_DEBUG=true l'avertissement PHP, chemin du fichier compris, part
-    // dans la reponse ; sinon la commande est creee sous la cle partagee "Array".
     expect(statuses.length).toBe(3);
-    test.fail(true, 'forme des lignes et de la cle non verifiee (src/app/Order/OrderRepository.php, idempotencyKey / resolveAndTotal)');
     expect(statuses).toEqual([422, 422, 422]);
   });
 
@@ -177,11 +162,135 @@ test.describe('Integrite de la commande borne', () => {
     const stock = await stockOf(fixture.ingredientId);
     const stillOrderable = await orderable(fixture.productId);
     test.info().annotations.push({ type: 'stock apres la commande', description: String(stock) });
-    // CONSTAT (important) : 65 535 unites passent (201), l'encaissement anonyme aussi
-    // (POST /api/orders/{n}/pay, sans session), et debite 131 070 unites : le stock devient
-    // negatif et la rupture calculee (RG-T21) retire le produit de la borne pour TOUS les
-    // clients. Deux requetes anonymes suffisent, sur chaque produit du catalogue.
-    test.fail(true, 'quantite sans plafond + encaissement anonyme : deni de service sur le catalogue (OrderRepository::resolveLine, OrderController::pay)');
     expect(stillOrderable).toBe(true);
+  });
+});
+
+// Defaut #4 (important, metier) : une option de menu en rupture (retrait manuel
+// is_available=0, ou rupture calculee RG-T21) reste commandable avant ce correctif --
+// resolveSelections() ne verifiait que l'appartenance au slot, jamais la disponibilite.
+// Fixture entierement JETABLE (burger + 2 sauces + 1 menu crees ici) pour ne rendre
+// indisponible aucun produit ni menu du catalogue de demonstration.
+test.describe('Option de menu indisponible (defaut #4)', () => {
+  let admin2;
+  let kiosk2;
+  let fx;
+
+  test.beforeAll(async () => {
+    const ctx = await pwRequest.newContext();
+    const login = await ctx.post(`${ADMIN}/admin/api/auth/login`, { data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } });
+    expect(login.status()).toBe(200);
+    admin2 = { ctx, csrf: (await login.json()).data.csrf_token };
+    kiosk2 = await pwRequest.newContext();
+    const h = { 'X-CSRF-Token': admin2.csrf };
+
+    // Burger jetable (categorie burgers = 3), produit de base (F9-2).
+    const burger = await ctx.post(`${ADMIN}/admin/api/products`, {
+      headers: h, data: { category_id: 3, name: `OiBurger ${RUN}`, price_cents: 600, vat_rate: 100, is_available: true, display_order: 65535 },
+    });
+    expect(burger.status(), await burger.text()).toBe(201);
+    const burgerId = (await burger.json()).data.id;
+
+    // Deux sauces jetables (categorie sauces = 9, F12), options du MEME slot.
+    const sauceA = await ctx.post(`${ADMIN}/admin/api/products`, {
+      headers: h, data: { category_id: 9, name: `OiSauceA ${RUN}`, price_cents: 30, vat_rate: 100, is_available: true, display_order: 65535 },
+    });
+    expect(sauceA.status(), await sauceA.text()).toBe(201);
+    const sauceAId = (await sauceA.json()).data.id;
+    const sauceB = await ctx.post(`${ADMIN}/admin/api/products`, {
+      headers: h, data: { category_id: 9, name: `OiSauceB ${RUN}`, price_cents: 30, vat_rate: 100, is_available: true, display_order: 65535 },
+    });
+    expect(sauceB.status(), await sauceB.text()).toBe(201);
+    const sauceBId = (await sauceB.json()).data.id;
+
+    // Menu jetable, UN slot Sauce REQUIS a deux options (categorie menus = 1).
+    const menuRes = await ctx.post(`${ADMIN}/admin/api/menus`, {
+      headers: h,
+      data: {
+        category_id: 1, burger_product_id: burgerId, name: `OiMenu ${RUN}`,
+        price_normal_cents: 500, price_maxi_cents: 600, is_available: true, display_order: 65535,
+        slots: [{ name: 'Sauce', slot_type: 'sauce', is_required: true, options: [sauceAId, sauceBId] }],
+      },
+    });
+    expect(menuRes.status(), await menuRes.text()).toBe(201);
+    const menuId = (await menuRes.json()).data.id;
+
+    fx = { burgerId, sauceAId, sauceBId, menuId };
+  });
+
+  test.afterAll(async () => {
+    if (admin2 && fx) {
+      const h = { 'X-CSRF-Token': admin2.csrf };
+      await admin2.ctx.put(`${ADMIN}/admin/api/menus/${fx.menuId}`, {
+        headers: h, data: {
+          category_id: 1, burger_product_id: fx.burgerId, name: `OiMenu ${RUN}`,
+          price_normal_cents: 500, price_maxi_cents: 600, is_available: false, display_order: 65535,
+          slots: [{ name: 'Sauce', slot_type: 'sauce', is_required: true, options: [fx.sauceAId, fx.sauceBId] }],
+        },
+      });
+      await admin2.ctx.put(`${ADMIN}/admin/api/products/${fx.burgerId}`, { headers: h, data: { category_id: 3, name: `OiBurger ${RUN}`, price_cents: 600, vat_rate: 100, is_available: false, display_order: 65535 } });
+      await admin2.ctx.put(`${ADMIN}/admin/api/products/${fx.sauceAId}`, { headers: h, data: { category_id: 9, name: `OiSauceA ${RUN}`, price_cents: 30, vat_rate: 100, is_available: false, display_order: 65535 } });
+      await admin2.ctx.put(`${ADMIN}/admin/api/products/${fx.sauceBId}`, { headers: h, data: { category_id: 9, name: `OiSauceB ${RUN}`, price_cents: 30, vat_rate: 100, is_available: false, display_order: 65535 } });
+    }
+    if (admin2) await admin2.ctx.dispose();
+    if (kiosk2) await kiosk2.dispose();
+  });
+
+  test('produit mis indisponible au back-office : option grisee sur la borne, refusee (422) en acces direct', async () => {
+    const h = { 'X-CSRF-Token': admin2.csrf };
+
+    await test.step('back-office : retrait manuel de la sauce B', async () => {
+      const off = await admin2.ctx.put(`${ADMIN}/admin/api/products/${fx.sauceBId}`, {
+        headers: h, data: { category_id: 9, name: `OiSauceB ${RUN}`, price_cents: 30, vat_rate: 100, is_available: false, display_order: 65535 },
+      });
+      expect(off.status(), await off.text()).toBe(200);
+    });
+
+    let slot;
+    await test.step('GET /api/menus/{id} : la sauce B est marquee non commandable', async () => {
+      const detail = await (await kiosk2.get(`${KIOSK}/api/menus/${fx.menuId}`)).json();
+      slot = detail.data.slots[0];
+      expect(slot.option_is_orderable[String(fx.sauceBId)]).toBe(false);
+      expect(slot.option_is_orderable[String(fx.sauceAId)]).toBe(true);
+    });
+
+    await test.step('POST direct /api/orders avec la sauce B : refuse (422 OPTION_UNAVAILABLE)', async () => {
+      const res = await kiosk2.post(`${KIOSK}/api/orders`, {
+        data: {
+          service_mode: 'takeaway',
+          items: [{
+            type: 'menu', menu_id: fx.menuId, quantity: 1, format: 'normal',
+            selections: [{ menu_slot_id: slot.id, product_id: fx.sauceBId }],
+          }],
+        },
+      });
+      expect(res.status()).toBe(422);
+      expect((await res.json()).error.code).toBe('OPTION_UNAVAILABLE');
+    });
+  });
+
+  test('navigateur : le composeur borne grise l option indisponible', async ({ page }) => {
+    // ?mode= est lu et memorise par nav.js sur N'IMPORTE QUELLE page (pas seulement
+    // categories.html) : sans mode de consommation memorise, une page au-dela de
+    // l'accueil renvoie vers l'ecran de bienvenue (garde nav.js::needsModeRedirect).
+    await page.goto(`/products.html?category=1&mode=a-emporter`);
+    const tile = page.locator('.product-card', { hasText: `OiMenu ${RUN}` });
+    await expect(tile).toBeVisible();
+    await tile.click();
+
+    await expect(page.locator('.composer-overlay [role="dialog"]')).toBeVisible();
+    // Etape Format (0) -> etape du slot Sauce (1), seul slot du menu jetable.
+    await page.locator('#composer-next').click();
+
+    const bad = page.locator(`#slot-grid .composer-card[data-pid="${fx.sauceBId}"]`);
+    const good = page.locator(`#slot-grid .composer-card[data-pid="${fx.sauceAId}"]`);
+    await expect(bad).toBeVisible();
+    await expect(bad).toBeDisabled();
+    await expect(bad).toHaveAttribute('aria-disabled', 'true');
+    await expect(bad).toContainText('Indisponible');
+    await expect(good).not.toBeDisabled();
+    // La premiere option COMMANDABLE (sauce A) est pre-selectionnee, jamais la sauce B.
+    await expect(good).toHaveAttribute('aria-pressed', 'true');
+    await expect(bad).toHaveAttribute('aria-pressed', 'false');
   });
 });

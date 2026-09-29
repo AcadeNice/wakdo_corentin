@@ -167,8 +167,12 @@ class CatalogueController extends Controller
         }
 
         $burgerId = (int) ($row['burger_product_id'] ?? 0);
+        $productsRepo = $this->productsRepo();
         // RG-T21 (burger impose seul) : dispo calculee du menu = burger non en rupture.
-        $orderable = !in_array($burgerId, $this->productsRepo()->autoUnavailableIds(), true);
+        // Set reutilise plus bas pour la disponibilite de CHAQUE option de slot (une
+        // seule lecture d'autoUnavailableIds() pour tout le detail, pas de N+1).
+        $unavailable = array_fill_keys($productsRepo->autoUnavailableIds(), true);
+        $orderable = !isset($unavailable[$burgerId]);
         // F11b (burger impose seul, meme granularite) : allergenes du burger du menu.
         $allergensRepo = $this->allergensRepo();
         // Detail = menu + ses slots de composition (B1 burger impose, B2 Normal/Maxi).
@@ -177,7 +181,7 @@ class CatalogueController extends Controller
             $orderable,
             $allergensRepo->forProduct($burgerId),
             $allergensRepo->unreviewedCountForProduct($burgerId) === 0,
-        ) + ['slots' => $this->presentSlots($repo->slotsWithOptions($id))];
+        ) + ['slots' => $this->presentSlots($repo->slotsWithOptions($id), $productsRepo, $unavailable)];
 
         return $this->json(['data' => $menu]);
     }
@@ -358,20 +362,51 @@ class CatalogueController extends Controller
      * en vrai booleen (plus naturel pour le client JS) et on garde la liste d'ids
      * de produits eligibles (la borne resout les libelles via /api/products).
      *
+     * option_is_orderable (RG-T21) : disponibilite de CHAQUE option, MEME regle que
+     * is_orderable sur un produit/menu (is_available ET rupture calculee, sans
+     * dependre de /api/products qui EXCLUT deja les produits retires -- une option
+     * retiree au back-office (is_available=0) n'y apparaitrait plus du tout, et le
+     * composeur perdrait sa trace au lieu de la griser). Avant ce champ, seule
+     * l'appartenance au slot etait exposee : le composeur laissait choisir une
+     * option indisponible sans le savoir (le refus serveur, OrderRepository::
+     * resolveSelections, restait le seul filet).
+     *
+     * option_names : le NOM de chaque option, MEME pour celles qui ne figurent plus
+     * dans /api/products (retrait manuel) -- sans lui, le composeur ne pourrait pas
+     * afficher "Frites -- Indisponible" pour une option qu'il ne peut plus resoudre
+     * via son index produit habituel (byId, derive de /api/products).
+     *
      * @param list<array{id: int, name: string, slot_type: string, is_required: int, display_order: int, option_product_ids: list<int>}> $slots
-     * @return list<array{id: int, name: string, slot_type: string, is_required: bool, display_order: int, option_product_ids: list<int>}>
+     * @param array<int, true> $unavailable set d'ids produits en rupture calculee (RG-T21),
+     *        partage avec le burger du menu (pas de second appel a autoUnavailableIds()).
+     * @return list<array{id: int, name: string, slot_type: string, is_required: bool, display_order: int, option_product_ids: list<int>, option_is_orderable: array<string, bool>, option_names: array<string, string>}>
      */
-    private function presentSlots(array $slots): array
+    private function presentSlots(array $slots, ProductRepository $productsRepo, array $unavailable): array
     {
         return array_map(
-            static fn (array $slot): array => [
-                'id'                 => $slot['id'],
-                'name'               => $slot['name'],
-                'slot_type'          => $slot['slot_type'],
-                'is_required'        => $slot['is_required'] !== 0,
-                'display_order'      => $slot['display_order'],
-                'option_product_ids' => $slot['option_product_ids'],
-            ],
+            function (array $slot) use ($productsRepo, $unavailable): array {
+                $orderable = [];
+                $names = [];
+                foreach ($slot['option_product_ids'] as $pid) {
+                    $pid = (int) $pid;
+                    $option = $productsRepo->find($pid);
+                    $orderable[(string) $pid] = $option !== null
+                        && (int) ($option['is_available'] ?? 0) === 1
+                        && !isset($unavailable[$pid]);
+                    $names[(string) $pid] = $option !== null ? (string) $option['name'] : '';
+                }
+
+                return [
+                    'id'                   => $slot['id'],
+                    'name'                 => $slot['name'],
+                    'slot_type'            => $slot['slot_type'],
+                    'is_required'          => $slot['is_required'] !== 0,
+                    'display_order'        => $slot['display_order'],
+                    'option_product_ids'   => $slot['option_product_ids'],
+                    'option_is_orderable'  => $orderable,
+                    'option_names'         => $names,
+                ];
+            },
             $slots,
         );
     }

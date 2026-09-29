@@ -181,6 +181,69 @@ test('composerIsViable: faux si le burger impose est introuvable', () => {
     assert.equal(composerIsViable(buildComposerSteps(d, byId())), false);
 });
 
+/* --- Disponibilite des options de slot (defaut #4, RG-T21/F2) ------------ */
+
+test('buildComposerSteps: une option en rupture calculee (option_is_orderable) est marquee isOrderable=false', () => {
+    const d = detail();
+    d.slots[1].option_is_orderable = { 14: false, 15: true }; // slot Boisson (id 1)
+    const m = buildComposerSteps(d, byId());
+    const drink = m.slots.find(s => s.slotType === 'drink');
+    assert.equal(drink.options.find(o => o.id === 14).isOrderable, false);
+    assert.equal(drink.options.find(o => o.id === 15).isOrderable, true);
+});
+
+test('buildComposerSteps: option absente de option_is_orderable reste commandable (compat API anterieure)', () => {
+    const m = buildComposerSteps(detail(), byId()); // aucun detail.slots[i].option_is_orderable
+    const drink = m.slots.find(s => s.slotType === 'drink');
+    assert.equal(drink.options.every(o => o.isOrderable !== false), true);
+});
+
+test('buildComposerSteps: option retiree du catalogue (absente de byId) reste AFFICHABLE via option_names', () => {
+    // Cas reel du defaut #4 : un produit is_available=0 disparait de /api/products
+    // (donc de byId), mais reste configure comme option de slot -- le composeur doit
+    // pouvoir l'afficher (grisee), pas la perdre en silence comme avant ce correctif.
+    const d = detail();
+    d.slots[1].option_product_ids = [14, 999]; // 999 absent de byId()
+    d.slots[1].option_is_orderable = { 14: true, 999: false };
+    d.slots[1].option_names = { 14: 'Coca Cola', 999: 'Fanta' };
+    const m = buildComposerSteps(d, byId());
+    const drink = m.slots.find(s => s.slotType === 'drink');
+    assert.equal(drink.options.length, 2); // 999 n'est PLUS filtre (avant : .filter(Boolean) le perdait)
+    const fanta = drink.options.find(o => o.id === 999);
+    assert.equal(fanta.nom, 'Fanta');
+    assert.equal(fanta.isOrderable, false);
+});
+
+test('selectionsComplete: faux si l option selectionnee est indisponible (RG-T21)', () => {
+    const d = detail();
+    d.slots[0].option_is_orderable = { 22: false, 23: true }; // slot Accompagnement (id 16)
+    const m = buildComposerSteps(d, byId());
+    assert.equal(selectionsComplete(m, { 1: 14, 16: 22 }), false); // 22 indisponible
+    assert.equal(selectionsComplete(m, { 1: 14, 16: 23 }), true);  // 23 commandable
+});
+
+test('composerIsViable: faux si TOUTES les options d un slot requis sont indisponibles', () => {
+    const d = detail();
+    d.slots[0].option_is_orderable = { 22: false, 23: false }; // Accompagnement : les 2 en rupture
+    const m = buildComposerSteps(d, byId());
+    assert.equal(composerIsViable(m), false);
+});
+
+test('composerIsViable: vrai si au moins UNE option d un slot requis reste commandable', () => {
+    const d = detail();
+    d.slots[0].option_is_orderable = { 22: false, 23: true };
+    const m = buildComposerSteps(d, byId());
+    assert.equal(composerIsViable(m), true);
+});
+
+test('buildMenuCartItem: une selection devenue indisponible est ignoree (garde-fou defensif)', () => {
+    const d = detail();
+    d.slots[0].option_is_orderable = { 22: false, 23: true };
+    const m = buildComposerSteps(d, byId());
+    const item = buildMenuCartItem(menu, m, { size: 'N', selections: { 1: 14, 16: 22, 31: 47 } });
+    assert.equal(item.composition.accompagnement, undefined); // 22 rejete, pas de fallback errone
+});
+
 /* --- formatCardSideImage (pur) : photo de l accompagnement du format --------- */
 
 test('formatCardSideImage: Maxi prend la photo REELLE de la variante (maxiImage)', () => {
@@ -315,4 +378,141 @@ test('openMenuComposer: etape Format -- cartes fixes centrees, Maxi a gauche, vi
 
     assert.match(document.querySelector('.composer-step__subtitle').textContent, /grosse faim/i); // A2
     assert.match(document.querySelector('.composer-step__hint').textContent, /supplément/i);       // A2
+});
+
+/* --- openMenuComposer (jsdom + fetch stub) : option indisponible (defaut #4) --- */
+
+// NOTE cache : data.js memoise loadProductsById() par PROMESSE au niveau module
+// (partagee par tous les tests de ce fichier, qui importent tous la MEME instance de
+// page-product-menu.js/data.js). Le premier test openMenuComposer plus haut a deja
+// rempli ce cache avec {100, 22, 14, 98} -- la reponse '/api/products' ci-dessous
+// n'est donc PAS relue ici (elle documente l'intention, pour un lecteur qui ne
+// connaitrait pas ce test). L'id 23 (Potatoes) n'a JAMAIS ete servi par aucun test de
+// ce fichier : il reste absent de byId, ce qui simule exactement le cas reel (un
+// produit is_available=0 disparait de /api/products) sans avoir a rejouer le fetch.
+test('openMenuComposer: une option indisponible est grisee (disabled + aria-disabled + "Indisponible"), pas seulement une couleur', async () => {
+    document.body.innerHTML = '';
+    const responses = {
+        '/api/categories': { data: [{ id: 1, name: 'Menus', slug: 'menus', image_path: null }] },
+        '/api/products': { data: [
+            { id: 100, category_id: 1, name: 'Le 280', price_cents: 0, image_path: 'burger.png' },
+            { id: 22, category_id: 1, name: 'Moyenne Frite', price_cents: 0, image_path: 'frite.png' },
+            // 23 (Potatoes) N'APPARAIT PAS ici : produit mis indisponible au back-office
+            // (is_available=0) -> exclu de /api/products, comme en production.
+        ] },
+        '/api/menus': { data: [] },
+        '/api/menus/1': { data: {
+            id: 1, burger_product_id: 100, price_normal_cents: 880, price_maxi_cents: 1030,
+            slots: [
+                {
+                    id: 16, name: 'Accompagnement', slot_type: 'side', is_required: 1, display_order: 1,
+                    option_product_ids: [22, 23],
+                    option_is_orderable: { 22: true, 23: false },
+                    option_names: { 22: 'Moyenne Frite', 23: 'Potatoes' },
+                },
+            ],
+        } },
+    };
+    global.fetch = async (url) => ({ ok: true, json: async () => responses[url] });
+
+    await openMenuComposer({ id: 1, nom: 'Menu Le 280', image: 'burger.png' }, 'menus');
+    document.querySelector('#composer-next').click(); // format -> slot Accompagnement
+
+    const options = document.querySelectorAll('#slot-grid .composer-card');
+    assert.equal(options.length, 2);
+    const potatoes = Array.from(options).find(b => b.dataset.pid === '23');
+    const frite = Array.from(options).find(b => b.dataset.pid === '22');
+
+    assert.ok(potatoes.hasAttribute('disabled'), 'option indisponible doit etre disabled');
+    assert.equal(potatoes.getAttribute('aria-disabled'), 'true');
+    assert.match(potatoes.textContent, /Indisponible/);
+    assert.match(potatoes.getAttribute('aria-label'), /indisponible/i); // accessible, pas que visuel
+    assert.ok(!frite.hasAttribute('disabled'));
+
+    // Pre-selection automatique : la PREMIERE option COMMANDABLE (22), jamais 23.
+    assert.equal(frite.getAttribute('aria-pressed'), 'true');
+    assert.equal(potatoes.getAttribute('aria-pressed'), 'false');
+
+    // Un clic sur une option disabled ne doit rien selectionner (aucun listener posé).
+    potatoes.click();
+    assert.equal(potatoes.getAttribute('aria-pressed'), 'false');
+    assert.equal(frite.getAttribute('aria-pressed'), 'true'); // selection inchangee
+});
+
+test('openMenuComposer: toutes les options d un slot requis indisponibles -> composeur ouvert quand meme, message clair pres du slot (pas de window.alert)', async () => {
+    // Correctif suite a revue : une window.alert() bloquante (puis un refus muet avant
+    // ouverture) ne convient pas sur une borne tactile en libre-service. Le composeur
+    // s'ouvre desormais normalement ; le message clair vit PRES DU SLOT concerne
+    // (role="alert", renderSlotStep), pas dans une boite de dialogue navigateur.
+    document.body.innerHTML = '';
+    const responses = {
+        '/api/categories': { data: [{ id: 1, name: 'Menus', slug: 'menus', image_path: null }] },
+        '/api/products': { data: [
+            { id: 100, category_id: 1, name: 'Le 280', price_cents: 0, image_path: 'burger.png' },
+        ] },
+        '/api/menus': { data: [] },
+        '/api/menus/1': { data: {
+            id: 1, burger_product_id: 100, price_normal_cents: 880, price_maxi_cents: 1030,
+            slots: [
+                {
+                    id: 16, name: 'Accompagnement', slot_type: 'side', is_required: 1, display_order: 1,
+                    option_product_ids: [22, 23],
+                    option_is_orderable: { 22: false, 23: false },
+                    option_names: { 22: 'Moyenne Frite', 23: 'Potatoes' },
+                },
+            ],
+        } },
+    };
+    global.fetch = async (url) => ({ ok: true, json: async () => responses[url] });
+    let alerted = null;
+    global.window.alert = (msg) => { alerted = msg; }; // ne doit JAMAIS etre appele
+
+    await openMenuComposer({ id: 1, nom: 'Menu Le 280', image: 'burger.png' }, 'menus');
+
+    assert.equal(alerted, null, 'window.alert ne doit plus etre utilise (borne tactile)');
+    assert.ok(document.querySelector('.composer-overlay'), 'le composeur doit s ouvrir malgre l impasse');
+
+    document.querySelector('#composer-next').click(); // format -> slot Accompagnement (seule etape)
+
+    const notice = document.querySelector('.composer-step__alert');
+    assert.ok(notice, 'un message role=alert doit apparaitre pres du slot concerne');
+    assert.equal(notice.getAttribute('role'), 'alert');
+    assert.match(notice.textContent, /aucune option/i);
+    assert.match(notice.textContent, /Accompagnement/);
+
+    // Les deux tuiles restent visibles mais grisees (le client voit POURQUOI).
+    const tiles = document.querySelectorAll('#slot-grid .composer-card');
+    assert.equal(tiles.length, 2);
+    assert.ok(Array.from(tiles).every(t => t.hasAttribute('disabled')));
+
+    // "Suivant" est visiblement desactive (pas seulement un clic sans effet).
+    const nextBtn = document.querySelector('#composer-next');
+    assert.ok(nextBtn.disabled, 'Suivant doit etre desactive sur un slot en impasse');
+    assert.equal(nextBtn.getAttribute('aria-disabled'), 'true');
+});
+
+test('openMenuComposer: burger impose introuvable -> composeur non ouvert (catalogue rompu, pas une rupture de stock)', async () => {
+    // Cas distinct de l impasse de slot ci-dessus : un burger introuvable n est pas une
+    // rupture RG-T21 normale, c est une configuration catalogue rompue -- aucune tuile
+    // de secours n a de sens, la borne n ouvre pas un composeur sans son burger impose.
+    // id 777 : jamais servi par /api/products dans AUCUN test de ce fichier (loadProductsById
+    // memoise par module -- un id deja vu ailleurs resterait resolu via le cache partage).
+    document.body.innerHTML = '';
+    const responses = {
+        '/api/categories': { data: [{ id: 1, name: 'Menus', slug: 'menus', image_path: null }] },
+        '/api/products': { data: [] }, // le burger 777 n existe pas
+        '/api/menus': { data: [] },
+        '/api/menus/777': { data: {
+            id: 777, burger_product_id: 777, price_normal_cents: 880, price_maxi_cents: 1030,
+            slots: [],
+        } },
+    };
+    global.fetch = async (url) => ({ ok: true, json: async () => responses[url] });
+    let alerted = null;
+    global.window.alert = (msg) => { alerted = msg; };
+
+    await openMenuComposer({ id: 777, nom: 'Menu Casse', image: 'burger.png' }, 'menus');
+
+    assert.equal(alerted, null);
+    assert.equal(document.querySelector('.composer-overlay'), null);
 });

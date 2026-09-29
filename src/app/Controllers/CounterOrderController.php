@@ -487,7 +487,7 @@ class CounterOrderController extends AdminController
         $menus = $menuRepository->availableForCatalogue();
 
         return array_map(function (array $menu) use ($menuRepository, $productRepository, $unavailable): array {
-            $menu['slots'] = $menuRepository->slotsWithOptions((int) ($menu['id'] ?? 0));
+            $menu['slots'] = $this->slotsWithAvailability($menuRepository->slotsWithOptions((int) ($menu['id'] ?? 0)), $productRepository, $unavailable);
             $menu['burger_modifiers'] = $this->proposableModifiers($productRepository, (int) ($menu['burger_product_id'] ?? 0));
             // RG-T21 (granularite burger impose seul, parite borne) : un menu dont le
             // burger principal est en rupture calculee n'est plus commandable -> grise.
@@ -495,6 +495,44 @@ class CounterOrderController extends AdminController
 
             return $menu;
         }, $menus);
+    }
+
+    /**
+     * Ajoute a chaque slot la disponibilite de CHAQUE option (defaut #4, RG-T21) :
+     * MEME regle et memes noms de champ que CatalogueController::presentSlots (borne)
+     * -- option_is_orderable (is_available ET rupture calculee) et option_names (le
+     * nom d'une option meme si elle a disparu de la liste produits commandables, ex.
+     * retrait manuel is_available=0). Sans ces deux champs, counter-order.js ne
+     * pouvait ni griser une option en rupture (elle apparaissait comme n'importe
+     * quelle autre, $products n'embarquant is_orderable qu'au niveau PRODUIT, jamais
+     * par option de slot) ni afficher son nom si elle etait retiree du catalogue
+     * commandable (donc absente de productById). Page authentifiee, catalogue de
+     * taille modeste : le cout d'un find() par option (pas de N+1 au sens strict,
+     * juste quelques requetes de plus par page) est prefere a une requete IN(...)
+     * qui n'a pas de precedent dans ce depot (Rasoir d'Ockham).
+     *
+     * @param list<array{id:int, name:string, slot_type:string, is_required:int, display_order:int, option_product_ids:list<int>}> $slots
+     * @param array<int, true> $unavailable set d'ids produits en rupture calculee (RG-T21)
+     * @return list<array<string, mixed>>
+     */
+    private function slotsWithAvailability(array $slots, ProductRepository $productRepository, array $unavailable): array
+    {
+        return array_map(function (array $slot) use ($productRepository, $unavailable): array {
+            $orderable = [];
+            $names = [];
+            foreach ($slot['option_product_ids'] as $pid) {
+                $pid = (int) $pid;
+                $option = $productRepository->find($pid);
+                $orderable[(string) $pid] = $option !== null
+                    && (int) ($option['is_available'] ?? 0) === 1
+                    && !isset($unavailable[$pid]);
+                $names[(string) $pid] = $option !== null ? (string) $option['name'] : '';
+            }
+            $slot['option_is_orderable'] = $orderable;
+            $slot['option_names'] = $names;
+
+            return $slot;
+        }, $slots);
     }
 
     /**
@@ -558,9 +596,12 @@ class CounterOrderController extends AdminController
         return match ($code) {
             'EMPTY_ORDER'             => 'La commande est vide : ajoutez au moins un produit ou un menu.',
             'INVALID_SERVICE_MODE'    => 'Mode de service invalide (le drive impose le mode drive).',
+            'INVALID_QUANTITY'        => 'Quantité invalide : chaque article doit être compris entre 1 et 20.',
+            'TOO_MANY_ITEMS'          => 'Trop d\'articles différents dans la commande (50 maximum).',
             'PRODUCT_UNAVAILABLE'     => 'Un produit sélectionné est indisponible.',
             'MENU_UNAVAILABLE'        => 'Un menu sélectionné est indisponible.',
             'INVALID_SELECTION'       => 'Un choix de menu (accompagnement / boisson / sauce) est invalide.',
+            'OPTION_UNAVAILABLE'      => 'Un choix de menu sélectionné est indisponible.',
             'INVALID_MODIFIER',
             'INGREDIENT_NOT_REMOVABLE',
             'INGREDIENT_NOT_ADDABLE'  => 'Une modification d\'ingrédient est invalide.',

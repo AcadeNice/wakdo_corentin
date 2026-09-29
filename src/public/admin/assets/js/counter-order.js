@@ -114,8 +114,51 @@
         return (format === 'maxi' && product.maxi_variant_name) ? product.maxi_variant_name : product.name;
     }
 
+    // Options resolues d'un slot, DISPONIBILITE COMPRISE (RG-T21, defaut #4). Une
+    // option encore dans la liste produits POS (productById, derivee de
+    // #pos-products) garde toute sa richesse d'affichage (maxi_variant_name...) ;
+    // une option retiree au back-office (absente de productById, puisque
+    // #pos-products n'embarque que les produits commandables -- meme filtre que
+    // /api/products cote borne) retombe sur un objet minimal construit depuis
+    // option_names, pour rester AFFICHABLE (grisee) plutot que de disparaitre en
+    // silence -- MAIS seulement si le SERVEUR sait de quoi il s'agit (option_names
+    // porte une entree) : un id absent des DEUX est un desync catalogue reel
+    // (configuration perimee), pas une option retiree, et reste FILTRE comme
+    // avant ce correctif. isCommandable vient TOUJOURS du serveur
+    // (option_is_orderable), jamais d'une simple absence dans productById : sans
+    // ce champ (menu servi par une API anterieure), une option est traitee comme
+    // commandable par defaut (compat), meme convention que `commandable` plus haut
+    // dans ce fichier. Pur.
+    function resolveSlotOptions(slot, productById) {
+        var orderableById = slot.option_is_orderable || {};
+        var namesById = slot.option_names || {};
+        var out = [];
+        (slot.option_product_ids || []).forEach(function (pid) {
+            var resolved = productById[Number(pid)];
+            if (resolved) {
+                var withAvailability = {};
+                Object.keys(resolved).forEach(function (k) { withAvailability[k] = resolved[k]; });
+                withAvailability.isCommandable = orderableById[pid] !== false;
+                out.push(withAvailability);
+                return;
+            }
+            var name = namesById[pid];
+            if (name === undefined) {
+                return; // desync catalogue : aucune info, meme cote serveur
+            }
+            out.push({
+                id: Number(pid),
+                name: name || 'Option',
+                maxi_variant_name: null,
+                isCommandable: orderableById[pid] !== false,
+            });
+        });
+        return out;
+    }
+
     // Etapes composables d'un menu : burger impose ignore (non choisi ici), un pas par
-    // slot gere, trie par display_order, options resolues via l'index produit. Pur.
+    // slot gere, trie par display_order, options resolues via l'index produit (avec
+    // leur disponibilite, resolveSlotOptions). Pur.
     function composerSteps(menu, productById) {
         return (menu.slots || [])
             .filter(function (slot) {
@@ -126,15 +169,12 @@
                 return (Number(a.display_order) || 0) - (Number(b.display_order) || 0);
             })
             .map(function (slot) {
-                var options = (slot.option_product_ids || [])
-                    .map(function (pid) { return productById[Number(pid)]; })
-                    .filter(Boolean);
                 return {
                     id: Number(slot.id),
                     name: slot.name || SLOT_LABEL[slot.slot_type],
                     slotType: slot.slot_type,
                     isRequired: Number(slot.is_required) === 1,
-                    options: options,
+                    options: resolveSlotOptions(slot, productById),
                 };
             });
     }
@@ -709,13 +749,30 @@
         // tuiles de format des tuiles de slot dans le DOM (utile aux tests).
         // Navigation clavier calquee sur onTabsKeydown (barre d'onglets categories,
         // plus haut dans ce fichier) : fleches cycliques, le focus suit la selection.
+        // entry.disabled (RG-T21/defaut #4) : option en rupture calculee ou retiree au
+        // back-office. Grisee au MEME idiome que buildTile()/le badge produit
+        // (aria-disabled + classe + badge "Indisponible", PAS l'attribut natif
+        // `disabled` : coherent avec l'unique autre tuile "indisponible" de ce
+        // fichier). Ni le clic ni la navigation clavier du groupe ne peuvent la
+        // selectionner ; l'enforcement qui fait foi reste serveur
+        // (OrderRepository::resolveSelections, OPTION_UNAVAILABLE) -- ceci est l'echo UX.
         function buildTileGroup(groupLabel, entries, initialValue, onChange, tileClassName) {
             var group = el('div', 'pos-tile-group' + (tileClassName ? ' ' + tileClassName + 's' : ''));
             group.setAttribute('role', 'radiogroup');
             group.setAttribute('aria-label', groupLabel);
 
             var buttons = [];
+            var disabledByValue = {};
+            entries.forEach(function (entry) { disabledByValue[entry.value] = !!entry.disabled; });
             var current = initialValue;
+
+            function isDisabled(btn) {
+                return !!disabledByValue[btn.dataset.value];
+            }
+
+            function firstEnabled() {
+                return buttons.filter(function (btn) { return !isDisabled(btn); })[0] || null;
+            }
 
             function applySelection() {
                 var anyTabbable = false;
@@ -723,13 +780,19 @@
                     var selected = btn.dataset.value === String(current);
                     btn.classList.toggle('is-selected', selected);
                     btn.setAttribute('aria-checked', selected ? 'true' : 'false');
-                    btn.tabIndex = selected ? 0 : -1;
-                    anyTabbable = anyTabbable || selected;
+                    var tabbable = selected && !isDisabled(btn);
+                    btn.tabIndex = tabbable ? 0 : -1;
+                    anyTabbable = anyTabbable || tabbable;
                 });
-                // Roving tabindex : si aucune tuile n'est selectionnee (slot optionnel
-                // laisse a "Sans"), la premiere reste atteignable au clavier.
-                if (!anyTabbable && buttons[0]) {
-                    buttons[0].tabIndex = 0;
+                // Roving tabindex : si aucune tuile COMMANDABLE n'est selectionnee (slot
+                // optionnel laisse a "Sans", ou selection posee sur une option devenue
+                // indisponible), la premiere tuile COMMANDABLE reste atteignable au
+                // clavier -- jamais une tuile grisee.
+                if (!anyTabbable) {
+                    var target = firstEnabled();
+                    if (target) {
+                        target.tabIndex = 0;
+                    }
                 }
             }
 
@@ -750,12 +813,28 @@
                 tile.type = 'button';
                 tile.dataset.value = entry.value;
                 tile.setAttribute('role', 'radio');
+                if (entry.disabled) {
+                    tile.classList.add('pos-tile--unavailable');
+                    tile.setAttribute('aria-disabled', 'true');
+                    tile.setAttribute('aria-label', entry.label + ', indisponible');
+                }
                 var body = el('span', 'pos-tile__body');
                 var nameEl = el('span', 'pos-tile__name');
                 nameEl.textContent = entry.label;
                 body.appendChild(nameEl);
                 tile.appendChild(body);
-                tile.addEventListener('click', function () { select(entry.value, false); });
+                if (entry.disabled) {
+                    var badge = el('span', 'pos-tile__badge pos-tile__badge--unavailable');
+                    badge.setAttribute('aria-hidden', 'true');
+                    badge.textContent = 'Indisponible';
+                    tile.appendChild(badge);
+                }
+                tile.addEventListener('click', function () {
+                    if (isDisabled(tile)) {
+                        return;
+                    }
+                    select(entry.value, false);
+                });
                 buttons.push(tile);
                 group.appendChild(tile);
             });
@@ -765,14 +844,27 @@
                 if (idx < 0 || !buttons.length) {
                     return;
                 }
-                var next = null;
+                var step = 0;
                 if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
-                    next = (idx + 1) % buttons.length;
+                    step = 1;
                 } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
-                    next = (idx - 1 + buttons.length) % buttons.length;
+                    step = -1;
                 }
-                if (next === null) {
+                if (step === 0) {
                     return;
+                }
+                // Saute les tuiles grisees (RG-T21/defaut #4) : la navigation clavier ne
+                // doit jamais poser le focus sur une option indisponible. Borne a
+                // buttons.length essais pour eviter une boucle infinie si tout est grise.
+                var next = idx;
+                for (var i = 0; i < buttons.length; i++) {
+                    next = (next + step + buttons.length) % buttons.length;
+                    if (!isDisabled(buttons[next])) {
+                        break;
+                    }
+                }
+                if (isDisabled(buttons[next])) {
+                    return; // tout le groupe est grise
                 }
                 event.preventDefault();
                 select(buttons[next].dataset.value, true);
@@ -791,6 +883,9 @@
                     if (nameNode) {
                         nameNode.textContent = label;
                     }
+                    if (btn && isDisabled(btn)) {
+                        btn.setAttribute('aria-label', label + ', indisponible');
+                    }
                 },
             };
         }
@@ -802,8 +897,11 @@
             var proposable = menu.burger_modifiers || [];
             var state = { format: 'normal', selections: {}, selectedRemove: {}, selectedAdd: {} };
             steps.forEach(function (step) {
-                if (step.isRequired && step.options[0]) {
-                    state.selections[step.id] = step.options[0].id;
+                // isCommandable !== false : ne jamais pre-selectionner une option
+                // indisponible (RG-T21/defaut #4) -- on prend la premiere COMMANDABLE.
+                var firstAvailable = step.options.filter(function (o) { return o.isCommandable !== false; })[0];
+                if (step.isRequired && firstAvailable) {
+                    state.selections[step.id] = firstAvailable.id;
                 }
             });
 
@@ -856,7 +954,11 @@
                 block.appendChild(lab);
 
                 var entries = step.options.map(function (opt) {
-                    return { value: String(opt.id), label: displayProductName(opt, state.format) };
+                    return {
+                        value: String(opt.id),
+                        label: displayProductName(opt, state.format),
+                        disabled: opt.isCommandable === false,
+                    };
                 });
                 if (!step.isRequired) {
                     entries.unshift({ value: '', label: 'Sans' });
@@ -887,10 +989,13 @@
             inlineError.textContent = '';
             panel.appendChild(inlineError);
 
-            // Impasse : un slot requis sans aucune option resoluble rend le menu non
+            // Impasse : un slot requis sans aucune option resoluble, OU dont TOUTES les
+            // options resolues sont indisponibles (RG-T21/defaut #4), rend le menu non
             // composable. On desactive l'ajout et on affiche un message clair plutot que
             // de laisser l'equipier buter sur "options obligatoires" sans pouvoir corriger.
-            var deadEnd = steps.some(function (s) { return s.isRequired && !s.options.length; });
+            var deadEnd = steps.some(function (s) {
+                return s.isRequired && !s.options.some(function (o) { return o.isCommandable !== false; });
+            });
 
             // Actions : ajouter (si tous les requis choisis) / annuler.
             var actions = el('div', 'menu-composer__actions');
@@ -905,8 +1010,15 @@
                 if (deadEnd) {
                     return;
                 }
+                // isCommandable !== false : garde-fou defensif (RG-T21/defaut #4) -- une
+                // selection posee sur une option devenue indisponible ne doit jamais
+                // atteindre le panier (le serveur la refuserait de toute facon,
+                // OrderRepository::resolveSelections, OPTION_UNAVAILABLE).
                 var allRequired = steps.filter(function (s) { return s.isRequired; })
-                    .every(function (s) { return state.selections[s.id] != null; });
+                    .every(function (s) {
+                        var chosen = state.selections[s.id];
+                        return chosen != null && s.options.some(function (o) { return o.id === chosen && o.isCommandable !== false; });
+                    });
                 if (!allRequired) {
                     inlineError.textContent = 'Choisissez toutes les options obligatoires avant d\'ajouter.';
                     return;

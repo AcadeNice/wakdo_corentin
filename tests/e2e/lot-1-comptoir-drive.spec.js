@@ -141,3 +141,99 @@ test.describe('Ligne mise en evidence apres creation + encaissement', () => {
     await expect(rows.last().locator('.row-highlight__tag')).toHaveText('Nouveau');
   });
 });
+
+// Defaut #4 (important, metier) : une option de menu en rupture (retrait manuel
+// is_available=0, ou rupture calculee RG-T21) reste commandable AVANT ce correctif
+// dans le POS comptoir/drive -- OrderRepository::resolveSelections() refuse deja la
+// commande cote serveur (422 OPTION_UNAVAILABLE, meme regle que la borne), mais rien
+// ne le signalait dans la modale de composition. Fixture entierement JETABLE (burger +
+// 2 sauces + 1 menu crees ici) pour ne rendre indisponible aucun produit/menu du
+// catalogue de demonstration.
+test.describe('Option de menu indisponible dans le POS comptoir (defaut #4)', () => {
+  const RUN = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e4).toString(36)}`;
+
+  async function csrfToken(page) {
+    return page.evaluate(async () => {
+      const res = await fetch('/admin/me', { credentials: 'include' });
+      const body = await res.json();
+      return body.data.csrf_token;
+    });
+  }
+
+  test('produit mis indisponible au back-office : option grisee (aria-disabled + badge) dans la modale du POS', async ({ page }) => {
+    await page.setViewportSize({ width: 1366, height: 900 });
+    await login(page);
+    const csrf = await csrfToken(page);
+    const h = { 'X-CSRF-Token': csrf };
+
+    // Burger jetable (categorie burgers = 3), produit de base (F9-2).
+    const burger = await page.request.post(`${ADMIN}/admin/api/products`, {
+      headers: h, data: { category_id: 3, name: `OiBurgerPos ${RUN}`, price_cents: 600, vat_rate: 100, is_available: true, display_order: 65535 },
+    });
+    expect(burger.status(), await burger.text()).toBe(201);
+    const burgerId = (await burger.json()).data.id;
+
+    // Deux sauces jetables (categorie sauces = 9, F12), options du MEME slot.
+    const sauceA = await page.request.post(`${ADMIN}/admin/api/products`, {
+      headers: h, data: { category_id: 9, name: `OiSauceAPos ${RUN}`, price_cents: 30, vat_rate: 100, is_available: true, display_order: 65535 },
+    });
+    expect(sauceA.status(), await sauceA.text()).toBe(201);
+    const sauceAId = (await sauceA.json()).data.id;
+    const sauceB = await page.request.post(`${ADMIN}/admin/api/products`, {
+      headers: h, data: { category_id: 9, name: `OiSauceBPos ${RUN}`, price_cents: 30, vat_rate: 100, is_available: true, display_order: 65535 },
+    });
+    expect(sauceB.status(), await sauceB.text()).toBe(201);
+    const sauceBId = (await sauceB.json()).data.id;
+
+    // Menu jetable, UN slot Sauce REQUIS a deux options (categorie menus = 1).
+    const menuRes = await page.request.post(`${ADMIN}/admin/api/menus`, {
+      headers: h,
+      data: {
+        category_id: 1, burger_product_id: burgerId, name: `OiMenuPos ${RUN}`,
+        price_normal_cents: 500, price_maxi_cents: 600, is_available: true, display_order: 65535,
+        slots: [{ name: 'Sauce', slot_type: 'sauce', is_required: true, options: [sauceAId, sauceBId] }],
+      },
+    });
+    expect(menuRes.status(), await menuRes.text()).toBe(201);
+    const menuId = (await menuRes.json()).data.id;
+
+    // Retrait manuel de la sauce B (equivalent du toggle "Disponible" du formulaire produit).
+    const off = await page.request.put(`${ADMIN}/admin/api/products/${sauceBId}`, {
+      headers: h, data: { category_id: 9, name: `OiSauceBPos ${RUN}`, price_cents: 30, vat_rate: 100, is_available: false, display_order: 65535 },
+    });
+    expect(off.status(), await off.text()).toBe(200);
+
+    try {
+      await page.goto(`${ADMIN}/counter/orders/new`);
+      await page.getByRole('tab', { name: 'Menus', exact: true }).click();
+      await page.locator('.pos-tile', { hasText: `OiMenuPos ${RUN}` }).click();
+
+      const modal = page.locator('#menu-composer-modal');
+      await expect(modal).not.toHaveAttribute('hidden', '');
+
+      const sauceGroup = modal.locator('.menu-composer__slot', { hasText: 'Sauce' }).locator('.pos-tile-group');
+      const bad = sauceGroup.locator('.pos-tile', { hasText: `OiSauceBPos ${RUN}` });
+      const good = sauceGroup.locator('.pos-tile', { hasText: `OiSauceAPos ${RUN}` });
+
+      await expect(bad).toHaveClass(/pos-tile--unavailable/);
+      await expect(bad).toHaveAttribute('aria-disabled', 'true');
+      await expect(bad.locator('.pos-tile__badge--unavailable')).toHaveText('Indisponible');
+      await expect(good).not.toHaveClass(/pos-tile--unavailable/);
+
+      // Pre-selection automatique : la sauce A (commandable), jamais la sauce B.
+      await expect(good).toHaveAttribute('aria-checked', 'true');
+      await expect(bad).toHaveAttribute('aria-checked', 'false');
+    } finally {
+      // Nettoyage best-effort : retire menu/burger/sauces du catalogue commandable.
+      await page.request.put(`${ADMIN}/admin/api/menus/${menuId}`, {
+        headers: h, data: {
+          category_id: 1, burger_product_id: burgerId, name: `OiMenuPos ${RUN}`,
+          price_normal_cents: 500, price_maxi_cents: 600, is_available: false, display_order: 65535,
+          slots: [{ name: 'Sauce', slot_type: 'sauce', is_required: true, options: [sauceAId, sauceBId] }],
+        },
+      });
+      await page.request.put(`${ADMIN}/admin/api/products/${burgerId}`, { headers: h, data: { category_id: 3, name: `OiBurgerPos ${RUN}`, price_cents: 600, vat_rate: 100, is_available: false, display_order: 65535 } });
+      await page.request.put(`${ADMIN}/admin/api/products/${sauceAId}`, { headers: h, data: { category_id: 9, name: `OiSauceAPos ${RUN}`, price_cents: 30, vat_rate: 100, is_available: false, display_order: 65535 } });
+    }
+  });
+});
