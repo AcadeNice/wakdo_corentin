@@ -45,7 +45,7 @@ votre instance ecoute ailleurs.
 1. Dans l'environnement, renseignez `email` et `password` avec le compte de demo du seed
    (cf. `db/seeds/0001_rbac_and_reference.sql`, section "bootstrap administrator" — pas
    recopie ici pour ne pas dupliquer un identifiant de demonstration dans un fichier distinct).
-2. Executez **0. Connexion > Se connecter**. Reponse `200` :
+2. Executez **1. Connexion > Se connecter**. Reponse `200` :
    `{ data: { user: {id, email, display_name, role}, permissions: [...], csrf_token } }`.
    Le script de test de la requete range `csrf_token` dans la variable d'environnement
    `csrf`, reutilisee par toutes les requetes suivantes via l'en-tete `X-CSRF-Token`, et pose
@@ -423,11 +423,11 @@ au meme modele de menace qu'un deploiement derriere Traefik.
 
 ## Ce que couvre la collection
 
-Onze dossiers, dans l'ordre ou les enchainer : 0. Connexion (login/qui suis-je),
+Onze dossiers, dans l'ordre ou les enchainer : 1. Connexion (login/qui suis-je),
 Categories, Produits (dont recette et rangement), Menus, Ingredients (dont seuils,
 inventaire, ajustement, allergenes), Roles (RBAC), Utilisateurs (dont reinitialisation de
 PIN et anonymisation RGPD), Commandes (liste filtree par canal, saisie comptoir/drive,
-cuisine, remise, annulation), Statistiques, RBAC : preuve des droits (section 5), et 9. Fin
+cuisine, remise, annulation), Statistiques, RBAC : preuve des droits (section 5), et 11. Fin
 de demo (deconnexion). Le contrat complet, methode par methode, est dans
 `docs/api/conventions.md` section 5.3 (+ 5.3bis pour la connexion).
 
