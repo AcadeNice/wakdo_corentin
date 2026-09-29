@@ -8,6 +8,7 @@ use PDOException;
 use App\Auth\Csrf;
 use App\Auth\GuardResult;
 use App\Auth\PasswordHasher;
+use App\Auth\PinGate;
 use App\Auth\PinThrottle;
 use App\Auth\PinVerifier;
 use App\Catalogue\AllergenRepository;
@@ -951,20 +952,13 @@ class IngredientController extends AdminController
         throw $exception;
     }
 
+    /**
+     * Delegue a `PinGate::auditFailedPin()` (RGPD art. 5.1.c, minimisation) : plus
+     * aucune adresse en clair dans `audit_log`, voir le POURQUOI complet la-bas.
+     */
     private function logFailedPin(DatabaseInterface $db, string $email, int $ingredientId, string $context = 'inventaire'): void
     {
-        $db->execute(
-            'INSERT INTO audit_log (actor_user_id, actor_role_id, action_code, entity_type, entity_id, summary) '
-            . 'VALUES (:uid, :rid, :code, :etype, :eid, :summary)',
-            [
-                'uid'     => null,
-                'rid'     => null,
-                'code'    => 'pin.failed',
-                'etype'   => 'ingredient',
-                'eid'     => $ingredientId,
-                'summary' => 'Échec PIN ' . $context . ' (email tenté: ' . $email . ')',
-            ],
-        );
+        PinGate::auditFailedPin($db, $email, 'ingredient', $ingredientId, $context);
     }
 
     /**
