@@ -1,0 +1,87 @@
+// Tests de securite -- lien de reinitialisation du mot de passe (OWASP Top 10 2021 A07 ;
+// OWASP ASVS 4.0 V2.5 recuperation de compte, V3.3 fin de session).
+//
+// Phase 2 de tests/e2e/run-security.sh : la phase 1 (security-bruteforce.spec.js) demande
+// un lien pour un compte jetable ; sans SMTP, l'application l'ecrit dans son journal
+// (App\Auth\LogMailer). Le lanceur y relit l'adresse et le jeton, puis rejoue ce fichier
+// avec SEC_RESET_EMAIL et SEC_RESET_TOKEN. Hors de ce lanceur, le fichier est saute.
+//
+// L'expiration (lien plus vieux que PASSWORD_RESET_TTL) n'est pas attendue ici en temps
+// reel : elle est prouvee contre une vraie base, horloge injectee, par
+// tests/Integration/Security/PasswordResetExpiryDbTest.php.
+const { test, expect, request: pwRequest } = require('@playwright/test');
+
+const ADMIN = 'http://admin.wakdo.test';
+const EMAIL = process.env.SEC_RESET_EMAIL || '';
+const TOKEN = process.env.SEC_RESET_TOKEN || '';
+const OLD_PASSWORD = 'SecBrute2026!x';
+const NEW_PASSWORD = 'SecNouveau2026!y';
+
+async function ctx() {
+  return pwRequest.newContext({ extraHTTPHeaders: { 'X-Forwarded-For': '198.51.100.77' } });
+}
+
+async function submitReset(c, token, password) {
+  const page = await (await c.get(`${ADMIN}/reset_password?token=${encodeURIComponent(token)}`)).text();
+  const csrf = page.match(/name="_csrf" value="([^"]+)"/)[1];
+  const res = await c.post(`${ADMIN}/reset_password`, {
+    form: { _csrf: csrf, token, password, password_confirm: password }, maxRedirects: 0,
+  });
+  return { status: res.status(), location: res.headers()['location'] || '', body: await res.text() };
+}
+
+test.describe.configure({ mode: 'serial' });
+
+test.describe('Lien de reinitialisation du mot de passe', () => {
+  test.skip(!EMAIL || !TOKEN, 'phase "reset" de tests/e2e/run-security.sh uniquement (SEC_RESET_EMAIL + SEC_RESET_TOKEN)');
+
+  let before;
+
+  test('un jeton forge (bonne forme, mauvaise valeur) est refuse', async () => {
+    const c = await ctx();
+    const forged = await submitReset(c, 'a'.repeat(64), NEW_PASSWORD);
+    expect(forged.status).toBe(200);
+    expect(forged.body).toContain('Lien invalide ou expiré');
+    await c.dispose();
+  });
+
+  test('le lien du journal change le mot de passe ; l ancien est refuse, le nouveau accepte', async () => {
+    before = await ctx();
+    const login = await before.post(`${ADMIN}/admin/api/auth/login`, { data: { email: EMAIL, password: OLD_PASSWORD } });
+    expect(login.status()).toBe(200);
+
+    const c = await ctx();
+    const done = await submitReset(c, TOKEN, NEW_PASSWORD);
+    expect(done.status).toBe(302);
+    expect(done.location).toBe('/login?reset=ok');
+
+    expect((await c.post(`${ADMIN}/admin/api/auth/login`, { data: { email: EMAIL, password: OLD_PASSWORD } })).status()).toBe(401);
+    expect((await c.post(`${ADMIN}/admin/api/auth/login`, { data: { email: EMAIL, password: NEW_PASSWORD } })).status()).toBe(200);
+    await c.dispose();
+  });
+
+  test('le meme lien ne sert qu une fois', async () => {
+    const c = await ctx();
+    const again = await submitReset(c, TOKEN, 'EncoreUnAutre2026!z');
+    expect(again.status).toBe(200);
+    expect(again.body).toContain('Lien invalide ou expiré');
+    expect((await c.post(`${ADMIN}/admin/api/auth/login`, { data: { email: EMAIL, password: NEW_PASSWORD } })).status()).toBe(200);
+    await c.dispose();
+  });
+
+  test('une session ouverte AVANT la reinitialisation est fermee apres', async () => {
+    // CONSTAT (mineur) : App\Auth\PasswordResetService::confirmReset change le hash et
+    // efface le jeton, mais ne ferme pas les sessions deja ouvertes du compte ; et
+    // App\Auth\SessionGuard::check() ne verifie que is_active. Si la reinitialisation suit
+    // un vol de session, la session volee reste valide jusqu'a son expiration (4 h
+    // d'inactivite, 10 h au plus).
+    const res = await before.get(`${ADMIN}/admin/api/auth/me`);
+    expect(res.status()).toBeLessThan(500);
+    test.fail(true, 'sessions existantes conservees apres reinitialisation (src/app/Auth/PasswordResetService.php, confirmReset)');
+    expect(res.status()).toBe(401);
+  });
+
+  test.afterAll(async () => {
+    if (before) await before.dispose();
+  });
+});
