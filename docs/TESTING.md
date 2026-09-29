@@ -79,7 +79,7 @@ elle suppose un PHP de CI equipe de pcov).
 
 ## 5. E2E (Playwright) — execution manuelle, hors CI
 
-22 specs (`tests/e2e/*.spec.js` : borne, admin, RBAC, accessibilite, performance,
+36 specs (`tests/e2e/*.spec.js` : borne, admin, RBAC, accessibilite, performance,
 balayage back-office, capture de la page Sante...) se lancent **a la main**, contre
 une stack jetable, via cinq lanceurs :
 
@@ -93,7 +93,7 @@ une stack jetable, via cinq lanceurs :
 
 `tests/e2e/run.sh` monte une stack isolee (`docker-compose.yml` +
 `tests/e2e/docker-compose.e2e.yml`), attend migrate + healthcheck, puis lance
-`npx playwright test` SANS filtre dans le conteneur officiel : il joue les 22 specs de
+`npx playwright test` SANS filtre dans le conteneur officiel : il joue les 36 specs de
 `tests/e2e/` en une fois (borne : accueil -> commande -> chevalet -> confirmation ;
 admin : login -> dashboard -> logout ; RBAC, accessibilite, performance, balayage
 back-office, capture de la page Sante...), pas seulement le parcours borne/admin

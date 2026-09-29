@@ -6,10 +6,10 @@ Titre professionnel RNCP 37805 — Bloc 1 (developpement front-end)
 Cr 1.c.3 par une reserve explicite : « les ratios de contraste exacts n'ont pas ete
 mesures avec un outil dedie ([UNVERIFIED], section 8) ». Le meme aveu revient en
 section 8, reserve n° 2, et dans les reserves consolidees du `README.md` du dossier.
-Ce document remplace cette reserve par **935 ratios de contraste mesures** (campagne du 2026-09-28) sur 19 ecrans
+Ce document remplace cette reserve par **935 ratios de contraste mesures** (campagne du 2026-09-28, rejouee a l'identique le 2026-09-29) sur 19 ecrans
 reels, et par le detail des 10 elements qui passaient sous le seuil au premier passage.
 
-**Avertissement de lecture.** Ce rapport documente **cinq campagnes**, pas une seule :
+**Avertissement de lecture.** Ce rapport documente **six campagnes**, pas une seule :
 
 1. **Campagne AVANT correction** (sections 4 a 6, telles qu'ecrites au premier passage) :
    11 ecrans, 10 noeuds de texte sous le seuil WCAG AA, dont 9 dans le back-office. C'est
@@ -32,13 +32,18 @@ reels, et par le detail des 10 elements qui passaient sous le seuil au premier p
    reelles ajoute a la page Sante. 19 ecrans, **935 mesures**, 85 combinaisons,
    0 violation ; l'ecart avec les 946 mesures de la veille est explique et n'est pas une
    regression (voir plus bas).
+6. **Rejeu du 2026-09-29** (09:49 UTC, commit `3fd08c4`), apres les correctifs de
+   contre-audit et de securite du meme jour (menu deja commande, journal d'audit, en-tetes
+   de securite, etc.) : memes 19 ecrans, **935 mesures**, 0 violation — chiffres
+   inchanges par rapport au 28/09, seule la date change dans les artefacts
+   (`docs/soutenance/preuves/rapports/resume.json`). Ce rejeu confirme qu'aucun des
+   correctifs du 29/09 n'a introduit de regression visible a cet outil.
 
-Les cinq campagnes sont conservees telles quelles, l'une a la suite de l'autre : un
+Les six campagnes sont conservees telles quelles, l'une a la suite de l'autre : un
 dossier qui montre « 10 violations trouvees, voici les corrections, voici la remesure a
 0 » a plus de valeur devant un jury qu'un dossier qui n'aurait rien trouve des le premier
 passage, ou qu'un dossier qui aurait efface la trace du probleme initial. Les chiffres
-courants, ceux que portent les artefacts sur disque, sont ceux de la remesure du
-2026-09-28 (fin de la section 5 quater).
+courants, ceux que portent les artefacts sur disque, sont ceux du rejeu du 2026-09-29.
 
 ---
 
@@ -50,7 +55,7 @@ courants, ceux que portent les artefacts sur disque, sont ceux de la remesure du
 | Liaison navigateur | `@axe-core/playwright` **4.13.0** (version exacte epinglee, pas une plage) |
 | Navigateur | Chromium 131.0.6778.33, image officielle `mcr.microsoft.com/playwright:v1.49.1-jammy` |
 | Familles de regles | `wcag2a`, `wcag2aa`, `wcag21a`, `wcag21aa` |
-| Date de la campagne courante | 2026-09-28 (campagnes precedentes : 2026-09-22, 2026-09-26 au matin, 2026-09-26, puis 2026-09-27) |
+| Date de la campagne courante | 2026-09-29, rejeu a l'identique (campagnes precedentes : 2026-09-22, 2026-09-26 au matin, 2026-09-26, 2026-09-27, puis 2026-09-28) |
 | Ecrans analyses | 19 (6 borne, 13 back-office) — 18 a la campagne du 2026-09-26, 11 aux deux premieres |
 
 ### Pourquoi exactement ces quatre familles de regles

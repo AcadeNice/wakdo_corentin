@@ -27,10 +27,17 @@ bornes, type de corps strict, option de menu en rupture refusee et grisee — ec
 Un quatrieme commit, `33538c6`, ajoute une borne complementaire sur le TOTAL d'articles par
 commande (`MAX_ITEMS_PER_ORDER` = 50, code `ORDER_TOO_LARGE`) avec un nouveau test e2e dedie
 (non compris dans les 13 tests marques de l'execution datee, puisqu'il n'existait pas encore) —
-voir la note dans le detail de I1 (section 6). **La suite n'a pas ete rejouee depuis ces quatre commits** : les
-resultats dates de la section 4 et les lignes « ecart » de la section 5 decrivent l'etat AVANT
-ces correctifs — **a remesurer**. Le detail par ecart (section 6) porte desormais la mention
+voir la note dans le detail de I1 (section 6). Le detail par ecart (section 6) porte la mention
 « corrige » avec le commit, en gardant le constat original (c'est l'interet de la fiche).
+
+**Rejeu du 2026-09-29, apres ces quatre commits (commit `2fe8a4a`).** La suite a ete relancee
+par `bash tests/e2e/run-security.sh` (3 phases, `APP_DEBUG=false`) : phase principale
+95 reussis (8 sautes, joues dans les phases suivantes), phase reinitialisation 4 reussis,
+phase base arretee 4 reussis ; **0 echec, 0 test marque en echec restant** dans
+`tests/e2e/security-*.spec.js` — plus 5 tests PHP de securite (`tests/Integration/Security`),
+egalement verts. Les 13 tests marques de l'execution datee (section 4) et les lignes
+« ecart » de la section 5 decrivent donc un etat AVANT correctif qui n'est plus celui du
+depot ; ce rejeu confirme chacun des 11 ecarts corrige, sans exception restante.
 
 ## 1. La base existante (reprise, pas dupliquee)
 
@@ -118,25 +125,31 @@ fichiers deposes) visent la pile jetable. Seule exception, en lecture : deux `GE
 | n° 2, 07:31 | `run-security.sh` (APP_DEBUG=false, 3 phases) | 100 | 87 | 13 | 0 | 0 |
 | controle | lanceur E2E habituel (APP_DEBUG=true, phase 1) | 100 | 79 | 12 | 0 | 9 |
 | PHP | PHPUnit 11.5, MariaDB 11.4 jetable | 5 (36 assertions) | 5 | 0 | 0 | 0 |
+| rejeu, phase principale (29/09, apres correctifs) | `run-security.sh` (APP_DEBUG=false) | 103 | 95 | 0 | 0 | 8 (joues dans les phases suivantes) |
+| rejeu, phase reinitialisation | `run-security.sh` (APP_DEBUG=false) | 4 | 4 | 0 | 0 | 0 |
+| rejeu, phase base arretee | `run-security.sh` (APP_DEBUG=false) | 4 | 4 | 0 | 0 | 0 |
+| rejeu, PHP | PHPUnit, MariaDB jetable | 5 | 5 | 0 | 0 | 0 |
 
-**A remesurer.** Les quatre lignes ci-dessus datent de 07:30-07:31 le 2026-09-29, AVANT les
-commits `08d7a96`, `ef7fd37` et `fce3085` (voir la mise a jour en tete de fiche). Ces trois
-commits retirent la marque `test.fail()` des 13 tests marques (m1, m2 x2 — un par hote —, m3,
-m4, m5, m6, m7, i1, I1 x2, m8, m9) : ces tests devraient desormais tous passer sans marque
-(« vert inattendu » selon la methode de la section 2), mais la suite n'a pas ete rejouee pour
-le confirmer dans cette session (aucun conteneur execute ici, hors regeneration de diagramme).
-Les comptes de demonstration utilises par la suite ne sont pas modifies ici (a mettre a jour
-apres l'execution finale). Prochaine execution attendue : 100 tests, 0 rouge marque restant
-pour ces 11 ecarts, sous reserve de rejeu — plus un 101e test nouvellement ajoute
-(`MAX_ITEMS_PER_ORDER`/`ORDER_TOO_LARGE`, commit `33538c6`), lui aussi non rejoue.
+**Rejoue le 2026-09-29, sur le commit `2fe8a4a` — confirme.** Les quatre premieres lignes
+datent de 07:30-07:31 le 2026-09-29, AVANT les commits `08d7a96`, `ef7fd37`, `fce3085` et
+`33538c6` (voir la mise a jour en tete de fiche). Les quatre lignes « rejeu » ci-dessus, jouees
+apres ces quatre commits, confirment que les 13 tests marques (m1, m2 x2 — un par hote —, m3,
+m4, m5, m6, m7, i1, I1 x2, m8, m9) passent desormais sans marque : **0 rouge marque restant,
+0 rouge inattendu**, sur les trois phases et sur les tests PHP. Le total de tests a legerement
+augmente depuis l'execution n° 1 (nouveaux tests ajoutes par les commits de correctif cites
+ci-dessus, dont le test dedie a `ORDER_TOO_LARGE`, section 6). Les comptes de demonstration
+utilises par la suite ne sont pas modifies par ce rejeu.
 
 Duree d'une execution complete : environ 1 min 30 s, montage de la pile compris. Les deux
-executions officielles donnent le **meme statut pour chacun des 100 tests** (comparaison des
-deux journaux ligne a ligne, durees exclues) : la suite ne depend ni de l'ordre ni d'un etat
-laisse par une execution precedente. Elle a aussi ete jouee plusieurs fois de suite sur une
-pile d'essai non remise a zero pendant sa mise au point, apres correction de sa seule
-dependance a l'etat (un libelle non unique dans `security-injection.spec.js`).
-`PasswordResetExpiryDbTest.php` passe PHPStan niveau 6 (configuration du projet).
+executions officielles n° 1 et n° 2 donnent le **meme statut pour chacun des 100 tests**
+(comparaison des deux journaux ligne a ligne, durees exclues) : la suite ne depend ni de
+l'ordre ni d'un etat laisse par une execution precedente. Elle a aussi ete jouee plusieurs
+fois de suite sur une pile d'essai non remise a zero pendant sa mise au point, apres
+correction de sa seule dependance a l'etat (un libelle non unique dans
+`security-injection.spec.js`). `PasswordResetExpiryDbTest.php` passe PHPStan niveau 6
+(configuration du projet).
+
+**Pour rejouer :** `bash tests/e2e/run-security.sh`.
 
 ## 5. Tableau des controles
 
@@ -146,14 +159,14 @@ ASVS 4.0 (chapitre ou exigence).
 | # | Controle | Reference OWASP | Test(s) | Resultat |
 |---|---|---|---|---|
 | 1 | En-tetes : `nosniff`, anti-encadrement (`X-Frame-Options` ou `frame-ancestors`), `Referrer-Policy`, CSP `script-src 'self'`, sur 9 types de reponse des deux hotes | A05 ; ASVS V14.4 | `security-headers` | prouve |
-| 1 | Aucune version dans `Server` / `X-Powered-By` | A05 ; ASVS V14.3 | `security-headers` | prouve (en-tetes) — la sonde publique donnait la version de PHP, **ecart m5, corrige le 2026-09-29 (commit `08d7a96`), a remesurer** |
+| 1 | Aucune version dans `Server` / `X-Powered-By` | A05 ; ASVS V14.3 | `security-headers` | prouve (en-tetes) — la sonde publique donnait la version de PHP, **ecart m5, corrige le 2026-09-29 (commit `08d7a96`), rejoue le 29/09, vert** |
 | 1 | CSP de la borne complete (frame-ancestors, object-src, base-uri, form-action, styles) | A05 ; ASVS V14.4 | `security-headers` | prouve |
-| 1 | CSP du back-office : `base-uri`, `form-action` | A05 ; ASVS V14.4 | `security-headers` | **ecart m3, corrige le 2026-09-29 (commit `08d7a96`), a remesurer** |
-| 1 | `Permissions-Policy` | A05 | `security-headers` | **ecart m2 (deux hotes), corrige le 2026-09-29 (commit `08d7a96`), a remesurer** |
+| 1 | CSP du back-office : `base-uri`, `form-action` | A05 ; ASVS V14.4 | `security-headers` | **ecart m3, corrige le 2026-09-29 (commit `08d7a96`), rejoue le 29/09, vert** |
+| 1 | `Permissions-Policy` | A05 | `security-headers` | **ecart m2 (deux hotes), corrige le 2026-09-29 (commit `08d7a96`), rejoue le 29/09, vert** |
 | 2 | Cookie : HttpOnly, SameSite=Strict ; Secure seulement en HTTPS (ADR-0010) | A07 ; ASVS V3.4 | `security-session` | prouve |
 | 2 | Fixation : identifiant impose refuse, nouvel identifiant a la connexion, ancien inutilisable | A07 ; ASVS V3.2.1 | `security-session` | prouve |
 | 2 | Deconnexion (HTML et JSON) : l'ancien cookie ne donne plus acces | A07 ; ASVS V3.3.1 | `security-session` | prouve |
-| 2 | Pas de session sur l'hote borne | A05 | `security-session` | **ecart m1, corrige le 2026-09-29 (commit `ef7fd37`), a remesurer** |
+| 2 | Pas de session sur l'hote borne | A05 | `security-session` | **ecart m1, corrige le 2026-09-29 (commit `ef7fd37`), rejoue le 29/09, vert** |
 | 3 | Injection SQL : 13 charges (guillemet, OR 1=1, UNION, commentaire, point-virgule, SLEEP) dans les chemins, requetes et corps publics et d'administration ; pas de 500, pas de trace SQL, pas de delai, compteurs inchanges, libelles relus a l'identique | A03 ; ASVS V5.3.4 | `security-injection` | prouve |
 | 4 | XSS stockee : categorie, 2 produits, ingredient, chevalet de commande ; borne (grilles, modale, panier, paiement), back-office (17 ecrans dont ecran cuisine et caisse) | A03 ; ASVS V5.3.3 | `security-xss` | prouve |
 | 4 | XSS reflechie : jeton de reinitialisation, surlignage comptoir, page 404, formulaire en erreur | A03 ; ASVS V5.3.3 | `security-xss` | prouve |
@@ -162,41 +175,41 @@ ASVS 4.0 (chapitre ou exigence).
 | 6 | Horizontal : comptoir / drive ne lisent ni ne modifient la commande de l'autre canal (API et HTML, etat relu) | A01 ; ASVS V4.2.1 | `security-access` | prouve |
 | 6 | Vertical : cuisine n'ecrit que « prete » (13 ecritures refusees, API et HTML) ; responsable ne cree ni compte ni role | A01 ; ASVS V4.1 | `security-access` | prouve |
 | 6 | Compte desactive, role desactive : acces coupe sur une session deja ouverte | A01 ; ASVS V4.1 | `security-access` | prouve |
-| 6 | Compte change de role : droits de l'ancien role conserves jusqu'a la reconnexion | A01 | `security-access` | **ecart i1, corrige le 2026-09-29 (commit `ef7fd37`), a remesurer** |
+| 6 | Compte change de role : droits de l'ancien role conserves jusqu'a la reconnexion | A01 | `security-access` | **ecart i1, corrige le 2026-09-29 (commit `ef7fd37`), rejoue le 29/09, vert** |
 | 6 | 44 pages d'administration sans session : redirection `/login`, corps vide | A01 | `security-access` | prouve |
 | 6 | Methodes non prevues : 405, ressource relue inchangee | A05 ; ASVS V14.5.1 | `security-access` | prouve |
-| 6 | Methode `TRACE` | A05 ; ASVS V14.5.1 | `security-access` | **ecart m4, corrige le 2026-09-29 (commit `08d7a96`), a remesurer** |
+| 6 | Methode `TRACE` | A05 ; ASVS V14.5.1 | `security-access` | **ecart m4, corrige le 2026-09-29 (commit `08d7a96`), rejoue le 29/09, vert** |
 | 7 | Message identique compte existant / inconnu (HTML et JSON) | A07 ; ASVS V2.2.1 | `security-bruteforce` | prouve |
 | 7 | Verrou par compte apres 5 echecs, depuis toute IP, indiscernable d'un echec ordinaire | A07 ; ASVS V2.2.1 | `security-bruteforce` | prouve |
 | 7 | Verrou par IP apres 20 echecs (429 + Retry-After), les autres IP non penalisees | A07 ; ASVS V2.2.1 | `security-bruteforce` | prouve |
 | 7 | PIN bloque apres 5 echecs, meme juste ensuite, commande non annulee | A07 | `security-bruteforce` | prouve |
 | 7 | Mot de passe oublie : reponse identique ; lien forge refuse ; lien a usage unique ; expire apres sa duree ; jeton hache au repos | A07 ; ASVS V2.5 | `security-bruteforce`, `security-reset`, `PasswordResetExpiryDbTest` | prouve |
-| 7 | Mot de passe oublie : limitation du nombre de demandes | A07 | `security-bruteforce` | **ecart m6, corrige le 2026-09-29 (commit `ef7fd37`), a remesurer** |
-| 7 | Sessions fermees apres reinitialisation | A07 ; ASVS V3.3 | `security-reset` | **ecart m7, corrige le 2026-09-29 (commit `ef7fd37`), a remesurer** |
+| 7 | Mot de passe oublie : limitation du nombre de demandes | A07 | `security-bruteforce` | **ecart m6, corrige le 2026-09-29 (commit `ef7fd37`), rejoue le 29/09, vert** |
+| 7 | Sessions fermees apres reinitialisation | A07 ; ASVS V3.3 | `security-reset` | **ecart m7, corrige le 2026-09-29 (commit `ef7fd37`), rejoue le 29/09, vert** |
 | 8 | Envoi d'image : PHP renomme en .jpg, signature PNG + PHP, SVG avec script, type mensonger, 6 Mo refuses ; polyglotte accepte comme image mais servi octet pour octet en `image/png` + `nosniff`, non interprete (le code PHP ressort tel quel), et refuse (403) sous une extension executable ; `../` et double extension ignores ; pas de listing | A04 / A05 ; ASVS V12 | `security-upload` | prouve |
 | 9 | Affectation de masse : id, is_active, role_id, prix, stock, password_hash, pin_hash, statut, canal, total ignores (11 routes, relecture) | A01 ; ASVS V5.1.2 | `security-mass-assignment` | prouve |
 | 10 | Pages d'erreur 400 / 403 / 404 / 405 des deux hotes : ni pile, ni chemin, ni SQL | A05 ; ASVS V7.4.1 | `security-info-leak` | prouve |
 | 10 | Vraie 500 avec APP_DEBUG=false : message generique ; base arretee : 500 generique, connexion en echec ferme | A05 ; ASVS V7.4.1 | `security-info-leak`, `security-dbdown` | prouve |
 | 10 | 39 chemins sensibles (.env, .git, composer, sources, captures, sauvegardes, phpinfo, server-status) sur les deux hotes : non servis ; listing desactive (10 dossiers) | A05 ; ASVS V14.3 | `security-info-leak` | prouve |
-| 10 | `/api/health` : aucun secret | A05 | `security-info-leak` | prouve — version de PHP exposee, **ecart m5, corrige le 2026-09-29 (commit `08d7a96`), a remesurer** |
+| 10 | `/api/health` : aucun secret | A05 | `security-info-leak` | prouve — version de PHP exposee, **ecart m5, corrige le 2026-09-29 (commit `08d7a96`), rejoue le 29/09, vert** |
 | 11 | L'hote borne ne sert ni page ni API du back-office (15 chemins + 2 connexions) | A01 | `security-borne` | prouve |
 | 11 | Aucun secret ni donnee personnelle dans les JS et JSON charges par 6 ecrans de la borne | A05 | `security-borne` | prouve |
 | 11 | Stockage du navigateur apres une commande complete : ni e-mail, ni jeton, ni cookie | A05 | `security-borne` | prouve |
 | 11 | CORS : origine etrangere, sosie, `null` sans aucun en-tete ; origine autorisee exacte, pas de `*`, pas d'Allow-Credentials, pas sur `/admin/*` | A05 ; ASVS V14.5.3 | `security-borne` | prouve |
 | 11 | Suivi public : canal kiosk seul, numeros comptoir / drive repondus comme inconnus | A01 | `security-borne` | prouve |
 | 12 | Cle d'idempotence : 36 acceptes, 37 refuses (422) ; prix et total du client ignores ; encaissement rejoue debite le stock une fois | A04 ; ASVS V11.1 | `security-order-integrity` | prouve |
-| 12 | Quantite negative ou nulle refusee | A04 ; ASVS V5.1 | `security-order-integrity` | **ecart m8, corrige le 2026-09-29 (commit `fce3085`, fusionne par `86306ef`), a remesurer** |
-| 12 | Quantite enorme refusee ; stock non vidable par une commande anonyme | A04 ; ASVS V11.1 | `security-order-integrity` | **ecart I1, corrige le 2026-09-29 (commit `fce3085`, fusionne par `86306ef`), a remesurer** |
-| 12 | Corps mal forme (ligne non objet, cle en tableau) refuse en 422 | A04 ; ASVS V5.1 | `security-order-integrity` | **ecart m9, corrige le 2026-09-29 (commit `fce3085`, fusionne par `86306ef`), a remesurer** |
+| 12 | Quantite negative ou nulle refusee | A04 ; ASVS V5.1 | `security-order-integrity` | **ecart m8, corrige le 2026-09-29 (commit `fce3085`, fusionne par `86306ef`), rejoue le 29/09, vert** |
+| 12 | Quantite enorme refusee ; stock non vidable par une commande anonyme | A04 ; ASVS V11.1 | `security-order-integrity` | **ecart I1, corrige le 2026-09-29 (commit `fce3085`, fusionne par `86306ef`), rejoue le 29/09, vert** |
+| 12 | Corps mal forme (ligne non objet, cle en tableau) refuse en 422 | A04 ; ASVS V5.1 | `security-order-integrity` | **ecart m9, corrige le 2026-09-29 (commit `fce3085`, fusionne par `86306ef`), rejoue le 29/09, vert** |
 
 ## 6. Ecarts trouves
 
 Classement : **critique** (compromission sans prerequis) — aucun trouve ; **important** ;
 **mineur** ; **information**. A la date de cette execution (2026-09-29, 07:30-07:31), aucun
-n'avait ete corrige. Huit l'ont ete depuis, par deux commits merges le meme jour (voir la mise
-a jour en tete de fiche) ; chaque entree corrigee garde son constat original (c'est l'interet
-de la fiche) et porte la mention « corrige » avec le commit et le resultat attendu du test
-(non rejoue).
+n'avait ete corrige. Les onze l'ont ete depuis, par trois commits merges le meme jour (voir la
+mise a jour en tete de fiche), plus un quatrieme commit qui ajoute une borne complementaire ;
+chaque entree corrigee garde son constat original (c'est l'interet de la fiche) et porte la
+mention « corrige » avec le commit et le test qui le prouve, rejoue le 2026-09-29 (vert).
 
 ### Importants
 
@@ -216,13 +229,12 @@ test, une seule paire de requetes sur le burger n° 1 a rendu 14 produits indisp
 `86306ef`)** : `OrderRepository::resolveQuantity()` (l.1230) borne desormais la quantite entre
 1 et 20 (`INVALID_QUANTITY`, 422, `MAX_QUANTITY_PER_LINE` l.46) au lieu de `max(1, ...)`, et
 `resolveAndTotal()` refuse au-dela de 50 lignes distinctes (`TOO_MANY_ITEMS`, 422,
-`MAX_LINES_PER_ORDER` l.56, l.497) avant toute resolution catalogue. Test attendu vert, les
-deux marques retirees (non rejoue). **Complement du meme jour (commit `33538c6`)** : une
+`MAX_LINES_PER_ORDER` l.56, l.497) avant toute resolution catalogue. Test rejoue le 2026-09-29, vert ; les deux marques retirees. **Complement du meme jour (commit `33538c6`)** : une
 borne sur le TOTAL d'articles de la commande (somme des quantites, `OrderRepository::
 MAX_ITEMS_PER_ORDER` = 50, l.69, code `ORDER_TOO_LARGE`), distincte de la borne par ligne et
 de la borne par nombre de lignes ci-dessus — sans elle, 50 lignes a 20 articles chacune (les
 deux bornes ci-dessus respectees individuellement) restaient possibles dans UNE commande
-anonyme (jusqu'a 1000 articles). Nouveau test e2e dedie, pas encore rejoue.
+anonyme (jusqu'a 1000 articles). Nouveau test e2e dedie, rejoue le 2026-09-29, vert.
 
 **i1 — Changement de role d'un compte connecte non applique a sa session.**
 `SessionGuard::check()` relit `is_active` en base a chaque requete
@@ -235,8 +247,7 @@ du role, elle, coupe l'acces aussitot (prouve). Test : `security-access.spec.js`
 **Corrige le 2026-09-29 (commit `ef7fd37`).** `SessionGuard::check()` relit desormais
 `is_active`, `role_id` ET `session_epoch` en base, dans la MEME requete SQL, a chaque
 requete authentifiee (`src/app/Auth/SessionGuard.php`, RG-T02) : un role retrograde
-s'applique donc des la requete suivante, sans attendre la deconnexion. Test attendu vert
-(non rejoue dans cette session, voir la mise a jour en tete de fiche).
+s'applique donc des la requete suivante, sans attendre la deconnexion. Test rejoue le 2026-09-29, vert.
 
 ### Mineurs
 
@@ -246,48 +257,42 @@ s'applique donc des la requete suivante, sans attendre la deconnexion. Test atte
   fichier de session. Pas de droit gagne ; stockage serveur qui grossit avec le trafic anonyme.
   **Corrige le 2026-09-29 (commit `ef7fd37`)** : une session n'est desormais ouverte que pour
   les routes qui en ont besoin (`App\Auth\SessionRoutePolicy::needsSession()`, cablee dans
-  `src/public/admin/index.php` avant le dispatch) ; `/api/*` n'ouvre plus de session. Test
-  attendu vert (non rejoue).
+  `src/public/admin/index.php` avant le dispatch) ; `/api/*` n'ouvre plus de session. Test rejoue le 2026-09-29, vert.
 - **m2 — `Permissions-Policy` absente** sur les deux hotes (`docker/apache/httpd.conf`,
   `docker/apache/vhost.conf`). **Corrige le 2026-09-29 (commit `08d7a96`)** : en-tete pose une
   fois dans `httpd.conf` (herite par les deux vhosts), toutes les fonctionnalites
-  capteur/media/paiement coupees. Test attendu vert pour les deux hotes (non rejoue).
+  capteur/media/paiement coupees. Test rejoue le 2026-09-29, vert pour les deux hotes.
 - **m3 — CSP du back-office sans `base-uri` ni `form-action`** (`docker/apache/vhost.conf:247`) ;
   ces deux directives ne retombent pas sur `default-src`. La borne les pose
   (`docker/apache/vhost.conf:145`). **Corrige le 2026-09-29 (commit `08d7a96`)** : les deux
-  directives ajoutees au vhost admin (`base-uri 'self'`, `form-action 'self'`). Test attendu
-  vert (non rejoue).
+  directives ajoutees au vhost admin (`base-uri 'self'`, `form-action 'self'`). Test rejoue le 2026-09-29, vert.
 - **m4 — `TRACE` accepte par Apache** (200, la requete est renvoyee en echo), faute de
   `TraceEnable Off` dans `docker/apache/httpd.conf`. Les navigateurs actuels interdisent
   `TRACE` depuis une page ; non verifie derriere Traefik. **Corrige le 2026-09-29 (commit
-  `08d7a96`)** : `TraceEnable Off` ajoute, les deux hotes repondent desormais 405. Test attendu
-  vert (non rejoue).
+  `08d7a96`)** : `TraceEnable Off` ajoute, les deux hotes repondent desormais 405. Test rejoue le 2026-09-29, vert.
 - **m5 — Version de PHP publiee par la sonde publique** :
   `src/app/Controllers/HealthController.php:48` (`"php_version": "8.3.22"`), lisible
   anonymement, aussi par l'hote borne. Observe en production le 2026-09-29. **Corrige le
   2026-09-29 (commit `08d7a96`)** : le champ `php_version` est retire de la reponse (6 cles
   desormais : `status`, `app_env`, `db`, `categories`, `version`, `deployed_at`) ; la page
-  authentifiee `/admin/health` garde ce champ pour l'exploitant. Test attendu vert (non
-  rejoue) ; la lecture de production citee ci-dessus reste anterieure au correctif.
+  authentifiee `/admin/health` garde ce champ pour l'exploitant. Test rejoue le 2026-09-29, vert ; la lecture de production citee ci-dessus reste anterieure au correctif.
 - **m6 — `/forgot_password` sans limitation** : 30 demandes de suite pour la meme adresse
   passent (`src/app/Controllers/PasswordResetController.php:48`). Avec un SMTP configure :
   inondation de la boite visee. **Corrige le 2026-09-29 (commit `ef7fd37`)** : throttle par
   adresse ET par IP (`App\Auth\PasswordResetThrottle`, table `password_reset_throttle`,
   migration `0020_session_invalidation.sql`), seuils par defaut 5 (adresse) / 15 (IP), reponse
-  429 neutre au-dela. Test attendu vert (non rejoue).
+  429 neutre au-dela. Test rejoue le 2026-09-29, vert.
 - **m7 — Sessions conservees apres une reinitialisation du mot de passe** :
   `PasswordResetService::confirmReset()` (`src/app/Auth/PasswordResetService.php:98`) change le
   hash sans fermer les sessions ouvertes du compte. **Corrige le 2026-09-29 (commit
   `ef7fd37`)** : la meme instruction `UPDATE` incremente desormais `user.session_epoch` ; toute
   session ouverte avant la reinitialisation est rejetee par `SessionGuard::check()` des la
-  requete suivante (migration `0020_session_invalidation.sql`). Test attendu vert (non
-  rejoue).
+  requete suivante (migration `0020_session_invalidation.sql`). Test rejoue le 2026-09-29, vert.
 - **m8 — Quantite negative ou nulle acceptee et ramenee a 1**
   (`src/app/Order/OrderRepository.php:1095`, `max(1, ...)`) : une saisie invalide passe en
   silence (le total reste calcule par le serveur). **Corrige le 2026-09-29 (commit `fce3085`,
   fusionne par `86306ef`)** : `resolveQuantity()` (l.1230) refuse toute valeur hors 1-20
-  ou non entiere (`INVALID_QUANTITY`, 422) au lieu de la ramener a 1 en silence. Test attendu
-  vert (non rejoue).
+  ou non entiere (`INVALID_QUANTITY`, 422) au lieu de la ramener a 1 en silence. Test rejoue le 2026-09-29, vert.
 - **m9 — Corps de commande mal forme mal traite** : une ligne qui n'est pas un objet provoque
   un `TypeError` (500) (`src/app/Order/OrderRepository.php:457`) ; une cle d'idempotence
   envoyee en tableau devient la chaine `"Array"` (`src/app/Order/OrderRepository.php:397`) :
@@ -296,7 +301,7 @@ s'applique donc des la requete suivante, sans attendre la deconnexion. Test atte
   **Corrige le 2026-09-29 (commit `fce3085`, fusionne par `86306ef`)** : une ligne
   qui n'est pas un objet est refusee (`INVALID_ITEM_TYPE`, 422, l.515) et une `idempotency_key`
   qui n'est pas une chaine est refusee (`INVALID_IDEMPOTENCY_KEY`, 422, l.439), au lieu d'un
-  `TypeError` ou d'un cast silencieux. Test attendu vert (non rejoue).
+  `TypeError` ou d'un cast silencieux. Test rejoue le 2026-09-29, vert.
 
 ### Information (hors defaut, ou dependant du deploiement)
 

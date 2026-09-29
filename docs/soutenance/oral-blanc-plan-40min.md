@@ -28,6 +28,23 @@
 > trois commits (`08d7a96`, `ef7fd37`, `fce3085`) : 19 migrations, 24 entites (nouvelle
 > entite `password_reset_throttle`, migration 0020) ; la suite n'a pas ete rejouee apres
 > ces trois commits (section G.5, Q2.11).
+> **Recomptage final du 2026-09-29, sur le commit `2fe8a4a`** (branche `docs/contre-audit`,
+> pas encore fusionnee - apres un contre-audit independant a 5 relecteurs qui a trouve une
+> nouvelle regression, corrigee en TDD) : PHPUnit **2 508 tests, 8 626 assertions, 0 echec,
+> 0 depreciation** ; PHPStan niveau 6, **0 erreur**. Tests JavaScript : **461, 0 echec**.
+> Suite navigateur complete (36 fichiers de specs, pile jetable) : **197 reussis, 12 sautes**
+> (tests qui exigent une phase ou un reglage particulier), **0 echec** ; balayage du
+> back-office : **4 812 verifications, 0 echec**. Suite de securite
+> `tests/e2e/run-security.sh` (3 phases, `APP_DEBUG=false`) : phase principale 95 reussis
+> (8 sautes, joues dans les phases suivantes), phase reinitialisation 4 reussis, phase base
+> arretee 4 reussis ; **0 echec, 0 test marque en echec restant** (plus 5 tests PHP de
+> securite, compris dans les 2 508 ci-dessus). Reponses capturees de la page Sante :
+> **158 succes sur 158, 670 refus obtenus sur 689 tentes** (capture du 2026-09-29 sur le
+> commit `33538c6`, `src/app/Health/captured-responses.json`). Routes : 158. Tables : 24.
+> Migrations : 19 fichiers (0001 a 0020, sans 0004). Decisions d'architecture : 20.
+> **L'audit d'accessibilite a ete rejoue le 2026-09-29 (09:49 UTC) apres les correctifs**,
+> sur le commit `3fd08c4` : **19 ecrans, 935 mesures, 0 violation**, chiffres inchanges par
+> rapport au 28/09 (seule la date change dans `docs/soutenance/preuves/rapports/resume.json`).
 
 ---
 
@@ -85,28 +102,31 @@ depot coute plus cher que le chiffre lui-meme.
 | Appels de test JavaScript | 450 sur 29 fichiers | `grep -rhoE "\b(it\|test)\(" tests/js --include='*.test.js' \| wc -l` |
 | Scenarios de bout en bout | 92 sur 22 specs | `grep -rhoE '^\s*test\(' tests/e2e --include='*.spec.js' \| wc -l` |
 | Analyse statique | PHPStan niveau 6, sans erreur | `phpstan.neon` (`level: 6`) |
-| Entites du modele | 23 | `docs/merise/dictionary.md` (3.1 a 3.23) |
-| Migrations / jeux de donnees | 17 / 10, idempotents | `ls db/migrations/*.sql \| wc -l` ; `ls db/seeds/*.sql \| wc -l` |
+| Entites du modele | 24 | `docs/merise/dictionary.md` (3.1 a 3.24) |
+| Migrations / jeux de donnees | 19 / 10, idempotents | `ls db/migrations/*.sql \| wc -l` ; `ls db/seeds/*.sql \| wc -l` |
 | Roles / permissions | 5 / 23 | `db/seeds/0001_rbac_and_reference.sql` |
 | Routes declarees | 158 (77 GET, 67 POST, 9 PUT, 5 DELETE) dans `src/app/Core/routes.php` | `grep -c "router->add(" src/app/Core/routes.php` |
 | Controleurs | 23 au premier niveau (2 abstraits, 14 `AdminController`, 6 `Controller`, 1 `AuthenticatedController`) + 11 sous `Admin/Api` (10 concrets + 1 trait `JsonApiTrait`) | `ls src/app/Controllers/*.php src/app/Controllers/Admin/Api/*.php \| wc -l` |
 | Depots / vues | 11 / 41 | `find src/app -name '*Repository.php' \| wc -l` ; `find src/app/Views -name '*.php' \| wc -l` |
 | Regles transverses de securite | 22 (RG-T01 a RG-T22) | `docs/merise/mlt.md`, lignes 41-62 |
 | Decisions d'architecture | 20 | `ls docs/adr/0*.md \| wc -l` |
-| Entrees de journal de bord | 16 | `ls docs/journal/2026-*.md \| wc -l` |
+| Entrees de journal de bord | 17 | `ls docs/journal/2026-*.md \| wc -l` |
 | Services conteneurises | 5 | `docker-compose.yml` |
 | Travaux d'integration continue | 5 (`secret-scan`, `php-lint`, `static-tests`, `js-tests`, `shell-tests`) + deploiement continu separe | `.forgejo/workflows/ci.yml` (+ `deploy.yml` pour le CD) |
 | Taches planifiees actives | 4 (+ 3 modeles commentes) | `docker/cron/crontab` |
 
 **Sur les suites de tests - une precaution de formulation.** La derniere execution
-complete mesuree donne **2 386 tests PHP pour 7 886 assertions** (avec la base de test)
-et **446 tests JavaScript** (mesure du 2026-09-28, sur le commit deploye `04bece0`).
+complete mesuree donne **2 508 tests PHP pour 8 626 assertions, 0 echec, 0 depreciation**
+et **461 tests JavaScript, 0 echec** (mesure du 2026-09-29, sur le commit `2fe8a4a`,
+branche `docs/contre-audit`, pas encore fusionnee). La suite navigateur complete
+(36 fichiers de specs) donne **197 scenarios reussis, 12 sautes, 0 echec** ; le balayage
+du back-office donne **4 812 verifications, 0 echec**.
 Ces chiffres continuent de croitre a chaque demande de fusion : ce sont donc un
 **plancher**, pas un plafond. Deux options a l'oral, au choix :
 
 - relancer les suites la veille et annoncer le resultat exact ;
-- dire *"plus de 2 380 tests PHP et plus de 440 tests JavaScript, derniere execution
-  complete le 28 septembre"*.
+- dire *"plus de 2 500 tests PHP et plus de 460 tests JavaScript, derniere execution
+  complete le 29 septembre"*.
 
 L'ecart entre le comptage statique de methodes et le nombre de tests executes s'explique
 et doit etre su : une methode associee a un fournisseur de donnees s'execute une fois par
@@ -119,8 +139,8 @@ distincts**, et les confondre serait une erreur qu'un jury technique reperera.
 
 | Mesure | Outil | Resultat | Source |
 |---|---|---|---|
-| Audit d'accessibilite | axe-core 4.13.0 via Playwright, regles WCAG 2.0 A/AA et WCAG 2.1 A/AA | **19 ecrans** (6 borne, 13 back-office), **0 violation** toutes gravites, **935 rapports de contraste**, **0 sous le seuil**, minimum releve **3,59**. Resolutions : 1080x1920 pour la borne, 1440x900 pour le back-office. **Un seul role : administrateur** | `docs/soutenance/preuves/rapports/resume.json`, campagne du 2026-09-28 |
-| Balayage de mise en page et d'ergonomie | outil ecrit pour le projet (`tests/e2e/backoffice-sweep/`), 12 familles de verifications | **4 807 verifications, 0 echec** - 5 roles connectes plus l'etat non connecte, toutes les pages atteignables (111 pages-roles), **4 largeurs** (1366, 1024, 768, 390 px). Trajectoire : **104 echecs avant la refonte, 11 apres le premier lot, 0 le 26/09 ; le 28/09, 3 echecs sur la page Sante, qui n'avait pas encore ete balayee, corriges (#183), 0 a nouveau** | mesure du 2026-09-28 sur `1ccc9db` plus la correction #183. Les sorties de cet outil ne sont pas versionnees : le relancer pour produire le rapport |
+| Audit d'accessibilite | axe-core 4.13.0 via Playwright, regles WCAG 2.0 A/AA et WCAG 2.1 A/AA | **19 ecrans** (6 borne, 13 back-office), **0 violation** toutes gravites, **935 rapports de contraste**, **0 sous le seuil**, minimum releve **3,59**. Resolutions : 1080x1920 pour la borne, 1440x900 pour le back-office. **Un seul role : administrateur** | `docs/soutenance/preuves/rapports/resume.json`, campagne du 2026-09-28, rejouee a l'identique le 2026-09-29 (commit `3fd08c4`) |
+| Balayage de mise en page et d'ergonomie | outil ecrit pour le projet (`tests/e2e/backoffice-sweep/`), 12 familles de verifications | **4 812 verifications, 0 echec** - 5 roles connectes plus l'etat non connecte, toutes les pages atteignables (111 pages-roles), **4 largeurs** (1366, 1024, 768, 390 px). Trajectoire : **104 echecs avant la refonte, 11 apres le premier lot, 0 le 26/09 ; le 28/09, 3 echecs sur la page Sante, qui n'avait pas encore ete balayee, corriges (#183), 0 a nouveau ; le 29/09, mesure a 4 812** | mesure du 2026-09-29 sur `2fe8a4a`. Les sorties de cet outil ne sont pas versionnees : le relancer pour produire le rapport |
 | Canal auxiliaire par le temps sur la connexion | mesure directe des 4 chemins | compte inexistant 257,4 ms / mot de passe faux 251,4 ms / compte verrouille 253,3 ms / connexion reussie 252,6 ms. **Ecart maximal 6,0 ms pour un bruit de mesure de 13,8 ms** | mesure du 2026-09-26 |
 
 La lecture a donner au jury pour la troisieme : *"l'ecart entre les chemins est plus
@@ -242,8 +262,8 @@ paiement simule. Ils sont documentes dans le dossier.
   qu'un menu deja commande etait modifie (delete-and-reinsert contre une FK `RESTRICT`) ;
   le correctif reconcilie les emplacements en place et refuse en 409 le retrait d'un
   emplacement deja commande, verifie par un test qui echouait avant le correctif.
-- **Tracabilite** : 20 decisions d'architecture datees et motivees, 16 entrees de
-  journal de bord, 242 commits en convention de nommage au 28/09/2026 (244 au 29/09),
+- **Tracabilite** : 20 decisions d'architecture datees et motivees, 17 entrees de
+  journal de bord (au 29/09), 242 commits en convention de nommage au 28/09/2026 (244 au 29/09),
   chaque changement passe par une demande de fusion (192 fusionnees au 28/09/2026,
   194 au 29/09, derniere #196).
 
@@ -340,7 +360,7 @@ Distinguer clairement les deux outils - c'est ce qui montre qu'on sait ce qu'on 
 - **Le balayage de mise en page**, ecrit pour le projet, qui mesure ce qu'axe ne regarde
   pas : chevauchement d'elements, texte coupe, defilement horizontal, taille de cible,
   alignement, ordre de tabulation et visibilite du focus, contraste des messages
-  d'erreur reellement declenches. **4 807 verifications, 0 echec**, sur 5 roles connectes
+  d'erreur reellement declenches. **4 812 verifications, 0 echec**, sur 5 roles connectes
   plus l'etat non connecte, et **4 largeurs** : 1366, 1024, 768 et 390 px.
 
 **La trajectoire est le vrai argument.** Dire cette suite de trois nombres :
@@ -480,7 +500,12 @@ et supprimer le reste.
   d'architecture 0017.
 - Enveloppe de reponse uniforme : `{ "data": ... }` en succes,
   `{ "data": null, "error": { "code", "message" } }` en echec. Codes HTTP coherents :
-  201 a la creation, 409 sur conflit, 422 sur validation, 403 sur droit refuse.
+  201 a la creation, 409 sur conflit, 422 sur validation, 403 sur droit refuse. Sur la
+  commande, le 422 de validation porte un code precis (`OrderRepository`) : `EMPTY_ORDER`
+  (panier vide), `INVALID_QUANTITY` (quantite hors 1-20 ou non entiere), `TOO_MANY_ITEMS`
+  (plus de 50 lignes), `ORDER_TOO_LARGE` (plus de 50 articles au total, corrige le
+  2026-09-29, commit `33538c6`), `INVALID_ITEM_TYPE` et `INVALID_IDEMPOTENCY_KEY` (corps
+  mal forme, corrige le 2026-09-29, commit `fce3085`).
 - Le trajet complet d'une requete, a savoir dire d'une traite :
   *"point d'entree, routeur, controleur, depot, base - puis retour en HTML ou en JSON."*
 
@@ -613,8 +638,11 @@ deux requetes, et un changement de role n'etait applique qu'a la prochaine conne
 a une session deja ouverte - et neuf mineurs (en-tetes manquants, sessions ouvertes sans
 necessite, mot de passe oublie sans limite). Les onze ont ete corriges le jour meme,
 test d'abord : chaque test restait rouge, marque, jusqu'a ce que le correctif le fasse
-passer. Honnetement : la suite n'a pas encore ete rejouee apres ces correctifs pour le
-confirmer formellement (voir la fiche pour le detail date).
+passer. La suite a ete rejouee le 2026-09-29 apres ces correctifs (sur le commit `2fe8a4a`) :
+phase principale 95 reussis (8 sautes, joues dans les phases suivantes), phase
+reinitialisation 4 reussis, phase base arretee 4 reussis, 0 echec, **0 test marque en echec
+restant** - plus les 5 tests PHP de securite, egalement verts. Confirmation par la commande
+`bash tests/e2e/run-security.sh` (detail dans la fiche).
 
 **Criteres servis :** Cr 3.d (donnees personnelles), Cr 4.e (securite),
 Cr 4.f (discipline de versionnement), Cr 4.g (livraison testee).
@@ -778,7 +806,7 @@ gestes enchainent chacun une reconnexion puis une action) :**
 | 28:00 | Connexion administrateur | 1. `POST {{ _.baseUrl }}/admin/api/auth/login` (compte admin) | La connexion JSON, le cookie de session, le jeton anti-falsification renvoye |
 | 28:30 | Lecture des statistiques | 2. `GET {{ _.baseUrl }}/admin/api/stats` | Une lecture autorisee, enveloppe `{ "data": ... }` |
 | 29:00 | Cuisine tente d'annuler | 3. `POST {{ _.baseUrl }}/admin/api/auth/login` (compte cuisine) puis 4. `POST {{ _.baseUrl }}/admin/api/orders/K1/cancel` | **403** : la cuisine *voit* les commandes (`order.read`) mais ne peut pas les annuler — la permission est decoupee au geste pres, et c'est le code qui la verifie, pas le nom du role |
-| 29:30 | Comptoir cree une commande vide | 5. `POST {{ _.baseUrl }}/admin/api/auth/login` (compte comptoir) puis 6. `POST {{ _.baseUrl }}/admin/api/orders` avec `{"items": []}` | **422** et non 403 : la permission passe, c'est la validation qui refuse |
+| 29:30 | Comptoir cree une commande vide | 5. `POST {{ _.baseUrl }}/admin/api/auth/login` (compte comptoir) puis 6. `POST {{ _.baseUrl }}/admin/api/orders` avec `{"items": []}` | **422** (`EMPTY_ORDER`) et non 403 : la permission passe, c'est la validation qui refuse |
 
 **La requete du geste 29:00, telle qu'a preparer dans Insomnia :**
 
@@ -1081,7 +1109,8 @@ seulement des tests unitaires (`docs/soutenance/preuves/10-tests-securite.md`). 
 trouve 11 ecarts le 29 septembre - deux importants (deni de service par quantite de
 commande, changement de role non applique a une session ouverte) et neuf mineurs
 (en-tetes manquants, sessions ouvertes sans necessite, mot de passe oublie sans limite) -
-tous corriges le jour meme, test d'abord. Ce que je NE fais PAS, et que je dis avant qu'on
+tous corriges le jour meme, test d'abord, et la suite rejouee le meme jour confirme 0 test
+marque en echec restant. Ce que je NE fais PAS, et que je dis avant qu'on
 me le demande : pas de scanner automatique (ZAP, sqlmap, Burp), les charges sont ecrites a
 la main et la liste est bornee ; HTTPS et TLS relevent de Traefik, hors de mon code, et ne
 sont pas testes sur la pile locale.
@@ -1091,7 +1120,7 @@ sont pas testes sur la pile locale.
 **Q3.1 - Qu'est-ce qui vous permet de dire que votre site est accessible ?**
 Je ne dis pas qu'il est accessible : je dis qu'il ne porte aucune violation detectable
 automatiquement. axe-core 4.13.0 sur les regles WCAG 2.0 A/AA et 2.1 A/AA, 19 ecrans,
-0 violation toutes gravites, 935 rapports de contraste, 0 sous le seuil. Et 4 807
+0 violation toutes gravites, 935 rapports de contraste, 0 sous le seuil. Et 4 812
 verifications sans echec au balayage de mise en page, sur 5 roles et 4 largeurs.
 
 **Q3.2 - Quelle est la limite de votre audit ?** **(rude)**
@@ -1257,9 +1286,9 @@ code de production.
 
 **Q7.1 - Votre couverture de tests mesure quoi exactement ?** **(rude)**
 Je n'ai pas de taux de couverture : je n'ai pas active l'instrumentation qui le calcule,
-et c'est un manque. Ce que j'ai, ce sont des nombres de tests - plus de 2 380 tests PHP
-pour plus de 7 800 assertions, plus de 440 tests JavaScript, 92 scenarios de bout en
-bout - et surtout le **choix de ce qui est teste** : les chemins de commande, de stock,
+et c'est un manque. Ce que j'ai, ce sont des nombres de tests - plus de 2 500 tests PHP
+pour plus de 8 600 assertions, plus de 460 tests JavaScript, 197 scenarios de bout en
+bout sur 36 fichiers de specs - et surtout le **choix de ce qui est teste** : les chemins de commande, de stock,
 d'authentification et de droits. Un taux eleve sur du code sans risque ne m'aurait rien
 appris ; un test d'integration qui verifie qu'un role sans permission recoit 403, si.
 
@@ -1276,7 +1305,7 @@ compteurs de tentatives et les droits. Honnetement, pas partout : sur des ecrans
 back-office, le test est venu apres. Je prefere le dire que pretendre une discipline
 uniforme.
 
-**Q7.4 - Vous annoncez 1 295 methodes mais plus de 2 300 tests. D'ou vient l'ecart ?**
+**Q7.4 - Vous annoncez 1 295 methodes mais plus de 2 500 tests. D'ou vient l'ecart ?**
 Des jeux de donnees de test. Une methode associee a un fournisseur de donnees s'execute
 une fois par jeu, et compte pour autant de tests. C'est ce qui permet de couvrir de
 nombreux cas de validation sans dupliquer le code du test.
@@ -1501,7 +1530,7 @@ evalue la demarche de navigation autant que la vitesse.
 | Comptes de demonstration | `docs/demo/comptes-demo.md` |
 | Matrice des droits | `docs/demo/matrice-rbac.md` |
 | Decisions d'architecture | `docs/adr/` (20 decisions) |
-| Journal de bord | `docs/journal/` (16 entrees) |
+| Journal de bord | `docs/journal/` (17 entrees) |
 | Integration continue | `.forgejo/workflows/ci.yml` |
 | Deploiement | `.forgejo/workflows/deploy.yml` |
 | Conteneurs | `docker-compose.yml`, `docker/` |
