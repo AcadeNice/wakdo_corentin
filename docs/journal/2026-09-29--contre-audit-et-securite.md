@@ -199,8 +199,9 @@ d'accessibilite sont deposes par le commit suivant, `3212b6c`, qui ne touche pas
   phase principale 99 reussis + 8 sautes (107 tests, les sautes se jouent dans les phases
   suivantes), phase reinitialisation 4 sur 4, phase base arretee 4 sur 4 ; 0 echec.
 - Reponses capturees de la page Sante (sur `c2b8c1c`, deposees par `fe8b738`) : 158 routes sur
-  158 avec leur succes capture, 689 refus captures, 0 succes manquant (la capture du matin, sur
-  `33538c6`, en obtenait 670).
+  158 avec leur succes capture ; 670 refus obtenus sur 689 tentes, les 19 autres enregistres
+  comme « non reproduit » avec le code reellement observe (meme resultat que la capture du matin
+  sur `33538c6`).
 - Audit d'accessibilite `tests/e2e/run-a11y.sh` (sur `fe8b738`, 2026-09-29 12:44 UTC, depose
   par `3212b6c`) : 19 ecrans, 934 mesures de contraste, 0 violation, 0 contraste sous le seuil.
 - Collections Postman/Bruno : 91 requetes, 91 avec une assertion ; dossiers renommes
