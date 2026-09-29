@@ -154,4 +154,34 @@ final class ThrottlePolicyTest extends TestCase
         self::assertSame(300, $policy->lockoutSeconds(9));   // plafond PIN (300), pas 480
         self::assertSame(300, $policy->lockoutSeconds(40));  // plafond + garde anti-debordement
     }
+
+    public function testFromConfigPasswordResetEmailReadsItsOwnThresholdWithSharedCurve(): void
+    {
+        $this->setEnv('PASSWORD_RESET_EMAIL_THROTTLE_THRESHOLD', '5');
+        $this->setEnv('PASSWORD_RESET_THROTTLE_BASE_SECONDS', '60');
+        $this->setEnv('PASSWORD_RESET_THROTTLE_MAX_SECONDS', '3600');
+        // Cle IP mise a une valeur differente : si 'password_reset_email' la
+        // lisait par erreur, le seuil ci-dessous changerait.
+        $this->setEnv('PASSWORD_RESET_IP_THROTTLE_THRESHOLD', '15');
+
+        $policy = ThrottlePolicy::fromConfig(new Config(), 'password_reset_email');
+
+        self::assertSame(0, $policy->lockoutSeconds(4));
+        self::assertSame(60, $policy->lockoutSeconds(5));
+        self::assertSame(120, $policy->lockoutSeconds(6));
+    }
+
+    public function testFromConfigPasswordResetIpReadsItsOwnThresholdSharingCurveWithEmail(): void
+    {
+        $this->setEnv('PASSWORD_RESET_IP_THROTTLE_THRESHOLD', '15');
+        $this->setEnv('PASSWORD_RESET_THROTTLE_BASE_SECONDS', '60');
+        $this->setEnv('PASSWORD_RESET_THROTTLE_MAX_SECONDS', '3600');
+        $this->setEnv('PASSWORD_RESET_EMAIL_THROTTLE_THRESHOLD', '5');
+
+        $policy = ThrottlePolicy::fromConfig(new Config(), 'password_reset_ip');
+
+        self::assertSame(0, $policy->lockoutSeconds(14));
+        self::assertSame(60, $policy->lockoutSeconds(15));
+        self::assertSame(120, $policy->lockoutSeconds(16));
+    }
 }

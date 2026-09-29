@@ -285,12 +285,6 @@ test.describe('Controle d acces horizontal et vertical', () => {
   });
 
   test('changement de role d un compte connecte : les droits de l ancien role cessent sans reconnexion', async () => {
-    // CONSTAT (important) : App\Auth\SessionGuard::check() relit is_active en base a chaque
-    // requete (RG-T02) mais reprend role_id DEPUIS LA SESSION, pose une fois a la connexion
-    // (AuthService::authenticate, $this->session->set('role_id', ...)). Un compte retrograde
-    // (ex. responsable -> cuisine) garde donc les permissions de son ancien role tant que sa
-    // session vit (jusqu'a 10 h, SESSION_LIFETIME_ABSOLUTE). La desactivation du compte, elle,
-    // coupe bien l'acces (test precedent).
     const u = await createUser(admin, roles.manager, 'demote');
     const s = await apiSession(u.email, TEMP_PASSWORD);
     expect((await s.ctx.get(`${ADMIN}/admin/stats`, { maxRedirects: 0 })).status()).toBe(200);
@@ -300,8 +294,6 @@ test.describe('Controle d acces horizontal et vertical', () => {
       data: { email: u.email, first_name: 'Sec', last_name: 'demote', role_id: roles.kitchen, pin_email: ADMIN_EMAIL, pin: ADMIN_PIN },
     });
     expect(demote.status(), await demote.text()).toBe(200);
-    // Le constat est porte par la seule assertion ci-dessous : la preparation doit, elle, passer.
-    test.fail(true, 'role_id lu dans la session et non en base (src/app/Auth/SessionGuard.php, check())');
     try {
       // Le role cuisine n'a pas stats.read : la page doit etre refusee.
       expect((await s.ctx.get(`${ADMIN}/admin/stats`, { maxRedirects: 0 })).status()).toBe(403);

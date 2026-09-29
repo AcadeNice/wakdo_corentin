@@ -70,12 +70,19 @@ final class ThrottlePolicy
 
     /**
      * Construit la politique pour la dimension 'account' (par compte), 'ip' (par IP
-     * source) ou 'pin' (par utilisateur agissant, RG-T22). RG-8 precise "le meme
-     * backoff degressif" pour l'IP, donc la dimension IP reutilise base/max et prend
-     * IP_THROTTLE_MAX_ATTEMPTS comme seuil. La dimension 'pin' a ses PROPRES bornes
-     * (PIN_THROTTLE_*) : volontairement plus permissives que le login (base 30s,
-     * plafond 300s) car un faux positif bloque un manager en plein rush et le PIN
-     * est un controle de dissuasion (residuel Faible).
+     * source), 'pin' (par utilisateur agissant, RG-T22), ou 'password_reset_email' /
+     * 'password_reset_ip' (par adresse demandee / par IP source, POST
+     * /forgot_password, App\Auth\PasswordResetThrottle). RG-8 precise "le meme
+     * backoff degressif" pour l'IP, donc la dimension IP de connexion reutilise
+     * base/max et prend IP_THROTTLE_MAX_ATTEMPTS comme seuil ; meme principe pour
+     * les deux dimensions de reinitialisation, qui partagent PASSWORD_RESET_
+     * THROTTLE_BASE_SECONDS/MAX_SECONDS mais ont chacune leur propre seuil (l'IP
+     * tolere plus de tentatives que l'adresse : plusieurs equipiers d'un meme
+     * poste peuvent demander une reinitialisation depuis la meme IP). La dimension
+     * 'pin' a ses PROPRES bornes (PIN_THROTTLE_*) : volontairement plus
+     * permissives que le login (base 30s, plafond 300s) car un faux positif
+     * bloque un manager en plein rush et le PIN est un controle de dissuasion
+     * (residuel Faible).
      */
     public static function fromConfig(Config $config, string $dimension): self
     {
@@ -85,6 +92,16 @@ final class ThrottlePolicy
                 $config->int('PIN_THROTTLE_BASE_SECONDS', 30),
                 $config->int('PIN_THROTTLE_MAX_SECONDS', 300),
             );
+        }
+
+        if ($dimension === 'password_reset_email' || $dimension === 'password_reset_ip') {
+            $resetBase = $config->int('PASSWORD_RESET_THROTTLE_BASE_SECONDS', 60);
+            $resetMax  = $config->int('PASSWORD_RESET_THROTTLE_MAX_SECONDS', 3600);
+            $threshold = $dimension === 'password_reset_email'
+                ? $config->int('PASSWORD_RESET_EMAIL_THROTTLE_THRESHOLD', 5)
+                : $config->int('PASSWORD_RESET_IP_THROTTLE_THRESHOLD', 15);
+
+            return new self($threshold, $resetBase, $resetMax);
         }
 
         $base = $config->int('ACCOUNT_LOCKOUT_BASE_SECONDS', 60);

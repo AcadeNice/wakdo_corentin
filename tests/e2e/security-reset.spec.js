@@ -70,14 +70,8 @@ test.describe('Lien de reinitialisation du mot de passe', () => {
   });
 
   test('une session ouverte AVANT la reinitialisation est fermee apres', async () => {
-    // CONSTAT (mineur) : App\Auth\PasswordResetService::confirmReset change le hash et
-    // efface le jeton, mais ne ferme pas les sessions deja ouvertes du compte ; et
-    // App\Auth\SessionGuard::check() ne verifie que is_active. Si la reinitialisation suit
-    // un vol de session, la session volee reste valide jusqu'a son expiration (4 h
-    // d'inactivite, 10 h au plus).
     const res = await before.get(`${ADMIN}/admin/api/auth/me`);
     expect(res.status()).toBeLessThan(500);
-    test.fail(true, 'sessions existantes conservees apres reinitialisation (src/app/Auth/PasswordResetService.php, confirmReset)');
     expect(res.status()).toBe(401);
   });
 

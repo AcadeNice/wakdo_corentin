@@ -9,7 +9,7 @@
 //  - anti-fixation : identifiant renouvele a la connexion, identifiant impose par le client
 //    refuse (session.use_strict_mode = 1, docker/php-fpm/php.ini) ;
 //  - deconnexion : l'ancien cookie ne donne plus acces (session detruite cote serveur) ;
-//  - l'hote borne ne devrait pas ouvrir de session (constat, voir le test marque).
+//  - l'hote borne n'ouvre aucune session (App\Auth\SessionRoutePolicy).
 //
 // Comptes : identifiants publics de la demo (db/seeds/0001, docs/demo/comptes-demo.md),
 // comme les autres specs. Chaque test cree ses propres contextes HTTP (jarres de cookies
@@ -152,12 +152,6 @@ test.describe('Session du back-office', () => {
   });
 
   test('borne : l API publique n ouvre pas de session (aucun cookie pose sur l hote kiosk)', async () => {
-    // CONSTAT (mineur) : src/public/admin/index.php demarre la session
-    // ((new SessionManager($config))->start(), avant le dispatch) pour TOUTE requete, y
-    // compris l'API publique anonyme relayee par le vhost borne et la sonde /api/health.
-    // Chaque appel de la borne sans cookie cree un fichier de session cote serveur et
-    // recoit un Set-Cookie WAKDO_SID inutile. Pas d'elevation de droit (la session est vide),
-    // mais une surface et un stockage serveur qui grossissent avec le trafic anonyme.
     const ctx = await pwRequest.newContext();
     const responses = [];
     for (const path of ['/api/categories', '/api/products', '/api/health']) {
@@ -165,7 +159,6 @@ test.describe('Session du back-office', () => {
       expect(res.status()).toBe(200);
       responses.push([path, res]);
     }
-    test.fail(true, 'session demarree pour /api/* (src/public/admin/index.php, appel a SessionManager::start avant le dispatch)');
     for (const [path, res] of responses) {
       expect(sessionCookie(res), `${path} ne pose pas WAKDO_SID`).toBeNull();
     }
