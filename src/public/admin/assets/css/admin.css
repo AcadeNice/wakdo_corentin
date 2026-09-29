@@ -3224,7 +3224,7 @@ details.form-advanced > summary:focus-visible {
     gap: var(--space-4);
     margin-bottom: var(--space-3);
 }
-.health-kpi-detail { font-size: var(--text-sm); color: var(--h-muted); margin-top: var(--space-1); }
+.health-kpi-detail { font-size: var(--text-sm); color: var(--h-muted); margin-top: var(--space-1); overflow-wrap: anywhere; }
 .health-refresh-status { font-size: var(--text-sm); color: var(--h-muted); margin: 0; }
 .health-refresh-status--error { color: var(--h-bad-ink); font-weight: 600; }
 /* Le message d'echec (#health-refresh-error) reste dans le flux (hidden natif,
