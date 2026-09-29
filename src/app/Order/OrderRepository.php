@@ -55,6 +55,19 @@ class OrderRepository
      */
     private const MAX_LINES_PER_ORDER = 50;
 
+    /**
+     * Nombre maximal d'ARTICLES au total (somme des quantites de TOUTES les lignes)
+     * par commande. Les deux bornes ci-dessus se combinent au lieu de s'additionner :
+     * meme chacune respectee individuellement, MAX_LINES_PER_ORDER lignes a
+     * MAX_QUANTITY_PER_LINE chacune restait possible (50 x 20 = 1000 articles) dans
+     * UNE seule commande anonyme de la borne, payee par un bouton simule -- de quoi
+     * vider le stock d'un produit en une seule requete. Un plateau de fast-food reel
+     * reste tres en dessous de ce plafond ; il borne le DEBIT de stock qu'une seule
+     * commande anonyme peut consommer. Le nombre de commandes SUCCESSIVES n'est pas
+     * limite par cette regle (voir docs).
+     */
+    private const MAX_ITEMS_PER_ORDER = 50;
+
     public function __construct(
         private readonly DatabaseInterface $db,
         private readonly ProductRepository $products,
@@ -506,9 +519,19 @@ class OrderRepository
 
         $totalTtc = 0;
         $totalHt = 0;
+        $totalQuantity = 0;
         foreach ($lines as $l) {
             $totalTtc += $l['unit_ttc'] * $l['quantity'];
             $totalHt += $l['unit_ht'] * $l['quantity'];
+            $totalQuantity += $l['quantity'];
+        }
+        // MAX_ITEMS_PER_ORDER : plafond sur la SOMME des quantites, distinct du plafond
+        // de lignes ci-dessus. Verifie ici (lignes deja resolues, quantites deja
+        // validees individuellement) plutot qu'avant resolveLine() : la combinaison
+        // (nombre de lignes x quantite par ligne) ne se lit qu'une fois les deux
+        // bornes individuelles appliquees.
+        if ($totalQuantity > self::MAX_ITEMS_PER_ORDER) {
+            throw new OrderValidationException('ORDER_TOO_LARGE');
         }
         if ($totalTtc <= 0) {
             throw new OrderValidationException('EMPTY_ORDER');

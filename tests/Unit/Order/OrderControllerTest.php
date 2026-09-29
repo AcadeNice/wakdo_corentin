@@ -407,6 +407,49 @@ final class OrderControllerTest extends TestCase
         self::assertSame(201, $response->status());
     }
 
+    public function testCreateWithTotalQuantityAboveFiftyReturns422(): void
+    {
+        // Chaque ligne respecte individuellement MAX_QUANTITY_PER_LINE (<=20) et le
+        // nombre de lignes respecte MAX_LINES_PER_ORDER (<=50) ; seule la SOMME des
+        // quantites (51) depasse le plafond global d'articles (couvre le chemin REEL
+        // POST, pas seulement OrderRepository en PHP direct -- cf. security-order-
+        // integrity.spec.js).
+        $db = new FakeOrderDatabase();
+        $db->products[12] = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 100, 'vat_rate' => 100, 'is_available' => 1];
+        $items = [
+            ['type' => 'product', 'product_id' => 12, 'quantity' => 20],
+            ['type' => 'product', 'product_id' => 12, 'quantity' => 20],
+            ['type' => 'product', 'product_id' => 12, 'quantity' => 11],
+        ];
+        $body = $this->jsonBody(['service_mode' => 'takeaway', 'items' => $items]);
+
+        $response = $this->controller($db, $body)->create();
+
+        self::assertSame(422, $response->status());
+        $data = json_decode($response->body(), true);
+        self::assertSame('ORDER_TOO_LARGE', $data['error']['code'] ?? null);
+    }
+
+    public function testCreateWithTotalQuantityOfExactlyFiftyIsAccepted(): void
+    {
+        // Borne HAUTE incluse (50 articles au total) : ne doit pas etre refusee comme
+        // "commande trop volumineuse".
+        $db = new FakeOrderDatabase();
+        $db->products[12] = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 100, 'vat_rate' => 100, 'is_available' => 1];
+        $items = [
+            ['type' => 'product', 'product_id' => 12, 'quantity' => 20],
+            ['type' => 'product', 'product_id' => 12, 'quantity' => 20],
+            ['type' => 'product', 'product_id' => 12, 'quantity' => 10],
+        ];
+        $body = $this->jsonBody(['service_mode' => 'takeaway', 'items' => $items]);
+
+        $response = $this->controller($db, $body)->create();
+
+        self::assertSame(201, $response->status());
+        $data = json_decode($response->body(), true);
+        self::assertSame(5000, $data['data']['total_ttc_cents'] ?? null);
+    }
+
     public function testCreateMenuWithUnavailableOptionReturns422(): void
     {
         // Defaut #4 : une option de menu en rupture calculee (RG-T21) reste refusee

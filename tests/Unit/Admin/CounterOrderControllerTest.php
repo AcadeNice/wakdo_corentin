@@ -465,6 +465,29 @@ final class CounterOrderControllerTest extends TestCase
         self::assertStringContainsString('entre 1 et 20', $response->body());
     }
 
+    public function testStoreRejectsATotalQuantityAboveFiftyJustLikeTheKiosk(): void
+    {
+        // Meme plafond GLOBAL d'articles que la borne kiosk (OrderRepository::
+        // resolveAndTotal, source unique) : le comptoir/drive n'est pas un chemin a
+        // part. Chaque ligne respecte individuellement la borne par ligne (<=20) ;
+        // seule la somme (51) depasse MAX_ITEMS_PER_ORDER.
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 890, 'vat_rate' => 100, 'maxi_variant_product_id' => null, 'is_available' => 1];
+
+        $items = json_encode([
+            ['type' => 'product', 'product_id' => 12, 'quantity' => 20],
+            ['type' => 'product', 'product_id' => 12, 'quantity' => 20],
+            ['type' => 'product', 'product_id' => 12, 'quantity' => 11],
+        ]);
+        $request = $this->post(['_csrf' => $this->csrf, 'service_mode' => 'dine_in', 'items_json' => (string) $items], '/counter/orders');
+
+        $response = $this->controller($request, $db)->store();
+
+        self::assertSame(422, $response->status());
+        self::assertFalse($db->wrote('INSERT INTO customer_order'));
+        self::assertStringContainsString('50 articles au plus', $response->body());
+    }
+
     public function testCreateExposesProductComposition(): void
     {
         // create() joint la composition PROPOSABLE (modificateurs) de chaque produit au

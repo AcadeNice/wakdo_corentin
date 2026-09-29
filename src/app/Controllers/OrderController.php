@@ -181,6 +181,7 @@ class OrderController extends Controller
             'INVALID_ITEM_TYPE'        => 'Type d\'article invalide.',
             'INVALID_QUANTITY'         => 'Quantité invalide (entre 1 et 20 par article).',
             'TOO_MANY_ITEMS'           => 'Trop d\'articles différents dans la commande.',
+            'ORDER_TOO_LARGE'          => 'Commande trop volumineuse : 50 articles au plus.',
             'PRODUCT_UNAVAILABLE'      => 'Produit indisponible.',
             'MENU_UNAVAILABLE'         => 'Menu indisponible.',
             'INVALID_SELECTION'        => 'Choix invalide pour ce menu.',

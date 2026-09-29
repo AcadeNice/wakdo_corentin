@@ -598,6 +598,7 @@ class CounterOrderController extends AdminController
             'INVALID_SERVICE_MODE'    => 'Mode de service invalide (le drive impose le mode drive).',
             'INVALID_QUANTITY'        => 'Quantité invalide : chaque article doit être compris entre 1 et 20.',
             'TOO_MANY_ITEMS'          => 'Trop d\'articles différents dans la commande (50 maximum).',
+            'ORDER_TOO_LARGE'         => 'Commande trop volumineuse : 50 articles au plus.',
             'PRODUCT_UNAVAILABLE'     => 'Un produit sélectionné est indisponible.',
             'MENU_UNAVAILABLE'        => 'Un menu sélectionné est indisponible.',
             'INVALID_SELECTION'       => 'Un choix de menu (accompagnement / boisson / sauce) est invalide.',

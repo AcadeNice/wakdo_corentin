@@ -12,6 +12,7 @@
 //  - encaissement rejoue : le stock n'est debite qu'une fois ;
 //  - quantite negative, nulle, enorme, et corps mal forme : refus propre attendu
 //    (constats, tests marques) ;
+//  - 51 articles au total (lignes individuellement valides) : 422 ORDER_TOO_LARGE ;
 //  - une seule commande anonyme ne doit pas pouvoir vider le stock d'un produit pour tous
 //    (constat, test marque) -- joue sur un produit ET un ingredient jetables crees ici,
 //    pour ne rendre indisponible aucun produit du catalogue de demonstration.
@@ -135,6 +136,18 @@ test.describe('Integrite de la commande borne', () => {
     const status = res.status();
     expect([422, 500]).toContain(status);
     expect(status).toBe(422);
+  });
+
+  test('51 articles en une commande (somme des quantites, lignes individuellement valides) : 422 ORDER_TOO_LARGE', async () => {
+    // Chaque ligne respecte MAX_QUANTITY_PER_LINE (<=20) et le nombre de lignes
+    // respecte MAX_LINES_PER_ORDER (<=50) ; seule la SOMME des quantites (51) depasse
+    // le plafond global d'articles par commande.
+    const res = await order({
+      service_mode: 'takeaway',
+      items: [line(fixture.productId, 20), line(fixture.productId, 20), line(fixture.productId, 11)],
+    });
+    expect(res.status()).toBe(422);
+    expect((await res.json()).error.code).toBe('ORDER_TOO_LARGE');
   });
 
   test('corps mal forme (ligne qui n est pas un objet, cle en tableau) : 422 attendu', async () => {

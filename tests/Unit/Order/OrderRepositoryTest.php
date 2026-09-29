@@ -321,6 +321,71 @@ final class OrderRepositoryTest extends TestCase
         self::assertSame(0, $db->countWrites('INSERT INTO customer_order'));
     }
 
+    /**
+     * Combinaisons ou CHAQUE ligne, prise isolement, respecte MAX_QUANTITY_PER_LINE
+     * (<=20) et le nombre de lignes respecte MAX_LINES_PER_ORDER (<=50), mais dont la
+     * SOMME des quantites depasse MAX_ITEMS_PER_ORDER (50) : avant ce correctif, rien
+     * ne bornait cette combinaison, et une commande anonyme de la borne pouvait porter
+     * jusqu'a 50 x 20 = 1000 articles.
+     *
+     * @return array<string, array{0: list<array<string, mixed>>}>
+     */
+    public static function orderTotalsAboveFifty(): array
+    {
+        return [
+            'trois lignes valides, somme 51' => [
+                [
+                    ['type' => 'product', 'product_id' => 12, 'quantity' => 20],
+                    ['type' => 'product', 'product_id' => 12, 'quantity' => 20],
+                    ['type' => 'product', 'product_id' => 12, 'quantity' => 11],
+                ],
+            ],
+            'vingt-six lignes a quantite 2, somme 52' => [
+                array_fill(0, 26, ['type' => 'product', 'product_id' => 12, 'quantity' => 2]),
+            ],
+        ];
+    }
+
+    /**
+     * @param list<array<string, mixed>> $items
+     */
+    #[DataProvider('orderTotalsAboveFifty')]
+    public function testTotalQuantityAboveFiftyIsRejectedEvenWhenEachLineIsIndividuallyValid(array $items): void
+    {
+        $db = new FakeOrderDatabase();
+        $db->products[12] = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 100, 'vat_rate' => 100, 'is_available' => 1];
+
+        try {
+            $this->repo($db)->createPending([
+                'service_mode' => 'takeaway',
+                'items' => $items,
+            ]);
+            self::fail('une somme de quantites superieure a 50 doit etre refusee');
+        } catch (OrderValidationException $exception) {
+            self::assertSame('ORDER_TOO_LARGE', $exception->getMessage());
+        }
+        self::assertSame(0, $db->countWrites('INSERT INTO customer_order'));
+    }
+
+    public function testTotalQuantityOfExactlyFiftyIsAccepted(): void
+    {
+        // Borne HAUTE incluse (50 articles au total, repartis sur plusieurs lignes) :
+        // ne doit pas etre refusee comme "commande trop volumineuse".
+        $db = new FakeOrderDatabase();
+        $db->products[12] = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 100, 'vat_rate' => 100, 'is_available' => 1];
+
+        $res = $this->repo($db)->createPending([
+            'service_mode' => 'takeaway',
+            'items' => [
+                ['type' => 'product', 'product_id' => 12, 'quantity' => 20],
+                ['type' => 'product', 'product_id' => 12, 'quantity' => 20],
+                ['type' => 'product', 'product_id' => 12, 'quantity' => 10],
+            ],
+        ]);
+
+        self::assertSame(5000, $res['total_ttc_cents']);
+    }
+
     public function testProductIdSentAsArrayIsTreatedAsUnknownProduct(): void
     {
         // Un product_id envoye en tableau ne doit JAMAIS etre caste (int) en silence
