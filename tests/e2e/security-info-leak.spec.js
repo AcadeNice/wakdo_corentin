@@ -73,21 +73,21 @@ test.describe('Fuite d informations', () => {
     await ctx.dispose();
   });
 
-  test('erreur 500 reelle de l API publique, APP_DEBUG=false : message generique, rien d interne', async () => {
-    test.skip(DEBUG !== 'false', 'la pile doit tourner avec APP_DEBUG=false (tests/e2e/run-security.sh)');
+  test('ancienne erreur 500 de l API publique (quantite hors colonne) : refus 422 propre, rien d interne', async () => {
+    // Cette charge provoquait une 500 (SQLSTATE 22003) avant la borne de quantite
+    // (fce3085) : elle doit maintenant etre refusee proprement. La vraie 500 avec
+    // APP_DEBUG=false est prouvee base arretee, dans security-dbdown.spec.js.
     const ctx = await pwRequest.newContext();
     const { data: products } = await (await ctx.get(`${KIOSK}/api/products`)).json();
     const target = products.find((p) => p.is_orderable);
-    // Quantite hors bornes de la colonne SMALLINT UNSIGNED : exception PDO non rattrapee.
-    // (Le 500 lui-meme est un constat, voir security-order-integrity.spec.js.)
     const res = await ctx.post(`${KIOSK}/api/orders`, {
       data: { service_mode: 'takeaway', items: [{ type: 'product', product_id: target.id, quantity: 70000 }] },
     });
-    expect(res.status()).toBe(500);
+    expect(res.status()).toBe(422);
     const body = await res.text();
     expect(body).not.toMatch(LEAK);
-    expect(body).not.toMatch(/out of range|column|quantity/i);
-    expect(JSON.parse(body).error.code).toBe('INTERNAL_ERROR');
+    expect(body).not.toMatch(/SQLSTATE|out of range|column/i);
+    expect(JSON.parse(body).error.code).toBe('INVALID_QUANTITY');
     await ctx.dispose();
   });
 
