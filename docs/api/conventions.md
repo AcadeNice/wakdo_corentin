@@ -205,7 +205,7 @@ Menus composes (`menu.read` / `menu.create` / `menu.update` / `menu.delete`) :
 | GET | `/admin/api/menus` | non | |
 | GET | `/admin/api/menus/{id}` | non | inclut `slots` (composition) |
 | POST | `/admin/api/menus` | non | `slots` = tableau JSON natif (le formulaire HTML le soumet en `slots_json` serialise ; meme garde serveur F12/RG-T16 des deux cotes) |
-| PUT | `/admin/api/menus/{id}` | non | PUT PARTIEL sur `is_available` (voir note ci-dessous) |
+| PUT | `/admin/api/menus/{id}` | non | PUT PARTIEL sur `is_available` (voir note ci-dessous). Emplacements de slot reconcilies en place (position au sein du meme `slot_type`, corrige le 2026-09-29) ; `409 CONFLICT` si un emplacement retire de la configuration soumise est deja reference par une commande |
 | DELETE | `/admin/api/menus/{id}` | oui | `409 CONFLICT` si reference par des commandes (proposer la desactivation) |
 | POST | `/admin/api/menus/{id}/toggle` | non | bascule la disponibilite |
 

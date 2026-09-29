@@ -18,7 +18,11 @@
 > chiffres du present document (section 1.1 comprise) refletent cet etat, y compris
 > l'artefact `preuves/rapports/resume.json` regenere ce jour-la. La mesure de temps du canal
 > auxiliaire (section 1.2) date du 2026-09-26 et n'a pas ete rejouee depuis : aucun fichier
-> ne la versionne.
+> ne la versionne. **Le 2026-09-29**, deux correctifs de contre-audit sont merges (menu
+> deja commande modifiable sans erreur serveur, journal d'audit `pin.failed` sans l'adresse
+> saisie, migration 0019) : les comptes qui en dependent sont mis a jour dans ce document
+> (18 migrations, 40 operations du MCT, deja a jour dans `docs/merise/mct.md` depuis le
+> 28/09 mais restees a 35 ici) ; le nombre de tests n'est pas rejoue dans cette passe.
 
 ---
 
@@ -226,9 +230,13 @@ paiement simule. Ils sont documentes dans le dossier.
 - **Merise Agile** : le dictionnaire de donnees d'abord, le modele ensuite, enrichi au
   fil des lots. Source unique : `docs/PROJECT_CONTEXT.md`, complete par `docs/merise/`
   (dictionnaire, modele conceptuel des donnees, modele logique, modele conceptuel des
-  traitements avec ses 35 operations).
+  traitements avec ses 40 operations).
 - **Developpement pilote par les tests** sur les chemins sensibles : commande, stock,
-  authentification, droits.
+  authentification, droits. Exemple concret (2026-09-29) : le contre-audit a rejoue
+  `MenuRepositoryDbTest` sur une base reelle et reproduit une erreur serveur 500 des
+  qu'un menu deja commande etait modifie (delete-and-reinsert contre une FK `RESTRICT`) ;
+  le correctif reconcilie les emplacements en place et refuse en 409 le retrait d'un
+  emplacement deja commande, verifie par un test qui echouait avant le correctif.
 - **Tracabilite** : 20 decisions d'architecture datees et motivees, 16 entrees de
   journal de bord, 242 commits en convention de nommage au 28/09/2026 (244 au 29/09),
   chaque changement passe par une demande de fusion (192 fusionnees au 28/09/2026,
@@ -449,7 +457,7 @@ et supprimer le reste.
 - Le point a souligner : les trois entites du domaine securite viennent de la
   modelisation de la menace, pas du besoin fonctionnel. Un modele qui porte ses propres
   contre-mesures, c'est ce que veut dire "par conception".
-- Construction de la base : **17 migrations et 10 jeux de donnees de reference**, tous
+- Construction de la base : **18 migrations et 10 jeux de donnees de reference**, tous
   idempotents et rejouables, suivis par une table de migrations. Le saut sur le numero
   0004 est une decision tracee, pas un oubli.
 - Montrer le diagramme du modele conceptuel (`docs/merise/_diagrams/`).
@@ -546,6 +554,10 @@ Ne pas reciter les 22 regles. En choisir quatre et les tenir.
    re-autorisation par identifiant d'equipier plus code personnel ; la ligne de journal
    d'audit est ecrite **dans la meme transaction** que l'action - soit les deux, soit
    aucune. Un compteur de tentatives separe de celui de la connexion protege ce code.
+   Le contenu de cette ligne est lui-meme minimise (RGPD art. 5.1.c) : depuis le
+   2026-09-29, un code personnel faux n'ecrit plus l'adresse saisie au formulaire, mais
+   seulement le contexte de l'action et, quand elle correspond a un compte existant, son
+   identifiant stable (`PinGate::auditFailedPin()`, migration `0019`).
 
 **G.3 - Le detail qui montre le niveau : le canal auxiliaire par le temps (27:00 - 28:00)**
 
@@ -841,7 +853,7 @@ est en section 8. La proposer soi-meme si la question sur l'IA tombe.
 | B1 | Cr 2.c echanges asynchrones | E | `data.js`, memoisation de promesse |
 | B1 | Cr 2.d bibliotheques externes | E | **Non couvert au sens strict, argumente** |
 | B2 | Cr 3.a analyse et modele | F.1 | Dictionnaire, 23 entites |
-| B2 | Cr 3.b construction de la base | F.1, H.1 | 17 migrations, 10 jeux de donnees |
+| B2 | Cr 3.b construction de la base | F.1, H.1 | 18 migrations, 10 jeux de donnees |
 | B2 | Cr 3.c SQL | G.2 | Decrement atomique, depots PDO |
 | B2 | Cr 3.d donnees personnelles | G.1 | Classification 4 niveaux, anonymisation |
 | B2 | Cr 4.b developpement serveur | F.2 | 158 routes, API JSON complete |
@@ -891,11 +903,11 @@ bonne reponse est *"le code fait foi, et voici pourquoi le document a pris du re
 | **API `PUT`/`DELETE`** | "reste au stade prevu" (dossier, C4.b) | **Livree** : 57 routes sous `/admin/api/`, dont 9 `PUT` et 5 `DELETE`, 10 controleurs dedies, decision d'architecture 0017. **C'est l'ecart le plus important** : le dossier declare absente une fonctionnalite demontrable. |
 | Nombre de tests | 755 PHP / 233 JS (dossier, deux endroits) | Derniere execution mesuree (28/09/2026, commit `04bece0`) : 2 386 PHP / 7 886 assertions / 446 JS. Comptage statique aujourd'hui : 1 295 methodes / 450 appels. |
 | Decisions d'architecture | "seize" (dossier, quatre endroits) | **20**. Les 0018-0020 portent les familles d'ingredients, la page Sante de l'API et l'annulation par le responsable. |
-| Migrations | "dix fichiers, 0001 a 0011" (dossier, C3.b) | **17 fichiers**, 0001 a 0018. Le saut sur 0004 reste volontaire et trace. |
+| Migrations | "dix fichiers, 0001 a 0011" (dossier, C3.b) | **18 fichiers**, 0001 a 0019 (sans 0004). Le saut sur 0004 reste volontaire et trace. |
 | Fichiers PHP de l'application | "103 fichiers" avec une repartition detaillee | **135** sous `src/app`, dont **33 controleurs + 1 trait** (23 au premier niveau + 10 controleurs et 1 trait `JsonApiTrait` sous `Admin/Api`). |
 | Modules de la borne | "18 modules, 2 979 lignes" | **21 modules, 3 311 lignes**. |
 | Feuille de style du back-office | "2 714 lignes" | **3 470 lignes** (refonte du 26 septembre, complements du 28). |
-| Operations du modele de traitements | "28 operations" | **35**, depuis la version 0.4 (`docs/merise/mct.md` §14). |
+| Operations du modele de traitements | "28 operations" | **40**, depuis la version 0.5 (`docs/merise/mct.md` §14). |
 | Dependances de developpement | "deux" | **trois** (`@axe-core/playwright` en plus). Le fond tient : zero dependance de production. |
 | Nombre d'entites | 21 entites classifiees (dossier, section 19.4) | **23**. `pin_throttle` et `category_ingredient_family` sont desormais classees en INTERNAL (`PROJECT_CONTEXT.md` 19.4, corrige). |
 | Empreintes de mot de passe | "bcrypt ou argon2" (dossier, sections 7, 16, 18) | **argon2id**, et le dossier lui-meme l'ecrit en section 19.3. |
@@ -1096,7 +1108,7 @@ passaient.
 
 **Q4.1 - Comment deploie-t-on votre application ?**
 Une seule commande : `docker compose up -d`. Un service a execution unique applique les
-17 migrations et les 10 jeux de donnees, tous idempotents, puis s'arrete ; l'application
+18 migrations et les 10 jeux de donnees, tous idempotents, puis s'arrete ; l'application
 demarre ensuite. En production, le deploiement part sur chaque arrivee dans `main` et
 peut etre relance a la demande.
 
@@ -1163,7 +1175,7 @@ montants sont stockes et calcules en entiers, et convertis en euros seulement a
 l'affichage (RG-T04).
 
 **Q5.4 - Comment construisez-vous la base sur une machine neuve ?**
-17 migrations puis 10 jeux de donnees, appliques dans l'ordre lexicographique par un
+18 migrations puis 10 jeux de donnees, appliques dans l'ordre lexicographique par un
 service a execution unique, avec un suivi en table. Tous sont idempotents : les rejouer
 ne casse rien, ce qui rend l'operation sure a relancer. L'integration continue applique
 exactement la meme sequence sur une base ephemere avant de lancer les tests.
@@ -1223,7 +1235,7 @@ appris ; un test d'integration qui verifie qu'un role sans permission recoit 403
 C'est precisement le piege que j'ai ferme. Sans base de donnees, ils s'ignoreraient
 tout seuls et le pipeline serait vert. Le drapeau `--fail-on-skipped` fait echouer
 l'integration des qu'un test est ignore. L'integration monte une base MariaDB ephemere,
-lui applique les 17 migrations et les 10 jeux de donnees, puis lance la suite. La
+lui applique les 18 migrations et les 10 jeux de donnees, puis lance la suite. La
 configuration refuse aussi les tests douteux et ceux qui n'assertent rien.
 
 **Q7.3 - Avez-vous pratique le developpement pilote par les tests ?**
@@ -1337,9 +1349,9 @@ sans acces aux journaux.
 
 Je remonte la pile, en le disant a voix haute :
 
-1. **Base** : nouvelle migration `db/migrations/0019_category_description.sql` (la
-   derniere migration livree est `0018_manager_order_cancel.sql`, la prochaine est donc
-   `0019`), `ALTER TABLE category ADD COLUMN description VARCHAR(255) NULL`, avec une
+1. **Base** : nouvelle migration `db/migrations/0020_category_description.sql` (la
+   derniere migration livree est `0019_pin_failed_audit_minimisation.sql`, la prochaine est donc
+   `0020`), `ALTER TABLE category ADD COLUMN description VARCHAR(255) NULL`, avec une
    garde d'idempotence sur `information_schema`.
 2. **Depot** : `src/app/Catalogue/CategoryRepository.php`, ajouter la colonne aux
    requetes et a la liste blanche de colonnes (RG-T16).

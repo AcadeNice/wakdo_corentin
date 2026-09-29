@@ -798,18 +798,23 @@ des commandes placees. La re-validation serveur des modifiers (`mlt.md` 3.3 RG-9
 **Repudiation (deni d'action).** Le journal `audit_log` (entite 20, RG-T14) enregistre les
 actions sensibles non-stock avec `actor_user_id` (capture par PIN, RG-T13), `actor_role_id`
 (denormalise pour survivre a l'anonymisation), `action_code`, `entity_type`/`entity_id` et un
-`summary` non-personnel ; pas d'UPDATE/DELETE applicatif. L'attribution des commandes
-comptoir/drive passe par `customer_order.acting_user_id` (`mlt.md` 4.1 RG-5) et celle du stock
-par `stock_movement.user_id` (`mlt.md` 9.1/9.2). Les actions stock ne sont pas doublement
-journalisees : `stock_movement` (append-only) fournit deja la piste.
+`summary` non-personnel ; pas d'UPDATE/DELETE applicatif. Ceci inclut l'echec de PIN
+(`pin.failed`) : `PinGate::auditFailedPin()` ecrit un `summary` de contexte fixe, sans
+l'adresse saisie au formulaire (corrige le 2026-09-29, RGPD art. 5.1.c, migration
+`0019_pin_failed_audit_minimisation.sql` qui purge aussi les lignes deja ecrites). L'attribution
+des commandes comptoir/drive passe par `customer_order.acting_user_id` (`mlt.md` 4.1 RG-5) et
+celle du stock par `stock_movement.user_id` (`mlt.md` 9.1/9.2). Les actions stock ne sont pas
+doublement journalisees : `stock_movement` (append-only) fournit deja la piste.
 
 **Information disclosure (divulgation).** La matrice de classification (19.4) borne ce qui
 sort des logs et des reponses API. Les erreurs d'auth sont generiques (RG-2, pas de
 distinction email inconnu / mot de passe faux). L'`audit_log` stocke des **noms de champs**
-modifies, pas les valeurs PII (`audit_log.details`, RG-T14). L'attribution de stock
-(`stock_movement.user_id`) n'est visible que pour manager/admin ; le staff de ligne voit les
-deltas sans l'identite de l'acteur (`mlt.md` 9.3 RG-4). Les credentials (`password_hash`,
-`pin_hash`, `password_reset_token_hash`) sont tenus hors logs et hors reponses API.
+modifies, pas les valeurs PII (`audit_log.details`, RG-T14) — a l'exception ponctuelle de
+`pin.failed` avant le 2026-09-29 (voir Repudiation ci-dessus), refermee depuis. L'attribution
+de stock (`stock_movement.user_id`) n'est visible que pour manager/admin ; le staff de ligne
+voit les deltas sans l'identite de l'acteur (`mlt.md` 9.3 RG-4). Les credentials
+(`password_hash`, `pin_hash`, `password_reset_token_hash`) sont tenus hors logs et hors
+reponses API.
 
 **Denial of service.** Le throttling de login est degressif (backoff exponentiel plafonne)
 plutot qu'un lock indefini, dans les deux dimensions compte (`user.lockout_until`) et IP
@@ -852,4 +857,4 @@ traitement par colonne.
 
 ---
 
-*Document vivant — version 1.4 — 2026-09-28 (audit final : machine a etats commande a 6 etats, permissions manager order.read/order.cancel, date de soutenance, CI a 5 travaux + CD, authentification session+CSRF+PIN, alignement Repository pattern / tables singulier / INT UNSIGNED sur le code livre). A mettre a jour a chaque decision structurante.*
+*Document vivant — version 1.5 — 2026-09-29 (contre-audit independant : UPDATE_MENU reconcilie ses emplacements en place au lieu de les reconstruire, 409 si un emplacement deja commande est retire ; le journal d'audit `pin.failed` n'ecrit plus l'adresse saisie au formulaire, RGPD art. 5.1.c, migration 0019). A mettre a jour a chaque decision structurante.*

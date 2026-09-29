@@ -1,8 +1,8 @@
 # Diagramme de sequence securite - Annulation de commande avec PIN (CANCEL_ORDER)
 
 **Phase UML** : P1 - Conception, complement UML (passe security-by-design)
-**Statut** : v0.5 - realigne sur le code livre (`OrderAdminController`, `OrderRepository::cancel`)
-**Date** : 2026-06-12 (v0.2), 2026-09-24 (v0.3), 2026-09-28 (v0.4), 2026-09-29 (v0.5)
+**Statut** : v0.6 - realigne sur le code livre (`OrderAdminController`, `OrderRepository::cancel`)
+**Date** : 2026-06-12 (v0.2), 2026-09-24 (v0.3), 2026-09-28 (v0.4), 2026-09-29 (v0.5, v0.6)
 **Historique** : v0.3 (2026-09-24) - mise en coherence avec le code livre (2a09597) : route
 `/admin/orders/{number}/cancel` (page de confirmation en GET, envoi en POST) au lieu de
 `POST /api/orders/{id}/cancel` ; PIN saisi avec la demande et verifie en premier ; echec de PIN
@@ -17,7 +17,11 @@ documente en section 4.4. v0.5 (2026-09-29) - contre-audit independant (base Mar
 corrige (`sourceVisibleToRole` est une methode du CONTROLEUR `OrderAdminController` qui lit `source` par une
 requete SQL INLINE (`orderSource()`, pas un appel a une classe Repository), puis appelle seulement
 `OrderQueryRepository::visibleSources(role)` pour la liste des canaux autorises du role — le flux precedent
-montrait a tort `sourceVisibleToRole` comme un appel Repo de bout en bout.
+montrait a tort `sourceVisibleToRole` comme un appel Repo de bout en bout. v0.6 (2026-09-29) - correctif
+merge apres le contre-audit : l'etape 6 (PIN refuse) precisee — le point d'ecriture reel de `pin.failed`
+est `PinGate::auditFailedPin()` (partage par les 6 controleurs HTML, dont `OrderAdminController::logFailedPin`,
+et par l'API), corrige pour ne plus ecrire l'adresse saisie au formulaire dans `summary` (RGPD art. 5.1.c,
+migration `0019_pin_failed_audit_minimisation.sql`).
 **Branche** : `feat/p1-conception`
 **Auteur methodologie** : BYAN
 
@@ -175,7 +179,7 @@ sequenceDiagram
 | 3 | POST : jeton CSRF (403 sinon) | `RG-T01` | `OrderAdminController::cancel`, `Csrf::validate` |
 | 4 | Verrou du throttle evalue avant la verification, leurre de temps | `RG-T22` | `PinThrottle::isLocked`, `PinVerifier::payTimingDecoy` |
 | 5 | Equipier resolu par email + PIN (compte actif, argon2id) | `RG-T13` | `PinVerifier::resolveActingUser` |
-| 6 | PIN refuse : `pin.failed` dans `audit_log` + echec compte, une transaction, 422 | `RG-T14`, `RG-T22`, `RG-T08` | `OrderAdminController::logFailedPin`, `PinThrottle::recordFailureWithin` |
+| 6 | PIN refuse : `pin.failed` dans `audit_log` (summary sans l'adresse saisie, RGPD art. 5.1.c, corrige le 2026-09-29) + echec compte, une transaction, 422 | `RG-T14`, `RG-T22`, `RG-T08` | `OrderAdminController::logFailedPin` -> `PinGate::auditFailedPin`, `PinThrottle::recordFailureWithin` |
 | 7 | `UPDATE ... WHERE status IN ('pending_payment','paid','preparing','ready')` | 7.1 RG-1, `RG-T07` | `OrderRepository::cancel` |
 | 8 | Re-credit si des mouvements `sale` existent, plafonne a la capacite | 7.1 RG-3, `RG-T11` | `OrderRepository::hasSaleMovements`, `IngredientRepository::clampToCapacity` |
 | 9 | `audit_log` `order.cancel` dans la meme transaction | 7.1 RG-6, `RG-T14` | `OrderRepository::cancel` |

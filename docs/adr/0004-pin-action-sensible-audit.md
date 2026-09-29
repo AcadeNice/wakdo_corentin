@@ -46,3 +46,13 @@ est defini par RG-T13. Les operations de stock tracent via `stock_movement.user_
   dans `OrderAdminController::cancel()`, ligne 224). Un manager qui entre son PIN sur un
   poste sans `order.cancel` ne debloque donc rien ; voir la Precision (ADR-0020) en tete de
   fiche, qui le dit deja explicitement.
+- Complement (2026-09-29, contre-audit independant) : cette fiche etablit que le PIN
+  resout l'acteur ecrit dans `audit_log`, sans preciser le contenu de la ligne. Un ecart
+  de minimisation des donnees a ete corrige sur ce point le meme jour : la ligne `pin.failed`
+  (echec de PIN) ecrivait jusque-la l'adresse SAISIE au formulaire en clair dans `summary`,
+  y compris pour une adresse qui ne correspond a aucun compte ; ce champ texte libre
+  echappait a la retention (`AUDIT_LOG_RETENTION_DAYS`) comme a l'effacement RGPD d'un
+  compte. Corrige (RGPD art. 5.1.c) : point d'ecriture unique `PinGate::auditFailedPin()`,
+  qui n'ecrit plus que le contexte de l'action et, quand l'adresse correspond a un compte
+  existant, son identifiant stable ; migration `0019_pin_failed_audit_minimisation.sql`
+  purge les lignes deja ecrites. Detail : `docs/merise/mlt.md` RG-T14.

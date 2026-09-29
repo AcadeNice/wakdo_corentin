@@ -9,7 +9,11 @@ catalogue consomme par la borne.
 - Controleurs : `CategoryController` (`category.manage`), `ProductController`
   (`product.read/create/update/delete`), `MenuController` (`menu.read/create/update/delete`).
 - Menus composes : burger de base + `menu_slot` / `menu_slot_option`, editeur slots en
-  JS vanilla CSP-safe (champ cache `slots_json`), reecriture delete-and-reinsert en tx.
+  JS vanilla CSP-safe (champ cache `slots_json`). Mise a jour = reconciliation en place
+  en transaction (appariement par position au sein du meme `slot_type`, corrige le
+  2026-09-29 : l'ancien delete-and-reinsert levait une erreur serveur 500 sur un menu
+  deja commande, FK `order_item_selection.menu_slot_id` RESTRICT) ; `409` si un
+  emplacement retire est deja reference par une commande.
 - Deux LECTURES du catalogue cote back-office, meme permission `product.read` :
   la liste plate (`/admin/products`, seule a montrer et gerer les variantes de taille ligne
   par ligne, plus le CRUD) et la vue groupee par categorie (`/admin/products/by-category`,

@@ -1,8 +1,8 @@
 # Dictionnaire de Donnees — Wakdo
 
 **Phase Merise** : P1 - Conception, etape 1 (dictionnaire de donnees d'abord, mantra #33)
-**Version** : v0.5 — prod-like, 23 entites (19 prod-like + couche security-by-design + classement des ingredients, incl. les entites `login_throttle`, `pin_throttle` et `category_ingredient_family`)
-**Date** : 2026-06-04 (ajouts security-by-design 2026-06-11 ; classement des ingredients 2026-09-27 ; corrections d'audit 2026-09-28 ; contre-audit independant 2026-09-29)
+**Version** : v0.6 — prod-like, 23 entites (19 prod-like + couche security-by-design + classement des ingredients, incl. les entites `login_throttle`, `pin_throttle` et `category_ingredient_family`)
+**Date** : 2026-06-04 (ajouts security-by-design 2026-06-11 ; classement des ingredients 2026-09-27 ; corrections d'audit 2026-09-28 ; contre-audit independant 2026-09-29 ; deux correctifs merges le 2026-09-29 : reconciliation des emplacements de menu, `audit_log.pin.failed` sans adresse saisie — migration 0019)
 **Branche** : `feat/p1-conception`
 **Statut** : prod-like — toutes les decisions D1-D8 + stock appliquees (voir `docs/journal/2026-06-04--conception-prodlike-revision.md` pour D1-D3 et `docs/journal/2026-06-04--p1-merise-v0.2-rewrite-and-forgejo-migration.md` pour D4-D8 + stock) ; couche security-by-design en cours (voir note 13) ; colonnes additives post-v0.3 des migrations 0003/0005/0006/0007 alignees sur le deploye (voir note 14)
 **Auteur** : BYAN (couche methodologie)
@@ -375,7 +375,7 @@ Les choix reels effectues par le client pour chaque slot d'une ligne de menu.
 |---|---|---|---|---|---|
 | `id` | INT UNSIGNED | NO | AUTO_INCREMENT | PK | |
 | `order_item_id` | INT UNSIGNED | NO | — | FK -> `order_item(id)`, ON DELETE CASCADE | doit referencer un order_item avec item_type='menu' |
-| `menu_slot_id` | INT UNSIGNED | NO | — | FK -> `menu_slot(id)`, ON DELETE RESTRICT | quel slot a ete rempli |
+| `menu_slot_id` | INT UNSIGNED | NO | — | FK -> `menu_slot(id)`, ON DELETE RESTRICT | quel slot a ete rempli ; cette contrainte bloque la suppression d'un `menu_slot` deja choisi en commande — depuis le 2026-09-29, `MenuRepository::reconcileSlots()` la verifie AVANT d'ecrire quoi que ce soit et refuse en 409 (au lieu de laisser remonter l'erreur SQL) |
 | `product_id` | INT UNSIGNED | NO | — | FK -> `product(id)`, ON DELETE RESTRICT | produit choisi par le client pour ce slot |
 | `label_snapshot` | VARCHAR(120) | NO | — | — | libelle du produit au moment de la commande |
 
@@ -621,8 +621,8 @@ Ajout security-by-design (voir note 13).
 | `action_code` | VARCHAR(60) | NO | — | INDEX | code d'operation MCT / de permission, ex. `product.update`, `order.cancel`, `role.manage`, `user.deactivate` |
 | `entity_type` | VARCHAR(40) | YES | NULL | — | nom de la table affectee, ex. `product`, `customer_order`, `role`, `user` |
 | `entity_id` | INT UNSIGNED | YES | NULL | — | PK de la ligne affectee |
-| `summary` | VARCHAR(255) | YES | NULL | — | courte description non personnelle, ex. "price_cents 880 -> 920", "added permission stock.manage" |
-| `details` | JSON | YES | NULL | — | diff before/after optionnel. Pour les actions ciblant un utilisateur, stocke les **noms de champs** modifies, pas les valeurs PII |
+| `summary` | VARCHAR(255) | YES | NULL | — | courte description non personnelle, ex. "price_cents 880 -> 920", "added permission stock.manage", ou pour `pin.failed` : "Échec PIN action sensible" (+ "(adresse inconnue)" si l'adresse saisie ne correspond a aucun compte — corrige le 2026-09-29, RGPD art. 5.1.c : n'ecrit plus l'adresse saisie, voir migration `0019`) |
+| `details` | JSON | YES | NULL | — | diff before/after optionnel. Pour les actions ciblant un utilisateur, stocke les **noms de champs** modifies, pas les valeurs PII ; pour `pin.failed`, forme differente (pas un diff) : `{"target_user_id": <id du compte correspondant ou null>, "context": <contexte de l'action>}` (`PinGate::auditFailedPin()`, 2026-09-29) |
 | `created_at` | DATETIME | NO | CURRENT_TIMESTAMP | INDEX | timestamp immuable |
 
 **Immuabilite** : aucun UPDATE ni DELETE au niveau applicatif (meme discipline que `stock_movement`).
