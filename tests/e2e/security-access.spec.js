@@ -362,16 +362,11 @@ test.describe('Controle d acces horizontal et vertical', () => {
   });
 
   test('methode TRACE refusee par Apache sur les deux hotes', async () => {
-    // CONSTAT (mineur) : Apache repond 200 a TRACE et renvoie la requete recue, en-tetes
-    // compris (TraceEnable vaut On par defaut ; docker/apache/httpd.conf ne le coupe pas).
-    // Les navigateurs actuels interdisent TRACE depuis une page, ce qui borne le risque
-    // (Cross-Site Tracing) ; la couper reste la configuration attendue.
     const anon = await pwRequest.newContext();
     const results = [];
     for (const url of [`${KIOSK}/`, `${ADMIN}/api/categories`]) {
       results.push([url, (await anon.fetch(url, { method: 'TRACE' })).status()]);
     }
-    test.fail(true, 'TraceEnable absent de docker/apache/httpd.conf (defaut On)');
     for (const [url, status] of results) {
       expect(status, url).toBe(405);
     }

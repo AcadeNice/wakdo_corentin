@@ -43,9 +43,13 @@ class HealthController extends Controller
 
         return $this->json(
             [
+                // Pas de champ php_version ici : cette sonde est PUBLIQUE et anonyme
+                // (aucune authentification), la version du moteur PHP est une
+                // information disclosure inutile (OWASP A05). La page /admin/health
+                // (App\Health\HealthReport, derriere role.manage) garde ce champ pour
+                // l'exploitant, via sa propre source authentifiee.
                 'status'      => $dbStatus === 'ok' ? 'ok' : 'degraded',
                 'app_env'     => $this->config->appEnv(),
-                'php_version' => PHP_VERSION,
                 'db'          => $dbStatus,
                 'categories'  => $categories,
                 'version'     => $version['version'],
