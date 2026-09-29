@@ -414,6 +414,60 @@ final class OrderRepositoryTest extends TestCase
         ]);
     }
 
+    public function testServiceModeSentAsArrayIsRejectedWithoutPhpWarning(): void
+    {
+        // Meme defaut que le type d'item : (string) ['x'] declenchait un
+        // avertissement PHP ("Array to string conversion") AVANT ce correctif,
+        // remontant comme une erreur non maitrisee plutot qu'un 422 propre.
+        $db = new FakeOrderDatabase();
+        $db->products[12] = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 890, 'vat_rate' => 100, 'is_available' => 1];
+
+        $this->expectException(OrderValidationException::class);
+        $this->expectExceptionMessage('INVALID_SERVICE_MODE');
+        $this->repo($db)->createPending([
+            'service_mode' => ['dine_in'],
+            'items' => [['type' => 'product', 'product_id' => 12, 'quantity' => 1]],
+        ]);
+    }
+
+    public function testServiceTagSentAsArrayIsRejectedInsteadOfBecomingTheLiteralStringArray(): void
+    {
+        // Defaut releve en audit : service_tag ["x"] devenait la chaine litterale
+        // "Array" (avec avertissement PHP) et passait le controle de longueur
+        // (<= 20) -- persistee telle quelle en base. Desormais refuse en 422.
+        $db = new FakeOrderDatabase();
+        $db->products[12] = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 890, 'vat_rate' => 100, 'is_available' => 1];
+
+        $this->expectException(OrderValidationException::class);
+        $this->expectExceptionMessage('INVALID_SERVICE_TAG');
+        $this->repo($db)->createPending([
+            'service_mode' => 'dine_in',
+            'service_tag' => ['x'],
+            'items' => [['type' => 'product', 'product_id' => 12, 'quantity' => 1]],
+        ]);
+    }
+
+    public function testStaffOrderDriveServiceModeSentAsArrayIsRejectedWithoutPhpWarning(): void
+    {
+        // Meme defaut que testStaffOrderDriveRejectsNonDriveServiceMode, mais avec un
+        // type non chaine sur le resserrement specifique au canal drive (createStaffOrder,
+        // AVANT l'appel a resolveHeader()).
+        $db = new FakeOrderDatabase();
+        $db->products[12] = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 890, 'vat_rate' => 100, 'is_available' => 1];
+
+        try {
+            $this->repo($db)->createStaffOrder([
+                'service_mode' => ['drive'],
+                'items' => [['type' => 'product', 'product_id' => 12, 'quantity' => 1]],
+            ], 7, 'drive');
+            self::fail('expected OrderValidationException');
+        } catch (OrderValidationException $exception) {
+            self::assertSame('INVALID_SERVICE_MODE', $exception->getMessage());
+        }
+
+        self::assertSame(0, $db->countWrites('INSERT INTO customer_order'));
+    }
+
     public function testMenuSelectionOfManuallyUnavailableOptionRejected(): void
     {
         // Defaut #4 : une option retiree au back-office (is_available=0) reste

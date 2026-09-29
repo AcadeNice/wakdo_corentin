@@ -198,6 +198,9 @@ class UserApiController extends UserController
                     'is_active'  => $isActive,
                 ]);
                 if ($newHash !== null) {
+                    // setPasswordHash() incremente aussi session_epoch (RG-T02) dans le
+                    // meme UPDATE : un changement de mot de passe fait par un admin ferme
+                    // desormais les sessions deja ouvertes du compte cible.
                     $repo->setPasswordHash($id, $newHash);
                 }
                 $this->pinGate()->writeAudit($db, 'user.update', $actor['id'], $actor['role_id'], 'user', $id, 'Mise à jour utilisateur', ['fields' => $changed]);

@@ -1942,8 +1942,16 @@ tbody td.mono {
     transform: none;
 }
 /* La tuile grisee reste atteignable au clavier (aria-disabled, pas disabled) : sans
-   anneau propre, le focus y devenait invisible (WCAG 2.4.7), constat du balayage. */
+   anneau propre, le focus y devenait invisible (WCAG 2.4.7), constat du balayage.
+   L'anneau herite de l'opacite du parent (`opacity` compose TOUT le rendu de
+   l'element, anneau compris, pas seulement son contenu) : a 0.55 (opacite de repos
+   de la tuile), son contraste mesure tombe a ~3,9:1 -- relevee lors du contre-audit
+   comme insuffisante pour un indicateur de focus (WCAG 1.4.11/2.4.7, cible >= 3:1
+   dans le pire cas de fond). On releve l'opacite au focus clavier (0.9, la tuile
+   redevient quasi pleine, contraste plein pour l'anneau) sans toucher l'opacite de
+   repos/hover (0.55, qui continue de signaler "indisponible" a la souris). */
 .pos-tile--unavailable:focus-visible {
+    opacity: 0.9;
     outline: 3px solid var(--color-text);
     outline-offset: 2px;
 }

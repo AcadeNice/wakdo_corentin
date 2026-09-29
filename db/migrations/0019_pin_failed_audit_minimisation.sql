@@ -6,25 +6,35 @@
 --           A chaque PIN d'action sensible echoue, les 7 points d'ecriture de
 --           `pin.failed` (PinGate::resolve() pour l'API JSON + les 6 controleurs
 --           HTML) tracaient l'adresse SAISIE en clair dans `summary`
---           ("... (email tenté: <adresse>)"). Ce champ texte libre echappe a la
---           retention (AUDIT_LOG_RETENTION_DAYS, 365 jours par defaut) comme a
---           l'effacement RGPD d'un compte (`UserRepository::anonymise()` ne
---           touche QUE la ligne `user`, jamais les lignes `audit_log` deja
---           ecrites) : une adresse tapee -- par erreur, ou lors d'une tentative
---           de brute-force -- y survivait indefiniment, y compris pour une
---           adresse qui ne correspond a AUCUN compte.
+--           ("... (email tenté: <adresse>)"). Ce champ texte libre N'echappe PAS
+--           a la retention -- `docker/cron/scripts/purge-audit-log.sh` supprime
+--           TOUTE ligne `audit_log` (donc `summary` avec) plus ancienne que
+--           AUDIT_LOG_RETENTION_DAYS (365 jours par defaut). Ce qu'il echappait
+--           reellement, c'est l'effacement RGPD D'UN COMPTE
+--           (`UserRepository::anonymise()` ne touche QUE la ligne `user`, jamais
+--           les lignes `audit_log` deja ecrites, corrige le 2026-09-29) : une
+--           adresse tapee -- par erreur, ou lors d'une tentative de brute-force --
+--           restait donc lisible jusqu'a la PROCHAINE purge de retention (jusqu'a
+--           365 jours), y compris pour une adresse qui ne correspond a AUCUN
+--           compte (l'effacement d'un compte n'aurait de toute facon rien pu y
+--           faire, cette adresse n'en designant aucun).
 --
 --           Le code applicatif est corrige (PinGate::auditFailedPin(), point
 --           d'ecriture desormais UNIQUE) : il n'ecrit plus l'adresse, seulement
 --           le CONTEXTE de l'action dans `summary` et, quand l'adresse
 --           correspondait a un compte existant, son identifiant dans
---           `details.target_user_id` (JSON). Cette migration nettoie les LIGNES
---           DEJA ECRITES par l'ancien code, sur une installation en service :
---           elle retire la partie "(email tenté: ...)" du `summary` des lignes
---           `pin.failed` qui la portent encore, sans y ecrire retroactivement
---           `target_user_id` (l'etat du compte au moment de la tentative n'est
---           plus observable avec certitude aujourd'hui -- on retire ce qui ne
---           doit plus etre la, on ne reconstruit pas une donnee qu'on n'a plus).
+--           `details.target_user_id` (JSON) -- un identifiant PERSONNEL au sens
+--           du RGPD (pseudonyme), mais de portee reduite (le compte vise, jamais
+--           l'adresse saisie) et soumis a la MEME retention de 365 jours que le
+--           reste de la ligne ; l'effacement RGPD d'un compte NE le retire PAS
+--           (meme limite que ci-dessus, verifiee contre le code actuel). Cette
+--           migration nettoie les LIGNES DEJA ECRITES par l'ancien code, sur une
+--           installation en service : elle retire la partie "(email tenté: ...)"
+--           du `summary` des lignes `pin.failed` qui la portent encore, sans y
+--           ecrire retroactivement `target_user_id` (l'etat du compte au moment
+--           de la tentative n'est plus observable avec certitude aujourd'hui --
+--           on retire ce qui ne doit plus etre la, on ne reconstruit pas une
+--           donnee qu'on n'a plus).
 --
 --           `auth.login_failed` (AuthService::recordFailure()) est verifie ne
 --           JAMAIS avoir ecrit l'adresse tentee (summary fixe "Échec de

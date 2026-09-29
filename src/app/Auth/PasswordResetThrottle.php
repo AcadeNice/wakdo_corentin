@@ -34,6 +34,22 @@ use App\Core\DatabaseInterface;
  * Reutilise la forme exacte de l'upsert atomique d'AuthService/PinThrottle
  * (increment cote SQL sous verrou de ligne, fenetre glissante reinitialisee en
  * SQL). $now est injecte pour des tests deterministes.
+ *
+ * MINIMISATION (RGPD art. 5.1.c, constat d'audit corrige le 2026-09-29) : la
+ * dimension EMAIL ne stocke plus l'adresse en clair dans `identifier`, mais
+ * l'empreinte SHA-256 de l'adresse normalisee (hashEmail()). Cette table n'a
+ * besoin que de COMPARER deux tentatives pour la MEME adresse (upsert par
+ * egalite exacte sur la cle unique) -- jamais de LIRE l'adresse elle-meme
+ * (aucun email n'est envoye depuis cette classe, PasswordResetService s'en
+ * charge separement, depuis l'adresse fournie par l'appelant, pas depuis cette
+ * table) : le hachage preserve l'egalite necessaire a l'upsert et au throttle
+ * SANS conserver l'adresse en clair, y compris pour une adresse tapee qui ne
+ * correspond a AUCUN compte (RG-2 anti-enumeration, meme table que la
+ * dimension IP -- la conversion des lignes deja ecrites vit dans la migration
+ * 0021). La dimension IP n'est PAS hachee : une adresse IP source n'est pas ce
+ * que l'audit a releve, et sa retention reste bornee par
+ * THROTTLE_PURGE_AFTER_HOURS (docker/cron/scripts/purge-throttle.sh) comme
+ * avant.
  */
 final class PasswordResetThrottle
 {
@@ -55,7 +71,7 @@ final class PasswordResetThrottle
     {
         $now ??= time();
 
-        return $this->isLocked(self::KIND_EMAIL, $this->normalizeEmail($email), 'password_reset_email', $now)
+        return $this->isLocked(self::KIND_EMAIL, $this->hashEmail($email), 'password_reset_email', $now)
             || $this->isLocked(self::KIND_IP, $ip, 'password_reset_ip', $now);
     }
 
@@ -68,9 +84,10 @@ final class PasswordResetThrottle
     public function recordAttempt(string $email, string $ip, ?int $now = null): void
     {
         $now ??= time();
+        $hashedEmail = $this->hashEmail($email);
 
-        $this->db->transaction(function (DatabaseInterface $db) use ($email, $ip, $now): void {
-            $this->increment($db, self::KIND_EMAIL, $this->normalizeEmail($email), 'password_reset_email', $now);
+        $this->db->transaction(function (DatabaseInterface $db) use ($hashedEmail, $ip, $now): void {
+            $this->increment($db, self::KIND_EMAIL, $hashedEmail, 'password_reset_email', $now);
             $this->increment($db, self::KIND_IP, $ip, 'password_reset_ip', $now);
         });
     }
@@ -142,5 +159,18 @@ final class PasswordResetThrottle
     private function normalizeEmail(string $email): string
     {
         return strtolower(trim($email));
+    }
+
+    /**
+     * Empreinte SHA-256 (64 caracteres hexadecimaux, tient dans le VARCHAR(254)
+     * existant) de l'adresse NORMALISEE -- deux adresses qui partageaient deja
+     * le meme compteur en clair (casse/espaces differents) continuent de
+     * partager la meme empreinte. Fonction a sens unique : cette classe n'a
+     * jamais besoin de retrouver l'adresse depuis la table, seulement de
+     * comparer deux tentatives entre elles (upsert par egalite exacte).
+     */
+    private function hashEmail(string $email): string
+    {
+        return hash('sha256', $this->normalizeEmail($email));
     }
 }

@@ -111,10 +111,25 @@ final class UserRepository
         );
     }
 
-    /** Re-hachage du mot de passe par un admin (mlt 10.2 RG-1, reset cote admin). */
+    /**
+     * Re-hachage du mot de passe par un admin (mlt 10.2 RG-1, reset cote admin).
+     *
+     * Ferme les sessions deja ouvertes du compte (RG-T02, migration 0020) :
+     * `session_epoch` est incremente dans le MEME UPDATE que le nouveau hash --
+     * constat d'audit corrige le 2026-09-29 (avant ce correctif, seule
+     * PasswordResetService::confirmReset() (self-service) le faisait ; un
+     * changement de mot de passe FAIT PAR UN ADMIN, depuis UserController ou
+     * Admin\Api\UserApiController, laissait une session deja ouverte -- volee
+     * ou partagee -- valide malgre le nouveau mot de passe). SessionGuard::check()
+     * relit `session_epoch` en base a chaque requete et rejette toute session
+     * posee a une valeur anterieure.
+     */
     public function setPasswordHash(int $id, string $hash): int
     {
-        return $this->db->execute('UPDATE user SET password_hash = :hash WHERE id = :id', ['hash' => $hash, 'id' => $id]);
+        return $this->db->execute(
+            'UPDATE user SET password_hash = :hash, session_epoch = session_epoch + 1 WHERE id = :id',
+            ['hash' => $hash, 'id' => $id],
+        );
     }
 
     /**

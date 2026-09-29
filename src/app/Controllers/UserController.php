@@ -199,6 +199,9 @@ class UserController extends AdminController
                     'is_active'  => $isActive,
                 ]);
                 if ($newHash !== null) {
+                    // setPasswordHash() incremente aussi session_epoch (RG-T02) dans le
+                    // meme UPDATE : un changement de mot de passe fait par un admin ferme
+                    // desormais les sessions deja ouvertes du compte cible.
                     $repo->setPasswordHash($id, $newHash);
                 }
                 $this->writeAudit($db, 'user.update', $actor['id'], $actor['role_id'], $id, 'Mise à jour utilisateur', ['fields' => $changed]);

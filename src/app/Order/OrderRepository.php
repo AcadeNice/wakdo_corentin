@@ -38,9 +38,10 @@ class OrderRepository
      * session) pouvait porter une quantite de 65535 sur une seule ligne, vider le stock
      * d'un ingredient en deux requetes (creation + /pay), et au-dela de 65535 declencher
      * une erreur SQL (order_item.quantity est un SMALLINT UNSIGNED) remontee en 500. La
-     * borne haute retenue est celle d'une commande de fast-food credible ; elle empeche
-     * aussi le deni de service sur le catalogue (RG-T21 retire un produit de la borne
-     * pour TOUS les clients des que son stock tombe sous la bande critique).
+     * borne haute retenue est celle d'une commande de fast-food credible. Attenue (pas
+     * empeche) le deni de service sur le catalogue : elle borne ce qu'UNE commande peut
+     * consommer, pas le nombre de commandes SUCCESSIVES depuis la meme source (voir le
+     * registre des risques, docs/PROJECT_CONTEXT.md section 19.2, R10).
      */
     private const MIN_QUANTITY = 1;
     private const MAX_QUANTITY_PER_LINE = 20;
@@ -316,7 +317,11 @@ class OrderRepository
         // RG-T09 / RG-2 (4.1) : la contrainte croisee drive est verifiee AVANT l'INSERT.
         // service_mode est valide par persist() (in [dine_in, takeaway, drive]) ; on
         // n'ajoute ici que le resserrement specifique au canal drive.
-        if ($source === 'drive' && (string) ($req['service_mode'] ?? '') !== 'drive') {
+        // is_string(...) plutot que (string) (...) : un service_mode envoye en tableau
+        // declenchait un avertissement PHP ("Array to string conversion") avant de toute
+        // facon echouer plus bas -- meme motif que resolveLine()/$type ci-dessous.
+        $rawServiceMode = $req['service_mode'] ?? null;
+        if ($source === 'drive' && (!is_string($rawServiceMode) || $rawServiceMode !== 'drive')) {
             throw new OrderValidationException('INVALID_SERVICE_MODE');
         }
 
@@ -461,11 +466,23 @@ class OrderRepository
      */
     private function resolveHeader(array $req): array
     {
-        $serviceMode = (string) ($req['service_mode'] ?? '');
+        // is_string(...) plutot que (string) (...) sur service_mode ET service_tag :
+        // un tableau caste en chaine ("service_tag" => ["x"]) declenchait un
+        // avertissement PHP ("Array to string conversion") ET produisait la valeur
+        // litterale "Array" -- silencieusement persistee en base pour service_tag
+        // (un tableau reussissait la limite de longueur, 5 caracteres). Un type non
+        // chaine est desormais refuse explicitement (memes codes qu'avant, aucun
+        // nouveau code introduit).
+        $rawServiceMode = $req['service_mode'] ?? null;
+        $serviceMode = is_string($rawServiceMode) ? $rawServiceMode : '';
         if (!in_array($serviceMode, ['dine_in', 'takeaway', 'drive'], true)) {
             throw new OrderValidationException('INVALID_SERVICE_MODE');
         }
-        $serviceTag = $serviceMode === 'dine_in' ? trim((string) ($req['service_tag'] ?? '')) : '';
+        $rawServiceTag = $req['service_tag'] ?? null;
+        if ($rawServiceTag !== null && !is_string($rawServiceTag)) {
+            throw new OrderValidationException('INVALID_SERVICE_TAG');
+        }
+        $serviceTag = $serviceMode === 'dine_in' ? trim((string) ($rawServiceTag ?? '')) : '';
         if ($serviceTag !== '' && mb_strlen($serviceTag) > 20) {
             throw new OrderValidationException('INVALID_SERVICE_TAG');
         }

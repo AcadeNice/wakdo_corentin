@@ -79,18 +79,34 @@ final class PinGate
      * ProductController) et par `resolve()` ci-dessus (API JSON) : les 7 endroits
      * qui tracaient auparavant `(email tenté: ...)` en clair passent tous par ici.
      *
-     * Pourquoi ce changement : `summary` est un texte libre. Il echappe a la
-     * retention (AUDIT_LOG_RETENTION_DAYS, 365 jours par defaut) comme a
-     * l'effacement RGPD d'un compte (`UserRepository::anonymise()` ne touche QUE
-     * la ligne `user`, jamais les lignes `audit_log` deja ecrites) : une adresse
-     * tapee -- par erreur, ou lors d'une tentative de brute-force -- y survivait
-     * donc indefiniment, y compris pour un email qui ne correspond a AUCUN
-     * compte. On ne garde plus que ce qui sert reellement au signal de securite
-     * (le CONTEXTE de l'action, et l'identifiant STABLE du compte quand l'adresse
-     * en designe un) : `entity_id`/l'id d'un compte existant ne sont pas des
-     * donnees personnelles portees par CETTE ligne (ce sont des cles etrangeres
-     * logiques vers des lignes qui, elles, restent soumises a l'effacement/
-     * l'anonymisation independamment) -- jamais l'adresse elle-meme.
+     * Pourquoi ce changement : `summary` est un texte libre. Corrige le
+     * 2026-09-29 (contre-audit) : cette ligne d'audit N'echappe PAS a la
+     * retention -- `docker/cron/scripts/purge-audit-log.sh` supprime TOUTE ligne
+     * `audit_log` (donc `summary` avec) plus ancienne que
+     * AUDIT_LOG_RETENTION_DAYS (365 jours par defaut), sans distinction de
+     * contenu. Ce qu'elle echappait reellement -- et la vraie raison de ce
+     * correctif -- c'est l'effacement RGPD D'UN COMPTE : `UserRepository::
+     * anonymise()` ne touche QUE la ligne `user`, jamais les lignes `audit_log`
+     * deja ecrites. Avant ce correctif, une adresse tapee -- par erreur, ou lors
+     * d'une tentative de brute-force -- restait donc lisible ici jusqu'a la
+     * PROCHAINE purge de retention (jusqu'a 365 jours), y compris pour une
+     * adresse qui ne correspond a AUCUN compte (l'effacement d'un compte
+     * n'aurait de toute facon rien pu y faire, cette adresse n'en designant
+     * aucun). Minimisation (RGPD art. 5.1.c) : on ne garde plus que ce qui sert
+     * reellement au signal de securite (le CONTEXTE de l'action, et
+     * l'identifiant STABLE du compte quand l'adresse en designe un), jamais
+     * l'adresse elle-meme.
+     *
+     * `target_user_id` (dans `details`) ET `entity_id` (quand `entity_type` vaut
+     * 'user') SONT des donnees personnelles -- un identifiant interne qui
+     * designe une personne physique reste un identifiant pseudonyme au sens du
+     * RGPD, meme sans email attache -- mais d'une portee volontairement REDUITE :
+     * limites au SEUL compte vise (jamais l'adresse saisie), et soumis a la MEME
+     * retention de 365 jours que le reste de la ligne. Verifie contre le code
+     * actuel, pas suppose : l'effacement RGPD d'un compte (`UserRepository::
+     * anonymise()`) ne touche PAS ces lignes -- il ne vide QUE `user`, jamais
+     * `audit_log` -- donc `target_user_id`/`entity_id` d'un compte anonymise
+     * restent lisibles ici jusqu'a la purge de retention.
      */
     public static function auditFailedPin(
         DatabaseInterface $db,

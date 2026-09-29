@@ -110,11 +110,17 @@ final class PasswordResetThrottleTest extends TestCase
         // FakeDatabase route par 'kind' (pas par l'identifiant precis), donc ce
         // test verifie que la lecture ARRIVE bien (kind = email), pas la valeur
         // exacte lue -- la normalisation elle-meme est verifiee par l'ecriture
-        // ci-dessous (testRecordAttemptNormalizesEmailIdentifier).
+        // ci-dessous (testRecordAttemptNormalizesEmailIdentifierBeforeHashing).
         self::assertTrue($this->throttle()->isBlocked(' Manager@Wakdo.Local ', '203.0.113.1', 1_000_000));
     }
 
-    public function testRecordAttemptNormalizesEmailIdentifier(): void
+    /**
+     * Minimisation (RGPD art. 5.1.c) : l'identifiant ecrit pour la dimension
+     * email n'est plus l'adresse en clair mais son empreinte SHA-256, calculee
+     * sur l'adresse NORMALISEE (casse/espaces) -- deux ecritures de la meme
+     * adresse sous des formes differentes partagent donc la meme empreinte.
+     */
+    public function testRecordAttemptNormalizesEmailIdentifierBeforeHashing(): void
     {
         $this->throttle()->recordAttempt(' Manager@Wakdo.Local ', '203.0.113.1', 1_000_000);
 
@@ -126,7 +132,23 @@ final class PasswordResetThrottleTest extends TestCase
             }
         }
         self::assertNotNull($emailUpsert);
-        self::assertSame('manager@wakdo.local', $emailUpsert['params']['id'] ?? null);
+        $expectedHash = hash('sha256', 'manager@wakdo.local');
+        self::assertSame($expectedHash, $emailUpsert['params']['id'] ?? null);
+        self::assertMatchesRegularExpression('/^[0-9a-f]{64}$/', (string) ($emailUpsert['params']['id'] ?? ''));
+        self::assertStringNotContainsStringIgnoringCase('wakdo.local', (string) ($emailUpsert['params']['id'] ?? ''));
+    }
+
+    public function testDifferentEmailCasingHashesToTheSameIdentifier(): void
+    {
+        $this->throttle()->recordAttempt('Manager@Wakdo.Local', '203.0.113.1', 1_000_000);
+        $this->throttle()->recordAttempt(' manager@wakdo.local ', '203.0.113.1', 1_000_000);
+
+        $upserts = array_values(array_filter(
+            $this->findAll('INSERT INTO password_reset_throttle'),
+            static fn (array $w): bool => ($w['params']['kind'] ?? null) === 'email',
+        ));
+        self::assertCount(2, $upserts);
+        self::assertSame($upserts[0]['params']['id'], $upserts[1]['params']['id']);
     }
 
     public function testRecordAttemptWritesBothDimensionsInOneTransaction(): void
