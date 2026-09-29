@@ -1,0 +1,26 @@
+meta {
+  name: Rebasculer visible (toggle) -- pour que la suppression prouve son propre effet
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/admin/api/categories/{{created_category_id}}/toggle
+}
+
+headers {
+  Content-Type: application/json
+  X-CSRF-Token: {{csrf}}
+}
+
+docs {
+Deuxieme bascule : masque -> actif. Sans elle, le DELETE ci-dessous ne ferait que confirmer un etat DEJA masque par la bascule precedente (setActive() idempotent, sans changement reel), et la relecture finale ne prouverait rien de specifique au DELETE lui-meme (releve du contre-audit du 29/09, constat 5). Avec cette deuxieme bascule, la categorie est de nouveau active juste avant le DELETE.
+}
+
+tests {
+  const body = res.getBody();
+  test('200, is_active=true (bascule 2/2)', function () {
+      expect(res.getStatus()).to.equal(200);
+      expect(body.data.is_active).to.equal(true);
+  });
+}

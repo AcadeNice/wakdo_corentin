@@ -13,7 +13,8 @@
  * la premiere version de ce garde-fou (qui ne verifiait que les cles
  * correspondant a un motif connu a l'avance).
  *
- * Cinq surfaces verifiees :
+ * Sept surfaces verifiees (les deux dernieres ajoutees au contre-audit du
+ * 29/09, constat 8) :
  *   1. `docs/api/bruno/environments/*.bru` (bloc(s) `vars { ... }` -- TOUS les
  *      blocs de ce nom dans le fichier, pas seulement le premier) ;
  *   2. `docs/api/wakdo.postman_environment.json` (`values[]`) ;
@@ -29,7 +30,17 @@
  *   5. Les blocs declaratifs `vars:pre-request { ... }` / `vars:post-response
  *      { ... }`, dans N'IMPORTE QUEL fichier `.bru` (environnement ou
  *      requete) -- une syntaxe Bruno alternative a un script JS pour poser une
- *      variable, invisible du bloc `vars { ... }` ordinaire si elle existe.
+ *      variable, invisible du bloc `vars { ... }` ordinaire si elle existe ;
+ *   6. `baseUrl`, dans les DEUX fichiers d'environnement commis, pointe vers
+ *      une adresse LOCALE (`localhost`, `*.localhost` ou `*.test`) -- jamais un
+ *      hote de production ou un domaine tiers. `baseUrl` est la seule cle de la
+ *      liste blanche autorisee a porter une valeur non vide (point 1 plus haut) ;
+ *      cette regle verifie que cette valeur reste elle-meme sans danger, pas
+ *      seulement qu'elle est presente ;
+ *   7. Le corps de chaque requete `wakdo-admin.postman_collection.json` (JSON
+ *      DEJA parse, mode `raw`), a n'importe quelle profondeur d'imbrication :
+ *      meme regle que le point 4 mais cote Postman -- aucun champ
+ *      `password*`/`pin*` en litteral fixe.
  *
  * Rappel structurel (pourquoi ce garde-fou existe) : `bru run` PERSISTE sur
  * disque toute variable posee par un script via `bru.setEnvVar()` -- meme une
@@ -64,6 +75,22 @@ function isAllowedEnvValue(key, value) {
     }
 
     return value === '';
+}
+
+/**
+ * `baseUrl` local uniquement (point 6 de l'en-tete) : `localhost`, un
+ * sous-domaine de `localhost` (`admin.localhost`, cf. .env.example
+ * APP_HOST_ADMIN), ou un domaine `*.test` (TLD reserve aux tests, RFC 2606) --
+ * avec ou sans port explicite, en http ou https. Rejette toute autre valeur
+ * (IP publique, domaine de production, domaine tiers) : cette collection est
+ * une demo REJOUABLE qui cree/modifie/supprime des ressources reelles (voir la
+ * section "Effets de bord" de docs/api/demo-api.md), jamais a pointer sur une
+ * base qui n'est pas jetable.
+ */
+const LOCAL_BASE_URL_RE = /^https?:\/\/([a-z0-9-]+\.)*(localhost|test)(:\d+)?\/?$/i;
+
+function isLocalBaseUrl(value) {
+    return LOCAL_BASE_URL_RE.test(value);
 }
 
 function assertAllowListed(entries, sourceLabel) {
@@ -236,6 +263,35 @@ function collectPostmanVariableArrays(node, pathLabel, out) {
     }
 }
 
+/**
+ * Parcourt recursivement l'arbre `item` d'une collection Postman et rassemble
+ * le corps JSON (mode `raw`) de chaque requete feuille, deja PARSE (le motif
+ * de secret cote Postman, contrairement au `.bru` -- point 7 de l'en-tete).
+ * `request.body.raw` porte des references `{{run}}` etc. que `JSON.parse` ne
+ * comprend pas nativement, mais elles restent a l'INTERIEUR d'une chaine JSON
+ * valide (`"Demo {{run}}"`) : le parse reussit tel quel, aucune substitution
+ * n'est necessaire pour ce garde-fou (on cherche un litteral FIXE, une chaine
+ * SANS aucune reference `{{...}}` dedans, cf. collectSecretLikeJsonFields).
+ */
+function collectPostmanRequestBodies(node, pathLabel, out) {
+    if (node.request && node.request.body && node.request.body.mode === 'raw' && typeof node.request.body.raw === 'string') {
+        try {
+            const parsed = JSON.parse(node.request.body.raw);
+            if (typeof parsed === 'object' && parsed !== null) {
+                out.push({ label: pathLabel, body: parsed });
+            }
+        } catch {
+            // Corps non-JSON (aucun a ce jour dans cette collection) : hors perimetre.
+        }
+    }
+
+    if (Array.isArray(node.item)) {
+        for (const child of node.item) {
+            collectPostmanRequestBodies(child, `${pathLabel} > ${child.name ?? '?'}`, out);
+        }
+    }
+}
+
 test("aucun fichier environments/*.bru de la collection Bruno ne committe une valeur hors liste blanche", () => {
     const bruDir = path.join(ROOT, 'docs', 'api', 'bruno');
     const files = findBruEnvironmentFiles(bruDir);
@@ -330,4 +386,65 @@ test('aucun bloc declaratif vars:pre-request / vars:post-response, dans un fichi
             path.relative(ROOT, file),
         );
     }
+});
+
+test("baseUrl de l'environnement Postman pointe vers une adresse locale (localhost / *.localhost / *.test)", () => {
+    const file = path.join(ROOT, 'docs', 'api', 'wakdo.postman_environment.json');
+    const env = JSON.parse(fs.readFileSync(file, 'utf8'));
+    const entry = (env.values ?? []).find((v) => v.key === 'baseUrl');
+    assert.ok(entry, `${path.relative(ROOT, file)} : aucune cle 'baseUrl' trouvee`);
+    assert.ok(
+        isLocalBaseUrl(String(entry.value ?? '')),
+        `${path.relative(ROOT, file)} : baseUrl='${entry.value}' ne pointe pas vers une adresse locale ` +
+        "(localhost, *.localhost ou *.test) -- cette collection cree/modifie/supprime des ressources " +
+        'reelles (section "Effets de bord" de docs/api/demo-api.md), jamais a pointer sur une base non jetable',
+    );
+});
+
+test("baseUrl de l'environnement Bruno pointe vers une adresse locale (localhost / *.localhost / *.test)", () => {
+    const bruDir = path.join(ROOT, 'docs', 'api', 'bruno');
+    const files = findBruEnvironmentFiles(bruDir);
+    assert.ok(files.length > 0, `aucun fichier environments/*.bru trouve sous ${bruDir} -- ce garde-fou ne verifie plus rien, corriger le chemin`);
+
+    for (const file of files) {
+        const vars = parseBruVars(fs.readFileSync(file, 'utf8'));
+        assert.ok(
+            Object.prototype.hasOwnProperty.call(vars, 'baseUrl'),
+            `${path.relative(ROOT, file)} : aucune cle 'baseUrl' trouvee`,
+        );
+        assert.ok(
+            isLocalBaseUrl(vars.baseUrl),
+            `${path.relative(ROOT, file)} : baseUrl='${vars.baseUrl}' ne pointe pas vers une adresse locale ` +
+            '(localhost, *.localhost ou *.test) -- meme regle que pour docs/api/wakdo.postman_environment.json',
+        );
+    }
+});
+
+test('aucun corps de requete Postman (JSON brut, a quelque profondeur que ce soit) ne committe un mot de passe ou un PIN en litteral fixe', () => {
+    const file = path.join(ROOT, 'docs', 'api', 'wakdo-admin.postman_collection.json');
+    const collection = JSON.parse(fs.readFileSync(file, 'utf8'));
+
+    const bodies = [];
+    collectPostmanRequestBodies(collection, path.relative(ROOT, file), bodies);
+    assert.ok(bodies.length > 0, `${path.relative(ROOT, file)} : aucun corps de requete JSON trouve -- ce garde-fou ne verifie plus rien, corriger le chemin`);
+
+    let checked = 0;
+    for (const { label, body } of bodies) {
+        const found = [];
+        collectSecretLikeJsonFields(body, [], found);
+
+        for (const { fieldPath, value } of found) {
+            checked += 1;
+            const str = String(value ?? '');
+            const safe = str === '' || ANY_TEMPLATE_REF_RE.test(str);
+            assert.ok(
+                safe,
+                `${label} : le champ '${fieldPath}' du corps de requete porte le litteral fixe '${str}' -- ` +
+                "aucune reference '{{...}}' dedans (ex. '{{run}}' pour varier a chaque execution) : remplacer " +
+                'par une valeur templatee, jamais une constante qui ressemble a un identifiant reel',
+            );
+        }
+    }
+
+    assert.ok(checked > 0, `aucun champ password*/pin* trouve dans un corps de requete sous ${path.relative(ROOT, file)} -- ce garde-fou ne verifie plus rien, corriger le motif ou le chemin`);
 });

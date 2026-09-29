@@ -14,5 +14,13 @@ headers {
 }
 
 docs {
-Bascule dans les DEUX sens (contrairement a DELETE qui ne masque que).
+Bascule dans les DEUX sens (contrairement a DELETE qui ne masque que). Premiere bascule : actif (creation) -> masque.
+}
+
+tests {
+  const body = res.getBody();
+  test('200, is_active=false (bascule 1/2)', function () {
+      expect(res.getStatus()).to.equal(200);
+      expect(body.data.is_active).to.equal(false);
+  });
 }

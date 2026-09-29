@@ -18,3 +18,7 @@ script:post-response {
       bru.setEnvVar('examplePermissionId', body.data.permission_ids[0]);
   }
 }
+
+tests {
+  test('200 OK', function () { expect(res.getStatus()).to.equal(200); });
+}

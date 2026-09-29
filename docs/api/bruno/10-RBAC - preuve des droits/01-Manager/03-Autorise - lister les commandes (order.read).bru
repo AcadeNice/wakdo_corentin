@@ -13,5 +13,5 @@ ADR-0020 (docs/adr/0020-responsable-annule-commande.md, remplace la decision D5 
 }
 
 tests {
-  expect(res.getStatus()).to.equal(200);
+  test('200 order.read accorde', function () { expect(res.getStatus()).to.equal(200); });
 }

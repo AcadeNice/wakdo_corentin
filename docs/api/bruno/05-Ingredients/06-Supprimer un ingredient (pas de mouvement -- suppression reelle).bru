@@ -16,3 +16,7 @@ headers {
 docs {
 AUCUN mouvement de stock sur celui-ci (pas de restock/inventaire/ajustement) : suppression DURE reussie. Etat terminal de ce dossier pour cet ingredient.
 }
+
+tests {
+  test('200 OK', function () { expect(res.getStatus()).to.equal(200); });
+}

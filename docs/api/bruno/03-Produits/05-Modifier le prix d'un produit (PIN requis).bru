@@ -29,3 +29,7 @@ body {
 docs {
 Changer price_cents ou vat_rate est une action sensible (RG-T13) : pin_email + pin obligatoires (modele identifiant equipier + PIN). Definissez d'abord un PIN sur le compte via /admin/profile/pin (cf. docs/api/demo-api.md).
 }
+
+tests {
+  test('200 OK', function () { expect(res.getStatus()).to.equal(200); });
+}

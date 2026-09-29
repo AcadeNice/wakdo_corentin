@@ -23,3 +23,7 @@ body {
 docs {
 409 CONFLICT si le produit est encore reference (commande, menu). La recette part en CASCADE (ADR-0017), donc PAS un blocage ici. Suppression DURE (contrairement aux categories) : etat terminal de ce dossier pour CETTE ressource (suppression dure reelle).
 }
+
+tests {
+  test('200 OK', function () { expect(res.getStatus()).to.equal(200); });
+}

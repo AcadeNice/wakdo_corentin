@@ -31,3 +31,7 @@ body {
 docs {
 ingredient.manage, pas de PIN. Composition vide autorisee (purge la recette). ingredient_id=1 ("Pain burger") : catalogue d'ingredients FIGE au seed (jamais cree/supprime par cette collection), pas un id de ressource creee ici.
 }
+
+tests {
+  test('200 OK', function () { expect(res.getStatus()).to.equal(200); });
+}

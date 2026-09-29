@@ -5,17 +5,21 @@ meta {
 }
 
 get {
-  url: {{baseUrl}}/admin/api/products
+  url: {{baseUrl}}/api/products
 }
 
 docs {
-Capture orderProductId (premier produit disponible) : ce dossier ne depend pas du dossier Produits (dont la ressource creee est deja supprimee a ce stade).
+Capture orderProductId (premier produit is_orderable) : /admin/api/products (utilise jusqu'ici) n'expose PAS is_orderable -- seulement is_available, un flag manuel qui n'exclut pas une rupture CALCULEE (RG-T21, stock insuffisant sur un ingredient non retirable), auquel cas OrderRepository::resolveLine refuse la ligne a la creation de commande. /api/products (lecture catalogue PUBLIQUE, anonyme, meme routeur -- docs/api/conventions.md section 5.2) calcule is_orderable et c'est ce champ qui garantit un produit reellement commandable. Ce dossier ne depend pas du dossier Produits (dont la ressource creee est deja supprimee a ce stade).
 }
 
 script:post-response {
   const body = res.getBody();
   if (body && body.data) {
-      var avail = body.data.find(function (p) { return p.is_available; });
-      if (avail) { bru.setEnvVar('orderProductId', avail.id); }
+      var orderable = body.data.find(function (p) { return p.is_orderable; });
+      if (orderable) { bru.setEnvVar('orderProductId', orderable.id); }
   }
+}
+
+tests {
+  test('200 OK', function () { expect(res.getStatus()).to.equal(200); });
 }

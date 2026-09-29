@@ -60,11 +60,30 @@ def json_content_type():
     return {"key": "Content-Type", "value": "application/json", "type": "text"}
 
 def url(path):
-    return {
+    # Chemin ET chaine de requete SEPARES (schema Postman v2.1) : une URL comme
+    # "/admin/api/products/import?dry_run=1" decoupee sur "/" SANS retirer sa
+    # chaine de requete produirait un dernier segment "import?dry_run=1" -- Postman/
+    # Newman reconstruisent l'URL envoyee depuis path+query (pas depuis 'raw' seul),
+    # ce "?" finirait donc URL-encode a l'interieur d'un segment de chemin au lieu
+    # d'introduire une vraie chaine de requete (bloquant probable, releve au
+    # contre-audit du 29/09). 'raw' reste INCHANGE (chaine complete, y compris "?...")
+    # : c'est le seul champ que lit tests/e2e/health-capture.spec.js (new URL(...).
+    # pathname), donc ce correctif ne le concerne pas.
+    path_part, sep, query_part = path.partition("?")
+    result = {
         "raw": BASE + path,
         "host": [BASE],
-        "path": [p for p in path.split("/") if p != ""],
+        "path": [p for p in path_part.split("/") if p != ""],
     }
+    if sep:
+        query = []
+        for pair in query_part.split("&"):
+            if pair == "":
+                continue
+            key, _, value = pair.partition("=")
+            query.append({"key": key, "value": value})
+        result["query"] = query
+    return result
 
 def body(obj):
     return {
@@ -72,6 +91,55 @@ def body(obj):
         "raw": json.dumps(obj, ensure_ascii=False, indent=2),
         "options": {"raw": {"language": "json"}},
     }
+
+# --- Environnement (Postman + Bruno) : SOURCE UNIQUE ------------------------
+# Contre-audit du 29/09 (constat 2) : gen_bruno.py codait un DEUXIEME jeu de
+# cles/valeurs en dur (baseUrl notamment, reste sur "http://localhost:8080" alors
+# que le fichier .bru COMMIS avait ete corrige a la main en
+# "http://admin.localhost:8080", seule valeur qui correspond au vhost admin --
+# .env.example APP_HOST_ADMIN) -- deux sources qui pouvaient diverger sans qu'aucun
+# generateur ne le releve. gen_bruno.py IMPORTE desormais cette liste plutot que
+# d'en maintenir une deuxieme copie ; docs/api/wakdo.postman_environment.json,
+# jusqu'ici maintenu a la main (aucun script ne l'ecrivait), est lui aussi
+# desormais genere d'ici (write_postman_environment(), plus bas).
+#
+# Chaque tuple : (cle, valeur par defaut committee, secret?). Une cle secrete
+# n'est JAMAIS committee avec une valeur (fournie a l'usage par --env-var, section
+# 6 de docs/api/demo-api.md) : Postman la type "secret" (masquee a l'affichage,
+# valeur vide ici) ; Bruno la liste UNIQUEMENT dans vars:secret[] (format officiel,
+# docs.usebruno.com/variables/environment-variables), jamais aussi dans vars{}
+# (doublon corrige par ce meme chantier, constat 3 -- une valeur secrete Bruno se
+# fournit par --env-var, pas par une entree vide dupliquee dans vars{}).
+#
+# categoryId/productId/menuId/ingredientId/userId/roleId/orderNumber (presentes
+# dans une version anterieure des deux fichiers d'environnement) sont ABSENTES
+# ICI : aucune requete de ce generateur ne les lit ni ne les ecrit (verifie par
+# recherche sur ce fichier) -- variables mortes, retirees par ce meme chantier
+# (constat 4). Les variables reellement utilisees (created_category_id,
+# burgersCategoryId, run, ...) restent volontairement HORS de cette liste : elles
+# sont posees dynamiquement par les scripts de test au fil de l'execution
+# (Postman/Bruno creent une variable d'environnement des le premier
+# set/setEnvVar, sans declaration prealable requise), jamais committees.
+ENV_VARS = [
+    ("baseUrl", "http://admin.localhost:8080", False),
+    ("email", "", False),
+    ("password", "", True),
+    ("csrf", "", True),
+    ("pin_email", "{{email}}", False),
+    ("pin", "", True),
+    ("email_manager", "", False),
+    ("password_manager", "", True),
+    ("csrf_manager", "", True),
+    ("email_cuisine", "", False),
+    ("password_cuisine", "", True),
+    ("csrf_cuisine", "", True),
+    ("email_comptoir", "", False),
+    ("password_comptoir", "", True),
+    ("csrf_comptoir", "", True),
+    ("email_drive", "", False),
+    ("password_drive", "", True),
+    ("csrf_drive", "", True),
+]
 
 # Registre des scripts Bruno ECRITS A LA MAIN (motif trop specifique pour la
 # traduction generique par expression reguliere de gen_bruno.py -- recherche
@@ -164,7 +232,7 @@ LOGIN_BRUNO_SCRIPT = [
     "bru.setEnvVar('run', Date.now().toString(36));",
     "if (body && body.data && body.data.csrf_token) { bru.setEnvVar('csrf', body.data.csrf_token); }",
 ]
-LOGIN_BRUNO_TESTS = ["expect(res.getStatus()).to.equal(200);"]
+LOGIN_BRUNO_TESTS = ["test('200 OK', function () { expect(res.getStatus()).to.equal(200); });"]
 
 def id_capture(varname):
     return [
@@ -176,6 +244,15 @@ def id_capture(varname):
 
 def expect_status(status, label):
     return [f"pm.test('{label}', function () {{ pm.response.to.have.status({status}); }});"]
+
+def status_test_bru(status, label):
+    """Equivalent Bruno d'expect_status() : a utiliser explicitement partout ou une
+    requete porte deja un bruno_script/bruno_tests SUR MESURE (motif de recherche,
+    cf. make_dual()) -- ces requetes sont enregistrees dans BRUNO_OVERRIDES et ne
+    beneficient donc PAS de la traduction generique par expression reguliere de
+    gen_bruno.py (qui, elle, reconnait automatiquement le motif pm.test(...) ecrit
+    par expect_status()/created_test() et le retraduit en test(...) Bruno)."""
+    return [f"test('{label}', function () {{ expect(res.getStatus()).to.equal({status}); }});"]
 
 def created_test(status, varname):
     """201 Created + capture de l'id cree -- motif le plus courant des dossiers
@@ -208,16 +285,41 @@ if (body && body.data) {
 }"""
 PRODUCT_LOOKUP_PM, PRODUCT_LOOKUP_BRU = make_dual(PRODUCT_LOOKUP_TEMPLATE)
 
+# is_orderable (pas is_available) : contre-audit du 29/09, constat 6. GET
+# /admin/api/products (ProductApiController::present()) n'expose QUE is_available
+# (flag manuel, retrait a la main) -- un produit is_available=1 peut malgre tout
+# etre EN RUPTURE CALCULEE (RG-T21 : stock insuffisant sur un ingredient non
+# retirable de sa recette), auquel cas OrderRepository::resolveLine refuse la
+# ligne de commande a la creation. is_orderable (is_available ET pas de rupture
+# calculee) n'existe que sur la lecture catalogue PUBLIQUE, ANONYME,
+# /api/products (CatalogueController::presentProduct(), meme routeur -- table des
+# routes du vhost admin, docs/api/conventions.md section 5.2) : c'est ELLE qu'on
+# interroge ici, pas /admin/api/products, precisement pour choisir un produit
+# reellement commandable.
 ORDER_PRODUCT_LOOKUP_TEMPLATE = """const body = __BODY__;
 if (body && body.data) {
-    var avail = body.data.find(function (p) { return p.is_available; });
-    if (avail) { __SET__('orderProductId', avail.id); }
+    var orderable = body.data.find(function (p) { return p.is_orderable; });
+    if (orderable) { __SET__('orderProductId', orderable.id); }
 }"""
 ORDER_PRODUCT_LOOKUP_PM, ORDER_PRODUCT_LOOKUP_BRU = make_dual(ORDER_PRODUCT_LOOKUP_TEMPLATE)
 
+# Role NON-ADMIN de preference (contre-audit du 29/09, constat 6) : GET
+# /admin/api/roles renvoie les roles ORDER BY id (RoleRepository::allRoles()), et
+# 'admin' est le premier role insere par le seed (db/seeds/0001_rbac_and_reference.sql)
+# -- body.data[0] etait donc TOUJOURS le role admin, si bien que chaque execution
+# de la collection creait un compte "equipier" temporaire cumulant les 23
+# permissions admin. UserController::validate() n'exige qu'un role EXISTANT et
+# ACTIF ("n'importe quel role actif convient", cf. commentaire du dossier
+# Utilisateurs plus bas) : aucune permission particuliere n'est requise pour le
+# parcours demontre ici, donc un role non-admin (en pratique 'manager', premier
+# role non-admin du seed) remplit le meme role sans le meme risque. Repli sur le
+# premier role si, par hypothese degenerative, aucun role non-admin actif
+# n'existe (jamais le cas sur le seed livre).
 ROLE_LIST_LOOKUP_TEMPLATE = """const body = __BODY__;
 if (body && body.data && body.data.length > 0) {
-    __SET__('firstRoleId', body.data[0].id);
+    var nonAdmin = body.data.find(function (r) { return r.code !== 'admin' && r.is_active; });
+    var chosen = nonAdmin || body.data[0];
+    __SET__('firstRoleId', chosen.id);
 }"""
 ROLE_LIST_LOOKUP_PM, ROLE_LIST_LOOKUP_BRU = make_dual(ROLE_LIST_LOOKUP_TEMPLATE)
 
@@ -249,8 +351,10 @@ def status_and_active_dual(status, expected_active, label):
     ]
     bru_lines = [
         "const body = res.getBody();",
-        f"expect(res.getStatus()).to.equal({status});",
-        f"expect(body.data.is_active).to.equal({js_bool});",
+        f"test('{label}', function () {{",
+        f"    expect(res.getStatus()).to.equal({status});",
+        f"    expect(body.data.is_active).to.equal({js_bool});",
+        "});",
     ]
     return pm_lines, bru_lines
 
@@ -270,15 +374,17 @@ def validation_error_field_dual(field, label):
     ]
     bru_lines = [
         "const body = res.getBody();",
-        "expect(res.getStatus()).to.equal(422);",
-        "expect(body.error.code).to.equal('VALIDATION_ERROR');",
-        f"expect(body.error.fields).to.have.property('{field}');",
+        f"test('{label}', function () {{",
+        "    expect(res.getStatus()).to.equal(422);",
+        "    expect(body.error.code).to.equal('VALIDATION_ERROR');",
+        f"    expect(body.error.fields).to.have.property('{field}');",
+        "});",
     ]
     return pm_lines, bru_lines
 
 items = []
 
-# --- 0. Connexion (docs/api/conventions.md section 5.3bis) ---
+# --- 1. Connexion (docs/api/conventions.md section 5.3bis) ---
 # Remplace l'ancien dossier "Authentification" (qui supposait une session deja
 # ouverte a la main dans un navigateur, cf. ADR-0017 addendum 2026-09-26).
 # Aucun en-tete Cookie manuel, aucune variable 'sid' : Postman garde le cookie
@@ -286,7 +392,13 @@ items = []
 # "Se connecter" (cf. docs/api/demo-api.md pour la verification de ce
 # comportement).
 items.append({
-    "name": "0. Connexion",
+    # "1." (pas "0.") : ce dossier est le PREMIER des onze dossiers de premier
+    # niveau de la collection (rang 1, coherent avec le prefixe numerique sur
+    # disque de gen_bruno.py, `enumerate(..., start=1)`) -- l'ancien "0." datait
+    # d'une version a moins de dossiers et ne correspondait plus a son rang reel
+    # (contre-audit du 29/09, constat 9 ; meme correctif pour "9. Fin de demo"
+    # plus bas, devenu "11. Fin de demo", rang reel parmi les onze dossiers).
+    "name": "1. Connexion",
     "item": [
         request(
             "Se connecter", "POST", "/admin/api/auth/login",
@@ -312,12 +424,12 @@ items.append({
                 "courant) : reste sous /admin/api/... pour que toute la demo utilise un seul "
                 "prefixe. Utile pour rafraichir 'csrf' sans se reconnecter."
             ),
-            tests=CSRF_CAPTURE_TEST,
+            tests=expect_status(200, "200 OK") + CSRF_CAPTURE_TEST,
         ),
     ],
 })
 # NOTE DE SEQUENCEMENT (verifie par Newman, cf. rapport E2E du commit) :
-# "Se deconnecter" N'EST PAS ici, dans 0. Connexion. Un run COMPLET de la
+# "Se deconnecter" N'EST PAS ici, dans 1. Connexion. Un run COMPLET de la
 # collection (Newman/bru run, de haut en bas) executerait sinon la deconnexion
 # AVANT tous les dossiers CRUD suivants (Categories, Produits...), qui
 # echoueraient tous en 401 -- casse constatee et corrigee pendant ce chantier.
@@ -328,17 +440,30 @@ items.append({
 
 # --- Categories ---
 # Cycle complet : creer -> lire -> modifier -> relire -> deplacer -> bascule ->
-# desactiver (DELETE) -> relire (200, is_active=false -- pas de suppression
-# dure, FK RESTRICT). Nom/slug uniques par execution ({{run}}) ; id capture
-# (created_category_id), aucun id ecrit en dur.
+# rebascule -> desactiver (DELETE) -> relire (200, is_active=false -- pas de
+# suppression dure, FK RESTRICT). Nom/slug uniques par execution ({{run}}) ; id
+# capture (created_category_id), aucun id ecrit en dur.
+#
+# DEUX bascules (pas une seule) avant le DELETE final : correctif du
+# contre-audit du 29/09 (constat 5). Une categorie est active a la creation ;
+# UNE SEULE bascule la laisse deja masquee (is_active=false) AVANT le DELETE, si
+# bien que le DELETE (qui ne fait QUE poser is_active=0, idempotent,
+# CategoryRepository::setActive() sans changement reel sur une ligne deja a 0)
+# ne prouvait plus rien de SPECIFIQUE a lui-meme -- la relecture finale aurait
+# pu constater le meme etat sans que DELETE n'ait rien fait. La deuxieme
+# bascule ramene la categorie a actif juste avant, pour que le DELETE fasse
+# reellement la transition actif -> masque, seule preuve reelle de son propre
+# effet (par opposition au simple constat d'un etat deja atteint par un autre
+# appel). Les deux bascules portent chacune leur propre assertion is_active.
 items.append({
     "name": "Categories",
     "item": [
         request(
             "Lister les categories", "GET", "/admin/api/categories",
             description="Capture aussi, pour les dossiers suivants (Produits/Menus), les ids des categories 'burgers'/'boissons'/'menus' par leur SLUG (stable, pas par id -- cf. docs/api/demo-api.md).",
-            tests=CATEGORY_LOOKUP_PM,
+            tests=expect_status(200, "200 OK") + CATEGORY_LOOKUP_PM,
             bruno_script=CATEGORY_LOOKUP_BRU,
+            bruno_tests=status_test_bru(200, "200 OK"),
         ),
         request(
             "Creer une categorie", "POST", "/admin/api/categories",
@@ -346,27 +471,52 @@ items.append({
             description="category.manage, pas de PIN. 201 + Location. Nom/slug uniques par execution ({{run}}).",
             tests=created_test(201, "created_category_id"),
         ),
-        request("Lire une categorie", "GET", "/admin/api/categories/{{created_category_id}}"),
+        request(
+            "Lire une categorie", "GET", "/admin/api/categories/{{created_category_id}}",
+            tests=expect_status(200, "200 OK"),
+        ),
         request(
             "Modifier une categorie", "PUT", "/admin/api/categories/{{created_category_id}}",
             json_body={"name": "Demo {{run}} v2", "slug": "demo-{{run}}", "display_order": 51},
+            tests=expect_status(200, "200 OK"),
         ),
-        request("Relire apres modification", "GET", "/admin/api/categories/{{created_category_id}}"),
+        request(
+            "Relire apres modification", "GET", "/admin/api/categories/{{created_category_id}}",
+            tests=expect_status(200, "200 OK"),
+        ),
         request(
             "Deplacer d'un rang (move)", "POST", "/admin/api/categories/{{created_category_id}}/move",
             json_body={"direction": "up"},
             description='direction : "up" ou "down".',
-        ),
-        request(
-            "Basculer visible/masque (toggle)", "POST", "/admin/api/categories/{{created_category_id}}/toggle",
-            description="Bascule dans les DEUX sens (contrairement a DELETE qui ne masque que).",
-        ),
-        request(
-            "Desactiver une categorie (DELETE = is_active=0)", "DELETE", "/admin/api/categories/{{created_category_id}}",
-            description="Pas de suppression dure (FK RESTRICT) : bascule is_active=0, meme geste que le bouton Masquer du back-office. Etat terminal de ce dossier pour CETTE ressource (categorie desactivee, pas supprimee).",
+            tests=expect_status(200, "200 OK"),
         ),
     ],
 })
+_cat_toggle1_pm, _cat_toggle1_bru = status_and_active_dual(200, False, "200, is_active=false (bascule 1/2)")
+items[-1]["item"].append(request(
+    "Basculer visible/masque (toggle)", "POST", "/admin/api/categories/{{created_category_id}}/toggle",
+    description="Bascule dans les DEUX sens (contrairement a DELETE qui ne masque que). Premiere bascule : actif (creation) -> masque.",
+    tests=_cat_toggle1_pm,
+    bruno_tests=_cat_toggle1_bru,
+))
+_cat_toggle2_pm, _cat_toggle2_bru = status_and_active_dual(200, True, "200, is_active=true (bascule 2/2)")
+items[-1]["item"].append(request(
+    "Rebasculer visible (toggle) -- pour que la suppression prouve son propre effet", "POST", "/admin/api/categories/{{created_category_id}}/toggle",
+    description=(
+        "Deuxieme bascule : masque -> actif. Sans elle, le DELETE ci-dessous ne ferait que "
+        "confirmer un etat DEJA masque par la bascule precedente (setActive() idempotent, "
+        "sans changement reel), et la relecture finale ne prouverait rien de specifique au "
+        "DELETE lui-meme (releve du contre-audit du 29/09, constat 5). Avec cette deuxieme "
+        "bascule, la categorie est de nouveau active juste avant le DELETE."
+    ),
+    tests=_cat_toggle2_pm,
+    bruno_tests=_cat_toggle2_bru,
+))
+items[-1]["item"].append(request(
+    "Desactiver une categorie (DELETE = is_active=0)", "DELETE", "/admin/api/categories/{{created_category_id}}",
+    description="Pas de suppression dure (FK RESTRICT) : bascule is_active=0, meme geste que le bouton Masquer du back-office. Etat terminal de ce dossier pour CETTE ressource (categorie desactivee, pas supprimee). Vient de la bascule 2/2 (actif) : cette requete fait donc reellement la transition, ce que la relecture ci-dessous verifie.",
+    tests=expect_status(200, "200 OK"),
+))
 # La derniere requete (relecture post-suppression) utilise l'assertion
 # composite status+is_active : ecrite a la main pour les deux outils
 # (status_and_active_dual(), pas la traduction generique par motif), ajoutee
@@ -375,7 +525,7 @@ items.append({
 _cat_pm, _cat_bru = status_and_active_dual(200, False, "200, is_active=false")
 items[-1]["item"].append(request(
     "Relire apres suppression (is_active=false)", "GET", "/admin/api/categories/{{created_category_id}}",
-    description="Preuve de nettoyage : la categorie existe toujours (pas de suppression dure) mais est desactivee.",
+    description="Preuve de nettoyage : la categorie existe toujours (pas de suppression dure) mais est desactivee -- transition reellement due au DELETE ci-dessus (arrivait active, grace a la bascule 2/2), pas a la bascule 1/2 (deja neutralisee par la bascule 2/2).",
     tests=_cat_pm,
     bruno_tests=_cat_bru,
 ))
@@ -395,8 +545,9 @@ items.append({
         request(
             "Lister les produits", "GET", "/admin/api/products",
             description="Capture aussi burgerBaseProductId/drinkBaseProductId (premier produit DE BASE de chaque categorie), pour ce dossier et pour Menus.",
-            tests=PRODUCT_LOOKUP_PM,
+            tests=expect_status(200, "200 OK") + PRODUCT_LOOKUP_PM,
             bruno_script=PRODUCT_LOOKUP_BRU,
+            bruno_tests=status_test_bru(200, "200 OK"),
         ),
         request(
             "Creer un produit", "POST", "/admin/api/products",
@@ -416,7 +567,10 @@ items.append({
             ),
             tests=created_test(201, "created_product_id"),
         ),
-        request("Lire un produit", "GET", "/admin/api/products/{{created_product_id}}"),
+        request(
+            "Lire un produit", "GET", "/admin/api/products/{{created_product_id}}",
+            tests=expect_status(200, "200 OK"),
+        ),
         request(
             "Modifier un produit (sans changement de prix/TVA)", "PUT", "/admin/api/products/{{created_product_id}}",
             json_body={
@@ -431,6 +585,7 @@ items.append({
                 "Aucun PIN requis tant que price_cents et vat_rate ne changent pas (mlt 8.2 RG-4). "
                 "price_cents reste un entier de centimes strict (voir la requete de creation)."
             ),
+            tests=expect_status(200, "200 OK"),
         ),
         request(
             "Modifier le prix d'un produit (PIN requis)", "PUT", "/admin/api/products/{{created_product_id}}",
@@ -449,14 +604,20 @@ items.append({
                 "pin_email + pin obligatoires (modele identifiant equipier + PIN). "
                 "Definissez d'abord un PIN sur le compte via /admin/profile/pin (cf. docs/api/demo-api.md)."
             ),
+            tests=expect_status(200, "200 OK"),
         ),
-        request("Relire apres modification du prix", "GET", "/admin/api/products/{{created_product_id}}"),
+        request(
+            "Relire apres modification du prix", "GET", "/admin/api/products/{{created_product_id}}",
+            tests=expect_status(200, "200 OK"),
+        ),
         request(
             "Deplacer d'un rang dans sa categorie (move)", "POST", "/admin/api/products/{{created_product_id}}/move",
             json_body={"direction": "up"},
+            tests=expect_status(200, "200 OK"),
         ),
         request(
             "Lire la recette (composition)", "GET", "/admin/api/products/{{created_product_id}}/recipe",
+            tests=expect_status(200, "200 OK"),
         ),
         request(
             "Remplacer la recette", "PUT", "/admin/api/products/{{created_product_id}}/recipe",
@@ -470,6 +631,7 @@ items.append({
                 "ingredient_id=1 (\"Pain burger\") : catalogue d'ingredients FIGE au seed (jamais "
                 "cree/supprime par cette collection), pas un id de ressource creee ici."
             ),
+            tests=expect_status(200, "200 OK"),
         ),
         request(
             "Supprimer un produit (PIN requis)", "DELETE", "/admin/api/products/{{created_product_id}}",
@@ -479,6 +641,7 @@ items.append({
                 "en CASCADE (ADR-0017), donc PAS un blocage ici. Suppression DURE (contrairement aux "
                 "categories) : etat terminal de ce dossier pour CETTE ressource (suppression dure reelle)."
             ),
+            tests=expect_status(200, "200 OK"),
         ),
         request(
             "Relire apres suppression (404 attendu)", "GET", "/admin/api/products/{{created_product_id}}",
@@ -517,7 +680,7 @@ items.append({
 items.append({
     "name": "Menus",
     "item": [
-        request("Lister les menus", "GET", "/admin/api/menus"),
+        request("Lister les menus", "GET", "/admin/api/menus", tests=expect_status(200, "200 OK")),
         request(
             "Creer un menu", "POST", "/admin/api/menus",
             json_body={
@@ -541,7 +704,10 @@ items.append({
             ),
             tests=created_test(201, "created_menu_id"),
         ),
-        request("Lire un menu (avec slots)", "GET", "/admin/api/menus/{{created_menu_id}}"),
+        request(
+            "Lire un menu (avec slots)", "GET", "/admin/api/menus/{{created_menu_id}}",
+            tests=expect_status(200, "200 OK"),
+        ),
         request(
             "Modifier un menu", "PUT", "/admin/api/menus/{{created_menu_id}}",
             json_body={
@@ -557,15 +723,21 @@ items.append({
                 ],
             },
             description="Memes regles que la creation : prix en entiers de centimes stricts.",
+            tests=expect_status(200, "200 OK"),
         ),
-        request("Relire apres modification", "GET", "/admin/api/menus/{{created_menu_id}}"),
+        request(
+            "Relire apres modification", "GET", "/admin/api/menus/{{created_menu_id}}",
+            tests=expect_status(200, "200 OK"),
+        ),
         request(
             "Basculer la disponibilite (toggle)", "POST", "/admin/api/menus/{{created_menu_id}}/toggle",
+            tests=expect_status(200, "200 OK"),
         ),
         request(
             "Supprimer un menu (PIN requis)", "DELETE", "/admin/api/menus/{{created_menu_id}}",
             json_body={"pin_email": "{{pin_email}}", "pin": "{{pin}}"},
             description="409 CONFLICT si le menu est encore reference par des commandes (pas le cas ici, menu jamais commande). Suppression DURE : etat terminal de ce dossier.",
+            tests=expect_status(200, "200 OK"),
         ),
         request(
             "Relire apres suppression (404 attendu)", "GET", "/admin/api/menus/{{created_menu_id}}",
@@ -588,7 +760,7 @@ items.append({
 items.append({
     "name": "Ingredients",
     "item": [
-        request("Lister les ingredients", "GET", "/admin/api/ingredients"),
+        request("Lister les ingredients", "GET", "/admin/api/ingredients", tests=expect_status(200, "200 OK")),
         request(
             "Creer un ingredient (a supprimer)", "POST", "/admin/api/ingredients",
             json_body={
@@ -604,7 +776,10 @@ items.append({
             description="ingredient.manage, pas de PIN. Nom unique par execution ({{run}} -- \"Cet ingrédient existe déjà\" sinon). stock_quantity pose a 0 cote serveur (RG-CREATE-ING). family (migration 0017) : slug de la liste canonique (App\\Catalogue\\IngredientFamily) ou omis/vide pour non classe.",
             tests=created_test(201, "created_ingredient_id"),
         ),
-        request("Lire un ingredient", "GET", "/admin/api/ingredients/{{created_ingredient_id}}"),
+        request(
+            "Lire un ingredient", "GET", "/admin/api/ingredients/{{created_ingredient_id}}",
+            tests=expect_status(200, "200 OK"),
+        ),
         request(
             "Modifier un ingredient", "PUT", "/admin/api/ingredients/{{created_ingredient_id}}",
             json_body={
@@ -618,11 +793,16 @@ items.append({
                 "critical_stock_pct": 5,
             },
             description="family change de \"dosette\" a \"sauce\" (visible sur la requete suivante) : remplacement COMPLET de la ressource (PUT), pas un PATCH -- omettre family ici la reinitialiserait a non classe, meme regle que pack_label.",
+            tests=expect_status(200, "200 OK"),
         ),
-        request("Relire apres modification", "GET", "/admin/api/ingredients/{{created_ingredient_id}}"),
+        request(
+            "Relire apres modification", "GET", "/admin/api/ingredients/{{created_ingredient_id}}",
+            tests=expect_status(200, "200 OK"),
+        ),
         request(
             "Supprimer un ingredient (pas de mouvement -> suppression reelle)", "DELETE", "/admin/api/ingredients/{{created_ingredient_id}}",
             description="AUCUN mouvement de stock sur celui-ci (pas de restock/inventaire/ajustement) : suppression DURE reussie. Etat terminal de ce dossier pour cet ingredient.",
+            tests=expect_status(200, "200 OK"),
         ),
         request(
             "Relire apres suppression (404 attendu)", "GET", "/admin/api/ingredients/{{created_ingredient_id}}",
@@ -647,21 +827,25 @@ items.append({
             "Reapprovisionner (restock)", "POST", "/admin/api/ingredients/{{created_restock_ingredient_id}}/restock",
             json_body={"packs": 5, "note": "reappro demo"},
             description="stock.manage, pas de PIN (mlt 9.1). L'ingredient doit etre actif. Pose un stock_movement : bloque desormais toute suppression DURE (409), voir plus bas.",
+            tests=expect_status(200, "200 OK"),
         ),
         request(
             "Reglage rapide des seuils", "PUT", "/admin/api/ingredients/{{created_restock_ingredient_id}}/thresholds",
             json_body={"stock_capacity": 600, "low_stock_pct": 20, "critical_stock_pct": 5},
             description="stock.manage, pas de PIN (calibrage, pas un comptage).",
+            tests=expect_status(200, "200 OK"),
         ),
         request(
             "Inventaire (comptage absolu, PIN requis)", "POST", "/admin/api/ingredients/{{created_restock_ingredient_id}}/inventory",
             json_body={"actual_quantity": 42, "note": "comptage demo", "pin_email": "{{pin_email}}", "pin": "{{pin}}"},
             description="stock.count + PIN (mlt 9.2). Pas d'audit_log au succes (stock_movement suffit).",
+            tests=expect_status(200, "200 OK"),
         ),
         request(
             "Ajustement libre (delta signe, PIN requis)", "POST", "/admin/api/ingredients/{{created_restock_ingredient_id}}/adjust",
             json_body={"delta": -3, "note": "casse demo", "pin_email": "{{pin_email}}", "pin": "{{pin}}"},
             description="stock.count + PIN. delta entier non nul (+ pour ajouter, - pour retirer).",
+            tests=expect_status(200, "200 OK"),
         ),
         request(
             "Historique des mouvements (lecture)", "GET", "/admin/api/ingredients/{{created_restock_ingredient_id}}/movements",
@@ -680,6 +864,7 @@ items.append({
                 "refusee, 422). allergen_ids=[1] : catalogue INCO FIGE (14 allergenes UE), pas un "
                 "id de ressource creee par cette collection."
             ),
+            tests=expect_status(200, "200 OK"),
         ),
         request(
             "Basculer actif/inactif (toggle) -- nettoyage final", "POST", "/admin/api/ingredients/{{created_restock_ingredient_id}}/toggle",
@@ -689,6 +874,7 @@ items.append({
                 "(conventions.md section 5.3, comportement voulu -- une demarque non tracee serait "
                 "pire). La bascule vers inactif est le nettoyage correct pour CETTE ressource."
             ),
+            tests=expect_status(200, "200 OK"),
         ),
     ],
 })
@@ -708,15 +894,17 @@ items.append({
     "item": [
         request(
             "Lister les roles", "GET", "/admin/api/roles",
-            description="Capture firstRoleId (premier role de la liste, quel qu'il soit) pour la requete suivante et pour la creation d'utilisateur (dossier Utilisateurs).",
-            tests=ROLE_LIST_LOOKUP_PM,
+            description="Capture firstRoleId (premier role NON-ADMIN actif de la liste -- cf. commentaire de ROLE_LIST_LOOKUP_TEMPLATE) pour la requete suivante et pour la creation d'utilisateur (dossier Utilisateurs).",
+            tests=expect_status(200, "200 OK") + ROLE_LIST_LOOKUP_PM,
             bruno_script=ROLE_LIST_LOOKUP_BRU,
+            bruno_tests=status_test_bru(200, "200 OK"),
         ),
         request(
             "Lire un role (recupere un id de permission reel)", "GET", "/admin/api/roles/{{firstRoleId}}",
             description="permission_ids n'apparait QUE sur la lecture unitaire (pas la liste, conventions.md section 5.3) : capture examplePermissionId pour la creation ci-dessous.",
-            tests=ROLE_PERMISSION_LOOKUP_PM,
+            tests=expect_status(200, "200 OK") + ROLE_PERMISSION_LOOKUP_PM,
             bruno_script=ROLE_PERMISSION_LOOKUP_BRU,
+            bruno_tests=status_test_bru(200, "200 OK"),
         ),
         request(
             "Creer un role (PIN requis)", "POST", "/admin/api/roles",
@@ -735,7 +923,10 @@ items.append({
             ),
             tests=created_test(201, "created_role_id"),
         ),
-        request("Lire un role (avec permissions)", "GET", "/admin/api/roles/{{created_role_id}}"),
+        request(
+            "Lire un role (avec permissions)", "GET", "/admin/api/roles/{{created_role_id}}",
+            tests=expect_status(200, "200 OK"),
+        ),
         request(
             "Modifier un role (PIN requis)", "PUT", "/admin/api/roles/{{created_role_id}}",
             json_body={
@@ -749,10 +940,15 @@ items.append({
                 "Garde-fou anti-lockout (422) : le role 'admin' doit garder role.manage et "
                 "rester actif -- non pertinent ici (role fraichement cree, pas 'admin')."
             ),
+            tests=expect_status(200, "200 OK"),
         ),
-        request("Relire apres modification", "GET", "/admin/api/roles/{{created_role_id}}"),
+        request(
+            "Relire apres modification", "GET", "/admin/api/roles/{{created_role_id}}",
+            tests=expect_status(200, "200 OK"),
+        ),
     ],
 })
+_role_deact_pm, _role_deact_bru = status_and_active_dual(200, False, "200, is_active=false")
 _role_pm, _role_bru = status_and_active_dual(200, False, "200, is_active=false")
 items[-1]["item"].append(request(
     "Desactiver (PUT is_active=false) -- nettoyage final", "PUT", "/admin/api/roles/{{created_role_id}}",
@@ -764,7 +960,9 @@ items[-1]["item"].append(request(
         "pin_email": "{{pin_email}}",
         "pin": "{{pin}}",
     },
-    description="Aucun endpoint DELETE pour les roles (limite documentee, conventions.md section 5.3 -- un role est rattache a des comptes). Le nettoyage correct est la desactivation, PUT PARTIEL comme pour les utilisateurs.",
+    description="Aucun endpoint DELETE pour les roles (limite documentee, conventions.md section 5.3 -- un role est rattache a des comptes). Le nettoyage correct est la desactivation, PUT PARTIEL comme pour les utilisateurs. RoleApiController::apiUpdate() renvoie le role a jour (dont is_active) : assertion directe sur CETTE reponse, pas seulement sur la relecture qui suit.",
+    tests=_role_deact_pm,
+    bruno_tests=_role_deact_bru,
 ))
 items[-1]["item"].append(request(
     "Relire le role apres desactivation (is_active=false)", "GET", "/admin/api/roles/{{created_role_id}}",
@@ -784,7 +982,7 @@ items[-1]["item"].append(request(
 items.append({
     "name": "Utilisateurs",
     "item": [
-        request("Lister les utilisateurs", "GET", "/admin/api/users"),
+        request("Lister les utilisateurs", "GET", "/admin/api/users", tests=expect_status(200, "200 OK")),
         request(
             "Creer un utilisateur (PIN requis)", "POST", "/admin/api/users",
             json_body={
@@ -806,7 +1004,10 @@ items.append({
             ),
             tests=created_test(201, "created_user_id"),
         ),
-        request("Lire un utilisateur", "GET", "/admin/api/users/{{created_user_id}}"),
+        request(
+            "Lire un utilisateur", "GET", "/admin/api/users/{{created_user_id}}",
+            tests=expect_status(200, "200 OK"),
+        ),
         request(
             "Modifier un utilisateur (PIN requis)", "PUT", "/admin/api/users/{{created_user_id}}",
             json_body={
@@ -823,12 +1024,17 @@ items.append({
                 "omis, il conserve la valeur actuelle (ne desactive jamais par omission) ; "
                 "envoye ici a true pour l'illustrer explicitement."
             ),
+            tests=expect_status(200, "200 OK"),
         ),
-        request("Relire apres modification", "GET", "/admin/api/users/{{created_user_id}}"),
+        request(
+            "Relire apres modification", "GET", "/admin/api/users/{{created_user_id}}",
+            tests=expect_status(200, "200 OK"),
+        ),
         request(
             "Reinitialiser le PIN (PIN requis)", "POST", "/admin/api/users/{{created_user_id}}/reset-pin",
             json_body={"pin_email": "{{pin_email}}", "pin": "{{pin}}"},
             description="Efface le PIN de la cible ; elle le redefinit ensuite en self-service (/admin/profile/pin).",
+            tests=expect_status(200, "200 OK"),
         ),
         request(
             "Desactiver un utilisateur (DELETE, PIN requis)", "DELETE", "/admin/api/users/{{created_user_id}}",
@@ -838,6 +1044,7 @@ items.append({
                 "d'effacement RGPD, mlt 10.3). Refuse sur son propre compte (403) ou "
                 "sur le dernier administrateur actif (422) -- non pertinent ici."
             ),
+            tests=expect_status(200, "200 OK"),
         ),
     ],
 })
@@ -852,6 +1059,7 @@ items[-1]["item"].append(request(
     "Anonymiser (RGPD, PIN requis) -- nettoyage final", "POST", "/admin/api/users/{{created_user_id}}/erase",
     json_body={"pin_email": "{{pin_email}}", "pin": "{{pin}}"},
     description="Tombstone (pas de suppression physique, mlt 10.5, ADR-0007). 403 sur son propre compte, 409 si deja anonymise. Etat terminal de nettoyage pour cette ressource.",
+    tests=expect_status(200, "200 OK"),
 ))
 
 # --- Commandes ---
@@ -870,12 +1078,24 @@ items.append({
         request(
             "Lister les commandes (filtre par canaux visibles)", "GET", "/admin/api/orders",
             description="order.read. Filtre par role_visible_source (RG-T12), meme regle que la file cuisine.",
+            tests=expect_status(200, "200 OK"),
         ),
         request(
-            "Choisir un produit disponible", "GET", "/admin/api/products",
-            description="Capture orderProductId (premier produit disponible) : ce dossier ne depend pas du dossier Produits (dont la ressource creee est deja supprimee a ce stade).",
-            tests=ORDER_PRODUCT_LOOKUP_PM,
+            "Choisir un produit disponible", "GET", "/api/products",
+            description=(
+                "Capture orderProductId (premier produit is_orderable) : /admin/api/products "
+                "(utilise jusqu'ici) n'expose PAS is_orderable -- seulement is_available, un flag "
+                "manuel qui n'exclut pas une rupture CALCULEE (RG-T21, stock insuffisant sur un "
+                "ingredient non retirable), auquel cas OrderRepository::resolveLine refuse la "
+                "ligne a la creation de commande. /api/products (lecture catalogue PUBLIQUE, "
+                "anonyme, meme routeur -- docs/api/conventions.md section 5.2) calcule "
+                "is_orderable et c'est ce champ qui garantit un produit reellement commandable. "
+                "Ce dossier ne depend pas du dossier Produits (dont la ressource creee est deja "
+                "supprimee a ce stade)."
+            ),
+            tests=expect_status(200, "200 OK") + ORDER_PRODUCT_LOOKUP_PM,
             bruno_script=ORDER_PRODUCT_LOOKUP_BRU,
+            bruno_tests=status_test_bru(200, "200 OK"),
         ),
     ],
 })
@@ -896,19 +1116,23 @@ items[-1]["item"].append(request(
         "impose sa source et IGNORE ce champ 'source' s'il est fourni ; un role SANS "
         "canal fixe (admin/manager) doit le renseigner ('counter' ou 'drive'), sinon 422."
     ),
-    tests=_ordA_pm,
+    tests=expect_status(201, "201 Created") + _ordA_pm,
     bruno_script=_ordA_bru,
+    bruno_tests=status_test_bru(201, "201 Created"),
 ))
 items[-1]["item"].append(request(
     "Lire la commande A", "GET", "/admin/api/orders/{{created_order_number}}",
+    tests=expect_status(200, "200 OK"),
 ))
 items[-1]["item"].append(request(
     "Marquer prete (cuisine)", "POST", "/admin/api/orders/{{created_order_number}}/ready",
     description="order.read, pas de PIN. Meme garde de visibilite de source (PRE-3) que le HTML.",
+    tests=expect_status(200, "200 OK"),
 ))
 items[-1]["item"].append(request(
     "Remettre au client (deliver) -- etat terminal de la commande A", "POST", "/admin/api/orders/{{created_order_number}}/deliver",
     description="order.deliver, pas de PIN. \"delivered\" est un etat terminal NORMAL (pas une pollution a nettoyer) : une commande livree fait partie de l'historique reel du restaurant.",
+    tests=expect_status(200, "200 OK"),
 ))
 _ordB_pm, _ordB_bru = order_number_capture_dual("created_order_number_cancel")
 items[-1]["item"].append(request(
@@ -921,13 +1145,15 @@ items[-1]["item"].append(request(
         ],
     },
     description="Numero DISTINCT de la commande A (created_order_number_cancel) : annuler la MEME commande qu'on vient de livrer echouerait toujours (422 CANNOT_CANCEL_IN_STATE) -- bug corrige par ce chantier.",
-    tests=_ordB_pm,
+    tests=expect_status(201, "201 Created") + _ordB_pm,
     bruno_script=_ordB_bru,
+    bruno_tests=status_test_bru(201, "201 Created"),
 ))
 items[-1]["item"].append(request(
     "Annuler la commande B (PIN requis) -- etat terminal de nettoyage", "POST", "/admin/api/orders/{{created_order_number_cancel}}/cancel",
     json_body={"pin_email": "{{pin_email}}", "pin": "{{pin}}"},
     description="order.cancel + PIN (RG-T13). Restocke automatiquement les ingredients consommes (RG-T20) : \"cancelled\" est aussi un etat terminal normal.",
+    tests=expect_status(200, "200 OK"),
 ))
 
 # --- Statistiques ---
@@ -937,6 +1163,7 @@ items.append({
         request(
             "Tableau de bord (compteurs + stock + ventes)", "GET", "/admin/api/stats",
             description="stats.read, lecture seule.",
+            tests=expect_status(200, "200 OK"),
         ),
         request(
             "Sante de l'application (etat detaille)", "GET", "/admin/api/health",
@@ -1124,13 +1351,13 @@ items.append({
 })
 
 # --- Fin de demo : deconnexion (docs/api/conventions.md section 5.3bis) ---
-# DERNIER dossier de la collection (voir la note de sequencement dans 0.
-# Connexion). Se reconnecte D'ABORD explicitement (independant de la session
+# DERNIER dossier de la collection (rang 11 sur onze -- voir la note de
+# sequencement dans 1. Connexion). Se reconnecte D'ABORD explicitement (independant de la session
 # active a la sortie du dossier RBAC, qui appartient au DERNIER role connecte
 # la-bas -- Drive) : ce dossier reste rejouable seul, sans supposer un ordre
 # d'execution particulier des dossiers precedents.
 items.append({
-    "name": "9. Fin de demo",
+    "name": "11. Fin de demo",
     "item": [
         request(
             "Se reconnecter (pour la demo de deconnexion)", "POST", "/admin/api/auth/login",
@@ -1163,7 +1390,7 @@ collection = {
         "name": "Wakdo - API d'administration JSON",
         "description": (
             "CRUD JSON de l'API d'administration Wakdo (/admin/api/*, docs/api/conventions.md "
-            "section 5.3). Demarrer par 0. Connexion > Se connecter : la session (cookie "
+            "section 5.3). Demarrer par 1. Connexion > Se connecter : la session (cookie "
             "WAKDO_SID) est geree par le pot a cookies de Postman, aucune manipulation manuelle. "
             "Prerequis : lire docs/api/demo-api.md. Les ecritures portent l'en-tete X-CSRF-Token "
             "(range automatiquement dans 'csrf' par la connexion). Les actions marquees PIN "
@@ -1182,3 +1409,34 @@ with open("docs/api/wakdo-admin.postman_collection.json", "w", encoding="utf-8")
     fh.write("\n")
 
 print("wrote docs/api/wakdo-admin.postman_collection.json")
+
+def write_postman_environment():
+    """Genere docs/api/wakdo.postman_environment.json depuis ENV_VARS (source
+    UNIQUE partagee avec gen_bruno.py, cf. commentaire de ENV_VARS plus haut).
+    Jusqu'ici maintenu a la main (aucun script ne l'ecrivait, constat 2 du
+    contre-audit du 29/09) : c'etait la faille qui a laisse gen_bruno.py diverger
+    (baseUrl incoherent) sans qu'aucune regeneration ne le releve. L'id
+    ("_postman_id" du fichier ENVIRONNEMENT, distinct de celui de la collection)
+    reste le litteral historique deja committe, pour ne pas faire perdre son
+    identifiant a l'environnement importe par quiconque l'a deja dans Postman."""
+    values = [
+        {
+            "key": key,
+            "value": default,
+            "type": "secret" if secret else "default",
+            "enabled": True,
+        }
+        for key, default, secret in ENV_VARS
+    ]
+    environment = {
+        "id": "b4b9b7a0-6e6b-4a4e-9a8e-3a9c3f6d0e01",
+        "name": "Wakdo admin API",
+        "values": values,
+        "_postman_variable_scope": "environment",
+    }
+    with open("docs/api/wakdo.postman_environment.json", "w", encoding="utf-8") as fh:
+        json.dump(environment, fh, ensure_ascii=False, indent=2)
+        fh.write("\n")
+    print("wrote docs/api/wakdo.postman_environment.json")
+
+write_postman_environment()

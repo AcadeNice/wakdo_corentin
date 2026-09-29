@@ -45,5 +45,5 @@ script:post-response {
 }
 
 tests {
-  expect(res.getStatus()).to.equal(201);
+  test('201 Created', function () { expect(res.getStatus()).to.equal(201); });
 }

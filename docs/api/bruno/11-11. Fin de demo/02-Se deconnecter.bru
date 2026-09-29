@@ -18,5 +18,5 @@ Detruit la session serveur (204, sans corps). Toute requete /admin/api/* suivant
 }
 
 tests {
-  expect(res.getStatus()).to.equal(204);
+  test('204 No Content', function () { expect(res.getStatus()).to.equal(204); });
 }

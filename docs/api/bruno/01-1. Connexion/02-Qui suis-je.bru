@@ -16,3 +16,7 @@ script:post-response {
   const body = res.getBody();
   if (body && body.data && body.data.csrf_token) { bru.setEnvVar('csrf', body.data.csrf_token); }
 }
+
+tests {
+  test('200 OK', function () { expect(res.getStatus()).to.equal(200); });
+}

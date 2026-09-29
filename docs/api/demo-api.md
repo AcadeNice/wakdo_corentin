@@ -194,8 +194,26 @@ fichier commis.
 ```bash
 npx --yes newman run docs/api/wakdo-admin.postman_collection.json \
   -e docs/api/wakdo.postman_environment.json \
-  --env-var email=admin@wakdo.local --env-var password='...'
+  --env-var email=admin@wakdo.local --env-var password='...' \
+  --env-var pin='...' \
+  --env-var email_manager='...' --env-var password_manager='...' \
+  --env-var email_cuisine='...' --env-var password_cuisine='...' \
+  --env-var email_comptoir='...' --env-var password_comptoir='...' \
+  --env-var email_drive='...' --env-var password_drive='...'
 ```
+
+`pin` alimente les actions marquees **PIN** de la section 4 (le PIN doit d'abord
+exister sur le compte admin, section 3 ci-dessus — sans lui, ces requetes echouent
+en `422 PIN_INVALID` au lieu du code attendu par la collection). Les quatre
+paires `email_<role>`/`password_<role>` alimentent le dossier `RBAC : preuve des
+droits` (section 5) : absentes de la commande, elles restent a la valeur vide de
+l'environnement commis (liste blanche, plus bas), et la connexion de ce dossier
+echoue alors en `422 VALIDATION_ERROR` sur le champ `email` (`AuthApiController::
+apiLogin()` borne l'email AVANT tout appel a `AuthService`, cf. section 7) — PAS
+en `401 INVALID_CREDENTIALS`, qui ne survient que si `email`/`password` sont
+renseignes mais FAUX, ou visent une base sans le seed de comptes de demo (voir la
+note en fin de section). Valeurs reelles (mots de passe, PIN) : `docs/demo/
+comptes-demo.md`, pas recopiees ici.
 
 **Bruno (`bru run`) — sur une COPIE de l'environnement, pas le fichier commis.** A la
 difference de Newman, Bruno PERSISTE sur disque toute variable posee par un script via
@@ -213,26 +231,36 @@ run sur une copie, en dehors du depot :
 cp docs/api/bruno/environments/wakdo.bru /tmp/wakdo-demo.bru
 cd docs/api/bruno
 npx --yes @usebruno/cli run --env-file /tmp/wakdo-demo.bru \
-  --env-var email=admin@wakdo.local --env-var password='...'
+  --env-var email=admin@wakdo.local --env-var password='...' \
+  --env-var pin='...' \
+  --env-var email_manager='...' --env-var password_manager='...' \
+  --env-var email_cuisine='...' --env-var password_cuisine='...' \
+  --env-var email_comptoir='...' --env-var password_comptoir='...' \
+  --env-var email_drive='...' --env-var password_drive='...'
 # la copie /tmp/wakdo-demo.bru accumule les valeurs d'execution ; le fichier
-# COMMIS (environments/wakdo.bru) reste, lui, intact.
+# COMMIS (environments/wakdo.bru) reste, lui, intact. Memes variables pin/
+# email_*/password_* que la commande Newman ci-dessus, meme raison d'etre.
 ```
 
 Un garde-fou (`node --test tests/js/api-collection-secrets.test.js`) applique une LISTE
 BLANCHE sur les deux fichiers d'environnement commis (Bruno et Postman), sur les variables
-de collection Postman, et sur les corps de requete `.bru` : toute cle y porte une valeur
-vide, a deux exceptions pres (`baseUrl`, et `pin_email` qui doit valoir exactement
+de collection Postman, et sur les corps de requete `.bru` ET Postman : toute cle y porte une
+valeur vide, a deux exceptions pres (`baseUrl`, et `pin_email` qui doit valoir exactement
 `{{email}}`) ; tout champ `password*`/`pin*` d'un corps de requete doit contenir une
-reference `{{...}}` plutot qu'un litteral fixe. Il echoue si le fichier commis venait malgre
-tout a porter une valeur hors de cette liste blanche.
+reference `{{...}}` plutot qu'un litteral fixe ; `baseUrl`, la seule cle non vide autorisee,
+doit en plus rester une adresse LOCALE (`localhost`, `*.localhost` ou `*.test`, pas un hote
+de production). Il echoue si le fichier commis venait malgre tout a porter une valeur hors
+de cette liste blanche.
 
 Les deux outils se lancent via `npx`/`--yes`, sans installation globale — verifie pendant ce
 chantier (`npx --yes @usebruno/cli --version` repond directement ; voir aussi le rapport de
 verification E2E cite dans le commit). Le dossier `RBAC : preuve des droits` suppose que le
 seed de comptes de demo par poste existe sur la base ciblee (`docs/demo/comptes-demo.md`,
-chantier separe) — sur une pile sans ce seed, ses requetes de connexion echouent avec
-`INVALID_CREDENTIALS` (401), ce qui n'affecte pas le reste de la collection (dossiers
-independants).
+chantier separe) : `email_<role>`/`password_<role>` RENSEIGNES mais FAUX (ou visant une base
+sans ce seed) echouent en `401 INVALID_CREDENTIALS` ; ABSENTS de la commande (valeur vide de
+l'environnement commis), ils echouent plus tot, en `422 VALIDATION_ERROR` sur le champ
+`email` (voir plus haut) — dans les deux cas, sans affecter le reste de la collection
+(dossiers independants).
 
 ## 7. Lire les erreurs
 
