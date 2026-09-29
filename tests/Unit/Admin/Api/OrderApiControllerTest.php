@@ -416,6 +416,29 @@ final class OrderApiControllerTest extends TestCase
         self::assertFalse($db->wrote('INSERT INTO customer_order'));
     }
 
+    public function testStoreRejectsOutOfRangeQuantityJustLikeTheKiosk(): void
+    {
+        // Meme borne de quantite que la borne kiosk et le HTML comptoir/drive
+        // (OrderRepository::resolveLine, source unique) : l'API admin n'est pas un
+        // chemin a part.
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 890, 'vat_rate' => 100, 'is_available' => 1];
+        $db->roleManageRow = ['order_source' => 'counter'];
+
+        $request = $this->jsonRequest('POST', '/admin/api/orders', [
+            'service_mode' => 'dine_in',
+            'items' => [['type' => 'product', 'product_id' => 12, 'quantity' => 65535]],
+        ]);
+
+        $response = $this->controller($request, $db)->apiStore();
+        $body = json_decode($response->body(), true);
+
+        self::assertSame(422, $response->status());
+        self::assertSame('VALIDATION_ERROR', $body['error']['code'] ?? null);
+        self::assertStringContainsString('entre 1 et 20', $body['error']['fields']['items'] ?? '');
+        self::assertFalse($db->wrote('INSERT INTO customer_order'));
+    }
+
     /**
      * REGLE : la garde de permission passe AVANT la validation du corps. Sans
      * elle, un corps volontairement invalide ({"items": []}) pourrait servir a

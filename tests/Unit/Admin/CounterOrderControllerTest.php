@@ -154,6 +154,22 @@ final class CounterOrderControllerTest extends TestCase
         return new TestCounterOrderController($request, new Config(), new Database(new Config()), $this->session, $db);
     }
 
+    /**
+     * Decode le script JSON inerte #pos-menus rendu par create() (defaut #4).
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function decodePosMenus(string $body): array
+    {
+        if (preg_match('#<script type="application/json" id="pos-menus">(.*?)</script>#s', $body, $matches) !== 1) {
+            self::fail('script #pos-menus introuvable dans la reponse');
+        }
+        $decoded = json_decode($matches[1], true);
+        self::assertIsArray($decoded);
+
+        return $decoded;
+    }
+
     public function testIndexRequiresOrderCreate(): void
     {
         $db = $this->permittedDb();
@@ -432,6 +448,23 @@ final class CounterOrderControllerTest extends TestCase
         self::assertFalse($db->wrote('INSERT INTO customer_order'));
     }
 
+    public function testStoreRejectsOutOfRangeQuantityJustLikeTheKiosk(): void
+    {
+        // Meme borne de quantite que la borne kiosk (OrderRepository::resolveLine,
+        // source unique) : le comptoir/drive n'est pas un chemin a part.
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 890, 'vat_rate' => 100, 'maxi_variant_product_id' => null, 'is_available' => 1];
+
+        $items = json_encode([['type' => 'product', 'product_id' => 12, 'quantity' => 65535]]);
+        $request = $this->post(['_csrf' => $this->csrf, 'service_mode' => 'dine_in', 'items_json' => (string) $items], '/counter/orders');
+
+        $response = $this->controller($request, $db)->store();
+
+        self::assertSame(422, $response->status());
+        self::assertFalse($db->wrote('INSERT INTO customer_order'));
+        self::assertStringContainsString('entre 1 et 20', $response->body());
+    }
+
     public function testCreateExposesProductComposition(): void
     {
         // create() joint la composition PROPOSABLE (modificateurs) de chaque produit au
@@ -676,6 +709,54 @@ final class CounterOrderControllerTest extends TestCase
         self::assertStringContainsString('id="pos-menus"', $body);
         self::assertStringContainsString('"price_normal":990', $body);
         self::assertStringContainsString('"price_maxi":1190', $body);
+    }
+
+    public function testCreateExposesOptionAvailabilityForEachSlotOption(): void
+    {
+        // Defaut #4 (RG-T21) : le POS comptoir/drive doit pouvoir griser une option de
+        // slot indisponible, MEME regle et memes cles que le composeur borne
+        // (CatalogueController::presentSlots) -- sans elles, une option en rupture
+        // (Potatoes) apparaissait comme n'importe quelle autre dans la modale.
+        $db = $this->permittedDb();
+        $db->menusRows = [
+            ['id' => 5, 'category_id' => 1, 'burger_product_id' => 12, 'name' => 'Menu Cheeseburger', 'description' => null, 'price_normal_cents' => 990, 'price_maxi_cents' => 1190, 'image_path' => null, 'display_order' => 1],
+        ];
+        $db->menuSlotRows = [
+            ['id' => 16, 'name' => 'Accompagnement', 'slot_type' => 'side', 'is_required' => 1, 'display_order' => 1, 'product_id' => 22],
+            ['id' => 16, 'name' => 'Accompagnement', 'slot_type' => 'side', 'is_required' => 1, 'display_order' => 1, 'product_id' => 23],
+        ];
+        $db->productByIdRows = [
+            22 => ['id' => 22, 'name' => 'Frites', 'is_available' => 1],
+            23 => ['id' => 23, 'name' => 'Potatoes', 'is_available' => 0],
+        ];
+
+        $response = $this->controller($this->get('/counter/orders/new'), $db)->create();
+
+        self::assertSame(200, $response->status());
+        $menus = $this->decodePosMenus($response->body());
+        $slot = $menus[0]['slots'][0];
+        self::assertSame(['22' => true, '23' => false], $slot['option_is_orderable']);
+        self::assertSame(['22' => 'Frites', '23' => 'Potatoes'], $slot['option_names']);
+    }
+
+    public function testCreateExposesOptionAvailabilityAsCommandableByDefaultWhenServerFlagMissing(): void
+    {
+        // Compat : une option pour laquelle le controleur ne renvoie aucune info de
+        // disponibilite (chemin degrade) doit rester commandable par defaut, jamais
+        // grisee par erreur.
+        $db = $this->permittedDb();
+        $db->menusRows = [
+            ['id' => 5, 'category_id' => 1, 'burger_product_id' => 12, 'name' => 'Menu Cheeseburger', 'description' => null, 'price_normal_cents' => 990, 'price_maxi_cents' => 1190, 'image_path' => null, 'display_order' => 1],
+        ];
+        $db->menuSlotRows = [
+            ['id' => 16, 'name' => 'Accompagnement', 'slot_type' => 'side', 'is_required' => 1, 'display_order' => 1, 'product_id' => 22],
+        ];
+        $db->productByIdRows = [22 => ['id' => 22, 'name' => 'Frites', 'is_available' => 1]];
+
+        $response = $this->controller($this->get('/counter/orders/new'), $db)->create();
+
+        $menus = $this->decodePosMenus($response->body());
+        self::assertSame(['22' => true], $menus[0]['slots'][0]['option_is_orderable']);
     }
 
     public function testCreateMarksProductOutOfStockAsNotOrderable(): void

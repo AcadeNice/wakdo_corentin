@@ -597,6 +597,158 @@ test('modale menu : slot requis sans aucune option resoluble -> impasse, ajout d
     assert.equal(doc.querySelector('.order-cart__line'), null);
 });
 
+/* --- Disponibilite des options de slot dans le composeur (defaut #4, RG-T21) --- */
+
+test('modale menu : option de slot en rupture -> tuile grisee (aria-disabled + badge), pre-selection saute l option indisponible', () => {
+    // Coca (14) en rupture calculee, Eau (15) commandable : la tuile Coca doit etre
+    // grisee et NE DOIT PAS etre la selection par defaut (avant ce correctif, la
+    // rupture d'une option de slot n'etait jamais verifiee ici).
+    const products = PRODUCTS.concat([{ id: 15, name: 'Eau', price: 150, image: '', category_id: 3, category_name: 'Boissons', modifiers: [] }]);
+    const menuRupture = [{
+        id: 5, name: 'Menu Cheeseburger', price_normal: 990, price_maxi: 1190, image: '',
+        category_id: 4, category_name: 'Menus', burger_modifiers: [],
+        slots: [{
+            id: 1, name: 'Boisson', slot_type: 'drink', is_required: 1, display_order: 1,
+            option_product_ids: [14, 15],
+            option_is_orderable: { 14: false, 15: true },
+            option_names: { 14: 'Coca', 15: 'Eau' },
+        }],
+    }];
+    const dom = setup(products, menuRupture);
+    const doc = dom.window.document;
+    counterOrder.init(doc);
+
+    activateCategory(dom, 'Menus');
+    click(dom, tileByName(dom, 'Menu Cheeseburger'));
+    const modal = doc.getElementById('menu-composer-modal');
+
+    const drinkGroup = modal.querySelector('.menu-composer__slot-tiles[data-slot-id="1"]');
+    const tiles = Array.prototype.slice.call(drinkGroup.querySelectorAll('.pos-tile'));
+    const coca = tiles.find(t => t.dataset.value === '14');
+    const eau = tiles.find(t => t.dataset.value === '15');
+
+    assert.equal(coca.classList.contains('pos-tile--unavailable'), true);
+    assert.equal(coca.getAttribute('aria-disabled'), 'true');
+    assert.equal(coca.querySelector('.pos-tile__badge--unavailable').textContent, 'Indisponible');
+    assert.match(coca.getAttribute('aria-label'), /indisponible/);
+    assert.equal(eau.classList.contains('pos-tile--unavailable'), false);
+
+    // Pre-selection automatique : Eau (commandable), jamais Coca (indisponible).
+    assert.equal(eau.getAttribute('aria-checked'), 'true');
+    assert.equal(coca.getAttribute('aria-checked'), 'false');
+
+    // Un tap sur la tuile grisee ne change pas la selection.
+    click(dom, coca);
+    assert.equal(coca.getAttribute('aria-checked'), 'false');
+    assert.equal(eau.getAttribute('aria-checked'), 'true');
+});
+
+test('modale menu : option retiree du catalogue (absente de #pos-products) reste affichee grisee via son nom serveur', () => {
+    // 999 n'existe dans AUCUN produit embarque (retrait manuel is_available=0, comme
+    // /api/products cote borne) : avant ce correctif, .filter(Boolean) la faisait
+    // disparaitre purement et simplement du composeur.
+    const menuRupture = [{
+        id: 5, name: 'Menu Cheeseburger', price_normal: 990, price_maxi: 1190, image: '',
+        category_id: 4, category_name: 'Menus', burger_modifiers: [],
+        slots: [{
+            id: 1, name: 'Boisson', slot_type: 'drink', is_required: 1, display_order: 1,
+            option_product_ids: [14, 999],
+            option_is_orderable: { 14: true, 999: false },
+            option_names: { 14: 'Coca', 999: 'Fanta' },
+        }],
+    }];
+    const dom = setup(PRODUCTS, menuRupture);
+    const doc = dom.window.document;
+    counterOrder.init(doc);
+
+    activateCategory(dom, 'Menus');
+    click(dom, tileByName(dom, 'Menu Cheeseburger'));
+    const modal = doc.getElementById('menu-composer-modal');
+
+    const drinkGroup = modal.querySelector('.menu-composer__slot-tiles[data-slot-id="1"]');
+    const tiles = Array.prototype.slice.call(drinkGroup.querySelectorAll('.pos-tile'));
+    assert.equal(tiles.length, 2); // 999 n'est plus filtre
+    const fanta = tiles.find(t => t.dataset.value === '999');
+    assert.ok(fanta);
+    assert.equal(fanta.querySelector('.pos-tile__name').textContent, 'Fanta');
+    assert.equal(fanta.classList.contains('pos-tile--unavailable'), true);
+});
+
+test('modale menu : id sans AUCUNE information serveur (desync catalogue) reste filtre, comme avant ce correctif', () => {
+    // Aucune entree dans option_names ET absent de productById : le serveur lui-meme
+    // n'a rien a en dire (configuration perimee) -- reste filtre, pas affiche a tort.
+    const menuDesync = [{
+        id: 6, name: 'Menu Impasse', price_normal: 990, price_maxi: 1190, image: '',
+        category_id: 4, category_name: 'Menus', burger_modifiers: [],
+        slots: [{ id: 1, name: 'Boisson', slot_type: 'drink', is_required: 1, display_order: 1, option_product_ids: [999] }],
+    }];
+    const dom = setup(PRODUCTS, menuDesync);
+    const doc = dom.window.document;
+    counterOrder.init(doc);
+
+    activateCategory(dom, 'Menus');
+    click(dom, tileByName(dom, 'Menu Impasse'));
+    const modal = doc.getElementById('menu-composer-modal');
+    const drinkGroup = modal.querySelector('.menu-composer__slot-tiles[data-slot-id="1"]');
+    assert.equal(drinkGroup.querySelectorAll('.pos-tile').length, 0);
+});
+
+test('modale menu : TOUTES les options d un slot requis indisponibles -> impasse (ajout desactive, message clair)', () => {
+    // Meme resultat que "aucune option resoluble", mais ici les DEUX options SONT
+    // resolues (via productById), simplement toutes deux en rupture (RG-T21).
+    const menuRupture = [{
+        id: 5, name: 'Menu Cheeseburger', price_normal: 990, price_maxi: 1190, image: '',
+        category_id: 4, category_name: 'Menus', burger_modifiers: [],
+        slots: [{
+            id: 1, name: 'Boisson', slot_type: 'drink', is_required: 1, display_order: 1,
+            option_product_ids: [14],
+            option_is_orderable: { 14: false },
+        }],
+    }];
+    const dom = setup(PRODUCTS, menuRupture);
+    const doc = dom.window.document;
+    counterOrder.init(doc);
+
+    activateCategory(dom, 'Menus');
+    click(dom, tileByName(dom, 'Menu Cheeseburger'));
+    const modal = doc.getElementById('menu-composer-modal');
+
+    const addBtn = modal.querySelector('.menu-composer__add');
+    assert.equal(addBtn.disabled, true);
+    assert.match(modal.querySelector('.menu-composer__error').textContent, /pas composable/);
+
+    click(dom, addBtn);
+    assert.equal(doc.querySelector('.order-cart__line'), null);
+});
+
+test('modale menu : la navigation clavier (fleches) saute une tuile de slot grisee', () => {
+    const products = PRODUCTS.concat([{ id: 15, name: 'Eau', price: 150, image: '', category_id: 3, category_name: 'Boissons', modifiers: [] }]);
+    const menuRupture = [{
+        id: 5, name: 'Menu Cheeseburger', price_normal: 990, price_maxi: 1190, image: '',
+        category_id: 4, category_name: 'Menus', burger_modifiers: [],
+        slots: [{
+            id: 1, name: 'Boisson', slot_type: 'drink', is_required: 1, display_order: 1,
+            option_product_ids: [14, 15],
+            option_is_orderable: { 14: false, 15: true },
+        }],
+    }];
+    const dom = setup(products, menuRupture);
+    const doc = dom.window.document;
+    counterOrder.init(doc);
+
+    activateCategory(dom, 'Menus');
+    click(dom, tileByName(dom, 'Menu Cheeseburger'));
+    const modal = doc.getElementById('menu-composer-modal');
+    const drinkGroup = modal.querySelector('.menu-composer__slot-tiles[data-slot-id="1"]');
+    const eau = Array.prototype.find.call(drinkGroup.querySelectorAll('.pos-tile'), t => t.dataset.value === '15');
+
+    // Depuis Eau (seule commandable, donc seule focusable a 0), Fleche droite doit
+    // rester sur Eau : Coca (l'unique autre tuile) est grisee, jamais une destination.
+    eau.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }));
+    assert.equal(eau.getAttribute('aria-checked'), 'true');
+    assert.equal(doc.activeElement, eau);
+});
+
 test('RG-T21 : tuile non commandable (rupture) -> grisee, aria-disabled, badge Indisponible, tap n ajoute rien', () => {
     // commandable:false = rupture de stock calculee cote serveur (parite borne). La
     // tuile reste visible mais desactivee ; un tap ne doit RIEN ajouter au panier.

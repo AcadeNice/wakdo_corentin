@@ -166,6 +166,19 @@ final class FakeDatabase implements DatabaseInterface
     public ?array $productRow = null;
 
     /**
+     * Lignes renvoyees par ProductRepository::find(id), indexees PAR ID -- contrairement
+     * a $productRow (une seule reponse pour n'importe quel id). Sert la disponibilite
+     * de CHAQUE option de slot du composeur comptoir/drive (CounterOrderController::
+     * slotsWithAvailability, defaut #4/RG-T21), qui appelle find() une fois par option et
+     * a besoin d'une reponse DIFFERENTE par id. Verifiee AVANT $productRow (repli) :
+     * un id absent d'ici retombe sur $productRow pour ne rien casser des tests existants
+     * qui reutilisent ce bouton unique pour le burger ET l'option selectionnee.
+     *
+     * @var array<int, array<string, mixed>>
+     */
+    public array $productByIdRows = [];
+
+    /**
      * Lignes {id, name} renvoyees par ProductRepository::basesOnly() (R4/F9-1) :
      * produits de base eligibles aux selects menu / formulaire produit.
      *
@@ -603,7 +616,9 @@ final class FakeDatabase implements DatabaseInterface
         }
 
         if (str_contains($sql, 'FROM product WHERE id = :id')) {
-            return $this->productRow;
+            $id = (int) ($params['id'] ?? 0);
+
+            return $this->productByIdRows[$id] ?? $this->productRow;
         }
 
         if (str_contains($sql, 'FROM category WHERE id = :id')) {
