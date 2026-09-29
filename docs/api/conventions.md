@@ -61,7 +61,11 @@ dans `src/app/Core/Response.php`, resolution (404 / 405) dans `src/app/Core/Rout
 les deux hotes) : `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`,
 `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` (toutes les
 fonctionnalites capteur/media/paiement coupees — ajoutee le 2026-09-29, commit `08d7a96`,
-aucun des deux fronts n'en a l'usage), `Server` retire. Le vhost admin ajoute une CSP
+aucun des deux fronts n'en a l'usage). `ServerTokens Prod` (`docker/apache/httpd.conf:52`)
+reduit l'en-tete `Server` a `Apache`, sans numero de version ; `Header unset Server`
+(`httpd.conf:103`) est present mais n'a pas d'effet reel sur cet en-tete, pose par le
+coeur du serveur et non par `mod_headers` — l'en-tete `Server: Apache` reste donc envoye,
+juste sans version. Le vhost admin ajoute une CSP
 (`default-src 'self'`, `script-src 'self'`) desormais completee de `base-uri 'self'` et
 `form-action 'self'` (ajoutees le 2026-09-29, commit `08d7a96` : ces deux directives ne
 retombent pas sur `default-src` en CSP niveau 3, et devaient etre posees explicitement,
@@ -126,7 +130,7 @@ Autres regles :
 | GET | `/api/health` | public | JSON (plat) | sonde de sante (DB reelle) |
 | GET | `/login` | public | HTML | formulaire de connexion |
 | POST | `/login` | public + CSRF | 302 / HTML | authentification (mlt 12.1) |
-| POST | `/logout` | session + CSRF | 302 | deconnexion (mlt 12.2) |
+| POST | `/logout` | CSRF seul (aucun compte requis, `AuthController::logout()`) | 302 | deconnexion (mlt 12.2) ; CSRF invalide -> `403`, session conservee |
 | GET | `/forgot_password` | public | HTML | demande de reinitialisation |
 | POST | `/forgot_password` | public + CSRF | HTML (neutre) | envoi du lien (mlt 12.3) |
 | GET | `/reset_password` | public (token en query) | HTML | formulaire nouveau mot de passe |
@@ -192,7 +196,7 @@ permissions (`db/seeds/0001_rbac_and_reference.sql`) ; l'imputabilite et le PIN 
 |---|---|
 | Session | Cookie `WAKDO_SID` (section 9). Absente/expiree/compte desactive -> `401 AUTH_REQUIRED`. |
 | Permission | Verifiee via `role_permission`, meme code que la page HTML equivalente (colonne Permission ci-dessous). Manquante -> `403 FORBIDDEN`. |
-| Content-Type | Un corps NON VIDE doit s'annoncer `application/json` -> sinon `415 UNSUPPORTED_MEDIA_TYPE` (RFC 9110 §15.5.16). Un corps vide (GET, DELETE sans PIN) n'a pas cette contrainte. |
+| Content-Type | Un corps NON VIDE doit s'annoncer `application/json` -> sinon `415 UNSUPPORTED_MEDIA_TYPE` (RFC 9110 §15.5.16). Controle fait par `JsonApiTrait::requireJsonBody()`, donc seulement sur les routes qui lisent un corps ; un corps vide (GET, DELETE sans PIN) n'a pas cette contrainte. |
 | Corps JSON invalide (syntaxe, ou racine qui n'est pas un objet) | `400 INVALID_JSON`. La racine DOIT etre un objet (`{...}`) ; une liste (`[...]`), un nombre, une chaine ou un booleen a la racine sont refuses (impossibles a lire comme des champs). |
 | CSRF | En-tete `X-CSRF-Token` (le formulaire HTML utilise un champ cache `_csrf` ; l'API JSON n'en a pas, donc l'en-tete), exige sur `POST`/`PUT`/`DELETE`. Jeton lu via `GET /admin/me` (champ `csrf_token`). Absent/invalide -> `403 CSRF_INVALID`. Jeton SYNCHRONISEUR (ne tourne qu'a la regeneration de session, pas a chaque lecture de `/admin/me`) : un enchainement de requetes Postman reste valide sans le rafraichir. |
 | PIN (actions marquees PIN) | Corps JSON `{ "pin_email": "...", "pin": "...." }` (modele "identifiant equipier + PIN", RG-T13, meme modele que le formulaire HTML). Invalide/verrouille -> `422 PIN_INVALID`. |
@@ -557,7 +561,8 @@ Erreur :
 ```
 
 Exception documentee : `GET /api/health` renvoie un objet de diagnostic plat, hors enveloppe, car il
-sert le monitoring et non un client applicatif. Depuis le 2026-09-29 (commit `08d7a96`), 6 cles
+sert le monitoring et non un client applicatif. Dans le code depuis le 2026-09-29 (commit `08d7a96`, en production apres la release
+du 29/09 ; jusque-la la production renvoie encore `php_version`), 6 cles
 exactement : `status`, `app_env`, `db`, `categories`, `version`, `deployed_at` — `php_version` a ete
 retire (`App\Controllers\HealthController`) : cette sonde est publique et anonyme, exposer la version
 du moteur PHP a tout visiteur est une fuite d'information inutile (OWASP A05). Avant cette date, une
@@ -648,6 +653,16 @@ pouvait porter une quantite demesuree sur une seule ligne (vidage de stock en de
 requetes), un panier de taille arbitraire, ou une option retiree/en rupture restait
 commandable.
 
+Complements du 2026-09-29 apres-midi (commit `186c5d7`) : la disponibilite d'une option est
+calculee pour le format servi (`option_is_orderable_maxi` dans `/api/menus/{id}`, une option
+disponible en taille normale peut etre en rupture en Maxi) ; la borne plafonne chaque ligne a
+20 et affiche un message clair pour ces quatre refus. Au comptoir (formulaire HTML
+`/counter/orders`, `/drive/orders`), une quantite hors 1-20 ou non entiere est refusee en `422`
+avec le meme message que la borne, au lieu d'etre ramenee en silence a 1. Cote API
+d'administration (`POST /admin/api/orders`), ces refus ressortent en `422 VALIDATION_ERROR`
+avec le message dans `error.fields.items` (`OrderApiController::apiStore()`,
+`CounterOrderController::messageFor()`), pas avec le code propre de la borne.
+
 **`ORDER_TOO_LARGE` (422, corrige le 2026-09-29, commit `33538c6`).** Regle
 complementaire : au plus 50 articles au total par commande (somme des quantites de
 toutes les lignes, `OrderRepository::MAX_ITEMS_PER_ORDER`, verifiee dans
@@ -655,8 +670,8 @@ toutes les lignes, `OrderRepository::MAX_ITEMS_PER_ORDER`, verifiee dans
 distinctes. Sans elle, 50 lignes a 20 articles chacune (les deux bornes individuelles
 respectees) restaient possibles dans UNE seule commande anonyme (jusqu'a 1000
 articles). Nouveau test e2e (`security-order-integrity.spec.js`, 51 articles en une
-commande), pas encore compte dans l'execution datee de la fiche 10 (07:30-07:31, avant
-ce commit).
+commande), compte dans le rejeu de la suite de securite du 29/09 apres-midi (phase
+principale : 99 reussis, 8 sautes, sur `c2b8c1c`).
 
 **Risque residuel assume, honnetement.** Ces bornes limitent ce qu'UNE commande anonyme peut
 consommer ; elles ne limitent PAS le nombre de commandes successives depuis la meme source.
@@ -665,8 +680,9 @@ partagent la meme adresse (elle penaliserait tout le restaurant, pas l'attaquant
 fiabilite de l'IP cliente derriere le proxy releve de Traefik — non verifie ici (voir la
 fiche 10, section « Information »). En production reelle, l'API kiosk (`/api/*`) serait
 reservee au reseau du restaurant ou a des bornes identifiees (hors perimetre code de ce
-projet, cadre reseau/infra). En demonstration, la remise a zero quotidienne des donnees
-(`feat/demo-reset`) restaure le stock, ce qui borne la duree d'exposition a une journee.
+projet, cadre reseau/infra). En demonstration, la remise a zero des donnees
+(`docs/ops/demo-reset.md`) restaure le stock ; c'est une commande lancee a la main, aucune
+planification n'est versionnee (`docker/cron/crontab` ne l'appelle pas).
 
 ### 8.2bis Ce que garantit la cle d'idempotence (revise par F18)
 

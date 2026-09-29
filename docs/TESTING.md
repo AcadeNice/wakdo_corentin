@@ -80,12 +80,13 @@ elle suppose un PHP de CI equipe de pcov).
 ## 5. E2E (Playwright) — execution manuelle, hors CI
 
 36 specs (`tests/e2e/*.spec.js` : borne, admin, RBAC, accessibilite, performance,
-balayage back-office, capture de la page Sante...) se lancent **a la main**, contre
-une stack jetable, via cinq lanceurs :
+balayage back-office, capture de la page Sante, securite...) se lancent **a la main**,
+contre une stack jetable, via six lanceurs :
 
 | Lanceur | Fait |
 |---|---|
 | `tests/e2e/run.sh` | Monte une stack jetable, lance Playwright (conteneur officiel headless) contre elle, puis demonte tout. |
+| `tests/e2e/run-security.sh` | Monte une stack jetable avec `APP_DEBUG=false`, joue les 14 specs `security-*.spec.js` en trois phases (principale, reinitialisation, base arretee — pour prouver une vraie 500 sans fuite de trace), puis demonte tout. |
 | `tests/e2e/run-a11y.sh` | Monte une stack jetable, lance l'audit d'accessibilite axe-core via Playwright, depose les artefacts dans le dossier de preuves, puis demonte tout. |
 | `tests/e2e/run-w3c.sh` | Valide au validateur W3C les pages servies ET les pages statiques de la borne, en une commande reproductible. |
 | `tests/e2e/run-captures.sh` | Monte une stack jetable, joue `responsive.spec.js` avec `CAPTURES_DIR` pose, range les captures dans les dossiers de preuves, puis demonte tout. |

@@ -1,4 +1,4 @@
-# Demo de l'API d'administration en 5 minutes (Postman ou Bruno)
+# Demo de l'API d'administration en 5 minutes (Postman, Bruno ou Insomnia)
 
 L'API d'administration JSON (`/admin/api/*`, [docs/api/conventions.md](conventions.md)
 section 5.3) se demontre desormais de bout en bout SANS navigateur : la connexion se fait
@@ -6,10 +6,13 @@ par `POST /admin/api/auth/login` (section 5.3bis), qui pose le cookie de session
 le jeton CSRF dans le corps de sa reponse — plus besoin d'ouvrir les outils de developpement
 pour copier un cookie a la main.
 
-Deux outils sont couverts, memes fichiers sources, deux rendus : **Postman**
+Trois outils sont couverts : **Postman**
 (`docs/api/wakdo-admin.postman_collection.json` + `docs/api/wakdo.postman_environment.json`,
 generes par `scripts/gen_postman.py`) et **Bruno** (`docs/api/bruno/`, genere par
-`scripts/gen_bruno.py`, natif — un fichier `.bru` par requete, versionnable comme du code).
+`scripts/gen_bruno.py`, natif — un fichier `.bru` par requete, versionnable comme du code)
+partagent les memes fichiers sources generes ; **Insomnia** (section 8) n'a pas de collection
+generee par ce depot — sa collection se construit a la main, en suivant le meme scenario, et
+les deux collections generees ci-dessus servent de reference pour la construire.
 
 ## 0. Choisir son outil
 
@@ -350,7 +353,9 @@ La liste exacte des actions PIN-gated est la colonne PIN de
 `src/app/Health/RouteSecurity.php` (reprise dans `conventions.md` section 5.3) : annulation
 de commande, gestion utilisateur (creation/modification/desactivation/reinitialisation de
 PIN), effacement PII, gestion RBAC, suppression de produit, changement de prix produit,
-ajustement de stock, comptage d'inventaire. Pour ces requetes, ajouter dans le corps JSON
+suppression de menu, import CSV de produits quand il change un prix (`POST
+/admin/api/products/import`, champ `price`), ajustement de stock, comptage d'inventaire.
+Pour ces requetes, ajouter dans le corps JSON
 les deux champs `pin_email`/`pin` (modele "identifiant equipier + PIN", RG-T13), en plus
 des eventuels autres champs de la requete :
 
@@ -368,18 +373,19 @@ Le PIN doit avoir ete defini au prealable par son titulaire via `/admin/profile/
 | `AUTH_REQUIRED` | 401 | pas de session valide (relancer la connexion, 8.2) |
 | `CSRF_INVALID` | 403 | `X-CSRF-Token` absent ou perime (8.3) |
 | `FORBIDDEN` | 403 | permission manquante pour le role connecte |
-| `UNSUPPORTED_MEDIA_TYPE` | 415 | corps non vide sans `Content-Type: application/json` |
+| `UNSUPPORTED_MEDIA_TYPE` | 415 | corps non vide sans `Content-Type: application/json`, sur une route qui lit un corps (`JsonApiTrait::requireJsonBody()`) |
 | `VALIDATION_ERROR` | 422 | champ manquant/invalide, detail dans `error.fields` |
 | `PIN_INVALID` | 422 | `pin_email`/`pin` absents, faux, ou compte agissant verrouille (8.7) |
-| `NOT_FOUND` | 404 | identifiant absent en base |
+| `NOT_FOUND` | 404 | identifiant absent en base ; exception : un numero de commande inconnu sur `/admin/api/orders/{number}` renvoie `403 FORBIDDEN`, comme un canal non visible, pour ne pas reveler quels numeros existent (`OrderApiController`) |
 | `METHOD_NOT_ALLOWED` | 405 | methode HTTP incorrecte pour cette adresse |
 
 ### 8.7 Blocage du PIN apres 5 echecs
 
 Le compteur d'echecs de PIN est PAR UTILISATEUR AGISSANT et SEPARE du throttle de
-connexion (`pin_throttle`, RG-T22, `App\Auth\PinThrottle`). Au-dela de
-`PIN_THROTTLE_THRESHOLD` echecs consecutifs (5 par defaut, `.env.example`), un verrou
-degressif se pose (30 s, puis doublement jusqu'a 300 s par defaut) : pendant le verrou,
+connexion (`pin_throttle`, RG-T22, `App\Auth\PinThrottle`). Des le
+`PIN_THROTTLE_THRESHOLD`-ieme echec (5 par defaut, `.env.example`, `ThrottlePolicy`), les echecs
+etant comptes sur une fenetre glissante de `PIN_THROTTLE_WINDOW_SECONDS` (900 s par defaut), un
+verrou degressif se pose (30 s, puis doublement jusqu'a 300 s par defaut) : pendant le verrou,
 `422 PIN_INVALID` continue d'etre renvoye meme avec le bon PIN (`App\Auth\PinGate::resolve()`).
 Un PIN correct reussi remet le compteur a zero.
 

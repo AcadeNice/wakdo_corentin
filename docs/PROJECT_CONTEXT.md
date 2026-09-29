@@ -49,7 +49,7 @@ Client                Borne (Bloc 1)           API (Bloc 2)          BDD
   │                       │─GET menus,produits───▶│───SELECT──────────▶│
   │                       │◀──────────JSON────────│◀───────────────────│
   │─valide────────────────│                       │                    │
-  │─saisit numero─────────│                       │                    │
+  │─saisit chevalet (sur place)                       │                    │
   │                       │─POST /api/orders─────▶│───INSERT──────────▶│
   │                       │◀──────────201─────────│                    │
   │─recupere au comptoir  │                       │                    │
@@ -63,7 +63,7 @@ Client                Borne (Bloc 1)           API (Bloc 2)          BDD
 
 - Un **menu** = burger fixe + slots a choix (boisson, accompagnement, sauce). Modele relationnel `menu_slot` + `menu_slot_option` (voir `dictionary.md` 3.4-3.5)
 - Format **Normal / Maxi** au niveau du menu (deux prix : `price_normal_cents`, `price_maxi_cents`) ; le Maxi agrandit accompagnement + boisson uniquement
-- **Personnalisation des ingredients** (retirer = gratuit, ajouter = supplement) sur les sandwichs composes, via le configurateur (`ingredient`, `product_ingredient`, `order_item_modifier`)
+- **Personnalisation des ingredients** (retirer = gratuit, ajouter = supplement) sur les sandwichs composes, via le configurateur (`ingredient`, `product_ingredient`, `order_item_modifier`) — au comptoir et au drive seulement, la borne n'en envoie pas
 - **TVA portee par le produit** (`vat_rate` : 10% defaut, 5,5% contenant conservable), calculee ligne par ligne et snapshotee sur `order_item` (fact-check BOFiP, voir `dictionary.md` note 9)
 - Une **commande** a un **numero genere par le serveur** (prefixe canal `K`/`C`/`D` + id auto-incremente, ex. `K42`), retourne par l'API a la creation -- le client le RECOIT, il ne le saisit pas (le paiement reel est ce qui est remplace dans le cadre de l'exam, pas la numerotation)
 - Statuts commande (machine a **6 etats**, migration `0009_order_prep_states.sql`) : `pending_payment` -> `paid` -> `preparing` -> `ready` -> `delivered`, plus `cancelled` (terminal, atteignable depuis tout etat non termine). Le paiement (carte/especes) est simule par un bouton d'interface, pas par la saisie du numero de commande : sur la borne, `POST /api/orders` cree la commande en `pending_payment`, puis un second appel `POST /api/orders/{number}/pay` l'encaisse et la fait passer directement a `preparing` (`paid_at` ET `preparing_at` poses dans la meme transaction ; `paid` reste un etat valide de l'enum, conserve pour compatibilite, mais aucun chemin de code actuel ne l'ecrit). Au comptoir/drive, `createStaffOrder()` enchaine les deux memes etapes en interne (deux transactions distinctes). La cuisine (KDS) fait avancer `preparing` -> `ready` (`OrderRepository::markReady`). La remise accepte tout etat encaisse (`paid`, `preparing` ou `ready`) -> `delivered`, sans obliger a transiter par les etats de cuisine
@@ -118,7 +118,7 @@ Client                Borne (Bloc 1)           API (Bloc 2)          BDD
 
 ### Strategie B — unifiee
 
-**Un seul codebase, deux FQDN d'exposition publique.** Le front Bloc 1 et le back Bloc 2 coexistent dans la meme arborescence. Une bascule mode JSON-seuls (Bloc 1 isole) vs mode API-connecte doit rester possible via configuration.
+**Un seul codebase, deux FQDN d'exposition publique.** Le front Bloc 1 et le back Bloc 2 coexistent dans la meme arborescence. L'idee initiale d'une bascule par configuration entre un mode JSON seuls (Bloc 1 isole) et un mode connecte a l'API a ete abandonnee : la borne est branchee directement sur l'API (voir ci-dessous).
 
 **Pourquoi pas strategie A (deux rendus isoles)** : le Bloc 5 DevOps impose une conteneurisation **unique** qui lance la stack complete avec `docker compose up` en une commande (Cr 7.c.4). Deux codebases isolees seraient incoherentes avec cette exigence.
 
@@ -126,7 +126,7 @@ Client                Borne (Bloc 1)           API (Bloc 2)          BDD
 
 - **Jury Bloc 1** : voit le front seul ; le front consomme les donnees via `fetch` sur l'API (`/api/*`). Le fallback JSON statique initialement envisage a ete retire (la borne est branchee directement sur l'API DB-backed).
 - **Jury Bloc 2** : voit le back-office + teste l'API via curl/Postman de maniere autonome, sans dependre du front.
-- **Jury Bloc 5** : lance `docker compose up` ou `docker compose up`, verifie la CI/CD, les crons, l'archi, les scripts.
+- **Jury Bloc 5** : lance `docker compose up`, verifie la CI/CD, les crons, l'archi, les scripts.
 
 ---
 
@@ -179,8 +179,11 @@ Client                Borne (Bloc 1)           API (Bloc 2)          BDD
 ```
 
 Reseaux :
-- `admin_proxy` (external) — expose `wakdo-web` a Traefik
-- `wakdo_internal` (bridge, interne) — isole `wakdo-app`, `wakdo-db`, `wakdo-cron`
+- `docker-compose.yml` (local, versionne) : un seul reseau `wakdo_internal` (bridge simple) ;
+  `wakdo-web` publie le port `8080` (`HTTP_PORT`).
+- `docker-compose.prod.yml` (propre a l'hote, modele versionne `docker-compose.prod.yml.example`) :
+  `wakdo-web` rejoint en plus le reseau externe du reverse proxy, nomme par
+  `REVERSE_PROXY_NETWORK` ; `wakdo-app`, `wakdo-db` et `wakdo-cron` restent sur `wakdo_internal`.
 
 ---
 
@@ -217,18 +220,18 @@ Reseaux :
 **IN scope :**
 - Affichage dynamique menus + produits (charges par `fetch` depuis l'API `/api/*`)
 - Composition panier : produits unitaires OU menus (burger + accompagnement + boisson + sauce)
-- Options de taille, propres a chaque famille de produit (pas un delta fixe unique) : les boissons fontaine ont une variante 50 cl a +0,50 € sur la base 30 cl (seed 0005) ; les frites/potatoes existent en plusieurs formats, chacun avec son propre prix (seed 0002) ; le format Maxi d'un menu (burger + accompagnement + boisson agrandis) ajoute +1,50 € (`price_maxi_cents = price_normal_cents + 150`, seed 0002/0006)
-- Options de personnalisation simples (ex : sans oignon, avec fromage)
+- Options de taille, propres a chaque famille de produit (pas un delta fixe unique) : les boissons fontaine ont une variante 50 cl a +0,50 € sur la base 30 cl (seed 0005) ; les frites/potatoes existent en plusieurs formats, chacun avec son propre prix (seed 0002) ; le format Maxi d'un menu (accompagnement + boisson agrandis, le burger ne change pas) ajoute +1,50 € (`price_maxi_cents = price_normal_cents + 150`, seed 0002/0006)
+- Pas de personnalisation d'ingredients a la borne (elle n'envoie aucune modification ; le retrait/ajout d'ingredient se fait au comptoir et au drive)
 - Recapitulatif panier (ajout, modification quantite, suppression)
-- Validation commande + saisie numero (remplace paiement)
+- Validation commande : paiement simule par un bouton ; seul le numero de chevalet est saisi (sur place)
 - Envoi POST JSON de la commande vers l'API
-- Ecran de confirmation avec numero
+- Ecran de confirmation avec le numero de commande genere par le serveur
 - Responsive cible 1920x1080 portrait (borne) **+ adaptatif** autres resolutions
 - **Accessibilite RGAA** : police OpenDys pour dyslexiques, navigation clavier, contrastes, alts, pas d'info via couleur seule
 - **SEO / semantique** : balises HTML5 (`article`, `aside`, `nav`), schema.org, meta tags uniques, canonical, favicon
 
 **OUT scope :**
-- Paiement reel (remplace par numero de commande)
+- Paiement reel (simule par un bouton)
 - Authentification client (pas de compte fidelite)
 - Multi-langue (FR uniquement)
 - Offline mode
@@ -243,17 +246,20 @@ Reseaux :
 - **Kitchen** : file des commandes actives (`paid`/`preparing`/`ready`) triee par `paid_at` croissant (KDS) ; fait avancer la preparation (`preparing -> ready`, via `order.read`), n'effectue pas la remise finale (`order.deliver`) ; inventaire
 - **Counter** / **Drive** : saisir une commande (comptoir / drive-thru via casque/intercom), bouton "declarer livree" (`paid`/`preparing`/`ready` -> `delivered`), annuler ; `source` auto-tague depuis `role.order_source` ; inventaire
 - Upload images produits : **implemente et teste** (`App\Core\ImageUploader`, `tests/Unit/Core/ImageUploaderTest.php`) — type reel detecte cote serveur (finfo + getimagesize), sans se fier a l'extension du nom d'origine ni au type annonce par le navigateur, nom de fichier regenere, stockage dans `public/uploads` (voisin des deux racines web, non execute directement) ; taille et formats acceptes regles par l'environnement (`UPLOAD_MAX_SIZE_MB`, `UPLOAD_ALLOWED_MIME`). Correction du 2026-09-24 : cette ligne annoncait a tort l'upload comme non implemente.
-- Historique commandes par statut
+- Liste des 50 dernieres commandes (`OrderQueryRepository::recent()`), filtrable par canal
 - Stats de base livrees : compteurs catalogue, sante du stock, CA encaisse (total et du jour calendaire, `CURDATE()`), panier moyen, repartition par statut, mini-graphe 7 jours (`OrderQueryRepository::salesKpis()`/`salesByDay()`) — pas de notion de "produits top" ni de jour de service (voir section 2)
 
 **IN scope — API REST :**
 - `GET /api/categories` — liste categories produits
 - `GET /api/products` — liste produits (non filtrable par categorie a ce stade : aucun parametre de requete n'est lu par `CatalogueController::products()`)
 - `GET /api/menus` — liste menus (sans compositions ; les slots ne sont renvoyes que par le detail `GET /api/menus/{id}`)
+- `GET /api/products/{id}`, `GET /api/menus/{id}` (avec ses emplacements et leur disponibilite par format), `GET /api/allergens`
 - `POST /api/orders` — creer une commande (body JSON, retour `{id, order_number, status, total_ttc_cents}`)
+- `POST /api/orders/{number}/pay` — paiement simule
 - `GET /api/orders/{number}` — recuperer statut commande
+- `GET /api/health` — sonde publique (10 routes publiques au total, `src/app/Core/routes.php`)
 - Middleware CORS present en defense en profondeur (origine exacte, sans wildcard) ; la borne consomme en realite `/api/*` en meme origine via le proxy du vhost kiosk, pas via CORS (section 5)
-- Reponses JSON standardisees : `{data: ...}` (succes) ou `{data: null, error: {code, message}}` (echec)
+- Reponses JSON standardisees : `{data: [...], total: N}` pour une liste, `{data: {...}}` pour un element, `{data: null, error: {code, message}}` en echec
 
 **IN scope — Transverse :**
 - Architecture **MVC** (couche modele = Repository pattern, pas de dossier `Models/` ; voir section 8)
@@ -279,9 +285,9 @@ Reseaux :
   - `0 2 * * *` — expiration des commandes restees en attente de paiement (`bin/order-expire.php`)
   - `0 3 * * *` — backup BDD quotidien a 03h00 (entre fin service 01h et ouverture 10h)
   - `15 4 * * *` — purge du journal d'audit au-dela de la fenetre de retention (~12 mois)
-  - `45 4 * * *` — purge des compteurs de throttle expires
+  - `45 4 * * *` — purge des compteurs de throttle expires (`login_throttle`, `pin_throttle`, `password_reset_throttle`)
   - Differes (templates commentes dans `docker/cron/crontab`, a activer plus tard) : purge des sessions expirees, agregation des stats sur le jour de service
-- **CI Forgejo Actions** (act_runner auto-heberge, `ci.yml`, cinq travaux independants) : `secret-scan` (gitleaks), `php-lint`, `static-tests` (PHPStan + PHPUnit avec service MariaDB), `js-tests`, `shell-tests` -- sur PR vers `dev` ET `main`
+- **CI Forgejo Actions** (act_runner auto-heberge, `ci.yml`, cinq travaux independants) : `secret-scan` (gitleaks), `php-lint`, `static-tests` (PHPStan + PHPUnit avec service MariaDB), `js-tests`, `shell-tests` -- sur PR vers `dev` ET `main`, et sur push vers `dev`, `main` et les branches `feat/**`, `fix/**`, `ci/**`, `refactor/**`
 - **CD : deploiement automatique, declenche par un push sur `main`** (`.forgejo/workflows/deploy.yml`,
   `on: push: branches: [main]`, deux travaux `cle-de-deploiement` + `deploiement`) : le job
   n'a pas le socket Docker (mesure du 2026-09-22) et ne pilote pas Docker lui-meme. Il ouvre
@@ -292,7 +298,7 @@ Reseaux :
   attendu. Choix solo dev sur un environnement de prod unique.
 - `.env.example` documente (parametres securite : argon2id, lockout, seuils throttle, retention RGPD), secrets hors du repo
 - `php.ini` durci (expose_php off, session cookies httponly/secure/samesite, upload limite)
-- Healthcheck Traefik + readiness probes
+- Healthchecks Docker (`healthcheck:` des services dans `docker-compose.yml`, attendus par les lanceurs de tests)
 - Logs centralises (stdout des conteneurs)
 - Documentation deploiement + architecture (schemas dans `docs/`)
 
@@ -329,7 +335,7 @@ Reseaux :
 | Critere | Libelle court | Feature Wakdo couvrant |
 |---|---|---|
 | Cr 3.a.2-4 | Analyse + modele donnees (3 criteres ; le referentiel ne contient PAS de Cr 3.a.1) | Dictionnaire + MCD + cardinalites |
-| Cr 3.a.3 | Exploiter donnees externes d'API | Enrichissement nutritionnel depuis **OpenFoodFacts** (API tierce) importe DANS le modele (`ingredient.energy_kcal_100g`), a la demande admin (opt-in, sans egress runtime) ; + auto-consommation de l'API interne par la borne |
+| Cr 3.a.3 | Exploiter donnees externes d'API | Enrichissement nutritionnel depuis **OpenFoodFacts** (API tierce) importe DANS le modele (`ingredient.energy_kcal_100g`), a la demande d'un compte qui a `ingredient.manage` (admin et manager, `RouteSecurity.php`, opt-in, sans appel externe a l'execution) ; + auto-consommation de l'API interne par la borne |
 | Cr 3.b.1-3 | Construction BDD | MCD → MLD → DDL MariaDB, FK + typage coherent |
 | Cr 3.c.1-3 | Requetes SQL optimisees | PDO prepared, index sur FK, LIMIT/tri explicites |
 | Cr 3.d.1-4 | RGPD | hash mdp, droit acces/modif/suppr, info utilisation donnees |
@@ -412,18 +418,19 @@ fait regle) :
 ### Code PHP
 
 - **PSR-12** style (indentation 4 espaces, namespaces 1 classe par fichier, `{` sur nouvelle ligne pour classes/methodes)
-- **Namespaces** : `App\Controllers`, `App\Core`, `App\Auth`, `App\Catalogue`, `App\Order`, `App\Health` (pas de `App\Models` ni `App\Services` : couche modele en Repository pattern)
+- **Namespaces** : `App\Controllers` (dont `App\Controllers\Admin\Api` pour l'API d'administration JSON), `App\Core`, `App\Auth`, `App\Catalogue`, `App\Order`, `App\Health` (pas de `App\Models` ni `App\Services` : couche modele en Repository pattern)
 - **1 classe = 1 fichier**, nom fichier == nom classe (PascalCase)
 - **Proprietes typees** (PHP 8.3) : `private int $id`, `private string $name`
-- **Retours typees** : `public function find(int $id): ?Product`
+- **Retours typees** : `public function find(int $id): ?array` (`ProductRepository::find()` ; les repositories rendent des tableaux, pas des objets metier)
 - **Commentaires** : pour le **pourquoi** (Mantra IA-24), pas le quoi
 - **Docblocks** : sur methodes publiques uniquement, concis
 
 ### Code JavaScript
 
-- **Vanilla ES6+** : `const`/`let`, arrow functions, destructuring, modules `import`/`export`
-- **Pas de `var`**
-- **Modules** : fichiers `.js` avec `export` explicite
+- **Vanilla ES6+** : `const`/`let`, arrow functions, destructuring
+- **Borne** (`src/public/borne/assets/js/`) : modules `import`/`export`, aucun `var` (mesure du 29/09)
+- **Back-office** (`src/public/admin/assets/js/`) : scripts classiques sans `import`/`export`, charges
+  par balise `<script>` ; 9 fichiers y utilisent encore `var` (mesure du 29/09)
 - **Async** : `async/await` prefere au chaining `.then()` complexe
 - **Event delegation** : sur conteneurs parents plutot que listener par element
 - **Aucune lib externe** (pas jQuery, pas Lodash)
@@ -432,15 +439,16 @@ fait regle) :
 
 - **BEM** naming : `.block__element--modifier`
 - **Variables CSS** dans `:root` (palette couleurs, spacings, fonts)
-- **Mobile-first** : `min-width` media queries
-- **1 fichier par composant**, servi depuis `src/public/admin/assets/css/` (back-office) et
-  `src/public/borne/assets/css/` (borne) — pas de dossier `src/public/assets/` partage
+- **Media queries** : majoritairement `max-width` (mesure du 29/09 : 23 `max-width` pour 14 `min-width`
+  dans `admin.css`, 19 pour 12 dans `style.css`) ; l'approche n'est donc pas mobile-first au sens strict
+- **Un fichier par cote** : `src/public/admin/assets/css/admin.css` (back-office) et
+  `src/public/borne/assets/css/style.css` (borne) — pas de dossier `src/public/assets/` partage
 
 ### BDD
 
 - **Tables** : `snake_case`, **singulier** (`product`, `customer_order`, `order_item`)
 - **Colonnes** : `snake_case`
-- **PK** : `id` INT UNSIGNED AUTO_INCREMENT
+- **PK** : `id` INT UNSIGNED AUTO_INCREMENT, sauf les 6 tables de liaison a cle primaire composite (`menu_slot_option`, `product_ingredient`, `ingredient_allergen`, `role_permission`, `role_visible_source`, `category_ingredient_family`)
 - **FK** : `<table_singulier>_id` (ex : `product_id`, `user_id`)
 - **Timestamps** : `created_at`, `updated_at` (DATETIME default CURRENT_TIMESTAMP)
 - **Pas de soft delete** : aucune colonne `deleted_at` ; l'etat actif/inactif passe par
@@ -518,7 +526,7 @@ Buffer : ~8 h pour imprevus. Cible effective : ~264 h sur 20 semaines = **~13 h/
 - Orchestration via `docker compose` (service one-shot `wakdo-migrate` : migrate + seed)
 - `.forgejo/workflows/` avec CI (PHPUnit + PHPStan + secret-scan) + CD
 - Crontab documente
-- Script de backup/restore teste
+- Scripts de backup/restore (`scripts/`) ; la restauration n'est pas testee automatiquement, seule la bibliotheque de l'instantane de demo l'est (`tests/shell/demo-snapshot-lib.test.sh`)
 - Architecture serveur decrite (`docs/architecture/deployment.md`)
 
 ### Pour la soutenance (tous blocs)
@@ -556,14 +564,14 @@ Buffer : ~8 h pour imprevus. Cible effective : ~264 h sur 20 semaines = **~13 h/
 | **Drive** | Piste drive-thru : client en voiture, borne intercom + haut-parleur, equipier avec casque + tablette saisit la commande (canal `drive`) |
 | **Jour de service** | Periode d'activite 10h J -> 01h J+1 (15h continu) ; concept metier cible pour l'agregation des stats commerciales, **non implemente** dans les stats livrees (qui agregent sur le jour calendaire, voir section 2) |
 | **Fenetre de maintenance** | Periode 01h30 -> 09h30 reservee aux taches systeme (backups, stats, purges) |
-| **Accompagnement** | Frite, salade, potatoes — option avec taille |
+| **Accompagnement** | Dans un menu : Moyenne Frite ou Potatoes (seed 0004), la Grande taille etant servie en Maxi ; a la carte, frites et potatoes en plusieurs tailles |
 | **Supplement** | Ajout optionnel sur un produit (fromage, bacon) — peut impacter prix |
 | **Option** | Retrait ou modif produit (sans oignon, sans sauce) — neutre prix |
 | **Panier** | Liste des produits/menus selectionnes par le client avant validation |
 | **Commande** | Panier valide, dote d'un numero, en attente de preparation |
 | **Preparation** | Etat "en cuisine" |
-| **Livraison** | Remise au client au comptoir |
-| **Ticket** | Numero de commande (remplace paiement dans l'exam) |
+| **Livraison** | Remise au client au comptoir ou au drive (`paid`/`preparing`/`ready` -> `delivered`) |
+| **Ticket** | Numero de commande genere par le serveur (le paiement est simule par un bouton) |
 
 ## 15. Glossaire technique
 
@@ -639,7 +647,7 @@ L'auteur peut recourir ponctuellement a d'autres outils IA (completion IDE, assi
 - **Choix du scope fonctionnel** : defini par l'auteur a partir du brief RNCP. L'IA n'ajoute ni ne retire de fonctionnalite sans instruction explicite.
 - **Modelisation Merise** (MCD, MCT, MLD) : formalisation produite par l'IA a partir du dictionnaire de donnees et des user stories ; arbitrage, validation et corrections par l'auteur. Chaque cardinalite, chaque relation et chaque transition de statut est validee par l'auteur avant integration. Le livrable final reflete ses decisions.
 - **Validation des livrables** : reservee au jury. L'IA n'emet pas de jugement final sur la conformite RNCP.
-- **Deploiements** : declenchement humain uniquement, y compris sur `docker compose up` local. Aucune action sur environnement serveur sans instruction explicite.
+- **Deploiements** : le deploiement de la production est automatique a chaque commit arrivant sur `main` (`deploy.yml`) ; la fusion vers `main` (release depuis `dev`) reste un geste humain, de meme que tout `docker compose up` local. Aucune action sur environnement serveur sans instruction explicite.
 - **Commit en son nom** : aucun trailer `Co-Authored-By: Claude...` n'est appose sur les commits. Voir section 17.7.
 - **Decisions de securite critiques** : tous les choix de type hash mdp, CORS, RBAC, politique sessions sont valides par l'auteur meme si l'IA en propose la mise en oeuvre.
 
@@ -648,7 +656,7 @@ L'auteur peut recourir ponctuellement a d'autres outils IA (completion IDE, assi
 Fichiers committes dans le repo qui rendent la methodologie observable :
 
 - `.claude/CLAUDE.md` : constitution du projet pour les agents Claude Code.
-- `.claude/rules/` : les protocoles appliques au projet :
+- `.claude/rules/` : les protocoles appliques au projet (13 fichiers versionnes, mesure du 29/09), dont :
   - `fact-check.md` — exigence de sources pour tout claim technique absolu.
   - `merise-agile.md` — methodologie Merise + TDD + mantras.
   - `elo-trust.md` — calibration de l'intensite du challenge selon l'expertise auto-declaree.
@@ -761,13 +769,13 @@ et/ou une entite reelle du modele.
 | R1 | Recette (cash) sur commande payee | Un equipier annule une commande `paid` pour detourner l'encaissement (fraude interne) | Fort | Moyenne | `CANCEL_ORDER` (`mlt.md` 7.1) PIN-gated (RG-T13) + ecriture `audit_log` dans la meme transaction (RG-T14, RG-T11) ; acteur capture via `audit_log.actor_user_id` | Faible — l'annulation reste possible mais devient nominative et tracee ; dissuasion plus que blocage |
 | R2 | `product.price_cents` / `vat_rate` / `role_id` | Falsification via un champ de formulaire injecte (mass-assignment) | Fort | Moyenne | Allowlist de colonnes par operation (RG-T16) sur `UPDATE_PRODUCT` (`mlt.md` 8.2) et `UPDATE_USER` (10.2) ; seules les colonnes autorisees sont bindees | Faible — les champs hors allowlist sont ignores ; un changement de prix reste audite (RG-T14) |
 | R3 | Comptes back-office (`user.password_hash`) | Brute-force sur le login staff | Moyen | Haute | Backoff degressif par compte (`user.failed_login_attempts` / `lockout_until`) + par IP (`login_throttle`, entite 21) ; gate avant verification (`mlt.md` 12.1 PRE-3, RG-8) | Faible — ralentissement sans lock indefini ; un service de 15h n'est pas bloque par une saisie maladroite |
-| R4 | Vues kiosk et admin (texte stocke) | XSS stocke via `product.name` / `ingredient.name` / `user.first_name` | Moyen | Moyenne | Echappement au rendu (RG-T15) : `htmlspecialchars(..., ENT_QUOTES)` cote admin, injection via `textContent` (pas `innerHTML`) cote kiosk vanilla-JS | Faible — l'echappement reduit le risque d'execution de script injecte |
-| R5 | `ingredient.stock_quantity` | Survente (oversell) sous concurrence multi-borne | Moyen | Moyenne | Decrement atomique auto-verrouillant (RG-T20) sans read-gate + disponibilite calculee (RG-T21) ; `stock_quantity` signe, la magnitude de survente est remontee aux managers | Moyen accepte — le systeme ne bloque pas une commande sur le stock ; la survente est mesuree, pas empechee (decision metier) |
+| R4 | Vues kiosk et admin (texte stocke) | XSS stocke via `product.name` / `ingredient.name` / `user.first_name` | Moyen | Moyenne | Echappement au rendu (RG-T15) : `htmlspecialchars(..., ENT_QUOTES)` cote admin, cote borne, gabarits `innerHTML` dont chaque valeur de catalogue passe par `escHtml()` (`src/public/borne/assets/js/state.js`) | Faible — l'echappement reduit le risque d'execution de script injecte |
+| R5 | `ingredient.stock_quantity` | Survente (oversell) sous concurrence multi-borne | Moyen | Moyenne | Decrement atomique auto-verrouillant (RG-T20) sans read-gate + disponibilite calculee (RG-T21 : un article dont un ingredient requis, non retirable, est sous le seuil critique est refuse en `422`) ; `stock_quantity` signe, la magnitude de survente est remontee aux managers | Moyen accepte — au-dessus du seuil critique, une survente sous concurrence reste possible ; elle est mesuree, pas empechee (decision metier) |
 | R6 | Commande payee | Double-charge sur retry reseau de `POST /api/orders` | Moyen | Moyenne | Idempotence (RG-T19) : `customer_order.idempotency_key` UNIQUE ; un retry renvoie la commande existante au lieu d'en creer une seconde | Faible — la cle UNIQUE deduplique les rejeux ; depend d'une cle client correctement generee |
 | R7 | PII utilisateur (`user.email`/`first_name`/`last_name`) | Demande d'effacement RGPD non honoree, ou rupture de l'integrite referentielle a la suppression | Fort (conformite) | Faible | Anonymisation (`ERASE_USER_PII`, `mlt.md` 10.5) : la ligne est conservee, PII remplacees par un placeholder `anon-<id>@wakdo.invalid`, credentials invalides, `anonymized_at` pose ; `audit_log` retient sa propre fenetre | Faible — effacement et tracabilite coexistent ; les FK (`audit_log.actor_user_id`, `customer_order.acting_user_id`, `stock_movement.user_id`) restent valides |
 | R8 | Matrice RBAC (`role_permission`) | Elevation de privilege via modification de role non controlee | Fort | Faible | `MANAGE_RBAC` (`mlt.md` 10.4) PIN-gated (RG-T13) + `audit_log` du diff de permissions (RG-T14, RG-6) ; `role_id` derriere l'allowlist (RG-T16) | Faible — tout gain/perte de capacite est nominatif et trace |
 | R9 | `stock_movement` (demarque) | Correction d'inventaire masquant une demarque | Moyen | Moyenne | `INVENTORY_COUNT` (`mlt.md` 9.2) PIN-gated (RG-T13) ; le `user_id` capture par PIN est ecrit dans `stock_movement.user_id` (append-only) | Faible — la correction devient attribuable a une personne meme sur poste partage |
-| R10 | `ingredient.stock_quantity` / disponibilite catalogue | Deni de service : une commande anonyme (`POST /api/orders`, sans session) porte une quantite demesuree sur une seule ligne, ou un nombre de lignes arbitraire, et vide le stock d'un ingredient en deux requetes | Fort | Moyenne (avant correctif) | **Corrige le 2026-09-29** (commit `fce3085`, branche `fix/sec-order`, fusionnee par `86306ef`) : quantite bornee 1-20 par ligne (`INVALID_QUANTITY`, `OrderRepository::resolveQuantity`), 50 lignes au plus par commande (`TOO_MANY_ITEMS`) ; avant cette borne `max(1, ...)` ramenait toute valeur hors bornes a 1 EN SILENCE (y compris des valeurs qui atteignaient l'ecriture SQL, `order_item.quantity` etant un `SMALLINT UNSIGNED`). Une borne complementaire sur le TOTAL d'articles par commande (`OrderRepository::MAX_ITEMS_PER_ORDER` = 50, code `ORDER_TOO_LARGE`) est corrigee le 2026-09-29 (commit `33538c6`) : sans elle, 50 lignes a 20 articles chacune (les deux bornes individuelles respectees) restaient possibles dans UNE commande anonyme. | Faible mais assume : ces bornes limitent ce qu'UNE commande consomme, pas le nombre de commandes successives depuis la meme source. Une limitation par IP a ete ECARTEE (des bornes reelles d'un meme restaurant partagent la meme adresse ; la fiabilite de l'IP derriere le proxy releve de Traefik, non verifie ici). En production reelle, l'API kiosk serait reservee au reseau du restaurant ou a des bornes identifiees (hors perimetre code) ; en demonstration, la remise a zero quotidienne restaure le stock. |
+| R10 | `ingredient.stock_quantity` / disponibilite catalogue | Deni de service : une commande anonyme (`POST /api/orders`, sans session) porte une quantite demesuree sur une seule ligne, ou un nombre de lignes arbitraire, et vide le stock d'un ingredient en deux requetes | Fort | Moyenne (avant correctif) | **Corrige dans le code le 2026-09-29, en production apres la release du 29/09** (commit `fce3085`, branche `fix/sec-order`, fusionnee par `86306ef`) : quantite bornee 1-20 par ligne (`INVALID_QUANTITY`, `OrderRepository::resolveQuantity`), 50 lignes au plus par commande (`TOO_MANY_ITEMS`) ; avant cette borne, `max(1, ...)` ne relevait en silence que les valeurs inferieures a 1 : une quantite demesuree passait telle quelle jusqu'a l'ecriture SQL (`order_item.quantity` etant un `SMALLINT UNSIGNED`). Une borne complementaire sur le TOTAL d'articles par commande (`OrderRepository::MAX_ITEMS_PER_ORDER` = 50, code `ORDER_TOO_LARGE`) est corrigee le 2026-09-29 (commit `33538c6`) : sans elle, 50 lignes a 20 articles chacune (les deux bornes individuelles respectees) restaient possibles dans UNE commande anonyme. | Faible mais assume : ces bornes limitent ce qu'UNE commande consomme, pas le nombre de commandes successives depuis la meme source. Une limitation par IP a ete ECARTEE (des bornes reelles d'un meme restaurant partagent la meme adresse ; la fiabilite de l'IP derriere le proxy releve de Traefik, non verifie ici). En production reelle, l'API kiosk serait reservee au reseau du restaurant ou a des bornes identifiees (hors perimetre code) ; en demonstration, la remise a zero quotidienne restaure le stock. |
 | R11 | Session back-office (autorisation) | Elevation de privilege : un role retire ou change en base (`user.role_id`) ne s'appliquait qu'a la PROCHAINE connexion, pas a une session deja ouverte — `SessionGuard::check()` ne relisait que `is_active`, le `role_id` utilise pour l'autorisation venait de la session posee a la connexion | Fort | Faible | **Corrige le 2026-09-29** (commit `ef7fd37`) : `SessionGuard::check()` relit desormais `is_active`, `role_id` ET `session_epoch` en base, dans la MEME requete SQL, a chaque requete authentifiee (RG-T02) ; un changement/retrait de role s'applique des la requete suivante | Faible — la fenetre d'exposition est bornee au temps de propagation d'une requete, plus de fenetre "jusqu'a la prochaine connexion" |
 
 ### 19.3 Analyse STRIDE par element
@@ -796,9 +804,9 @@ bindees aux champs autorises par operation, protegeant `price_cents`, `vat_rate`
 `is_active`, `status`. La validation cote serveur (RG-T18) re-verifie type, plage, longueur,
 appartenance ENUM et existence des FK independamment du client. Les requetes preparees PDO
 (RG-T06) traitent les valeurs hors de la chaine SQL, ce qui ferme l'injection SQL par valeur.
-Les identifiants SQL dynamiques (colonne et direction d'un `ORDER BY`/`GROUP BY`) sont resolus
-contre une allowlist fixe avant construction de la requete (RG-T17), car un identifiant ne
-peut pas etre bind comme une valeur.
+Aucun `ORDER BY`/`GROUP BY` du code livre ne depend d'une entree de l'utilisateur (mesure du
+29/09 : les tris sont ecrits en dur) ; RG-T17 reste la regle a appliquer si un tri dynamique est
+ajoute (allowlist fixe, un identifiant SQL ne pouvant pas etre bind comme une valeur).
 Les snapshots de commande (`order_item.label_snapshot`, `unit_price_cents_snapshot`,
 `vat_rate_snapshot`) sont immuables apres INSERT (RG-T05), preservant l'integrite historique
 des commandes placees. La re-validation serveur des modifiers (`mlt.md` 3.3 RG-9) rejette un
@@ -810,7 +818,7 @@ actions sensibles non-stock avec `actor_user_id` (capture par PIN, RG-T13), `act
 `summary` non-personnel ; pas d'UPDATE/DELETE applicatif. Ceci inclut l'echec de PIN
 (`pin.failed`) : `PinGate::auditFailedPin()` ecrit un `summary` de contexte fixe, sans
 l'adresse saisie au formulaire (corrige le 2026-09-29, RGPD art. 5.1.c, migration
-`0019_pin_failed_audit_minimisation.sql` qui purge aussi les lignes deja ecrites). L'attribution
+`0019_pin_failed_audit_minimisation.sql`, un `UPDATE` qui retire l'adresse des lignes deja ecrites ; dans le code, en production apres la release du 29/09). L'attribution
 des commandes comptoir/drive passe par `customer_order.acting_user_id` (`mlt.md` 4.1 RG-5) et
 celle du stock par `stock_movement.user_id` (`mlt.md` 9.1/9.2). Les actions stock ne sont pas
 doublement journalisees : `stock_movement` (append-only) fournit deja la piste.
@@ -880,12 +888,17 @@ colonne.
 
 ---
 
-*Document vivant — version 1.8 — 2026-09-29 (quatre correctifs de securite merges : R10/R11
+*Document vivant — version 1.9 — 2026-09-29 apres-midi (revue adversariale des correctifs :
+purge et empreinte SHA-256 de `password_reset_throttle`, migration 0021, `680820f` ; sessions
+fermees quand l'admin change un mot de passe ; appariement des emplacements de menu par type et
+nom, `e9f00d8` ; disponibilite d'option par format, quantite stricte au comptoir, plafond de 20 a
+la borne, `186c5d7` ; tout le 29/09 est dans le code de la branche `docs/contre-audit`, en
+production apres la release du 29/09). Version 1.8 — 2026-09-29 (quatre correctifs de securite : R10/R11
 ajoutes au registre des risques, STRIDE Spoofing/Denial of service/Elevation of privilege
 precisees, entite `password_reset_throttle` (24e) classifiee INTERNAL, commits
 `08d7a96`/`ef7fd37`/`fce3085`/`33538c6` ; residuel assume sur R10 precise (pas de limitation
 par IP, perimetre reseau hors code) ; borne complementaire `MAX_ITEMS_PER_ORDER`/
-`ORDER_TOO_LARGE` ajoutee sur la somme des quantites par commande). Version 1.5 — 2026-09-29 (contre-audit independant : UPDATE_MENU reconcilie ses emplacements en
+`ORDER_TOO_LARGE` ajoutee sur la somme des quantites par commande). Versions 1.6 et 1.7 : recalages intermediaires du meme jour. Version 1.5 — 2026-09-29 (contre-audit independant : UPDATE_MENU reconcilie ses emplacements en
 place au lieu de les reconstruire, 409 si un emplacement deja commande est retire ; le journal
 d'audit `pin.failed` n'ecrit plus l'adresse saisie au formulaire, RGPD art. 5.1.c, migration
 0019). A mettre a jour a chaque decision structurante.*

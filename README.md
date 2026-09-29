@@ -164,7 +164,7 @@ production sur ce point.
 |   |-- Unit/ Integration/       # PHPUnit (.phar autonome, sans Composer ; integration sur vraie MariaDB)
 |   |-- js/                      # node:test + jsdom (front borne ET back-office)
 |   |-- e2e/                     # Playwright (parcours borne + admin, lance a la main ; e2e/backoffice-sweep/ = balayage exhaustif)
-|   |-- shell/                   # tests bash purs (scripts/lib/demo-snapshot-lib.sh), lances en CI (shell-tests)
+|   |-- shell/                   # tests bash purs (scripts/lib/demo-snapshot-lib.sh, purge des tables de limitation), lances en CI (shell-tests)
 |   `-- Support/                 # doubles de test (Fake* / Spy*)
 |-- .env.example  .gitleaks.toml  phpstan.neon  phpunit.xml
 |-- docker-compose.yml           # standalone local ; prod = docker-compose.prod.yml (gitignore, par hote)
@@ -192,6 +192,15 @@ production sur ce point.
 Trois niveaux, sans dependance Composer cote PHP (priorite Unit > Integration > E2E).
 
 - **PHP (PHPUnit `.phar`)** — unit + integration sur vraie MariaDB, via le conteneur applicatif :
+
+  Les deux `.phar` ne sont pas dans le depot. Les prendre aux memes versions que la CI
+  (`.forgejo/workflows/ci.yml`, variables `PHPUNIT_VERSION` 11.5.2 et `PHPSTAN_VERSION` 1.12.27) :
+
+  ```bash
+  curl -sSL https://phar.phpunit.de/phpunit-11.5.2.phar -o phpunit.phar
+  curl -sSL https://github.com/phpstan/phpstan/releases/download/1.12.27/phpstan.phar -o phpstan.phar
+  ```
+
 
   ```bash
   # Unitaire seul (les tests d'integration s'auto-skippent sans reseau/WAKDO_DB_TESTS=1) :

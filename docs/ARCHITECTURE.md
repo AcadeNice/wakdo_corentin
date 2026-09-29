@@ -1,6 +1,11 @@
 # Architecture — Wakdo
 
-**Version** : v0.5 (2026-09-29) — deux correctifs de securite merges : en-tetes HTTP durcis,
+**Version** : v0.6 (2026-09-29 apres-midi) — revue adversariale des correctifs du matin
+(`680820f`) : `password_reset_throttle` purgee par le cron et adresse stockee en empreinte
+SHA-256 (migration `0021`), changement de mot de passe par l'admin qui ferme les sessions du
+compte ; modification de menu par appariement (type, nom) avec verrou (`e9f00d8`). Tout le
+29/09 est dans le code de la branche `docs/contre-audit`, en production apres la release du
+29/09. Version v0.5 (2026-09-29) — deux correctifs de securite : en-tetes HTTP durcis,
 `TraceEnable Off`, sonde `/api/health` sans version PHP (commit `08d7a96`) ; garde de
 session relisant `role_id`/`session_epoch` en base a chaque requete, `SessionRoutePolicy`
 (aucune session sur `/api/*`), throttle de reinitialisation de mot de passe (commit
@@ -154,8 +159,9 @@ src/app/
                  Cors, Asset, ErrorResponse/ErrorDisplay, Money, NumericInput
   Auth/          AuthService, SessionManager, SessionGuard, Authorizer, PinVerifier,
                  PinGate, PinThrottle, ThrottlePolicy, PasswordHasher, Csrf,
-                 PasswordResetService, UserRepository, RoleRepository, UserDirectory,
-                 Mailer/LogMailer/SmtpMailer
+                 PasswordResetService, PasswordResetThrottle, SessionRoutePolicy,
+                 AuthResult, GuardResult, UserRepository, RoleRepository, UserDirectory,
+                 Mailer/LogMailer/SmtpMailer, SmtpClient/SmtpTransport/StreamSmtpTransport
   Catalogue/     Category / Product / Menu / Ingredient / Allergen / Stats /
                  CategoryIngredientFamily Repository, OpenFoodFactsGateway,
                  ProductImportService
@@ -238,14 +244,17 @@ Couche transverse, regles `RG-T*` definies dans `docs/merise/mlt.md`. Synthese :
   corrige le 2026-09-29, commit `ef7fd37`) — avant cette date, seule `is_active` etait
   ainsi revalidee, `role_id` restant celui pose en session a la connexion jusqu'a une
   reconnexion. `session_epoch` (migration `0020_session_invalidation.sql`) ferme en plus
-  toute session ouverte avant une reinitialisation de mot de passe. 5 roles seedes, 23
+  toute session ouverte avant une reinitialisation de mot de passe, ou avant un changement
+  de mot de passe fait par un administrateur (`680820f`). 5 roles seedes, 23
   permissions figees, matrice `role_permission` editable (back-office, voir domaine 10).
 - **PIN d'action sensible (RG-T13)** : certaines operations exigent une
   re-autorisation par PIN equipier (argon2id) -- source unique : `App\Health\RouteSecurity`.
   Sont PIN-gated : annulation de commande, creation/modification/desactivation d'un
   utilisateur, reinitialisation de PIN, effacement PII, gestion RBAC (creation/modification
-  de role), suppression de produit, changement de prix d'un produit, ajustement de stock et
-  comptage d'inventaire. Des actions voisines ne le sont volontairement PAS : suppression
+  de role), suppression de produit, changement de prix d'un produit, suppression de menu,
+  import CSV de produits quand il change un prix (`POST /admin/api/products/import`, champ
+  `price`), ajustement de stock et comptage d'inventaire. Des actions voisines ne le sont
+  volontairement PAS : suppression
   d'un ingredient, reappro de stock (`stock.manage`) ; le back-office HTML n'offre d'ailleurs
   aucune suppression de categorie (seul un `DELETE` existe cote JSON,
   `/admin/api/categories/{id}`, lui non plus sans PIN). L'`acting_user_id` resolu par le PIN
@@ -258,9 +267,11 @@ Couche transverse, regles `RG-T*` definies dans `docs/merise/mlt.md`. Synthese :
     utilisateur agissant ;
   - demande de reinitialisation de mot de passe (`password_reset_throttle`), par adresse
     ET par IP source, ajoutee le 2026-09-29 (commit `ef7fd37`) — avant cette date, aucune
-    limite n'existait sur `POST /forgot_password`.
-- **En-tetes HTTP** (`docker/apache/httpd.conf`/`vhost.conf`, durcis le 2026-09-29, commit
-  `08d7a96`) : `Permissions-Policy` (toutes les fonctionnalites capteur/media/paiement
+    limite n'existait sur `POST /forgot_password`. L'adresse y est stockee en empreinte
+    SHA-256 (migration `0021`, `680820f`) et la table est purgee par
+    `docker/cron/scripts/purge-throttle.sh` comme les deux autres.
+- **En-tetes HTTP** (`docker/apache/httpd.conf`/`vhost.conf`, durcis dans le code le
+  2026-09-29, commit `08d7a96`, en production apres la release du 29/09) : `Permissions-Policy` (toutes les fonctionnalites capteur/media/paiement
   coupees), `TraceEnable Off` (methode `TRACE` refusee sur les deux hotes), CSP du
   back-office completee de `base-uri 'self'` et `form-action 'self'` (ne retombent pas sur
   `default-src` en CSP niveau 3), et la sonde publique `/api/health` sans version PHP
@@ -298,7 +309,8 @@ Threat model STRIDE + classification des donnees : `docs/PROJECT_CONTEXT.md` sec
 - **Commande (livre)** : `customer_order`, `order_item`,
   `order_item_selection`, `order_item_modifier`.
 - **Transverses** : `audit_log` (journal immuable), `login_throttle`, `pin_throttle`,
-  `password_reset_throttle` (par adresse et par IP, meme migration `0020`).
+  `password_reset_throttle` (par adresse et par IP, migration `0020` ; adresse en empreinte
+  SHA-256 depuis la migration `0021`).
 
 Quelques derivations **calculees, non stockees** :
 
