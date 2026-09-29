@@ -1,7 +1,21 @@
 # ADR-0019 — Page « Santé de l'API » : une carte des routes qui ne peut pas diverger du code
 
-- Statut : Accepte, complete le 2026-09-28 (reponses reelles + carte par action)
+- Statut : Accepte, complete le 2026-09-28 (reponses reelles + carte par action), precise le
+  2026-09-29 (sonde publique sans version PHP)
 - Date : 2026-09-27
+
+> **Complement (2026-09-29, commit `08d7a96`).** Le contexte de cette fiche dit que
+> `/api/health` "doit rester tel quel" et les consequences que "la sonde du deploiement
+> continu reste strictement inchangee" : c'etait vrai pour son ROLE (verifier le commit
+> servi), pas pour la totalite de son corps. `App\Controllers\HealthController` renvoyait
+> aussi `php_version` (`PHP_VERSION`) a tout visiteur anonyme, y compris depuis l'hote
+> borne — une fuite d'information inutile (OWASP A05) sans lien avec le role de la sonde.
+> Ce champ est retire (6 cles restantes : `status`, `app_env`, `db`, `categories`, `version`,
+> `deployed_at`) ; `version` et `deployed_at`, qui portent le role de verification de
+> deploiement, ne changent pas. La page authentifiee `/admin/health` (point (d) ci-dessous,
+> `App\Health\HealthReport`, derriere `role.manage`) garde `php_version` pour l'exploitant,
+> depuis sa propre source. Trouve par la suite de tests de securite executables
+> (`docs/soutenance/preuves/10-tests-securite.md`, ecart m5).
 
 > **Complement (2026-09-28).** Le trajet d'un appel affichait jusque-la un corps ecrit a la
 > main pour illustrer une reponse ; certains refus illustres etaient meme faux au regard du

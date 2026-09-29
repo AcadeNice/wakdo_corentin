@@ -1,7 +1,19 @@
 # ADR-0010 — Cookie de session Secure conditionnel au HTTPS
 
-- Statut : Accepte
+- Statut : Accepte, complete le 2026-09-29 (perimetre des routes qui ouvrent une session)
 - Date : 2026-06-17
+
+> **Complement (2026-09-29, commit `ef7fd37`).** Cette fiche traite de l'attribut `secure`
+> du cookie ; elle ne traitait pas de QUAND une session (et donc un cookie) est ouverte.
+> Jusqu'a cette date, `src/public/admin/index.php` demarrait une session pour toute
+> requete sans condition, y compris chaque appel anonyme de l'API kiosk sous `/api/*`
+> (borne, sonde `/api/health`) : chaque appel recevait un `Set-Cookie: WAKDO_SID` inutile
+> (la session restait vide) et ouvrait un fichier de session cote serveur, sans elevation
+> de droit mais avec un stockage qui grossit avec le trafic anonyme. `App\Auth\
+> SessionRoutePolicy::needsSession()` decide desormais, avant le dispatch, si la route
+> visitee a besoin d'une session (auth HTML, back-office, connexion JSON) — `/api/*`
+> n'en ouvre plus. Trouve par la suite de tests de securite executables
+> (`docs/soutenance/preuves/10-tests-securite.md`, ecart m1).
 
 ## Contexte
 Le cookie de session du back-office etait pose avec `secure => true` en dur

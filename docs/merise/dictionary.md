@@ -1,8 +1,8 @@
 # Dictionnaire de Donnees — Wakdo
 
 **Phase Merise** : P1 - Conception, etape 1 (dictionnaire de donnees d'abord, mantra #33)
-**Version** : v0.6 — prod-like, 23 entites (19 prod-like + couche security-by-design + classement des ingredients, incl. les entites `login_throttle`, `pin_throttle` et `category_ingredient_family`)
-**Date** : 2026-06-04 (ajouts security-by-design 2026-06-11 ; classement des ingredients 2026-09-27 ; corrections d'audit 2026-09-28 ; contre-audit independant 2026-09-29 ; deux correctifs merges le 2026-09-29 : reconciliation des emplacements de menu, `audit_log.pin.failed` sans adresse saisie — migration 0019)
+**Version** : v0.7 — prod-like, 24 entites (19 prod-like + couche security-by-design + classement des ingredients, incl. les entites `login_throttle`, `pin_throttle`, `category_ingredient_family` et `password_reset_throttle`)
+**Date** : 2026-06-04 (ajouts security-by-design 2026-06-11 ; classement des ingredients 2026-09-27 ; corrections d'audit 2026-09-28 ; contre-audit independant 2026-09-29 ; deux correctifs merges le 2026-09-29 : reconciliation des emplacements de menu, `audit_log.pin.failed` sans adresse saisie — migration 0019 ; deux correctifs de securite merges le 2026-09-29 : `user.session_epoch` + throttle de reinitialisation de mot de passe — migration 0020, commit `ef7fd37` ; en-tetes de securite completes, TRACE coupe, sonde publique sans version PHP — commit `08d7a96`)
 **Branche** : `feat/p1-conception`
 **Statut** : prod-like — toutes les decisions D1-D8 + stock appliquees (voir `docs/journal/2026-06-04--conception-prodlike-revision.md` pour D1-D3 et `docs/journal/2026-06-04--p1-merise-v0.2-rewrite-and-forgejo-migration.md` pour D4-D8 + stock) ; couche security-by-design en cours (voir note 13) ; colonnes additives post-v0.3 des migrations 0003/0005/0006/0007 alignees sur le deploye (voir note 14)
 **Auteur** : BYAN (couche methodologie)
@@ -434,6 +434,7 @@ ne sont pas authentifies et n'ont pas de ligne ici.
 | `lockout_until` | DATETIME | YES | NULL | — | fin de la fenetre de throttling courante (backoff degressif, pas un verrouillage dur indefini) |
 | `password_reset_token_hash` | VARCHAR(255) | YES | NULL | — | hash du token de reset (pas le token brut) ; NULL quand aucun reset en attente |
 | `password_reset_expires_at` | DATETIME | YES | NULL | — | expiration du token de reset |
+| `session_epoch` | INT UNSIGNED | NO | 0 | — | compteur d'invalidation de session (security-by-design, migration `0020_session_invalidation.sql`, 2026-09-29). Pose en session a la connexion (`AuthService::authenticate()`) et relu en base a CHAQUE requete par `SessionGuard::check()` (RG-T02) : une reinitialisation de mot de passe l'incremente (`PasswordResetService::confirmReset()`), ce qui invalide immediatement toute session ouverte AVANT cette reinitialisation. DEFAULT 0 : une session ouverte avant ce lot reste valide (epoch implicite 0) |
 | `anonymized_at` | DATETIME | YES | NULL | — | marqueur tombstone RGPD : quand renseigne, les colonnes PII sont mises a NULL/remplacees (note 13). La ligne est conservee pour l'integrite referentielle |
 | `created_at` | DATETIME | NO | CURRENT_TIMESTAMP | — | audit |
 | `updated_at` | DATETIME | NO | CURRENT_TIMESTAMP ON UPDATE | — | audit |
@@ -706,6 +707,36 @@ jointure pure, meme forme que `ingredient_allergen` (3.9).
 impose peut porter n'importe quelle famille d'ingredient) — l'absence est une decision, pas un oubli.
 
 **Volume** : seed 0010, 8 des 9 categories restreintes (`menus` exclue), 2 a 5 familles chacune.
+
+---
+
+### 3.24 `password_reset_throttle`
+
+Throttle de la demande de reinitialisation de mot de passe (POST `/forgot_password`), ajoute le
+2026-09-29 (migration `0020_session_invalidation.sql`) apres un contre-audit : avant cette date,
+aucune limite n'existait (une meme adresse pouvait etre soumise en boucle, chaque soumission
+declenchant un envoi si SMTP est configure). Meme forme que `login_throttle`/`pin_throttle`
+(security-by-design, note 13), DEUX dimensions ORTHOGONALES dans la meme table — l'ADRESSE
+demandee et l'IP source, distinguees par `throttle_kind` — plutot que deux tables, meme motif que
+`role_visible_source` (discriminant + identifiant generique).
+
+| Attribut | Type | NULL | Default | Contrainte | Notes |
+|---|---|---|---|---|---|
+| `id` | INT UNSIGNED | NO | AUTO_INCREMENT | PK | |
+| `throttle_kind` | ENUM('email','ip') | NO | — | — | dimension de la ligne : adresse demandee ou IP source |
+| `identifier` | VARCHAR(254) | NO | — | — | valeur throttlee : adresse email (normalisee en minuscules) si `throttle_kind='email'`, adresse IP si `throttle_kind='ip'` |
+| `failed_attempts` | SMALLINT UNSIGNED | NO | 0 | — | demandes consecutives dans la fenetre courante |
+| `window_started_at` | DATETIME | NO | CURRENT_TIMESTAMP | — | debut de la fenetre de comptage courante |
+| `lockout_until` | DATETIME | YES | NULL | — | fin de la fenetre de backoff degressif ; NULL = non throttle |
+| `last_attempt_at` | DATETIME | NO | CURRENT_TIMESTAMP | — | timestamp de la derniere demande |
+
+**Cle** : UNIQUE `(throttle_kind, identifier)`. **Pas de FK** : `identifier` peut etre une adresse
+email qui ne resout vers aucun compte — l'anti-enumeration (RG-2, `mlt.md` 12.3) exige de throttler
+une adresse inconnue exactement comme une adresse connue. Meme backoff degressif que le login (RG-8),
+bornes propres `PASSWORD_RESET_*` (`.env.example`), seuils distincts par dimension (l'IP tolere plus
+de tentatives que l'adresse : plusieurs equipiers d'un meme poste peuvent demander une
+reinitialisation depuis la meme IP). Purge cron alignee sur `login_throttle`/`pin_throttle`
+(`THROTTLE_PURGE_AFTER_HOURS`).
 
 ---
 
@@ -1191,18 +1222,22 @@ Reference : `db/migrations/0017_ingredient_family.sql`,
 | 21 | `login_throttle` | security | nouveau (security-by-design) - throttle anti-brute-force par IP |
 | 22 | `pin_throttle` | security | nouveau (security-by-design) - throttle du PIN d'action sensible par acteur (RG-T22) |
 | 23 | `category_ingredient_family` | join | nouveau (migration 0017) — familles d'ingredients autorisees par categorie |
+| 24 | `password_reset_throttle` | security | nouveau (security-by-design, migration 0020, 2026-09-29) — throttle de la demande de reinitialisation de mot de passe par adresse et par IP |
 
 **Retire de v0.1** : `commande_event` (remplace par les timestamps de phase sur `customer_order`),
 `menu_produit` (remplace par le modele `menu_slot` + `menu_slot_option`).
 
-**Total : 23 entites** (19 prod-like v0.2 + `audit_log`, `login_throttle` et `pin_throttle`
-de la couche security-by-design, + `category_ingredient_family` de la migration 0017).
+**Total : 24 entites** (19 prod-like v0.2 + `audit_log`, `login_throttle` et `pin_throttle`
+de la couche security-by-design, + `category_ingredient_family` de la migration 0017,
++ `password_reset_throttle` de la migration 0020).
 
 Le security-by-design ajoute aussi des colonnes (au-dela des deux nouvelles entites) : cycle de vie d'auth de `user` +
 `pin_hash` + `anonymized_at` (3.14), `customer_order.acting_user_id` + `idempotency_key` (3.10),
 et le modele de stock en pourcentage sur `ingredient` (3.6) — `stock_capacity`, `critical_stock_pct`,
 plus le renommage de `low_stock_threshold` en `low_stock_pct`. `login_throttle` (3.21) est la 21e
-entite, `pin_throttle` (3.22) la 22e, et `category_ingredient_family` (3.23, migration 0017) la 23e.
+entite, `pin_throttle` (3.22) la 22e, `category_ingredient_family` (3.23, migration 0017) la 23e, et
+`password_reset_throttle` (3.24, migration 0020, 2026-09-29) la 24e. La meme migration 0020 ajoute
+aussi `user.session_epoch` (3.14) — pas une nouvelle entite, une colonne sur `user`.
 Voir note 13 et note 16.
 
 ---

@@ -737,7 +737,10 @@ d'entree analyses ci-dessous :
   stats. Session partagee par poste pour le flux courant ; un PIN par equipier
   (`user.pin_hash`) re-autorise l'ensemble sensible (RG-T13).
 - **E3 — Surface d'authentification** : login (`AUTHENTICATE_USER`, op 25, `mlt.md` 12.1) et
-  reinitialisation de mot de passe (`RESET_PASSWORD`, op 28, `mlt.md` 12.3).
+  reinitialisation de mot de passe (`RESET_PASSWORD`, op 28, `mlt.md` 12.3, throttlee par
+  adresse et par IP depuis le 2026-09-29). La garde de session (`SessionGuard::check()`, RG-T02)
+  relit `is_active`, `role_id` et `session_epoch` en base a chaque requete authentifiee, pas
+  seulement a l'entree sur cette surface.
 - **E4 — Couche donnees / BDD** : acces PDO, requetes preparees (RG-T06), allowlists
   (RG-T16/RG-T17), integrite transactionnelle (RG-T08/RG-T11), snapshots immuables (RG-T05).
 - **E5 — Stock / inventaire** : decrement de vente, reappro, comptage d'inventaire, avec un
@@ -764,6 +767,8 @@ et/ou une entite reelle du modele.
 | R7 | PII utilisateur (`user.email`/`first_name`/`last_name`) | Demande d'effacement RGPD non honoree, ou rupture de l'integrite referentielle a la suppression | Fort (conformite) | Faible | Anonymisation (`ERASE_USER_PII`, `mlt.md` 10.5) : la ligne est conservee, PII remplacees par un placeholder `anon-<id>@wakdo.invalid`, credentials invalides, `anonymized_at` pose ; `audit_log` retient sa propre fenetre | Faible — effacement et tracabilite coexistent ; les FK (`audit_log.actor_user_id`, `customer_order.acting_user_id`, `stock_movement.user_id`) restent valides |
 | R8 | Matrice RBAC (`role_permission`) | Elevation de privilege via modification de role non controlee | Fort | Faible | `MANAGE_RBAC` (`mlt.md` 10.4) PIN-gated (RG-T13) + `audit_log` du diff de permissions (RG-T14, RG-6) ; `role_id` derriere l'allowlist (RG-T16) | Faible — tout gain/perte de capacite est nominatif et trace |
 | R9 | `stock_movement` (demarque) | Correction d'inventaire masquant une demarque | Moyen | Moyenne | `INVENTORY_COUNT` (`mlt.md` 9.2) PIN-gated (RG-T13) ; le `user_id` capture par PIN est ecrit dans `stock_movement.user_id` (append-only) | Faible — la correction devient attribuable a une personne meme sur poste partage |
+| R10 | `ingredient.stock_quantity` / disponibilite catalogue | Deni de service : une commande anonyme (`POST /api/orders`, sans session) porte une quantite demesuree sur une seule ligne, ou un nombre de lignes arbitraire, et vide le stock d'un ingredient en deux requetes | Fort | Moyenne (avant correctif) | **Corrige le 2026-09-29** (commit `fce3085`, branche `fix/sec-order`, fusionnee par `86306ef`) : quantite bornee 1-20 par ligne (`INVALID_QUANTITY`, `OrderRepository::resolveQuantity`), 50 lignes au plus par commande (`TOO_MANY_ITEMS`) ; avant cette borne `max(1, ...)` ramenait toute valeur hors bornes a 1 EN SILENCE (y compris des valeurs qui atteignaient l'ecriture SQL, `order_item.quantity` etant un `SMALLINT UNSIGNED`). Une borne complementaire sur le TOTAL d'articles par commande (`OrderRepository::MAX_ITEMS_PER_ORDER` = 50, code `ORDER_TOO_LARGE`) est corrigee le 2026-09-29 (commit `33538c6`) : sans elle, 50 lignes a 20 articles chacune (les deux bornes individuelles respectees) restaient possibles dans UNE commande anonyme. | Faible mais assume : ces bornes limitent ce qu'UNE commande consomme, pas le nombre de commandes successives depuis la meme source. Une limitation par IP a ete ECARTEE (des bornes reelles d'un meme restaurant partagent la meme adresse ; la fiabilite de l'IP derriere le proxy releve de Traefik, non verifie ici). En production reelle, l'API kiosk serait reservee au reseau du restaurant ou a des bornes identifiees (hors perimetre code) ; en demonstration, la remise a zero quotidienne restaure le stock. |
+| R11 | Session back-office (autorisation) | Elevation de privilege : un role retire ou change en base (`user.role_id`) ne s'appliquait qu'a la PROCHAINE connexion, pas a une session deja ouverte — `SessionGuard::check()` ne relisait que `is_active`, le `role_id` utilise pour l'autorisation venait de la session posee a la connexion | Fort | Faible | **Corrige le 2026-09-29** (commit `ef7fd37`) : `SessionGuard::check()` relit desormais `is_active`, `role_id` ET `session_epoch` en base, dans la MEME requete SQL, a chaque requete authentifiee (RG-T02) ; un changement/retrait de role s'applique des la requete suivante | Faible — la fenetre d'exposition est bornee au temps de propagation d'une requete, plus de fenetre "jusqu'a la prochaine connexion" |
 
 ### 19.3 Analyse STRIDE par element
 
@@ -779,7 +784,11 @@ RG-T13) re-authentifie l'acteur reel pour les actions sensibles. La reinitialisa
 passe (`RESET_PASSWORD`, `mlt.md` 12.3) stocke le token hashe (`password_reset_token_hash`),
 n'envoie le token brut qu'une seule fois, l'expire a 1h et le rend a usage unique (RG-2/RG-3) ;
 la phase requete renvoie une reponse neutre identique que le compte existe ou non (RG-1,
-enumeration-safe). La borne kiosk est anonyme
+enumeration-safe), et est desormais throttlee par adresse ET par IP (`password_reset_throttle`,
+ajoutee le 2026-09-29, commit `ef7fd37`, avant limite absente). La confirmation incremente
+`user.session_epoch` dans la meme instruction que le nouveau hash (meme commit) : une session
+volee AVANT la reinitialisation ne survit plus APRES, `SessionGuard::check()` la rejetant des
+la requete suivante (RG-T02). La borne kiosk est anonyme
 par conception, donc hors perimetre d'usurpation (pas de compte a usurper).
 
 **Tampering (alteration).** L'allowlist de mass-assignment (RG-T16) limite les colonnes
@@ -819,25 +828,38 @@ reponses API.
 **Denial of service.** Le throttling de login est degressif (backoff exponentiel plafonne)
 plutot qu'un lock indefini, dans les deux dimensions compte (`user.lockout_until`) et IP
 (`login_throttle.lockout_until`, `mlt.md` 12.1 RG-8) : une saisie maladroite ne bloque pas une
-cuisine en plein service de 15h continu. L'idempotence (RG-T19) absorbe les doubles-soumissions
-de retry reseau sur le kiosk anonyme. Le decrement de stock (RG-T20) repose sur un `UPDATE`
-auto-verrouillant par ingredient ; la commande elle-meme (`customer_order`, `order_item`,
-`order_item_selection`, `order_item_modifier`) est en revanche verrouillee explicitement
-(`SELECT ... FOR UPDATE`, `OrderRepository::lockOrder()` et `consumption()`), et les `UPDATE`
-de stock sont ordonnes par `ingredient_id` (ordre de verrou stable, `ksort()`) pour eviter tout
-deadlock entre commandes concurrentes qui partagent des ingredients.
+cuisine en plein service de 15h continu. Meme principe pour la demande de reinitialisation de
+mot de passe (`password_reset_throttle`, par adresse et par IP, ajoutee le 2026-09-29, commit
+`ef7fd37`). L'idempotence (RG-T19) absorbe les doubles-soumissions de retry reseau sur le
+kiosk anonyme. Le decrement de stock (RG-T20) repose sur un `UPDATE` auto-verrouillant par
+ingredient ; la commande elle-meme (`customer_order`, `order_item`, `order_item_selection`,
+`order_item_modifier`) est en revanche verrouillee explicitement (`SELECT ... FOR UPDATE`,
+`OrderRepository::lockOrder()` et `consumption()`), et les `UPDATE` de stock sont ordonnes par
+`ingredient_id` (ordre de verrou stable, `ksort()`) pour eviter tout deadlock entre commandes
+concurrentes qui partagent des ingredients. Une commande anonyme pouvait neanmoins porter une
+quantite demesuree sur une seule ligne (ou un nombre de lignes arbitraire) et vider le stock
+d'un ingredient en deux requetes (voir R10, 19.2) — **corrige le 2026-09-29** (commit
+`fce3085`, branche `fix/sec-order`, fusionnee par `86306ef` : quantite bornee 1-20, 50
+lignes au plus par commande). Residuel assume : ces bornes ne couvrent que le contenu
+d'UNE commande, pas le nombre de commandes successives depuis la meme source (R10, 19.2).
 
 **Elevation of privilege.** Le RBAC est permission-driven : le code teste une permission, pas
 un nom de role (catalogue de 23 permissions fige au seed, `dictionary.md` 3.17). Les
 changements de role passent par `MANAGE_RBAC` (`mlt.md` 10.4) PIN-gated (RG-T13) et audites
 avec le diff de permissions (RG-T14, RG-6). `role_id` est derriere l'allowlist de
-mass-assignment (RG-T16) sur `UPDATE_USER` (10.2). Les permissions sont rechargees depuis la
-BDD a chaque verification (`mlt.md` 10.4 RG-3), donc un changement de droits prend effet sans
-re-login force.
+mass-assignment (RG-T16) sur `UPDATE_USER` (10.2). Les permissions elles-memes sont rechargees
+depuis la BDD a chaque verification (`mlt.md` 10.4 RG-3) ; **precision du 2026-09-29 (commit
+`ef7fd37`, voir R11 en 19.2)** : le `role_id` utilise comme entree de cette verification l'est
+egalement — `SessionGuard::check()` le relit en base a chaque requete authentifiee (RG-T02),
+au lieu de la valeur figee en session a la connexion. Avant cette date, seule `is_active`
+etait ainsi revalidee : un role retire ou change en base ne s'appliquait qu'a la PROCHAINE
+connexion, pas a une session deja ouverte — la reformulation "un changement de droits prend
+effet sans re-login force" n'etait donc exacte que pour la matrice `role_permission`, pas pour
+le role lui-meme.
 
 ### 19.4 Matrice de classification des donnees (4 niveaux)
 
-Les 23 entites du modele (`dictionary.md` 3.1-3.23) sont reparties en quatre niveaux. La
+Les 24 entites du modele (`dictionary.md` 3.1-3.24) sont reparties en quatre niveaux. La
 classification suit l'entite ; quelques colonnes sont surclassees explicitement (credentials,
 PII).
 
@@ -845,16 +867,25 @@ PII).
 |---|---|---|---|
 | **RESTRICTED** (secrets / credentials) | Secrets d'authentification ; tenus hors de toute exposition | Colonnes de `user` (14) : `password_hash`, `pin_hash`, `password_reset_token_hash` | Hors logs et hors reponses API ; argon2id ; invalides a l'anonymisation (`mlt.md` 10.5 RG-1) ; exclus de `audit_log.details` qui ne retient que des noms de champs (RG-T14) |
 | **CONFIDENTIAL** (PII, RGPD) | Donnees a caractere personnel d'un staff identifiable | Colonnes de `user` (14) : `email`, `first_name`, `last_name` | Sujet a l'anonymisation a l'effacement (`ERASE_USER_PII`, op 27) ; `audit_log` stocke les noms de champs, pas les valeurs ; echappement au rendu (RG-T15) |
-| **INTERNAL** (sensible metier) | Donnees d'exploitation, non publiques, a acces restreint par RBAC | `customer_order` (10), `order_item` (11), `order_item_selection` (12), `order_item_modifier` (13), `stock_movement` (19), `audit_log` (20), `login_throttle` (21, contient l'IP source), `pin_throttle` (22, contient l'identifiant de l'utilisateur agissant), `role` (15), `permission` (17), `role_permission` (18), `role_visible_source` (16), `category_ingredient_family` (23, parametrage du constructeur de recette) ; sorties de stats (`READ_STATS`, op 24) | Acces filtre par permission (RG-T03) ; attribution stock visible manager/admin seulement (`mlt.md` 9.3 RG-4) ; integrite par snapshots (RG-T05) et transactions (RG-T08/RG-T11) |
+| **INTERNAL** (sensible metier) | Donnees d'exploitation, non publiques, a acces restreint par RBAC | `customer_order` (10), `order_item` (11), `order_item_selection` (12), `order_item_modifier` (13), `stock_movement` (19), `audit_log` (20), `login_throttle` (21, contient l'IP source), `pin_throttle` (22, contient l'identifiant de l'utilisateur agissant), `role` (15), `permission` (17), `role_permission` (18), `role_visible_source` (16), `category_ingredient_family` (23, parametrage du constructeur de recette), `password_reset_throttle` (24, contient l'adresse demandee ou l'IP source, ajoutee le 2026-09-29) ; sorties de stats (`READ_STATS`, op 24) | Acces filtre par permission (RG-T03) ; attribution stock visible manager/admin seulement (`mlt.md` 9.3 RG-4) ; integrite par snapshots (RG-T05) et transactions (RG-T08/RG-T11) |
 | **PUBLIC** (catalogue, face kiosk) | Donnees servies a la borne anonyme | `category` (1), `product` (2), `menu` (3), `menu_slot` (4), `menu_slot_option` (5), `ingredient` (6, nom + dispo calculee), `product_ingredient` (7), `allergen` (8), `ingredient_allergen` (9) | Lecture publique via `LOAD_CATALOGUE` (op 1) ; ecriture reservee admin/manager (RG-T03) ; texte echappe au rendu (RG-T15) ; disponibilite calculee (RG-T21) |
 
-**Couverture** : 23/23 entites classifiees (9 PUBLIC, 13 INTERNAL incluant les quatre entites
-security-by-design/parametrage `audit_log`, `login_throttle`, `pin_throttle` et
-`category_ingredient_family`, plus `user` dont les colonnes sont reparties entre RESTRICTED,
-CONFIDENTIAL et — pour `is_active`, `role_id`, `last_login_at`, les compteurs de throttle —
-INTERNAL). L'entite `user` (14) est la seule a porter trois niveaux simultanement, d'ou son
-traitement par colonne.
+**Couverture** : 24/24 entites classifiees (9 PUBLIC, 14 INTERNAL incluant les cinq entites
+security-by-design/parametrage `audit_log`, `login_throttle`, `pin_throttle`,
+`category_ingredient_family` et `password_reset_throttle` (ajoutee le 2026-09-29), plus
+`user` dont les colonnes sont reparties entre RESTRICTED, CONFIDENTIAL et — pour `is_active`,
+`role_id`, `session_epoch`, `last_login_at`, les compteurs de throttle — INTERNAL). L'entite
+`user` (14) est la seule a porter trois niveaux simultanement, d'ou son traitement par
+colonne.
 
 ---
 
-*Document vivant — version 1.5 — 2026-09-29 (contre-audit independant : UPDATE_MENU reconcilie ses emplacements en place au lieu de les reconstruire, 409 si un emplacement deja commande est retire ; le journal d'audit `pin.failed` n'ecrit plus l'adresse saisie au formulaire, RGPD art. 5.1.c, migration 0019). A mettre a jour a chaque decision structurante.*
+*Document vivant — version 1.8 — 2026-09-29 (quatre correctifs de securite merges : R10/R11
+ajoutes au registre des risques, STRIDE Spoofing/Denial of service/Elevation of privilege
+precisees, entite `password_reset_throttle` (24e) classifiee INTERNAL, commits
+`08d7a96`/`ef7fd37`/`fce3085`/`33538c6` ; residuel assume sur R10 precise (pas de limitation
+par IP, perimetre reseau hors code) ; borne complementaire `MAX_ITEMS_PER_ORDER`/
+`ORDER_TOO_LARGE` ajoutee sur la somme des quantites par commande). Version 1.5 — 2026-09-29 (contre-audit independant : UPDATE_MENU reconcilie ses emplacements en
+place au lieu de les reconstruire, 409 si un emplacement deja commande est retire ; le journal
+d'audit `pin.failed` n'ecrit plus l'adresse saisie au formulaire, RGPD art. 5.1.c, migration
+0019). A mettre a jour a chaque decision structurante.*

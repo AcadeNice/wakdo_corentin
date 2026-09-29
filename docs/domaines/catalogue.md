@@ -13,7 +13,12 @@ catalogue consomme par la borne.
   en transaction (appariement par position au sein du meme `slot_type`, corrige le
   2026-09-29 : l'ancien delete-and-reinsert levait une erreur serveur 500 sur un menu
   deja commande, FK `order_item_selection.menu_slot_id` RESTRICT) ; `409` si un
-  emplacement retire est deja reference par une commande.
+  emplacement retire est deja reference par une commande. **Corrige le 2026-09-29**
+  (commit `fce3085`, branche `fix/sec-order`, fusionnee par `86306ef`) : `GET /api/menus/{id}` (`CatalogueController`)
+  expose desormais, par option de slot, `option_is_orderable` (meme regle de
+  disponibilite RG-T21 que le burger du menu) et `option_names` — avant ce correctif,
+  une option retiree ou en rupture restait proposee sans indication, seule
+  l'appartenance au slot etait exposee.
 - Deux LECTURES du catalogue cote back-office, meme permission `product.read` :
   la liste plate (`/admin/products`, seule a montrer et gerer les variantes de taille ligne
   par ligne, plus le CRUD) et la vue groupee par categorie (`/admin/products/by-category`,

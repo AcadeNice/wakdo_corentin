@@ -23,6 +23,11 @@
 > saisie, migration 0019) : les comptes qui en dependent sont mis a jour dans ce document
 > (18 migrations, 40 operations du MCT, deja a jour dans `docs/merise/mct.md` depuis le
 > 28/09 mais restees a 35 ici) ; le nombre de tests n'est pas rejoue dans cette passe.
+> Le meme jour, une suite de tests de securite executables (100 Playwright + 5 PHP,
+> `docs/soutenance/preuves/10-tests-securite.md`) trouve 11 ecarts, tous corriges par
+> trois commits (`08d7a96`, `ef7fd37`, `fce3085`) : 19 migrations, 24 entites (nouvelle
+> entite `password_reset_throttle`, migration 0020) ; la suite n'a pas ete rejouee apres
+> ces trois commits (section G.5, Q2.11).
 
 ---
 
@@ -445,7 +450,7 @@ et supprimer le reste.
 
 **F.1 - Le modele (19:00 - 21:00)**
 
-- **23 entites**, reparties en cinq domaines :
+- **24 entites**, reparties en cinq domaines :
   - Catalogue : `category`, `product`, `menu`, `menu_slot`, `menu_slot_option`,
     `category_ingredient_family`
   - Ingredients et stock : `ingredient`, `product_ingredient`, `allergen`,
@@ -453,11 +458,12 @@ et supprimer le reste.
   - Commande : `customer_order`, `order_item`, `order_item_selection`,
     `order_item_modifier`
   - Droits : `user`, `role`, `permission`, `role_permission`, `role_visible_source`
-  - Securite : `audit_log`, `login_throttle`, `pin_throttle`
-- Le point a souligner : les trois entites du domaine securite viennent de la
+  - Securite : `audit_log`, `login_throttle`, `pin_throttle`, `password_reset_throttle`
+    (ajoutee le 2026-09-29, migration 0020)
+- Le point a souligner : les quatre entites du domaine securite viennent de la
   modelisation de la menace, pas du besoin fonctionnel. Un modele qui porte ses propres
   contre-mesures, c'est ce que veut dire "par conception".
-- Construction de la base : **18 migrations et 10 jeux de donnees de reference**, tous
+- Construction de la base : **19 migrations et 10 jeux de donnees de reference**, tous
   idempotents et rejouables, suivis par une table de migrations. Le saut sur le numero
   0004 est une decision tracee, pas un oubli.
 - Montrer le diagramme du modele conceptuel (`docs/merise/_diagrams/`).
@@ -595,6 +601,20 @@ Voir la section 4.2 pour le deroulement precis. L'idee a verbaliser :
 > *"Le code ne teste pas un nom de role, il teste une permission. Je vais vous le
 > montrer : le meme appel, avec deux comptes differents, donne 403 pour l'un et passe
 > pour l'autre - et ce n'est pas moi qui l'affirme, c'est le serveur qui repond."*
+
+**G.5 - La suite de securite executable, et ce qu'elle a trouve**
+
+A dire sans attendre la question, avant que le jury ne pense que la securite n'a ete
+qu'affirmee : une suite de 100 tests Playwright et 5 tests PHP attaque l'application
+**de l'exterieur**, sur une pile complete, comme le ferait un client malveillant
+(`docs/soutenance/preuves/10-tests-securite.md`). Elle a trouve deux defauts importants
+- une commande anonyme sans plafond de quantite pouvait vider le stock d'un ingredient en
+deux requetes, et un changement de role n'etait applique qu'a la prochaine connexion, pas
+a une session deja ouverte - et neuf mineurs (en-tetes manquants, sessions ouvertes sans
+necessite, mot de passe oublie sans limite). Les onze ont ete corriges le jour meme,
+test d'abord : chaque test restait rouge, marque, jusqu'a ce que le correctif le fasse
+passer. Honnetement : la suite n'a pas encore ete rejouee apres ces correctifs pour le
+confirmer formellement (voir la fiche pour le detail date).
 
 **Criteres servis :** Cr 3.d (donnees personnelles), Cr 4.e (securite),
 Cr 4.f (discipline de versionnement), Cr 4.g (livraison testee).
@@ -852,8 +872,8 @@ est en section 8. La proposer soi-meme si la question sur l'IA tombe.
 | B1 | Cr 2.b validation de formulaire | G.2 | Validation serveur (RG-T18) |
 | B1 | Cr 2.c echanges asynchrones | E | `data.js`, memoisation de promesse |
 | B1 | Cr 2.d bibliotheques externes | E | **Non couvert au sens strict, argumente** |
-| B2 | Cr 3.a analyse et modele | F.1 | Dictionnaire, 23 entites |
-| B2 | Cr 3.b construction de la base | F.1, H.1 | 18 migrations, 10 jeux de donnees |
+| B2 | Cr 3.a analyse et modele | F.1 | Dictionnaire, 24 entites |
+| B2 | Cr 3.b construction de la base | F.1, H.1 | 19 migrations, 10 jeux de donnees |
 | B2 | Cr 3.c SQL | G.2 | Decrement atomique, depots PDO |
 | B2 | Cr 3.d donnees personnelles | G.1 | Classification 4 niveaux, anonymisation |
 | B2 | Cr 4.b developpement serveur | F.2 | 158 routes, API JSON complete |
@@ -1054,6 +1074,18 @@ ligne reste, une date d'anonymisation est posee (decision d'architecture 0007). 
 est denormalise dans le journal d'audit pour qu'il survive a l'anonymisation. Purges de
 retention automatisees : journal d'audit environ 12 mois, compteurs de tentatives 24 h.
 
+**Q2.11 - Avez-vous fait des tests de securite ?** **(rude)**
+Oui, une suite executable qui attaque l'application de l'exterieur : 100 tests
+Playwright et 5 tests PHP contre une pile reelle (Apache, PHP-FPM, MariaDB), pas
+seulement des tests unitaires (`docs/soutenance/preuves/10-tests-securite.md`). Elle a
+trouve 11 ecarts le 29 septembre - deux importants (deni de service par quantite de
+commande, changement de role non applique a une session ouverte) et neuf mineurs
+(en-tetes manquants, sessions ouvertes sans necessite, mot de passe oublie sans limite) -
+tous corriges le jour meme, test d'abord. Ce que je NE fais PAS, et que je dis avant qu'on
+me le demande : pas de scanner automatique (ZAP, sqlmap, Burp), les charges sont ecrites a
+la main et la liste est bornee ; HTTPS et TLS relevent de Traefik, hors de mon code, et ne
+sont pas testes sur la pile locale.
+
 ### 7.3 Accessibilite
 
 **Q3.1 - Qu'est-ce qui vous permet de dire que votre site est accessible ?**
@@ -1108,7 +1140,7 @@ passaient.
 
 **Q4.1 - Comment deploie-t-on votre application ?**
 Une seule commande : `docker compose up -d`. Un service a execution unique applique les
-18 migrations et les 10 jeux de donnees, tous idempotents, puis s'arrete ; l'application
+19 migrations et les 10 jeux de donnees, tous idempotents, puis s'arrete ; l'application
 demarre ensuite. En production, le deploiement part sur chaque arrivee dans `main` et
 peut etre relance a la demande.
 
@@ -1156,11 +1188,11 @@ sauvegarde pour que le cliche de la nuit contienne l'etat nettoye.
 ### 7.5 Base de donnees
 
 **Q5.1 - Presentez votre modele de donnees.**
-23 entites en cinq domaines : catalogue, ingredients et stock, commande, droits,
+24 entites en cinq domaines : catalogue, ingredients et stock, commande, droits,
 securite. Le dictionnaire de donnees a ete pose avant le modele, et le modele a ete
-enrichi lot par lot. Point a souligner : les trois entites du domaine securite - journal
-d'audit et les deux compteurs de tentatives - viennent de la modelisation de la menace,
-pas du besoin fonctionnel.
+enrichi lot par lot. Point a souligner : les quatre entites du domaine securite - journal
+d'audit et les trois compteurs de tentatives (login/IP, PIN, reinitialisation de mot de
+passe) - viennent de la modelisation de la menace, pas du besoin fonctionnel.
 
 **Q5.2 - Pourquoi figer le libelle et le prix dans la ligne de commande ?**
 Pour que l'historique reste fidele. Si le prix du catalogue change demain, la commande
@@ -1175,7 +1207,7 @@ montants sont stockes et calcules en entiers, et convertis en euros seulement a
 l'affichage (RG-T04).
 
 **Q5.4 - Comment construisez-vous la base sur une machine neuve ?**
-18 migrations puis 10 jeux de donnees, appliques dans l'ordre lexicographique par un
+19 migrations puis 10 jeux de donnees, appliques dans l'ordre lexicographique par un
 service a execution unique, avec un suivi en table. Tous sont idempotents : les rejouer
 ne casse rien, ce qui rend l'operation sure a relancer. L'integration continue applique
 exactement la meme sequence sur une base ephemere avant de lancer les tests.
@@ -1235,7 +1267,7 @@ appris ; un test d'integration qui verifie qu'un role sans permission recoit 403
 C'est precisement le piege que j'ai ferme. Sans base de donnees, ils s'ignoreraient
 tout seuls et le pipeline serait vert. Le drapeau `--fail-on-skipped` fait echouer
 l'integration des qu'un test est ignore. L'integration monte une base MariaDB ephemere,
-lui applique les 18 migrations et les 10 jeux de donnees, puis lance la suite. La
+lui applique les 19 migrations et les 10 jeux de donnees, puis lance la suite. La
 configuration refuse aussi les tests douteux et ceux qui n'assertent rien.
 
 **Q7.3 - Avez-vous pratique le developpement pilote par les tests ?**
@@ -1349,9 +1381,10 @@ sans acces aux journaux.
 
 Je remonte la pile, en le disant a voix haute :
 
-1. **Base** : nouvelle migration `db/migrations/0020_category_description.sql` (la
-   derniere migration livree est `0019_pin_failed_audit_minimisation.sql`, la prochaine est donc
-   `0020`), `ALTER TABLE category ADD COLUMN description VARCHAR(255) NULL`, avec une
+1. **Base** : nouvelle migration `db/migrations/0021_category_description.sql` (la
+   derniere migration livree est `0020_session_invalidation.sql` (`user.session_epoch` +
+   `password_reset_throttle`, 2026-09-29), la prochaine est donc
+   `0021`), `ALTER TABLE category ADD COLUMN description VARCHAR(255) NULL`, avec une
    garde d'idempotence sur `information_schema`.
 2. **Depot** : `src/app/Catalogue/CategoryRepository.php`, ajouter la colonne aux
    requetes et a la liste blanche de colonnes (RG-T16).

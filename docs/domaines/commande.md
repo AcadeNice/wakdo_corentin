@@ -14,6 +14,16 @@ automatique des commandes restees en attente de paiement.
   encore `pending_payment` (panier remplace, totaux et en-tete de service recalcules —
   voir [ADR-0016](../adr/0016-modification-commande-avant-paiement.md)), renvoi a
   l'identique si elle est deja encaissee, `409 ORDER_CANCELLED` si elle est `cancelled`.
+  **Corrige le 2026-09-29** (commits `fce3085` et `33538c6`, branche `fix/sec-order`,
+  fusionnee par `86306ef`) : quantite bornee a 1-20 par ligne (`INVALID_QUANTITY`, 422), 50
+  lignes au plus par commande (`TOO_MANY_ITEMS`, 422), 50 articles au total tous lignes
+  confondues (`ORDER_TOO_LARGE`, 422, `OrderRepository::MAX_ITEMS_PER_ORDER`),
+  `idempotency_key` qui n'est pas une chaine refusee (`INVALID_IDEMPOTENCY_KEY`),
+  option de menu indisponible refusee sur l'option effectivement servie
+  (`OPTION_UNAVAILABLE`, 422, `OrderRepository::resolveSelections`) — avant ce correctif,
+  une commande anonyme pouvait porter une quantite demesuree sur une seule ligne, ou
+  combiner lignes et quantites individuellement valides pour atteindre jusqu'a 1000
+  articles, et vider le stock d'un ingredient en une ou deux requetes.
 - `POST /api/orders/{number}/pay` (`OrderController::pay`) : encaissement,
   `pending_payment -> preparing` directement (un seul `UPDATE` pose `status`, `paid_at`
   ET `preparing_at` ensemble) ; `paid` reste un statut encaisse valide mais ne subsiste
@@ -45,7 +55,15 @@ automatique des commandes restees en attente de paiement.
   ~412). Encaissement direct, sans PIN (`order.create` suffit) : le comptoir insere la
   commande en `pending_payment` (`persist()`), puis encaisse via `pay()` dans une
   SECONDE transaction (`createStaffOrder`), sans etape intermediaire visible pour
-  l'equipier.
+  l'equipier. **Corrige le 2026-09-29** (commit `fce3085`) : la
+  saisie comptoir/drive grise elle aussi une option de menu indisponible
+  (`CounterOrderController::slotsWithAvailability`, meme regle et memes champs
+  `option_is_orderable`/`option_names` que le composeur borne, `counter-order.js`).
+  Complement du meme jour (commit `6f9987b`) : la tuile grisee (`.pos-tile--unavailable`)
+  garde un anneau de focus visible au clavier (`:focus-visible`,
+  `src/public/admin/assets/css/admin.css`) — elle reste atteignable au clavier
+  (`aria-disabled`, pas l'attribut `disabled`) mais le focus y etait invisible (WCAG 2.4.7)
+  avant ce correctif.
 
 ### Annulation
 - `GET /admin/orders/{number}/cancel` (confirmation) et

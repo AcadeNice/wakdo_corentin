@@ -58,6 +58,15 @@ Trois commandes, une par famille d'artefacts. Chacune monte sa propre pile jetab
 - **C2.d** : aucune librairie JS externe n'est integree (choix vanilla). La competence de reutilisation est demontree par des modules internes ; le critere « externe » n'est pas rempli a la lettre. Confiance faible, assumee.
 - **C2.a (animations)** : l'animation du total panier ([`07-animations-js.md`](07-animations-js.md)) est testee automatiquement (24 tests dedies) independamment du navigateur, mais le support des API utilisees (`requestAnimationFrame`, `performance.now`, `matchMedia`) n'a pas ete reconfirme sur caniuse et le validateur W3C n'a pas ete rejoue pour ce lot precis — meme reserve cross-navigateurs que le reste du dossier. Le choix `aria-live="off"` sur le total anime est un raisonnement documente, pas une mesure sur lecteur d'ecran reel.
 
+## Bloc 2 (axe securite) — reference croisee
+
+Ce dossier est scope Bloc 1 (front-end), mais une fiche Bloc 2 y a ete ajoutee car elle est
+la seule preuve executable de l'axe securite : [`10-tests-securite.md`](10-tests-securite.md)
+— 100 tests Playwright + 5 tests PHP contre une pile reelle (borne + back-office), 11 ecarts
+trouves le 2026-09-29, dont 8 corriges par les commits `08d7a96`/`ef7fd37` le meme jour et 3
+par le commit `fce3085` (branche `fix/sec-order`, fusionnee par `86306ef`) ; la suite n'a pas
+ete rejouee depuis ces correctifs (voir la fiche pour le detail et les reserves).
+
 ## Findings releves pendant l'exercice (hors perimetre preuve, a traiter separement)
 
 1. ~~**CSP borne** : le header `Content-Security-Policy` est pose sur le VirtualHost admin mais pas sur le vhost borne. Piste de durcissement.~~ **Corrige depuis la demande de fusion #123** (`feat(borne): CSP stricte same-origin + replis d'image CSP-safe`) : le vhost borne pose desormais son propre header `Content-Security-Policy` (`docker/apache/vhost.conf`, `script-src 'self'`, sans `unsafe-inline`), distinct de celui du vhost admin. Verifie le 2026-09-24 sur le fichier courant.

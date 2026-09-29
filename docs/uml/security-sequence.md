@@ -1,8 +1,8 @@
 # Diagramme de sequence securite - Annulation de commande avec PIN (CANCEL_ORDER)
 
 **Phase UML** : P1 - Conception, complement UML (passe security-by-design)
-**Statut** : v0.6 - realigne sur le code livre (`OrderAdminController`, `OrderRepository::cancel`)
-**Date** : 2026-06-12 (v0.2), 2026-09-24 (v0.3), 2026-09-28 (v0.4), 2026-09-29 (v0.5, v0.6)
+**Statut** : v0.7 - realigne sur le code livre (`OrderAdminController`, `OrderRepository::cancel`)
+**Date** : 2026-06-12 (v0.2), 2026-09-24 (v0.3), 2026-09-28 (v0.4), 2026-09-29 (v0.5, v0.6, v0.7)
 **Historique** : v0.3 (2026-09-24) - mise en coherence avec le code livre (2a09597) : route
 `/admin/orders/{number}/cancel` (page de confirmation en GET, envoi en POST) au lieu de
 `POST /api/orders/{id}/cancel` ; PIN saisi avec la demande et verifie en premier ; echec de PIN
@@ -21,7 +21,9 @@ montrait a tort `sourceVisibleToRole` comme un appel Repo de bout en bout. v0.6 
 merge apres le contre-audit : l'etape 6 (PIN refuse) precisee — le point d'ecriture reel de `pin.failed`
 est `PinGate::auditFailedPin()` (partage par les 6 controleurs HTML, dont `OrderAdminController::logFailedPin`,
 et par l'API), corrige pour ne plus ecrire l'adresse saisie au formulaire dans `summary` (RGPD art. 5.1.c,
-migration `0019_pin_failed_audit_minimisation.sql`).
+migration `0019_pin_failed_audit_minimisation.sql`). v0.7 (2026-09-29) - correctif de
+securite merge : pas 1 precise — `SessionGuard::check()` relit desormais `role_id` et
+`session_epoch` en base en plus de `is_active`, a chaque requete (RG-T02, commit `ef7fd37`).
 **Branche** : `feat/p1-conception`
 **Auteur methodologie** : BYAN
 
@@ -184,6 +186,14 @@ sequenceDiagram
 | 8 | Re-credit si des mouvements `sale` existent, plafonne a la capacite | 7.1 RG-3, `RG-T11` | `OrderRepository::hasSaleMovements`, `IngredientRepository::clampToCapacity` |
 | 9 | `audit_log` `order.cancel` dans la meme transaction | 7.1 RG-6, `RG-T14` | `OrderRepository::cancel` |
 | 10 | Remise a zero du throttle, message, redirection vers `/admin/orders` | 7.1 OUT-1, ERR-1, ERR-2 | `OrderAdminController::cancel` |
+
+**Precision du 2026-09-29 (commit `ef7fd37`) sur le pas 1** : `guard(order.cancel)` (`RG-T02`)
+relit desormais `is_active`, `role_id` et `session_epoch` en base, dans la MEME requete SQL, a
+chaque requete authentifiee (`SessionGuard::check()`) — avant cette date, seule `is_active`
+etait ainsi revalidee, le `role_id` utilise pour verifier la permission `order.cancel` restant
+celui pose en session a la connexion jusqu'a une reconnexion. Un retrait de `order.cancel`
+(changement de role) s'applique donc des la requete suivante, y compris en cours de flux
+d'annulation.
 
 ### 4.1 Re-credit conditionnel du stock (`RG-T11`)
 

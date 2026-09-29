@@ -1,6 +1,10 @@
 # Architecture — Wakdo
 
-**Version** : v0.4 (2026-09-29) — recalage sur un contre-audit : le modele versionne
+**Version** : v0.5 (2026-09-29) — deux correctifs de securite merges : en-tetes HTTP durcis,
+`TraceEnable Off`, sonde `/api/health` sans version PHP (commit `08d7a96`) ; garde de
+session relisant `role_id`/`session_epoch` en base a chaque requete, `SessionRoutePolicy`
+(aucune session sur `/api/*`), throttle de reinitialisation de mot de passe (commit
+`ef7fd37`) ; 24 tables (section 8). Version v0.4 (2026-09-29) — recalage sur un contre-audit : le modele versionne
 `docker-compose.prod.yml.example` declare bien un subnet explicite pour
 `wakdo_internal` (la v0.3 affirmait a tort le contraire) ; `/api/*` est repositionne
 comme public/sans CSRF face a `/admin/api/*` qui est le prefixe authentifie ; la borne
@@ -223,9 +227,18 @@ Couche transverse, regles `RG-T*` definies dans `docs/merise/mlt.md`. Synthese :
 
 - **Authentification** : mot de passe hache **argon2id** (cout configurable, defauts
   OWASP) ; sessions PHP avec regeneration d'ID au login, idle 4h + absolu 10h ; cookie
-  nomme `WAKDO_SID`.
+  nomme `WAKDO_SID`. Une session n'est ouverte que pour les routes qui en ont besoin
+  (`SessionRoutePolicy`, corrige le 2026-09-29, commit `ef7fd37`) : l'API kiosk publique
+  sous `/api/*` (y compris `/api/health`) n'ouvre aucune session ni cookie — avant cette
+  date, une session etait demarree pour toute requete sans condition.
 - **RBAC** : `Authorizer::can(role_id, permission_code)` teste une **permission** (pas
-  un nom de role), rechargee depuis la base a chaque verification. 5 roles seedes, 23
+  un nom de role), rechargee depuis la base a chaque verification. Le `role_id` fourni en
+  entree l'est aussi : `SessionGuard::check()` le relit en base (avec `is_active` et
+  `session_epoch`) dans la MEME requete SQL, a chaque requete authentifiee (RG-T02,
+  corrige le 2026-09-29, commit `ef7fd37`) — avant cette date, seule `is_active` etait
+  ainsi revalidee, `role_id` restant celui pose en session a la connexion jusqu'a une
+  reconnexion. `session_epoch` (migration `0020_session_invalidation.sql`) ferme en plus
+  toute session ouverte avant une reinitialisation de mot de passe. 5 roles seedes, 23
   permissions figees, matrice `role_permission` editable (back-office, voir domaine 10).
 - **PIN d'action sensible (RG-T13)** : certaines operations exigent une
   re-autorisation par PIN equipier (argon2id) -- source unique : `App\Health\RouteSecurity`.
@@ -242,7 +255,16 @@ Couche transverse, regles `RG-T*` definies dans `docs/merise/mlt.md`. Synthese :
   - login par compte (`user.failed_login_attempts` / `lockout_until`) + par IP
     (`login_throttle`, RG-8/9) ;
   - PIN d'action sensible (`pin_throttle`, RG-T22) — compteur **separe** du login, par
-    utilisateur agissant.
+    utilisateur agissant ;
+  - demande de reinitialisation de mot de passe (`password_reset_throttle`), par adresse
+    ET par IP source, ajoutee le 2026-09-29 (commit `ef7fd37`) — avant cette date, aucune
+    limite n'existait sur `POST /forgot_password`.
+- **En-tetes HTTP** (`docker/apache/httpd.conf`/`vhost.conf`, durcis le 2026-09-29, commit
+  `08d7a96`) : `Permissions-Policy` (toutes les fonctionnalites capteur/media/paiement
+  coupees), `TraceEnable Off` (methode `TRACE` refusee sur les deux hotes), CSP du
+  back-office completee de `base-uri 'self'` et `form-action 'self'` (ne retombent pas sur
+  `default-src` en CSP niveau 3), et la sonde publique `/api/health` sans version PHP
+  (`App\Controllers\HealthController`, 6 cles ; `/admin/health` authentifiee la garde).
 - **Entrees / sorties** : validation serveur bornee (RG-T18) ; allowlist d'affectation
   de masse (RG-T16, empeche d'injecter `role_id`/`price_cents`/`is_active`...) ; toutes
   les sorties HTML echappees (RG-T15) ; front borne CSP-safe (pas de script inline cote
@@ -264,17 +286,19 @@ Threat model STRIDE + classification des donnees : `docs/PROJECT_CONTEXT.md` sec
 
 ## 8. Modele de donnees
 
-23 tables (DDL `db/migrations/`), regroupees par domaine :
+24 tables (DDL `db/migrations/`), regroupees par domaine :
 
 - **Catalogue** : `category`, `product`, `menu`, `menu_slot`, `menu_slot_option`,
   `ingredient`, `product_ingredient`, `allergen`, `ingredient_allergen`, `stock_movement`,
   `category_ingredient_family` (parametrage du constructeur de recette, migration
   `0017_ingredient_family.sql`).
-- **RBAC / comptes** : `user`, `role`, `permission`, `role_permission`,
+- **RBAC / comptes** : `user` (dont `session_epoch`, migration
+  `0020_session_invalidation.sql`, 2026-09-29), `role`, `permission`, `role_permission`,
   `role_visible_source`.
 - **Commande (livre)** : `customer_order`, `order_item`,
   `order_item_selection`, `order_item_modifier`.
-- **Transverses** : `audit_log` (journal immuable), `login_throttle`, `pin_throttle`.
+- **Transverses** : `audit_log` (journal immuable), `login_throttle`, `pin_throttle`,
+  `password_reset_throttle` (par adresse et par IP, meme migration `0020`).
 
 Quelques derivations **calculees, non stockees** :
 

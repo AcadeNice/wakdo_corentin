@@ -255,14 +255,14 @@
 
   <!-- 13 MERISE -->
   <section class="slide">
-    <h2>Modele de donnees Merise - 23 entites</h2>
+    <h2>Modele de donnees Merise - 24 entites</h2>
     <div class="grid" style="flex:1;grid-template-columns:repeat(3,1fr)">
       <div class="card"><h3>Catalogue</h3><p class="muted">category, product, menu, menu_slot, menu_slot_option, category_ingredient_family</p></div>
       <div class="card"><h3>Ingredients & Stock</h3><p class="muted">ingredient, product_ingredient, allergen, ingredient_allergen, stock_movement</p></div>
       <div class="card"><h3>Order</h3><p class="muted">customer_order, order_item, order_item_selection, order_item_modifier</p></div>
       <div class="card"><h3>RBAC</h3><p class="muted">user, role, permission, role_permission, role_visible_source</p></div>
-      <div class="card"><h3>Security-by-design</h3><p class="muted">audit_log, login_throttle, pin_throttle</p></div>
-      <div class="card center"><p class="big">18 migrations<br>10 seeds</p><p class="muted">idempotentes</p></div>
+      <div class="card"><h3>Security-by-design</h3><p class="muted">audit_log, login_throttle, pin_throttle, password_reset_throttle</p></div>
+      <div class="card center"><p class="big">19 migrations<br>10 seeds</p><p class="muted">idempotentes</p></div>
     </div>
   </section>
 
@@ -394,7 +394,7 @@ GET  /api/orders/{n}        -> consultation statut</div>
     <table>
       <tr><th>Bloc</th><th>Demontre par</th><th>Preuve</th></tr>
       <tr><td><span class="tag b1">B1 Front</span></td><td>Demo borne, accessibilite, JS vanilla</td><td>5 pages + modules JS</td></tr>
-      <tr><td><span class="tag b2">B2 Back</span></td><td>Merise, API REST, securite by-design</td><td>23 entites + RG-T + tests</td></tr>
+      <tr><td><span class="tag b2">B2 Back</span></td><td>Merise, API REST, securite by-design</td><td>24 entites + RG-T + tests</td></tr>
       <tr><td><span class="tag b5">B5 DevOps</span></td><td>Docker une commande, CI/CD, crons</td><td>5 services + pipeline Forgejo</td></tr>
     </table>
     <p class="muted" style="margin-top:2vh">Seuil : 50 % minimum par bloc et 50 % de moyenne globale.</p>

@@ -29,3 +29,9 @@ verification ; sous verrou actif, pas de nouvelle ligne `pin.failed` (anti-ampli
   vrai depuis la creation de la brique (commit `7c35f8e`, 2026-06-15). Le raisonnement de
   cette fiche (compteur dedie, dimension utilisateur agissant) reste valide quelle que soit
   la longueur exacte du PIN.
+- Complement (2026-09-29, commit `ef7fd37`) : le meme raisonnement (table dediee, bornes
+  propres, backoff degressif) est reutilise une troisieme fois par `password_reset_throttle`
+  (POST `/forgot_password`), avec DEUX dimensions cette fois (adresse demandee ET IP source,
+  discriminees par `throttle_kind`) au lieu d'une seule — voir `docs/merise/dictionary.md`
+  3.24. Avant ce correctif, cette route n'avait aucune limite ; trouve par la suite de tests
+  de securite executables (`docs/soutenance/preuves/10-tests-securite.md`, ecart m6).

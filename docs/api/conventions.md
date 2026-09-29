@@ -1,6 +1,11 @@
 # API Wakdo - conventions de nommage, structure et listing
 
-**Statut** : v0.3 - API d'administration JSON livree sous `/admin/api/*` (section 5.3,
+**Statut** : v0.5 (2026-09-29) - trois correctifs de securite merges : en-tetes durcis, sonde
+`/api/health` sans version PHP (commit `08d7a96`), garde de session relisant role/epoch,
+`/api/*` sans session, throttle de reinitialisation de mot de passe (commit `ef7fd37`), bornes
+de commande (quantite, nombre de lignes, type de corps) et disponibilite des options de menu
+(commit `fce3085`, branche `fix/sec-order`, fusionnee par `86306ef`) ;
+v0.3 - API d'administration JSON livree sous `/admin/api/*` (section 5.3,
 [ADR-0017](../adr/0017-api-admin-json.md))
 **Perimetre** : back-office admin (rendu serveur) + API REST publique sous `/api/*` + API
 d'administration JSON sous `/admin/api/*`
@@ -51,6 +56,18 @@ route de porter `/admin` dans son propre motif.
 Code de reference : routes dans `src/app/Core/routes.php` (charge par le front controller
 `src/public/admin/index.php`), controleurs dans `src/app/Controllers/`, enveloppe de reponse
 dans `src/app/Core/Response.php`, resolution (404 / 405) dans `src/app/Core/Router.php`.
+
+**En-tetes de securite** (poses par Apache, `docker/apache/httpd.conf` et `vhost.conf`, sur
+les deux hotes) : `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`,
+`Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` (toutes les
+fonctionnalites capteur/media/paiement coupees — ajoutee le 2026-09-29, commit `08d7a96`,
+aucun des deux fronts n'en a l'usage), `Server` retire. Le vhost admin ajoute une CSP
+(`default-src 'self'`, `script-src 'self'`) desormais completee de `base-uri 'self'` et
+`form-action 'self'` (ajoutees le 2026-09-29, commit `08d7a96` : ces deux directives ne
+retombent pas sur `default-src` en CSP niveau 3, et devaient etre posees explicitement,
+comme sur le vhost borne) plus `Strict-Transport-Security`. `TraceEnable Off` (meme commit)
+coupe la methode `TRACE` sur les deux hotes (Apache y repondait 200 par defaut, en echo de
+la requete recue).
 
 ---
 
@@ -142,6 +159,20 @@ La borne est publique (aucune session) ; cf. `mlt.md` CREATE_ORDER, declencheur 
 | POST | `/api/orders` | (kiosk public) | CREATE_ORDER (mlt 3.3) | livre (idempotency_key, RG-T19) |
 | POST | `/api/orders/{number}/pay` | (kiosk public) | (encaissement) | livre (passe directement a `preparing` -- `paid_at` ET `preparing_at` poses dans la meme transaction -- + decrement stock RG-T20 ; `OrderRepository::pay()`) |
 | GET | `/api/orders/{number}` | (lecture publique) | (suivi statut) | livre, RESTREINT AU CANAL KIOSK (relecture adverse, point 5b) : cet endpoint est public et anonyme, et les numeros sont sequentiels (prefixe canal + id auto-incremente) -- une commande comptoir/drive n'est PAS "kiosk anonyme" et son statut/total n'a pas a etre lisible sans authentification. Une commande d'un AUTRE canal rend la MEME reponse `404 ORDER_NOT_FOUND` qu'un numero inconnu (anti-enumeration). Champs renvoyes : `order_number`, `status` -- `total_ttc_cents` a ete RETIRE (aucun ecran borne ne le consomme sur cet endpoint ; `create()`/`pay()` continuent de le renvoyer, eux, car l'ecran de paiement en a besoin) |
+
+**`GET /api/menus/{id}`, champs de slot ajoutes (corrige le 2026-09-29, commit `fce3085`,
+branche `fix/sec-order`, fusionnee par `86306ef`)** : chaque slot de `detail.slots` porte desormais
+`option_is_orderable` (map `product_id -> bool`, meme regle de disponibilite que RG-T21 :
+`is_available = 1` ET hors rupture calculee) et `option_names` (map `product_id ->
+nom`, y compris pour une option retiree du catalogue commandable). Avant ce correctif,
+seule la liste `option_product_ids` (appartenance au slot) etait exposee, sans indication
+de disponibilite — le composeur borne laissait choisir une option en rupture sans le
+signaler.
+
+**Aucune session sur `/api/*`** (corrige le 2026-09-29, commit `ef7fd37`,
+`App\Auth\SessionRoutePolicy`) : avant cette date, une session PHP (et son
+`Set-Cookie`) etait ouverte pour toute requete, y compris chaque appel anonyme de la
+borne sous ce prefixe. Voir section 9.
 
 ### 5.3 API d'administration JSON (`/admin/api/*`, livre, session + permission + PIN)
 
@@ -525,10 +556,15 @@ Erreur :
 { "data": null, "error": { "code": "NOT_FOUND", "message": "Resource not found" } }
 ```
 
-Exception documentee : `GET /api/health` renvoie un objet de diagnostic plat (`status`, `app_env`,
-`php_version`, `db`, `categories`, `version`, `deployed_at`), hors enveloppe, car il sert le
-monitoring et non un client applicatif. `version` / `deployed_at` sont lus depuis le marqueur
-`VERSION` ecrit par `scripts/deploy.sh` (`null` avant le premier deploiement).
+Exception documentee : `GET /api/health` renvoie un objet de diagnostic plat, hors enveloppe, car il
+sert le monitoring et non un client applicatif. Depuis le 2026-09-29 (commit `08d7a96`), 6 cles
+exactement : `status`, `app_env`, `db`, `categories`, `version`, `deployed_at` — `php_version` a ete
+retire (`App\Controllers\HealthController`) : cette sonde est publique et anonyme, exposer la version
+du moteur PHP a tout visiteur est une fuite d'information inutile (OWASP A05). Avant cette date, une
+7e cle `php_version` (ex. `PHP_VERSION`) etait renvoyee. La page authentifiee `/admin/health`
+(`App\Health\HealthReport`, derriere `role.manage`) garde ce champ pour l'exploitant, via sa propre
+source. `version` / `deployed_at` sont lus depuis le marqueur `VERSION` ecrit par
+`scripts/deploy.sh` (`null` avant le premier deploiement).
 
 Type de contenu : `application/json; charset=utf-8` (`Response::json`). Les pages back-office
 renvoient `text/html; charset=utf-8`.
@@ -596,7 +632,41 @@ quelle erreur masquerait un vrai probleme, par exemple un article indisponible).
 comptoir ou au drive) quand la cle depasse 36 caracteres, la largeur de sa colonne
 (`VARCHAR(36)`, un UUID). Avant ce controle, une cle trop longue faisait echouer l'insertion
 en base et la commande repondait 500 (trouve le 28/09/2026 en capturant les reponses de la
-page Sante) ; elle est desormais refusee a la validation, avant toute ecriture.
+page Sante) ; elle est desormais refusee a la validation, avant toute ecriture. Depuis le
+correctif ci-dessous, une valeur qui n'est meme pas une chaine (ex. un tableau JSON) rend le
+meme code, au lieu d'etre castee en silence.
+
+**`INVALID_QUANTITY`, `TOO_MANY_ITEMS`, `INVALID_ITEM_TYPE`, `OPTION_UNAVAILABLE` (422,
+corriges le 2026-09-29, commit `fce3085`, branche `fix/sec-order`, fusionnee par
+`86306ef`).** Rendus par `POST /api/orders`
+et la creation comptoir/drive (`OrderRepository`) : `INVALID_QUANTITY` pour une quantite
+de ligne hors 1-20 ou non entiere ; `TOO_MANY_ITEMS` au-dela de 50 lignes distinctes ;
+`INVALID_ITEM_TYPE` pour un article du panier qui n'est pas un objet JSON ;
+`OPTION_UNAVAILABLE` pour une option de slot indisponible (rupture calculee ou retrait
+manuel) sur l'option effectivement servie. Avant ce correctif, une commande anonyme
+pouvait porter une quantite demesuree sur une seule ligne (vidage de stock en deux
+requetes), un panier de taille arbitraire, ou une option retiree/en rupture restait
+commandable.
+
+**`ORDER_TOO_LARGE` (422, corrige le 2026-09-29, commit `33538c6`).** Regle
+complementaire : au plus 50 articles au total par commande (somme des quantites de
+toutes les lignes, `OrderRepository::MAX_ITEMS_PER_ORDER`, verifiee dans
+`resolveAndTotal()`), distincte de `TOO_MANY_ITEMS` qui borne le nombre de LIGNES
+distinctes. Sans elle, 50 lignes a 20 articles chacune (les deux bornes individuelles
+respectees) restaient possibles dans UNE seule commande anonyme (jusqu'a 1000
+articles). Nouveau test e2e (`security-order-integrity.spec.js`, 51 articles en une
+commande), pas encore compte dans l'execution datee de la fiche 10 (07:30-07:31, avant
+ce commit).
+
+**Risque residuel assume, honnetement.** Ces bornes limitent ce qu'UNE commande anonyme peut
+consommer ; elles ne limitent PAS le nombre de commandes successives depuis la meme source.
+Une limitation par adresse IP a ete ECARTEE : plusieurs bornes reelles d'un meme restaurant
+partagent la meme adresse (elle penaliserait tout le restaurant, pas l'attaquant), et la
+fiabilite de l'IP cliente derriere le proxy releve de Traefik — non verifie ici (voir la
+fiche 10, section « Information »). En production reelle, l'API kiosk (`/api/*`) serait
+reservee au reseau du restaurant ou a des bornes identifiees (hors perimetre code de ce
+projet, cadre reseau/infra). En demonstration, la remise a zero quotidienne des donnees
+(`feat/demo-reset`) restaure le stock, ce qui borne la duree d'exposition a une journee.
 
 ### 8.2bis Ce que garantit la cle d'idempotence (revise par F18)
 
@@ -654,12 +724,27 @@ Voir [ADR-0015](../adr/0015-allergenes-calcules-par-produit.md).
   inconditionnels et `secure` **conditionnel au schema** (`X-Forwarded-Proto: https` en priorite,
   sinon `HTTPS`, sinon le port 443 ; vrai en prod derriere Traefik, faux en HTTP local/E2E —
   [ADR-0010](../adr/0010-cookie-secure-conditionnel-https.md)). Bornes de validite appliquees
-  cote application (idle 4h, absolue 10h), pas par la duree du cookie.
+  cote application (idle 4h, absolue 10h), pas par la duree du cookie. A chaque requete
+  authentifiee, `App\Auth\SessionGuard::check()` relit EN BASE (une seule requete SQL)
+  `is_active`, `role_id` et `session_epoch`, et compare ce dernier a la valeur posee en
+  session a la connexion : un compte desactive, un role change, ou une reinitialisation de
+  mot de passe (qui incremente `session_epoch`) invalident la session des la requete
+  suivante. Corrige le 2026-09-29 (commit `ef7fd37`) — avant cette date, seul `is_active`
+  etait relu, `role_id` restant celui de la connexion jusqu'a une reconnexion.
+- **Une session PHP n'est ouverte que si la route en a besoin** (`App\Auth\SessionRoutePolicy`,
+  corrige le 2026-09-29, commit `ef7fd37`) : les quatre routes d'authentification HTML, les
+  prefixes back-office, et `POST /admin/api/auth/login` (qui CREE la session). Avant cette
+  date, une session (et son `Set-Cookie`) etait ouverte pour toute requete sans condition, y
+  compris chaque appel anonyme de la borne sous `/api/*`.
 - **Formulaires back-office** : jeton CSRF synchroniseur en champ cache `_csrf`, verifie sur chaque
   POST (`/login`, `/logout`, `/forgot_password`, `/reset_password`, et chaque ecriture
-  `/admin/*`). Jeton invalide -> `403`.
+  `/admin/*`). Jeton invalide -> `403`. `POST /forgot_password` est en outre throttle par
+  adresse ET par IP (`App\Auth\PasswordResetThrottle`, table `password_reset_throttle`,
+  ajoutee le 2026-09-29, commit `ef7fd37`) : au-dela du seuil, `429` avec la MEME reponse
+  neutre que le cas normal (anti-enumeration).
 - **API REST publique (`/api/*`)** : endpoints kiosk de lecture catalogue et creation de
-  commande, publics (pas de session ; `mlt.md` CREATE_ORDER).
+  commande, publics (pas de session ni cookie, `SessionRoutePolicy` ci-dessus ; `mlt.md`
+  CREATE_ORDER).
 - **API d'administration JSON (`/admin/api/*`, section 5.3)** : session admin + verification
   de permission via `role_permission` + jeton CSRF en en-tete `X-CSRF-Token` (le meme jeton
   synchroniseur que le HTML, transporte differemment faute de formulaire) ; actions sensibles
