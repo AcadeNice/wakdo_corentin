@@ -1,6 +1,6 @@
 {
- "captured_at": "2026-09-28T10:54:42.557Z",
- "commit": "edea94c",
+ "captured_at": "2026-09-29T12:42:46.876Z",
+ "commit": "c2b8c1c",
  "where": "pile Docker jetable, donnees de demonstration du depot (tests/e2e/run-health-capture.sh)",
  "routes": {
   "POST /admin/profile/pin": {
@@ -116,10 +116,9 @@
     "status": 200,
     "type": "application/json",
     "headers": {
-     "cache-control": "no-store, no-cache, must-revalidate",
      "content-type": "application/json; charset=utf-8"
     },
-    "body": "{\n  \"status\": \"ok\",\n  \"app_env\": \"dev\",\n  \"php_version\": \"8.3.22\",\n  \"db\": \"ok\",\n  \"categories\": 9,\n  \"version\": null,\n  \"deployed_at\": null\n}",
+    "body": "{\n  \"status\": \"ok\",\n  \"app_env\": \"dev\",\n  \"db\": \"ok\",\n  \"categories\": 9,\n  \"version\": null,\n  \"deployed_at\": null\n}",
     "request": {
      "method": "GET",
      "path": "/api/health",
@@ -133,7 +132,6 @@
      "status": 404,
      "type": "application/json",
      "headers": {
-      "cache-control": "no-store, no-cache, must-revalidate",
       "content-type": "application/json; charset=utf-8"
      },
      "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
@@ -149,7 +147,6 @@
      "status": 405,
      "type": "application/json",
      "headers": {
-      "cache-control": "no-store, no-cache, must-revalidate",
       "content-type": "application/json; charset=utf-8"
      },
      "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"METHOD_NOT_ALLOWED\",\n    \"message\": \"Method not allowed\"\n  }\n}",
@@ -174,7 +171,7 @@
      "cache-control": "no-store, private",
      "content-type": "text/html; charset=utf-8"
     },
-    "body": "<!doctype html> … page HTML de 822276 caractères, extrait :\n<title>Santé de l'API - Wakdo Admin</title>\n<h1>Santé de l'API</h1>\nmessage : « PIN enregistré. »",
+    "body": "<!doctype html> … page HTML de 822181 caractères, extrait :\n<title>Santé de l'API - Wakdo Admin</title>\n<h1>Santé de l'API</h1>\nmessage : « PIN enregistré. »",
     "request": {
      "method": "GET",
      "path": "/admin/health",
@@ -244,7 +241,7 @@
      "cache-control": "no-store, private",
      "content-type": "application/json; charset=utf-8"
     },
-    "body": "{\n  \"data\": {\n    \"generated_at\": \"2026-09-28T12:54:01+02:00\",\n    \"version\": null,\n    \"deployed_at\": null,\n    \"app_env\": \"dev\",\n    \"debug\": false,\n    \"display_errors_off\": true,\n    \"php_version\": \"8.3.22\",\n    \"db\": {\n      \"ok\": true,\n      \"latency_ms\": 0.2,\n      \"server_version\": \"11.4.10-MariaDB-ubu2404\"\n    },\n    \"migrations\": {\n      \"applied\": 17,\n      \"files\": null,\n      \"last\": \"0018_manager_order_cancel.sql\"\n    },\n    \"seeds\": {\n      \"applied\": 10,\n      \"files\": null,\n      \"last\": \"0010_ingredient_families.sql\"\n    },\n    \"activity_24h\": {\n      \"orders_created\": 1,\n      \"orders_paid\": 0,\n      \"audit_lines\": 7,\n      \"pin_failures\": 0\n    }\n  }\n}",
+    "body": "{\n  \"data\": {\n    \"generated_at\": \"2026-09-29T14:42:07+02:00\",\n    \"version\": null,\n    \"deployed_at\": null,\n    \"app_env\": \"dev\",\n    \"debug\": false,\n    \"display_errors_off\": true,\n    \"php_version\": \"8.3.22\",\n    \"db\": {\n      \"ok\": true,\n      \"latency_ms\": 0.1,\n      \"server_version\": \"11.4.10-MariaDB-ubu2404\"\n    },\n    \"migrations\": {\n      \"applied\": 20,\n      \"files\": null,\n      \"last\": \"0021_password_reset_throttle_hash_identifier.sql\"\n    },\n    \"seeds\": {\n      \"applied\": 10,\n      \"files\": null,\n      \"last\": \"0010_ingredient_families.sql\"\n    },\n    \"activity_24h\": {\n      \"orders_created\": 1,\n      \"orders_paid\": 0,\n      \"audit_lines\": 7,\n      \"pin_failures\": 0\n    }\n  }\n}",
     "request": {
      "method": "GET",
      "path": "/admin/api/health",
@@ -417,7 +414,6 @@
     "status": 200,
     "type": "application/json",
     "headers": {
-     "cache-control": "no-store, no-cache, must-revalidate",
      "content-type": "application/json; charset=utf-8"
     },
     "body": "{\n  \"data\": {\n    \"order_number\": \"K1\",\n    \"status\": \"pending_payment\"\n  }\n}",
@@ -434,7 +430,6 @@
      "status": 404,
      "type": "application/json",
      "headers": {
-      "cache-control": "no-store, no-cache, must-revalidate",
       "content-type": "application/json; charset=utf-8"
      },
      "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
@@ -450,7 +445,6 @@
      "status": 404,
      "type": "application/json",
      "headers": {
-      "cache-control": "no-store, no-cache, must-revalidate",
       "content-type": "application/json; charset=utf-8"
      },
      "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"ORDER_NOT_FOUND\",\n    \"message\": \"Commande introuvable.\"\n  }\n}",
@@ -466,7 +460,6 @@
      "status": 405,
      "type": "application/json",
      "headers": {
-      "cache-control": "no-store, no-cache, must-revalidate",
       "content-type": "application/json; charset=utf-8"
      },
      "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"METHOD_NOT_ALLOWED\",\n    \"message\": \"Method not allowed\"\n  }\n}",
@@ -488,7 +481,6 @@
     "status": 200,
     "type": "application/json",
     "headers": {
-     "cache-control": "no-store, no-cache, must-revalidate",
      "content-type": "application/json; charset=utf-8"
     },
     "body": "{\n  \"data\": [\n    {\n      \"id\": 1,\n      \"name\": \"Menus\",\n      \"slug\": \"menus\",\n      \"image_path\": \"assets/images/categories/menus.png\",\n      \"display_order\": 1\n    },\n    {\n      \"id\": 2,\n      \"name\": \"Boissons\",\n      \"slug\": \"boissons\",\n      \"image_path\": \"assets/images/categories/boissons.png\",\n      \"display_order\": 2\n    },\n    \"… et 7 autre(s) élément(s)\"\n  ],\n  \"total\": 9\n}",
@@ -505,7 +497,6 @@
      "status": 404,
      "type": "application/json",
      "headers": {
-      "cache-control": "no-store, no-cache, must-revalidate",
       "content-type": "application/json; charset=utf-8"
      },
      "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
@@ -521,7 +512,6 @@
      "status": 405,
      "type": "application/json",
      "headers": {
-      "cache-control": "no-store, no-cache, must-revalidate",
       "content-type": "application/json; charset=utf-8"
      },
      "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"METHOD_NOT_ALLOWED\",\n    \"message\": \"Method not allowed\"\n  }\n}",
@@ -543,7 +533,6 @@
     "status": 200,
     "type": "application/json",
     "headers": {
-     "cache-control": "no-store, no-cache, must-revalidate",
      "content-type": "application/json; charset=utf-8"
     },
     "body": "{\n  \"data\": [\n    {\n      \"id\": 14,\n      \"category_id\": 2,\n      \"name\": \"Coca Cola\",\n      \"description\": null,\n      \"price_cents\": 190,\n      \"image_path\": \"assets/images/produits/boissons/coca-cola.png\",\n      \"display_order\": 1,\n      \"maxi_variant_name\": \"Coca Cola 50cl\",\n      \"maxi_variant_image_path\": \"assets/images/produits/boissons/coca-cola.png\",\n      \"sizes\": [\n        {\n          \"product_id\": 14,\n          \"size_cl\": 30,\n          \"price_cents\": 190,\n          \"label\": \"30 cl\"\n        },\n        {\n          \"product_id\": 54,\n          \"size_cl\": 50,\n          \"price_cents\": 240,\n          \"label\": \"50 cl\"\n        }\n      ],\n      \"allergens\": [],\n      \"allergens_complete\": true,\n      \"is_orderable\": true\n    },\n    {\n      \"id\": 15,\n      \"category_id\": 2,\n      \"name\": \"Coca Sans Sucres\",\n      \"description\": null,\n      \"price_cents\": 190,\n      \"image_path\": \"assets/images/produits/boissons/coca-sans-sucres.png\",\n      \"display_order\": 2,\n      \"maxi_variant_name\": \"Coca Sans Sucres 50cl\",\n      \"maxi_variant_image_path\": \"assets/images/produits/boissons/coca-sans-sucres.png\",\n      \"sizes\": [\n        {\n          \"product_id\": 15,\n          \"size_cl\": 30,\n          \"price_cents\": 190,\n          \"label\": \"30 cl\"\n        },\n        {\n          \"product_id\": 55,\n          \"size_cl\": 50,\n          \"price_cents\": 240,\n          \"label\": \"50 cl\"\n        }\n      ],\n      \"allergens\": [],\n      \"allergens_complete\": true,\n      \"is_orderable\": true\n    },\n    \"… et 51 autre(s) élément(s)\"\n  ],\n  \"total\": 53\n}",
@@ -560,7 +549,6 @@
      "status": 404,
      "type": "application/json",
      "headers": {
-      "cache-control": "no-store, no-cache, must-revalidate",
       "content-type": "application/json; charset=utf-8"
      },
      "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Produit introuvable.\"\n  }\n}",
@@ -576,7 +564,6 @@
      "status": 405,
      "type": "application/json",
      "headers": {
-      "cache-control": "no-store, no-cache, must-revalidate",
       "content-type": "application/json; charset=utf-8"
      },
      "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"METHOD_NOT_ALLOWED\",\n    \"message\": \"Method not allowed\"\n  }\n}",
@@ -598,7 +585,6 @@
     "status": 200,
     "type": "application/json",
     "headers": {
-     "cache-control": "no-store, no-cache, must-revalidate",
      "content-type": "application/json; charset=utf-8"
     },
     "body": "{\n  \"data\": {\n    \"id\": 14,\n    \"category_id\": 2,\n    \"name\": \"Coca Cola\",\n    \"description\": null,\n    \"price_cents\": 190,\n    \"image_path\": \"assets/images/produits/boissons/coca-cola.png\",\n    \"display_order\": 1,\n    \"maxi_variant_name\": \"Coca Cola 50cl\",\n    \"maxi_variant_image_path\": \"assets/images/produits/boissons/coca-cola.png\",\n    \"sizes\": [\n      {\n        \"product_id\": 14,\n        \"size_cl\": 30,\n        \"price_cents\": 190,\n        \"label\": \"30 cl\"\n      },\n      {\n        \"product_id\": 54,\n        \"size_cl\": 50,\n        \"price_cents\": 240,\n        \"label\": \"50 cl\"\n      }\n    ],\n    \"allergens\": [],\n    \"allergens_complete\": true,\n    \"is_orderable\": true\n  }\n}",
@@ -615,7 +601,6 @@
      "status": 404,
      "type": "application/json",
      "headers": {
-      "cache-control": "no-store, no-cache, must-revalidate",
       "content-type": "application/json; charset=utf-8"
      },
      "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
@@ -631,7 +616,6 @@
      "status": 404,
      "type": "application/json",
      "headers": {
-      "cache-control": "no-store, no-cache, must-revalidate",
       "content-type": "application/json; charset=utf-8"
      },
      "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Produit introuvable.\"\n  }\n}",
@@ -647,7 +631,6 @@
      "status": 405,
      "type": "application/json",
      "headers": {
-      "cache-control": "no-store, no-cache, must-revalidate",
       "content-type": "application/json; charset=utf-8"
      },
      "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"METHOD_NOT_ALLOWED\",\n    \"message\": \"Method not allowed\"\n  }\n}",
@@ -669,7 +652,6 @@
     "status": 200,
     "type": "application/json",
     "headers": {
-     "cache-control": "no-store, no-cache, must-revalidate",
      "content-type": "application/json; charset=utf-8"
     },
     "body": "{\n  \"data\": [\n    {\n      \"id\": 1,\n      \"category_id\": 1,\n      \"burger_product_id\": 1,\n      \"name\": \"Menu Le 280\",\n      \"description\": null,\n      \"price_normal_cents\": 880,\n      \"price_maxi_cents\": 1030,\n      \"image_path\": \"assets/images/produits/burgers/280.png\",\n      \"display_order\": 1,\n      \"allergens\": [\n        {\n          \"id\": 1,\n          \"code\": \"gluten\",\n          \"name\": \"Gluten\"\n        },\n        {\n          \"id\": 3,\n          \"code\": \"eggs\",\n          \"name\": \"Œufs\"\n        },\n        \"… et 3 autre(s) élément(s)\"\n      ],\n      \"allergens_complete\": true,\n      \"is_orderable\": true\n    },\n    {\n      \"id\": 2,\n      \"category_id\": 1,\n      \"burger_product_id\": 2,\n      \"name\": \"Menu Big Tasty\",\n      \"description\": null,\n      \"price_normal_cents\": 1060,\n      \"price_maxi_cents\": 1210,\n      \"image_path\": \"assets/images/produits/burgers/big-tasty-1-viande.png\",\n      \"display_order\": 2,\n      \"allergens\": [\n        {\n          \"id\": 1,\n          \"code\": \"gluten\",\n          \"name\": \"Gluten\"\n        },\n        {\n          \"id\": 7,\n          \"code\": \"milk\",\n          \"name\": \"Lait\"\n        },\n        \"… et 3 autre(s) élément(s)\"\n      ],\n      \"allergens_complete\": true,\n      \"is_orderable\": true\n    },\n    \"… et 11 autre(s) élément(s)\"\n  ],\n  \"total\": 13\n}",
@@ -686,7 +668,6 @@
      "status": 404,
      "type": "application/json",
      "headers": {
-      "cache-control": "no-store, no-cache, must-revalidate",
       "content-type": "application/json; charset=utf-8"
      },
      "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Menu introuvable.\"\n  }\n}",
@@ -702,7 +683,6 @@
      "status": 405,
      "type": "application/json",
      "headers": {
-      "cache-control": "no-store, no-cache, must-revalidate",
       "content-type": "application/json; charset=utf-8"
      },
      "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"METHOD_NOT_ALLOWED\",\n    \"message\": \"Method not allowed\"\n  }\n}",
@@ -724,10 +704,9 @@
     "status": 200,
     "type": "application/json",
     "headers": {
-     "cache-control": "no-store, no-cache, must-revalidate",
      "content-type": "application/json; charset=utf-8"
     },
-    "body": "{\n  \"data\": {\n    \"id\": 1,\n    \"category_id\": 1,\n    \"burger_product_id\": 1,\n    \"name\": \"Menu Le 280\",\n    \"description\": null,\n    \"price_normal_cents\": 880,\n    \"price_maxi_cents\": 1030,\n    \"image_path\": \"assets/images/produits/burgers/280.png\",\n    \"display_order\": 1,\n    \"allergens\": [\n      {\n        \"id\": 1,\n        \"code\": \"gluten\",\n        \"name\": \"Gluten\"\n      },\n      {\n        \"id\": 3,\n        \"code\": \"eggs\",\n        \"name\": \"Œufs\"\n      },\n      \"… et 3 autre(s) élément(s)\"\n    ],\n    \"allergens_complete\": true,\n    \"is_orderable\": true,\n    \"slots\": [\n      {\n        \"id\": 1,\n        \"name\": \"Accompagnement\",\n        \"slot_type\": \"side\",\n        \"is_required\": true,\n        \"display_order\": 1,\n        \"option_product_ids\": [\n          23,\n          25\n        ]\n      },\n      {\n        \"id\": 16,\n        \"name\": \"Boisson\",\n        \"slot_type\": \"drink\",\n        \"is_required\": true,\n        \"display_order\": 2,\n        \"option_product_ids\": [\n          14,\n          15,\n          \"… et 6 autre(s) élément(s)\"\n        ]\n      },\n      \"… et 1 autre(s) élément(s)\"\n    ]\n  }\n}",
+    "body": "{\n  \"data\": {\n    \"id\": 1,\n    \"category_id\": 1,\n    \"burger_product_id\": 1,\n    \"name\": \"Menu Le 280\",\n    \"description\": null,\n    \"price_normal_cents\": 880,\n    \"price_maxi_cents\": 1030,\n    \"image_path\": \"assets/images/produits/burgers/280.png\",\n    \"display_order\": 1,\n    \"allergens\": [\n      {\n        \"id\": 1,\n        \"code\": \"gluten\",\n        \"name\": \"Gluten\"\n      },\n      {\n        \"id\": 3,\n        \"code\": \"eggs\",\n        \"name\": \"Œufs\"\n      },\n      \"… et 3 autre(s) élément(s)\"\n    ],\n    \"allergens_complete\": true,\n    \"is_orderable\": true,\n    \"slots\": [\n      {\n        \"id\": 1,\n        \"name\": \"Accompagnement\",\n        \"slot_type\": \"side\",\n        \"is_required\": true,\n        \"display_order\": 1,\n        \"option_product_ids\": [\n          23,\n          25\n        ],\n        \"option_is_orderable\": {\n          \"23\": true,\n          \"25\": true\n        },\n        \"option_is_orderable_maxi\": {\n          \"23\": true,\n          \"25\": true\n        },\n        \"option_names\": {\n          \"23\": \"Moyenne Frite\",\n          \"25\": \"Potatoes\"\n        }\n      },\n      {\n        \"id\": 16,\n        \"name\": \"Boisson\",\n        \"slot_type\": \"drink\",\n        \"is_required\": true,\n        \"display_order\": 2,\n        \"option_product_ids\": [\n          14,\n          15,\n          \"… et 6 autre(s) élément(s)\"\n        ],\n        \"option_is_orderable\": {\n          \"14\": true,\n          \"15\": true,\n          \"16\": true,\n          \"17\": true,\n          \"18\": true,\n          \"19\": true,\n          \"20\": true,\n          \"21\": true\n        },\n        \"option_is_orderable_maxi\": {\n          \"14\": true\n… (tronqué)",
     "request": {
      "method": "GET",
      "path": "/api/menus/1",
@@ -741,7 +720,6 @@
      "status": 404,
      "type": "application/json",
      "headers": {
-      "cache-control": "no-store, no-cache, must-revalidate",
       "content-type": "application/json; charset=utf-8"
      },
      "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
@@ -757,7 +735,6 @@
      "status": 404,
      "type": "application/json",
      "headers": {
-      "cache-control": "no-store, no-cache, must-revalidate",
       "content-type": "application/json; charset=utf-8"
      },
      "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Menu introuvable.\"\n  }\n}",
@@ -773,7 +750,6 @@
      "status": 405,
      "type": "application/json",
      "headers": {
-      "cache-control": "no-store, no-cache, must-revalidate",
       "content-type": "application/json; charset=utf-8"
      },
      "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"METHOD_NOT_ALLOWED\",\n    \"message\": \"Method not allowed\"\n  }\n}",
@@ -795,7 +771,6 @@
     "status": 200,
     "type": "application/json",
     "headers": {
-     "cache-control": "no-store, no-cache, must-revalidate",
      "content-type": "application/json; charset=utf-8"
     },
     "body": "{\n  \"data\": [\n    {\n      \"id\": 1,\n      \"code\": \"gluten\",\n      \"name\": \"Gluten\",\n      \"description\": \"Céréales contenant du gluten (blé, seigle, orge, avoine, épeautre, kamut) et produits à base de ces céréales.\"\n    },\n    {\n      \"id\": 2,\n      \"code\": \"crustaceans\",\n      \"name\": \"Crustacés\",\n      \"description\": \"Crustacés et produits à base de crustacés.\"\n    },\n    \"… et 12 autre(s) élément(s)\"\n  ],\n  \"total\": 14\n}",
@@ -812,7 +787,6 @@
      "status": 404,
      "type": "application/json",
      "headers": {
-      "cache-control": "no-store, no-cache, must-revalidate",
       "content-type": "application/json; charset=utf-8"
      },
      "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
@@ -828,7 +802,6 @@
      "status": 405,
      "type": "application/json",
      "headers": {
-      "cache-control": "no-store, no-cache, must-revalidate",
       "content-type": "application/json; charset=utf-8"
      },
      "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"METHOD_NOT_ALLOWED\",\n    \"message\": \"Method not allowed\"\n  }\n}",
@@ -1293,7 +1266,7 @@
      "cache-control": "no-store, private",
      "content-type": "text/html; charset=utf-8"
     },
-    "body": "<!doctype html> … page HTML de 39686 caractères, extrait :\n<title>Nouvelle commande comptoir - Wakdo Admin</title>\n<h1>Nouvelle commande comptoir</h1>",
+    "body": "<!doctype html> … page HTML de 51204 caractères, extrait :\n<title>Nouvelle commande comptoir - Wakdo Admin</title>\n<h1>Nouvelle commande comptoir</h1>",
     "request": {
      "method": "GET",
      "path": "/counter/orders/new",
@@ -1433,7 +1406,7 @@
      "cache-control": "no-store, private",
      "content-type": "text/html; charset=utf-8"
     },
-    "body": "<!doctype html> … page HTML de 39118 caractères, extrait :\n<title>Nouvelle commande drive - Wakdo Admin</title>\n<h1>Nouvelle commande drive</h1>",
+    "body": "<!doctype html> … page HTML de 50636 caractères, extrait :\n<title>Nouvelle commande drive - Wakdo Admin</title>\n<h1>Nouvelle commande drive</h1>",
     "request": {
      "method": "GET",
      "path": "/drive/orders/new",
@@ -5099,7 +5072,7 @@
      "cache-control": "no-store, private",
      "content-type": "application/json; charset=utf-8"
     },
-    "body": "{\n  \"data\": [\n    {\n      \"order_number\": \"K1\",\n      \"source\": \"kiosk\",\n      \"service_mode\": \"takeaway\",\n      \"service_tag\": null,\n      \"status\": \"pending_payment\",\n      \"total_ttc_cents\": 190,\n      \"created_at\": \"2026-09-28 12:54:00\",\n      \"paid_at\": null\n    }\n  ],\n  \"total\": 1\n}",
+    "body": "{\n  \"data\": [\n    {\n      \"order_number\": \"K1\",\n      \"source\": \"kiosk\",\n      \"service_mode\": \"takeaway\",\n      \"service_tag\": null,\n      \"status\": \"pending_payment\",\n      \"total_ttc_cents\": 190,\n      \"created_at\": \"2026-09-29 14:42:07\",\n      \"paid_at\": null\n    }\n  ],\n  \"total\": 1\n}",
     "request": {
      "method": "GET",
      "path": "/admin/api/orders",
@@ -5151,7 +5124,7 @@
      "cache-control": "no-store, private",
      "content-type": "application/json; charset=utf-8"
     },
-    "body": "{\n  \"data\": {\n    \"order_number\": \"K1\",\n    \"source\": \"kiosk\",\n    \"service_mode\": \"takeaway\",\n    \"service_tag\": null,\n    \"status\": \"pending_payment\",\n    \"total_ttc_cents\": 190,\n    \"created_at\": \"2026-09-28 12:54:00\",\n    \"paid_at\": null\n  }\n}",
+    "body": "{\n  \"data\": {\n    \"order_number\": \"K1\",\n    \"source\": \"kiosk\",\n    \"service_mode\": \"takeaway\",\n    \"service_tag\": null,\n    \"status\": \"pending_payment\",\n    \"total_ttc_cents\": 190,\n    \"created_at\": \"2026-09-29 14:42:07\",\n    \"paid_at\": null\n  }\n}",
     "request": {
      "method": "GET",
      "path": "/admin/api/orders/K1",
@@ -5284,7 +5257,6 @@
     "status": 201,
     "type": "application/json",
     "headers": {
-     "cache-control": "no-store, no-cache, must-revalidate",
      "content-type": "application/json; charset=utf-8"
     },
     "body": "{\n  \"data\": {\n    \"id\": 2,\n    \"order_number\": \"K2\",\n    \"status\": \"pending_payment\",\n    \"total_ttc_cents\": 190\n  }\n}",
@@ -5294,7 +5266,7 @@
      "headers": {
       "Content-Type": "application/json"
      },
-     "body": "{\n  \"idempotency_key\": \"cap-1790592842986-2\",\n  \"service_mode\": \"takeaway\",\n  \"items\": [\n    {\n      \"type\": \"product\",\n      \"product_id\": 14,\n      \"quantity\": 1\n    }\n  ]\n}"
+     "body": "{\n  \"idempotency_key\": \"cap-1790685729514-2\",\n  \"service_mode\": \"takeaway\",\n  \"items\": [\n    {\n      \"type\": \"product\",\n      \"product_id\": 14,\n      \"quantity\": 1\n    }\n  ]\n}"
     },
     "how": "commande de la borne sur la pile de test"
    },
@@ -5303,7 +5275,6 @@
      "status": 422,
      "type": "application/json",
      "headers": {
-      "cache-control": "no-store, no-cache, must-revalidate",
       "content-type": "application/json; charset=utf-8"
      },
      "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"PRODUCT_UNAVAILABLE\",\n    \"message\": \"Produit indisponible.\"\n  }\n}",
@@ -5313,7 +5284,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"idempotency_key\": \"cap-1790592842970-0\",\n  \"service_mode\": \"takeaway\",\n  \"items\": [\n    {\n      \"type\": \"product\",\n      \"product_id\": 999999,\n      \"quantity\": 1\n    }\n  ]\n}"
+      "body": "{\n  \"idempotency_key\": \"cap-1790685729499-0\",\n  \"service_mode\": \"takeaway\",\n  \"items\": [\n    {\n      \"type\": \"product\",\n      \"product_id\": 999999,\n      \"quantity\": 1\n    }\n  ]\n}"
      },
      "how": "produit inexistant dans la commande"
     },
@@ -5321,7 +5292,6 @@
      "status": 405,
      "type": "application/json",
      "headers": {
-      "cache-control": "no-store, no-cache, must-revalidate",
       "content-type": "application/json; charset=utf-8"
      },
      "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"METHOD_NOT_ALLOWED\",\n    \"message\": \"Method not allowed\"\n  }\n}",
@@ -5340,7 +5310,6 @@
      "status": 404,
      "type": "application/json",
      "headers": {
-      "cache-control": "no-store, no-cache, must-revalidate",
       "content-type": "application/json; charset=utf-8"
      },
      "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Resource not found\"\n  }\n}",
@@ -5350,7 +5319,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"idempotency_key\": \"cap-1790592842982-1\",\n  \"service_mode\": \"takeaway\",\n  \"items\": [\n    {\n      \"type\": \"product\",\n      \"product_id\": 14,\n      \"quantity\": 1\n    }\n  ]\n}"
+      "body": "{\n  \"idempotency_key\": \"cap-1790685729510-1\",\n  \"service_mode\": \"takeaway\",\n  \"items\": [\n    {\n      \"type\": \"product\",\n      \"product_id\": 14,\n      \"quantity\": 1\n    }\n  ]\n}"
      },
      "how": "chemin inconnu du routeur"
     }
@@ -5361,7 +5330,6 @@
     "status": 200,
     "type": "application/json",
     "headers": {
-     "cache-control": "no-store, no-cache, must-revalidate",
      "content-type": "application/json; charset=utf-8"
     },
     "body": "{\n  \"data\": {\n    \"id\": 2,\n    \"order_number\": \"K2\",\n    \"status\": \"preparing\",\n    \"total_ttc_cents\": 190\n  }\n}",
@@ -5378,7 +5346,6 @@
      "status": 404,
      "type": "application/json",
      "headers": {
-      "cache-control": "no-store, no-cache, must-revalidate",
       "content-type": "application/json; charset=utf-8"
      },
      "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"ORDER_NOT_FOUND\",\n    \"message\": \"Commande introuvable.\"\n  }\n}",
@@ -5394,7 +5361,6 @@
      "status": 405,
      "type": "application/json",
      "headers": {
-      "cache-control": "no-store, no-cache, must-revalidate",
       "content-type": "application/json; charset=utf-8"
      },
      "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"METHOD_NOT_ALLOWED\",\n    \"message\": \"Method not allowed\"\n  }\n}",
@@ -5479,7 +5445,7 @@
      "location": "/admin/api/categories/10",
      "content-type": "application/json; charset=utf-8"
     },
-    "body": "{\n  \"data\": {\n    \"id\": 10,\n    \"name\": \"Demo mul4qwkp\",\n    \"slug\": \"demo-mul4qwkp\",\n    \"image_path\": null,\n    \"display_order\": 50,\n    \"is_active\": true\n  }\n}",
+    "body": "{\n  \"data\": {\n    \"id\": 10,\n    \"name\": \"Demo mumo1s8i\",\n    \"slug\": \"demo-mumo1s8i\",\n    \"image_path\": null,\n    \"display_order\": 50,\n    \"is_active\": true\n  }\n}",
     "request": {
      "method": "POST",
      "path": "/admin/api/categories",
@@ -5487,7 +5453,7 @@
       "Content-Type": "application/json",
       "X-CSRF-Token": "<jeton de la session>"
      },
-     "body": "{\n  \"name\": \"Demo mul4qwkp\",\n  \"slug\": \"demo-mul4qwkp\",\n  \"display_order\": 50\n}"
+     "body": "{\n  \"name\": \"Demo mumo1s8i\",\n  \"slug\": \"demo-mumo1s8i\",\n  \"display_order\": 50\n}"
     },
     "how": "collection Postman, « Creer une categorie »"
    },
@@ -5506,7 +5472,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"name\": \"Demo mul4r29n\",\n  \"slug\": \"demo-mul4r29n\",\n  \"display_order\": 50\n}"
+      "body": "{\n  \"name\": \"Demo mumo1xpl\",\n  \"slug\": \"demo-mumo1xpl\",\n  \"display_order\": 50\n}"
      },
      "how": "sans cookie de session"
     },
@@ -5525,7 +5491,7 @@
        "X-CSRF-Token": "<jeton de la session>",
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"name\": \"Demo mul4r29n\",\n  \"slug\": \"demo-mul4r29n\",\n  \"display_order\": 50\n}"
+      "body": "{\n  \"name\": \"Demo mumo1xpl\",\n  \"slug\": \"demo-mumo1xpl\",\n  \"display_order\": 50\n}"
      },
      "how": "compte cuisine@wakdo.local, sans category.manage"
     },
@@ -5543,7 +5509,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"name\": \"Demo mul4r29n\",\n  \"slug\": \"demo-mul4r29n\",\n  \"display_order\": 50\n}"
+      "body": "{\n  \"name\": \"Demo mumo1xpl\",\n  \"slug\": \"demo-mumo1xpl\",\n  \"display_order\": 50\n}"
      },
      "how": "sans en-tete X-CSRF-Token"
     },
@@ -5600,7 +5566,7 @@
        "Content-Type": "application/json",
        "X-CSRF-Token": "<jeton de la session>"
       },
-      "body": "{\n  \"name\": \"Demo mul4r29n\",\n  \"slug\": \"demo-mul4r29n\",\n  \"display_order\": 50\n}"
+      "body": "{\n  \"name\": \"Demo mumo1xpl\",\n  \"slug\": \"demo-mumo1xpl\",\n  \"display_order\": 50\n}"
      },
      "how": "chemin inconnu du routeur"
     }
@@ -5614,7 +5580,7 @@
      "cache-control": "no-store, private",
      "content-type": "application/json; charset=utf-8"
     },
-    "body": "{\n  \"data\": {\n    \"id\": 10,\n    \"name\": \"Demo mul4qwkp v2\",\n    \"slug\": \"demo-mul4qwkp\",\n    \"image_path\": null,\n    \"display_order\": 51,\n    \"is_active\": true\n  }\n}",
+    "body": "{\n  \"data\": {\n    \"id\": 10,\n    \"name\": \"Demo mumo1s8i v2\",\n    \"slug\": \"demo-mumo1s8i\",\n    \"image_path\": null,\n    \"display_order\": 51,\n    \"is_active\": true\n  }\n}",
     "request": {
      "method": "PUT",
      "path": "/admin/api/categories/10",
@@ -5622,7 +5588,7 @@
       "Content-Type": "application/json",
       "X-CSRF-Token": "<jeton de la session>"
      },
-     "body": "{\n  \"name\": \"Demo mul4qwkp v2\",\n  \"slug\": \"demo-mul4qwkp\",\n  \"display_order\": 51\n}"
+     "body": "{\n  \"name\": \"Demo mumo1s8i v2\",\n  \"slug\": \"demo-mumo1s8i\",\n  \"display_order\": 51\n}"
     },
     "how": "collection Postman, « Modifier une categorie »"
    },
@@ -5641,7 +5607,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"name\": \"Demo mul4r29n v2\",\n  \"slug\": \"demo-mul4r29n\",\n  \"display_order\": 51\n}"
+      "body": "{\n  \"name\": \"Demo mumo1xpl v2\",\n  \"slug\": \"demo-mumo1xpl\",\n  \"display_order\": 51\n}"
      },
      "how": "sans cookie de session"
     },
@@ -5660,7 +5626,7 @@
        "X-CSRF-Token": "<jeton de la session>",
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"name\": \"Demo mul4r29n v2\",\n  \"slug\": \"demo-mul4r29n\",\n  \"display_order\": 51\n}"
+      "body": "{\n  \"name\": \"Demo mumo1xpl v2\",\n  \"slug\": \"demo-mumo1xpl\",\n  \"display_order\": 51\n}"
      },
      "how": "compte cuisine@wakdo.local, sans category.manage"
     },
@@ -5678,7 +5644,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"name\": \"Demo mul4r29n v2\",\n  \"slug\": \"demo-mul4r29n\",\n  \"display_order\": 51\n}"
+      "body": "{\n  \"name\": \"Demo mumo1xpl v2\",\n  \"slug\": \"demo-mumo1xpl\",\n  \"display_order\": 51\n}"
      },
      "how": "sans en-tete X-CSRF-Token"
     },
@@ -5735,7 +5701,7 @@
        "Content-Type": "application/json",
        "X-CSRF-Token": "<jeton de la session>"
       },
-      "body": "{\n  \"name\": \"Demo mul4r29n v2\",\n  \"slug\": \"demo-mul4r29n\",\n  \"display_order\": 51\n}"
+      "body": "{\n  \"name\": \"Demo mumo1xpl v2\",\n  \"slug\": \"demo-mumo1xpl\",\n  \"display_order\": 51\n}"
      },
      "how": "chemin inconnu du routeur"
     },
@@ -5754,7 +5720,7 @@
        "Content-Type": "application/json",
        "X-CSRF-Token": "<jeton de la session>"
       },
-      "body": "{\n  \"name\": \"Demo mul4r29n v2\",\n  \"slug\": \"demo-mul4r29n\",\n  \"display_order\": 51\n}"
+      "body": "{\n  \"name\": \"Demo mumo1xpl v2\",\n  \"slug\": \"demo-mumo1xpl\",\n  \"display_order\": 51\n}"
      },
      "how": "identifiant inexistant"
     }
@@ -6176,7 +6142,7 @@
      "location": "/admin/api/products/61",
      "content-type": "application/json; charset=utf-8"
     },
-    "body": "{\n  \"data\": {\n    \"id\": 61,\n    \"category_id\": 3,\n    \"name\": \"Produit Demo mul4qwkp\",\n    \"description\": null,\n    \"price_cents\": 490,\n    \"vat_rate\": 100,\n    \"size_cl\": null,\n    \"base_product_id\": null,\n    \"maxi_variant_product_id\": null,\n    \"image_path\": null,\n    \"is_available\": true,\n    \"display_order\": 99\n  }\n}",
+    "body": "{\n  \"data\": {\n    \"id\": 61,\n    \"category_id\": 3,\n    \"name\": \"Produit Demo mumo1s8i\",\n    \"description\": null,\n    \"price_cents\": 490,\n    \"vat_rate\": 100,\n    \"size_cl\": null,\n    \"base_product_id\": null,\n    \"maxi_variant_product_id\": null,\n    \"image_path\": null,\n    \"is_available\": true,\n    \"display_order\": 99\n  }\n}",
     "request": {
      "method": "POST",
      "path": "/admin/api/products",
@@ -6184,7 +6150,7 @@
       "Content-Type": "application/json",
       "X-CSRF-Token": "<jeton de la session>"
      },
-     "body": "{\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mul4qwkp\",\n  \"price_cents\": 490,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99\n}"
+     "body": "{\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mumo1s8i\",\n  \"price_cents\": 490,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99\n}"
     },
     "how": "collection Postman, « Creer un produit »"
    },
@@ -6203,7 +6169,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mul4r29n\",\n  \"price_cents\": 490,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99\n}"
+      "body": "{\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mumo1xpl\",\n  \"price_cents\": 490,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99\n}"
      },
      "how": "sans cookie de session"
     },
@@ -6222,7 +6188,7 @@
        "X-CSRF-Token": "<jeton de la session>",
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mul4r29n\",\n  \"price_cents\": 490,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99\n}"
+      "body": "{\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mumo1xpl\",\n  \"price_cents\": 490,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99\n}"
      },
      "how": "compte cuisine@wakdo.local, sans product.create"
     },
@@ -6240,7 +6206,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mul4r29n\",\n  \"price_cents\": 490,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99\n}"
+      "body": "{\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mumo1xpl\",\n  \"price_cents\": 490,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99\n}"
      },
      "how": "sans en-tete X-CSRF-Token"
     },
@@ -6297,7 +6263,7 @@
        "Content-Type": "application/json",
        "X-CSRF-Token": "<jeton de la session>"
       },
-      "body": "{\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mul4r29n\",\n  \"price_cents\": 490,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99\n}"
+      "body": "{\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mumo1xpl\",\n  \"price_cents\": 490,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99\n}"
      },
      "how": "chemin inconnu du routeur"
     }
@@ -6311,7 +6277,7 @@
      "cache-control": "no-store, private",
      "content-type": "application/json; charset=utf-8"
     },
-    "body": "{\n  \"data\": {\n    \"id\": 61,\n    \"category_id\": 3,\n    \"name\": \"Produit Demo mul4qwkp renomme\",\n    \"description\": null,\n    \"price_cents\": 490,\n    \"vat_rate\": 100,\n    \"size_cl\": null,\n    \"base_product_id\": null,\n    \"maxi_variant_product_id\": null,\n    \"image_path\": null,\n    \"is_available\": true,\n    \"display_order\": 99\n  }\n}",
+    "body": "{\n  \"data\": {\n    \"id\": 61,\n    \"category_id\": 3,\n    \"name\": \"Produit Demo mumo1s8i renomme\",\n    \"description\": null,\n    \"price_cents\": 490,\n    \"vat_rate\": 100,\n    \"size_cl\": null,\n    \"base_product_id\": null,\n    \"maxi_variant_product_id\": null,\n    \"image_path\": null,\n    \"is_available\": true,\n    \"display_order\": 99\n  }\n}",
     "request": {
      "method": "PUT",
      "path": "/admin/api/products/61",
@@ -6319,7 +6285,7 @@
       "Content-Type": "application/json",
       "X-CSRF-Token": "<jeton de la session>"
      },
-     "body": "{\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mul4qwkp renomme\",\n  \"price_cents\": 490,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99\n}"
+     "body": "{\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mumo1s8i renomme\",\n  \"price_cents\": 490,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99\n}"
     },
     "how": "collection Postman, « Modifier un produit (sans changement de prix/TVA) »"
    },
@@ -6338,7 +6304,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mul4r29n renomme\",\n  \"price_cents\": 490,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99\n}"
+      "body": "{\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mumo1xpl renomme\",\n  \"price_cents\": 490,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99\n}"
      },
      "how": "sans cookie de session"
     },
@@ -6357,7 +6323,7 @@
        "X-CSRF-Token": "<jeton de la session>",
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mul4r29n renomme\",\n  \"price_cents\": 490,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99\n}"
+      "body": "{\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mumo1xpl renomme\",\n  \"price_cents\": 490,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99\n}"
      },
      "how": "compte cuisine@wakdo.local, sans product.update"
     },
@@ -6375,7 +6341,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mul4r29n renomme\",\n  \"price_cents\": 490,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99\n}"
+      "body": "{\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mumo1xpl renomme\",\n  \"price_cents\": 490,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99\n}"
      },
      "how": "sans en-tete X-CSRF-Token"
     },
@@ -6432,7 +6398,7 @@
        "Content-Type": "application/json",
        "X-CSRF-Token": "<jeton de la session>"
       },
-      "body": "{\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mul4r29n renomme\",\n  \"price_cents\": 590,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99,\n  \"pin_email\": \"comptoir2@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mumo1xpl renomme\",\n  \"price_cents\": 590,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99,\n  \"pin_email\": \"comptoir2@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "code personnel faux"
     },
@@ -6451,7 +6417,7 @@
        "Content-Type": "application/json",
        "X-CSRF-Token": "<jeton de la session>"
       },
-      "body": "{\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mul4r29n renomme\",\n  \"price_cents\": 490,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99\n}"
+      "body": "{\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mumo1xpl renomme\",\n  \"price_cents\": 490,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99\n}"
      },
      "how": "chemin inconnu du routeur"
     },
@@ -6470,7 +6436,7 @@
        "Content-Type": "application/json",
        "X-CSRF-Token": "<jeton de la session>"
       },
-      "body": "{\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mul4r29n renomme\",\n  \"price_cents\": 490,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99\n}"
+      "body": "{\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mumo1xpl renomme\",\n  \"price_cents\": 490,\n  \"vat_rate\": 100,\n  \"is_available\": true,\n  \"display_order\": 99\n}"
      },
      "how": "identifiant inexistant"
     }
@@ -6951,7 +6917,7 @@
      "cache-control": "no-store, private",
      "content-type": "application/json; charset=utf-8"
     },
-    "body": "{\n  \"data\": {\n    \"errors\": [],\n    \"productsToCreate\": [\n      {\n        \"line\": 2,\n        \"name\": \"Burger demo mul4qwkp\",\n        \"category_name\": \"Burgers\",\n        \"category_id\": 3,\n        \"description\": null,\n        \"price_cents\": 690,\n        \"vat_rate\": 100,\n        \"size_cl\": null,\n        \"is_available\": 1,\n        \"display_order\": 0,\n        \"image_path\": null,\n        \"action\": \"create\",\n        \"existing_id\": null,\n        \"price_changed\": false,\n        \"recipe_line_count\": 1,\n        \"recipe\": [\n          {\n            \"ingredient_id\": 1,\n            \"ingredient_name\": \"Pain burger\",\n            \"quantity\": 1,\n            \"is_removable\": 0,\n            \"is_addable\": 0\n          }\n        ]\n      }\n    ],\n    \"productsToUpdate\": [],\n    \"productsUnchanged\": [],\n    \"ingredientsExisting\": [\n      {\n        \"line\": 2,\n        \"name\": \"Pain burger\",\n        \"id\": 1,\n        \"unit\": \"pièce\"\n      }\n    ],\n    \"ingredientsToCreate\": [],\n    \"totalDataLines\": 1,\n    \"hasPriceChange\": false,\n    \"plan\": {\n      \"products\": [\n        {\n          \"line\": 2,\n          \"name\": \"Burger demo mul4qwkp\",\n          \"category_name\": \"Burgers\",\n          \"category_id\": 3,\n          \"description\": null,\n          \"price_cents\": 690,\n          \"vat_rate\": 100,\n          \"size_cl\": null,\n          \"is_available\": 1,\n          \"display_order\": 0,\n          \"image_path\": null,\n          \"action\": \"create\",\n          \"existing_id\": null,\n          \"price_changed\": false,\n          \"recipe_line_count\": 1,\n          \"recipe\": [\n            {\n              \"ingredient_id\": 1,\n        \n… (tronqué)",
+    "body": "{\n  \"data\": {\n    \"errors\": [],\n    \"productsToCreate\": [\n      {\n        \"line\": 2,\n        \"name\": \"Burger demo mumo1s8i\",\n        \"category_name\": \"Burgers\",\n        \"category_id\": 3,\n        \"description\": null,\n        \"price_cents\": 690,\n        \"vat_rate\": 100,\n        \"size_cl\": null,\n        \"is_available\": 1,\n        \"display_order\": 0,\n        \"image_path\": null,\n        \"action\": \"create\",\n        \"existing_id\": null,\n        \"price_changed\": false,\n        \"recipe_line_count\": 1,\n        \"recipe\": [\n          {\n            \"ingredient_id\": 1,\n            \"ingredient_name\": \"Pain burger\",\n            \"quantity\": 1,\n            \"is_removable\": 0,\n            \"is_addable\": 0\n          }\n        ]\n      }\n    ],\n    \"productsToUpdate\": [],\n    \"productsUnchanged\": [],\n    \"ingredientsExisting\": [\n      {\n        \"line\": 2,\n        \"name\": \"Pain burger\",\n        \"id\": 1,\n        \"unit\": \"pièce\"\n      }\n    ],\n    \"ingredientsToCreate\": [],\n    \"totalDataLines\": 1,\n    \"hasPriceChange\": false,\n    \"plan\": {\n      \"products\": [\n        {\n          \"line\": 2,\n          \"name\": \"Burger demo mumo1s8i\",\n          \"category_name\": \"Burgers\",\n          \"category_id\": 3,\n          \"description\": null,\n          \"price_cents\": 690,\n          \"vat_rate\": 100,\n          \"size_cl\": null,\n          \"is_available\": 1,\n          \"display_order\": 0,\n          \"image_path\": null,\n          \"action\": \"create\",\n          \"existing_id\": null,\n          \"price_changed\": false,\n          \"recipe_line_count\": 1,\n          \"recipe\": [\n            {\n              \"ingredient_id\": 1,\n        \n… (tronqué)",
     "request": {
      "method": "POST",
      "path": "/admin/api/products/import?dry_run=1",
@@ -6959,7 +6925,7 @@
       "Content-Type": "application/json",
       "X-CSRF-Token": "<jeton de la session>"
      },
-     "body": "{\n  \"csv\": \"categorie;produit;description;prix_ttc;tva;taille_cl;disponible;ingredient;unite;quantite;retirable;ajoutable\\nBurgers;Burger demo mul4qwkp;;6,90;10;;oui;Pain burger;pièce;1;non;non\\n\"\n}"
+     "body": "{\n  \"csv\": \"categorie;produit;description;prix_ttc;tva;taille_cl;disponible;ingredient;unite;quantite;retirable;ajoutable\\nBurgers;Burger demo mumo1s8i;;6,90;10;;oui;Pain burger;pièce;1;non;non\\n\"\n}"
     },
     "how": "collection Postman, « Import : apercu sans ecriture (dry_run=1) »"
    },
@@ -6978,7 +6944,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"csv\": \"categorie;produit;description;prix_ttc;tva;taille_cl;disponible;ingredient;unite;quantite;retirable;ajoutable\\nBurgers;Burger demo mul4r29n;;6,90;10;;oui;Pain burger;pièce;1;non;non\\n\"\n}"
+      "body": "{\n  \"csv\": \"categorie;produit;description;prix_ttc;tva;taille_cl;disponible;ingredient;unite;quantite;retirable;ajoutable\\nBurgers;Burger demo mumo1xpl;;6,90;10;;oui;Pain burger;pièce;1;non;non\\n\"\n}"
      },
      "how": "sans cookie de session"
     },
@@ -6997,7 +6963,7 @@
        "X-CSRF-Token": "<jeton de la session>",
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"csv\": \"categorie;produit;description;prix_ttc;tva;taille_cl;disponible;ingredient;unite;quantite;retirable;ajoutable\\nBurgers;Burger demo mul4r29n;;6,90;10;;oui;Pain burger;pièce;1;non;non\\n\"\n}"
+      "body": "{\n  \"csv\": \"categorie;produit;description;prix_ttc;tva;taille_cl;disponible;ingredient;unite;quantite;retirable;ajoutable\\nBurgers;Burger demo mumo1xpl;;6,90;10;;oui;Pain burger;pièce;1;non;non\\n\"\n}"
      },
      "how": "compte cuisine@wakdo.local, sans product.create"
     },
@@ -7015,7 +6981,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"csv\": \"categorie;produit;description;prix_ttc;tva;taille_cl;disponible;ingredient;unite;quantite;retirable;ajoutable\\nBurgers;Burger demo mul4r29n;;6,90;10;;oui;Pain burger;pièce;1;non;non\\n\"\n}"
+      "body": "{\n  \"csv\": \"categorie;produit;description;prix_ttc;tva;taille_cl;disponible;ingredient;unite;quantite;retirable;ajoutable\\nBurgers;Burger demo mumo1xpl;;6,90;10;;oui;Pain burger;pièce;1;non;non\\n\"\n}"
      },
      "how": "sans en-tete X-CSRF-Token"
     },
@@ -7093,7 +7059,7 @@
      "location": "/admin/api/menus/14",
      "content-type": "application/json; charset=utf-8"
     },
-    "body": "{\n  \"data\": {\n    \"id\": 14,\n    \"category_id\": 1,\n    \"burger_product_id\": 1,\n    \"name\": \"Menu Demo mul4qwkp\",\n    \"price_normal_cents\": 890,\n    \"price_maxi_cents\": 990,\n    \"is_available\": true,\n    \"display_order\": 50\n  }\n}",
+    "body": "{\n  \"data\": {\n    \"id\": 14,\n    \"category_id\": 1,\n    \"burger_product_id\": 1,\n    \"name\": \"Menu Demo mumo1s8i\",\n    \"price_normal_cents\": 890,\n    \"price_maxi_cents\": 990,\n    \"is_available\": true,\n    \"display_order\": 50\n  }\n}",
     "request": {
      "method": "POST",
      "path": "/admin/api/menus",
@@ -7101,7 +7067,7 @@
       "Content-Type": "application/json",
       "X-CSRF-Token": "<jeton de la session>"
      },
-     "body": "{\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul4qwkp\",\n  \"price_normal_cents\": 890,\n  \"price_maxi_cents\": 990,\n  \"is_available\": true,\n  \"display_order\": 50,\n  \"slots\": [\n    {\n      \"name\": \"Boisson\",\n      \"slot_type\": \"drink\",\n      \"is_required\": true,\n      \"options\": [\n        \"14\"\n      ]\n    }\n  ]\n}"
+     "body": "{\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mumo1s8i\",\n  \"price_normal_cents\": 890,\n  \"price_maxi_cents\": 990,\n  \"is_available\": true,\n  \"display_order\": 50,\n  \"slots\": [\n    {\n      \"name\": \"Boisson\",\n      \"slot_type\": \"drink\",\n      \"is_required\": true,\n      \"options\": [\n        \"14\"\n      ]\n    }\n  ]\n}"
     },
     "how": "collection Postman, « Creer un menu »"
    },
@@ -7120,7 +7086,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul4r29n\",\n  \"price_normal_cents\": 890,\n  \"price_maxi_cents\": 990,\n  \"is_available\": true,\n  \"display_order\": 50,\n  \"slots\": [\n    {\n      \"name\": \"Boisson\",\n      \"slot_type\": \"drink\",\n      \"is_required\": true,\n      \"options\": [\n        \"14\"\n      ]\n    }\n  ]\n}"
+      "body": "{\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mumo1xpl\",\n  \"price_normal_cents\": 890,\n  \"price_maxi_cents\": 990,\n  \"is_available\": true,\n  \"display_order\": 50,\n  \"slots\": [\n    {\n      \"name\": \"Boisson\",\n      \"slot_type\": \"drink\",\n      \"is_required\": true,\n      \"options\": [\n        \"14\"\n      ]\n    }\n  ]\n}"
      },
      "how": "sans cookie de session"
     },
@@ -7139,7 +7105,7 @@
        "X-CSRF-Token": "<jeton de la session>",
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul4r29n\",\n  \"price_normal_cents\": 890,\n  \"price_maxi_cents\": 990,\n  \"is_available\": true,\n  \"display_order\": 50,\n  \"slots\": [\n    {\n      \"name\": \"Boisson\",\n      \"slot_type\": \"drink\",\n      \"is_required\": true,\n      \"options\": [\n        \"14\"\n      ]\n    }\n  ]\n}"
+      "body": "{\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mumo1xpl\",\n  \"price_normal_cents\": 890,\n  \"price_maxi_cents\": 990,\n  \"is_available\": true,\n  \"display_order\": 50,\n  \"slots\": [\n    {\n      \"name\": \"Boisson\",\n      \"slot_type\": \"drink\",\n      \"is_required\": true,\n      \"options\": [\n        \"14\"\n      ]\n    }\n  ]\n}"
      },
      "how": "compte cuisine@wakdo.local, sans menu.create"
     },
@@ -7157,7 +7123,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul4r29n\",\n  \"price_normal_cents\": 890,\n  \"price_maxi_cents\": 990,\n  \"is_available\": true,\n  \"display_order\": 50,\n  \"slots\": [\n    {\n      \"name\": \"Boisson\",\n      \"slot_type\": \"drink\",\n      \"is_required\": true,\n      \"options\": [\n        \"14\"\n      ]\n    }\n  ]\n}"
+      "body": "{\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mumo1xpl\",\n  \"price_normal_cents\": 890,\n  \"price_maxi_cents\": 990,\n  \"is_available\": true,\n  \"display_order\": 50,\n  \"slots\": [\n    {\n      \"name\": \"Boisson\",\n      \"slot_type\": \"drink\",\n      \"is_required\": true,\n      \"options\": [\n        \"14\"\n      ]\n    }\n  ]\n}"
      },
      "how": "sans en-tete X-CSRF-Token"
     },
@@ -7214,7 +7180,7 @@
        "Content-Type": "application/json",
        "X-CSRF-Token": "<jeton de la session>"
       },
-      "body": "{\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul4r29n\",\n  \"price_normal_cents\": 890,\n  \"price_maxi_cents\": 990,\n  \"is_available\": true,\n  \"display_order\": 50,\n  \"slots\": [\n    {\n      \"name\": \"Boisson\",\n      \"slot_type\": \"drink\",\n      \"is_required\": true,\n      \"options\": [\n        \"14\"\n      ]\n    }\n  ]\n}"
+      "body": "{\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mumo1xpl\",\n  \"price_normal_cents\": 890,\n  \"price_maxi_cents\": 990,\n  \"is_available\": true,\n  \"display_order\": 50,\n  \"slots\": [\n    {\n      \"name\": \"Boisson\",\n      \"slot_type\": \"drink\",\n      \"is_required\": true,\n      \"options\": [\n        \"14\"\n      ]\n    }\n  ]\n}"
      },
      "how": "chemin inconnu du routeur"
     }
@@ -7228,7 +7194,7 @@
      "cache-control": "no-store, private",
      "content-type": "application/json; charset=utf-8"
     },
-    "body": "{\n  \"data\": {\n    \"id\": 14,\n    \"category_id\": 1,\n    \"burger_product_id\": 1,\n    \"name\": \"Menu Demo mul4qwkp v2\",\n    \"price_normal_cents\": 890,\n    \"price_maxi_cents\": 990,\n    \"is_available\": true,\n    \"display_order\": 50\n  }\n}",
+    "body": "{\n  \"data\": {\n    \"id\": 14,\n    \"category_id\": 1,\n    \"burger_product_id\": 1,\n    \"name\": \"Menu Demo mumo1s8i v2\",\n    \"price_normal_cents\": 890,\n    \"price_maxi_cents\": 990,\n    \"is_available\": true,\n    \"display_order\": 50\n  }\n}",
     "request": {
      "method": "PUT",
      "path": "/admin/api/menus/14",
@@ -7236,7 +7202,7 @@
       "Content-Type": "application/json",
       "X-CSRF-Token": "<jeton de la session>"
      },
-     "body": "{\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul4qwkp v2\",\n  \"price_normal_cents\": 890,\n  \"price_maxi_cents\": 990,\n  \"is_available\": true,\n  \"display_order\": 50,\n  \"slots\": [\n    {\n      \"name\": \"Boisson\",\n      \"slot_type\": \"drink\",\n      \"is_required\": true,\n      \"options\": [\n        \"14\"\n      ]\n    }\n  ]\n}"
+     "body": "{\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mumo1s8i v2\",\n  \"price_normal_cents\": 890,\n  \"price_maxi_cents\": 990,\n  \"is_available\": true,\n  \"display_order\": 50,\n  \"slots\": [\n    {\n      \"name\": \"Boisson\",\n      \"slot_type\": \"drink\",\n      \"is_required\": true,\n      \"options\": [\n        \"14\"\n      ]\n    }\n  ]\n}"
     },
     "how": "collection Postman, « Modifier un menu »"
    },
@@ -7255,7 +7221,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul4r29n v2\",\n  \"price_normal_cents\": 890,\n  \"price_maxi_cents\": 990,\n  \"is_available\": true,\n  \"display_order\": 50,\n  \"slots\": [\n    {\n      \"name\": \"Boisson\",\n      \"slot_type\": \"drink\",\n      \"is_required\": true,\n      \"options\": [\n        \"14\"\n      ]\n    }\n  ]\n}"
+      "body": "{\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mumo1xpl v2\",\n  \"price_normal_cents\": 890,\n  \"price_maxi_cents\": 990,\n  \"is_available\": true,\n  \"display_order\": 50,\n  \"slots\": [\n    {\n      \"name\": \"Boisson\",\n      \"slot_type\": \"drink\",\n      \"is_required\": true,\n      \"options\": [\n        \"14\"\n      ]\n    }\n  ]\n}"
      },
      "how": "sans cookie de session"
     },
@@ -7274,7 +7240,7 @@
        "X-CSRF-Token": "<jeton de la session>",
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul4r29n v2\",\n  \"price_normal_cents\": 890,\n  \"price_maxi_cents\": 990,\n  \"is_available\": true,\n  \"display_order\": 50,\n  \"slots\": [\n    {\n      \"name\": \"Boisson\",\n      \"slot_type\": \"drink\",\n      \"is_required\": true,\n      \"options\": [\n        \"14\"\n      ]\n    }\n  ]\n}"
+      "body": "{\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mumo1xpl v2\",\n  \"price_normal_cents\": 890,\n  \"price_maxi_cents\": 990,\n  \"is_available\": true,\n  \"display_order\": 50,\n  \"slots\": [\n    {\n      \"name\": \"Boisson\",\n      \"slot_type\": \"drink\",\n      \"is_required\": true,\n      \"options\": [\n        \"14\"\n      ]\n    }\n  ]\n}"
      },
      "how": "compte cuisine@wakdo.local, sans menu.update"
     },
@@ -7292,7 +7258,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul4r29n v2\",\n  \"price_normal_cents\": 890,\n  \"price_maxi_cents\": 990,\n  \"is_available\": true,\n  \"display_order\": 50,\n  \"slots\": [\n    {\n      \"name\": \"Boisson\",\n      \"slot_type\": \"drink\",\n      \"is_required\": true,\n      \"options\": [\n        \"14\"\n      ]\n    }\n  ]\n}"
+      "body": "{\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mumo1xpl v2\",\n  \"price_normal_cents\": 890,\n  \"price_maxi_cents\": 990,\n  \"is_available\": true,\n  \"display_order\": 50,\n  \"slots\": [\n    {\n      \"name\": \"Boisson\",\n      \"slot_type\": \"drink\",\n      \"is_required\": true,\n      \"options\": [\n        \"14\"\n      ]\n    }\n  ]\n}"
      },
      "how": "sans en-tete X-CSRF-Token"
     },
@@ -7349,7 +7315,7 @@
        "Content-Type": "application/json",
        "X-CSRF-Token": "<jeton de la session>"
       },
-      "body": "{\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul4r29n v2\",\n  \"price_normal_cents\": 890,\n  \"price_maxi_cents\": 990,\n  \"is_available\": true,\n  \"display_order\": 50,\n  \"slots\": [\n    {\n      \"name\": \"Boisson\",\n      \"slot_type\": \"drink\",\n      \"is_required\": true,\n      \"options\": [\n        \"14\"\n      ]\n    }\n  ]\n}"
+      "body": "{\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mumo1xpl v2\",\n  \"price_normal_cents\": 890,\n  \"price_maxi_cents\": 990,\n  \"is_available\": true,\n  \"display_order\": 50,\n  \"slots\": [\n    {\n      \"name\": \"Boisson\",\n      \"slot_type\": \"drink\",\n      \"is_required\": true,\n      \"options\": [\n        \"14\"\n      ]\n    }\n  ]\n}"
      },
      "how": "chemin inconnu du routeur"
     },
@@ -7368,7 +7334,7 @@
        "Content-Type": "application/json",
        "X-CSRF-Token": "<jeton de la session>"
       },
-      "body": "{\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul4r29n v2\",\n  \"price_normal_cents\": 890,\n  \"price_maxi_cents\": 990,\n  \"is_available\": true,\n  \"display_order\": 50,\n  \"slots\": [\n    {\n      \"name\": \"Boisson\",\n      \"slot_type\": \"drink\",\n      \"is_required\": true,\n      \"options\": [\n        \"14\"\n      ]\n    }\n  ]\n}"
+      "body": "{\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mumo1xpl v2\",\n  \"price_normal_cents\": 890,\n  \"price_maxi_cents\": 990,\n  \"is_available\": true,\n  \"display_order\": 50,\n  \"slots\": [\n    {\n      \"name\": \"Boisson\",\n      \"slot_type\": \"drink\",\n      \"is_required\": true,\n      \"options\": [\n        \"14\"\n      ]\n    }\n  ]\n}"
      },
      "how": "identifiant inexistant"
     }
@@ -7683,7 +7649,7 @@
      "location": "/admin/api/ingredients/51",
      "content-type": "application/json; charset=utf-8"
     },
-    "body": "{\n  \"data\": {\n    \"id\": 51,\n    \"name\": \"Ingredient Demo Plain mul4qwkp\",\n    \"unit\": \"unite\",\n    \"family\": \"dosette\",\n    \"stock_quantity\": 0,\n    \"stock_capacity\": 500,\n    \"pack_size\": 50,\n    \"pack_label\": \"carton de 50\",\n    \"low_stock_pct\": 20,\n    \"critical_stock_pct\": 5,\n    \"is_active\": true\n  }\n}",
+    "body": "{\n  \"data\": {\n    \"id\": 51,\n    \"name\": \"Ingredient Demo Plain mumo1s8i\",\n    \"unit\": \"unite\",\n    \"family\": \"dosette\",\n    \"stock_quantity\": 0,\n    \"stock_capacity\": 500,\n    \"pack_size\": 50,\n    \"pack_label\": \"carton de 50\",\n    \"low_stock_pct\": 20,\n    \"critical_stock_pct\": 5,\n    \"is_active\": true\n  }\n}",
     "request": {
      "method": "POST",
      "path": "/admin/api/ingredients",
@@ -7691,7 +7657,7 @@
       "Content-Type": "application/json",
       "X-CSRF-Token": "<jeton de la session>"
      },
-     "body": "{\n  \"name\": \"Ingredient Demo Plain mul4qwkp\",\n  \"unit\": \"unite\",\n  \"family\": \"dosette\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}"
+     "body": "{\n  \"name\": \"Ingredient Demo Plain mumo1s8i\",\n  \"unit\": \"unite\",\n  \"family\": \"dosette\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}"
     },
     "how": "collection Postman, « Creer un ingredient (a supprimer) »"
    },
@@ -7710,7 +7676,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"name\": \"Ingredient Demo Plain mul4r29n\",\n  \"unit\": \"unite\",\n  \"family\": \"dosette\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}"
+      "body": "{\n  \"name\": \"Ingredient Demo Plain mumo1xpl\",\n  \"unit\": \"unite\",\n  \"family\": \"dosette\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}"
      },
      "how": "sans cookie de session"
     },
@@ -7729,7 +7695,7 @@
        "X-CSRF-Token": "<jeton de la session>",
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"name\": \"Ingredient Demo Plain mul4r29n\",\n  \"unit\": \"unite\",\n  \"family\": \"dosette\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}"
+      "body": "{\n  \"name\": \"Ingredient Demo Plain mumo1xpl\",\n  \"unit\": \"unite\",\n  \"family\": \"dosette\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}"
      },
      "how": "compte cuisine@wakdo.local, sans ingredient.manage"
     },
@@ -7747,7 +7713,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"name\": \"Ingredient Demo Plain mul4r29n\",\n  \"unit\": \"unite\",\n  \"family\": \"dosette\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}"
+      "body": "{\n  \"name\": \"Ingredient Demo Plain mumo1xpl\",\n  \"unit\": \"unite\",\n  \"family\": \"dosette\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}"
      },
      "how": "sans en-tete X-CSRF-Token"
     },
@@ -7804,7 +7770,7 @@
        "Content-Type": "application/json",
        "X-CSRF-Token": "<jeton de la session>"
       },
-      "body": "{\n  \"name\": \"Ingredient Demo Plain mul4r29n\",\n  \"unit\": \"unite\",\n  \"family\": \"dosette\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}"
+      "body": "{\n  \"name\": \"Ingredient Demo Plain mumo1xpl\",\n  \"unit\": \"unite\",\n  \"family\": \"dosette\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}"
      },
      "how": "chemin inconnu du routeur"
     }
@@ -7818,7 +7784,7 @@
      "cache-control": "no-store, private",
      "content-type": "application/json; charset=utf-8"
     },
-    "body": "{\n  \"data\": {\n    \"id\": 51,\n    \"name\": \"Ingredient Demo Plain mul4qwkp v2\",\n    \"unit\": \"unite\",\n    \"family\": \"sauce\",\n    \"stock_quantity\": 0,\n    \"stock_capacity\": 500,\n    \"pack_size\": 50,\n    \"pack_label\": \"carton de 50\",\n    \"low_stock_pct\": 20,\n    \"critical_stock_pct\": 5,\n    \"is_active\": true\n  }\n}",
+    "body": "{\n  \"data\": {\n    \"id\": 51,\n    \"name\": \"Ingredient Demo Plain mumo1s8i v2\",\n    \"unit\": \"unite\",\n    \"family\": \"sauce\",\n    \"stock_quantity\": 0,\n    \"stock_capacity\": 500,\n    \"pack_size\": 50,\n    \"pack_label\": \"carton de 50\",\n    \"low_stock_pct\": 20,\n    \"critical_stock_pct\": 5,\n    \"is_active\": true\n  }\n}",
     "request": {
      "method": "PUT",
      "path": "/admin/api/ingredients/51",
@@ -7826,7 +7792,7 @@
       "Content-Type": "application/json",
       "X-CSRF-Token": "<jeton de la session>"
      },
-     "body": "{\n  \"name\": \"Ingredient Demo Plain mul4qwkp v2\",\n  \"unit\": \"unite\",\n  \"family\": \"sauce\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}"
+     "body": "{\n  \"name\": \"Ingredient Demo Plain mumo1s8i v2\",\n  \"unit\": \"unite\",\n  \"family\": \"sauce\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}"
     },
     "how": "collection Postman, « Modifier un ingredient »"
    },
@@ -7845,7 +7811,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"name\": \"Ingredient Demo Plain mul4r29n v2\",\n  \"unit\": \"unite\",\n  \"family\": \"sauce\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}"
+      "body": "{\n  \"name\": \"Ingredient Demo Plain mumo1xpl v2\",\n  \"unit\": \"unite\",\n  \"family\": \"sauce\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}"
      },
      "how": "sans cookie de session"
     },
@@ -7864,7 +7830,7 @@
        "X-CSRF-Token": "<jeton de la session>",
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"name\": \"Ingredient Demo Plain mul4r29n v2\",\n  \"unit\": \"unite\",\n  \"family\": \"sauce\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}"
+      "body": "{\n  \"name\": \"Ingredient Demo Plain mumo1xpl v2\",\n  \"unit\": \"unite\",\n  \"family\": \"sauce\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}"
      },
      "how": "compte cuisine@wakdo.local, sans ingredient.manage"
     },
@@ -7882,7 +7848,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"name\": \"Ingredient Demo Plain mul4r29n v2\",\n  \"unit\": \"unite\",\n  \"family\": \"sauce\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}"
+      "body": "{\n  \"name\": \"Ingredient Demo Plain mumo1xpl v2\",\n  \"unit\": \"unite\",\n  \"family\": \"sauce\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}"
      },
      "how": "sans en-tete X-CSRF-Token"
     },
@@ -7939,7 +7905,7 @@
        "Content-Type": "application/json",
        "X-CSRF-Token": "<jeton de la session>"
       },
-      "body": "{\n  \"name\": \"Ingredient Demo Plain mul4r29n v2\",\n  \"unit\": \"unite\",\n  \"family\": \"sauce\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}"
+      "body": "{\n  \"name\": \"Ingredient Demo Plain mumo1xpl v2\",\n  \"unit\": \"unite\",\n  \"family\": \"sauce\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}"
      },
      "how": "chemin inconnu du routeur"
     },
@@ -7958,7 +7924,7 @@
        "Content-Type": "application/json",
        "X-CSRF-Token": "<jeton de la session>"
       },
-      "body": "{\n  \"name\": \"Ingredient Demo Plain mul4r29n v2\",\n  \"unit\": \"unite\",\n  \"family\": \"sauce\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}"
+      "body": "{\n  \"name\": \"Ingredient Demo Plain mumo1xpl v2\",\n  \"unit\": \"unite\",\n  \"family\": \"sauce\",\n  \"pack_size\": 50,\n  \"pack_label\": \"carton de 50\",\n  \"stock_capacity\": 500,\n  \"low_stock_pct\": 20,\n  \"critical_stock_pct\": 5\n}"
      },
      "how": "identifiant inexistant"
     }
@@ -8112,7 +8078,7 @@
      "cache-control": "no-store, private",
      "content-type": "application/json; charset=utf-8"
     },
-    "body": "{\n  \"data\": {\n    \"id\": 52,\n    \"name\": \"Ingredient Demo Stock mul4qwkp\",\n    \"unit\": \"unite\",\n    \"family\": null,\n    \"stock_quantity\": 250,\n    \"stock_capacity\": 500,\n    \"pack_size\": 50,\n    \"pack_label\": \"carton de 50\",\n    \"low_stock_pct\": 20,\n    \"critical_stock_pct\": 5,\n    \"is_active\": true,\n    \"applied_delta\": 250,\n    \"requested_delta\": 250,\n    \"clamped\": false\n  }\n}",
+    "body": "{\n  \"data\": {\n    \"id\": 52,\n    \"name\": \"Ingredient Demo Stock mumo1s8i\",\n    \"unit\": \"unite\",\n    \"family\": null,\n    \"stock_quantity\": 250,\n    \"stock_capacity\": 500,\n    \"pack_size\": 50,\n    \"pack_label\": \"carton de 50\",\n    \"low_stock_pct\": 20,\n    \"critical_stock_pct\": 5,\n    \"is_active\": true,\n    \"applied_delta\": 250,\n    \"requested_delta\": 250,\n    \"clamped\": false\n  }\n}",
     "request": {
      "method": "POST",
      "path": "/admin/api/ingredients/52/restock",
@@ -8266,7 +8232,7 @@
      "cache-control": "no-store, private",
      "content-type": "application/json; charset=utf-8"
     },
-    "body": "{\n  \"data\": {\n    \"id\": 52,\n    \"name\": \"Ingredient Demo Stock mul4qwkp\",\n    \"unit\": \"unite\",\n    \"family\": null,\n    \"stock_quantity\": 250,\n    \"stock_capacity\": 600,\n    \"pack_size\": 50,\n    \"pack_label\": \"carton de 50\",\n    \"low_stock_pct\": 20,\n    \"critical_stock_pct\": 5,\n    \"is_active\": true\n  }\n}",
+    "body": "{\n  \"data\": {\n    \"id\": 52,\n    \"name\": \"Ingredient Demo Stock mumo1s8i\",\n    \"unit\": \"unite\",\n    \"family\": null,\n    \"stock_quantity\": 250,\n    \"stock_capacity\": 600,\n    \"pack_size\": 50,\n    \"pack_label\": \"carton de 50\",\n    \"low_stock_pct\": 20,\n    \"critical_stock_pct\": 5,\n    \"is_active\": true\n  }\n}",
     "request": {
      "method": "PUT",
      "path": "/admin/api/ingredients/52/thresholds",
@@ -8420,7 +8386,7 @@
      "cache-control": "no-store, private",
      "content-type": "application/json; charset=utf-8"
     },
-    "body": "{\n  \"data\": {\n    \"id\": 52,\n    \"name\": \"Ingredient Demo Stock mul4qwkp\",\n    \"unit\": \"unite\",\n    \"family\": null,\n    \"stock_quantity\": 42,\n    \"stock_capacity\": 600,\n    \"pack_size\": 50,\n    \"pack_label\": \"carton de 50\",\n    \"low_stock_pct\": 20,\n    \"critical_stock_pct\": 5,\n    \"is_active\": true,\n    \"applied_delta\": -208,\n    \"requested_delta\": -208,\n    \"clamped\": false\n  }\n}",
+    "body": "{\n  \"data\": {\n    \"id\": 52,\n    \"name\": \"Ingredient Demo Stock mumo1s8i\",\n    \"unit\": \"unite\",\n    \"family\": null,\n    \"stock_quantity\": 42,\n    \"stock_capacity\": 600,\n    \"pack_size\": 50,\n    \"pack_label\": \"carton de 50\",\n    \"low_stock_pct\": 20,\n    \"critical_stock_pct\": 5,\n    \"is_active\": true,\n    \"applied_delta\": -208,\n    \"requested_delta\": -208,\n    \"clamped\": false\n  }\n}",
     "request": {
      "method": "POST",
      "path": "/admin/api/ingredients/52/inventory",
@@ -8574,7 +8540,7 @@
      "cache-control": "no-store, private",
      "content-type": "application/json; charset=utf-8"
     },
-    "body": "{\n  \"data\": {\n    \"id\": 52,\n    \"name\": \"Ingredient Demo Stock mul4qwkp\",\n    \"unit\": \"unite\",\n    \"family\": null,\n    \"stock_quantity\": 39,\n    \"stock_capacity\": 600,\n    \"pack_size\": 50,\n    \"pack_label\": \"carton de 50\",\n    \"low_stock_pct\": 20,\n    \"critical_stock_pct\": 5,\n    \"is_active\": true,\n    \"applied_delta\": -3,\n    \"requested_delta\": -3,\n    \"clamped\": false\n  }\n}",
+    "body": "{\n  \"data\": {\n    \"id\": 52,\n    \"name\": \"Ingredient Demo Stock mumo1s8i\",\n    \"unit\": \"unite\",\n    \"family\": null,\n    \"stock_quantity\": 39,\n    \"stock_capacity\": 600,\n    \"pack_size\": 50,\n    \"pack_label\": \"carton de 50\",\n    \"low_stock_pct\": 20,\n    \"critical_stock_pct\": 5,\n    \"is_active\": true,\n    \"applied_delta\": -3,\n    \"requested_delta\": -3,\n    \"clamped\": false\n  }\n}",
     "request": {
      "method": "POST",
      "path": "/admin/api/ingredients/52/adjust",
@@ -9010,7 +8976,7 @@
      "location": "/admin/api/roles/6",
      "content-type": "application/json; charset=utf-8"
     },
-    "body": "{\n  \"data\": {\n    \"id\": 6,\n    \"code\": \"demo_role_mul4qwkp\",\n    \"label\": \"Role Demo mul4qwkp\",\n    \"description\": null,\n    \"default_route\": null,\n    \"order_source\": null,\n    \"is_active\": true,\n    \"permission_ids\": [\n      1\n    ],\n    \"visible_sources\": [\n      \"counter\"\n    ]\n  }\n}",
+    "body": "{\n  \"data\": {\n    \"id\": 6,\n    \"code\": \"demo_role_mumo1s8i\",\n    \"label\": \"Role Demo mumo1s8i\",\n    \"description\": null,\n    \"default_route\": null,\n    \"order_source\": null,\n    \"is_active\": true,\n    \"permission_ids\": [\n      1\n    ],\n    \"visible_sources\": [\n      \"counter\"\n    ]\n  }\n}",
     "request": {
      "method": "POST",
      "path": "/admin/api/roles",
@@ -9018,7 +8984,7 @@
       "Content-Type": "application/json",
       "X-CSRF-Token": "<jeton de la session>"
      },
-     "body": "{\n  \"code\": \"demo_role_mul4qwkp\",\n  \"label\": \"Role Demo mul4qwkp\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\"\n  ],\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+     "body": "{\n  \"code\": \"demo_role_mumo1s8i\",\n  \"label\": \"Role Demo mumo1s8i\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\"\n  ],\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
     },
     "how": "collection Postman, « Creer un role (PIN requis) »"
    },
@@ -9037,7 +9003,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"code\": \"demo_role_mul4r29n\",\n  \"label\": \"Role Demo mul4r29n\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\"\n  ],\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"code\": \"demo_role_mumo1xpl\",\n  \"label\": \"Role Demo mumo1xpl\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\"\n  ],\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "sans cookie de session"
     },
@@ -9056,7 +9022,7 @@
        "X-CSRF-Token": "<jeton de la session>",
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"code\": \"demo_role_mul4r29n\",\n  \"label\": \"Role Demo mul4r29n\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\"\n  ],\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"code\": \"demo_role_mumo1xpl\",\n  \"label\": \"Role Demo mumo1xpl\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\"\n  ],\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "compte cuisine@wakdo.local, sans role.manage"
     },
@@ -9074,7 +9040,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"code\": \"demo_role_mul4r29n\",\n  \"label\": \"Role Demo mul4r29n\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\"\n  ],\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"code\": \"demo_role_mumo1xpl\",\n  \"label\": \"Role Demo mumo1xpl\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\"\n  ],\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "sans en-tete X-CSRF-Token"
     },
@@ -9131,7 +9097,7 @@
        "Content-Type": "application/json",
        "X-CSRF-Token": "<jeton de la session>"
       },
-      "body": "{\n  \"code\": \"demo_role_mul4r29n\",\n  \"label\": \"Role Demo mul4r29n\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\"\n  ],\n  \"pin_email\": \"comptoir2@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"code\": \"demo_role_mumo1xpl\",\n  \"label\": \"Role Demo mumo1xpl\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\"\n  ],\n  \"pin_email\": \"comptoir2@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "code personnel faux"
     },
@@ -9150,7 +9116,7 @@
        "Content-Type": "application/json",
        "X-CSRF-Token": "<jeton de la session>"
       },
-      "body": "{\n  \"code\": \"demo_role_mul4r29n\",\n  \"label\": \"Role Demo mul4r29n\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\"\n  ],\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"code\": \"demo_role_mumo1xpl\",\n  \"label\": \"Role Demo mumo1xpl\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\"\n  ],\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "chemin inconnu du routeur"
     }
@@ -9164,7 +9130,7 @@
      "cache-control": "no-store, private",
      "content-type": "application/json; charset=utf-8"
     },
-    "body": "{\n  \"data\": {\n    \"id\": 6,\n    \"code\": \"demo_role_mul4qwkp\",\n    \"label\": \"Role Demo mul4qwkp v2\",\n    \"description\": null,\n    \"default_route\": null,\n    \"order_source\": null,\n    \"is_active\": true,\n    \"permission_ids\": [\n      1\n    ],\n    \"visible_sources\": [\n      \"counter\",\n      \"drive\"\n    ]\n  }\n}",
+    "body": "{\n  \"data\": {\n    \"id\": 6,\n    \"code\": \"demo_role_mumo1s8i\",\n    \"label\": \"Role Demo mumo1s8i v2\",\n    \"description\": null,\n    \"default_route\": null,\n    \"order_source\": null,\n    \"is_active\": true,\n    \"permission_ids\": [\n      1\n    ],\n    \"visible_sources\": [\n      \"counter\",\n      \"drive\"\n    ]\n  }\n}",
     "request": {
      "method": "PUT",
      "path": "/admin/api/roles/6",
@@ -9172,7 +9138,7 @@
       "Content-Type": "application/json",
       "X-CSRF-Token": "<jeton de la session>"
      },
-     "body": "{\n  \"label\": \"Role Demo mul4qwkp v2\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\",\n    \"drive\"\n  ],\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+     "body": "{\n  \"label\": \"Role Demo mumo1s8i v2\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\",\n    \"drive\"\n  ],\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
     },
     "how": "collection Postman, « Modifier un role (PIN requis) »"
    },
@@ -9191,7 +9157,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"label\": \"Role Demo mul4r29n v2\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\",\n    \"drive\"\n  ],\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"label\": \"Role Demo mumo1xpl v2\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\",\n    \"drive\"\n  ],\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "sans cookie de session"
     },
@@ -9210,7 +9176,7 @@
        "X-CSRF-Token": "<jeton de la session>",
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"label\": \"Role Demo mul4r29n v2\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\",\n    \"drive\"\n  ],\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"label\": \"Role Demo mumo1xpl v2\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\",\n    \"drive\"\n  ],\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "compte cuisine@wakdo.local, sans role.manage"
     },
@@ -9228,7 +9194,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"label\": \"Role Demo mul4r29n v2\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\",\n    \"drive\"\n  ],\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"label\": \"Role Demo mumo1xpl v2\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\",\n    \"drive\"\n  ],\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "sans en-tete X-CSRF-Token"
     },
@@ -9285,7 +9251,7 @@
        "Content-Type": "application/json",
        "X-CSRF-Token": "<jeton de la session>"
       },
-      "body": "{\n  \"label\": \"Role Demo mul4r29n v2\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\",\n    \"drive\"\n  ],\n  \"pin_email\": \"comptoir2@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"label\": \"Role Demo mumo1xpl v2\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\",\n    \"drive\"\n  ],\n  \"pin_email\": \"comptoir2@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "code personnel faux"
     },
@@ -9304,7 +9270,7 @@
        "Content-Type": "application/json",
        "X-CSRF-Token": "<jeton de la session>"
       },
-      "body": "{\n  \"label\": \"Role Demo mul4r29n v2\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\",\n    \"drive\"\n  ],\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"label\": \"Role Demo mumo1xpl v2\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\",\n    \"drive\"\n  ],\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "chemin inconnu du routeur"
     },
@@ -9323,7 +9289,7 @@
        "Content-Type": "application/json",
        "X-CSRF-Token": "<jeton de la session>"
       },
-      "body": "{\n  \"label\": \"Role Demo mul4r29n v2\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\",\n    \"drive\"\n  ],\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"label\": \"Role Demo mumo1xpl v2\",\n  \"permission_ids\": [\n    \"1\"\n  ],\n  \"visible_sources\": [\n    \"counter\",\n    \"drive\"\n  ],\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "identifiant inexistant"
     }
@@ -9339,7 +9305,7 @@
      "location": "/admin/api/users/7",
      "content-type": "application/json; charset=utf-8"
     },
-    "body": "{\n  \"data\": {\n    \"id\": 7,\n    \"email\": \"equipier-mul4qwkp@wakdo.local\",\n    \"first_name\": \"Demo\",\n    \"last_name\": \"Equipier mul4qwkp\",\n    \"role_id\": 1,\n    \"is_active\": true,\n    \"anonymized_at\": null\n  }\n}",
+    "body": "{\n  \"data\": {\n    \"id\": 7,\n    \"email\": \"equipier-mumo1s8i@wakdo.local\",\n    \"first_name\": \"Demo\",\n    \"last_name\": \"Equipier mumo1s8i\",\n    \"role_id\": 2,\n    \"is_active\": true,\n    \"anonymized_at\": null\n  }\n}",
     "request": {
      "method": "POST",
      "path": "/admin/api/users",
@@ -9347,7 +9313,7 @@
       "Content-Type": "application/json",
       "X-CSRF-Token": "<jeton de la session>"
      },
-     "body": "{\n  \"email\": \"equipier-mul4qwkp@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul4qwkp\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+     "body": "{\n  \"email\": \"equipier-mumo1s8i@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mumo1s8i\",\n  \"role_id\": \"2\",\n  \"password\": \"<masqué>\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
     },
     "how": "collection Postman, « Creer un utilisateur (PIN requis) »"
    },
@@ -9366,7 +9332,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"email\": \"equipier-mul4r29n@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul4r29n\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"email\": \"equipier-mumo1xpl@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mumo1xpl\",\n  \"role_id\": \"2\",\n  \"password\": \"<masqué>\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "sans cookie de session"
     },
@@ -9385,7 +9351,7 @@
        "X-CSRF-Token": "<jeton de la session>",
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"email\": \"equipier-mul4r29n@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul4r29n\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"email\": \"equipier-mumo1xpl@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mumo1xpl\",\n  \"role_id\": \"2\",\n  \"password\": \"<masqué>\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "compte cuisine@wakdo.local, sans user.create"
     },
@@ -9403,7 +9369,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"email\": \"equipier-mul4r29n@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul4r29n\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"email\": \"equipier-mumo1xpl@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mumo1xpl\",\n  \"role_id\": \"2\",\n  \"password\": \"<masqué>\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "sans en-tete X-CSRF-Token"
     },
@@ -9460,7 +9426,7 @@
        "Content-Type": "application/json",
        "X-CSRF-Token": "<jeton de la session>"
       },
-      "body": "{\n  \"email\": \"equipier-mul4r29n@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul4r29n\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"pin_email\": \"comptoir2@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"email\": \"equipier-mumo1xpl@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mumo1xpl\",\n  \"role_id\": \"2\",\n  \"password\": \"<masqué>\",\n  \"pin_email\": \"comptoir2@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "code personnel faux"
     },
@@ -9479,7 +9445,7 @@
        "Content-Type": "application/json",
        "X-CSRF-Token": "<jeton de la session>"
       },
-      "body": "{\n  \"email\": \"equipier-mul4r29n@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul4r29n\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"email\": \"equipier-mumo1xpl@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mumo1xpl\",\n  \"role_id\": \"2\",\n  \"password\": \"<masqué>\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "chemin inconnu du routeur"
     }
@@ -9493,7 +9459,7 @@
      "cache-control": "no-store, private",
      "content-type": "application/json; charset=utf-8"
     },
-    "body": "{\n  \"data\": {\n    \"id\": 7,\n    \"email\": \"equipier-mul4qwkp@wakdo.local\",\n    \"first_name\": \"Demo\",\n    \"last_name\": \"Equipier mul4qwkp v2\",\n    \"role_id\": 1,\n    \"is_active\": true,\n    \"anonymized_at\": null\n  }\n}",
+    "body": "{\n  \"data\": {\n    \"id\": 7,\n    \"email\": \"equipier-mumo1s8i@wakdo.local\",\n    \"first_name\": \"Demo\",\n    \"last_name\": \"Equipier mumo1s8i v2\",\n    \"role_id\": 2,\n    \"is_active\": true,\n    \"anonymized_at\": null\n  }\n}",
     "request": {
      "method": "PUT",
      "path": "/admin/api/users/7",
@@ -9501,7 +9467,7 @@
       "Content-Type": "application/json",
       "X-CSRF-Token": "<jeton de la session>"
      },
-     "body": "{\n  \"email\": \"equipier-mul4qwkp@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul4qwkp v2\",\n  \"role_id\": \"1\",\n  \"is_active\": true,\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+     "body": "{\n  \"email\": \"equipier-mumo1s8i@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mumo1s8i v2\",\n  \"role_id\": \"2\",\n  \"is_active\": true,\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
     },
     "how": "collection Postman, « Modifier un utilisateur (PIN requis) »"
    },
@@ -9520,7 +9486,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"email\": \"equipier-mul4r29n@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul4r29n v2\",\n  \"role_id\": \"1\",\n  \"is_active\": true,\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"email\": \"equipier-mumo1xpl@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mumo1xpl v2\",\n  \"role_id\": \"2\",\n  \"is_active\": true,\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "sans cookie de session"
     },
@@ -9539,7 +9505,7 @@
        "X-CSRF-Token": "<jeton de la session>",
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"email\": \"equipier-mul4r29n@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul4r29n v2\",\n  \"role_id\": \"1\",\n  \"is_active\": true,\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"email\": \"equipier-mumo1xpl@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mumo1xpl v2\",\n  \"role_id\": \"2\",\n  \"is_active\": true,\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "compte cuisine@wakdo.local, sans user.update"
     },
@@ -9557,7 +9523,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"email\": \"equipier-mul4r29n@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul4r29n v2\",\n  \"role_id\": \"1\",\n  \"is_active\": true,\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"email\": \"equipier-mumo1xpl@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mumo1xpl v2\",\n  \"role_id\": \"2\",\n  \"is_active\": true,\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "sans en-tete X-CSRF-Token"
     },
@@ -9614,7 +9580,7 @@
        "Content-Type": "application/json",
        "X-CSRF-Token": "<jeton de la session>"
       },
-      "body": "{\n  \"email\": \"equipier-mul4r29n@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul4r29n v2\",\n  \"role_id\": \"1\",\n  \"is_active\": true,\n  \"pin_email\": \"comptoir2@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"email\": \"equipier-mumo1xpl@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mumo1xpl v2\",\n  \"role_id\": \"2\",\n  \"is_active\": true,\n  \"pin_email\": \"comptoir2@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "code personnel faux"
     },
@@ -9633,7 +9599,7 @@
        "Content-Type": "application/json",
        "X-CSRF-Token": "<jeton de la session>"
       },
-      "body": "{\n  \"email\": \"equipier-mul4r29n@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul4r29n v2\",\n  \"role_id\": \"1\",\n  \"is_active\": true,\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"email\": \"equipier-mumo1xpl@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mumo1xpl v2\",\n  \"role_id\": \"2\",\n  \"is_active\": true,\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "chemin inconnu du routeur"
     },
@@ -9652,7 +9618,7 @@
        "Content-Type": "application/json",
        "X-CSRF-Token": "<jeton de la session>"
       },
-      "body": "{\n  \"email\": \"equipier-mul4r29n@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul4r29n v2\",\n  \"role_id\": \"1\",\n  \"is_active\": true,\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"email\": \"equipier-mumo1xpl@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mumo1xpl v2\",\n  \"role_id\": \"2\",\n  \"is_active\": true,\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "identifiant inexistant"
     }
@@ -10187,7 +10153,7 @@
      "location": "/admin/api/orders/C3",
      "content-type": "application/json; charset=utf-8"
     },
-    "body": "{\n  \"data\": {\n    \"id\": 3,\n    \"order_number\": \"C3\",\n    \"total_ttc_cents\": 260,\n    \"status\": \"preparing\",\n    \"source\": \"counter\"\n  }\n}",
+    "body": "{\n  \"data\": {\n    \"id\": 3,\n    \"order_number\": \"C3\",\n    \"total_ttc_cents\": 190,\n    \"status\": \"preparing\",\n    \"source\": \"counter\"\n  }\n}",
     "request": {
      "method": "POST",
      "path": "/admin/api/orders",
@@ -10195,7 +10161,7 @@
       "Content-Type": "application/json",
       "X-CSRF-Token": "<jeton de la session>"
      },
-     "body": "{\n  \"service_mode\": \"dine_in\",\n  \"source\": \"counter\",\n  \"items\": [\n    {\n      \"type\": \"product\",\n      \"product_id\": \"38\",\n      \"quantity\": 1\n    }\n  ]\n}"
+     "body": "{\n  \"service_mode\": \"dine_in\",\n  \"source\": \"counter\",\n  \"items\": [\n    {\n      \"type\": \"product\",\n      \"product_id\": \"14\",\n      \"quantity\": 1\n    }\n  ]\n}"
     },
     "how": "collection Postman, « Saisir la commande A (comptoir/drive) »"
    },
@@ -10214,7 +10180,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"service_mode\": \"dine_in\",\n  \"source\": \"counter\",\n  \"items\": [\n    {\n      \"type\": \"product\",\n      \"product_id\": \"63\",\n      \"quantity\": 1\n    }\n  ]\n}"
+      "body": "{\n  \"service_mode\": \"dine_in\",\n  \"source\": \"counter\",\n  \"items\": [\n    {\n      \"type\": \"product\",\n      \"product_id\": \"14\",\n      \"quantity\": 1\n    }\n  ]\n}"
      },
      "how": "sans cookie de session"
     },
@@ -10233,7 +10199,7 @@
        "X-CSRF-Token": "<jeton de la session>",
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"service_mode\": \"dine_in\",\n  \"source\": \"counter\",\n  \"items\": [\n    {\n      \"type\": \"product\",\n      \"product_id\": \"63\",\n      \"quantity\": 1\n    }\n  ]\n}"
+      "body": "{\n  \"service_mode\": \"dine_in\",\n  \"source\": \"counter\",\n  \"items\": [\n    {\n      \"type\": \"product\",\n      \"product_id\": \"14\",\n      \"quantity\": 1\n    }\n  ]\n}"
      },
      "how": "compte cuisine@wakdo.local, sans order.create"
     },
@@ -10251,7 +10217,7 @@
       "headers": {
        "Content-Type": "application/json"
       },
-      "body": "{\n  \"service_mode\": \"dine_in\",\n  \"source\": \"counter\",\n  \"items\": [\n    {\n      \"type\": \"product\",\n      \"product_id\": \"63\",\n      \"quantity\": 1\n    }\n  ]\n}"
+      "body": "{\n  \"service_mode\": \"dine_in\",\n  \"source\": \"counter\",\n  \"items\": [\n    {\n      \"type\": \"product\",\n      \"product_id\": \"14\",\n      \"quantity\": 1\n    }\n  ]\n}"
      },
      "how": "sans en-tete X-CSRF-Token"
     },
@@ -10308,7 +10274,7 @@
        "Content-Type": "application/json",
        "X-CSRF-Token": "<jeton de la session>"
       },
-      "body": "{\n  \"service_mode\": \"dine_in\",\n  \"source\": \"counter\",\n  \"items\": [\n    {\n      \"type\": \"product\",\n      \"product_id\": \"63\",\n      \"quantity\": 1\n    }\n  ]\n}"
+      "body": "{\n  \"service_mode\": \"dine_in\",\n  \"source\": \"counter\",\n  \"items\": [\n    {\n      \"type\": \"product\",\n      \"product_id\": \"14\",\n      \"quantity\": 1\n    }\n  ]\n}"
      },
      "how": "chemin inconnu du routeur"
     }
@@ -10322,7 +10288,7 @@
      "cache-control": "no-store, private",
      "content-type": "application/json; charset=utf-8"
     },
-    "body": "{\n  \"data\": {\n    \"order_number\": \"C3\",\n    \"source\": \"counter\",\n    \"service_mode\": \"dine_in\",\n    \"service_tag\": null,\n    \"status\": \"ready\",\n    \"total_ttc_cents\": 260,\n    \"created_at\": \"2026-09-28 12:54:08\",\n    \"paid_at\": \"2026-09-28 12:54:08\"\n  }\n}",
+    "body": "{\n  \"data\": {\n    \"order_number\": \"C3\",\n    \"source\": \"counter\",\n    \"service_mode\": \"dine_in\",\n    \"service_tag\": null,\n    \"status\": \"ready\",\n    \"total_ttc_cents\": 190,\n    \"created_at\": \"2026-09-29 14:42:14\",\n    \"paid_at\": \"2026-09-29 14:42:14\"\n  }\n}",
     "request": {
      "method": "POST",
      "path": "/admin/api/orders/C3/ready",
@@ -10429,7 +10395,7 @@
      "cache-control": "no-store, private",
      "content-type": "application/json; charset=utf-8"
     },
-    "body": "{\n  \"data\": {\n    \"order_number\": \"C3\",\n    \"source\": \"counter\",\n    \"service_mode\": \"dine_in\",\n    \"service_tag\": null,\n    \"status\": \"delivered\",\n    \"total_ttc_cents\": 260,\n    \"created_at\": \"2026-09-28 12:54:08\",\n    \"paid_at\": \"2026-09-28 12:54:08\"\n  }\n}",
+    "body": "{\n  \"data\": {\n    \"order_number\": \"C3\",\n    \"source\": \"counter\",\n    \"service_mode\": \"dine_in\",\n    \"service_tag\": null,\n    \"status\": \"delivered\",\n    \"total_ttc_cents\": 190,\n    \"created_at\": \"2026-09-29 14:42:14\",\n    \"paid_at\": \"2026-09-29 14:42:14\"\n  }\n}",
     "request": {
      "method": "POST",
      "path": "/admin/api/orders/C3/deliver",
@@ -11068,7 +11034,7 @@
      "method": "POST",
      "path": "/counter/orders",
      "headers": {},
-     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"items_json\": \"[{\\\"type\\\":\\\"product\\\",\\\"product_id\\\":14,\\\"quantity\\\":1}]\",\n  \"service_mode\": \"dine_in\",\n  \"service_tag\": \"Capture mul4recn\"\n}"
+     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"items_json\": \"[{\\\"type\\\":\\\"product\\\",\\\"product_id\\\":14,\\\"quantity\\\":1}]\",\n  \"service_mode\": \"dine_in\",\n  \"service_tag\": \"Capture mumo28vx\"\n}"
     },
     "how": "formulaire du back-office rempli sur la pile de test"
    },
@@ -11087,7 +11053,7 @@
       "method": "POST",
       "path": "/counter/orders",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"items_json\": \"[{\\\"type\\\":\\\"product\\\",\\\"product_id\\\":14,\\\"quantity\\\":1}]\",\n  \"service_mode\": \"dine_in\",\n  \"service_tag\": \"Capture mul4recn\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"items_json\": \"[{\\\"type\\\":\\\"product\\\",\\\"product_id\\\":14,\\\"quantity\\\":1}]\",\n  \"service_mode\": \"dine_in\",\n  \"service_tag\": \"Capture mumo28vx\"\n}"
      },
      "how": "sans cookie de session"
     },
@@ -11103,7 +11069,7 @@
       "method": "POST",
       "path": "/counter/orders",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"items_json\": \"[{\\\"type\\\":\\\"product\\\",\\\"product_id\\\":14,\\\"quantity\\\":1}]\",\n  \"service_mode\": \"dine_in\",\n  \"service_tag\": \"Capture mul4recn\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"items_json\": \"[{\\\"type\\\":\\\"product\\\",\\\"product_id\\\":14,\\\"quantity\\\":1}]\",\n  \"service_mode\": \"dine_in\",\n  \"service_tag\": \"Capture mumo28vx\"\n}"
      },
      "how": "compte cuisine@wakdo.local, sans order.create"
     },
@@ -11119,7 +11085,7 @@
       "method": "POST",
       "path": "/counter/orders",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"\",\n  \"items_json\": \"[{\\\"type\\\":\\\"product\\\",\\\"product_id\\\":14,\\\"quantity\\\":1}]\",\n  \"service_mode\": \"dine_in\",\n  \"service_tag\": \"Capture mul4recn\"\n}"
+      "body": "{\n  \"_csrf\": \"\",\n  \"items_json\": \"[{\\\"type\\\":\\\"product\\\",\\\"product_id\\\":14,\\\"quantity\\\":1}]\",\n  \"service_mode\": \"dine_in\",\n  \"service_tag\": \"Capture mumo28vx\"\n}"
      },
      "how": "formulaire sans jeton"
     },
@@ -11135,7 +11101,7 @@
       "method": "POST",
       "path": "/counter/orders/inexistant",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"items_json\": \"[{\\\"type\\\":\\\"product\\\",\\\"product_id\\\":14,\\\"quantity\\\":1}]\",\n  \"service_mode\": \"dine_in\",\n  \"service_tag\": \"Capture mul4recn\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"items_json\": \"[{\\\"type\\\":\\\"product\\\",\\\"product_id\\\":14,\\\"quantity\\\":1}]\",\n  \"service_mode\": \"dine_in\",\n  \"service_tag\": \"Capture mumo28vx\"\n}"
      },
      "how": "chemin inconnu du routeur"
     }
@@ -11244,7 +11210,7 @@
      "method": "POST",
      "path": "/admin/users",
      "headers": {},
-     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"email\": \"capture-mul4recn-email@wakdo.local\",\n  \"first_name\": \"Capture mul4recn\",\n  \"last_name\": \"Capture mul4recn\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"email\": \"capture-mumo28vx-email@wakdo.local\",\n  \"first_name\": \"Capture mumo28vx\",\n  \"last_name\": \"Capture mumo28vx\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
     },
     "how": "formulaire du back-office rempli sur la pile de test"
    },
@@ -11263,7 +11229,7 @@
       "method": "POST",
       "path": "/admin/users",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"email\": \"capture-mul4recn-email@wakdo.local\",\n  \"first_name\": \"Capture mul4recn\",\n  \"last_name\": \"Capture mul4recn\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"email\": \"capture-mumo28vx-email@wakdo.local\",\n  \"first_name\": \"Capture mumo28vx\",\n  \"last_name\": \"Capture mumo28vx\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "sans cookie de session"
     },
@@ -11279,7 +11245,7 @@
       "method": "POST",
       "path": "/admin/users",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"email\": \"capture-mul4recn-email@wakdo.local\",\n  \"first_name\": \"Capture mul4recn\",\n  \"last_name\": \"Capture mul4recn\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"email\": \"capture-mumo28vx-email@wakdo.local\",\n  \"first_name\": \"Capture mumo28vx\",\n  \"last_name\": \"Capture mumo28vx\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "compte cuisine@wakdo.local, sans user.create"
     },
@@ -11295,7 +11261,7 @@
       "method": "POST",
       "path": "/admin/users",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"\",\n  \"email\": \"capture-mul4recn-email@wakdo.local\",\n  \"first_name\": \"Capture mul4recn\",\n  \"last_name\": \"Capture mul4recn\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"_csrf\": \"\",\n  \"email\": \"capture-mumo28vx-email@wakdo.local\",\n  \"first_name\": \"Capture mumo28vx\",\n  \"last_name\": \"Capture mumo28vx\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "formulaire sans jeton"
     },
@@ -11327,7 +11293,7 @@
       "method": "POST",
       "path": "/admin/users",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"email\": \"capture-mul4recn-email@wakdo.local\",\n  \"first_name\": \"Capture mul4recn\",\n  \"last_name\": \"Capture mul4recn\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"pin_email\": \"comptoir2@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"email\": \"capture-mumo28vx-email@wakdo.local\",\n  \"first_name\": \"Capture mumo28vx\",\n  \"last_name\": \"Capture mumo28vx\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"pin_email\": \"comptoir2@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "code personnel faux"
     },
@@ -11343,7 +11309,7 @@
       "method": "POST",
       "path": "/admin/users/inexistant",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"email\": \"capture-mul4recn-email@wakdo.local\",\n  \"first_name\": \"Capture mul4recn\",\n  \"last_name\": \"Capture mul4recn\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"email\": \"capture-mumo28vx-email@wakdo.local\",\n  \"first_name\": \"Capture mumo28vx\",\n  \"last_name\": \"Capture mumo28vx\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "chemin inconnu du routeur"
     }
@@ -11364,7 +11330,7 @@
      "method": "POST",
      "path": "/admin/users/9",
      "headers": {},
-     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"email\": \"equipier-mul4recnuse5@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul4recnuse5\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"is_active\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"email\": \"equipier-mumo28vxuse5@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mumo28vxuse5\",\n  \"role_id\": \"2\",\n  \"password\": \"<masqué>\",\n  \"is_active\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
     },
     "how": "formulaire du back-office rempli sur la pile de test"
    },
@@ -11383,7 +11349,7 @@
       "method": "POST",
       "path": "/admin/users/9",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"email\": \"equipier-mul4recnuse5@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul4recnuse5\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"is_active\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"email\": \"equipier-mumo28vxuse5@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mumo28vxuse5\",\n  \"role_id\": \"2\",\n  \"password\": \"<masqué>\",\n  \"is_active\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "sans cookie de session"
     },
@@ -11399,7 +11365,7 @@
       "method": "POST",
       "path": "/admin/users/9",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"email\": \"equipier-mul4recnuse5@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul4recnuse5\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"is_active\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"email\": \"equipier-mumo28vxuse5@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mumo28vxuse5\",\n  \"role_id\": \"2\",\n  \"password\": \"<masqué>\",\n  \"is_active\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "compte cuisine@wakdo.local, sans user.update"
     },
@@ -11415,7 +11381,7 @@
       "method": "POST",
       "path": "/admin/users/9",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"\",\n  \"email\": \"equipier-mul4recnuse5@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul4recnuse5\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"is_active\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"_csrf\": \"\",\n  \"email\": \"equipier-mumo28vxuse5@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mumo28vxuse5\",\n  \"role_id\": \"2\",\n  \"password\": \"<masqué>\",\n  \"is_active\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "formulaire sans jeton"
     },
@@ -11447,7 +11413,7 @@
       "method": "POST",
       "path": "/admin/users/9",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"email\": \"equipier-mul4recnuse5@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul4recnuse5\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"is_active\": \"1\",\n  \"pin_email\": \"comptoir2@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"email\": \"equipier-mumo28vxuse5@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mumo28vxuse5\",\n  \"role_id\": \"2\",\n  \"password\": \"<masqué>\",\n  \"is_active\": \"1\",\n  \"pin_email\": \"comptoir2@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "code personnel faux"
     },
@@ -11463,7 +11429,7 @@
       "method": "POST",
       "path": "/admin/users/9/inexistant",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"email\": \"equipier-mul4recnuse5@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul4recnuse5\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"is_active\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"email\": \"equipier-mumo28vxuse5@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mumo28vxuse5\",\n  \"role_id\": \"2\",\n  \"password\": \"<masqué>\",\n  \"is_active\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "chemin inconnu du routeur"
     },
@@ -11479,7 +11445,7 @@
       "method": "POST",
       "path": "/admin/users/999999",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"email\": \"equipier-mul4recnuse5@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mul4recnuse5\",\n  \"role_id\": \"1\",\n  \"password\": \"<masqué>\",\n  \"is_active\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"email\": \"equipier-mumo28vxuse5@wakdo.local\",\n  \"first_name\": \"Demo\",\n  \"last_name\": \"Equipier mumo28vxuse5\",\n  \"role_id\": \"2\",\n  \"password\": \"<masqué>\",\n  \"is_active\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "identifiant inexistant"
     }
@@ -11620,7 +11586,7 @@
      "method": "POST",
      "path": "/admin/roles",
      "headers": {},
-     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"Capture mul4recn\",\n  \"code\": \"capture_mul4recn\",\n  \"description\": \"Capture mul4recn\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"Capture mumo28vx\",\n  \"code\": \"capture_mumo28vx\",\n  \"description\": \"Capture mumo28vx\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
     },
     "how": "formulaire du back-office rempli sur la pile de test"
    },
@@ -11639,7 +11605,7 @@
       "method": "POST",
       "path": "/admin/roles",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"Capture mul4recn\",\n  \"code\": \"capture_mul4recn\",\n  \"description\": \"Capture mul4recn\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"Capture mumo28vx\",\n  \"code\": \"capture_mumo28vx\",\n  \"description\": \"Capture mumo28vx\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "sans cookie de session"
     },
@@ -11655,7 +11621,7 @@
       "method": "POST",
       "path": "/admin/roles",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"Capture mul4recn\",\n  \"code\": \"capture_mul4recn\",\n  \"description\": \"Capture mul4recn\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"Capture mumo28vx\",\n  \"code\": \"capture_mumo28vx\",\n  \"description\": \"Capture mumo28vx\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "compte cuisine@wakdo.local, sans role.manage"
     },
@@ -11671,7 +11637,7 @@
       "method": "POST",
       "path": "/admin/roles",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"\",\n  \"label\": \"Capture mul4recn\",\n  \"code\": \"capture_mul4recn\",\n  \"description\": \"Capture mul4recn\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"_csrf\": \"\",\n  \"label\": \"Capture mumo28vx\",\n  \"code\": \"capture_mumo28vx\",\n  \"description\": \"Capture mumo28vx\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "formulaire sans jeton"
     },
@@ -11687,7 +11653,7 @@
       "method": "POST",
       "path": "/admin/roles",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"\",\n  \"code\": \"\",\n  \"description\": \"Capture mul4recn\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"\",\n  \"code\": \"\",\n  \"description\": \"Capture mumo28vx\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "champs obligatoires vides"
     },
@@ -11703,7 +11669,7 @@
       "method": "POST",
       "path": "/admin/roles",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"Capture mul4recn\",\n  \"code\": \"capture_mul4recn\",\n  \"description\": \"Capture mul4recn\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"pin_email\": \"comptoir2@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"Capture mumo28vx\",\n  \"code\": \"capture_mumo28vx\",\n  \"description\": \"Capture mumo28vx\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"pin_email\": \"comptoir2@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "code personnel faux"
     },
@@ -11719,7 +11685,7 @@
       "method": "POST",
       "path": "/admin/roles/inexistant",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"Capture mul4recn\",\n  \"code\": \"capture_mul4recn\",\n  \"description\": \"Capture mul4recn\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"Capture mumo28vx\",\n  \"code\": \"capture_mumo28vx\",\n  \"description\": \"Capture mumo28vx\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "chemin inconnu du routeur"
     }
@@ -11740,7 +11706,7 @@
      "method": "POST",
      "path": "/admin/roles/8",
      "headers": {},
-     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"Role Demo mul4recnrol6\",\n  \"description\": \"Capture mul4recn\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"is_active\": \"1\",\n  \"perm_1\": \"1\",\n  \"source_counter\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"Role Demo mumo28vxrol6\",\n  \"description\": \"Capture mumo28vx\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"is_active\": \"1\",\n  \"perm_1\": \"1\",\n  \"source_counter\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
     },
     "how": "formulaire du back-office rempli sur la pile de test"
    },
@@ -11759,7 +11725,7 @@
       "method": "POST",
       "path": "/admin/roles/8",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"Role Demo mul4recnrol6\",\n  \"description\": \"Capture mul4recn\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"is_active\": \"1\",\n  \"perm_1\": \"1\",\n  \"source_counter\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"Role Demo mumo28vxrol6\",\n  \"description\": \"Capture mumo28vx\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"is_active\": \"1\",\n  \"perm_1\": \"1\",\n  \"source_counter\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "sans cookie de session"
     },
@@ -11775,7 +11741,7 @@
       "method": "POST",
       "path": "/admin/roles/8",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"Role Demo mul4recnrol6\",\n  \"description\": \"Capture mul4recn\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"is_active\": \"1\",\n  \"perm_1\": \"1\",\n  \"source_counter\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"Role Demo mumo28vxrol6\",\n  \"description\": \"Capture mumo28vx\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"is_active\": \"1\",\n  \"perm_1\": \"1\",\n  \"source_counter\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "compte cuisine@wakdo.local, sans role.manage"
     },
@@ -11791,7 +11757,7 @@
       "method": "POST",
       "path": "/admin/roles/8",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"\",\n  \"label\": \"Role Demo mul4recnrol6\",\n  \"description\": \"Capture mul4recn\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"is_active\": \"1\",\n  \"perm_1\": \"1\",\n  \"source_counter\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"_csrf\": \"\",\n  \"label\": \"Role Demo mumo28vxrol6\",\n  \"description\": \"Capture mumo28vx\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"is_active\": \"1\",\n  \"perm_1\": \"1\",\n  \"source_counter\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "formulaire sans jeton"
     },
@@ -11807,7 +11773,7 @@
       "method": "POST",
       "path": "/admin/roles/8",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"\",\n  \"description\": \"Capture mul4recn\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"is_active\": \"1\",\n  \"perm_1\": \"1\",\n  \"source_counter\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"\",\n  \"description\": \"Capture mumo28vx\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"is_active\": \"1\",\n  \"perm_1\": \"1\",\n  \"source_counter\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "champs obligatoires vides"
     },
@@ -11823,7 +11789,7 @@
       "method": "POST",
       "path": "/admin/roles/8",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"Role Demo mul4recnrol6\",\n  \"description\": \"Capture mul4recn\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"is_active\": \"1\",\n  \"perm_1\": \"1\",\n  \"source_counter\": \"1\",\n  \"pin_email\": \"comptoir2@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"Role Demo mumo28vxrol6\",\n  \"description\": \"Capture mumo28vx\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"is_active\": \"1\",\n  \"perm_1\": \"1\",\n  \"source_counter\": \"1\",\n  \"pin_email\": \"comptoir2@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "code personnel faux"
     },
@@ -11839,7 +11805,7 @@
       "method": "POST",
       "path": "/admin/roles/8/inexistant",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"Role Demo mul4recnrol6\",\n  \"description\": \"Capture mul4recn\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"is_active\": \"1\",\n  \"perm_1\": \"1\",\n  \"source_counter\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"Role Demo mumo28vxrol6\",\n  \"description\": \"Capture mumo28vx\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"is_active\": \"1\",\n  \"perm_1\": \"1\",\n  \"source_counter\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "chemin inconnu du routeur"
     },
@@ -11855,7 +11821,7 @@
       "method": "POST",
       "path": "/admin/roles/999999",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"Role Demo mul4recnrol6\",\n  \"description\": \"Capture mul4recn\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"is_active\": \"1\",\n  \"perm_1\": \"1\",\n  \"source_counter\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"label\": \"Role Demo mumo28vxrol6\",\n  \"description\": \"Capture mumo28vx\",\n  \"default_route\": \"/admin/dashboard\",\n  \"order_source\": \"kiosk\",\n  \"is_active\": \"1\",\n  \"perm_1\": \"1\",\n  \"source_counter\": \"1\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
      },
      "how": "identifiant inexistant"
     }
@@ -11876,7 +11842,7 @@
      "method": "POST",
      "path": "/admin/categories",
      "headers": {},
-     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"name\": \"Capture mul4recn\",\n  \"slug\": \"capture-mul4recn\",\n  \"display_order\": \"0\",\n  \"image_path\": \"Capture mul4recn\"\n}"
+     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"name\": \"Capture mumo28vx\",\n  \"slug\": \"capture-mumo28vx\",\n  \"display_order\": \"0\",\n  \"image_path\": \"Capture mumo28vx\"\n}"
     },
     "how": "formulaire du back-office rempli sur la pile de test"
    },
@@ -11980,7 +11946,7 @@
      "method": "POST",
      "path": "/admin/categories/12",
      "headers": {},
-     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"name\": \"Demo mul4recncat1\",\n  \"slug\": \"demo-mul4recncat1\",\n  \"display_order\": \"50\",\n  \"image_path\": \"Capture mul4recn\"\n}"
+     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"name\": \"Demo mumo28vxcat1\",\n  \"slug\": \"demo-mumo28vxcat1\",\n  \"display_order\": \"50\",\n  \"image_path\": \"Capture mumo28vx\"\n}"
     },
     "how": "formulaire du back-office rempli sur la pile de test"
    },
@@ -12193,7 +12159,7 @@
      "method": "POST",
      "path": "/admin/products",
      "headers": {},
-     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"category_id\": \"13\",\n  \"name\": \"Capture mul4recn\",\n  \"description\": \"Capture mul4recn\",\n  \"price_cents\": \"500\",\n  \"vat_rate\": \"100\",\n  \"image_path\": \"Capture mul4recn\",\n  \"display_order\": \"0\",\n  \"is_available\": \"1\",\n  \"size_cl\": \"1\",\n  \"base_product_id\": \"63\",\n  \"maxi_variant_product_id\": \"63\",\n  \"composition_json\": \"[]\"\n}"
+     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"category_id\": \"13\",\n  \"name\": \"Capture mumo28vx\",\n  \"description\": \"Capture mumo28vx\",\n  \"price_cents\": \"500\",\n  \"vat_rate\": \"100\",\n  \"image_path\": \"Capture mumo28vx\",\n  \"display_order\": \"0\",\n  \"is_available\": \"1\",\n  \"size_cl\": \"1\",\n  \"base_product_id\": \"63\",\n  \"maxi_variant_product_id\": \"63\",\n  \"composition_json\": \"[]\"\n}"
     },
     "how": "formulaire du back-office rempli sur la pile de test"
    },
@@ -12297,7 +12263,7 @@
      "method": "POST",
      "path": "/admin/products/64",
      "headers": {},
-     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mul4recnpro2\",\n  \"description\": \"Capture mul4recn\",\n  \"price_cents\": \"4,90\",\n  \"vat_rate\": \"100\",\n  \"image_path\": \"Capture mul4recn\",\n  \"display_order\": \"99\",\n  \"is_available\": \"1\",\n  \"size_cl\": \"1\",\n  \"base_product_id\": \"63\",\n  \"maxi_variant_product_id\": \"63\",\n  \"composition_json\": \"[]\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
+     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"category_id\": \"3\",\n  \"name\": \"Produit Demo mumo28vxpro2\",\n  \"description\": \"Capture mumo28vx\",\n  \"price_cents\": \"4,90\",\n  \"vat_rate\": \"100\",\n  \"image_path\": \"Capture mumo28vx\",\n  \"display_order\": \"99\",\n  \"is_available\": \"1\",\n  \"size_cl\": \"1\",\n  \"base_product_id\": \"63\",\n  \"maxi_variant_product_id\": \"63\",\n  \"composition_json\": \"[]\",\n  \"pin_email\": \"admin@wakdo.local\",\n  \"pin\": \"<masqué>\"\n}"
     },
     "how": "formulaire du back-office rempli sur la pile de test"
    },
@@ -12798,7 +12764,7 @@
      "method": "POST",
      "path": "/admin/menus",
      "headers": {},
-     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"category_id\": \"13\",\n  \"burger_product_id\": \"63\",\n  \"name\": \"Capture mul4recn\",\n  \"price_normal_cents\": \"900\",\n  \"price_maxi_cents\": \"1100\",\n  \"display_order\": \"0\",\n  \"is_available\": \"1\",\n  \"slots_json\": \"[{\\\"name\\\":\\\"Boisson\\\",\\\"slot_type\\\":\\\"drink\\\",\\\"is_required\\\":1,\\\"options\\\":[14]}]\"\n}"
+     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"category_id\": \"13\",\n  \"burger_product_id\": \"63\",\n  \"name\": \"Capture mumo28vx\",\n  \"price_normal_cents\": \"900\",\n  \"price_maxi_cents\": \"1100\",\n  \"display_order\": \"0\",\n  \"is_available\": \"1\",\n  \"slots_json\": \"[{\\\"name\\\":\\\"Boisson\\\",\\\"slot_type\\\":\\\"drink\\\",\\\"is_required\\\":1,\\\"options\\\":[14]}]\"\n}"
     },
     "how": "formulaire du back-office rempli sur la pile de test"
    },
@@ -12817,7 +12783,7 @@
       "method": "POST",
       "path": "/admin/menus",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"category_id\": \"13\",\n  \"burger_product_id\": \"63\",\n  \"name\": \"Capture mul4recn\",\n  \"price_normal_cents\": \"900\",\n  \"price_maxi_cents\": \"1100\",\n  \"display_order\": \"0\",\n  \"is_available\": \"1\",\n  \"slots_json\": \"[{\\\"name\\\":\\\"Boisson\\\",\\\"slot_type\\\":\\\"drink\\\",\\\"is_required\\\":1,\\\"options\\\":[14]}]\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"category_id\": \"13\",\n  \"burger_product_id\": \"63\",\n  \"name\": \"Capture mumo28vx\",\n  \"price_normal_cents\": \"900\",\n  \"price_maxi_cents\": \"1100\",\n  \"display_order\": \"0\",\n  \"is_available\": \"1\",\n  \"slots_json\": \"[{\\\"name\\\":\\\"Boisson\\\",\\\"slot_type\\\":\\\"drink\\\",\\\"is_required\\\":1,\\\"options\\\":[14]}]\"\n}"
      },
      "how": "sans cookie de session"
     },
@@ -12833,7 +12799,7 @@
       "method": "POST",
       "path": "/admin/menus",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"category_id\": \"13\",\n  \"burger_product_id\": \"63\",\n  \"name\": \"Capture mul4recn\",\n  \"price_normal_cents\": \"900\",\n  \"price_maxi_cents\": \"1100\",\n  \"display_order\": \"0\",\n  \"is_available\": \"1\",\n  \"slots_json\": \"[{\\\"name\\\":\\\"Boisson\\\",\\\"slot_type\\\":\\\"drink\\\",\\\"is_required\\\":1,\\\"options\\\":[14]}]\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"category_id\": \"13\",\n  \"burger_product_id\": \"63\",\n  \"name\": \"Capture mumo28vx\",\n  \"price_normal_cents\": \"900\",\n  \"price_maxi_cents\": \"1100\",\n  \"display_order\": \"0\",\n  \"is_available\": \"1\",\n  \"slots_json\": \"[{\\\"name\\\":\\\"Boisson\\\",\\\"slot_type\\\":\\\"drink\\\",\\\"is_required\\\":1,\\\"options\\\":[14]}]\"\n}"
      },
      "how": "compte cuisine@wakdo.local, sans menu.create"
     },
@@ -12849,7 +12815,7 @@
       "method": "POST",
       "path": "/admin/menus",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"\",\n  \"category_id\": \"13\",\n  \"burger_product_id\": \"63\",\n  \"name\": \"Capture mul4recn\",\n  \"price_normal_cents\": \"900\",\n  \"price_maxi_cents\": \"1100\",\n  \"display_order\": \"0\",\n  \"is_available\": \"1\",\n  \"slots_json\": \"[{\\\"name\\\":\\\"Boisson\\\",\\\"slot_type\\\":\\\"drink\\\",\\\"is_required\\\":1,\\\"options\\\":[14]}]\"\n}"
+      "body": "{\n  \"_csrf\": \"\",\n  \"category_id\": \"13\",\n  \"burger_product_id\": \"63\",\n  \"name\": \"Capture mumo28vx\",\n  \"price_normal_cents\": \"900\",\n  \"price_maxi_cents\": \"1100\",\n  \"display_order\": \"0\",\n  \"is_available\": \"1\",\n  \"slots_json\": \"[{\\\"name\\\":\\\"Boisson\\\",\\\"slot_type\\\":\\\"drink\\\",\\\"is_required\\\":1,\\\"options\\\":[14]}]\"\n}"
      },
      "how": "formulaire sans jeton"
     },
@@ -12881,7 +12847,7 @@
       "method": "POST",
       "path": "/admin/menus/inexistant",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"category_id\": \"13\",\n  \"burger_product_id\": \"63\",\n  \"name\": \"Capture mul4recn\",\n  \"price_normal_cents\": \"900\",\n  \"price_maxi_cents\": \"1100\",\n  \"display_order\": \"0\",\n  \"is_available\": \"1\",\n  \"slots_json\": \"[{\\\"name\\\":\\\"Boisson\\\",\\\"slot_type\\\":\\\"drink\\\",\\\"is_required\\\":1,\\\"options\\\":[14]}]\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"category_id\": \"13\",\n  \"burger_product_id\": \"63\",\n  \"name\": \"Capture mumo28vx\",\n  \"price_normal_cents\": \"900\",\n  \"price_maxi_cents\": \"1100\",\n  \"display_order\": \"0\",\n  \"is_available\": \"1\",\n  \"slots_json\": \"[{\\\"name\\\":\\\"Boisson\\\",\\\"slot_type\\\":\\\"drink\\\",\\\"is_required\\\":1,\\\"options\\\":[14]}]\"\n}"
      },
      "how": "chemin inconnu du routeur"
     }
@@ -12902,7 +12868,7 @@
      "method": "POST",
      "path": "/admin/menus/16",
      "headers": {},
-     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul4recnmen4\",\n  \"price_normal_cents\": \"8,90\",\n  \"price_maxi_cents\": \"9,90\",\n  \"display_order\": \"50\",\n  \"is_available\": \"1\",\n  \"slots_json\": \"[{\\\"name\\\":\\\"Boisson\\\",\\\"slot_type\\\":\\\"drink\\\",\\\"is_required\\\":1,\\\"options\\\":[14]}]\"\n}"
+     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mumo28vxmen4\",\n  \"price_normal_cents\": \"8,90\",\n  \"price_maxi_cents\": \"9,90\",\n  \"display_order\": \"50\",\n  \"is_available\": \"1\",\n  \"slots_json\": \"[{\\\"name\\\":\\\"Boisson\\\",\\\"slot_type\\\":\\\"drink\\\",\\\"is_required\\\":1,\\\"options\\\":[14]}]\"\n}"
     },
     "how": "formulaire du back-office rempli sur la pile de test"
    },
@@ -12921,7 +12887,7 @@
       "method": "POST",
       "path": "/admin/menus/16",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul4recnmen4\",\n  \"price_normal_cents\": \"8,90\",\n  \"price_maxi_cents\": \"9,90\",\n  \"display_order\": \"50\",\n  \"is_available\": \"1\",\n  \"slots_json\": \"[{\\\"name\\\":\\\"Boisson\\\",\\\"slot_type\\\":\\\"drink\\\",\\\"is_required\\\":1,\\\"options\\\":[14]}]\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mumo28vxmen4\",\n  \"price_normal_cents\": \"8,90\",\n  \"price_maxi_cents\": \"9,90\",\n  \"display_order\": \"50\",\n  \"is_available\": \"1\",\n  \"slots_json\": \"[{\\\"name\\\":\\\"Boisson\\\",\\\"slot_type\\\":\\\"drink\\\",\\\"is_required\\\":1,\\\"options\\\":[14]}]\"\n}"
      },
      "how": "sans cookie de session"
     },
@@ -12937,7 +12903,7 @@
       "method": "POST",
       "path": "/admin/menus/16",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul4recnmen4\",\n  \"price_normal_cents\": \"8,90\",\n  \"price_maxi_cents\": \"9,90\",\n  \"display_order\": \"50\",\n  \"is_available\": \"1\",\n  \"slots_json\": \"[{\\\"name\\\":\\\"Boisson\\\",\\\"slot_type\\\":\\\"drink\\\",\\\"is_required\\\":1,\\\"options\\\":[14]}]\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mumo28vxmen4\",\n  \"price_normal_cents\": \"8,90\",\n  \"price_maxi_cents\": \"9,90\",\n  \"display_order\": \"50\",\n  \"is_available\": \"1\",\n  \"slots_json\": \"[{\\\"name\\\":\\\"Boisson\\\",\\\"slot_type\\\":\\\"drink\\\",\\\"is_required\\\":1,\\\"options\\\":[14]}]\"\n}"
      },
      "how": "compte cuisine@wakdo.local, sans menu.update"
     },
@@ -12953,7 +12919,7 @@
       "method": "POST",
       "path": "/admin/menus/16",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"\",\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul4recnmen4\",\n  \"price_normal_cents\": \"8,90\",\n  \"price_maxi_cents\": \"9,90\",\n  \"display_order\": \"50\",\n  \"is_available\": \"1\",\n  \"slots_json\": \"[{\\\"name\\\":\\\"Boisson\\\",\\\"slot_type\\\":\\\"drink\\\",\\\"is_required\\\":1,\\\"options\\\":[14]}]\"\n}"
+      "body": "{\n  \"_csrf\": \"\",\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mumo28vxmen4\",\n  \"price_normal_cents\": \"8,90\",\n  \"price_maxi_cents\": \"9,90\",\n  \"display_order\": \"50\",\n  \"is_available\": \"1\",\n  \"slots_json\": \"[{\\\"name\\\":\\\"Boisson\\\",\\\"slot_type\\\":\\\"drink\\\",\\\"is_required\\\":1,\\\"options\\\":[14]}]\"\n}"
      },
      "how": "formulaire sans jeton"
     },
@@ -12985,7 +12951,7 @@
       "method": "POST",
       "path": "/admin/menus/16/inexistant",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul4recnmen4\",\n  \"price_normal_cents\": \"8,90\",\n  \"price_maxi_cents\": \"9,90\",\n  \"display_order\": \"50\",\n  \"is_available\": \"1\",\n  \"slots_json\": \"[{\\\"name\\\":\\\"Boisson\\\",\\\"slot_type\\\":\\\"drink\\\",\\\"is_required\\\":1,\\\"options\\\":[14]}]\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mumo28vxmen4\",\n  \"price_normal_cents\": \"8,90\",\n  \"price_maxi_cents\": \"9,90\",\n  \"display_order\": \"50\",\n  \"is_available\": \"1\",\n  \"slots_json\": \"[{\\\"name\\\":\\\"Boisson\\\",\\\"slot_type\\\":\\\"drink\\\",\\\"is_required\\\":1,\\\"options\\\":[14]}]\"\n}"
      },
      "how": "chemin inconnu du routeur"
     },
@@ -13001,7 +12967,7 @@
       "method": "POST",
       "path": "/admin/menus/999999",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mul4recnmen4\",\n  \"price_normal_cents\": \"8,90\",\n  \"price_maxi_cents\": \"9,90\",\n  \"display_order\": \"50\",\n  \"is_available\": \"1\",\n  \"slots_json\": \"[{\\\"name\\\":\\\"Boisson\\\",\\\"slot_type\\\":\\\"drink\\\",\\\"is_required\\\":1,\\\"options\\\":[14]}]\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"category_id\": \"1\",\n  \"burger_product_id\": \"1\",\n  \"name\": \"Menu Demo mumo28vxmen4\",\n  \"price_normal_cents\": \"8,90\",\n  \"price_maxi_cents\": \"9,90\",\n  \"display_order\": \"50\",\n  \"is_available\": \"1\",\n  \"slots_json\": \"[{\\\"name\\\":\\\"Boisson\\\",\\\"slot_type\\\":\\\"drink\\\",\\\"is_required\\\":1,\\\"options\\\":[14]}]\"\n}"
      },
      "how": "identifiant inexistant"
     }
@@ -13022,7 +12988,7 @@
      "method": "POST",
      "path": "/admin/ingredients",
      "headers": {},
-     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"name\": \"Capture mul4recn\",\n  \"unit\": \"pièce\",\n  \"family\": \"pain\",\n  \"stock_capacity\": \"100\",\n  \"pack_size\": \"1\",\n  \"pack_label\": \"carton de 10\",\n  \"low_stock_pct\": \"10\",\n  \"critical_stock_pct\": \"5\"\n}"
+     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"name\": \"Capture mumo28vx\",\n  \"unit\": \"pièce\",\n  \"family\": \"pain\",\n  \"stock_capacity\": \"100\",\n  \"pack_size\": \"1\",\n  \"pack_label\": \"carton de 10\",\n  \"low_stock_pct\": \"10\",\n  \"critical_stock_pct\": \"5\"\n}"
     },
     "how": "formulaire du back-office rempli sur la pile de test"
    },
@@ -13041,7 +13007,7 @@
       "method": "POST",
       "path": "/admin/ingredients",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"name\": \"Capture mul4recn\",\n  \"unit\": \"pièce\",\n  \"family\": \"pain\",\n  \"stock_capacity\": \"100\",\n  \"pack_size\": \"1\",\n  \"pack_label\": \"carton de 10\",\n  \"low_stock_pct\": \"10\",\n  \"critical_stock_pct\": \"5\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"name\": \"Capture mumo28vx\",\n  \"unit\": \"pièce\",\n  \"family\": \"pain\",\n  \"stock_capacity\": \"100\",\n  \"pack_size\": \"1\",\n  \"pack_label\": \"carton de 10\",\n  \"low_stock_pct\": \"10\",\n  \"critical_stock_pct\": \"5\"\n}"
      },
      "how": "sans cookie de session"
     },
@@ -13057,7 +13023,7 @@
       "method": "POST",
       "path": "/admin/ingredients",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"name\": \"Capture mul4recn\",\n  \"unit\": \"pièce\",\n  \"family\": \"pain\",\n  \"stock_capacity\": \"100\",\n  \"pack_size\": \"1\",\n  \"pack_label\": \"carton de 10\",\n  \"low_stock_pct\": \"10\",\n  \"critical_stock_pct\": \"5\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"name\": \"Capture mumo28vx\",\n  \"unit\": \"pièce\",\n  \"family\": \"pain\",\n  \"stock_capacity\": \"100\",\n  \"pack_size\": \"1\",\n  \"pack_label\": \"carton de 10\",\n  \"low_stock_pct\": \"10\",\n  \"critical_stock_pct\": \"5\"\n}"
      },
      "how": "compte cuisine@wakdo.local, sans ingredient.manage"
     },
@@ -13073,7 +13039,7 @@
       "method": "POST",
       "path": "/admin/ingredients",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"\",\n  \"name\": \"Capture mul4recn\",\n  \"unit\": \"pièce\",\n  \"family\": \"pain\",\n  \"stock_capacity\": \"100\",\n  \"pack_size\": \"1\",\n  \"pack_label\": \"carton de 10\",\n  \"low_stock_pct\": \"10\",\n  \"critical_stock_pct\": \"5\"\n}"
+      "body": "{\n  \"_csrf\": \"\",\n  \"name\": \"Capture mumo28vx\",\n  \"unit\": \"pièce\",\n  \"family\": \"pain\",\n  \"stock_capacity\": \"100\",\n  \"pack_size\": \"1\",\n  \"pack_label\": \"carton de 10\",\n  \"low_stock_pct\": \"10\",\n  \"critical_stock_pct\": \"5\"\n}"
      },
      "how": "formulaire sans jeton"
     },
@@ -13105,7 +13071,7 @@
       "method": "POST",
       "path": "/admin/ingredients/inexistant",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"name\": \"Capture mul4recn\",\n  \"unit\": \"pièce\",\n  \"family\": \"pain\",\n  \"stock_capacity\": \"100\",\n  \"pack_size\": \"1\",\n  \"pack_label\": \"carton de 10\",\n  \"low_stock_pct\": \"10\",\n  \"critical_stock_pct\": \"5\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"name\": \"Capture mumo28vx\",\n  \"unit\": \"pièce\",\n  \"family\": \"pain\",\n  \"stock_capacity\": \"100\",\n  \"pack_size\": \"1\",\n  \"pack_label\": \"carton de 10\",\n  \"low_stock_pct\": \"10\",\n  \"critical_stock_pct\": \"5\"\n}"
      },
      "how": "chemin inconnu du routeur"
     }
@@ -13126,7 +13092,7 @@
      "method": "POST",
      "path": "/admin/ingredients/55",
      "headers": {},
-     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"name\": \"Ingredient Demo Plain mul4recning3\",\n  \"unit\": \"unite\",\n  \"family\": \"dosette\",\n  \"stock_capacity\": \"500\",\n  \"pack_size\": \"50\",\n  \"pack_label\": \"carton de 50\",\n  \"low_stock_pct\": \"20\",\n  \"critical_stock_pct\": \"5\"\n}"
+     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"name\": \"Ingredient Demo Plain mumo28vxing3\",\n  \"unit\": \"unite\",\n  \"family\": \"dosette\",\n  \"stock_capacity\": \"500\",\n  \"pack_size\": \"50\",\n  \"pack_label\": \"carton de 50\",\n  \"low_stock_pct\": \"20\",\n  \"critical_stock_pct\": \"5\"\n}"
     },
     "how": "formulaire du back-office rempli sur la pile de test"
    },
@@ -13145,7 +13111,7 @@
       "method": "POST",
       "path": "/admin/ingredients/55",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"name\": \"Ingredient Demo Plain mul4recning3\",\n  \"unit\": \"unite\",\n  \"family\": \"dosette\",\n  \"stock_capacity\": \"500\",\n  \"pack_size\": \"50\",\n  \"pack_label\": \"carton de 50\",\n  \"low_stock_pct\": \"20\",\n  \"critical_stock_pct\": \"5\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"name\": \"Ingredient Demo Plain mumo28vxing3\",\n  \"unit\": \"unite\",\n  \"family\": \"dosette\",\n  \"stock_capacity\": \"500\",\n  \"pack_size\": \"50\",\n  \"pack_label\": \"carton de 50\",\n  \"low_stock_pct\": \"20\",\n  \"critical_stock_pct\": \"5\"\n}"
      },
      "how": "sans cookie de session"
     },
@@ -13161,7 +13127,7 @@
       "method": "POST",
       "path": "/admin/ingredients/55",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"name\": \"Ingredient Demo Plain mul4recning3\",\n  \"unit\": \"unite\",\n  \"family\": \"dosette\",\n  \"stock_capacity\": \"500\",\n  \"pack_size\": \"50\",\n  \"pack_label\": \"carton de 50\",\n  \"low_stock_pct\": \"20\",\n  \"critical_stock_pct\": \"5\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"name\": \"Ingredient Demo Plain mumo28vxing3\",\n  \"unit\": \"unite\",\n  \"family\": \"dosette\",\n  \"stock_capacity\": \"500\",\n  \"pack_size\": \"50\",\n  \"pack_label\": \"carton de 50\",\n  \"low_stock_pct\": \"20\",\n  \"critical_stock_pct\": \"5\"\n}"
      },
      "how": "compte cuisine@wakdo.local, sans ingredient.manage"
     },
@@ -13177,7 +13143,7 @@
       "method": "POST",
       "path": "/admin/ingredients/55",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"\",\n  \"name\": \"Ingredient Demo Plain mul4recning3\",\n  \"unit\": \"unite\",\n  \"family\": \"dosette\",\n  \"stock_capacity\": \"500\",\n  \"pack_size\": \"50\",\n  \"pack_label\": \"carton de 50\",\n  \"low_stock_pct\": \"20\",\n  \"critical_stock_pct\": \"5\"\n}"
+      "body": "{\n  \"_csrf\": \"\",\n  \"name\": \"Ingredient Demo Plain mumo28vxing3\",\n  \"unit\": \"unite\",\n  \"family\": \"dosette\",\n  \"stock_capacity\": \"500\",\n  \"pack_size\": \"50\",\n  \"pack_label\": \"carton de 50\",\n  \"low_stock_pct\": \"20\",\n  \"critical_stock_pct\": \"5\"\n}"
      },
      "how": "formulaire sans jeton"
     },
@@ -13209,7 +13175,7 @@
       "method": "POST",
       "path": "/admin/ingredients/55/inexistant",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"name\": \"Ingredient Demo Plain mul4recning3\",\n  \"unit\": \"unite\",\n  \"family\": \"dosette\",\n  \"stock_capacity\": \"500\",\n  \"pack_size\": \"50\",\n  \"pack_label\": \"carton de 50\",\n  \"low_stock_pct\": \"20\",\n  \"critical_stock_pct\": \"5\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"name\": \"Ingredient Demo Plain mumo28vxing3\",\n  \"unit\": \"unite\",\n  \"family\": \"dosette\",\n  \"stock_capacity\": \"500\",\n  \"pack_size\": \"50\",\n  \"pack_label\": \"carton de 50\",\n  \"low_stock_pct\": \"20\",\n  \"critical_stock_pct\": \"5\"\n}"
      },
      "how": "chemin inconnu du routeur"
     },
@@ -13225,7 +13191,7 @@
       "method": "POST",
       "path": "/admin/ingredients/999999",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"name\": \"Ingredient Demo Plain mul4recning3\",\n  \"unit\": \"unite\",\n  \"family\": \"dosette\",\n  \"stock_capacity\": \"500\",\n  \"pack_size\": \"50\",\n  \"pack_label\": \"carton de 50\",\n  \"low_stock_pct\": \"20\",\n  \"critical_stock_pct\": \"5\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"name\": \"Ingredient Demo Plain mumo28vxing3\",\n  \"unit\": \"unite\",\n  \"family\": \"dosette\",\n  \"stock_capacity\": \"500\",\n  \"pack_size\": \"50\",\n  \"pack_label\": \"carton de 50\",\n  \"low_stock_pct\": \"20\",\n  \"critical_stock_pct\": \"5\"\n}"
      },
      "how": "identifiant inexistant"
     }
@@ -13428,7 +13394,7 @@
       "cache-control": "no-store, private",
       "content-type": "text/html; charset=utf-8"
      },
-     "body": "<!doctype html> … page HTML de 152244 caractères, extrait :\n<title>Stock - Wakdo Admin</title>\n<h1>Stock des ingrédients</h1>\nmessage : « La capacité (référence 100%) doit être un entier &gt;= 1. »\nbloc d'alerte : « La capacité (référence 100%) doit être un entier &gt;= 1. »",
+     "body": "<!doctype html> … page HTML de 152247 caractères, extrait :\n<title>Stock - Wakdo Admin</title>\n<h1>Stock des ingrédients</h1>\nmessage : « La capacité (référence 100%) doit être un entier &gt;= 1. »\nbloc d'alerte : « La capacité (référence 100%) doit être un entier &gt;= 1. »",
      "request": {
       "method": "POST",
       "path": "/admin/ingredients/55/thresholds",
@@ -13830,7 +13796,7 @@
      "method": "POST",
      "path": "/admin/ingredients/55/allergens",
      "headers": {},
-     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"source\": \"Capture mul4recn\"\n}"
+     "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"source\": \"Capture mumo28vx\"\n}"
     },
     "how": "formulaire du back-office rempli sur la pile de test"
    },
@@ -13849,7 +13815,7 @@
       "method": "POST",
       "path": "/admin/ingredients/55/allergens",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"source\": \"Capture mul4recn\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"source\": \"Capture mumo28vx\"\n}"
      },
      "how": "sans cookie de session"
     },
@@ -13865,7 +13831,7 @@
       "method": "POST",
       "path": "/admin/ingredients/55/allergens",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"source\": \"Capture mul4recn\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"source\": \"Capture mumo28vx\"\n}"
      },
      "how": "compte cuisine@wakdo.local, sans ingredient.manage"
     },
@@ -13881,7 +13847,7 @@
       "method": "POST",
       "path": "/admin/ingredients/55/allergens",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"\",\n  \"source\": \"Capture mul4recn\"\n}"
+      "body": "{\n  \"_csrf\": \"\",\n  \"source\": \"Capture mumo28vx\"\n}"
      },
      "how": "formulaire sans jeton"
     },
@@ -13913,7 +13879,7 @@
       "method": "POST",
       "path": "/admin/ingredients/55/allergens/inexistant",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"source\": \"Capture mul4recn\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"source\": \"Capture mumo28vx\"\n}"
      },
      "how": "chemin inconnu du routeur"
     },
@@ -13929,7 +13895,7 @@
       "method": "POST",
       "path": "/admin/ingredients/999999/allergens",
       "headers": {},
-      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"source\": \"Capture mul4recn\"\n}"
+      "body": "{\n  \"_csrf\": \"<masqué>\",\n  \"source\": \"Capture mumo28vx\"\n}"
      },
      "how": "identifiant inexistant"
     }
@@ -15020,7 +14986,6 @@
    "status": 500,
    "type": "application/json",
    "headers": {
-    "cache-control": "no-store, no-cache, must-revalidate",
     "content-type": "application/json; charset=utf-8"
    },
    "body": "{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"INTERNAL_ERROR\",\n    \"message\": \"Internal server error\"\n  }\n}",

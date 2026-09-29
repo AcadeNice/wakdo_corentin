@@ -13,5 +13,5 @@ Preuve directe : la meme requete qui renvoyait 200 juste avant renvoie desormais
 }
 
 tests {
-  expect(res.getStatus()).to.equal(401);
+  test('401 AUTH_REQUIRED apres deconnexion', function () { expect(res.getStatus()).to.equal(401); });
 }

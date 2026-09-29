@@ -16,3 +16,7 @@ headers {
 docs {
 order.read, pas de PIN. Meme garde de visibilite de source (PRE-3) que le HTML.
 }
+
+tests {
+  test('200 OK', function () { expect(res.getStatus()).to.equal(200); });
+}

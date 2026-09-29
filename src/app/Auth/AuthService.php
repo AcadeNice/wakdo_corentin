@@ -141,11 +141,20 @@ final class AuthService
         $this->recordSuccess($userId, $roleId, $ip, $now, $rehashedPassword);
 
         // RG-4 : identite + horodatages pour les bornes idle/absolue (RG-6),
-        // puis rotation du jeton CSRF anterieur a l'authentification.
+        // puis rotation du jeton CSRF anterieur a l'authentification. role_id
+        // n'est plus qu'une preuve de presence pour SessionGuard::check() (qui
+        // relit desormais le role COURANT en base a chaque requete) ; posee ici
+        // avec la valeur de connexion par coherence, sans consequence si le role
+        // change ensuite. session_epoch (RG-T02) est la valeur lue EN BASE a CET
+        // instant : SessionGuard::check() la comparera a la valeur courante en
+        // base a chaque requete, et une reinitialisation de mot de passe
+        // (PasswordResetService::confirmReset()) l'incremente -- ce qui invalide
+        // immediatement cette session si le mot de passe change ensuite.
         $this->session->set('user_id', $userId);
         $this->session->set('role_id', $roleId);
         $this->session->set('logged_in_at', $now);
         $this->session->set('last_activity', $now);
+        $this->session->set('session_epoch', (int) ($user['session_epoch'] ?? 0));
         Csrf::rotate($this->session);
 
         $routeRaw = $user['default_route'] ?? null;
@@ -172,7 +181,8 @@ final class AuthService
     private function findActiveUserByEmail(string $email): ?array
     {
         return $this->db->fetch(
-            'SELECT u.id, u.password_hash, u.role_id, u.failed_login_attempts, u.lockout_until, r.default_route '
+            'SELECT u.id, u.password_hash, u.role_id, u.failed_login_attempts, u.lockout_until, '
+            . 'u.session_epoch, r.default_route '
             . 'FROM user u JOIN role r ON r.id = u.role_id '
             . 'WHERE u.email = :email AND u.is_active = 1 LIMIT 1',
             ['email' => $email],

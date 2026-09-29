@@ -18,5 +18,5 @@ Le comptoir n'a que product.read sur le catalogue. 403 FORBIDDEN attendu (verifi
 }
 
 tests {
-  expect(res.getStatus()).to.equal(403);
+  test('403 FORBIDDEN (product.delete absent)', function () { expect(res.getStatus()).to.equal(403); });
 }

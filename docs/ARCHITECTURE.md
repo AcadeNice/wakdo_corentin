@@ -1,6 +1,23 @@
 # Architecture — Wakdo
 
-**Version** : v0.3 (2026-09-24) — mise en coherence avec le code livre (2a09597) : le subnet explicite de `wakdo_internal` en production est decrit comme un reglage du fichier propre a l'hote (le modele versionne n'en declare pas) ; les tests de bout en bout Playwright, qui existent et se lancent a la main, ne sont plus presentes comme a venir.
+**Version** : v0.6 (2026-09-29 apres-midi) — revue adversariale des correctifs du matin
+(`680820f`) : `password_reset_throttle` purgee par le cron et adresse stockee en empreinte
+SHA-256 (migration `0021`), changement de mot de passe par l'admin qui ferme les sessions du
+compte ; modification de menu par appariement (type, nom) avec verrou (`e9f00d8`). Tout le
+29/09 est dans le code de la branche `docs/contre-audit`, en production apres la release du
+29/09. Version v0.5 (2026-09-29) — deux correctifs de securite : en-tetes HTTP durcis,
+`TraceEnable Off`, sonde `/api/health` sans version PHP (commit `08d7a96`) ; garde de
+session relisant `role_id`/`session_epoch` en base a chaque requete, `SessionRoutePolicy`
+(aucune session sur `/api/*`), throttle de reinitialisation de mot de passe (commit
+`ef7fd37`) ; 24 tables (section 8). Version v0.4 (2026-09-29) — recalage sur un contre-audit : le modele versionne
+`docker-compose.prod.yml.example` declare bien un subnet explicite pour
+`wakdo_internal` (la v0.3 affirmait a tort le contraire) ; `/api/*` est repositionne
+comme public/sans CSRF face a `/admin/api/*` qui est le prefixe authentifie ; la borne
+consomme l'API en meme origine via le proxy du vhost kiosk, pas via CORS ; la liste des
+controleurs et des actions PIN est recalee sur `RouteSecurity.php`. Version v0.3
+(2026-09-24, 2a09597) conservee pour memoire : le subnet etait alors decrit comme un
+reglage propre a l'hote ; les tests Playwright, qui existent et se lancent a la main,
+n'etaient plus presentes comme a venir.
 
 Vue d'ensemble technique du projet (borne de commande fast-food, certification RNCP 37805).
 Point d'entree pour comprendre la stack, le decoupage et les choix de conception.
@@ -19,10 +36,12 @@ Wakdo simule une borne de commande tactile de restauration rapide, avec back-off
 d'administration, workflow cuisine et API REST interne. Deux surfaces applicatives :
 
 - **Borne (kiosk)** — front statique (HTML/CSS/JS vanilla ES6) servi par Apache,
-  consommant l'API REST DB-backed (`/api/*`). Le repli JSON statique initial a ete
-  retire au profit d'un branchement direct sur l'API.
-- **Back-office + API** — application PHP rendue serveur (MVC maison) + endpoints
-  `/api/*`, derriere authentification et RBAC.
+  consommant l'API REST DB-backed `/api/*` (catalogue + commande), PUBLIQUE et sans
+  CSRF. Le repli JSON statique initial a ete retire au profit d'un branchement direct
+  sur l'API.
+- **Back-office + API** — application PHP rendue serveur (MVC maison) + une seconde
+  API JSON sous `/admin/api/*` (distincte de `/api/*`, section 3 de
+  `docs/api/conventions.md`), celle-ci derriere authentification, RBAC et CSRF.
 
 Trois canaux de commande (`source`) : `kiosk`, `counter`, `drive`. Le cycle de vie
 d'une commande et la machine a etats sont decrits dans `docs/merise/`. Le domaine
@@ -96,10 +115,9 @@ Cinq services Docker. Deux modes, par fichier compose :
   `docs/adr/0014-expiration-commandes-pending.md`). Les purges de retention, elles,
   restent en bash : tables techniques, aucun etat metier, aucune trace a ecrire.
 - **Subnet de `wakdo_internal` en production** : l'hote mutualise a un allocateur Docker
-  sature, et le fichier `docker-compose.prod.yml` propre a l'hote peut fixer un subnet
-  RFC 1918 explicite pour eviter l'echec d'allocation automatique. Le modele versionne
-  `docker-compose.prod.yml.example` n'en declare pas ; ce reglage n'est donc pas verifiable
-  depuis le depot.
+  sature ; le modele versionne `docker-compose.prod.yml.example` fixe donc un subnet
+  RFC 1918 explicite (`192.168.148.0/24`) pour eviter l'echec d'allocation automatique,
+  a ajuster si ce bloc entre en collision avec un autre reseau de l'hote.
 
 Detail reseaux/volumes : `docs/PROJECT_CONTEXT.md` section 5.
 
@@ -141,8 +159,9 @@ src/app/
                  Cors, Asset, ErrorResponse/ErrorDisplay, Money, NumericInput
   Auth/          AuthService, SessionManager, SessionGuard, Authorizer, PinVerifier,
                  PinGate, PinThrottle, ThrottlePolicy, PasswordHasher, Csrf,
-                 PasswordResetService, UserRepository, RoleRepository, UserDirectory,
-                 Mailer/LogMailer/SmtpMailer
+                 PasswordResetService, PasswordResetThrottle, SessionRoutePolicy,
+                 AuthResult, GuardResult, UserRepository, RoleRepository, UserDirectory,
+                 Mailer/LogMailer/SmtpMailer, SmtpClient/SmtpTransport/StreamSmtpTransport
   Catalogue/     Category / Product / Menu / Ingredient / Allergen / Stats /
                  CategoryIngredientFamily Repository, OpenFoodFactsGateway,
                  ProductImportService
@@ -152,7 +171,8 @@ src/app/
                  (page Sante /admin/health)
   Controllers/   Admin (base), Authenticated (base), Auth, PasswordReset, Profile, Me,
                  Dashboard, Stats, Category, Product, Menu, Ingredient, User, Role,
-                 Health, HealthPage, Home, Order (Admin), CounterOrder, Kitchen, Privacy
+                 Health, HealthPage, Home, Catalogue, Order, Order (Admin), CounterOrder,
+                 Kitchen, Privacy
     Admin/Api/   10 controleurs JSON : Auth, Category, Health, Ingredient, Menu, Order,
                  Product, Role, Stats, User (+ JsonApiTrait partage)
   Views/         admin/*  (pages back-office rendues serveur), auth/*  (login/reset)
@@ -162,9 +182,15 @@ src/public/
                  confirmation ; panier en panneau persistant) + assets JS modules
 ```
 
-Conventions transverses : controleurs non-`final` (seam de test : sous-classe injectant
-des doubles via `db()` / `sessionManager()`) ; repository sur `DatabaseInterface` ;
-chaque mutation passe par CSRF + validation serveur + allowlist (voir section 7).
+Conventions transverses : les controleurs sont non-`final` (seam de test : sous-classe
+injectant des doubles via `db()` / `sessionManager()`), sauf `HomeController` qui est
+`final` (aucune sous-classe de test necessaire). La plupart heritent de
+`AdminController` (back-office) ou `AuthenticatedController` ; six controleurs
+(`AuthController`, `CatalogueController`, `HealthController`, `HomeController`,
+`OrderController`, `PasswordResetController`) etendent `Controller` directement, ce
+sont les surfaces publiques ou pre-authentification. Repository sur
+`DatabaseInterface` ; chaque mutation passe par CSRF + validation serveur + allowlist
+(voir section 7).
 
 ---
 
@@ -187,11 +213,17 @@ Controller (extends AdminController)
 Repository -> PDO (prepared) -> MariaDB
    |
    v
-Vue rendue dans admin/layout (sorties echappees, RG-T15) | ou JSON pour /api/*
+Vue rendue dans admin/layout (sorties echappees, RG-T15) | ou JSON pour /admin/api/*
 ```
 
 La borne (kiosk) est servie en statique par Apache ; ses pages consomment les donnees
-via `fetch` sur l'API DB-backed (`/api/*`).
+via `fetch` sur l'API publique DB-backed (`/api/*`, sans session ni CSRF). Ce flux ne
+passe PAS par le schema ci-dessus (pas de `guard()`/CSRF/PIN) : le vhost kiosk relaie
+`/api/*` en meme origine directement au front controller admin (`ProxyPassMatch`,
+`docker/apache/vhost.conf`), donc sans requete cross-origine ni dependance a CORS ; le
+middleware `App\Core\Cors` reste en place comme defense en profondeur pour un
+consommateur cross-origine eventuel, mais n'est pas sur le chemin de la borne (voir
+`docs/api/conventions.md` section 10).
 
 ---
 
@@ -201,20 +233,49 @@ Couche transverse, regles `RG-T*` definies dans `docs/merise/mlt.md`. Synthese :
 
 - **Authentification** : mot de passe hache **argon2id** (cout configurable, defauts
   OWASP) ; sessions PHP avec regeneration d'ID au login, idle 4h + absolu 10h ; cookie
-  nomme `WAKDO_SID`.
+  nomme `WAKDO_SID`. Une session n'est ouverte que pour les routes qui en ont besoin
+  (`SessionRoutePolicy`, corrige le 2026-09-29, commit `ef7fd37`) : l'API kiosk publique
+  sous `/api/*` (y compris `/api/health`) n'ouvre aucune session ni cookie — avant cette
+  date, une session etait demarree pour toute requete sans condition.
 - **RBAC** : `Authorizer::can(role_id, permission_code)` teste une **permission** (pas
-  un nom de role), rechargee depuis la base a chaque verification. 5 roles seedes, 23
+  un nom de role), rechargee depuis la base a chaque verification. Le `role_id` fourni en
+  entree l'est aussi : `SessionGuard::check()` le relit en base (avec `is_active` et
+  `session_epoch`) dans la MEME requete SQL, a chaque requete authentifiee (RG-T02,
+  corrige le 2026-09-29, commit `ef7fd37`) — avant cette date, seule `is_active` etait
+  ainsi revalidee, `role_id` restant celui pose en session a la connexion jusqu'a une
+  reconnexion. `session_epoch` (migration `0020_session_invalidation.sql`) ferme en plus
+  toute session ouverte avant une reinitialisation de mot de passe, ou avant un changement
+  de mot de passe fait par un administrateur (`680820f`). 5 roles seedes, 23
   permissions figees, matrice `role_permission` editable (back-office, voir domaine 10).
-- **PIN d'action sensible (RG-T13)** : les operations sensibles (annulation, prix/TVA,
-  suppressions, inventaire, gestion utilisateur, RBAC, effacement PII) exigent une
-  re-autorisation par PIN equipier (argon2id). L'`acting_user_id` resolu par le PIN est
-  ecrit dans `audit_log` (RG-T14) dans la **meme transaction** que l'effet (RG-T08). Les
+- **PIN d'action sensible (RG-T13)** : certaines operations exigent une
+  re-autorisation par PIN equipier (argon2id) -- source unique : `App\Health\RouteSecurity`.
+  Sont PIN-gated : annulation de commande, creation/modification/desactivation d'un
+  utilisateur, reinitialisation de PIN, effacement PII, gestion RBAC (creation/modification
+  de role), suppression de produit, changement de prix d'un produit, suppression de menu,
+  import CSV de produits quand il change un prix (`POST /admin/api/products/import`, champ
+  `price`), ajustement de stock et comptage d'inventaire. Des actions voisines ne le sont
+  volontairement PAS : suppression
+  d'un ingredient, reappro de stock (`stock.manage`) ; le back-office HTML n'offre d'ailleurs
+  aucune suppression de categorie (seul un `DELETE` existe cote JSON,
+  `/admin/api/categories/{id}`, lui non plus sans PIN). L'`acting_user_id` resolu par le PIN
+  est ecrit dans `audit_log` (RG-T14) dans la **meme transaction** que l'effet (RG-T08). Les
   operations de stock tracent via `stock_movement.user_id` (pas de double-journal).
 - **Throttling** (backoff degressif, pas de verrou definitif) :
   - login par compte (`user.failed_login_attempts` / `lockout_until`) + par IP
     (`login_throttle`, RG-8/9) ;
   - PIN d'action sensible (`pin_throttle`, RG-T22) — compteur **separe** du login, par
-    utilisateur agissant.
+    utilisateur agissant ;
+  - demande de reinitialisation de mot de passe (`password_reset_throttle`), par adresse
+    ET par IP source, ajoutee le 2026-09-29 (commit `ef7fd37`) — avant cette date, aucune
+    limite n'existait sur `POST /forgot_password`. L'adresse y est stockee en empreinte
+    SHA-256 (migration `0021`, `680820f`) et la table est purgee par
+    `docker/cron/scripts/purge-throttle.sh` comme les deux autres.
+- **En-tetes HTTP** (`docker/apache/httpd.conf`/`vhost.conf`, durcis dans le code le
+  2026-09-29, commit `08d7a96`, en production apres la release du 29/09) : `Permissions-Policy` (toutes les fonctionnalites capteur/media/paiement
+  coupees), `TraceEnable Off` (methode `TRACE` refusee sur les deux hotes), CSP du
+  back-office completee de `base-uri 'self'` et `form-action 'self'` (ne retombent pas sur
+  `default-src` en CSP niveau 3), et la sonde publique `/api/health` sans version PHP
+  (`App\Controllers\HealthController`, 6 cles ; `/admin/health` authentifiee la garde).
 - **Entrees / sorties** : validation serveur bornee (RG-T18) ; allowlist d'affectation
   de masse (RG-T16, empeche d'injecter `role_id`/`price_cents`/`is_active`...) ; toutes
   les sorties HTML echappees (RG-T15) ; front borne CSP-safe (pas de script inline cote
@@ -236,17 +297,20 @@ Threat model STRIDE + classification des donnees : `docs/PROJECT_CONTEXT.md` sec
 
 ## 8. Modele de donnees
 
-23 tables (DDL `db/migrations/`), regroupees par domaine :
+24 tables (DDL `db/migrations/`), regroupees par domaine :
 
 - **Catalogue** : `category`, `product`, `menu`, `menu_slot`, `menu_slot_option`,
   `ingredient`, `product_ingredient`, `allergen`, `ingredient_allergen`, `stock_movement`,
   `category_ingredient_family` (parametrage du constructeur de recette, migration
   `0017_ingredient_family.sql`).
-- **RBAC / comptes** : `user`, `role`, `permission`, `role_permission`,
+- **RBAC / comptes** : `user` (dont `session_epoch`, migration
+  `0020_session_invalidation.sql`, 2026-09-29), `role`, `permission`, `role_permission`,
   `role_visible_source`.
 - **Commande (livre)** : `customer_order`, `order_item`,
   `order_item_selection`, `order_item_modifier`.
-- **Transverses** : `audit_log` (journal immuable), `login_throttle`, `pin_throttle`.
+- **Transverses** : `audit_log` (journal immuable), `login_throttle`, `pin_throttle`,
+  `password_reset_throttle` (par adresse et par IP, migration `0020` ; adresse en empreinte
+  SHA-256 depuis la migration `0021`).
 
 Quelques derivations **calculees, non stockees** :
 
@@ -256,8 +320,13 @@ Quelques derivations **calculees, non stockees** :
 - **Disponibilite produit (RG-T21)** : un produit est commandable si `is_available = 1`
   ET chaque ingredient non retirable de sa composition est au-dessus de la bande
   critique. Pas de cascade ni de colonne stockee.
-- **`service_day`** : journee de service (coupure a 10:00) pour les agregations stats,
-  expression SQL non materialisee.
+- **`service_day`** : concept metier de journee de service (coupure a 10:00), documente
+  en `docs/PROJECT_CONTEXT.md` section 2 -- **non implemente** : aucune colonne ni vue SQL
+  `service_day` n'existe dans le code livre (`grep service_day src/app` ne trouve qu'un
+  commentaire expliquant que ce compteur n'a pas ete retenu pour la numerotation des
+  commandes). Les stats livrees (`OrderQueryRepository::salesKpis()`,
+  `salesByDay()`) utilisent le jour CALENDAIRE (`CURDATE()` / `DATE(created_at)`), pas la
+  fenetre 10h-01h. Aucune requete de type "top produits" n'existe non plus.
 
 MCD / MLD / dictionnaire : `docs/merise/`.
 
@@ -267,8 +336,14 @@ MCD / MLD / dictionnaire : `docs/merise/`.
 
 - **PHPUnit** (`.phar`, sans Composer) : tests *unit* (controleurs via double
   `FakeDatabase`, logique pure) + *integration* contre une vraie MariaDB (auto-skip si
-  `WAKDO_DB_TESTS != 1`). Lancement :
+  `WAKDO_DB_TESTS != 1`). Lancement minimal (unitaire seul, l'integration s'auto-skip
+  sans reseau ni variable) :
   `docker run --rm -v "$PWD":/app -w /app wakdo-wakdo-app php phpunit.phar -c phpunit.xml`.
+  Commande complete (unitaire + integration sur la vraie base) :
+  `docker run --rm --network wakdo_wakdo_internal --env-file .env -e WAKDO_DB_TESTS=1
+  -v "$PWD":/app -w /app wakdo-wakdo-app php phpunit.phar -c phpunit.xml` (voir
+  `docs/TESTING.md` section 2 ; attention aux commentaires en fin de ligne dans `.env`
+  avec `--env-file`, voir cette meme section).
 - **Front borne** : `node --test` + jsdom (`tests/js/`).
 - **PHPStan niveau 6** (`.phar`).
 - **CI Forgejo Actions** (`.forgejo/workflows/ci.yml`, cinq travaux) : `secret-scan`

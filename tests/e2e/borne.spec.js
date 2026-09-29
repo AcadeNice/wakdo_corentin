@@ -72,3 +72,28 @@ test('parcours borne : de l\'accueil a la confirmation de commande', async ({ pa
     expect(Math.abs(logoCenterX - viewport.width / 2)).toBeLessThan(5);
   });
 });
+
+// Contre-audit (point ajoute par le coordinateur) : la borne acceptait jusqu'a 99
+// par produit (product-options.js QTY_MAX), alors que le serveur refuse au-dela de
+// 20 par ligne (OrderRepository::MAX_QUANTITY_PER_LINE, INVALID_QUANTITY). Verifie
+// dans le vrai navigateur que le stepper de la modale d'options est desormais
+// plafonne a 20, et que le panneau de commande refletant la ligne montre la meme
+// borne (pas de valeur superieure a 20 qui se ferait refuser 422 au paiement).
+test('borne : le stepper de quantite est plafonne a 20 (contre-audit)', async ({ page }) => {
+  await page.goto('/products.html?category=2&mode=a-emporter'); // 2 = boissons, produits simples
+
+  const firstCard = page.locator('#products-grid a.product-card:not(.product-card--unavailable)').first();
+  await expect(firstCard).toBeVisible();
+  await firstCard.click();
+  await expect(page.locator('.composer-overlay [role="dialog"]')).toBeVisible();
+
+  const plus = page.locator('.qty-btn--plus');
+  for (let i = 0; i < 30; i += 1) {
+    await plus.click();
+  }
+  await expect(page.locator('#po-qty')).toHaveText('20');
+
+  await page.locator('#po-add').click();
+  const panel = page.locator('[data-order-panel]');
+  await expect(panel.locator('.order-panel__qty-value')).toHaveText('20');
+});

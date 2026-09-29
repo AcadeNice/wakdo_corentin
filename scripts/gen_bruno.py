@@ -7,8 +7,10 @@ Script LIVRE (comme gen_postman.py) : c'est la SOURCE DE VERITE des fichiers
 reutilise ici par import) pour changer un contrat, jamais les .bru directement
 a la main.
 
-Pourquoi importer gen_postman plutot que redefinir les ~55 requetes une
-deuxieme fois : un seul point d'entretien pour methode/chemin/corps/description
+Pourquoi importer gen_postman plutot que redefinir les 91 requetes une
+deuxieme fois (nombre reel au 29/09 -- comptees requete par requete dans
+`gen_postman.items`, pas l'estimation "~55" d'une version anterieure a moins de
+dossiers, contre-audit constat 9) : un seul point d'entretien pour methode/chemin/corps/description
 (la partie identique entre les deux outils) ; seuls les scripts de test (API
 JS differente entre Postman et Bruno, cf. plus bas) sont RETRADUITS ici, pas
 copies. Cout assume (comme documente dans ADR-0017 pour d'autres duplications
@@ -52,8 +54,19 @@ import gen_postman  # noqa: E402  -- reutilise sa liste `items` (source unique d
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT_DIR = os.path.join(ROOT, "docs", "api", "bruno")
 
-STATUS_RE = re.compile(r"to\.have\.status\((\d+)\)")
 CAPTURE_RE = re.compile(r"pm\.environment\.set\('([a-zA-Z0-9_]+)',\s*\w+\.data\.(id|csrf_token|order_number)\)")
+# Motif EXACT ecrit par expect_status()/created_test()/LOGIN_TEST/rbac_login_test
+# dans gen_postman.py : f"pm.test('{label}', function () {{ pm.response.to.have.
+# status({status}); }});" -- capture (label, status) pour reecrire une assertion
+# NOMMEE cote Bruno (test('label', function () {...}), pas un expect() nu.
+# Contre-audit du 29/09 (constat 5) : un expect() nu, hors de tout test(), ne
+# compte PAS comme un test individuel dans le rapport `bru run` (rien n'y
+# apparait comme reussite/echec nomme -- seule une erreur non rattrapee fait
+# echouer l'execution globale du fichier), alors que test('label', fn) est
+# compte et nomme, exactement comme pm.test(...) cote Postman.
+TEST_RE = re.compile(
+    r"pm\.test\('([^']*)',\s*function\s*\(\)\s*\{\s*pm\.response\.to\.have\.status\((\d+)\)\s*;\s*\}\s*\);"
+)
 
 
 def safe_name(name):
@@ -87,7 +100,7 @@ def translate_tests(name, event):
     js = "\n".join(event[0]["script"]["exec"])
 
     captures = CAPTURE_RE.findall(js)
-    statuses = list(dict.fromkeys(int(m) for m in STATUS_RE.findall(js)))
+    named_tests = list(dict.fromkeys(TEST_RE.findall(js)))
 
     script_lines = []
     if captures:
@@ -97,7 +110,10 @@ def translate_tests(name, event):
                 f"if (body && body.data && body.data.{field}) {{ bru.setEnvVar('{varname}', body.data.{field}); }}"
             )
 
-    test_lines = [f"expect(res.getStatus()).to.equal({status});" for status in statuses]
+    test_lines = [
+        f"test('{label}', function () {{ expect(res.getStatus()).to.equal({status}); }});"
+        for label, status in named_tests
+    ]
 
     return script_lines, test_lines
 
@@ -203,44 +219,34 @@ def write_bruno_json():
 
 
 def write_environment():
-    # Memes cles que docs/api/wakdo.postman_environment.json (meme demo, deux
-    # outils) : vars{} porte TOUTES les cles (valeur vide pour les secrets, cf.
-    # docs.usebruno.com/variables/environment-variables -- "the BRU format uses
-    # a vars:secret block" pour la liste des noms a masquer), vars:secret[]
-    # liste celles a masquer a l'affichage.
-    plain = [
-        ("baseUrl", "http://localhost:8080"),
-        ("email", ""),
-        ("pin_email", "{{email}}"),
-        ("categoryId", ""),
-        ("productId", ""),
-        ("menuId", ""),
-        ("ingredientId", ""),
-        ("userId", ""),
-        ("roleId", ""),
-        ("orderNumber", ""),
-        ("email_manager", ""),
-        ("email_cuisine", ""),
-        ("email_comptoir", ""),
-        ("email_drive", ""),
-    ]
-    secrets = [
-        "password", "csrf", "pin",
-        "password_manager", "csrf_manager",
-        "password_cuisine", "csrf_cuisine",
-        "password_comptoir", "csrf_comptoir",
-        "password_drive", "csrf_drive",
-    ]
+    # SOURCE UNIQUE : gen_postman.ENV_VARS (voir son commentaire dans
+    # scripts/gen_postman.py). Avant ce chantier, ce fichier maintenait sa PROPRE
+    # liste plain/secrets, dupliquee de docs/api/wakdo.postman_environment.json --
+    # c'est cette duplication qui a laisse baseUrl diverger ("http://localhost:8080"
+    # ici, corrige a la main en "http://admin.localhost:8080" seulement cote fichier
+    # commis) sans qu'aucune regeneration ne le releve (contre-audit du 29/09,
+    # constat 2). categoryId/productId/menuId/ingredientId/userId/roleId/orderNumber
+    # (variables mortes, constat 4) ont disparu avec cette meme liste.
+    #
+    # Format Bruno officiel des variables secretes (constat 3, docs.usebruno.com/
+    # variables/environment-variables) : une cle secrete va UNIQUEMENT dans
+    # vars:secret[] (sa valeur se fournit a l'usage par --env-var, jamais committee)
+    # -- PAS aussi dans vars{} avec une valeur vide, doublon que la version
+    # anterieure de ce fichier committait pour les 11 cles secretes.
+    plain_lines = []
+    secret_keys = []
+    for key, default, secret in gen_postman.ENV_VARS:
+        if secret:
+            secret_keys.append(key)
+        else:
+            plain_lines.append(f"  {key}: {default}")
 
     lines = ["vars {"]
-    for key, value in plain:
-        lines.append(f"  {key}: {value}")
-    for key in secrets:
-        lines.append(f"  {key}: ")
+    lines.extend(plain_lines)
     lines.append("}")
     lines.append("")
     lines.append("vars:secret [")
-    for key in secrets:
+    for key in secret_keys:
         lines.append(f"  {key},")
     lines.append("]")
     lines.append("")

@@ -167,9 +167,17 @@ class CounterOrderController extends AdminController
         // dans items_json. Quand il est present, il fait foi ; les quantites legacy
         // qty_<id> ne servent qu'au repli sans JS (degradation gracieuse).
         $itemsJson = (string) ($form['items_json'] ?? '');
-        $items = trim($itemsJson) !== ''
-            ? $this->decodeItems($itemsJson)
-            : $this->legacyQuantities($form);
+        try {
+            $items = trim($itemsJson) !== ''
+                ? $this->decodeItems($itemsJson)
+                : $this->legacyQuantities($form);
+        } catch (OrderValidationException $exception) {
+            // Contre-audit (constat 2) : une quantite hors forme (0, -5, "abc", 1.7)
+            // n'est plus corrigee en silence a 1 (voir resolveQuantity()) -- l'equipier
+            // recoit desormais le MEME refus que le serveur (OrderRepository::
+            // resolveQuantity), avant meme d'atteindre createStaffOrder.
+            return $this->renderForm($guard, $source, $form, $this->messageFor($exception->getMessage()), 422);
+        }
 
         if ($items === []) {
             return $this->renderForm($guard, $source, $form, 'Ajoutez au moins un produit ou un menu.', 422);
@@ -216,6 +224,8 @@ class CounterOrderController extends AdminController
      *  - modifier: {ingredient_id:int>0, action:'add'|'remove'}
      *
      * @return list<array<string, mixed>>
+     * @throws OrderValidationException INVALID_QUANTITY (contre-audit, constat 2 :
+     *         une quantite hors forme n'est plus corrigee en silence, voir resolveQuantity())
      */
     protected function decodeItems(string $json): array
     {
@@ -231,7 +241,7 @@ class CounterOrderController extends AdminController
                 continue;
             }
             $type = (string) ($raw['type'] ?? '');
-            $quantity = $this->positiveInt($raw['quantity'] ?? null, 1);
+            $quantity = $this->resolveQuantity($raw['quantity'] ?? null);
             $modifiers = $this->normaliseModifiers($raw['modifiers'] ?? null);
 
             if ($type === 'product') {
@@ -317,12 +327,51 @@ class CounterOrderController extends AdminController
 
     /**
      * Entier positif tolerant (le JSON decode peut livrer int|string|float|null).
+     * Reserve aux IDENTIFIANTS (menu_slot_id, product_id, ingredient_id) : une forme
+     * invalide y retombe legitimement sur 0 (rejete plus loin par >0), jamais sur une
+     * QUANTITE -- resolveQuantity() ci-dessous porte cette regle distincte.
      */
     private function positiveInt(mixed $value, int $minimum): int
     {
         $int = is_numeric($value) ? (int) $value : 0;
 
         return $int >= $minimum ? max($int, $minimum) : $minimum;
+    }
+
+    /**
+     * Quantite d'article strictement validee, MEME regle que le serveur
+     * (OrderRepository::resolveQuantity, source unique : entier EXACT entre 1 et 20).
+     *
+     * Contre-audit (constat 2, mineur) : avant ce correctif, decodeItems() lisait la
+     * quantite via positiveInt(), qui ramene en silence toute valeur HORS BORNES (0,
+     * -5, "abc", 1.7 -> 1) a son minimum -- une saisie corrompue ou une manipulation
+     * cote client encaissait alors une quantite que l'equipier n'avait pas choisie,
+     * sans aucun signal. Desormais toute forme invalide leve la MEME exception que le
+     * serveur, attrapee par store() et rendue en 422 avec le MEME message que la borne
+     * ("entre 1 et 20") plutot que d'etre corrigee sans bruit.
+     *
+     * Absent (pas de champ quantity du tout) reste 1 (un article sans quantite
+     * explicite), meme convention que resolveQuantity().
+     *
+     * @throws OrderValidationException INVALID_QUANTITY
+     */
+    private function resolveQuantity(mixed $raw): int
+    {
+        if ($raw === null) {
+            return 1;
+        }
+        $isWholeNumber = is_int($raw)
+            || (is_string($raw) && $raw !== '' && $raw !== '-' && ctype_digit(ltrim($raw, '-')))
+            || (is_float($raw) && floor($raw) === $raw);
+        if (!$isWholeNumber) {
+            throw new OrderValidationException('INVALID_QUANTITY');
+        }
+        $quantity = (int) $raw;
+        if ($quantity < 1 || $quantity > 20) {
+            throw new OrderValidationException('INVALID_QUANTITY');
+        }
+
+        return $quantity;
     }
 
     /**
@@ -487,7 +536,7 @@ class CounterOrderController extends AdminController
         $menus = $menuRepository->availableForCatalogue();
 
         return array_map(function (array $menu) use ($menuRepository, $productRepository, $unavailable): array {
-            $menu['slots'] = $menuRepository->slotsWithOptions((int) ($menu['id'] ?? 0));
+            $menu['slots'] = $this->slotsWithAvailability($menuRepository->slotsWithOptions((int) ($menu['id'] ?? 0)), $productRepository, $unavailable);
             $menu['burger_modifiers'] = $this->proposableModifiers($productRepository, (int) ($menu['burger_product_id'] ?? 0));
             // RG-T21 (granularite burger impose seul, parite borne) : un menu dont le
             // burger principal est en rupture calculee n'est plus commandable -> grise.
@@ -495,6 +544,66 @@ class CounterOrderController extends AdminController
 
             return $menu;
         }, $menus);
+    }
+
+    /**
+     * Ajoute a chaque slot la disponibilite de CHAQUE option (defaut #4, RG-T21) :
+     * MEME regle et memes noms de champ que CatalogueController::presentSlots (borne)
+     * -- option_is_orderable (is_available ET rupture calculee) et option_names (le
+     * nom d'une option meme si elle a disparu de la liste produits commandables, ex.
+     * retrait manuel is_available=0). Sans ces deux champs, counter-order.js ne
+     * pouvait ni griser une option en rupture (elle apparaissait comme n'importe
+     * quelle autre, $products n'embarquant is_orderable qu'au niveau PRODUIT, jamais
+     * par option de slot) ni afficher son nom si elle etait retiree du catalogue
+     * commandable (donc absente de productById). Page authentifiee, catalogue de
+     * taille modeste : le cout d'un find() par option (pas de N+1 au sens strict,
+     * juste quelques requetes de plus par page) est prefere a une requete IN(...)
+     * qui n'a pas de precedent dans ce depot (Rasoir d'Ockham).
+     *
+     * option_is_orderable_maxi (RG-T21, contre-audit constat 1) : MEME champ et meme
+     * regle que CatalogueController::presentSlots (borne) -- disponibilite de
+     * l'option REELLEMENT servie au format Maxi (sa variante quand
+     * maxi_variant_product_id est renseigne, sinon egale a la base). Avant ce champ,
+     * la caisse ne grisait une option que sur la disponibilite de la BASE quel que
+     * soit le format choisi : un menu Maxi pouvait etre saisi et encaisse avec un
+     * accompagnement dont seule la Grande variante etait en rupture, pour echouer en
+     * bloc a la revalidation serveur (OrderRepository::resolveSelections).
+     *
+     * @param list<array{id:int, name:string, slot_type:string, is_required:int, display_order:int, option_product_ids:list<int>}> $slots
+     * @param array<int, true> $unavailable set d'ids produits en rupture calculee (RG-T21)
+     * @return list<array<string, mixed>>
+     */
+    private function slotsWithAvailability(array $slots, ProductRepository $productRepository, array $unavailable): array
+    {
+        return array_map(function (array $slot) use ($productRepository, $unavailable): array {
+            $orderable = [];
+            $orderableMaxi = [];
+            $names = [];
+            foreach ($slot['option_product_ids'] as $pid) {
+                $pid = (int) $pid;
+                $option = $productRepository->find($pid);
+                $isOrderable = $option !== null
+                    && (int) ($option['is_available'] ?? 0) === 1
+                    && !isset($unavailable[$pid]);
+                $orderable[(string) $pid] = $isOrderable;
+                $names[(string) $pid] = $option !== null ? (string) $option['name'] : '';
+
+                $variantId = $option !== null ? (int) ($option['maxi_variant_product_id'] ?? 0) : 0;
+                if ($variantId > 0) {
+                    $variant = $productRepository->find($variantId);
+                    $orderableMaxi[(string) $pid] = $variant !== null
+                        && (int) ($variant['is_available'] ?? 0) === 1
+                        && !isset($unavailable[$variantId]);
+                } else {
+                    $orderableMaxi[(string) $pid] = $isOrderable;
+                }
+            }
+            $slot['option_is_orderable'] = $orderable;
+            $slot['option_is_orderable_maxi'] = $orderableMaxi;
+            $slot['option_names'] = $names;
+
+            return $slot;
+        }, $slots);
     }
 
     /**
@@ -558,9 +667,13 @@ class CounterOrderController extends AdminController
         return match ($code) {
             'EMPTY_ORDER'             => 'La commande est vide : ajoutez au moins un produit ou un menu.',
             'INVALID_SERVICE_MODE'    => 'Mode de service invalide (le drive impose le mode drive).',
+            'INVALID_QUANTITY'        => 'Quantité invalide : chaque article doit être compris entre 1 et 20.',
+            'TOO_MANY_ITEMS'          => 'Trop d\'articles différents dans la commande (50 maximum).',
+            'ORDER_TOO_LARGE'         => 'Commande trop volumineuse : 50 articles au plus.',
             'PRODUCT_UNAVAILABLE'     => 'Un produit sélectionné est indisponible.',
             'MENU_UNAVAILABLE'        => 'Un menu sélectionné est indisponible.',
             'INVALID_SELECTION'       => 'Un choix de menu (accompagnement / boisson / sauce) est invalide.',
+            'OPTION_UNAVAILABLE'      => 'Un choix de menu sélectionné est indisponible.',
             'INVALID_MODIFIER',
             'INGREDIENT_NOT_REMOVABLE',
             'INGREDIENT_NOT_ADDABLE'  => 'Une modification d\'ingrédient est invalide.',

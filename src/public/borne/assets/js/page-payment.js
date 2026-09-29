@@ -20,13 +20,35 @@ const errorEl = document.getElementById('payment-error');
 const cardBtn = document.getElementById('pay-card');
 const cashBtn = document.getElementById('pay-cash');
 
-/** Message utilisateur (generique) a partir d'un code d'erreur API. */
-function messageFor(code) {
+/**
+ * Message utilisateur a partir d'un code d'erreur API (POST /api/orders ou
+ * /pay). Exporte pour test (pure, aucune dependance DOM).
+ *
+ * Contre-audit : INVALID_QUANTITY / TOO_MANY_ITEMS / ORDER_TOO_LARGE /
+ * OPTION_UNAVAILABLE retombaient sur le message generique de repli
+ * ("le paiement n'a pas pu aboutir"), qui ne dit RIEN au client sur la cause NI
+ * sur l'action a faire -- alors que le serveur (OrderController::messageFor)
+ * porte deja un texte precis pour ces codes. Ces quatre codes affichent
+ * desormais un message lisible et actionnable, aligne sur celui du serveur.
+ */
+export function messageFor(code) {
     if (code === 'PRODUCT_UNAVAILABLE' || code === 'MENU_UNAVAILABLE') {
         return 'Un article de votre commande n\'est plus disponible. Modifiez votre panier.';
     }
     if (code === 'EMPTY_CART' || code === 'EMPTY_ORDER') {
         return 'Votre panier est vide.';
+    }
+    if (code === 'INVALID_QUANTITY') {
+        return 'Une quantité de votre panier est invalide (entre 1 et 20 par article). Modifiez votre panier.';
+    }
+    if (code === 'TOO_MANY_ITEMS') {
+        return 'Trop d\'articles différents dans votre panier. Retirez-en avant de continuer.';
+    }
+    if (code === 'ORDER_TOO_LARGE') {
+        return 'Votre commande est trop volumineuse (50 articles au plus). Modifiez votre panier.';
+    }
+    if (code === 'OPTION_UNAVAILABLE') {
+        return 'Un choix de menu de votre panier n\'est plus disponible. Modifiez votre panier.';
     }
     return 'Le paiement n\'a pas pu aboutir. Veuillez réessayer.';
 }

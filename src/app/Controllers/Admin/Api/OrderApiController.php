@@ -180,7 +180,16 @@ class OrderApiController extends CounterOrderController
         if ($items instanceof Response) {
             return $items;
         }
-        $decoded = $this->decodeItems((string) json_encode($items, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        // Contre-audit (constat 2) : decodeItems() leve desormais OrderValidationException
+        // sur une quantite hors forme (0, -5, "abc", 1.7) au lieu de la corriger en
+        // silence a 1 (voir CounterOrderController::resolveQuantity()) -- ce chemin JSON
+        // doit refleter le MEME refus que le formulaire HTML, pas laisser fuiter
+        // l'exception (500).
+        try {
+            $decoded = $this->decodeItems((string) json_encode($items, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        } catch (OrderValidationException $exception) {
+            return $this->validationErrorResponse(['items' => $this->messageFor($exception->getMessage())]);
+        }
         if ($decoded === []) {
             return $this->validationErrorResponse(['items' => 'Ajoutez au moins un produit ou un menu.']);
         }

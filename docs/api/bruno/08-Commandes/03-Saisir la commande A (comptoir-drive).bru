@@ -37,3 +37,7 @@ script:post-response {
       bru.setEnvVar('created_order_number', body.data.order_number);
   }
 }
+
+tests {
+  test('201 Created', function () { expect(res.getStatus()).to.equal(201); });
+}

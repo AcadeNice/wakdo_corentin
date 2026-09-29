@@ -25,3 +25,7 @@ body {
 docs {
 stock.count + PIN (mlt 9.2). Pas d'audit_log au succes (stock_movement suffit).
 }
+
+tests {
+  test('200 OK', function () { expect(res.getStatus()).to.equal(200); });
+}

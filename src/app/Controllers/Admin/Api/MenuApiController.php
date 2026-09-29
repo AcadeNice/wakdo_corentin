@@ -6,6 +6,7 @@ namespace App\Controllers\Admin\Api;
 
 use PDOException;
 use App\Catalogue\MenuRepository;
+use App\Catalogue\MenuSlotInUseException;
 use App\Controllers\MenuController;
 use App\Core\DatabaseInterface;
 use App\Core\Money;
@@ -132,7 +133,15 @@ class MenuApiController extends MenuController
             return $this->validationErrorResponse($errors);
         }
 
-        $repo->update($id, $data, $slots);
+        // Conflit d'etat (ADR-0006) : un slot retire de la configuration soumise
+        // est deja choisi dans une commande passee (FK order_item_selection
+        // .menu_slot_id RESTRICT). MenuRepository::update() garde ce cas AVANT
+        // toute ecriture -> rien n'est ecrit, meme convention que apiDestroy().
+        try {
+            $repo->update($id, $data, $slots);
+        } catch (MenuSlotInUseException $exception) {
+            return $this->conflictResponse($exception->getMessage());
+        }
 
         return $this->okResponse($this->present((array) $repo->find($id)));
     }

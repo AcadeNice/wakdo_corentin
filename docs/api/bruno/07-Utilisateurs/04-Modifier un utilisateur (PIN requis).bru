@@ -28,3 +28,7 @@ body {
 docs {
 user.update, PIN obligatoire (mlt 10.2). PUT PARTIEL sur is_active : omis, il conserve la valeur actuelle (ne desactive jamais par omission) ; envoye ici a true pour l'illustrer explicitement.
 }
+
+tests {
+  test('200 OK', function () { expect(res.getStatus()).to.equal(200); });
+}

@@ -25,7 +25,9 @@ Meme preuve NON encaissee que Comptoir : 'items': [] declenche une erreur de VAL
 
 tests {
   const body = res.getBody();
-  expect(res.getStatus()).to.equal(422);
-  expect(body.error.code).to.equal('VALIDATION_ERROR');
-  expect(body.error.fields).to.have.property('items');
+  test('422 VALIDATION_ERROR sur items (permission order.create accordee, aucune commande creee)', function () {
+      expect(res.getStatus()).to.equal(422);
+      expect(body.error.code).to.equal('VALIDATION_ERROR');
+      expect(body.error.fields).to.have.property('items');
+  });
 }

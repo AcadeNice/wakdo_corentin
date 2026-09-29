@@ -18,3 +18,7 @@ body {
     "direction": "up"
   }
 }
+
+tests {
+  test('200 OK', function () { expect(res.getStatus()).to.equal(200); });
+}

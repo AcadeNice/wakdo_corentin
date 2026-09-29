@@ -571,4 +571,45 @@ final class OrderRepositoryReplaceTest extends TestCase
             static fn (array $w): bool => str_contains($w['sql'], 'INSERT INTO customer_order'),
         ));
     }
+
+    public function testReplaceRejectsAnOutOfRangeQuantityJustLikeCreation(): void
+    {
+        // replaceItems() partage resolveAndTotal()/resolveLine() avec la creation
+        // (RG-T16) : la meme borne de quantite (1-20) s'applique donc a la
+        // MODIFICATION d'un panier en attente de paiement, pas seulement a sa creation.
+        $db = $this->pendingDb();
+
+        try {
+            $this->repo($db)->replaceItems('K100', $this->req([
+                ['type' => 'product', 'product_id' => 12, 'quantity' => 65535],
+            ]));
+            self::fail('une quantite hors bornes doit etre refusee a la modification');
+        } catch (OrderValidationException $exception) {
+            self::assertSame('INVALID_QUANTITY', $exception->getMessage());
+        }
+        self::assertSame(0, $db->countWrites('DELETE FROM order_item'));
+    }
+
+    public function testReplaceRejectsATotalQuantityAboveFiftyJustLikeCreation(): void
+    {
+        // Meme raisonnement que testReplaceRejectsAnOutOfRangeQuantityJustLikeCreation :
+        // resolveAndTotal() est PARTAGE avec la creation, donc le plafond GLOBAL
+        // d'articles (MAX_ITEMS_PER_ORDER, somme des quantites de toutes les lignes)
+        // s'applique aussi a la MODIFICATION d'un panier en attente de paiement -- pas
+        // seulement a sa creation. Chaque ligne ci-dessous respecte individuellement
+        // MAX_QUANTITY_PER_LINE (<=20) ; seule la somme (51) depasse le plafond.
+        $db = $this->pendingDb();
+
+        try {
+            $this->repo($db)->replaceItems('K100', $this->req([
+                ['type' => 'product', 'product_id' => 12, 'quantity' => 20],
+                ['type' => 'product', 'product_id' => 13, 'quantity' => 20],
+                ['type' => 'product', 'product_id' => 12, 'quantity' => 11],
+            ]));
+            self::fail('une somme de quantites superieure a 50 doit etre refusee a la modification');
+        } catch (OrderValidationException $exception) {
+            self::assertSame('ORDER_TOO_LARGE', $exception->getMessage());
+        }
+        self::assertSame(0, $db->countWrites('DELETE FROM order_item'));
+    }
 }

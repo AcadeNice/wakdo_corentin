@@ -132,6 +132,25 @@ $jsMenus = array_map(
                     'is_required'        => (int) ($s['is_required'] ?? 0),
                     'display_order'      => (int) ($s['display_order'] ?? 0),
                     'option_product_ids' => array_map('intval', is_array($s['option_product_ids'] ?? null) ? $s['option_product_ids'] : []),
+                    // Disponibilite de CHAQUE option (RG-T21, defaut #4 -- meme regle et
+                    // memes cles que le composeur borne, CatalogueController::presentSlots)
+                    // : sans elles, une option en rupture ou retiree au back-office restait
+                    // selectionnable dans le POS sans que l'equipier ne le sache -- le
+                    // serveur la refusait deja (OrderRepository::resolveSelections,
+                    // OPTION_UNAVAILABLE), mais en silence pour qui saisit la commande.
+                    'option_is_orderable' => is_array($s['option_is_orderable'] ?? null)
+                        ? array_map(static fn (mixed $v): bool => $v !== false, $s['option_is_orderable'])
+                        : [],
+                    // Disponibilite au format MAXI (RG-T21, contre-audit constat 1) : la
+                    // variante reellement servie quand elle existe, sinon egale a la base
+                    // (meme cle et meme regle que CatalogueController::presentSlots cote
+                    // borne). counter-order.js doit la lire des que 'maxi' est choisi.
+                    'option_is_orderable_maxi' => is_array($s['option_is_orderable_maxi'] ?? null)
+                        ? array_map(static fn (mixed $v): bool => $v !== false, $s['option_is_orderable_maxi'])
+                        : [],
+                    'option_names' => is_array($s['option_names'] ?? null)
+                        ? array_map(static fn (mixed $v): string => (string) $v, $s['option_names'])
+                        : [],
                 ],
                 $slots,
             ),

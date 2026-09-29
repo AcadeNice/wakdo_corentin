@@ -18,7 +18,10 @@ defaut du role manager.
   nombre de commandes encaissees par jour sur une fenetre glissante de 7 jours (zero-fill
   des jours sans vente), pour le mini-graphe du tableau de bord.
 - `StatsController` (`stats.read`) -> `/admin/stats` + vue `admin/stats/index` (cartes
-  KPI + mini-graphe 7 jours + table d'alerte stock) + lien nav "Pilotage".
+  KPI + table d'alerte stock) + lien nav "Pilotage". Le mini-graphe 7 jours n'est PAS
+  sur cette page : il vit sur `/admin/dashboard` (`DashboardController::index` ~44-47),
+  visible de tout utilisateur authentifie mais alimente seulement pour les detenteurs de
+  `stats.read` (un equipier sans cette permission ne voit que catalogue + sante stock).
   `StatsApiController` (`stats.read`) -> `GET /admin/api/stats`, meme perimetre en JSON.
 
 ## Regles metier / perimetre

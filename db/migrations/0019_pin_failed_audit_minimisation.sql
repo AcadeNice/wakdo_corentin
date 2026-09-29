@@ -1,0 +1,58 @@
+-- db/migrations/0019_pin_failed_audit_minimisation.sql
+-- =============================================================================
+-- Wakdo - Migration 0019 : le journal d'audit n'ecrit plus l'adresse tentee
+-- =============================================================================
+-- Purpose : ecart de minimisation des donnees (RGPD art. 5.1.c) releve en audit.
+--           A chaque PIN d'action sensible echoue, les 7 points d'ecriture de
+--           `pin.failed` (PinGate::resolve() pour l'API JSON + les 6 controleurs
+--           HTML) tracaient l'adresse SAISIE en clair dans `summary`
+--           ("... (email tenté: <adresse>)"). Ce champ texte libre N'echappe PAS
+--           a la retention -- `docker/cron/scripts/purge-audit-log.sh` supprime
+--           TOUTE ligne `audit_log` (donc `summary` avec) plus ancienne que
+--           AUDIT_LOG_RETENTION_DAYS (365 jours par defaut). Ce qu'il echappait
+--           reellement, c'est l'effacement RGPD D'UN COMPTE
+--           (`UserRepository::anonymise()` ne touche QUE la ligne `user`, jamais
+--           les lignes `audit_log` deja ecrites, corrige le 2026-09-29) : une
+--           adresse tapee -- par erreur, ou lors d'une tentative de brute-force --
+--           restait donc lisible jusqu'a la PROCHAINE purge de retention (jusqu'a
+--           365 jours), y compris pour une adresse qui ne correspond a AUCUN
+--           compte (l'effacement d'un compte n'aurait de toute facon rien pu y
+--           faire, cette adresse n'en designant aucun).
+--
+--           Le code applicatif est corrige (PinGate::auditFailedPin(), point
+--           d'ecriture desormais UNIQUE) : il n'ecrit plus l'adresse, seulement
+--           le CONTEXTE de l'action dans `summary` et, quand l'adresse
+--           correspondait a un compte existant, son identifiant dans
+--           `details.target_user_id` (JSON) -- un identifiant PERSONNEL au sens
+--           du RGPD (pseudonyme), mais de portee reduite (le compte vise, jamais
+--           l'adresse saisie) et soumis a la MEME retention de 365 jours que le
+--           reste de la ligne ; l'effacement RGPD d'un compte NE le retire PAS
+--           (meme limite que ci-dessus, verifiee contre le code actuel). Cette
+--           migration nettoie les LIGNES DEJA ECRITES par l'ancien code, sur une
+--           installation en service : elle retire la partie "(email tenté: ...)"
+--           du `summary` des lignes `pin.failed` qui la portent encore, sans y
+--           ecrire retroactivement `target_user_id` (l'etat du compte au moment
+--           de la tentative n'est plus observable avec certitude aujourd'hui --
+--           on retire ce qui ne doit plus etre la, on ne reconstruit pas une
+--           donnee qu'on n'a plus).
+--
+--           `auth.login_failed` (AuthService::recordFailure()) est verifie ne
+--           JAMAIS avoir ecrit l'adresse tentee (summary fixe "Échec de
+--           connexion", confirme par relecture de tout l'historique git du
+--           fichier) : aucune ligne a nettoyer de ce cote.
+--
+-- Idempotence : le WHERE ne selectionne QUE les lignes `pin.failed` dont le
+--               `summary` contient encore le suffixe "(email tenté:" -- une fois
+--               retire, ce suffixe n'existe plus et un rejeu ne trouve plus
+--               aucune ligne a modifier (0 ligne affectee). Aucune autre colonne
+--               n'est touchee (ni `entity_id`, ni `details`, ni les lignes dont
+--               l'`action_code` differe de `pin.failed`). Aucun DDL.
+-- Target  : MariaDB 11.4 LTS, InnoDB, utf8mb4 / utf8mb4_unicode_ci.
+-- =============================================================================
+
+SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+UPDATE audit_log
+   SET summary = TRIM(SUBSTRING(summary, 1, LOCATE(' (email tenté:', summary) - 1))
+ WHERE action_code = 'pin.failed'
+   AND summary LIKE '%(email tenté:%)';

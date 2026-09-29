@@ -424,7 +424,7 @@ final class AuthApiControllerTest extends TestCase
     {
         $session = $this->authenticatedSession();
         $db = new FakeDatabase();
-        $db->guardUserRow = ['is_active' => 1];
+        $db->guardUserRow = ['is_active' => 1, 'role_id' => 3, 'session_epoch' => 0];
         $db->roleRow = ['code' => 'admin'];
         $db->permissionCodes = ['product.read', 'stats.read'];
 

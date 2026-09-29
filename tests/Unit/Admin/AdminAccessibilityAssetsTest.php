@@ -93,4 +93,21 @@ final class AdminAccessibilityAssetsTest extends TestCase
         self::assertStringContainsString('.skip-link', $css);
         self::assertStringContainsString('.skip-link:focus-visible', $css);
     }
+
+    public function testUnavailablePosTileFocusRingIsNotDimmedByTheTileOpacity(): void
+    {
+        // Contre-audit : .pos-tile--unavailable pose opacity:0.55 au repos, ce qui
+        // dilue AUSSI l'anneau de focus (l'opacite compose tout le rendu de
+        // l'element) -- contraste mesure ~3,9:1, insuffisant. Le bloc :focus-visible
+        // qui pose l'anneau (celui qui contient "outline", pas celui partage avec
+        // :hover qui ne fait que reinitialiser bordure/ombre/transform) doit relever
+        // l'opacite pour que l'anneau garde un contraste plein au clavier.
+        $css = $this->readOrFail('src/public/admin/assets/css/admin.css');
+
+        self::assertMatchesRegularExpression(
+            '/\.pos-tile--unavailable:focus-visible\s*\{\s*opacity:\s*0\.9\s*;\s*outline:/',
+            $css,
+            'le focus clavier sur une tuile indisponible doit relever opacity au-dela de 0.55 (repos) pour garder le contraste plein de l\'anneau',
+        );
+    }
 }

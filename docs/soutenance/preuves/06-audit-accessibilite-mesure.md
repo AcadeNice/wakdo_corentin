@@ -6,10 +6,10 @@ Titre professionnel RNCP 37805 — Bloc 1 (developpement front-end)
 Cr 1.c.3 par une reserve explicite : « les ratios de contraste exacts n'ont pas ete
 mesures avec un outil dedie ([UNVERIFIED], section 8) ». Le meme aveu revient en
 section 8, reserve n° 2, et dans les reserves consolidees du `README.md` du dossier.
-Ce document remplace cette reserve par **935 ratios de contraste mesures** (campagne du 2026-09-28) sur 19 ecrans
+Ce document remplace cette reserve par **935 ratios de contraste mesures** (campagne du 2026-09-28, rejouee a l'identique le 2026-09-29) sur 19 ecrans
 reels, et par le detail des 10 elements qui passaient sous le seuil au premier passage.
 
-**Avertissement de lecture.** Ce rapport documente **cinq campagnes**, pas une seule :
+**Avertissement de lecture.** Ce rapport documente **six campagnes**, pas une seule :
 
 1. **Campagne AVANT correction** (sections 4 a 6, telles qu'ecrites au premier passage) :
    11 ecrans, 10 noeuds de texte sous le seuil WCAG AA, dont 9 dans le back-office. C'est
@@ -32,13 +32,24 @@ reels, et par le detail des 10 elements qui passaient sous le seuil au premier p
    reelles ajoute a la page Sante. 19 ecrans, **935 mesures**, 85 combinaisons,
    0 violation ; l'ecart avec les 946 mesures de la veille est explique et n'est pas une
    regression (voir plus bas).
+6. **Rejeu du 2026-09-29** (09:49 UTC, commit `3fd08c4`), apres les correctifs de
+   contre-audit et de securite du meme jour (menu deja commande, journal d'audit, en-tetes
+   de securite, etc.) : memes 19 ecrans, **935 mesures**, 0 violation — chiffres
+   inchanges par rapport au 28/09, seule la date change dans les artefacts
+   (`docs/soutenance/preuves/rapports/resume.json`). Ce rejeu confirme qu'aucun des
+   correctifs du 29/09 n'a introduit de regression visible a cet outil.
+7. **Rejeu de l'apres-midi du 2026-09-29** (12:44 UTC, commit `fe8b738`, rapports deposes par
+   `3212b6c`), apres les correctifs qui changent le rendu de la borne et du comptoir (options de
+   menu grisees selon le format, messages de refus dans la page, anneau de focus sur tuile
+   grisee) : memes 19 ecrans, **934 mesures**, 0 violation, 0 contraste sous le seuil. La
+   mesure en moins est sur la page Sante (65 -> 64), dont le contenu depend des reponses
+   capturees, recapturees entre les deux mesures ; ce n'est pas une regression.
 
-Les cinq campagnes sont conservees telles quelles, l'une a la suite de l'autre : un
+Les six campagnes sont conservees telles quelles, l'une a la suite de l'autre : un
 dossier qui montre « 10 violations trouvees, voici les corrections, voici la remesure a
 0 » a plus de valeur devant un jury qu'un dossier qui n'aurait rien trouve des le premier
 passage, ou qu'un dossier qui aurait efface la trace du probleme initial. Les chiffres
-courants, ceux que portent les artefacts sur disque, sont ceux de la remesure du
-2026-09-28 (fin de la section 5 quater).
+courants, ceux que portent les artefacts sur disque, sont ceux du rejeu du 2026-09-29.
 
 ---
 
@@ -50,7 +61,7 @@ courants, ceux que portent les artefacts sur disque, sont ceux de la remesure du
 | Liaison navigateur | `@axe-core/playwright` **4.13.0** (version exacte epinglee, pas une plage) |
 | Navigateur | Chromium 131.0.6778.33, image officielle `mcr.microsoft.com/playwright:v1.49.1-jammy` |
 | Familles de regles | `wcag2a`, `wcag2aa`, `wcag21a`, `wcag21aa` |
-| Date de la campagne courante | 2026-09-28 (campagnes precedentes : 2026-09-22, 2026-09-26 au matin, 2026-09-26, puis 2026-09-27) |
+| Date de la campagne courante | 2026-09-29, rejeu a l'identique (campagnes precedentes : 2026-09-22, 2026-09-26 au matin, 2026-09-26, 2026-09-27, puis 2026-09-28) |
 | Ecrans analyses | 19 (6 borne, 13 back-office) — 18 a la campagne du 2026-09-26, 11 aux deux premieres |
 
 ### Pourquoi exactement ces quatre familles de regles
@@ -129,6 +140,27 @@ attendu : la refonte du back-office (demandes de fusion #158 a #166) a touche le
 de design, les jetons d'espacement, les tailles de cible et les contrastes. **C'est
 precisement pour ca que cette campagne a ete rejouee** : toute modification de ces
 fichiers invalide les chiffres, et il faut relancer `tests/e2e/run-a11y.sh`.
+
+**Empreintes datees au 29/09 : `admin.css` et `layout.php` ont encore change depuis la
+colonne « Perimetre elargi (09-26) », `style.css` non.** La page Sante de l'API (#175,
+#180, #183, #188, #189) et la correction #190 (page d'erreur du back-office) ont continue
+a toucher `admin.css` et `layout.php` apres le 26/09. Ce document ne cache pas cette
+derive : voici l'empreinte SHA-256 actuelle des trois memes fichiers, calculee le
+2026-09-29 (`sha256sum <fichier> | cut -c1-16`), sans relancer la campagne de mesure
+elle-meme (qui reste datee du 2026-09-28, section 1.2 du plan d'oral) :
+
+| Fichier | Perimetre elargi (09-26) | Etat au 29/09 |
+|---|---|---|
+| `src/public/borne/assets/css/style.css` | `184fd2db6132fb80` | `184fd2db6132fb80` (inchange) |
+| `src/public/admin/assets/css/admin.css` | `e5abb181bd470728` | `12a6bd272c91ec14` (change) |
+| `src/app/Views/admin/layout.php` | `ff7a3697d633e7dc` | `e873662e3be9ea86` (change) |
+
+`style.css` (borne) n'a pas bouge depuis le 26/09 : les mesures de contraste du perimetre
+borne restent valables telles quelles. `admin.css` et `layout.php`, eux, ont change : par
+prudence, il faudrait rejouer `tests/e2e/run-a11y.sh` pour confirmer que les mesures de
+contraste du back-office (section 4 et suivantes) tiennent encore sur l'etat exact du
+29/09 — ce qui n'a pas ete refait pour ce document. Les 0 violation mesures au 28/09
+restent la derniere mesure reelle disponible.
 
 ---
 

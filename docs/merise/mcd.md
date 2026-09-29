@@ -1,11 +1,11 @@
 # Modele Conceptuel de Donnees (MCD) — Wakdo
 
 **Phase Merise** : P1 - Conception, etape 2 (data dictionary first, mantra #33)
-**Version** : v0.6 — prod-like, 23 entites (19 prod-like + couche security-by-design + classement des ingredients)
-**Historique** : v0.6 (2026-09-28) — audit final : correction du role `manager` (order_source NULL sans `order.create`, ADR-0020/D5), de l'association I7 (`stock_movement.user_id` porte l'acteur counter/drive, pas seulement les mouvements manuels), de la contrainte `source`/`service_mode` (deja posee en base, migration 0001) et des references vers `docs/notes/revue-alignement-p1.md` (non versionne) remplacees par les journaux traces `docs/journal/`. v0.5 (2026-09-27) — migration 0017 : attribut `ingredient.family` et `category_ingredient_family` (attribut multivalue de CATEGORY sorti en table par la premiere forme normale, association `accepts`, cardinalite I8) ; la famille reste un domaine de valeurs et non une entite, arbitrage motive en 5.3 ; compte d'entites 22 -> 23. v0.4 (2026-09-24) — mise en coherence avec le code livre (2a09597) : diagrammes des sections 4.1 a 7.1 re-extraits des migrations 0001 a 0011 (colonnes `allergens_*` de 0011, `preparing_at` / `ready_at` de 0009, entite `pin_throttle` et association `taken_by`), association `anchors` corrigee (un produit ancre 0 a N menus), cardinalites I2, I6, I7, R5, R6 et R9 alignees sur leur justification et sur les contraintes du DDL, association `taken_by` ajoutee au tableau 6.2 (O9), commande de rendu des diagrammes mise a jour (section 11).
-**Date** : 2026-06-04 (ajouts security-by-design 2026-06-11)
-**Branche** : `feat/p1-conception`
-**Statut** : prod-like — toutes les decisions D1-D8 + stock appliquees (voir `docs/journal/2026-06-04--conception-prodlike-revision.md` pour D1-D3 et `docs/journal/2026-06-04--p1-merise-v0.2-rewrite-and-forgejo-migration.md` pour D4-D8 + stock) ; couche security-by-design (audit_log + colonnes imputabilite/auth) en cours
+**Version** : v0.8 — prod-like, 24 entites (19 prod-like + couche security-by-design + classement des ingredients)
+**Historique** : v0.8 (2026-09-29) — deux correctifs de securite merges : `user.session_epoch` (colonne, invalidation de session) et nouvelle entite `password_reset_throttle` (throttle de la demande de reinitialisation par adresse et par IP), migration `0020_session_invalidation.sql`, commit `ef7fd37` ; compte d'entites 23 -> 24 (section 7). v0.7 (2026-09-29) — contre-audit independant (base MariaDB jetable) : association I7 recorrigee (l'attribution reelle differe par TYPE de mouvement — session pour `sale`/`restock`, PIN pour `cancellation`/`inventory_correction`/`adjustment`, pas une repartition par role) ; tableau des entites (section 10) corrige (`audit_log` n'est PAS ecrit par RESTOCK/INVENTORY_COUNT/ADJUST, ecrit par le mapping allergene de MANAGE_INGREDIENT) ; reference `mct.md` (v0.3 -> v0.5). v0.6 (2026-09-28) — audit final : correction du role `manager` (order_source NULL sans `order.create`, ADR-0020/D5), de l'association I7 (`stock_movement.user_id` porte l'acteur counter/drive, pas seulement les mouvements manuels), de la contrainte `source`/`service_mode` (deja posee en base, migration 0001) et des references vers `docs/notes/revue-alignement-p1.md` (non versionne) remplacees par les journaux traces `docs/journal/`. v0.5 (2026-09-27) — migration 0017 : attribut `ingredient.family` et `category_ingredient_family` (attribut multivalue de CATEGORY sorti en table par la premiere forme normale, association `accepts`, cardinalite I8) ; la famille reste un domaine de valeurs et non une entite, arbitrage motive en 5.3 ; compte d'entites 22 -> 23. v0.4 (2026-09-24) — mise en coherence avec le code livre (2a09597) : diagrammes des sections 4.1 a 7.1 re-extraits des migrations 0001 a 0011 (colonnes `allergens_*` de 0011, `preparing_at` / `ready_at` de 0009, entite `pin_throttle` et association `taken_by`), association `anchors` corrigee (un produit ancre 0 a N menus), cardinalites I2, I6, I7, R5, R6 et R9 alignees sur leur justification et sur les contraintes du DDL, association `taken_by` ajoutee au tableau 6.2 (O9), commande de rendu des diagrammes mise a jour (section 11).
+**Date** : 2026-06-04 (premiere redaction ; derniere mise a jour 2026-09-29)
+**Branche** : premiere redaction sur `feat/p1-conception` ; etat actuel sur `docs/contre-audit` (29/09), en production apres la release du 29/09
+**Statut** : prod-like — toutes les decisions D1-D8 + stock appliquees (voir `docs/journal/2026-06-04--conception-prodlike-revision.md` pour D1-D3 et `docs/journal/2026-06-04--p1-merise-v0.2-rewrite-and-forgejo-migration.md` pour D4-D8 + stock) ; couche security-by-design (audit_log + colonnes imputabilite/auth + tables de limitation) livree
 **Auteur** : BYAN (couche methodologie)
 
 ---
@@ -22,7 +22,7 @@ structure relationnelle : combien de X par Y, si la participation est obligatoir
 leurs propres attributs.
 
 **Sources** :
-- `docs/merise/dictionary.md` (v0.3 — 23 entites, source de verite pour tous les noms, types, ENUMs)
+- `docs/merise/dictionary.md` (v0.7 — 24 entites, source de verite pour tous les noms, types, ENUMs)
 - `docs/journal/2026-06-04--conception-prodlike-revision.md` (decisions D1-D3) et
   `docs/journal/2026-06-04--p1-merise-v0.2-rewrite-and-forgejo-migration.md` (decisions D4-D8 + stock)
 - `docs/PROJECT_CONTEXT.md` (regles metier : composition de menu, flux de commande, RBAC, modes de service)
@@ -64,7 +64,7 @@ Les associations N-N qui portent leurs propres attributs deviennent des **entite
 
 ## 3. Decomposition par sous-domaine
 
-Le modele de 23 entites est divise en 4 sous-domaines pour la lisibilite. Au-dela d'environ
+Le modele de 24 entites est divise en 4 sous-domaines pour la lisibilite. Au-dela d'environ
 5 entites, un diagramme plat unique devient difficile a lire ; la decomposition est la pratique
 Merise standard pour les modeles de cette taille.
 
@@ -73,7 +73,7 @@ Merise standard pour les modeles de cette taille.
 | Catalogue | category, product, menu, menu_slot, menu_slot_option | 5 |
 | Ingredients & Stock | ingredient, product_ingredient, allergen, ingredient_allergen, stock_movement, category_ingredient_family | 6 |
 | Order | customer_order, order_item, order_item_selection, order_item_modifier | 4 |
-| RBAC & Audit | user, role, role_visible_source, permission, role_permission, audit_log, login_throttle, pin_throttle | 8 |
+| RBAC & Audit | user, role, role_visible_source, permission, role_permission, audit_log, login_throttle, pin_throttle, password_reset_throttle | 9 |
 
 > **Couche security-by-design (2026-06-11)** : `audit_log` (entite 20) est un journal transverse,
 > append-only des actions sensibles ; il est place dans le sous-domaine RBAC & Audit parce que
@@ -85,7 +85,7 @@ Merise standard pour les modeles de cette taille.
 > `user` cycle de vie auth + `pin_hash` + `anonymized_at`, `customer_order.acting_user_id`
 > + `idempotency_key`. Voir note 13 du dictionnaire.
 
-**Note sur l'absence d'un diagramme global** : un unique diagramme ER de 23 entites serait
+**Note sur l'absence d'un diagramme global** : un unique diagramme ER de 24 entites serait
 illisible et impossible a maintenir. La decomposition par sous-domaine ci-dessous est le choix
 structurel intentionnel. Chaque sous-domaine est un `erDiagram` Mermaid (faisant autorite, rendu
 nativement) avec un rendu SVG portable dans `docs/merise/_diagrams/` ; voir la section 11 pour les
@@ -274,7 +274,7 @@ erDiagram
 | I4 | is_present_in | allergen | (0,N) | ingredient_allergen | (1,1) | Un allergene peut initialement n'avoir aucun ingredient lie (seed : le catalogue d'allergenes est complet avant que les donnees de recette ne soient saisies). Chaque ligne de lien reference un allergene. |
 | I5 | decrements | ingredient | (0,N) | stock_movement | (1,1) | Tous les mouvements affectent exactement un ingredient. Un ingredient peut n'avoir encore aucune ligne de mouvement de stock s'il a ete cree recemment et qu'aucune commande n'a ete passee. Chaque ligne de mouvement reference exactement un ingredient. |
 | I6 | triggers | customer_order | (0,N) | stock_movement | (0,1) | Un mouvement `sale` ou `cancellation` reference la commande d'origine. Un `restock` ou `inventory_correction` n'a pas de commande (NULL). Une commande donnee declenche des mouvements sur tous ses ingredients ; une commande encore `pending_payment` n'a declenche aucun mouvement. `stock_movement.order_id` est nullable et non unique (`0001_init_schema.sql`). |
-| I7 | logs | user | (0,N) | stock_movement | (0,1) | `stock_movement.user_id` porte l'utilisateur AGISSANT : l'equipier de session pour une vente counter/drive ou une annulation, le manager/admin pour un reapprovisionnement ou une correction. NULL uniquement pour les ventes de la borne (`kiosk`, anonyme). Un utilisateur peut journaliser un nombre quelconque de mouvements. `stock_movement.user_id` est nullable et non unique. |
+| I7 | logs | user | (0,N) | stock_movement | (0,1) | `stock_movement.user_id` porte l'utilisateur AGISSANT, dont la resolution differe par type de mouvement (`mlt.md` RG-T13, `IngredientController`/`OrderRepository`) : `sale` (vente counter/drive) et `restock` (reapprovisionnement) portent l'utilisateur DE SESSION (`$guard->userId`, aucun PIN requis, n'importe quel role detenant la permission adequate) ; `cancellation` (annulation), `inventory_correction` (inventaire) et `adjustment` (ajustement libre) portent l'equipier RESOLU PAR PIN (RG-T13, n'importe lequel des roles detenant la permission, pas necessairement manager/admin). NULL uniquement pour les ventes de la borne (`kiosk`, anonyme, aucune session equipier). Un utilisateur peut journaliser un nombre quelconque de mouvements. `stock_movement.user_id` est nullable et non unique. |
 | I8 | accepts | category | (0,N) | category_ingredient_family | (1,1) | Une categorie peut n'accepter aucune restriction de famille : l'absence de ligne vaut « pas de filtre », et c'est le cas voulu pour `menus`, qui traverse toutes les familles. Chaque ligne de correspondance appartient a exactement une categorie. La cardinalite (0,N) porte donc une vraie decision metier, pas une commodite : ce n'est pas « on n'a pas encore renseigne », c'est « cette categorie n'est pas filtree ». |
 
 ### 5.3 Notes sur le sous-domaine Ingredients & Stock
@@ -462,6 +462,7 @@ erDiagram
         datetime lockout_until
         varchar password_reset_token_hash
         datetime password_reset_expires_at
+        int session_epoch
         datetime anonymized_at
     }
     role {
@@ -514,6 +515,15 @@ erDiagram
         datetime lockout_until
         datetime last_attempt_at
     }
+    password_reset_throttle {
+        int id PK
+        enum throttle_kind
+        varchar identifier
+        smallint failed_attempts
+        datetime window_started_at
+        datetime lockout_until
+        datetime last_attempt_at
+    }
 
     user }o--|| role : "holds"
     role ||--o{ role_visible_source : "sees_source"
@@ -528,7 +538,11 @@ erDiagram
 > (`ip_address UNIQUE`), pas par un acteur modelise, donc elle ne porte aucune FK et ne se connecte a aucune
 > autre entite du diagramme. `pin_throttle` (RG-T22), au contraire, est cle par l'utilisateur AGISSANT
 > (`actor_user_id UNIQUE`, FK -> `user` ON DELETE CASCADE) : c'est la dimension qui rend le throttle du PIN
-> non contournable par rotation d'email et sans collateral sur un poste partage.
+> non contournable par rotation d'email et sans collateral sur un poste partage. `password_reset_throttle`
+> (ajoutee le 2026-09-29, migration `0020_session_invalidation.sql`) est, comme `login_throttle`, une
+> entite autonome sans FK : sa cle UNIQUE composite `(throttle_kind, identifier)` porte soit une adresse
+> email (qui peut ne resoudre vers aucun compte, anti-enumeration), soit une IP source — aucune des deux
+> n'est un acteur modelise dans ce diagramme.
 
 ### 7.2 Cardinalites des associations
 
@@ -582,11 +596,30 @@ verrou ; memes colonnes que `login_throttle` mais des bornes propres (PIN_THROTT
 Compteurs physiquement separes du login : un echec de PIN n'incremente aucun compteur de connexion. Meme
 purge cron quotidienne. Association R9 : `user` (0,1) -- (1,1) `pin_throttle` (unicite de `actor_user_id`). Voir dictionnaire 3.22 et note 13.
 
+**`password_reset_throttle` (security-by-design, ajoutee le 2026-09-29, migration
+`0020_session_invalidation.sql`)** : throttle de la demande de reinitialisation de mot de passe (POST
+`/forgot_password`), corrige apres un contre-audit (avant cette date, aucune limite n'existait). Comme
+`login_throttle`, deux dimensions ORTHOGONALES dans une seule table plutot que deux, distinguees par
+`throttle_kind` ('email' ou 'ip') — meme motif que `role_visible_source` (discriminant + identifiant
+generique). Cle UNIQUE composite `(throttle_kind, identifier)`, pas de FK (`identifier` peut porter une
+adresse email qui ne resout vers aucun compte, l'anti-enumeration RG-2 l'exige). Memes colonnes de
+comptage que `login_throttle`/`pin_throttle`, bornes propres (`PASSWORD_RESET_*`), memes purges cron
+(`docker/cron/scripts/purge-throttle.sh`). Depuis la migration `0021_password_reset_throttle_hash_
+identifier.sql` (constat de minimisation RGPD art. 5.1.c corrige le 2026-09-29), `identifier` porte
+l'empreinte SHA-256 de l'adresse (pas l'adresse en clair) pour la dimension `email` ; la dimension `ip`
+reste en clair. Voir dictionnaire 3.24 et note 13.
+
+**`user.session_epoch` (security-by-design, meme migration 0020)** : compteur d'invalidation de session,
+pas une nouvelle entite — une colonne ajoutee sur `user`. Pose en session a la connexion et relu en base
+a chaque requete authentifiee (RG-T02, `mlt.md` section 2) ; une reinitialisation de mot de passe
+l'incremente, ce qui invalide immediatement toute session ouverte avant cette reinitialisation. Voir
+dictionnaire 3.14.
+
 ---
 
 ## 8. Validation croisee MCD <-> dictionnaire
 
-Verification que les 23 entites du dictionnaire apparaissent dans le MCD et reciproquement.
+Verification que les 24 entites du dictionnaire apparaissent dans le MCD et reciproquement.
 
 | # | Entite du dictionnaire (section 3) | Sous-domaine dans le MCD | Presente |
 |---|---|---|---|
@@ -613,9 +646,12 @@ Verification que les 23 entites du dictionnaire apparaissent dans le MCD et reci
 | 21 | `login_throttle` (3.21) | RBAC & Audit | Oui |
 | 22 | `pin_throttle` (3.22) | RBAC & Audit | Oui |
 | 23 | `category_ingredient_family` (3.23) | Ingredients & Stock | Oui |
+| 24 | `password_reset_throttle` (3.24) | RBAC & Audit | Oui |
 
-**Resultat** : 23/23 entites tracees (19 prod-like + `audit_log`, `login_throttle` et `pin_throttle`
-security-by-design + `category_ingredient_family`, filtre du constructeur de recette). Aucune entite du dictionnaire n'est absente du MCD. Aucune entite du MCD
+**Resultat** : 24/24 entites tracees (19 prod-like + `audit_log`, `login_throttle` et `pin_throttle`
+security-by-design + `category_ingredient_family`, filtre du constructeur de recette, +
+`password_reset_throttle`, throttle de reinitialisation de mot de passe ajoute le 2026-09-29).
+Aucune entite du dictionnaire n'est absente du MCD. Aucune entite du MCD
 ne tombe en dehors du dictionnaire.
 
 **Entites apparaissant dans plusieurs sous-domaines** (entites partagees inter-domaines) :
@@ -677,12 +713,14 @@ Pre-validation : chaque entite participe a au moins un traitement.
 | `permission` | Gestion de la matrice de permissions admin |
 | `role_permission` | Gestion de la matrice de permissions admin |
 | `stock_movement` | Automatique a l'encaissement (PAY_ORDER, transition vers `preparing`) et a l'annulation d'une commande encaissee ; reapprovisionnement manuel et correction d'inventaire |
-| `audit_log` | Ecrit par les operations sensibles : UPDATE/DELETE product/menu (8.2/8.3/8.6), CANCEL_ORDER (7.1), RESTOCK/INVENTORY_COUNT (9.1/9.2), operations utilisateur (10.1-10.3), MANAGE_RBAC (10.4), et logins echoues/reussis (12.1) |
+| `audit_log` | Ecrit par les operations sensibles (verifie par grep des `INSERT INTO audit_log` dans `src/app`, 29/09) : UPDATE/DELETE product (8.2/8.3), DELETE menu (8.6 ; la modification d'un menu n'ecrit PAS de ligne d'audit), le mapping allergene de MANAGE_INGREDIENT (8.8, `ingredient.allergens`), l'import CSV (8.9, `product.import`, a chaque import applique), CANCEL_ORDER (7.1), operations utilisateur (10.1-10.3, 10.5 effacement, 10.6-10.7 dont `pin.set`), MANAGE_RBAC (10.4), logins echoues/reussis (12.1), reinitialisation de mot de passe (12.3, `auth.password_reset`), expiration automatique (13.6, `order.expire`, sans acteur humain) et PIN faux (`pin.failed`, point unique `PinGate::auditFailedPin()`). PAS RESTOCK/INVENTORY_COUNT/ADJUST (9.1/9.2/9.4) : ces trois operations de stock journalisent uniquement via `stock_movement.user_id` (RG-T14, voir I7 ci-dessus), sans ligne `audit_log` separee — les citer ici serait une double comptabilisation qui ne correspond a aucune ecriture reelle. |
 | `login_throttle` | Lu et ecrit par AUTHENTICATE_USER (12.1) : throttle par IP source upserte a chaque echec de login, lu pour imposer la fenetre de backoff, purge par un cron quotidien |
 | `pin_throttle` | Lu et ecrit par les operations sensibles sous PIN (RG-T13, RG-T22) : verrou evalue avant la verification du PIN, compteur incremente a chaque echec, remis a zero apres un PIN valide, purge par un cron quotidien |
+| `category_ingredient_family` | Lu par le constructeur de recette (familles d'ingredients proposees selon la categorie du produit) ; ecrite seulement par le seed 0010 (aucune ecriture applicative, mesure du 29/09) |
+| `password_reset_throttle` | Lu et ecrit par RESET_PASSWORD (12.3) : verrou par empreinte d'adresse et par IP evalue avant tout envoi, compteur upserte a chaque demande, purge par le cron quotidien |
 
 La validation croisee MCD <-> MCT (mantra #34) est completee de maniere exhaustive dans `mct.md`
-(v0.3), qui integre desormais les operations security-by-design (actions sensibles protegees par PIN,
+(v0.7), qui integre desormais les operations security-by-design (actions sensibles protegees par PIN,
 ecritures d'audit, reset/lockout, anonymisation). Les ajouts de la couche traitements y sont suivis.
 
 ---
@@ -691,7 +729,7 @@ ecritures d'audit, reset/lockout, anonymisation). Les ajouts de la couche traite
 
 Le modele graphique faisant autorite est l'ensemble des blocs `erDiagram` Mermaid des sections 4-7,
 un par sous-domaine. Ils s'affichent nativement sur Forgejo et GitHub. Le MCD est decompose par
-sous-domaine a dessein : un unique diagramme de 23 entites ne peut etre dispose sans croisement de
+sous-domaine a dessein : un unique diagramme de 24 entites ne peut etre dispose sans croisement de
 lignes de relation (limite de planarite intrinseque, et `erDiagram` n'offre aucun controle de mise en page
 manuel). Chaque sous-domaine reste a 5-8 entites, ce que la mise en page automatique gere proprement. La
 vue integree a travers les sous-domaines est la table de validation croisee de la section 8.

@@ -1,7 +1,21 @@
 # ADR-0019 — Page « Santé de l'API » : une carte des routes qui ne peut pas diverger du code
 
-- Statut : Accepte, complete le 2026-09-28 (reponses reelles + carte par action)
+- Statut : Accepte, complete le 2026-09-28 (reponses reelles + carte par action), precise le
+  2026-09-29 (sonde publique sans version PHP)
 - Date : 2026-09-27
+
+> **Complement (2026-09-29, commit `08d7a96`).** Le contexte de cette fiche dit que
+> `/api/health` "doit rester tel quel" et les consequences que "la sonde du deploiement
+> continu reste strictement inchangee" : c'etait vrai pour son ROLE (verifier le commit
+> servi), pas pour la totalite de son corps. `App\Controllers\HealthController` renvoyait
+> aussi `php_version` (`PHP_VERSION`) a tout visiteur anonyme, y compris depuis l'hote
+> borne — une fuite d'information inutile (OWASP A05) sans lien avec le role de la sonde.
+> Ce champ est retire (6 cles restantes : `status`, `app_env`, `db`, `categories`, `version`,
+> `deployed_at`) ; `version` et `deployed_at`, qui portent le role de verification de
+> deploiement, ne changent pas. La page authentifiee `/admin/health` (point (d) ci-dessous,
+> `App\Health\HealthReport`, derriere `role.manage`) garde `php_version` pour l'exploitant,
+> depuis sa propre source. Trouve par la suite de tests de securite executables
+> (`docs/soutenance/preuves/10-tests-securite.md`, ecart m5).
 
 > **Complement (2026-09-28).** Le trajet d'un appel affichait jusque-la un corps ecrit a la
 > main pour illustrer une reponse ; certains refus illustres etaient meme faux au regard du
@@ -16,8 +30,14 @@
 > (CI) verifie que chaque route a sa capture (ou une raison ecrite), qu'aucune capture ne vise
 > une route disparue, et que le fichier ne contient ni jeton ni mot de passe. Independamment,
 > la carte a ete rangee **par action** plutot qu'a plat : les 158 routes se lisent desormais en
-> 80 actions (une colonne par surface : page, formulaire, API JSON, borne). Livre par #188 et
-> #189. Detail : `docs/journal/2026-09-28--trajet-reponses-reelles.md`.
+> 80 actions (une colonne par surface : page, formulaire, API JSON, borne). Le rangement par
+> action et le programme de capture sont livres par #188 et #189 (157 routes a ce moment) ;
+> la 158e route (`/admin/api/ingredients/{id}/movements`) arrive par #191, le meme jour. Le
+> champ `commit` de `captured-responses.json` (`edea94c`) date de #190, avant #191 : il ne
+> reflete donc que 157 routes au registre du routeur a ce commit precis, meme si le fichier
+> contient bien 158 captures (la capture a ete rejouee apres #191 sans que ce champ de
+> provenance soit remis a jour — a corriger au prochain rafraichissement). Detail :
+> `docs/journal/2026-09-28--trajet-reponses-reelles.md`.
 
 ## Contexte
 
@@ -138,3 +158,11 @@ anonyme.
   lancement. Ils ne sont declenches que par un clic.
 - (-) La page relit l'etat toutes les 15 secondes tant qu'elle est ouverte et visible ; la
   relecture est suspendue quand l'onglet est masque.
+
+## Errata
+
+- Erratum (2026-09-29, BYAN, contre-audit) : le champ `commit` de `captured-responses.json`,
+  signale plus haut comme a remettre a jour, l'a ete a la recapture du 29/09 apres-midi : il vaut
+  `c2b8c1c` (fichier depose par `fe8b738`), ou le routeur declare bien les 158 routes capturees.
+  Resultat de cette recapture : 158 succes obtenus sur 158, 670 refus obtenus sur 689 tentes
+  (les 19 autres sont enregistres « non reproduit » avec le code reellement observe).

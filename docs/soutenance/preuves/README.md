@@ -26,13 +26,13 @@ Perimetre principal : la **borne de commande client** (`src/public/borne/`), int
 
 ## Artefacts
 
-**Regeneres le 2026-09-26** contre le code courant (`dev`), apres la refonte du back-office (demandes de fusion #158 a #166) et les cinq lots livres sur la borne depuis le 2026-09-23 — **sauf `rapports/`, regeneres le 2026-09-28** (trajet aux reponses reelles de la page Sante, voir `06-audit-accessibilite-mesure.md`). Les versions precedentes restent consultables dans l'historique git.
+**Regeneres le 2026-09-26** contre le code courant (`dev`), apres la refonte du back-office (demandes de fusion #158 a #166) et les cinq lots livres sur la borne depuis le 2026-09-23 — **sauf `rapports/`, regeneres le 2026-09-28 puis rejoues le 2026-09-29** (apres correctifs de contre-audit et de securite, commit `3fd08c4` : 19 ecrans, 935 mesures, 0 violation, chiffres inchanges ; trajet aux reponses reelles de la page Sante, voir `06-audit-accessibilite-mesure.md`). Les versions precedentes restent consultables dans l'historique git.
 
 - `w3c/borne-statique.json` — sortie du validateur W3C Nu sur les 5 pages servies (`messages: []`).
 - `w3c/borne-rendu.json` — sortie sur le DOM rendu (0 erreur, 1 avertissement assume).
 - `w3c/borne-modale-allergenes.json` — idem, modale allergenes ouverte.
 - `w3c/dom-rendu/` — les 4 fichiers de HTML rendu (JS execute) reellement soumis au validateur.
-- `rapports/` — audit d'accessibilite mesure : `resume.json` (19 ecrans), `contrastes-mesures.csv` (935 mesures, campagne du 2026-09-28), `axe-<ecran>.json` (x19).
+- `rapports/` — audit d'accessibilite mesure : `resume.json` (19 ecrans), `contrastes-mesures.csv` (934 mesures, rejeu du 2026-09-29 apres-midi sur le commit `fe8b738` ; 935 le 28/09 et le 29/09 au matin sur `3fd08c4`), `axe-<ecran>.json` (x19).
 - `captures-responsive/` — **52 captures** Playwright : la borne (5 ecrans x 360 / 390 / 768 / 1366 px) et le back-office (16 ecrans x 360 / 390 px).
 - `captures-controle-saisie/` — controle de saisie pendant la frappe, modal PIN avant / apres correctif, et message du serveur apres un PIN refuse (fiche 09). Les trois captures « apres » sont regenerees ; `modal-pin-avant.png` ne l'est pas, et ne peut pas l'etre : elle montre le defaut corrige depuis.
 
@@ -52,11 +52,24 @@ Trois commandes, une par famille d'artefacts. Chacune monte sa propre pile jetab
 
 ## Reserves honnetes consolidees (a ne pas survendre)
 
-- **Accessibilite** : aucun audit avec un lecteur d'ecran reel (NVDA/VoiceOver) — reserve ouverte. Les ratios de contraste, eux, ont ete mesures a l'outil (`axe-core`, **935 mesures sur 19 ecrans** au 2026-09-28, [`06-audit-accessibilite-mesure.md`](06-audit-accessibilite-mesure.md)) : 10 noeuds trouves sous le seuil AA au premier passage ont ete corriges et remesures conformes — reserve resolue, plus une reserve ouverte sur ce theme. La demarche est structuree et testee, pas certifiee RGAA.
+- **Accessibilite** : aucun audit avec un lecteur d'ecran reel (NVDA/VoiceOver) — reserve ouverte. Les ratios de contraste, eux, ont ete mesures a l'outil (`axe-core`, **935 mesures sur 19 ecrans** au 2026-09-28, rejouees a l'identique le 2026-09-29 sur le commit `3fd08c4`, [`06-audit-accessibilite-mesure.md`](06-audit-accessibilite-mesure.md)) : 10 noeuds trouves sous le seuil AA au premier passage ont ete corriges et remesures conformes — reserve resolue, plus une reserve ouverte sur ce theme. La demarche est structuree et testee, pas certifiee RGAA.
 - **Tailles de cible** : le « 0 violation » de l'audit ne les couvre pas. Le critere de taille minimale de cible releve de **WCAG 2.2**, hors des quatre familles de regles activees (qui s'arretent a WCAG 2.1). A dire avant qu'on ne le demande.
 - **Cross-navigateurs** : pas de campagne de test sur parc reel ; les tableaux de support sont tagues `[UNVERIFIED]`, a reconfirmer sur caniuse avant l'oral. La strategie (fallback `@supports`, prefixes) est verifiable dans le code.
 - **C2.d** : aucune librairie JS externe n'est integree (choix vanilla). La competence de reutilisation est demontree par des modules internes ; le critere « externe » n'est pas rempli a la lettre. Confiance faible, assumee.
 - **C2.a (animations)** : l'animation du total panier ([`07-animations-js.md`](07-animations-js.md)) est testee automatiquement (24 tests dedies) independamment du navigateur, mais le support des API utilisees (`requestAnimationFrame`, `performance.now`, `matchMedia`) n'a pas ete reconfirme sur caniuse et le validateur W3C n'a pas ete rejoue pour ce lot precis — meme reserve cross-navigateurs que le reste du dossier. Le choix `aria-live="off"` sur le total anime est un raisonnement documente, pas une mesure sur lecteur d'ecran reel.
+
+## Bloc 2 (axe securite) — reference croisee
+
+Ce dossier est scope Bloc 1 (front-end), mais une fiche Bloc 2 y a ete ajoutee car elle est
+la seule preuve executable de l'axe securite : [`10-tests-securite.md`](10-tests-securite.md)
+— 100 tests Playwright a sa creation (107 en phase principale au dernier rejeu) + 5 tests PHP
+contre une pile reelle (borne + back-office), 11 ecarts trouves le 2026-09-29, dont 8 corriges
+par les commits `08d7a96`/`ef7fd37` le meme jour et 3 par le commit `fce3085` (branche
+`fix/sec-order`, fusionnee par `86306ef`), completes par `33538c6`, puis par `680820f`,
+`e9f00d8` et `186c5d7` apres une revue adversariale. La suite a ete rejouee apres ces
+correctifs : le matin sur `2fe8a4a` (95 reussis + 8 sautes, puis 4 et 4), l'apres-midi sur
+`c2b8c1c` (99 reussis + 8 sautes, puis 4 et 4), 0 echec, 0 test marque restant. Corrige dans
+le code le 29/09, en production apres la release du 29/09.
 
 ## Findings releves pendant l'exercice (hors perimetre preuve, a traiter separement)
 

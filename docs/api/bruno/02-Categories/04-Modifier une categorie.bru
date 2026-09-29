@@ -20,3 +20,7 @@ body {
     "display_order": 51
   }
 }
+
+tests {
+  test('200 OK', function () { expect(res.getStatus()).to.equal(200); });
+}

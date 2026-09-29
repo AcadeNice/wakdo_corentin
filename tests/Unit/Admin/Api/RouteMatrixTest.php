@@ -271,6 +271,84 @@ final class RouteMatrixTest extends TestCase
         self::assertNotSame(404, $response->status(), "$method $path avec la permission exacte '$permission' (+ CSRF/PIN valides) devrait ATTEINDRE l'action (ligne {id}/{number} preparee), pas 404");
     }
 
+    /**
+     * Sous-ensemble de `derivedRoutes()` dont `RouteSecurity::ENTRIES` annonce
+     * `pin = 'always'` : les routes d'ecriture ou PinGate::resolve() (RG-T13)
+     * s'evalue systematiquement, quel que soit le corps soumis. Couvre Product
+     * (delete), Menu (delete), Ingredient (inventory + adjust), User (create,
+     * update, deactivate, reset-pin, erase), Role (store, update) et Order
+     * (cancel) -- les 7 chemins d'ecriture `pin.failed` de l'API JSON, tous
+     * factorises par la meme `PinGate::resolve()`.
+     *
+     * @return array<string, array{0: string, 1: string, 2: string, 3: string, 4: string}>
+     */
+    public static function pinAlwaysRoutesProvider(): array
+    {
+        $pinBySignature = [];
+        foreach (RouteSecurity::ENTRIES as [$method, $path, , , , $pin]) {
+            $pinBySignature[$method . ' ' . $path] = $pin;
+        }
+
+        $cases = [];
+        foreach (self::derivedRoutes() as [$method, $path, $resource, $action, $permission, $isWrite]) {
+            if (!$isWrite || ($pinBySignature[$method . ' ' . $path] ?? null) !== 'always') {
+                continue;
+            }
+            $cases[$method . ' ' . $path] = [$method, $path, $resource, $action, $permission];
+        }
+
+        return $cases;
+    }
+
+    /**
+     * Minimisation RGPD (art. 5.1.c) : sur CHAQUE route `pin = always` de l'API
+     * JSON, l'adresse SAISIE au champ `pin_email` ne doit jamais apparaitre dans
+     * `audit_log` (ni `summary`, ni `details`), et `details.target_user_id` doit
+     * porter l'identifiant du compte quand l'adresse en designe un, ou `null` +
+     * "adresse inconnue" sinon. Un seul test parametre (meme montage que
+     * `testRouteWithExactPermissionPinAndCsrfIsNeverForbidden` ci-dessus) plutot
+     * qu'une copie par ressource -- toutes ces routes delegant a la MEME
+     * `PinGate::resolve()`, ce test prouve a la fois la fonction partagee (deja
+     * couverte exhaustivement par PinGateTest) ET le cablage EXACT de chaque
+     * ressource (entityType/permission) qui y mene.
+     */
+    #[DataProvider('pinAlwaysRoutesProvider')]
+    public function testWrongPinNeverLeaksTheAttemptedEmailAndRecordsTargetUserId(string $method, string $path, string $resource, string $action, string $permission): void
+    {
+        // Cas 1 : l'adresse saisie correspond a un compte EXISTANT -> son
+        // identifiant est trace dans `details`, jamais l'adresse.
+        $dbKnown = $this->grantedDb([$permission]);
+        $this->primeForSuccess($dbKnown, $resource);
+        $dbKnown->pinFailedTargetUserRow = ['target_user_id' => 42];
+        $bodyKnown = array_merge($this->bodyFor($resource), $this->extraFieldsToReachPinGate($resource, $action), ['pin_email' => 'cible@wakdo.local', 'pin' => 'faux']);
+        $requestKnown = $this->buildRequest($method, $path, $this->csrf, $bodyKnown);
+        $this->invoke($resource, $action, $requestKnown, $dbKnown, $this->routeParams($path, $resource));
+
+        $writeKnown = $this->pinFailedWrite($dbKnown);
+        self::assertNotNull($writeKnown, "$method $path : devrait tracer pin.failed sur PIN invalide.");
+        self::assertStringNotContainsString('cible@wakdo.local', (string) $writeKnown['params']['summary'], "$method $path : l'adresse saisie ne doit jamais apparaitre dans summary.");
+        self::assertStringNotContainsString('cible@wakdo.local', (string) ($writeKnown['params']['details'] ?? ''), "$method $path : l'adresse saisie ne doit jamais apparaitre dans details.");
+        $detailsKnown = json_decode((string) ($writeKnown['params']['details'] ?? '{}'), true);
+        self::assertSame(42, $detailsKnown['target_user_id'] ?? null, "$method $path : target_user_id attendu quand l'adresse correspond a un compte existant.");
+        self::assertStringNotContainsString('inconnue', (string) $writeKnown['params']['summary'], "$method $path : un compte connu ne doit pas dire « adresse inconnue ».");
+
+        // Cas 2 : l'adresse saisie ne correspond a AUCUN compte -> null + "adresse inconnue".
+        $dbUnknown = $this->grantedDb([$permission]);
+        $this->primeForSuccess($dbUnknown, $resource);
+        $bodyUnknown = array_merge($this->bodyFor($resource), $this->extraFieldsToReachPinGate($resource, $action), ['pin_email' => 'personne@wakdo.local', 'pin' => 'faux']);
+        $requestUnknown = $this->buildRequest($method, $path, $this->csrf, $bodyUnknown);
+        $this->invoke($resource, $action, $requestUnknown, $dbUnknown, $this->routeParams($path, $resource));
+
+        $writeUnknown = $this->pinFailedWrite($dbUnknown);
+        self::assertNotNull($writeUnknown, "$method $path : devrait tracer pin.failed sur PIN invalide.");
+        self::assertStringNotContainsString('personne@wakdo.local', (string) $writeUnknown['params']['summary'], "$method $path : l'adresse saisie ne doit jamais apparaitre dans summary.");
+        self::assertStringNotContainsString('personne@wakdo.local', (string) ($writeUnknown['params']['details'] ?? ''), "$method $path : l'adresse saisie ne doit jamais apparaitre dans details.");
+        $detailsUnknown = json_decode((string) ($writeUnknown['params']['details'] ?? '{}'), true);
+        self::assertArrayHasKey('target_user_id', $detailsUnknown, "$method $path : details doit toujours porter la cle target_user_id.");
+        self::assertNull($detailsUnknown['target_user_id'], "$method $path : adresse inconnue -> target_user_id null.");
+        self::assertStringContainsString('adresse inconnue', (string) $writeUnknown['params']['summary'], "$method $path : adresse inconnue -> le resume doit le dire en clair.");
+    }
+
     // --- aides ---
 
     /**
@@ -328,6 +406,29 @@ final class RouteMatrixTest extends TestCase
     }
 
     /**
+     * Champs metier requis pour ATTEINDRE le PinGate sur les routes ou
+     * `bodyFor()` (generique, `direction: up`) ne suffit pas a passer la
+     * validation posee AVANT le PIN dans le controleur (ex. `apiInventory()`
+     * exige `actual_quantity` avant meme de lire `pin_email`/`pin`). Sans ces
+     * champs, la requete 422 sur la validation et le test ne prouverait rien sur
+     * le PIN. Reprend exactement les corps deja valides par les tests dedies de
+     * chaque ressource (IngredientApiControllerTest, UserApiControllerTest,
+     * RoleApiControllerTest).
+     *
+     * @return array<string, mixed>
+     */
+    private function extraFieldsToReachPinGate(string $resource, string $action): array
+    {
+        return match (true) {
+            $resource === 'Ingredient' && $action === 'apiInventory' => ['actual_quantity' => 30],
+            $resource === 'Ingredient' && $action === 'apiAdjust' => ['delta' => 5],
+            $resource === 'User' => ['email' => 'nouvel.equipier@wakdo.fr', 'first_name' => 'Alex', 'last_name' => 'Martin', 'role_id' => 2, 'password' => 'motdepasse123'],
+            $resource === 'Role' => ['code' => 'shift_lead', 'label' => 'Chef de faction', 'permission_ids' => [2], 'visible_sources' => ['counter']],
+            default => [],
+        };
+    }
+
+    /**
      * @return array<string, string>
      */
     private function routeParams(string $path, string $resource): array
@@ -381,6 +482,20 @@ final class RouteMatrixTest extends TestCase
         $response = $controller->$action($params);
 
         return $response;
+    }
+
+    /**
+     * @return array{sql: string, params: array<string, mixed>}|null
+     */
+    private function pinFailedWrite(FakeDatabase $db): ?array
+    {
+        foreach ($db->writes as $write) {
+            if (str_contains($write['sql'], 'INSERT INTO audit_log') && ($write['params']['code'] ?? null) === 'pin.failed') {
+                return $write;
+            }
+        }
+
+        return null;
     }
 
     /**

@@ -13,5 +13,5 @@ Le manager a stats.read (seed) : 200 attendu.
 }
 
 tests {
-  expect(res.getStatus()).to.equal(200);
+  test('200 stats.read accorde', function () { expect(res.getStatus()).to.equal(200); });
 }

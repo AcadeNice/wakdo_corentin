@@ -23,3 +23,7 @@ body {
 docs {
 user.deactivate. == desactivation (PAS de suppression physique ni d'effacement RGPD, mlt 10.3). Refuse sur son propre compte (403) ou sur le dernier administrateur actif (422) -- non pertinent ici.
 }
+
+tests {
+  test('200 OK', function () { expect(res.getStatus()).to.equal(200); });
+}

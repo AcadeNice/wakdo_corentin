@@ -75,6 +75,74 @@ final class PinGateTest extends TestCase
         self::assertTrue($this->db->wrote('INSERT INTO pin_throttle'));
     }
 
+    /**
+     * Minimisation RGPD (art. 5.1.c) : l'adresse SAISIE ne doit plus jamais
+     * apparaitre dans `summary`, sous aucune forme. Ce test est le test ROUGE
+     * de l'ecart -- avant correctif, `summary` contenait
+     * "... (email tenté: cible@wakdo.local)".
+     */
+    public function testResolveWithInvalidPinNeverWritesTheAttemptedEmail(): void
+    {
+        $this->gate()->resolve(1, 'cible@wakdo.local', 'wrong', 'product', 5);
+
+        $write = $this->auditWrite();
+        self::assertNotNull($write);
+        self::assertStringNotContainsString('cible@wakdo.local', (string) $write['params']['summary']);
+        self::assertStringNotContainsString('cible@wakdo.local', (string) $write['params']['details']);
+    }
+
+    /**
+     * Quand l'adresse saisie correspond a un compte EXISTANT, l'identifiant du
+     * compte (pas son adresse) est trace dans `details` -- utile en revue pour
+     * reperer un brute-force cible sans reecrire l'adresse en clair.
+     */
+    public function testResolveWithInvalidPinRecordsTargetUserIdWhenEmailMatchesAnAccount(): void
+    {
+        $this->db->pinFailedTargetUserRow = ['target_user_id' => 42];
+
+        $this->gate()->resolve(1, 'cible@wakdo.local', 'wrong', 'product', 5);
+
+        $write = $this->auditWrite();
+        self::assertNotNull($write);
+        $details = json_decode((string) $write['params']['details'], true);
+        self::assertSame(42, $details['target_user_id'] ?? null);
+        self::assertSame('action sensible', $details['context'] ?? null);
+        self::assertStringNotContainsString('inconnue', (string) $write['params']['summary']);
+    }
+
+    /**
+     * Quand l'adresse saisie ne correspond a AUCUN compte, `target_user_id` est
+     * null et le resume le dit en clair ("adresse inconnue"), sans jamais
+     * ecrire l'adresse elle-meme.
+     */
+    public function testResolveWithInvalidPinRecordsUnknownAddressWhenEmailMatchesNoAccount(): void
+    {
+        $this->db->pinFailedTargetUserRow = null;
+
+        $this->gate()->resolve(1, 'personne@wakdo.local', 'wrong', 'product', 5);
+
+        $write = $this->auditWrite();
+        self::assertNotNull($write);
+        $details = json_decode((string) $write['params']['details'], true);
+        self::assertArrayHasKey('target_user_id', $details);
+        self::assertNull($details['target_user_id']);
+        self::assertStringContainsString('adresse inconnue', (string) $write['params']['summary']);
+    }
+
+    /**
+     * @return array{sql: string, params: array<string, mixed>}|null
+     */
+    private function auditWrite(): ?array
+    {
+        foreach ($this->db->writes as $candidate) {
+            if (str_contains($candidate['sql'], 'INSERT INTO audit_log')) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
     public function testResolveNormalizesZeroEntityIdToNullOnCreation(): void
     {
         // Sur une creation (id pas encore attribue), l'appelant passe 0 ; PinGate

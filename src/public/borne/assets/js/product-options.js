@@ -15,11 +15,15 @@
  * A11y : role=dialog, aria-modal, focus-trap, ESC, fond aria-hidden.
  */
 
-import { addToCart, formatPrice, escHtml } from './state.js';
+import { addToCart, formatPrice, escHtml, MAX_LINE_QUANTITY } from './state.js';
 import { refreshCartBadge } from './nav.js';
 import { renderOrderPanel } from './order-panel.js';
 
-const QTY_MAX = 99;
+// Contre-audit : alignee sur la borne SERVEUR (OrderRepository::MAX_QUANTITY_PER_LINE,
+// via state.js::MAX_LINE_QUANTITY, source unique), plus le 99 local d'avant ce
+// correctif qui laissait composer une ligne que le serveur refusait en bloc (422
+// INVALID_QUANTITY) au paiement.
+const QTY_MAX = MAX_LINE_QUANTITY;
 
 /**
  * Construit l'item panier d'un produit simple pour une quantite donnee. Pur.

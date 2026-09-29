@@ -6,9 +6,17 @@ namespace App\Core;
 
 /**
  * Middleware CORS de l'API publique kiosk (docs/api/conventions.md section 10).
- * La borne (kiosk.localhost) appelle l'API (admin.localhost) en CROSS-ORIGIN ;
- * sans en-tete Access-Control-Allow-Origin, le navigateur bloque la lecture de la
- * reponse.
+ *
+ * Corrige au contre-audit du 2026-09-29 : la borne N'appelle PAS l'API en
+ * cross-origin. Le vhost kiosk (docker/apache/vhost.conf, bloc "API en MEME
+ * origine") relaie lui-meme `/api/*` vers le front controller admin via
+ * ProxyPassMatch -- la borne consomme donc l'API sur SA PROPRE origine, en
+ * URLs relatives, sans qu'aucune requete cross-origin ne parte du navigateur
+ * pour ce parcours (CORS y est deja documente comme "inutile", cf. le
+ * commentaire du vhost). Ce middleware reste en place en DEFENSE EN PROFONDEUR
+ * -- un appel direct vers l'origine admin (hors passerelle, dev sans le proxy,
+ * ou tout autre appelant futur) resterait bloque sans l'en-tete
+ * Access-Control-Allow-Origin.
  *
  * Politique stricte :
  *  - origine UNIQUE et EXACTE (CORS_ALLOWED_ORIGIN, jamais de joker), egale a

@@ -18,5 +18,5 @@ Meme ensemble de droits que Comptoir (seed) : 403 FORBIDDEN attendu.
 }
 
 tests {
-  expect(res.getStatus()).to.equal(403);
+  test('403 FORBIDDEN (product.delete absent)', function () { expect(res.getStatus()).to.equal(403); });
 }

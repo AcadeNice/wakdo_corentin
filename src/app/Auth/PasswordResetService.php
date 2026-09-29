@@ -93,7 +93,24 @@ final class PasswordResetService
      * comparaison ; pas de souci de temps constant car ce n'est pas un secret a
      * faible entropie et la colonne n'est jamais renvoyee au client). Min 8
      * caracteres, nouveau hash argon2id, token efface (usage unique), compteurs
-     * remis a zero, audit_log : le tout dans une transaction.
+     * remis a zero, `session_epoch` incremente, audit_log : le tout dans une
+     * transaction.
+     *
+     * `session_epoch` (RG-T02, migration 0020) ferme TOUTES les sessions deja
+     * ouvertes du compte : une session volee AVANT cette reinitialisation ne
+     * doit pas survivre APRES (App\Auth\SessionGuard::check() compare, a chaque
+     * requete, la valeur posee en session a la connexion a celle-ci, relue en
+     * base). Choix assume : aucune exemption pour la session de la personne qui
+     * soumet elle-meme la reinitialisation. Ce flux (lien recu par email, saisi
+     * hors connexion) n'a normalement aucune session active a ce moment -- et
+     * cette methode, qui ne recoit que le token et le nouveau mot de passe, n'a
+     * de toute facon acces a AUCUN SessionManager pour identifier "la session de
+     * l'acteur" et l'exempter sans complexifier inutilement cette signature.
+     * Meme choix pour un changement de role ou une desactivation : DELIBEREMENT
+     * PAS incremente ici, ces deux evenements sont deja appliques a une session
+     * ouverte des la requete suivante par la relecture live de is_active/role_id
+     * (SessionGuard::check(), meme migration) -- les revoquer via session_epoch
+     * en plus serait redondant.
      */
     public function confirmReset(string $rawToken, string $newPassword, ?int $now = null): AuthResult
     {
@@ -130,7 +147,8 @@ final class PasswordResetService
             // compteurs anti brute-force a zero (le compte redevient utilisable).
             $db->execute(
                 'UPDATE user SET password_hash = :hash, password_reset_token_hash = NULL, '
-                . 'password_reset_expires_at = NULL, failed_login_attempts = 0, lockout_until = NULL '
+                . 'password_reset_expires_at = NULL, failed_login_attempts = 0, lockout_until = NULL, '
+                . 'session_epoch = session_epoch + 1 '
                 . 'WHERE id = :id',
                 ['hash' => $newHash, 'id' => $userId],
             );

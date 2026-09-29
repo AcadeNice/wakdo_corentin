@@ -30,5 +30,5 @@ script:post-response {
 }
 
 tests {
-  expect(res.getStatus()).to.equal(200);
+  test('200 OK', function () { expect(res.getStatus()).to.equal(200); });
 }

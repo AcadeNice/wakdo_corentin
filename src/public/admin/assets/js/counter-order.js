@@ -34,6 +34,15 @@
     // aussi dessert/extra). Aligne sur page-product-menu.js (anti-perte silencieuse).
     var SLOT_LABEL = { side: 'Accompagnement', drink: 'Boisson', sauce: 'Sauce' };
 
+    // Quantite maximale d'une LIGNE, ALIGNEE sur la borne serveur (OrderRepository::
+    // MAX_QUANTITY_PER_LINE, source unique) et sur state.js::MAX_LINE_QUANTITY (borne).
+    // Contre-audit : ni la saisie manuelle (modale produit a la carte), ni le stepper
+    // du panneau commande, ni la fusion par tap repete sur une tuile ne respectaient
+    // cette borne -- l'equipier pouvait composer une ligne que le serveur refuse en
+    // bloc (422 INVALID_QUANTITY) a l'encaissement, apres avoir deja saisi toute la
+    // commande.
+    var MAX_LINE_QUANTITY = 20;
+
     // Lit un script JSON inerte (type="application/json") par id et retourne le tableau
     // decode. Tolerant : un script absent / mal forme retombe sur un tableau vide.
     function parseJsonScript(doc, id) {
@@ -114,8 +123,78 @@
         return (format === 'maxi' && product.maxi_variant_name) ? product.maxi_variant_name : product.name;
     }
 
+    // Options resolues d'un slot, DISPONIBILITE COMPRISE (RG-T21, defaut #4). Une
+    // option encore dans la liste produits POS (productById, derivee de
+    // #pos-products) garde toute sa richesse d'affichage (maxi_variant_name...) ;
+    // une option retiree au back-office (absente de productById, puisque
+    // #pos-products n'embarque que les produits commandables -- meme filtre que
+    // /api/products cote borne) retombe sur un objet minimal construit depuis
+    // option_names, pour rester AFFICHABLE (grisee) plutot que de disparaitre en
+    // silence -- MAIS seulement si le SERVEUR sait de quoi il s'agit (option_names
+    // porte une entree) : un id absent des DEUX est un desync catalogue reel
+    // (configuration perimee), pas une option retiree, et reste FILTRE comme
+    // avant ce correctif. isCommandable vient TOUJOURS du serveur
+    // (option_is_orderable), jamais d'une simple absence dans productById : sans
+    // ce champ (menu servi par une API anterieure), une option est traitee comme
+    // commandable par defaut (compat), meme convention que `commandable` plus haut
+    // dans ce fichier.
+    //
+    // isCommandableMaxi (contre-audit constat 1, RG-T21) : disponibilite de l'option
+    // REELLEMENT servie au format Maxi (option_is_orderable_maxi, calculee serveur
+    // sur la VARIANTE quand elle existe, sinon egale a la base). Absent (API
+    // anterieure) -> repli sur isCommandable, meme convention de compat. Sans ce
+    // champ propre, une base commandable dont la variante Maxi est en rupture (ou
+    // l'inverse) restait proposee dans le mauvais format, pour se faire refuser
+    // 422 OPTION_UNAVAILABLE a l'encaissement (OrderRepository::resolveSelections).
+    // Pur.
+    function resolveSlotOptions(slot, productById) {
+        var orderableById = slot.option_is_orderable || {};
+        var orderableMaxiById = slot.option_is_orderable_maxi || {};
+        var namesById = slot.option_names || {};
+        var out = [];
+        (slot.option_product_ids || []).forEach(function (pid) {
+            var isCommandable = orderableById[pid] !== false;
+            var isCommandableMaxi = Object.prototype.hasOwnProperty.call(orderableMaxiById, pid)
+                ? orderableMaxiById[pid] !== false
+                : isCommandable;
+            var resolved = productById[Number(pid)];
+            if (resolved) {
+                var withAvailability = {};
+                Object.keys(resolved).forEach(function (k) { withAvailability[k] = resolved[k]; });
+                withAvailability.isCommandable = isCommandable;
+                withAvailability.isCommandableMaxi = isCommandableMaxi;
+                out.push(withAvailability);
+                return;
+            }
+            var name = namesById[pid];
+            if (name === undefined) {
+                return; // desync catalogue : aucune info, meme cote serveur
+            }
+            out.push({
+                id: Number(pid),
+                name: name || 'Option',
+                maxi_variant_name: null,
+                isCommandable: isCommandable,
+                isCommandableMaxi: isCommandableMaxi,
+            });
+        });
+        return out;
+    }
+
+    // Disponibilite d'une option pour un FORMAT donne (contre-audit constat 1) :
+    // lit isCommandableMaxi en 'maxi', isCommandable en 'normal' -- jamais toujours
+    // le meme champ, sous peine de rejouer le desaccord caisse/paiement que ce
+    // champ corrige. Pur.
+    function isCommandableForFormat(option, format) {
+        if (!option) {
+            return false;
+        }
+        return format === 'maxi' ? option.isCommandableMaxi !== false : option.isCommandable !== false;
+    }
+
     // Etapes composables d'un menu : burger impose ignore (non choisi ici), un pas par
-    // slot gere, trie par display_order, options resolues via l'index produit. Pur.
+    // slot gere, trie par display_order, options resolues via l'index produit (avec
+    // leur disponibilite, resolveSlotOptions). Pur.
     function composerSteps(menu, productById) {
         return (menu.slots || [])
             .filter(function (slot) {
@@ -126,15 +205,12 @@
                 return (Number(a.display_order) || 0) - (Number(b.display_order) || 0);
             })
             .map(function (slot) {
-                var options = (slot.option_product_ids || [])
-                    .map(function (pid) { return productById[Number(pid)]; })
-                    .filter(Boolean);
                 return {
                     id: Number(slot.id),
                     name: slot.name || SLOT_LABEL[slot.slot_type],
                     slotType: slot.slot_type,
                     isRequired: Number(slot.is_required) === 1,
-                    options: options,
+                    options: resolveSlotOptions(slot, productById),
                 };
             });
     }
@@ -423,13 +499,15 @@
         }
 
         // Ajuste la quantite d'une ligne (delta +1 / -1). Tomber a 0 retire la ligne
-        // (comme order-panel.js borne : decrementer a zero = retrait).
+        // (comme order-panel.js borne : decrementer a zero = retrait). Plafonnee a
+        // MAX_LINE_QUANTITY (contre-audit) : le "+" ne doit jamais depasser la borne
+        // serveur, produit comme menu.
         function adjustQuantity(line, delta) {
             var next = Number(line.quantity || 1) + delta;
             if (next <= 0) {
                 cartLines = cartLines.filter(function (l) { return l.localId !== line.localId; });
             } else {
-                line.quantity = next;
+                line.quantity = Math.min(MAX_LINE_QUANTITY, next);
             }
             renderCart();
         }
@@ -511,12 +589,14 @@
 
         // Tap d'une tuile produit simple (sans modificateur) : fusionne avec une ligne
         // simple existante du meme produit (increment), sinon cree une ligne qty 1.
+        // Plafonnee a MAX_LINE_QUANTITY (contre-audit) : un tap repete ne doit jamais
+        // faire depasser la borne serveur, meme si chaque tap pris seul la respecte.
         function addSimpleProduct(product) {
             var existing = cartLines.filter(function (l) {
                 return l.kind === 'product' && l.productId === Number(product.id) && !hasMods(l);
             })[0];
             if (existing) {
-                existing.quantity += 1;
+                existing.quantity = Math.min(MAX_LINE_QUANTITY, existing.quantity + 1);
             } else {
                 cartLines.push({
                     kind: 'product',
@@ -657,12 +737,16 @@
             qtyInput.type = 'number';
             qtyInput.id = 'composer-product-qty';
             qtyInput.min = '1';
+            qtyInput.max = String(MAX_LINE_QUANTITY);
             qtyInput.value = '1';
             qtyInput.addEventListener('change', function () {
                 var v = parseInt(qtyInput.value, 10);
-                state.quantity = v >= 1 ? v : 1;
-                // E : une saisie invalide (0 / vide / non numerique) est ramenee a 1 ; on
-                // reaffiche la valeur corrigee pour que l'equipier voie ce qui sera ajoute.
+                // E : une saisie invalide (0 / vide / non numerique) est ramenee a 1.
+                // Contre-audit : une saisie AU-DELA de MAX_LINE_QUANTITY (ex. 999) est
+                // plafonnee, jamais transmise telle quelle au serveur, qui la refuserait
+                // en bloc (422 INVALID_QUANTITY) apres coup. On reaffiche la valeur
+                // corrigee pour que l'equipier voie ce qui sera ajoute.
+                state.quantity = v >= 1 ? Math.min(MAX_LINE_QUANTITY, v) : 1;
                 qtyInput.value = String(state.quantity);
             });
             qtyBlock.appendChild(qtyInput);
@@ -709,13 +793,30 @@
         // tuiles de format des tuiles de slot dans le DOM (utile aux tests).
         // Navigation clavier calquee sur onTabsKeydown (barre d'onglets categories,
         // plus haut dans ce fichier) : fleches cycliques, le focus suit la selection.
+        // entry.disabled (RG-T21/defaut #4) : option en rupture calculee ou retiree au
+        // back-office. Grisee au MEME idiome que buildTile()/le badge produit
+        // (aria-disabled + classe + badge "Indisponible", PAS l'attribut natif
+        // `disabled` : coherent avec l'unique autre tuile "indisponible" de ce
+        // fichier). Ni le clic ni la navigation clavier du groupe ne peuvent la
+        // selectionner ; l'enforcement qui fait foi reste serveur
+        // (OrderRepository::resolveSelections, OPTION_UNAVAILABLE) -- ceci est l'echo UX.
         function buildTileGroup(groupLabel, entries, initialValue, onChange, tileClassName) {
             var group = el('div', 'pos-tile-group' + (tileClassName ? ' ' + tileClassName + 's' : ''));
             group.setAttribute('role', 'radiogroup');
             group.setAttribute('aria-label', groupLabel);
 
             var buttons = [];
+            var disabledByValue = {};
+            entries.forEach(function (entry) { disabledByValue[entry.value] = !!entry.disabled; });
             var current = initialValue;
+
+            function isDisabled(btn) {
+                return !!disabledByValue[btn.dataset.value];
+            }
+
+            function firstEnabled() {
+                return buttons.filter(function (btn) { return !isDisabled(btn); })[0] || null;
+            }
 
             function applySelection() {
                 var anyTabbable = false;
@@ -723,13 +824,19 @@
                     var selected = btn.dataset.value === String(current);
                     btn.classList.toggle('is-selected', selected);
                     btn.setAttribute('aria-checked', selected ? 'true' : 'false');
-                    btn.tabIndex = selected ? 0 : -1;
-                    anyTabbable = anyTabbable || selected;
+                    var tabbable = selected && !isDisabled(btn);
+                    btn.tabIndex = tabbable ? 0 : -1;
+                    anyTabbable = anyTabbable || tabbable;
                 });
-                // Roving tabindex : si aucune tuile n'est selectionnee (slot optionnel
-                // laisse a "Sans"), la premiere reste atteignable au clavier.
-                if (!anyTabbable && buttons[0]) {
-                    buttons[0].tabIndex = 0;
+                // Roving tabindex : si aucune tuile COMMANDABLE n'est selectionnee (slot
+                // optionnel laisse a "Sans", ou selection posee sur une option devenue
+                // indisponible), la premiere tuile COMMANDABLE reste atteignable au
+                // clavier -- jamais une tuile grisee.
+                if (!anyTabbable) {
+                    var target = firstEnabled();
+                    if (target) {
+                        target.tabIndex = 0;
+                    }
                 }
             }
 
@@ -750,12 +857,28 @@
                 tile.type = 'button';
                 tile.dataset.value = entry.value;
                 tile.setAttribute('role', 'radio');
+                if (entry.disabled) {
+                    tile.classList.add('pos-tile--unavailable');
+                    tile.setAttribute('aria-disabled', 'true');
+                    tile.setAttribute('aria-label', entry.label + ', indisponible');
+                }
                 var body = el('span', 'pos-tile__body');
                 var nameEl = el('span', 'pos-tile__name');
                 nameEl.textContent = entry.label;
                 body.appendChild(nameEl);
                 tile.appendChild(body);
-                tile.addEventListener('click', function () { select(entry.value, false); });
+                if (entry.disabled) {
+                    var badge = el('span', 'pos-tile__badge pos-tile__badge--unavailable');
+                    badge.setAttribute('aria-hidden', 'true');
+                    badge.textContent = 'Indisponible';
+                    tile.appendChild(badge);
+                }
+                tile.addEventListener('click', function () {
+                    if (isDisabled(tile)) {
+                        return;
+                    }
+                    select(entry.value, false);
+                });
                 buttons.push(tile);
                 group.appendChild(tile);
             });
@@ -765,14 +888,27 @@
                 if (idx < 0 || !buttons.length) {
                     return;
                 }
-                var next = null;
+                var step = 0;
                 if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
-                    next = (idx + 1) % buttons.length;
+                    step = 1;
                 } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
-                    next = (idx - 1 + buttons.length) % buttons.length;
+                    step = -1;
                 }
-                if (next === null) {
+                if (step === 0) {
                     return;
+                }
+                // Saute les tuiles grisees (RG-T21/defaut #4) : la navigation clavier ne
+                // doit jamais poser le focus sur une option indisponible. Borne a
+                // buttons.length essais pour eviter une boucle infinie si tout est grise.
+                var next = idx;
+                for (var i = 0; i < buttons.length; i++) {
+                    next = (next + step + buttons.length) % buttons.length;
+                    if (!isDisabled(buttons[next])) {
+                        break;
+                    }
+                }
+                if (isDisabled(buttons[next])) {
+                    return; // tout le groupe est grise
                 }
                 event.preventDefault();
                 select(buttons[next].dataset.value, true);
@@ -791,6 +927,50 @@
                     if (nameNode) {
                         nameNode.textContent = label;
                     }
+                    if (btn && isDisabled(btn)) {
+                        btn.setAttribute('aria-label', label + ', indisponible');
+                    }
+                },
+                // Regrise/deregrise une tuile SANS changer sa valeur ni la selection
+                // courante (contre-audit constat 1) : le changement de FORMAT peut
+                // rendre une option indisponible (variante Maxi en rupture) ou la
+                // rendre a nouveau commandable, independamment du reste du groupe.
+                setDisabled: function (value, disabled) {
+                    disabledByValue[value] = !!disabled;
+                    var btn = buttons.filter(function (b) { return b.dataset.value === value; })[0];
+                    if (!btn) {
+                        return;
+                    }
+                    var nameNode = btn.querySelector('.pos-tile__name');
+                    var label = nameNode ? nameNode.textContent : '';
+                    if (disabled) {
+                        btn.classList.add('pos-tile--unavailable');
+                        btn.setAttribute('aria-disabled', 'true');
+                        btn.setAttribute('aria-label', label + ', indisponible');
+                        if (!btn.querySelector('.pos-tile__badge--unavailable')) {
+                            var badge = el('span', 'pos-tile__badge pos-tile__badge--unavailable');
+                            badge.setAttribute('aria-hidden', 'true');
+                            badge.textContent = 'Indisponible';
+                            btn.appendChild(badge);
+                        }
+                    } else {
+                        btn.classList.remove('pos-tile--unavailable');
+                        btn.removeAttribute('aria-disabled');
+                        btn.setAttribute('aria-label', label);
+                        var existingBadge = btn.querySelector('.pos-tile__badge--unavailable');
+                        if (existingBadge) {
+                            existingBadge.remove();
+                        }
+                    }
+                    applySelection();
+                },
+                // Retire la selection courante du groupe (contre-audit constat 1) : une
+                // option choisie qui devient indisponible au changement de format doit
+                // etre deselectionnee, pas laissee visuellement "choisie" alors qu'elle
+                // ne peut plus etre soumise.
+                clearSelection: function () {
+                    current = '';
+                    applySelection();
                 },
             };
         }
@@ -802,8 +982,12 @@
             var proposable = menu.burger_modifiers || [];
             var state = { format: 'normal', selections: {}, selectedRemove: {}, selectedAdd: {} };
             steps.forEach(function (step) {
-                if (step.isRequired && step.options[0]) {
-                    state.selections[step.id] = step.options[0].id;
+                // isCommandableForFormat(o, state.format) : ne jamais pre-selectionner
+                // une option indisponible pour le format COURANT (RG-T21/defaut #4,
+                // contre-audit constat 1) -- on prend la premiere COMMANDABLE.
+                var firstAvailable = step.options.filter(function (o) { return isCommandableForFormat(o, state.format); })[0];
+                if (step.isRequired && firstAvailable) {
+                    state.selections[step.id] = firstAvailable.id;
                 }
             });
 
@@ -832,6 +1016,52 @@
                 });
             }
 
+            // Recalcule la disponibilite de CHAQUE option pour le format COURANT
+            // (contre-audit constat 1, RG-T21) : la variante REELLEMENT servie en
+            // Maxi peut etre en rupture alors que la base ne l'est pas, et
+            // inversement -- l'ancien code grisait une option selon la SEULE
+            // disponibilite de la base, quel que soit le format choisi (l'equipier
+            // pouvait alors composer et encaisser un menu Maxi avec un
+            // accompagnement dont la Grande variante etait en rupture, pour echouer
+            // en bloc a la revalidation serveur, OrderRepository::resolveSelections).
+            // Une selection DEJA choisie qui devient indisponible dans le nouveau
+            // format est retiree (jamais filee en silence) et signalee.
+            function refreshAvailabilityForFormat() {
+                var clearedSlotNames = [];
+                steps.forEach(function (step) {
+                    var group = slotGroups[step.id];
+                    if (!group) {
+                        return;
+                    }
+                    step.options.forEach(function (opt) {
+                        group.setDisabled(String(opt.id), !isCommandableForFormat(opt, state.format));
+                    });
+                    var chosen = state.selections[step.id];
+                    if (chosen == null) {
+                        return;
+                    }
+                    var chosenOption = step.options.filter(function (o) { return o.id === chosen; })[0];
+                    if (chosenOption && !isCommandableForFormat(chosenOption, state.format)) {
+                        delete state.selections[step.id];
+                        group.clearSelection();
+                        clearedSlotNames.push(step.name);
+                    }
+                });
+                deadEnd = computeDeadEnd();
+                addBtn.disabled = deadEnd;
+                // L'impasse prime sur le simple message de deselection : quand PLUS
+                // AUCUNE option n'est composable, "reselectionnez" induirait en erreur
+                // (il n'y a rien a reselectionner).
+                if (deadEnd) {
+                    inlineError.textContent = 'Ce menu n\'est pas composable : une option obligatoire est indisponible.';
+                } else if (clearedSlotNames.length) {
+                    inlineError.textContent = 'Sélection réinitialisée (indisponible en format '
+                        + (state.format === 'maxi' ? 'Maxi' : 'Normal') + ') : ' + clearedSlotNames.join(', ') + '.';
+                } else {
+                    inlineError.textContent = '';
+                }
+            }
+
             // Format Normal / Maxi -- tuiles (ERG-01), meme geste que le reste du POS.
             var formatGroup = el('div', 'menu-composer__format');
             var formatLegend = el('p', 'menu-composer__legend');
@@ -843,6 +1073,7 @@
             ], state.format, function (value) {
                 state.format = value;
                 relabelSlotTiles();
+                refreshAvailabilityForFormat();
             }, 'menu-composer__format-tile');
             formatGroup.appendChild(formatTiles.container);
             panel.appendChild(formatGroup);
@@ -856,7 +1087,11 @@
                 block.appendChild(lab);
 
                 var entries = step.options.map(function (opt) {
-                    return { value: String(opt.id), label: displayProductName(opt, state.format) };
+                    return {
+                        value: String(opt.id),
+                        label: displayProductName(opt, state.format),
+                        disabled: !isCommandableForFormat(opt, state.format),
+                    };
                 });
                 if (!step.isRequired) {
                     entries.unshift({ value: '', label: 'Sans' });
@@ -887,10 +1122,20 @@
             inlineError.textContent = '';
             panel.appendChild(inlineError);
 
-            // Impasse : un slot requis sans aucune option resoluble rend le menu non
-            // composable. On desactive l'ajout et on affiche un message clair plutot que
-            // de laisser l'equipier buter sur "options obligatoires" sans pouvoir corriger.
-            var deadEnd = steps.some(function (s) { return s.isRequired && !s.options.length; });
+            // Impasse : un slot requis sans aucune option resoluble, OU dont TOUTES les
+            // options resolues sont indisponibles POUR LE FORMAT COURANT (RG-T21/defaut
+            // #4, contre-audit constat 1), rend le menu non composable. On desactive
+            // l'ajout et on affiche un message clair plutot que de laisser l'equipier
+            // buter sur "options obligatoires" sans pouvoir corriger. Fonction (pas une
+            // simple constante) : reevaluee a chaque changement de format
+            // (refreshAvailabilityForFormat), une option en impasse en Maxi pouvant
+            // redevenir composable en Normal, et inversement.
+            function computeDeadEnd() {
+                return steps.some(function (s) {
+                    return s.isRequired && !s.options.some(function (o) { return isCommandableForFormat(o, state.format); });
+                });
+            }
+            var deadEnd = computeDeadEnd();
 
             // Actions : ajouter (si tous les requis choisis) / annuler.
             var actions = el('div', 'menu-composer__actions');
@@ -905,8 +1150,16 @@
                 if (deadEnd) {
                     return;
                 }
+                // isCommandableForFormat(o, state.format) : garde-fou defensif
+                // (RG-T21/defaut #4, contre-audit constat 1) -- une selection posee
+                // sur une option devenue indisponible DANS CE FORMAT ne doit jamais
+                // atteindre le panier (le serveur la refuserait de toute facon,
+                // OrderRepository::resolveSelections, OPTION_UNAVAILABLE).
                 var allRequired = steps.filter(function (s) { return s.isRequired; })
-                    .every(function (s) { return state.selections[s.id] != null; });
+                    .every(function (s) {
+                        var chosen = state.selections[s.id];
+                        return chosen != null && s.options.some(function (o) { return o.id === chosen && isCommandableForFormat(o, state.format); });
+                    });
                 if (!allRequired) {
                     inlineError.textContent = 'Choisissez toutes les options obligatoires avant d\'ajouter.';
                     return;
@@ -1222,7 +1475,13 @@
     }
 
     if (typeof module !== 'undefined' && module.exports) {
-        module.exports = { init: init, composerSteps: composerSteps, buildCategoryTabs: buildCategoryTabs, displayProductName: displayProductName };
+        module.exports = {
+            init: init,
+            composerSteps: composerSteps,
+            buildCategoryTabs: buildCategoryTabs,
+            displayProductName: displayProductName,
+            isCommandableForFormat: isCommandableForFormat,
+        };
     }
     if (typeof document !== 'undefined' && document.addEventListener) {
         document.addEventListener('DOMContentLoaded', function () {

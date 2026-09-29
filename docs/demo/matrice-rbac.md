@@ -42,8 +42,9 @@ Légende : `X` = permission accordée (`role_permission`, seed 0001) ; case vide
 | Rôles & statistiques | Gérer les rôles | `role.manage` | X | | | | |
 | Rôles & statistiques | Voir les statistiques | `stats.read` | X | X | | | |
 
-Totaux par rôle (recoupent `role_permission`, vérifié par requête SQL en
-section 5) : admin 23, manager 15, kitchen 5, counter 8, drive 8. `counter` et
+Totaux par rôle (recoupent `role_permission`, vérifié par requête SQL — résultat
+chiffré dans le rapport de livraison, section « Résultats chiffrés », pas dans ce
+document) : admin 23, manager 15, kitchen 5, counter 8, drive 8. `counter` et
 `drive` détiennent exactement le même sous-ensemble de 8 permissions — leur
 différence n'est pas une différence de droits mais de **source de commande**
 (auto-taguée par le chemin de la requête, `/counter/orders` vs `/drive/orders`)
@@ -71,8 +72,9 @@ conséquence.
 ## 2. Scénarios de démonstration par rôle
 
 Pour chaque scénario : action, résultat ATTENDU (déduit de `role_permission` +
-de la garde de route citée), puis résultat VÉRIFIÉ en section 5 (pile
-jetable). `pin_email`/`pin` désignent les champs du formulaire/JSON PIN
+de la garde de route citée), puis résultat VÉRIFIÉ sur pile jetable (chiffres dans
+le rapport de livraison, section « Résultats chiffrés », pas dans ce document).
+`pin_email`/`pin` désignent les champs du formulaire/JSON PIN
 équipier (RG-T13) ; ils identifient l'acteur qui SIGNE l'action, indépendamment
 de la session connectée.
 
@@ -81,8 +83,8 @@ de la session connectée.
 | # | Scénario | Attendu |
 |---|---|---|
 | A1 | Navigateur : `GET /admin/roles` | 200 — `role.manage` détenu, seul rôle à avoir accès à la gestion RBAC. |
-| A2 | API : `DELETE /admin/api/products/{id}` avec PIN admin | 200/204 — seul rôle à détenir `product.delete`. |
-| A3 | Navigateur : `GET /admin/orders/{number}/cancel` puis annulation avec PIN | 200 — `order.cancel` détenu (comme manager, comptoir et drive depuis ADR-0020 ; admin reste le seul rôle à cumuler `order.create`/`order.deliver`/`order.cancel`). |
+| A2 | API : `DELETE /admin/api/products/{id}` avec PIN admin | 200/204 — seul rôle à détenir `product.delete`. **Prérequis** : le compte admin du seed n'a **pas de PIN défini par défaut** (`docs/demo/comptes-demo.md`) ; en définir un via `/admin/profile/pin` avant de rejouer ce scénario, sinon `422 PIN_INVALID`. |
+| A3 | Navigateur : `GET /admin/orders/{number}/cancel` puis annulation avec PIN | 200 — `order.cancel` détenu (comme manager, comptoir et drive depuis ADR-0020) ; admin cumule aussi `order.create`/`order.deliver`/`order.cancel`, mais comptoir et drive détiennent eux aussi les trois (seed 0001, section 1) — seul manager n'a ni `order.create` ni `order.deliver`. Même prérequis PIN que A2 (pas de PIN par défaut sur ce compte). |
 
 ### Responsable (`manager@wakdo.local`)
 

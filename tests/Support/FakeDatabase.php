@@ -56,7 +56,8 @@ final class FakeDatabase implements DatabaseInterface
     public ?array $emailLookupRow = null;
 
     /**
-     * Reponse de la verification is_active du SessionGuard (RG-T02) ; null = absent.
+     * Reponse de la verification is_active + role_id + session_epoch du
+     * SessionGuard (RG-T02) ; null = absent.
      *
      * @var array<string, mixed>|null
      */
@@ -166,6 +167,19 @@ final class FakeDatabase implements DatabaseInterface
     public ?array $productRow = null;
 
     /**
+     * Lignes renvoyees par ProductRepository::find(id), indexees PAR ID -- contrairement
+     * a $productRow (une seule reponse pour n'importe quel id). Sert la disponibilite
+     * de CHAQUE option de slot du composeur comptoir/drive (CounterOrderController::
+     * slotsWithAvailability, defaut #4/RG-T21), qui appelle find() une fois par option et
+     * a besoin d'une reponse DIFFERENTE par id. Verifiee AVANT $productRow (repli) :
+     * un id absent d'ici retombe sur $productRow pour ne rien casser des tests existants
+     * qui reutilisent ce bouton unique pour le burger ET l'option selectionnee.
+     *
+     * @var array<int, array<string, mixed>>
+     */
+    public array $productByIdRows = [];
+
+    /**
      * Lignes {id, name} renvoyees par ProductRepository::basesOnly() (R4/F9-1) :
      * produits de base eligibles aux selects menu / formulaire produit.
      *
@@ -248,6 +262,15 @@ final class FakeDatabase implements DatabaseInterface
 
     /** Resultat de MenuRepository::isReferencedByOrders() (true = reference par une commande). */
     public bool $menuReferenced = false;
+
+    /**
+     * Ids de menu_slot DEJA reference par order_item_selection (garde FK-safe de
+     * reconcileSlots(), MenuRepository::isSlotReferencedByOrders()) ; vide = aucun
+     * slot n'est reference, tout retrait de slot est accepte.
+     *
+     * @var list<int>
+     */
+    public array $referencedSlotIds = [];
 
     /**
      * Ligne renvoyee pour IngredientRepository::find() et les lectures ciblees de
@@ -415,11 +438,50 @@ final class FakeDatabase implements DatabaseInterface
      */
     public ?string $pinThrottleLockoutUntil = null;
 
+    /**
+     * Ligne {id} renvoyee par la recherche du compte CIBLE d'un PIN echoue
+     * (PinGate::auditFailedPin(), minimisation RGPD art. 5.1.c) ; null = aucun
+     * compte pour cette adresse ("adresse inconnue"). Distinct de $emailLookupRow
+     * (PasswordResetService, requete 'AND is_active = 1') : cette recherche-ci
+     * porte sur N'IMPORTE QUEL compte, actif ou non, puisqu'elle sert a auditer
+     * une tentative, pas a authentifier.
+     *
+     * @var array<string, mixed>|null
+     */
+    public ?array $pinFailedTargetUserRow = null;
+
     /** Compteur pin_throttle relu apres l'upsert (PinThrottle::recordFailure) ; 1 par defaut. */
     public int $pinThrottleAttempts = 1;
 
+    /**
+     * lockout_until renvoyes pour les deux dimensions de PasswordResetThrottle
+     * (POST /forgot_password) ; null = pas de verrou pour cette dimension.
+     */
+    public ?string $passwordResetEmailLockoutUntil = null;
+    public ?string $passwordResetIpLockoutUntil = null;
+
+    /**
+     * Compteurs password_reset_throttle relus apres l'upsert, un par dimension
+     * (PasswordResetThrottle::increment()) ; 1 par defaut.
+     */
+    public int $passwordResetEmailAttempts = 1;
+    public int $passwordResetIpAttempts = 1;
+
     /** Si non nul, execute() leve cette exception (simulation panne DB / violation de contrainte). */
     public ?Throwable $failOnExecute = null;
+
+    /**
+     * Restreint failOnExecute a la SEULE ecriture dont le SQL CONTIENT cette
+     * sous-chaine ; vide (defaut) = TOUTE ecriture echoue, comportement historique
+     * inchange. Sert a simuler une violation qui ne frappe qu'UNE ecriture precise
+     * au milieu d'une transaction (ex. le DELETE d'un menu_slot en course avec une
+     * commande concurrente, MenuRepository::reconcileSlots()) sans faire echouer les
+     * ecritures qui la precedent dans la meme transaction.
+     */
+    public string $failOnExecuteMatching = '';
+
+    /** Si non nul, fetch() leve cette exception (simulation panne DB en LECTURE, ex. base arretee). */
+    public ?Throwable $failOnFetch = null;
 
     /** Nombre de lignes affectees renvoye par execute() (1 par defaut). */
     public int $executeRowCount = 1;
@@ -441,6 +503,10 @@ final class FakeDatabase implements DatabaseInterface
 
     public function fetch(string $sql, array $params = []): ?array
     {
+        if ($this->failOnFetch !== null) {
+            throw $this->failOnFetch;
+        }
+
         $this->reads[] = ['sql' => $sql, 'params' => $params];
 
         // Doit passer AVANT le lookup auth : la requete displayInfo contient aussi
@@ -494,11 +560,19 @@ final class FakeDatabase implements DatabaseInterface
             return $this->resetUserRow;
         }
 
+        // Recherche du compte CIBLE pour l'audit pin.failed minimise
+        // (PinGate::auditFailedPin()) : distinguee de la route generique
+        // ci-dessous par sa projection 'id AS target_user_id' (aucun chevauchement
+        // de substring avec 'SELECT id FROM user WHERE email').
+        if (str_contains($sql, 'id AS target_user_id FROM user WHERE email')) {
+            return $this->pinFailedTargetUserRow;
+        }
+
         if (str_contains($sql, 'SELECT id FROM user WHERE email')) {
             return $this->emailLookupRow;
         }
 
-        if (str_contains($sql, 'SELECT is_active FROM user WHERE id')) {
+        if (str_contains($sql, 'SELECT is_active, role_id, session_epoch FROM user WHERE id')) {
             return $this->guardUserRow;
         }
 
@@ -574,7 +648,9 @@ final class FakeDatabase implements DatabaseInterface
         }
 
         if (str_contains($sql, 'FROM product WHERE id = :id')) {
-            return $this->productRow;
+            $id = (int) ($params['id'] ?? 0);
+
+            return $this->productByIdRows[$id] ?? $this->productRow;
         }
 
         if (str_contains($sql, 'FROM category WHERE id = :id')) {
@@ -599,6 +675,15 @@ final class FakeDatabase implements DatabaseInterface
 
         if (str_contains($sql, 'FROM order_item WHERE menu_id')) {
             return $this->menuReferenced ? ['menu_id' => 1] : null;
+        }
+
+        // Garde FK-safe PAR SLOT de reconcileSlots() (MenuRepository::update()) :
+        // distincte de la garde par MENU juste au-dessus ('FROM order_item WHERE
+        // menu_id'), une table differente (order_item_selection, pas order_item).
+        if (str_contains($sql, 'FROM order_item_selection WHERE menu_slot_id')) {
+            $id = (int) ($params['id'] ?? 0);
+
+            return in_array($id, $this->referencedSlotIds, true) ? ['id' => $id] : null;
         }
 
         // Ingredient : nameExists (avant la route par id, qui ne matche pas
@@ -650,6 +735,32 @@ final class FakeDatabase implements DatabaseInterface
 
         if (str_contains($sql, 'failed_attempts FROM pin_throttle')) {
             return ['failed_attempts' => $this->pinThrottleAttempts];
+        }
+
+        if (str_contains($sql, 'lockout_until FROM password_reset_throttle')) {
+            $kind = $params['kind'] ?? null;
+
+            if ($kind === 'email') {
+                return ['lockout_until' => $this->passwordResetEmailLockoutUntil];
+            }
+            if ($kind === 'ip') {
+                return ['lockout_until' => $this->passwordResetIpLockoutUntil];
+            }
+
+            return null;
+        }
+
+        if (str_contains($sql, 'failed_attempts FROM password_reset_throttle')) {
+            $kind = $params['kind'] ?? null;
+
+            if ($kind === 'email') {
+                return ['failed_attempts' => $this->passwordResetEmailAttempts];
+            }
+            if ($kind === 'ip') {
+                return ['failed_attempts' => $this->passwordResetIpAttempts];
+            }
+
+            return null;
         }
 
         if (str_contains($sql, 'SELECT lockout_until FROM login_throttle')) {
@@ -711,6 +822,28 @@ final class FakeDatabase implements DatabaseInterface
 
         if (str_contains($sql, 'FROM menu_slot s')) {
             return $this->menuSlotRows;
+        }
+
+        // reconcileSlots() (MenuRepository::update()) : identite {id, slot_type, name}
+        // des menu_slot EXISTANTS du menu (verrouilles, FOR UPDATE), pour
+        // l'appariement par NOM puis par position au sein du meme slot_type.
+        // Distincte de la route juste au-dessus ('FROM menu_slot s', LEFT JOIN
+        // options pour slotsWithOptions()) par son texte SQL propre ; derivee du
+        // MEME $menuSlotRows (dedoublonne par id), pour que les deux lectures
+        // restent coherentes sans deux jeux de donnees a tenir a jour.
+        if (str_contains($sql, 'SELECT id, slot_type, name FROM menu_slot WHERE menu_id')) {
+            $seen = [];
+            $rows = [];
+            foreach ($this->menuSlotRows as $row) {
+                $id = (int) ($row['id'] ?? 0);
+                if (isset($seen[$id])) {
+                    continue;
+                }
+                $seen[$id] = true;
+                $rows[] = ['id' => $id, 'slot_type' => (string) ($row['slot_type'] ?? ''), 'name' => (string) ($row['name'] ?? '')];
+            }
+
+            return $rows;
         }
 
         if (str_contains($sql, 'FROM ingredient ORDER BY name')) {
@@ -780,7 +913,7 @@ final class FakeDatabase implements DatabaseInterface
 
     public function execute(string $sql, array $params = []): int
     {
-        if ($this->failOnExecute !== null) {
+        if ($this->failOnExecute !== null && ($this->failOnExecuteMatching === '' || str_contains($sql, $this->failOnExecuteMatching))) {
             throw $this->failOnExecute;
         }
 

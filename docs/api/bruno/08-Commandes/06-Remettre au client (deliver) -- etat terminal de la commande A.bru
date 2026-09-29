@@ -16,3 +16,7 @@ headers {
 docs {
 order.deliver, pas de PIN. "delivered" est un etat terminal NORMAL (pas une pollution a nettoyer) : une commande livree fait partie de l'historique reel du restaurant.
 }
+
+tests {
+  test('200 OK', function () { expect(res.getStatus()).to.equal(200); });
+}

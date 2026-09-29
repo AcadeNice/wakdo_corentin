@@ -8,6 +8,7 @@ use PDOException;
 use App\Auth\Csrf;
 use App\Auth\GuardResult;
 use App\Auth\PasswordHasher;
+use App\Auth\PinGate;
 use App\Auth\PinThrottle;
 use App\Auth\PinVerifier;
 use App\Auth\UserRepository;
@@ -198,6 +199,9 @@ class UserController extends AdminController
                     'is_active'  => $isActive,
                 ]);
                 if ($newHash !== null) {
+                    // setPasswordHash() incremente aussi session_epoch (RG-T02) dans le
+                    // meme UPDATE : un changement de mot de passe fait par un admin ferme
+                    // desormais les sessions deja ouvertes du compte cible.
                     $repo->setPasswordHash($id, $newHash);
                 }
                 $this->writeAudit($db, 'user.update', $actor['id'], $actor['role_id'], $id, 'Mise à jour utilisateur', ['fields' => $changed]);
@@ -574,20 +578,13 @@ class UserController extends AdminController
         return $changed;
     }
 
+    /**
+     * Delegue a `PinGate::auditFailedPin()` (RGPD art. 5.1.c, minimisation) : plus
+     * aucune adresse en clair dans `audit_log`, voir le POURQUOI complet la-bas.
+     */
     private function logFailedPin(DatabaseInterface $db, string $email, int $entityId): void
     {
-        $db->execute(
-            'INSERT INTO audit_log (actor_user_id, actor_role_id, action_code, entity_type, entity_id, summary) '
-            . 'VALUES (:uid, :rid, :code, :etype, :eid, :summary)',
-            [
-                'uid'     => null,
-                'rid'     => null,
-                'code'    => 'pin.failed',
-                'etype'   => self::ENTITY,
-                'eid'     => $entityId > 0 ? $entityId : null,
-                'summary' => 'Échec PIN gestion utilisateur (email tenté: ' . $email . ')',
-            ],
-        );
+        PinGate::auditFailedPin($db, $email, self::ENTITY, $entityId > 0 ? $entityId : null, 'gestion utilisateur');
     }
 
     /**

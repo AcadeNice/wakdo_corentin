@@ -162,6 +162,9 @@ sequenceDiagram
     alt Panier vide, article indisponible,<br/>mode de service invalide
         API-->>Borne: 422 {data: null,<br/>error: {code, message}}
         Borne-->>Client: message sur la page<br/>de paiement, qui reste affichee
+    else Quantite hors 1-20, plus de 50 lignes<br/>ou plus de 50 articles, option indisponible
+        API-->>Borne: 422 INVALID_QUANTITY, TOO_MANY_ITEMS,<br/>ORDER_TOO_LARGE ou OPTION_UNAVAILABLE (29/09)
+        Borne-->>Client: message clair sur la page<br/>de paiement, qui reste affichee
     else Cle d'idempotence de plus<br/>de 36 caracteres
         API-->>Borne: 422 INVALID_IDEMPOTENCY_KEY<br/>(#186, avant toute ecriture)
         Borne-->>Client: message sur la page<br/>de paiement, qui reste affichee

@@ -24,3 +24,7 @@ script:post-response {
       if (menus) { bru.setEnvVar('menusCategoryId', menus.id); }
   }
 }
+
+tests {
+  test('200 OK', function () { expect(res.getStatus()).to.equal(200); });
+}

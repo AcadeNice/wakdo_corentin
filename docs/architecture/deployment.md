@@ -139,4 +139,6 @@ Depot -> Settings -> Actions -> Secrets / Variables :
   confiance a la premiere connexion.
 - Secrets stockes cote forge, hors du depot. `.env` et `docker-compose.prod.yml`
   restent gitignores.
-- Le runner n'a pas le socket Docker : un job ne peut pas agir sur Docker localement.
+- Les conteneurs de JOB n'ont pas le socket Docker (le conteneur du RUNNER, lui, l'a --
+  c'est lui qui lance les conteneurs de job, section « Topologie » ci-dessus) : un job
+  ne peut donc pas agir sur Docker localement.

@@ -12,3 +12,11 @@
 # l'historique ne se reecrit pas.
 7793c36a1a2d3a9d775d64b69428912fe64a6598:tests/Support/HtmlRouteHarness.php:generic-api-key:613
 7793c36a1a2d3a9d775d64b69428912fe64a6598:tests/Support/HtmlRouteHarness.php:generic-api-key:763
+
+# e72ad69, tests/Integration/Security/PasswordResetExpiryDbTest.php : mot de passe
+# FICTIF d'un compte cree et supprime par le test lui-meme (hache a la volee, aucun
+# compte reel). La regle generic-api-key l'a pris pour une cle d'API a cause de son
+# entropie ; la valeur a ete remplacee par une chaine sans entropie dans le commit
+# suivant, et cette empreinte reste necessaire parce que le scan couvre tout
+# l'historique de la branche.
+e72ad690f453c83618ea6796d2faf5c7de06e5dd:tests/Integration/Security/PasswordResetExpiryDbTest.php:generic-api-key:33

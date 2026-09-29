@@ -1,9 +1,9 @@
 # Dictionnaire de Donnees — Wakdo
 
 **Phase Merise** : P1 - Conception, etape 1 (dictionnaire de donnees d'abord, mantra #33)
-**Version** : v0.4 — prod-like, 23 entites (19 prod-like + couche security-by-design + classement des ingredients, incl. les entites `login_throttle`, `pin_throttle` et `category_ingredient_family`)
-**Date** : 2026-06-04 (ajouts security-by-design 2026-06-11 ; classement des ingredients 2026-09-27 ; corrections d'audit 2026-09-28)
-**Branche** : `feat/p1-conception`
+**Version** : v0.7 — prod-like, 24 entites (19 prod-like + couche security-by-design + classement des ingredients, incl. les entites `login_throttle`, `pin_throttle`, `category_ingredient_family` et `password_reset_throttle`)
+**Date** : 2026-06-04 (ajouts security-by-design 2026-06-11 ; classement des ingredients 2026-09-27 ; corrections d'audit 2026-09-28 ; contre-audit independant 2026-09-29 ; deux correctifs merges le 2026-09-29 : reconciliation des emplacements de menu, `audit_log.pin.failed` sans adresse saisie — migration 0019 ; deux correctifs de securite merges le 2026-09-29 : `user.session_epoch` + throttle de reinitialisation de mot de passe — migration 0020, commit `ef7fd37` ; en-tetes de securite completes, TRACE coupe, sonde publique sans version PHP — commit `08d7a96`)
+**Branche** : premiere redaction sur `feat/p1-conception` ; etat actuel sur `docs/contre-audit` (29/09), en production apres la release du 29/09
 **Statut** : prod-like — toutes les decisions D1-D8 + stock appliquees (voir `docs/journal/2026-06-04--conception-prodlike-revision.md` pour D1-D3 et `docs/journal/2026-06-04--p1-merise-v0.2-rewrite-and-forgejo-migration.md` pour D4-D8 + stock) ; couche security-by-design en cours (voir note 13) ; colonnes additives post-v0.3 des migrations 0003/0005/0006/0007 alignees sur le deploye (voir note 14)
 **Auteur** : BYAN (couche methodologie)
 
@@ -114,9 +114,9 @@ Un article vendable unique, disponible a la carte ou comme composant dans un slo
 | `name` | VARCHAR(120) | NO | — | — | `nom` | renomme depuis `nom` ; pas d'index dedie (seul l'index composite `(category_id, is_available, display_order)` existe, migration 0001) |
 | `description` | TEXT | YES | NULL | — | (ajoute) | renseigne plus tard via l'admin |
 | `price_cents` | INT UNSIGNED | NO | — | CHECK > 0 | `prix` (FLOAT) | conversion FLOAT -> INT centimes au seed (voir note 1) |
-| `maxi_variant_product_id` | INT UNSIGNED | YES | NULL | FK -> `product(id)`, ON DELETE SET NULL | (migration 0006) | auto-reference : variante servie quand un menu est commande au format Maxi (ex. Moyenne Frite -> Grande Frite). Data-driven (la regle vit dans la donnee). SET NULL = degradation gracieuse : si la variante Grande est retiree du catalogue, le produit de base reste vendable, il perd seulement sa substitution Maxi. Voir note 14 |
 | `size_cl` | SMALLINT UNSIGNED | YES | NULL | — | (migration 0007) | variante de TAILLE a la carte : volume en centilitres d'une boisson fontaine (ex. 30 / 50 cl). NULL = produit sans dimension taille (bouteille, non-boisson). La ligne de base ET la variante portent leur volume pour l'affichage du picker. Voir note 14 |
 | `base_product_id` | INT UNSIGNED | YES | NULL | FK -> `product(id)`, ON DELETE CASCADE | (migration 0007) | auto-reference vers la ligne de base d'une variante de taille. NULL = produit de base ou autonome (visible dans la grille catalogue) ; NON NULL = variante de taille (masquee de la grille, atteinte via le picker). CASCADE : une variante de taille n'a pas de sens sans sa base (suppression de la base -> suppression de ses variantes). Voir note 14 |
+| `maxi_variant_product_id` | INT UNSIGNED | YES | NULL | FK -> `product(id)`, ON DELETE SET NULL | (migration 0006) | auto-reference : variante servie quand un menu est commande au format Maxi (ex. Moyenne Frite -> Grande Frite). Data-driven (la regle vit dans la donnee). SET NULL = degradation gracieuse : si la variante Grande est retiree du catalogue, le produit de base reste vendable, il perd seulement sa substitution Maxi. Voir note 14 |
 | `vat_rate` | SMALLINT UNSIGNED | NO | 100 | CHECK IN (55, 100) | (ajoute) | taux de TVA en pour-mille : 100 = 10%, 55 = 5,5%. Defaut 10%. Voir note 9 |
 | `image_path` | VARCHAR(255) | YES | NULL | — | `image` | chemin relatif, voir note 8 |
 | `is_available` | TINYINT(1) | NO | 1 | — | (ajoute) | bascule de disponibilite manuelle depuis l'admin |
@@ -124,7 +124,11 @@ Un article vendable unique, disponible a la carte ou comme composant dans un slo
 | `created_at` | DATETIME | NO | CURRENT_TIMESTAMP | — | — | audit |
 | `updated_at` | DATETIME | NO | CURRENT_TIMESTAMP ON UPDATE | — | — | audit |
 
-**Volume** : ~53 lignes a l'init (66 lignes dans `produits.json` moins 13 menus deplaces vers `menu`).
+**Volume** : 53 lignes a l'init (`0002_catalogue.sql`, 66 lignes dans `produits.json` moins 13 menus
+deplaces vers `menu`), **58 au total apres tous les seeds** : le seed `0005_drink_sizes.sql` insere 5
+lignes VARIANTE 50 cl (une par boisson fontaine — Coca Cola, Coca Sans Sucres, Fanta Orange, Ice Tea
+Pêche, Ice Tea Citron), reliees a leur base 30 cl (`base_product_id`) puis pointees en variante Maxi
+(`0006_drink_maxi_variant.sql`, `maxi_variant_product_id`).
 
 ---
 
@@ -214,14 +218,15 @@ Ingredient elementaire utilise dans la composition des produits. Porte les donne
 
 **CHECK au niveau table** : `critical_stock_pct < low_stock_pct` (le seuil critique se situe sous la bande d’alerte).
 
-**Regle de decrement de stock** : a la transition `paid`, chaque ingredient est decremente de
-`product_ingredient.quantity_normal` ou `quantity_maxi` (selectionne par `order_item.format`)
-multiplie par `order_item.quantity`, puis ajuste par les lignes `order_item_modifier`. Voir note 7.
+**Regle de decrement de stock** : a la transition vers `preparing` (encaissement, PAY_ORDER), chaque
+ingredient est decremente de `product_ingredient.quantity_normal` ou `quantity_maxi` (selectionne par
+`order_item.format`) multiplie par `order_item.quantity`, puis ajuste par les lignes `order_item_modifier`.
+Voir note 7. `paid` reste dans l'ENUM mais aucun chemin de code actuel ne l'ecrit plus.
 **Regle de reapprovisionnement** : `stock_quantity += N * pack_size` (reapprovisionne en packs complets),
 plafonne a `stock_capacity` (`IngredientRepository::restock`, delta reellement applique renvoye a l'appelant).
 **Regle d'annulation** : le recredit est conditionnel a l'existence de mouvements `sale` pour la commande
 (pose au decrement de l'encaissement) plutot qu'au statut lu avant la transaction (insensible a la course
-`pending_payment -> paid -> cancel`) ; sans mouvement `sale`, rien n'est recredite. Le recredit est lui
+`pending_payment -> preparing -> cancel`) ; sans mouvement `sale`, rien n'est recredite. Le recredit est lui
 aussi plafonne a `stock_capacity` (`OrderRepository::cancel`).
 **Modele de stock (base sur le pourcentage, trois bandes)** : le seuil d'alerte absolu est remplace par un
 modele en pourcentage ancre sur `stock_capacity` (la reference 100%). Le pourcentage de stock est
@@ -370,7 +375,7 @@ Les choix reels effectues par le client pour chaque slot d'une ligne de menu.
 |---|---|---|---|---|---|
 | `id` | INT UNSIGNED | NO | AUTO_INCREMENT | PK | |
 | `order_item_id` | INT UNSIGNED | NO | — | FK -> `order_item(id)`, ON DELETE CASCADE | doit referencer un order_item avec item_type='menu' |
-| `menu_slot_id` | INT UNSIGNED | NO | — | FK -> `menu_slot(id)`, ON DELETE RESTRICT | quel slot a ete rempli |
+| `menu_slot_id` | INT UNSIGNED | NO | — | FK -> `menu_slot(id)`, ON DELETE RESTRICT | quel slot a ete rempli ; cette contrainte bloque la suppression d'un `menu_slot` deja choisi en commande — depuis le 2026-09-29, `MenuRepository::reconcileSlots()` la verifie AVANT d'ecrire quoi que ce soit et refuse en 409 (au lieu de laisser remonter l'erreur SQL) |
 | `product_id` | INT UNSIGNED | NO | — | FK -> `product(id)`, ON DELETE RESTRICT | produit choisi par le client pour ce slot |
 | `label_snapshot` | VARCHAR(120) | NO | — | — | libelle du produit au moment de la commande |
 
@@ -401,8 +406,10 @@ d'un menu : retrait (gratuit) ou ajout (avec supplement optionnel).
   Aucune FK supplementaire n'est necessaire : etant donne `order_item_id`, le burger est
   `order_item.menu_id -> menu.burger_product_id`.
 
-**Impact stock** : chaque modificateur affecte le stock d'ingredient a la transition `paid`
-(`remove` -> pas de decrement pour cet ingredient ; `add` -> decrement supplementaire).
+**Impact stock** : chaque modificateur affecte le stock d'ingredient a la transition vers `preparing`
+(encaissement, PAY_ORDER) (`remove` -> pas de decrement pour cet ingredient ; `add` -> decrement
+supplementaire). `paid` reste dans l'ENUM `customer_order.status` mais aucun chemin de code actuel ne
+l'ecrit plus (voir note sur `customer_order.status` et `mlt.md` 3.3ter).
 
 ---
 
@@ -416,17 +423,18 @@ ne sont pas authentifies et n'ont pas de ligne ici.
 | `id` | INT UNSIGNED | NO | AUTO_INCREMENT | PK | |
 | `email` | VARCHAR(254) | NO | — | UNIQUE | longueur max selon RFC 5321 |
 | `password_hash` | VARCHAR(255) | NO | — | — | hash argon2id, code en dur dans `PasswordHasher` (choix security-by-design non configurable ; il n'existe pas de variable `PASSWORD_ALGO`, seuls les couts `ARGON2_MEMORY_COST`/`ARGON2_TIME_COST`/`ARGON2_THREADS` se lisent depuis `.env`) ; longueur typique 96 caracteres, marge jusqu'a 255 |
+| `pin_hash` | VARCHAR(255) | YES | NULL | — | hash argon2id du PIN par membre du personnel qui autorise les actions sensibles (prix/RBAC/utilisateur/annulation/inventaire). NULL = aucun PIN defini. Security-by-design, voir note 13. Colonne posee juste apres `password_hash` (migration `0001_init_schema.sql`), pas en fin de table |
 | `first_name` | VARCHAR(60) | NO | — | — | |
 | `last_name` | VARCHAR(60) | NO | — | — | |
 | `role_id` | INT UNSIGNED | NO | — | FK -> `role(id)`, ON DELETE RESTRICT | un utilisateur ne peut exister sans role |
 | `is_active` | TINYINT(1) | NO | 1 | — | desactivation sans suppression |
 | `last_login_at` | DATETIME | YES | NULL | — | utile pour l'audit et la detection de comptes dormants |
-| `pin_hash` | VARCHAR(255) | YES | NULL | — | hash argon2id du PIN par membre du personnel qui autorise les actions sensibles (prix/RBAC/utilisateur/annulation/inventaire). NULL = aucun PIN defini. Security-by-design, voir note 13 |
 | `failed_login_attempts` | SMALLINT UNSIGNED | NO | 0 | — | logins echoues consecutifs ; pilote le throttling degressif (note 13) |
 | `last_failed_login_at` | DATETIME | YES | NULL | — | timestamp du dernier login echoue |
 | `lockout_until` | DATETIME | YES | NULL | — | fin de la fenetre de throttling courante (backoff degressif, pas un verrouillage dur indefini) |
 | `password_reset_token_hash` | VARCHAR(255) | YES | NULL | — | hash du token de reset (pas le token brut) ; NULL quand aucun reset en attente |
 | `password_reset_expires_at` | DATETIME | YES | NULL | — | expiration du token de reset |
+| `session_epoch` | INT UNSIGNED | NO | 0 | — | compteur d'invalidation de session (security-by-design, migration `0020_session_invalidation.sql`, 2026-09-29). Pose en session a la connexion (`AuthService::authenticate()`) et relu en base a CHAQUE requete par `SessionGuard::check()` (RG-T02) : une reinitialisation de mot de passe l'incremente (`PasswordResetService::confirmReset()`), ce qui invalide immediatement toute session ouverte AVANT cette reinitialisation. DEFAULT 0 : une session ouverte avant ce lot reste valide (epoch implicite 0) |
 | `anonymized_at` | DATETIME | YES | NULL | — | marqueur tombstone RGPD : quand renseigne, les colonnes PII sont mises a NULL/remplacees (note 13). La ligne est conservee pour l'integrite referentielle |
 | `created_at` | DATETIME | NO | CURRENT_TIMESTAMP | — | audit |
 | `updated_at` | DATETIME | NO | CURRENT_TIMESTAMP ON UPDATE | — | audit |
@@ -570,7 +578,7 @@ Journal d'audit append-only de tous les changements de stock par ingredient.
 | `movement_type` | ENUM('sale','cancellation','restock','inventory_correction','adjustment') | NO | — | INDEX | nature du mouvement |
 | `delta` | INT | NO | — | — | changement signe : negatif pour la consommation (vente), positif pour reapprovisionnement/annulation/correction |
 | `order_id` | INT UNSIGNED | YES | NULL | FK -> `customer_order(id)`, ON DELETE SET NULL | commande liee pour les mouvements `sale` et `cancellation` ; NULL pour restock/correction |
-| `user_id` | INT UNSIGNED | YES | NULL | FK -> `user(id)`, ON DELETE SET NULL | utilisateur AGISSANT ayant declenche le mouvement : l'equipier de session pour une vente counter/drive ou une annulation, le manager/admin pour un reapprovisionnement/une correction. NULL uniquement pour les ventes de la borne (`kiosk`, anonyme) |
+| `user_id` | INT UNSIGNED | YES | NULL | FK -> `user(id)`, ON DELETE SET NULL | utilisateur AGISSANT ayant declenche le mouvement, resolu differemment par type : `sale` (vente counter/drive) et `restock` portent l'utilisateur DE SESSION (`$guard->userId`, sans PIN) ; `cancellation`, `inventory_correction` et `adjustment` portent l'equipier RESOLU PAR PIN (RG-T13, n'importe quel role detenant la permission, pas necessairement manager/admin). NULL uniquement pour les ventes de la borne (`kiosk`, anonyme) |
 | `note` | VARCHAR(255) | YES | NULL | — | note humaine optionnelle (ex. raison de la correction, reference de pack) |
 | `created_at` | DATETIME | NO | CURRENT_TIMESTAMP | INDEX | timestamp immuable |
 
@@ -614,8 +622,8 @@ Ajout security-by-design (voir note 13).
 | `action_code` | VARCHAR(60) | NO | — | INDEX | code d'operation MCT / de permission, ex. `product.update`, `order.cancel`, `role.manage`, `user.deactivate` |
 | `entity_type` | VARCHAR(40) | YES | NULL | — | nom de la table affectee, ex. `product`, `customer_order`, `role`, `user` |
 | `entity_id` | INT UNSIGNED | YES | NULL | — | PK de la ligne affectee |
-| `summary` | VARCHAR(255) | YES | NULL | — | courte description non personnelle, ex. "price_cents 880 -> 920", "added permission stock.manage" |
-| `details` | JSON | YES | NULL | — | diff before/after optionnel. Pour les actions ciblant un utilisateur, stocke les **noms de champs** modifies, pas les valeurs PII |
+| `summary` | VARCHAR(255) | YES | NULL | — | courte description non personnelle, ex. "price_cents 880 -> 920", "added permission stock.manage", ou pour `pin.failed` : "Échec PIN action sensible" (+ "(adresse inconnue)" si l'adresse saisie ne correspond a aucun compte — corrige le 2026-09-29, RGPD art. 5.1.c : n'ecrit plus l'adresse saisie, voir migration `0019`) |
+| `details` | JSON | YES | NULL | — | diff before/after optionnel. Pour les actions ciblant un utilisateur, stocke les **noms de champs** modifies, pas les valeurs PII ; pour `pin.failed`, forme differente (pas un diff) : `{"target_user_id": <id du compte correspondant ou null>, "context": <contexte de l'action>}` (`PinGate::auditFailedPin()`, 2026-09-29) |
 | `created_at` | DATETIME | NO | CURRENT_TIMESTAMP | INDEX | timestamp immuable |
 
 **Immuabilite** : aucun UPDATE ni DELETE au niveau applicatif (meme discipline que `stock_movement`).
@@ -698,7 +706,40 @@ jointure pure, meme forme que `ingredient_allergen` (3.9).
 **Zero ligne pour une categorie = aucun filtre pour cette categorie** (ex. `menus`, dont le burger
 impose peut porter n'importe quelle famille d'ingredient) — l'absence est une decision, pas un oubli.
 
-**Volume** : seed 0010, 8 des 9 categories restreintes (`menus` exclue), 2 a 5 familles chacune.
+**Volume** : seed 0010, 8 des 9 categories restreintes (`menus` exclue), 1 a 5 familles chacune.
+
+---
+
+### 3.24 `password_reset_throttle`
+
+Throttle de la demande de reinitialisation de mot de passe (POST `/forgot_password`), ajoute le
+2026-09-29 (migration `0020_session_invalidation.sql`) apres un contre-audit : avant cette date,
+aucune limite n'existait (une meme adresse pouvait etre soumise en boucle, chaque soumission
+declenchant un envoi si SMTP est configure). Meme forme que `login_throttle`/`pin_throttle`
+(security-by-design, note 13), DEUX dimensions ORTHOGONALES dans la meme table — l'ADRESSE
+demandee et l'IP source, distinguees par `throttle_kind` — plutot que deux tables, meme motif que
+`role_visible_source` (discriminant + identifiant generique).
+
+| Attribut | Type | NULL | Default | Contrainte | Notes |
+|---|---|---|---|---|---|
+| `id` | INT UNSIGNED | NO | AUTO_INCREMENT | PK | |
+| `throttle_kind` | ENUM('email','ip') | NO | — | — | dimension de la ligne : adresse demandee ou IP source |
+| `identifier` | VARCHAR(254) | NO | — | — | valeur throttlee : empreinte SHA-256 de l'adresse normalisee si `throttle_kind='email'` (migration 0021), adresse IP en clair si `throttle_kind='ip'` |
+| `failed_attempts` | SMALLINT UNSIGNED | NO | 0 | — | demandes consecutives dans la fenetre courante |
+| `window_started_at` | DATETIME | NO | CURRENT_TIMESTAMP | — | debut de la fenetre de comptage courante |
+| `lockout_until` | DATETIME | YES | NULL | — | fin de la fenetre de backoff degressif ; NULL = non throttle |
+| `last_attempt_at` | DATETIME | NO | CURRENT_TIMESTAMP | — | timestamp de la derniere demande |
+
+**Cle** : UNIQUE `(throttle_kind, identifier)`. **Pas de FK** : `identifier` peut etre une adresse
+email qui ne resout vers aucun compte — l'anti-enumeration (RG-2, `mlt.md` 12.3) exige de throttler
+une adresse inconnue exactement comme une adresse connue. Meme backoff degressif que le login (RG-8),
+bornes propres `PASSWORD_RESET_*` (`.env.example`), seuils distincts par dimension (l'IP tolere plus
+de tentatives que l'adresse : plusieurs equipiers d'un meme poste peuvent demander une
+reinitialisation depuis la meme IP). Purge cron alignee sur `login_throttle`/`pin_throttle`
+(`THROTTLE_PURGE_AFTER_HOURS`, `docker/cron/scripts/purge-throttle.sh`). Depuis la migration 0021
+(minimisation RGPD art. 5.1.c, constat corrige le 2026-09-29), `App\Auth\PasswordResetThrottle::
+hashEmail()` ecrit l'empreinte SHA-256 de l'adresse normalisee pour la dimension `email`, sans
+conserver l'adresse en clair (la dimension `ip` n'est pas concernee).
 
 ---
 
@@ -826,17 +867,17 @@ modele de stock reste fidele.
 
 **Cote stock** — modelise via un multiplicateur de format sur la recette :
 - `product_ingredient` porte `quantity_normal` et `quantity_maxi`.
-- A la transition `paid`, le decrement utilise `quantity_maxi` quand `order_item.format='maxi'`,
-  sinon `quantity_normal`.
+- A la transition vers `preparing` (encaissement), le decrement utilise `quantity_maxi` quand
+  `order_item.format='maxi'`, sinon `quantity_normal`.
+- Un seul produit `Frite` a la carte au sens commercial, mais TROIS lignes `product` en base pour
+  cette famille (Petite Frite, Moyenne Frite, Grande Frite, plus Potatoes/Grande Potatoes pour l'autre
+  accompagnement) : le seed `0004_menu_side_maxi.sql` les lie en variantes Maxi (`maxi_variant_product_id`)
+  et retire Petite Frite/Grande Frite/Grande Potatoes des options de slot de menu (elles restent a la
+  carte hors menu) — elles ne sont pas creees par ce seed, elles existent des `0002_catalogue.sql`.
 - Pour les ingredients burger et sauce, `quantity_maxi = quantity_normal` (invariants au format).
 - Pour les ingredients accompagnement et boisson, `quantity_maxi > quantity_normal` (le Maxi consomme plus).
 - Le format se propage de la ligne de menu (`order_item.format`) a ses selections de slot ; une
   ligne de produit autonome est par defaut a `normal`.
-- Un seul produit par choix (ex. un produit `Fries`), pas de produits medium/large separes.
-
-Calibration : le supplement Maxi est dans la fourchette ~1,50 EUR pour ce modele (derive de
-donnees internes ; recoupe avec l'ordre de grandeur du marche pour plausibilite. Wakdo est un pastiche
-fictif, donc les prix exacts ne sont pas copies d'une chaine reelle).
 
 Calibration : le supplement Maxi est dans la fourchette ~1,50 EUR pour ce modele (derive de
 donnees internes ; recoupe avec l'ordre de grandeur du marche pour plausibilite. Wakdo est un pastiche
@@ -845,7 +886,7 @@ fictif, donc les prix exacts ne sont pas copies d'une chaine reelle).
 ### Note 8 — Stockage des images : chemin en VARCHAR vs BLOB en BDD
 
 Les colonnes `image_path` (`category`, `product`, `menu`) stockent un **chemin relatif** depuis la
-racine publique (ex. `uploads/products/<64-hex>.jpg`), pas un chemin serveur absolu. Le repertoire de
+racine publique (ex. `uploads/products/<32 caracteres hexadecimaux>.jpg`, nom tire par `bin2hex(random_bytes(16))``), pas un chemin serveur absolu. Le repertoire de
 destination (`public/uploads`) est CALCULE par `ImageUploader` depuis l'emplacement du fichier PHP
 (`dirname(__DIR__, 2) . '/public/uploads'`), pas lu depuis une variable d'environnement — il n'existe
 pas de `UPLOAD_DIR` dans `.env`. Le nom de fichier stocke est en outre REGENERE cote serveur
@@ -930,7 +971,7 @@ individuel. L'attribution par personne d'une transition d'etat n'a aucune valeur
 (`paid_at`, `delivered_at`, `cancelled_at`) sans la complexite d'un event store.
 
 La machine a 6 etats combinee aux timestamps de phase (`paid_at`, `preparing_at`, `ready_at`,
-`delivered_at`, `cancelled_at` — les deux derniers ajoutes par la migration 0009, voir note 6) fournit
+`delivered_at`, `cancelled_at` — `preparing_at` et `ready_at` ajoutes par la migration 0009, voir note 6) fournit
 toutes les donnees KPI necessaires, sans reintroduire d'event store :
 - Temps de remise : `delivered_at - paid_at`
 - Taux et timing d'annulation : `cancelled_at - created_at`
@@ -947,9 +988,12 @@ remplacent aucune decision v0.2 ; ils ajoutent imputabilite, cycle de vie d'auth
 **Imputabilite — compte partage hybride + PIN.** Les sessions back-office restent partagees par
 poste de travail pour le flux de routine (un terminal fast-food est partage, les `equipiers` tournent). Un
 PIN par membre du personnel (`user.pin_hash`, argon2id) autorise un ensemble defini d'**actions sensibles**
-(editions prix/menu 8.2/8.3/8.6, annulation de commande 7.1, correction d'inventaire 9.2, gestion
-des utilisateurs 10.1-10.3, RBAC 10.4). Ces actions ecrivent le `user_id` agissant dans `audit_log`
-(3.20). Cela resout la justification circulaire qui avait retire `commande_event` en v0.1
+(editions prix/menu 8.2/8.3/8.6, annulation de commande 7.1, correction d'inventaire 9.2, ajustement libre
+de stock 9.4, gestion des utilisateurs 10.1-10.3, RBAC 10.4). La plupart de ces actions ecrivent le
+`user_id` agissant dans `audit_log` (3.20) ; les TROIS operations de stock (reapprovisionnement 9.1,
+correction d'inventaire 9.2, ajustement 9.4) font EXCEPTION — elles capturent l'acteur uniquement dans
+`stock_movement.user_id` (3.19), sans ligne `audit_log` separee (RG-T14 : la trace de mouvement suffit,
+pas de double journal). Cela resout la justification circulaire qui avait retire `commande_event` en v0.1
 (les events etaient juges inutiles parce que les comptes etaient partages) : l'imputabilite est enregistree
 la ou elle importe, a friction quasi nulle pour les 95% de routine. `customer_order.acting_user_id`
 capture le personnel pour les commandes counter/drive, via l'utilisateur de la SESSION authentifiee (la
@@ -1176,18 +1220,22 @@ Reference : `db/migrations/0017_ingredient_family.sql`,
 | 21 | `login_throttle` | security | nouveau (security-by-design) - throttle anti-brute-force par IP |
 | 22 | `pin_throttle` | security | nouveau (security-by-design) - throttle du PIN d'action sensible par acteur (RG-T22) |
 | 23 | `category_ingredient_family` | join | nouveau (migration 0017) — familles d'ingredients autorisees par categorie |
+| 24 | `password_reset_throttle` | security | nouveau (security-by-design, migration 0020, 2026-09-29) — throttle de la demande de reinitialisation de mot de passe par adresse et par IP |
 
 **Retire de v0.1** : `commande_event` (remplace par les timestamps de phase sur `customer_order`),
 `menu_produit` (remplace par le modele `menu_slot` + `menu_slot_option`).
 
-**Total : 23 entites** (19 prod-like v0.2 + `audit_log`, `login_throttle` et `pin_throttle`
-de la couche security-by-design, + `category_ingredient_family` de la migration 0017).
+**Total : 24 entites** (19 prod-like v0.2 + `audit_log`, `login_throttle` et `pin_throttle`
+de la couche security-by-design, + `category_ingredient_family` de la migration 0017,
++ `password_reset_throttle` de la migration 0020).
 
 Le security-by-design ajoute aussi des colonnes (au-dela des deux nouvelles entites) : cycle de vie d'auth de `user` +
 `pin_hash` + `anonymized_at` (3.14), `customer_order.acting_user_id` + `idempotency_key` (3.10),
 et le modele de stock en pourcentage sur `ingredient` (3.6) — `stock_capacity`, `critical_stock_pct`,
 plus le renommage de `low_stock_threshold` en `low_stock_pct`. `login_throttle` (3.21) est la 21e
-entite, `pin_throttle` (3.22) la 22e, et `category_ingredient_family` (3.23, migration 0017) la 23e.
+entite, `pin_throttle` (3.22) la 22e, `category_ingredient_family` (3.23, migration 0017) la 23e, et
+`password_reset_throttle` (3.24, migration 0020, 2026-09-29) la 24e. La meme migration 0020 ajoute
+aussi `user.session_epoch` (3.14) — pas une nouvelle entite, une colonne sur `user`.
 Voir note 13 et note 16.
 
 ---

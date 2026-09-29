@@ -304,18 +304,97 @@ final class MenuControllerTest extends TestCase
         self::assertFalse($db->wrote('INSERT INTO menu'));
     }
 
-    public function testUpdateRebuildsSlots(): void
+    public function testUpdateReconcilesMatchingSlotTypeInPlace(): void
     {
+        // mlt 8.5 RG-2 corrige : un slot soumis dont le slot_type correspond a un
+        // slot EXISTANT est mis a jour EN PLACE (meme id), jamais supprime puis
+        // reinsere -- c'est precisement ce qui levait SQLSTATE 23000 des qu'un
+        // menu avait deja ete commande (order_item_selection.menu_slot_id RESTRICT).
         $db = $this->permittedDb();
         $db->menuRow = ['id' => 5, 'category_id' => 1, 'burger_product_id' => 2, 'name' => 'Best Of', 'price_normal_cents' => 790, 'price_maxi_cents' => 990, 'is_available' => 1, 'display_order' => 0];
+        $db->menuSlotRows = [
+            ['id' => 10, 'name' => 'Boisson', 'slot_type' => 'drink', 'is_required' => 1, 'display_order' => 0, 'product_id' => 1],
+        ];
 
+        // validForm() soumet un unique slot 'drink' (meme slot_type que l'existant).
         $response = $this->controller($this->post($this->validForm(), '/admin/menus/5'), $db)->update(['id' => '5']);
 
         self::assertSame(302, $response->status());
         self::assertTrue($db->wrote('UPDATE menu SET'));
-        // delete-and-reinsert des slots (mlt 8.5 RG-2).
-        self::assertTrue($db->wrote('DELETE FROM menu_slot'));
-        self::assertTrue($db->wrote('INSERT INTO menu_slot'));
+        self::assertTrue($db->wrote('UPDATE menu_slot SET'));
+        // 'DELETE FROM menu_slot WHERE id' (suppression d'un SLOT), pas le
+        // substring plus large 'DELETE FROM menu_slot' qui matcherait aussi
+        // 'DELETE FROM menu_slot_option ...' (remplacement des options du slot
+        // apparie, attendu ici).
+        self::assertFalse($db->wrote('DELETE FROM menu_slot WHERE id'));
+        self::assertFalse($db->wrote('INSERT INTO menu_slot ('));
+        $slotUpdate = $this->findWrite($db, 'UPDATE menu_slot SET');
+        self::assertNotNull($slotUpdate);
+        self::assertSame(10, $slotUpdate['params']['id'] ?? null); // meme id, pas un nouveau slot
+    }
+
+    public function testUpdateInsertsNewSlotTypeWithoutDeletingExisting(): void
+    {
+        $db = $this->permittedDb();
+        $db->menuRow = ['id' => 5, 'category_id' => 1, 'burger_product_id' => 2, 'name' => 'Best Of', 'price_normal_cents' => 790, 'price_maxi_cents' => 990, 'is_available' => 1, 'display_order' => 0];
+        $db->menuSlotRows = [
+            ['id' => 10, 'name' => 'Boisson', 'slot_type' => 'drink', 'is_required' => 1, 'display_order' => 0, 'product_id' => 1],
+        ];
+        // 'extra' (slot libre) plutot que 'sauce' : la categorie par defaut du
+        // double de test (productCategorySlug = 'boissons', permittedDb()) n'est
+        // autorisee que pour 'drink' et 'extra' (F12, MenuController::SLOT_CATEGORIES) --
+        // seul le slot_type du nouveau slot est sous test ici, pas la garde F12.
+        $slots = (string) json_encode([
+            ['name' => 'Boisson', 'slot_type' => 'drink', 'is_required' => 1, 'options' => [1]],
+            ['name' => 'Supplement', 'slot_type' => 'extra', 'is_required' => 0, 'options' => [1]],
+        ]);
+
+        $response = $this->controller($this->post($this->validForm(['slots_json' => $slots]), '/admin/menus/5'), $db)->update(['id' => '5']);
+
+        self::assertSame(302, $response->status());
+        self::assertTrue($db->wrote('UPDATE menu_slot SET'));  // drink apparie, mis a jour
+        self::assertTrue($db->wrote('INSERT INTO menu_slot ('));  // extra : slot_type nouveau
+        self::assertFalse($db->wrote('DELETE FROM menu_slot WHERE id'));
+    }
+
+    public function testUpdateDeletesRemovedSlotNeverOrdered(): void
+    {
+        $db = $this->permittedDb();
+        $db->menuRow = ['id' => 5, 'category_id' => 1, 'burger_product_id' => 2, 'name' => 'Best Of', 'price_normal_cents' => 790, 'price_maxi_cents' => 990, 'is_available' => 1, 'display_order' => 0];
+        $db->menuSlotRows = [
+            ['id' => 10, 'name' => 'Boisson', 'slot_type' => 'drink', 'is_required' => 1, 'display_order' => 0, 'product_id' => 1],
+            ['id' => 11, 'name' => 'Accompagnement', 'slot_type' => 'side', 'is_required' => 1, 'display_order' => 1, 'product_id' => 1],
+        ];
+        // validForm() ne soumet plus que 'drink' : 'side' (jamais commande,
+        // referencedSlotIds vide par defaut) est retire du menu.
+
+        $response = $this->controller($this->post($this->validForm(), '/admin/menus/5'), $db)->update(['id' => '5']);
+
+        self::assertSame(302, $response->status());
+        $delete = $this->findWrite($db, 'DELETE FROM menu_slot WHERE id');
+        self::assertNotNull($delete);
+        self::assertSame(11, $delete['params']['id'] ?? null);
+    }
+
+    public function testUpdateRejectsRemovalOfSlotReferencedByOrderReturns409(): void
+    {
+        // Conflit d'etat (ADR-0006), pas une validation : 'side' est deja choisi
+        // par une commande passee (order_item_selection.menu_slot_id RESTRICT) ->
+        // 409, message sous le builder de slots, AUCUNE ecriture destructrice.
+        $db = $this->permittedDb();
+        $db->menuRow = ['id' => 5, 'category_id' => 1, 'burger_product_id' => 2, 'name' => 'Best Of', 'price_normal_cents' => 790, 'price_maxi_cents' => 990, 'is_available' => 1, 'display_order' => 0];
+        $db->menuSlotRows = [
+            ['id' => 10, 'name' => 'Boisson', 'slot_type' => 'drink', 'is_required' => 1, 'display_order' => 0, 'product_id' => 1],
+            ['id' => 11, 'name' => 'Accompagnement', 'slot_type' => 'side', 'is_required' => 1, 'display_order' => 1, 'product_id' => 1],
+        ];
+        $db->referencedSlotIds = [11];
+        // validForm() ne soumet plus que 'drink' -> tentative de retirer 'side'.
+
+        $response = $this->controller($this->post($this->validForm(), '/admin/menus/5'), $db)->update(['id' => '5']);
+
+        self::assertSame(409, $response->status());
+        self::assertFalse($db->wrote('DELETE FROM menu_slot'));
+        self::assertStringContainsString('référencé', $response->body());
     }
 
     public function testDestroyLockedActorReturns422WithoutDeletingOrAuditing(): void

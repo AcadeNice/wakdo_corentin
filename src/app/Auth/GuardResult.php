@@ -8,7 +8,10 @@ namespace App\Auth;
  * Resultat immuable d'une verification de garde de session (RG-6 + RG-T02).
  * $reason documente la cause d'un rejet pour que le controleur appelant (P3)
  * decide de la suite (redirection login, message). Valeurs possibles :
- * 'no_session' | 'idle_timeout' | 'absolute_timeout' | 'inactive' | null (OK).
+ * 'no_session' | 'idle_timeout' | 'absolute_timeout' | 'inactive' |
+ * 'password_changed' (session anterieure a une reinitialisation de mot de
+ * passe, cf. SessionGuard::check() et PasswordResetService::confirmReset()) |
+ * null (OK).
  */
 final class GuardResult
 {

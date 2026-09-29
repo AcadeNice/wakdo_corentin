@@ -8,10 +8,12 @@ use PDOException;
 use App\Auth\Csrf;
 use App\Auth\GuardResult;
 use App\Auth\PasswordHasher;
+use App\Auth\PinGate;
 use App\Auth\PinThrottle;
 use App\Auth\PinVerifier;
 use App\Catalogue\CategoryRepository;
 use App\Catalogue\MenuRepository;
+use App\Catalogue\MenuSlotInUseException;
 use App\Catalogue\ProductRepository;
 use App\Core\DatabaseInterface;
 use App\Core\Money;
@@ -171,7 +173,19 @@ class MenuController extends AdminController
             return $this->renderForm($guard, $id, $form, $slots, $errors, 422);
         }
 
-        $this->menuRepository()->update($id, $data, $slots);
+        // Conflit d'etat (ADR-0006), pas une validation : un slot retire de la
+        // configuration soumise est deja choisi dans une commande passee (FK
+        // order_item_selection.menu_slot_id RESTRICT). reconcileSlots() garde ce
+        // cas AVANT toute ecriture (MenuRepository::update()) -> rien n'est ecrit,
+        // le formulaire se ré-affiche avec le message sous le builder de slots.
+        try {
+            $this->menuRepository()->update($id, $data, $slots);
+        } catch (MenuSlotInUseException $exception) {
+            $errors['slots'] = $exception->getMessage();
+
+            return $this->renderForm($guard, $id, $form, $slots, $errors, 409);
+        }
+
         $this->setFlash('Menu mis à jour.');
 
         return $this->redirect('/admin/menus');
@@ -587,21 +601,12 @@ class MenuController extends AdminController
     /**
      * Trace une tentative de PIN echouee sur une action sensible (RG-T14), acteur
      * inconnu (PIN non resolu). Recoit le $db de la transaction (atomicite RG-T08).
+     * Delegue a `PinGate::auditFailedPin()` (RGPD art. 5.1.c, minimisation) : plus
+     * aucune adresse en clair dans `audit_log`, voir le POURQUOI complet la-bas.
      */
     private function logFailedPin(DatabaseInterface $db, string $email, int $menuId): void
     {
-        $db->execute(
-            'INSERT INTO audit_log (actor_user_id, actor_role_id, action_code, entity_type, entity_id, summary) '
-            . 'VALUES (:uid, :rid, :code, :etype, :eid, :summary)',
-            [
-                'uid' => null,
-                'rid' => null,
-                'code' => 'pin.failed',
-                'etype' => 'menu',
-                'eid' => $menuId,
-                'summary' => 'Échec PIN action sensible (email tenté: ' . $email . ')',
-            ],
-        );
+        PinGate::auditFailedPin($db, $email, 'menu', $menuId, 'action sensible');
     }
 
     private function writeAudit(DatabaseInterface $db, string $action, int $userId, int $roleId, int $entityId, string $summary): void

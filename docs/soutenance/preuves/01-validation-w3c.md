@@ -22,7 +22,7 @@ Le validateur employe est le **W3C Nu Html Checker** (`vnu`), c'est-a-dire **le 
 La validation est menee a **deux niveaux**, car la borne rend une partie de son contenu cote client (JavaScript) :
 
 - **Niveau 1 — pages servies** : le HTML tel que le serveur l'envoie (fichiers `src/public/borne/*.html`).
-- **Niveau 2 — DOM rendu** : le HTML apres execution du JavaScript (grille categories, cartes produit), capture via Playwright contre la borne en ligne avec des donnees reelles. C'est ce que verrait un jury en validant la page rendue.
+- **Niveau 2 — DOM rendu** : le HTML apres execution du JavaScript (grille categories, cartes produit), capture via Playwright contre une pile jetable isolee (montee par `tests/e2e/run-w3c.sh`, distincte de la production) avec des donnees reelles issues des jeux de donnees de demonstration (`db/seeds/`). C'est ce que verrait un jury en validant la page rendue.
 
 Depuis le passage de l'ecran categories sur `GET /api/categories`, cet ecran releve du niveau 2 comme l'ecran produits : sa grille est peuplee par `page-categories.js`, la page servie ne contient plus aucune carte.
 

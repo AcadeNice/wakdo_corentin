@@ -13,5 +13,5 @@ La cuisine a order.read (seed, KDS) : 200 attendu.
 }
 
 tests {
-  expect(res.getStatus()).to.equal(200);
+  test('200 order.read accorde', function () { expect(res.getStatus()).to.equal(200); });
 }

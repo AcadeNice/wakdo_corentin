@@ -78,6 +78,7 @@ final class AuthServiceTest extends TestCase
             'role_id' => 3,
             'failed_login_attempts' => 0,
             'lockout_until' => null,
+            'session_epoch' => 0,
             'default_route' => '/admin/dashboard',
         ], $overrides);
     }
@@ -419,6 +420,7 @@ final class AuthServiceTest extends TestCase
         self::assertSame(3, $this->session->getInt('role_id'));
         self::assertSame(self::NOW, $this->session->getInt('logged_in_at'));
         self::assertSame(self::NOW, $this->session->getInt('last_activity'));
+        self::assertSame(0, $this->session->getInt('session_epoch'));
 
         // RG-5/RG-9 : reset compteur + clear throttle + audit succes, 1 transaction.
         self::assertTrue($this->db->wrote('UPDATE user SET failed_login_attempts = 0'));
@@ -429,6 +431,22 @@ final class AuthServiceTest extends TestCase
         // RG-5 : last_login_at pose a l'instant fige (assertion explicite, pas
         // seulement le prefixe de la requete).
         self::assertSame(date('Y-m-d H:i:s', self::NOW), $this->firstWrite('last_login_at')['params']['now'] ?? null);
+    }
+
+    /**
+     * RG-T02 : session_epoch pose en session doit venir de LA VALEUR EN BASE
+     * a la connexion, pas d'une constante -- sinon une reinitialisation
+     * anterieure (session_epoch deja incremente par PasswordResetService)
+     * serait ignoree et une nouvelle connexion resterait, a tort, vulnerable au
+     * meme ecart que la session qu'elle remplace.
+     */
+    public function testSuccessStoresSessionEpochReadFromDatabase(): void
+    {
+        $this->db->userRow = $this->userRow(['session_epoch' => 4]);
+
+        $this->service()->authenticate('admin@wakdo.local', 'correct horse', '203.0.113.1', self::NOW);
+
+        self::assertSame(4, $this->session->getInt('session_epoch'));
     }
 
     public function testSuccessRotatesCsrfToken(): void
