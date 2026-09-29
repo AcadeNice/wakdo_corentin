@@ -20,7 +20,12 @@ use App\Core\DatabaseInterface;
  *    traduit la violation en 409 et propose la desactivation).
  *
  * create() et update() ecrivent menu + slots + options dans UNE transaction
- * (RG-T08). update() reconstruit les slots en delete-and-reinsert (mlt 8.5 RG-2).
+ * (RG-T08). update() RECONCILIE les slots EN PLACE (reconcileSlots(), mlt 8.5
+ * RG-2 corrige) plutot que de tout supprimer puis reinserer : order_item_selection
+ * .menu_slot_id est en ON DELETE RESTRICT, donc l'ancien delete-and-reinsert
+ * levait SQLSTATE 23000 (non intercepte -> 500) des qu'un menu deja commande au
+ * moins une fois avec une selection de slot etait modifie. Voir le docblock de
+ * update() pour le detail de la regle d'appariement.
  */
 final class MenuRepository
 {
@@ -222,12 +227,44 @@ final class MenuRepository
     }
 
     /**
-     * Met a jour le menu et RECONSTRUIT ses slots (delete-and-reinsert, mlt 8.5
-     * RG-2) dans UNE transaction : un edit de la configuration de slots est plus
-     * simple et sur a re-poser entierement qu'a reconcilier en place.
+     * Met a jour le menu et RECONCILIE ses slots EN PLACE dans UNE transaction
+     * (mlt 8.5 RG-2 corrige). Historiquement update() supprimait puis reinserait
+     * tous les menu_slot (delete-and-reinsert) : simple, mais faux des qu'un menu
+     * avait deja ete commande, car order_item_selection.menu_slot_id est en
+     * ON DELETE RESTRICT (db/migrations/0001 ~l.391) -- la suppression du slot
+     * choisi par un client levait SQLSTATE 23000, non intercepte, donc une 500
+     * sur un simple edit de menu (bug reel, reproduit par MenuRepositoryDbTest).
+     *
+     * Regle d'appariement (aucun identifiant de slot n'est transmis : ni le
+     * formulaire HTML -- champ cache slots_json --, ni le corps JSON de l'API
+     * -- MenuApiController::toForm() -- n'envoient d'id, seulement
+     * name/slot_type/is_required/options) : appariement par POSITION AU SEIN DU
+     * MEME slot_type (reconcileSlots()). Le n-ieme slot existant de type "drink"
+     * est apparie au n-ieme slot SOUMIS de type "drink", quelle que soit sa position
+     * parmi les autres types. Choisie plutot qu'un appariement par position
+     * ABSOLUE (index dans la liste entiere des slots) : retirer un slot d'un
+     * AUTRE type ne decale alors plus artificiellement l'identite des slots
+     * suivants, et changer le TYPE d'un slot a une position donnee est traite
+     * comme un retrait + un ajout (donc bloque par la garde FK si l'ancien slot a
+     * deja ete commande) -- comportement attendu : on ne "transforme" jamais
+     * silencieusement l'historique d'un client.
+     *
+     * - slot soumis apparie a un slot existant : UPDATE de ses champs et
+     *   remplacement total de ses options (menu_slot_option n'est reference par
+     *   AUCUNE commande -- seule sa ligne parent menu_slot l'est via
+     *   order_item_selection -- son remplacement est donc toujours sans risque FK).
+     * - slot soumis sans homologue existant du meme type : INSERT (nouveau slot).
+     * - slot existant sans homologue soumis du meme type (retire du formulaire) :
+     *   jamais commande -> DELETE (CASCADE retire ses options) ; deja reference
+     *   par order_item_selection -> MenuSlotInUseException, AVANT toute ecriture
+     *   (reconcileSlots() garde la totalite des slots surnumeraires avant
+     *   d'ecrire quoi que ce soit) : update() n'a alors rien ecrit de la
+     *   configuration de slots, et le rollback de la transaction annule aussi la
+     *   mise a jour du menu lui-meme -- aucune ecriture partielle.
      *
      * @param array{category_id:int, burger_product_id:int, name:string, price_normal_cents:int, price_maxi_cents:int, is_available:int, display_order:int} $data
      * @param list<array{name:string, slot_type:string, is_required:int, display_order:int, options:list<int>}> $slots
+     * @throws MenuSlotInUseException si un slot retire est deja reference par une commande
      */
     public function update(int $id, array $data, array $slots): void
     {
@@ -238,14 +275,7 @@ final class MenuRepository
                 . 'display_order = :ord WHERE id = :id',
                 $this->bindMenu($data) + ['id' => $id],
             );
-            // Options d'abord (FK vers slot), puis slots, puis re-insertion.
-            $db->execute(
-                'DELETE FROM menu_slot_option WHERE menu_slot_id IN '
-                . '(SELECT id FROM menu_slot WHERE menu_id = :id)',
-                ['id' => $id],
-            );
-            $db->execute('DELETE FROM menu_slot WHERE menu_id = :id', ['id' => $id]);
-            $this->insertSlots($db, $id, $slots);
+            $this->reconcileSlots($db, $id, $slots);
         });
     }
 
@@ -268,32 +298,165 @@ final class MenuRepository
     }
 
     /**
-     * Insere les slots d'un menu et leurs options (helper partage create/update).
+     * Insere les slots d'un menu et leurs options (chemin create(), aucun slot
+     * existant a apparier). Partage insertSlotRow()/insertSlotOptions() avec la
+     * branche "nouveau slot" de reconcileSlots() (update()).
      *
      * @param list<array{name:string, slot_type:string, is_required:int, display_order:int, options:list<int>}> $slots
      */
     private function insertSlots(DatabaseInterface $db, int $menuId, array $slots): void
     {
         foreach ($slots as $slot) {
-            $db->execute(
-                'INSERT INTO menu_slot (menu_id, name, slot_type, is_required, display_order) '
-                . 'VALUES (:menu, :name, :type, :required, :ord)',
-                [
-                    'menu' => $menuId,
-                    'name' => $slot['name'],
-                    'type' => $slot['slot_type'],
-                    'required' => $slot['is_required'],
-                    'ord' => $slot['display_order'],
-                ],
-            );
-            $slotId = (int) ($db->fetch('SELECT LAST_INSERT_ID() AS id')['id'] ?? 0);
-            foreach ($slot['options'] as $productId) {
-                $db->execute(
-                    'INSERT INTO menu_slot_option (menu_slot_id, product_id) VALUES (:slot, :product)',
-                    ['slot' => $slotId, 'product' => $productId],
+            $slotId = $this->insertSlotRow($db, $menuId, $slot);
+            $this->insertSlotOptions($db, $slotId, $slot['options']);
+        }
+    }
+
+    /**
+     * Reconcilie EN PLACE les menu_slot d'un menu avec la configuration soumise.
+     * Voir le docblock de update() pour le POURQUOI (bug FK RESTRICT corrige) et
+     * la regle d'appariement (position au sein du meme slot_type).
+     *
+     * Deux passes deliberement separees :
+     *  1. Appariement PUR, aucune ecriture : construit le plan (quel slot soumis
+     *     va sur quel id existant, ou aucun -> nouveau) et la liste des ids
+     *     surnumeraires (retires du formulaire). La garde FK-safe tourne sur
+     *     CETTE liste avant la moindre ecriture -- jamais un slot deja modifie
+     *     en base puis une exception sur un AUTRE slot, ce qui laisserait un
+     *     doute sur l'etat ecrit avant le rollback de la transaction appelante.
+     *  2. Ecritures, une fois le plan entier valide par la garde.
+     *
+     * @param list<array{name:string, slot_type:string, is_required:int, display_order:int, options:list<int>}> $slots
+     * @throws MenuSlotInUseException si un slot retire est deja reference par order_item_selection
+     */
+    private function reconcileSlots(DatabaseInterface $db, int $menuId, array $slots): void
+    {
+        $existing = $db->fetchAll(
+            'SELECT id, slot_type FROM menu_slot WHERE menu_id = :id ORDER BY display_order, id',
+            ['id' => $menuId],
+        );
+
+        /** @var array<string, list<int>> $pool */
+        $pool = [];
+        foreach ($existing as $row) {
+            $pool[(string) $row['slot_type']][] = (int) $row['id'];
+        }
+
+        /** @var list<array{slot: array{name:string, slot_type:string, is_required:int, display_order:int, options:list<int>}, existingId: int|null}> $plan */
+        $plan = [];
+        foreach ($slots as $slot) {
+            $type = $slot['slot_type'];
+            $existingId = null;
+            if (isset($pool[$type]) && $pool[$type] !== []) {
+                $existingId = array_shift($pool[$type]);
+            }
+            $plan[] = ['slot' => $slot, 'existingId' => $existingId];
+        }
+
+        // Slots surnumeraires : les ids qui restent dans $pool n'ont trouve aucun
+        // homologue soumis de leur slot_type -> le formulaire les retire.
+        $surplus = array_merge([], ...array_values($pool));
+        foreach ($surplus as $slotId) {
+            if ($this->isSlotReferencedByOrders($db, $slotId)) {
+                throw new MenuSlotInUseException(
+                    'Un slot retiré du menu est déjà référencé par une commande : mise à jour '
+                    . 'impossible. Conservez ce slot ou laissez le menu inchangé.',
                 );
             }
         }
+
+        foreach ($plan as $item) {
+            if ($item['existingId'] === null) {
+                $slotId = $this->insertSlotRow($db, $menuId, $item['slot']);
+                $this->insertSlotOptions($db, $slotId, $item['slot']['options']);
+                continue;
+            }
+
+            $db->execute(
+                'UPDATE menu_slot SET name = :name, is_required = :required, display_order = :ord WHERE id = :id',
+                [
+                    'name'     => $item['slot']['name'],
+                    'required' => $item['slot']['is_required'],
+                    'ord'      => $item['slot']['display_order'],
+                    'id'       => $item['existingId'],
+                ],
+            );
+            $this->replaceSlotOptions($db, $item['existingId'], $item['slot']['options']);
+        }
+
+        foreach ($surplus as $slotId) {
+            // CASCADE (fk_menu_slot_option_menu_slot_id) retire ses options.
+            $db->execute('DELETE FROM menu_slot WHERE id = :id', ['id' => $slotId]);
+        }
+    }
+
+    /**
+     * Un menu_slot est-il deja choisi dans au moins une commande (order_item_selection
+     * .menu_slot_id, ON DELETE RESTRICT) ? Garde FK-safe de reconcileSlots(), meme
+     * esprit que isReferencedByOrders() (niveau menu) mais au niveau slot. Prend le
+     * $db de la transaction appelante (et non $this->db) : meme convention que le
+     * reste de update()/reconcileSlots().
+     */
+    private function isSlotReferencedByOrders(DatabaseInterface $db, int $slotId): bool
+    {
+        return $db->fetch(
+            'SELECT id FROM order_item_selection WHERE menu_slot_id = :id LIMIT 1',
+            ['id' => $slotId],
+        ) !== null;
+    }
+
+    /**
+     * Insere une ligne menu_slot et renvoie son id. Helper partage entre
+     * insertSlots() (create()) et la branche "nouveau slot" de reconcileSlots().
+     *
+     * @param array{name:string, slot_type:string, is_required:int, display_order:int, options:list<int>} $slot
+     */
+    private function insertSlotRow(DatabaseInterface $db, int $menuId, array $slot): int
+    {
+        $db->execute(
+            'INSERT INTO menu_slot (menu_id, name, slot_type, is_required, display_order) '
+            . 'VALUES (:menu, :name, :type, :required, :ord)',
+            [
+                'menu'     => $menuId,
+                'name'     => $slot['name'],
+                'type'     => $slot['slot_type'],
+                'required' => $slot['is_required'],
+                'ord'      => $slot['display_order'],
+            ],
+        );
+
+        return (int) ($db->fetch('SELECT LAST_INSERT_ID() AS id')['id'] ?? 0);
+    }
+
+    /**
+     * Insere les options d'un slot qui n'en a encore aucune (slot neuf). Pas de
+     * DELETE prealable ici (contrairement a replaceSlotOptions()) : superflu sur
+     * un slot qui vient d'etre cree.
+     *
+     * @param list<int> $productIds
+     */
+    private function insertSlotOptions(DatabaseInterface $db, int $slotId, array $productIds): void
+    {
+        foreach ($productIds as $productId) {
+            $db->execute(
+                'INSERT INTO menu_slot_option (menu_slot_id, product_id) VALUES (:slot, :product)',
+                ['slot' => $slotId, 'product' => $productId],
+            );
+        }
+    }
+
+    /**
+     * Remplace integralement les options d'un slot EXISTANT (branche "slot
+     * apparie" de reconcileSlots()) : toujours sans risque FK, menu_slot_option
+     * n'est reference par aucune commande (seule sa ligne parent menu_slot l'est,
+     * via order_item_selection -- verifie sur le schema, db/migrations/0001).
+     *
+     * @param list<int> $productIds
+     */
+    private function replaceSlotOptions(DatabaseInterface $db, int $slotId, array $productIds): void
+    {
+        $db->execute('DELETE FROM menu_slot_option WHERE menu_slot_id = :id', ['id' => $slotId]);
+        $this->insertSlotOptions($db, $slotId, $productIds);
     }
 
     /**

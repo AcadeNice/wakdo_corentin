@@ -250,6 +250,15 @@ final class FakeDatabase implements DatabaseInterface
     public bool $menuReferenced = false;
 
     /**
+     * Ids de menu_slot DEJA reference par order_item_selection (garde FK-safe de
+     * reconcileSlots(), MenuRepository::isSlotReferencedByOrders()) ; vide = aucun
+     * slot n'est reference, tout retrait de slot est accepte.
+     *
+     * @var list<int>
+     */
+    public array $referencedSlotIds = [];
+
+    /**
      * Ligne renvoyee pour IngredientRepository::find() et les lectures ciblees de
      * restock/inventory (pack_size, stock_quantity) ; null = introuvable.
      *
@@ -601,6 +610,15 @@ final class FakeDatabase implements DatabaseInterface
             return $this->menuReferenced ? ['menu_id' => 1] : null;
         }
 
+        // Garde FK-safe PAR SLOT de reconcileSlots() (MenuRepository::update()) :
+        // distincte de la garde par MENU juste au-dessus ('FROM order_item WHERE
+        // menu_id'), une table differente (order_item_selection, pas order_item).
+        if (str_contains($sql, 'FROM order_item_selection WHERE menu_slot_id')) {
+            $id = (int) ($params['id'] ?? 0);
+
+            return in_array($id, $this->referencedSlotIds, true) ? ['id' => $id] : null;
+        }
+
         // Ingredient : nameExists (avant la route par id, qui ne matche pas
         // 'WHERE name'), puis find() + lectures ciblees pack_size/stock_quantity.
         if (str_contains($sql, 'FROM ingredient WHERE name = :name')) {
@@ -711,6 +729,27 @@ final class FakeDatabase implements DatabaseInterface
 
         if (str_contains($sql, 'FROM menu_slot s')) {
             return $this->menuSlotRows;
+        }
+
+        // reconcileSlots() (MenuRepository::update()) : identite {id, slot_type}
+        // des menu_slot EXISTANTS du menu, pour l'appariement par position au sein
+        // du meme slot_type. Distincte de la route juste au-dessus ('FROM
+        // menu_slot s', LEFT JOIN options pour slotsWithOptions()) par son texte
+        // SQL propre ; derivee du MEME $menuSlotRows (dedoublonne par id), pour que
+        // les deux lectures restent coherentes sans deux jeux de donnees a tenir a jour.
+        if (str_contains($sql, 'SELECT id, slot_type FROM menu_slot WHERE menu_id')) {
+            $seen = [];
+            $rows = [];
+            foreach ($this->menuSlotRows as $row) {
+                $id = (int) ($row['id'] ?? 0);
+                if (isset($seen[$id])) {
+                    continue;
+                }
+                $seen[$id] = true;
+                $rows[] = ['id' => $id, 'slot_type' => (string) ($row['slot_type'] ?? '')];
+            }
+
+            return $rows;
         }
 
         if (str_contains($sql, 'FROM ingredient ORDER BY name')) {
