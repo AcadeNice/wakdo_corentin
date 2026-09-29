@@ -9,9 +9,9 @@
 //
 // Ajoute ici :
 //  - pages 404 / 405 / 403 des deux hotes sans pile, chemin serveur, SQL ni version ;
-//  - reponse 500 reelle de l'API publique quand APP_DEBUG=false (valeur de production) :
-//    le lanceur tests/e2e/run-security.sh monte la pile ainsi et pose SEC_APP_DEBUG=false.
-//    Sous APP_DEBUG=true (.env.example, lanceur e2e.sh), ce test est saute ;
+//  - l'ancienne charge qui provoquait une 500 de l'API publique est refusee en 422 depuis
+//    la borne de quantite (fce3085) ; la vraie 500 avec APP_DEBUG=false est prouvee base
+//    arretee, dans security-dbdown.spec.js ;
 //  - fichiers sensibles demandes sur les DEUX hotes (.env, .git, composer, sources PHP,
 //    captured-responses.json, sauvegardes, phpinfo, server-status) ;
 //  - listing de repertoire desactive ;
