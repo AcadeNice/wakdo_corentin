@@ -141,6 +141,13 @@ $jsMenus = array_map(
                     'option_is_orderable' => is_array($s['option_is_orderable'] ?? null)
                         ? array_map(static fn (mixed $v): bool => $v !== false, $s['option_is_orderable'])
                         : [],
+                    // Disponibilite au format MAXI (RG-T21, contre-audit constat 1) : la
+                    // variante reellement servie quand elle existe, sinon egale a la base
+                    // (meme cle et meme regle que CatalogueController::presentSlots cote
+                    // borne). counter-order.js doit la lire des que 'maxi' est choisi.
+                    'option_is_orderable_maxi' => is_array($s['option_is_orderable_maxi'] ?? null)
+                        ? array_map(static fn (mixed $v): bool => $v !== false, $s['option_is_orderable_maxi'])
+                        : [],
                     'option_names' => is_array($s['option_names'] ?? null)
                         ? array_map(static fn (mixed $v): string => (string) $v, $s['option_names'])
                         : [],

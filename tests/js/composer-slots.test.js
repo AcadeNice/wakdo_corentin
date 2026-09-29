@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
 
 let buildComposerSteps, buildMenuCartItem, selectionsComplete, composerIsViable, optionLabel, openMenuComposer,
-    formatCardSideImage, pickDefaultDrinkOption, formatCardDrinkImage, buildFormatCardVisual;
+    formatCardSideImage, pickDefaultDrinkOption, formatCardDrinkImage, buildFormatCardVisual, reconcileSelectionsForSize;
 
 before(async () => {
     const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>', { url: 'https://kiosk.test/products.html' });
@@ -20,7 +20,7 @@ before(async () => {
     global.requestAnimationFrame = (cb) => cb();
     ({
         buildComposerSteps, buildMenuCartItem, selectionsComplete, composerIsViable, optionLabel, openMenuComposer,
-        formatCardSideImage, pickDefaultDrinkOption, formatCardDrinkImage, buildFormatCardVisual,
+        formatCardSideImage, pickDefaultDrinkOption, formatCardDrinkImage, buildFormatCardVisual, reconcileSelectionsForSize,
     } = await import('../../src/public/borne/assets/js/page-product-menu.js'));
 });
 
@@ -212,6 +212,76 @@ test('buildComposerSteps: option retiree du catalogue (absente de byId) reste AF
     const fanta = drink.options.find(o => o.id === 999);
     assert.equal(fanta.nom, 'Fanta');
     assert.equal(fanta.isOrderable, false);
+});
+
+/* --- Disponibilite PAR FORMAT (contre-audit constat 1, RG-T21) ------------ */
+// option_is_orderable_maxi : la variante REELLEMENT servie en Maxi peut etre en
+// rupture alors que la base (option_is_orderable) ne l'est pas, et inversement. Le
+// composeur doit lire le champ du FORMAT COURANT, jamais toujours option_is_orderable.
+
+test('buildComposerSteps: option_is_orderable_maxi distinct de option_is_orderable -> isOrderableMaxi propre', () => {
+    const d = detail();
+    // Frites (22) : base disponible, mais sa variante Maxi (Grande Frite) est en
+    // rupture -- doit rester choisissable en Normal, grisee en Maxi.
+    d.slots[0].option_is_orderable = { 22: true, 23: true };
+    d.slots[0].option_is_orderable_maxi = { 22: false, 23: true };
+    const m = buildComposerSteps(d, byId());
+    const side = m.slots.find(s => s.slotType === 'side');
+    const frites = side.options.find(o => o.id === 22);
+    assert.equal(frites.isOrderable, true);
+    assert.equal(frites.isOrderableMaxi, false);
+});
+
+test('buildComposerSteps: option_is_orderable_maxi absent retombe sur la base (compat API anterieure)', () => {
+    const d = detail();
+    d.slots[0].option_is_orderable = { 22: false, 23: true }; // aucun ...option_is_orderable_maxi
+    const m = buildComposerSteps(d, byId());
+    const side = m.slots.find(s => s.slotType === 'side');
+    assert.equal(side.options.find(o => o.id === 22).isOrderableMaxi, false); // egal a la base
+    assert.equal(side.options.find(o => o.id === 23).isOrderableMaxi, true);
+});
+
+test('selectionsComplete: le 3e argument (size) selectionne le bon champ de disponibilite', () => {
+    const d = detail();
+    d.slots[0].option_is_orderable = { 22: true, 23: true };
+    d.slots[0].option_is_orderable_maxi = { 22: false, 23: true }; // 22 en rupture SEULEMENT en Maxi
+    const m = buildComposerSteps(d, byId());
+    assert.equal(selectionsComplete(m, { 1: 14, 16: 22 }), true);         // defaut 'N' : 22 OK
+    assert.equal(selectionsComplete(m, { 1: 14, 16: 22 }, 'N'), true);    // Normal explicite : 22 OK
+    assert.equal(selectionsComplete(m, { 1: 14, 16: 22 }, 'M'), false);   // Maxi : 22 en rupture
+    assert.equal(selectionsComplete(m, { 1: 14, 16: 23 }, 'M'), true);    // 23 OK dans les deux formats
+});
+
+test('composerIsViable: le 2e argument (size) selectionne le bon champ de disponibilite', () => {
+    const d = detail();
+    d.slots[0].option_is_orderable = { 22: true, 23: false };
+    d.slots[0].option_is_orderable_maxi = { 22: false, 23: true }; // inverse en Maxi
+    const m = buildComposerSteps(d, byId());
+    assert.equal(composerIsViable(m, 'N'), true);  // 22 seul dispo en Normal
+    assert.equal(composerIsViable(m, 'M'), true);  // 23 seul dispo en Maxi
+});
+
+test('reconcileSelectionsForSize: retire une selection devenue indisponible pour le format cible', () => {
+    const d = detail();
+    d.slots[0].option_is_orderable = { 22: true, 23: true };
+    d.slots[0].option_is_orderable_maxi = { 22: false, 23: true }; // 22 : Maxi indisponible
+    const m = buildComposerSteps(d, byId());
+    const { selections, cleared } = reconcileSelectionsForSize(m, { 1: 14, 16: 22, 31: 47 }, 'M');
+    assert.equal(selections[16], undefined, 'la selection Accompagnement doit etre retiree');
+    assert.equal(selections[1], 14, 'les autres selections restent inchangees');
+    assert.equal(selections[31], 47);
+    assert.equal(cleared.length, 1);
+    assert.equal(cleared[0].slotType, 'side');
+});
+
+test('reconcileSelectionsForSize: ne retire rien quand tout reste commandable dans le nouveau format', () => {
+    const d = detail();
+    d.slots[0].option_is_orderable = { 22: true, 23: true };
+    d.slots[0].option_is_orderable_maxi = { 22: true, 23: true };
+    const m = buildComposerSteps(d, byId());
+    const { selections, cleared } = reconcileSelectionsForSize(m, { 1: 14, 16: 22 }, 'M');
+    assert.equal(selections[16], 22);
+    assert.equal(cleared.length, 0);
 });
 
 test('selectionsComplete: faux si l option selectionnee est indisponible (RG-T21)', () => {
@@ -515,4 +585,103 @@ test('openMenuComposer: burger impose introuvable -> composeur non ouvert (catal
 
     assert.equal(alerted, null);
     assert.equal(document.querySelector('.composer-overlay'), null);
+});
+
+/* --- openMenuComposer (jsdom) : changement de FORMAT reconcilie les selections --- */
+// Contre-audit (constat 1) : une option deja choisie qui devient indisponible dans le
+// format nouvellement selectionne (ici : Accompagnement, disponible en Normal mais
+// dont la variante Maxi est en rupture) doit etre DESELECTIONNEE, avec un message --
+// pas laissee choisie pour se faire refuser en 422 OPTION_UNAVAILABLE au paiement.
+
+test('openMenuComposer: passer en Maxi deselectionne une option dont la variante Maxi est en rupture, avec un message', async () => {
+    document.body.innerHTML = '';
+    const responses = {
+        '/api/categories': { data: [{ id: 1, name: 'Menus', slug: 'menus', image_path: null }] },
+        '/api/products': { data: [
+            { id: 100, category_id: 1, name: 'Le 280', price_cents: 0, image_path: 'burger.png' },
+            { id: 22, category_id: 1, name: 'Moyenne Frite', price_cents: 0, image_path: 'frite.png' },
+            { id: 23, category_id: 1, name: 'Potatoes', price_cents: 0, image_path: 'p.png' },
+        ] },
+        '/api/menus': { data: [] },
+        '/api/menus/300': { data: {
+            id: 300, burger_product_id: 100, price_normal_cents: 880, price_maxi_cents: 1030,
+            slots: [
+                {
+                    id: 16, name: 'Accompagnement', slot_type: 'side', is_required: 1, display_order: 1,
+                    option_product_ids: [22, 23],
+                    option_is_orderable: { 22: true, 23: true },
+                    // La variante Maxi de Moyenne Frite (22, Grande Frite) est en rupture ;
+                    // Potatoes (23) reste dispo dans les deux formats.
+                    option_is_orderable_maxi: { 22: false, 23: true },
+                    option_names: { 22: 'Moyenne Frite', 23: 'Potatoes' },
+                },
+            ],
+        } },
+    };
+    global.fetch = async (url) => ({ ok: true, json: async () => responses[url] });
+
+    await openMenuComposer({ id: 300, nom: 'Menu Le 280', image: 'burger.png' }, 'menus');
+
+    // Pre-selection en Normal : la premiere option commandable (22, Moyenne Frite).
+    document.querySelector('#composer-next').click(); // format -> slot Accompagnement
+    const frite22 = document.querySelector('#slot-grid .composer-card[data-pid="22"]');
+    assert.equal(frite22.getAttribute('aria-pressed'), 'true');
+    document.querySelector('#composer-prev').click(); // retour a l'etape Format
+
+    // Passage en Maxi : 22 (selectionne) devient indisponible dans CE format.
+    document.querySelector('[data-size="M"]').click();
+
+    const notice = document.querySelector('.composer-step__notice');
+    assert.ok(notice, 'un message doit signaler la deselection');
+    assert.equal(notice.hasAttribute('hidden'), false);
+    assert.match(notice.textContent, /Accompagnement/);
+    assert.match(notice.textContent, /indisponible|disponible/i);
+
+    // La selection a bien ete retiree : au retour sur l'etape du slot, plus aucune
+    // tuile n'est marquee selectionnee, et Potatoes (23, toujours dispo) est grisee
+    // seulement si en rupture -- ici il reste commandable, seule 22 doit etre grisee.
+    document.querySelector('#composer-next').click();
+    const frite22Maxi = document.querySelector('#slot-grid .composer-card[data-pid="22"]');
+    const potatoesMaxi = document.querySelector('#slot-grid .composer-card[data-pid="23"]');
+    assert.equal(frite22Maxi.getAttribute('aria-pressed'), 'false', 'la selection precedente doit avoir ete retiree');
+    assert.ok(frite22Maxi.hasAttribute('disabled'), '22 doit etre grisee en Maxi (variante en rupture)');
+    assert.ok(!potatoesMaxi.hasAttribute('disabled'), '23 reste commandable en Maxi');
+});
+
+test('openMenuComposer: une selection qui reste commandable dans le nouveau format n est ni retiree ni signalee', async () => {
+    document.body.innerHTML = '';
+    const responses = {
+        '/api/categories': { data: [{ id: 1, name: 'Menus', slug: 'menus', image_path: null }] },
+        '/api/products': { data: [] }, // deja en cache (100, 22, 23) depuis le test precedent
+        '/api/menus': { data: [] },
+        '/api/menus/300': { data: {
+            id: 300, burger_product_id: 100, price_normal_cents: 880, price_maxi_cents: 1030,
+            slots: [
+                {
+                    id: 16, name: 'Accompagnement', slot_type: 'side', is_required: 1, display_order: 1,
+                    option_product_ids: [22, 23],
+                    option_is_orderable: { 22: true, 23: true },
+                    option_is_orderable_maxi: { 22: false, 23: true },
+                    option_names: { 22: 'Moyenne Frite', 23: 'Potatoes' },
+                },
+            ],
+        } },
+    };
+    global.fetch = async (url) => ({ ok: true, json: async () => responses[url] });
+
+    await openMenuComposer({ id: 300, nom: 'Menu Le 280', image: 'burger.png' }, 'menus');
+    document.querySelector('#composer-next').click(); // format Normal -> slot Accompagnement
+
+    // Choix EXPLICITE de Potatoes (23), commandable dans les deux formats.
+    document.querySelector('#slot-grid .composer-card[data-pid="23"]').click();
+    document.querySelector('#composer-prev').click(); // retour a l'etape Format
+
+    document.querySelector('[data-size="M"]').click(); // passage en Maxi
+
+    const notice = document.querySelector('.composer-step__notice');
+    assert.ok(!notice || notice.hasAttribute('hidden'), 'aucune deselection quand la selection reste commandable dans le nouveau format');
+
+    document.querySelector('#composer-next').click();
+    const potatoesMaxi = document.querySelector('#slot-grid .composer-card[data-pid="23"]');
+    assert.equal(potatoesMaxi.getAttribute('aria-pressed'), 'true', 'la selection de Potatoes doit persister au changement de format');
 });

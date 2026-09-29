@@ -260,6 +260,79 @@ test('stepper +/- : + incremente, - decremente, 0 retire la ligne', () => {
     assert.deepEqual(itemsJson(dom), []);
 });
 
+/* --- Plafond de quantite (contre-audit, point ajoute par le coordinateur) --- */
+// Le serveur refuse au-dela de 20 par ligne (OrderRepository::MAX_QUANTITY_PER_LINE,
+// INVALID_QUANTITY). La caisse comptoir/drive ne doit jamais laisser composer une
+// ligne que le serveur refusera en bloc a l'encaissement.
+
+test('stepper + du panneau commande : plafonne a 20, meme pour un produit simple', () => {
+    const dom = setup();
+    const doc = dom.window.document;
+    counterOrder.init(doc);
+
+    activateCategory(dom, 'Accompagnements');
+    click(dom, tileByName(dom, 'Frites'));
+
+    const inc = doc.querySelector('.order-cart__qty-btn[aria-label^="Augmenter"]');
+    for (let i = 0; i < 30; i += 1) click(dom, inc);
+    assert.equal(doc.querySelector('.order-cart__qty-value').textContent, '20');
+
+    fireSubmit(dom);
+    assert.equal(itemsJson(dom)[0].quantity, 20);
+});
+
+test('stepper + du panneau commande : plafonne a 20 sur une ligne MENU', () => {
+    const dom = setup();
+    const doc = dom.window.document;
+    counterOrder.init(doc);
+
+    activateCategory(dom, 'Menus');
+    click(dom, tileByName(dom, 'Menu Cheeseburger'));
+    const modal = doc.getElementById('menu-composer-modal');
+    click(dom, modal.querySelector('.menu-composer__add'));
+
+    const inc = doc.querySelector('.order-cart__qty-btn[aria-label^="Augmenter"]');
+    for (let i = 0; i < 30; i += 1) click(dom, inc);
+    assert.equal(doc.querySelector('.order-cart__qty-value').textContent, '20');
+
+    fireSubmit(dom);
+    assert.equal(itemsJson(dom)[0].quantity, 20);
+});
+
+test('tap repete sur la meme tuile produit (fusion) : plafonne a 20', () => {
+    const dom = setup();
+    const doc = dom.window.document;
+    counterOrder.init(doc);
+
+    activateCategory(dom, 'Accompagnements');
+    const frites = tileByName(dom, 'Frites');
+    for (let i = 0; i < 30; i += 1) click(dom, frites);
+
+    assert.equal(doc.querySelectorAll('.order-cart__line').length, 1); // toujours fusionne, pas 30 lignes
+    fireSubmit(dom);
+    assert.equal(itemsJson(dom)[0].quantity, 20);
+});
+
+test('modale produit a la carte : la saisie de quantite est plafonnee a 20', () => {
+    const dom = setup();
+    const doc = dom.window.document;
+    counterOrder.init(doc);
+
+    activateCategory(dom, 'Burgers'); // Cheeseburger (12), a modificateurs -> ouvre la modale
+    click(dom, tileByName(dom, 'Cheeseburger'));
+    const modal = doc.getElementById('menu-composer-modal');
+
+    const qtyInput = modal.querySelector('#composer-product-qty');
+    assert.equal(qtyInput.getAttribute('max'), '20');
+    qtyInput.value = '999';
+    qtyInput.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+    assert.equal(qtyInput.value, '20');
+
+    click(dom, modal.querySelector('.menu-composer__add'));
+    fireSubmit(dom);
+    assert.equal(itemsJson(dom)[0].quantity, 20);
+});
+
 test('retirer une ligne via le bouton Retirer', () => {
     const dom = setup();
     const doc = dom.window.document;
@@ -747,6 +820,108 @@ test('modale menu : la navigation clavier (fleches) saute une tuile de slot gris
     eau.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }));
     assert.equal(eau.getAttribute('aria-checked'), 'true');
     assert.equal(doc.activeElement, eau);
+});
+
+/* --- Disponibilite PAR FORMAT (contre-audit constat 1, RG-T21) ------------- */
+// option_is_orderable_maxi : la variante REELLEMENT servie en Maxi peut etre en
+// rupture alors que la base (option_is_orderable) ne l'est pas. La caisse doit
+// regriser/deselectionner au changement de format, pas seulement au chargement.
+
+test('modale menu : option en rupture SEULEMENT en Maxi -> passer en Maxi grise la tuile et deselectionne', () => {
+    const menuRupture = [{
+        id: 5, name: 'Menu Cheeseburger', price_normal: 990, price_maxi: 1190, image: '',
+        category_id: 4, category_name: 'Menus', burger_modifiers: [],
+        slots: [{
+            id: 16, name: 'Accompagnement', slot_type: 'side', is_required: 1, display_order: 1,
+            option_product_ids: [22, 47],
+            option_is_orderable: { 22: true, 47: true },
+            // La variante Maxi de Frites (22) est en rupture ; Ketchup (47) reste
+            // commandable dans les deux formats.
+            option_is_orderable_maxi: { 22: false, 47: true },
+        }],
+    }];
+    const dom = setup(PRODUCTS, menuRupture);
+    const doc = dom.window.document;
+    counterOrder.init(doc);
+
+    activateCategory(dom, 'Menus');
+    click(dom, tileByName(dom, 'Menu Cheeseburger'));
+    const modal = doc.getElementById('menu-composer-modal');
+    const sideGroup = modal.querySelector('.menu-composer__slot-tiles[data-slot-id="16"]');
+    const frites = Array.prototype.find.call(sideGroup.querySelectorAll('.pos-tile'), t => t.dataset.value === '22');
+
+    // Normal : Frites (22, premiere option) commandable et pre-selectionnee.
+    assert.equal(frites.classList.contains('pos-tile--unavailable'), false);
+    assert.equal(frites.getAttribute('aria-checked'), 'true');
+
+    click(dom, groupTile(modal, '.menu-composer__format-tiles', 'maxi'));
+
+    // Maxi : Frites devient grisee (variante Maxi en rupture) ET n'est plus la
+    // selection courante -- pas de selection filee en silence vers un refus serveur.
+    assert.equal(frites.classList.contains('pos-tile--unavailable'), true);
+    assert.equal(frites.getAttribute('aria-disabled'), 'true');
+    assert.equal(frites.getAttribute('aria-checked'), 'false');
+
+    // Message inline signalant la deselection.
+    assert.match(modal.querySelector('.menu-composer__error').textContent, /Accompagnement/);
+});
+
+test('modale menu : option toujours commandable dans le nouveau format -> pas de deselection, pas de message', () => {
+    const menuRupture = [{
+        id: 5, name: 'Menu Cheeseburger', price_normal: 990, price_maxi: 1190, image: '',
+        category_id: 4, category_name: 'Menus', burger_modifiers: [],
+        slots: [{
+            id: 16, name: 'Accompagnement', slot_type: 'side', is_required: 1, display_order: 1,
+            option_product_ids: [22, 47],
+            option_is_orderable: { 22: true, 47: true },
+            option_is_orderable_maxi: { 22: true, 47: true },
+        }],
+    }];
+    const dom = setup(PRODUCTS, menuRupture);
+    const doc = dom.window.document;
+    counterOrder.init(doc);
+
+    activateCategory(dom, 'Menus');
+    click(dom, tileByName(dom, 'Menu Cheeseburger'));
+    const modal = doc.getElementById('menu-composer-modal');
+    const sideGroup = modal.querySelector('.menu-composer__slot-tiles[data-slot-id="16"]');
+    const frites = Array.prototype.find.call(sideGroup.querySelectorAll('.pos-tile'), t => t.dataset.value === '22');
+
+    click(dom, groupTile(modal, '.menu-composer__format-tiles', 'maxi'));
+
+    assert.equal(frites.classList.contains('pos-tile--unavailable'), false);
+    assert.equal(frites.getAttribute('aria-checked'), 'true'); // toujours selectionnee
+    assert.equal(modal.querySelector('.menu-composer__error').textContent, '');
+});
+
+test('modale menu : TOUTES les options deviennent indisponibles en Maxi -> ajout desactive apres bascule', () => {
+    const menuRupture = [{
+        id: 5, name: 'Menu Cheeseburger', price_normal: 990, price_maxi: 1190, image: '',
+        category_id: 4, category_name: 'Menus', burger_modifiers: [],
+        slots: [{
+            id: 16, name: 'Accompagnement', slot_type: 'side', is_required: 1, display_order: 1,
+            option_product_ids: [22],
+            option_is_orderable: { 22: true },
+            option_is_orderable_maxi: { 22: false },
+        }],
+    }];
+    const dom = setup(PRODUCTS, menuRupture);
+    const doc = dom.window.document;
+    counterOrder.init(doc);
+
+    activateCategory(dom, 'Menus');
+    click(dom, tileByName(dom, 'Menu Cheeseburger'));
+    const modal = doc.getElementById('menu-composer-modal');
+    const addBtn = modal.querySelector('.menu-composer__add');
+    assert.equal(addBtn.disabled, false); // Normal : composable
+
+    click(dom, groupTile(modal, '.menu-composer__format-tiles', 'maxi'));
+
+    assert.equal(addBtn.disabled, true, 'Maxi : plus aucune option Accompagnement commandable -> impasse');
+    assert.match(modal.querySelector('.menu-composer__error').textContent, /pas composable/);
+
+    click(dom, addBtn);
+    assert.equal(doc.querySelector('.order-cart__line'), null);
 });
 
 test('RG-T21 : tuile non commandable (rupture) -> grisee, aria-disabled, badge Indisponible, tap n ajoute rien', () => {

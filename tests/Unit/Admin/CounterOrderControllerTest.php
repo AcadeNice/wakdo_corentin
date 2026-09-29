@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Admin;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use App\Auth\Csrf;
 use App\Auth\SessionManager;
@@ -488,6 +489,78 @@ final class CounterOrderControllerTest extends TestCase
         self::assertStringContainsString('50 articles au plus', $response->body());
     }
 
+    /**
+     * Contre-audit (constat 2, mineur) : positiveInt() ramenait en silence toute
+     * quantite hors bornes (0, -5, "abc", 1.7) a 1, au lieu de refuser comme le
+     * serveur (OrderRepository::resolveQuantity, source unique : entier de 1 a 20).
+     * L'equipier encaissait alors une quantite qu'il n'avait pas saisie, sans le
+     * savoir. Desormais chaque forme invalide est refusee (422, meme message que
+     * la borne) et AUCUNE ecriture n'a lieu -- pas de correction silencieuse.
+     *
+     * @return iterable<string, array{0: mixed}>
+     */
+    public static function invalidQuantityProvider(): iterable
+    {
+        yield 'zero' => [0];
+        yield 'negative' => [-5];
+        yield 'chaine non numerique' => ['abc'];
+        yield 'flottant non entier' => [1.7];
+    }
+
+    #[DataProvider('invalidQuantityProvider')]
+    public function testStoreRejectsInvalidQuantityInsteadOfSilentlyClampingToOne(mixed $quantity): void
+    {
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 890, 'vat_rate' => 100, 'maxi_variant_product_id' => null, 'is_available' => 1];
+
+        $items = json_encode([['type' => 'product', 'product_id' => 12, 'quantity' => $quantity]]);
+        $request = $this->post(['_csrf' => $this->csrf, 'service_mode' => 'dine_in', 'items_json' => (string) $items], '/counter/orders');
+
+        $response = $this->controller($request, $db)->store();
+
+        self::assertSame(422, $response->status());
+        self::assertFalse($db->wrote('INSERT INTO customer_order'));
+        self::assertStringContainsString('entre 1 et 20', $response->body());
+    }
+
+    public function testStoreAcceptsQuantityAtEachBoundOfTheValidRange(): void
+    {
+        // Les bornes elles-memes (1 et 20) restent valides -- seul l'EXTERIEUR de
+        // [1, 20] doit desormais etre refuse, pas la borne elle-meme.
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 890, 'vat_rate' => 100, 'maxi_variant_product_id' => null, 'is_available' => 1];
+        $db->lastInsertId = 100;
+        $db->orderByNumberRow = ['id' => 100, 'order_number' => 'C100', 'total_ttc_cents' => 890, 'status' => 'pending_payment'];
+
+        $items = json_encode([['type' => 'product', 'product_id' => 12, 'quantity' => 20]]);
+        $request = $this->post(['_csrf' => $this->csrf, 'service_mode' => 'dine_in', 'items_json' => (string) $items], '/counter/orders');
+
+        $response = $this->controller($request, $db)->store();
+
+        self::assertSame(302, $response->status());
+        $itemInsert = $this->writeParams($db, 'INSERT INTO order_item ');
+        self::assertSame(20, $itemInsert['qty']);
+    }
+
+    public function testStoreTreatsMissingQuantityAsOne(): void
+    {
+        // Absent (pas de champ quantity du tout) reste 1 (un article sans quantite
+        // explicite), MEME convention que le serveur (OrderRepository::resolveQuantity).
+        $db = $this->permittedDb();
+        $db->productRow = ['id' => 12, 'name' => 'Cheeseburger', 'price_cents' => 890, 'vat_rate' => 100, 'maxi_variant_product_id' => null, 'is_available' => 1];
+        $db->lastInsertId = 100;
+        $db->orderByNumberRow = ['id' => 100, 'order_number' => 'C100', 'total_ttc_cents' => 890, 'status' => 'pending_payment'];
+
+        $items = json_encode([['type' => 'product', 'product_id' => 12]]);
+        $request = $this->post(['_csrf' => $this->csrf, 'service_mode' => 'dine_in', 'items_json' => (string) $items], '/counter/orders');
+
+        $response = $this->controller($request, $db)->store();
+
+        self::assertSame(302, $response->status());
+        $itemInsert = $this->writeParams($db, 'INSERT INTO order_item ');
+        self::assertSame(1, $itemInsert['qty']);
+    }
+
     public function testCreateExposesProductComposition(): void
     {
         // create() joint la composition PROPOSABLE (modificateurs) de chaque produit au
@@ -762,6 +835,37 @@ final class CounterOrderControllerTest extends TestCase
         self::assertSame(['22' => 'Frites', '23' => 'Potatoes'], $slot['option_names']);
     }
 
+    public function testCreateExposesOptionIsOrderableMaxiForTheCaisse(): void
+    {
+        // Contre-audit (constat 1) : meme champ, meme regle que la borne
+        // (CatalogueController::presentSlots) -- la caisse comptoir/drive doit aussi
+        // griser une option dont seule la VARIANTE Maxi est en rupture, pas seulement
+        // la base. Sans ce champ, l'equipier pouvait composer un menu Maxi avec un
+        // accompagnement dont la Grande variante etait en rupture, encaisser, et se
+        // faire refuser au moment du paiement... ce qui n'arrive jamais au comptoir
+        // (createStaffOrder encaisse directement) : la revalidation serveur
+        // (OrderRepository::resolveSelections) aurait alors fait echouer TOUTE la
+        // commande apres l'avoir saisie en entier.
+        $db = $this->permittedDb();
+        $db->menusRows = [
+            ['id' => 5, 'category_id' => 1, 'burger_product_id' => 12, 'name' => 'Menu Cheeseburger', 'description' => null, 'price_normal_cents' => 990, 'price_maxi_cents' => 1190, 'image_path' => null, 'display_order' => 1],
+        ];
+        $db->menuSlotRows = [
+            ['id' => 16, 'name' => 'Accompagnement', 'slot_type' => 'side', 'is_required' => 1, 'display_order' => 1, 'product_id' => 22],
+        ];
+        $db->productByIdRows = [
+            22 => ['id' => 22, 'name' => 'Moyenne Frite', 'is_available' => 1, 'maxi_variant_product_id' => 23],
+            23 => ['id' => 23, 'name' => 'Grande Frite', 'is_available' => 0],
+        ];
+
+        $response = $this->controller($this->get('/counter/orders/new'), $db)->create();
+
+        $menus = $this->decodePosMenus($response->body());
+        $slot = $menus[0]['slots'][0];
+        self::assertSame(['22' => true], $slot['option_is_orderable']);       // base OK
+        self::assertSame(['22' => false], $slot['option_is_orderable_maxi']); // variante retiree
+    }
+
     public function testCreateExposesOptionAvailabilityAsCommandableByDefaultWhenServerFlagMissing(): void
     {
         // Compat : une option pour laquelle le controleur ne renvoie aucune info de
@@ -780,6 +884,7 @@ final class CounterOrderControllerTest extends TestCase
 
         $menus = $this->decodePosMenus($response->body());
         self::assertSame(['22' => true], $menus[0]['slots'][0]['option_is_orderable']);
+        self::assertSame(['22' => true], $menus[0]['slots'][0]['option_is_orderable_maxi']);
     }
 
     public function testCreateMarksProductOutOfStockAsNotOrderable(): void

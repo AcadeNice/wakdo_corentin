@@ -376,35 +376,64 @@ class CatalogueController extends Controller
      * afficher "Frites -- Indisponible" pour une option qu'il ne peut plus resoudre
      * via son index produit habituel (byId, derive de /api/products).
      *
+     * option_is_orderable_maxi (RG-T21, contre-audit constat 1) : disponibilite de
+     * l'option REELLEMENT servie quand le menu est commande au format Maxi -- la
+     * VARIANTE (maxi_variant_product_id) quand l'option en a une, sinon la base a
+     * l'identique de option_is_orderable. Avant ce champ, la borne/caisse ne
+     * grisaient une option que sur la disponibilite de la BASE, quel que soit le
+     * format choisi : une base disponible dont la variante Maxi etait en rupture
+     * (ou inversement) restait proposee en Maxi (ou en Normal), pour se faire
+     * refuser 422 OPTION_UNAVAILABLE au paiement (OrderRepository::
+     * resolveSelections, qui verifie deja la variante EFFECTIVEMENT servie). Le
+     * composeur doit lire CE champ des que le format Maxi est choisi, jamais
+     * option_is_orderable, sous peine de rejouer le meme desaccord.
+     *
      * @param list<array{id: int, name: string, slot_type: string, is_required: int, display_order: int, option_product_ids: list<int>}> $slots
      * @param array<int, true> $unavailable set d'ids produits en rupture calculee (RG-T21),
      *        partage avec le burger du menu (pas de second appel a autoUnavailableIds()).
-     * @return list<array{id: int, name: string, slot_type: string, is_required: bool, display_order: int, option_product_ids: list<int>, option_is_orderable: array<string, bool>, option_names: array<string, string>}>
+     * @return list<array{id: int, name: string, slot_type: string, is_required: bool, display_order: int, option_product_ids: list<int>, option_is_orderable: array<string, bool>, option_is_orderable_maxi: array<string, bool>, option_names: array<string, string>}>
      */
     private function presentSlots(array $slots, ProductRepository $productsRepo, array $unavailable): array
     {
         return array_map(
             function (array $slot) use ($productsRepo, $unavailable): array {
                 $orderable = [];
+                $orderableMaxi = [];
                 $names = [];
                 foreach ($slot['option_product_ids'] as $pid) {
                     $pid = (int) $pid;
                     $option = $productsRepo->find($pid);
-                    $orderable[(string) $pid] = $option !== null
+                    $isOrderable = $option !== null
                         && (int) ($option['is_available'] ?? 0) === 1
                         && !isset($unavailable[$pid]);
+                    $orderable[(string) $pid] = $isOrderable;
                     $names[(string) $pid] = $option !== null ? (string) $option['name'] : '';
+
+                    // Disponibilite Maxi : celle de la VARIANTE quand l'option en a
+                    // une (maxi_variant_product_id non nul), sinon egale a la base --
+                    // meme regle que la substitution serveur (OrderRepository::
+                    // resolveSelections).
+                    $variantId = $option !== null ? (int) ($option['maxi_variant_product_id'] ?? 0) : 0;
+                    if ($variantId > 0) {
+                        $variant = $productsRepo->find($variantId);
+                        $orderableMaxi[(string) $pid] = $variant !== null
+                            && (int) ($variant['is_available'] ?? 0) === 1
+                            && !isset($unavailable[$variantId]);
+                    } else {
+                        $orderableMaxi[(string) $pid] = $isOrderable;
+                    }
                 }
 
                 return [
-                    'id'                   => $slot['id'],
-                    'name'                 => $slot['name'],
-                    'slot_type'            => $slot['slot_type'],
-                    'is_required'          => $slot['is_required'] !== 0,
-                    'display_order'        => $slot['display_order'],
-                    'option_product_ids'   => $slot['option_product_ids'],
-                    'option_is_orderable'  => $orderable,
-                    'option_names'         => $names,
+                    'id'                        => $slot['id'],
+                    'name'                      => $slot['name'],
+                    'slot_type'                 => $slot['slot_type'],
+                    'is_required'               => $slot['is_required'] !== 0,
+                    'display_order'             => $slot['display_order'],
+                    'option_product_ids'        => $slot['option_product_ids'],
+                    'option_is_orderable'       => $orderable,
+                    'option_is_orderable_maxi'  => $orderableMaxi,
+                    'option_names'              => $names,
                 ];
             },
             $slots,

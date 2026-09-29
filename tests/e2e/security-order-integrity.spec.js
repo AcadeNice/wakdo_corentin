@@ -307,3 +307,154 @@ test.describe('Option de menu indisponible (defaut #4)', () => {
     await expect(bad).toHaveAttribute('aria-pressed', 'false');
   });
 });
+
+// Contre-audit (constat 1, important, RG-T21) : la disponibilite d'une option de
+// slot etait calculee sur le produit de BASE (option_is_orderable), meme quand le
+// menu est commande au format Maxi -- alors que le serveur substitue la VARIANTE
+// reellement servie (OrderRepository::resolveSelections, maxi_variant_product_id).
+// Une base disponible dont la variante Maxi est en rupture restait proposee
+// commandable en Maxi (et inversement), pour se faire refuser 422
+// OPTION_UNAVAILABLE au paiement seulement. option_is_orderable_maxi expose
+// desormais la disponibilite REELLE par format ; ce bloc verifie l'API ET
+// le composeur borne sur une fixture entierement jetable (base + variante Maxi,
+// dont seule la variante est indisponible).
+test.describe('Disponibilite par format (contre-audit constat 1)', () => {
+  let admin3;
+  let kiosk3;
+  let fx3;
+
+  test.beforeAll(async () => {
+    const ctx = await pwRequest.newContext();
+    const login = await ctx.post(`${ADMIN}/admin/api/auth/login`, { data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } });
+    expect(login.status()).toBe(200);
+    admin3 = { ctx, csrf: (await login.json()).data.csrf_token };
+    kiosk3 = await pwRequest.newContext();
+    const h = { 'X-CSRF-Token': admin3.csrf };
+
+    // Burger jetable (categorie burgers = 3).
+    const burger = await ctx.post(`${ADMIN}/admin/api/products`, {
+      headers: h, data: { category_id: 3, name: `OiFmtBurger ${RUN}`, price_cents: 600, vat_rate: 100, is_available: true, display_order: 65535 },
+    });
+    expect(burger.status(), await burger.text()).toBe(201);
+    const burgerId = (await burger.json()).data.id;
+
+    // Accompagnement de BASE (categorie frites = 4, F12 slot 'side'), disponible.
+    const base = await ctx.post(`${ADMIN}/admin/api/products`, {
+      headers: h, data: { category_id: 4, name: `OiFmtBase ${RUN}`, price_cents: 200, vat_rate: 100, is_available: true, display_order: 65535 },
+    });
+    expect(base.status(), await base.text()).toBe(201);
+    const baseId = (await base.json()).data.id;
+
+    // Variante Maxi (meme categorie), creee INDISPONIBLE d'entree (rupture --
+    // is_available=0 vaut aussi bien qu'une rupture calculee RG-T21, meme regle
+    // cote OrderRepository::resolveSelections : is_available ET rupture calculee).
+    const variant = await ctx.post(`${ADMIN}/admin/api/products`, {
+      headers: h, data: { category_id: 4, name: `OiFmtMaxi ${RUN}`, price_cents: 350, vat_rate: 100, is_available: false, display_order: 65535 },
+    });
+    expect(variant.status(), await variant.text()).toBe(201);
+    const variantId = (await variant.json()).data.id;
+
+    // Relie la base a sa variante Maxi.
+    const link = await ctx.put(`${ADMIN}/admin/api/products/${baseId}`, {
+      headers: h, data: {
+        category_id: 4, name: `OiFmtBase ${RUN}`, price_cents: 200, vat_rate: 100,
+        is_available: true, display_order: 65535, maxi_variant_product_id: variantId,
+      },
+    });
+    expect(link.status(), await link.text()).toBe(200);
+
+    // Menu jetable, UN slot Accompagnement REQUIS avec la SEULE base comme option.
+    const menuRes = await ctx.post(`${ADMIN}/admin/api/menus`, {
+      headers: h,
+      data: {
+        category_id: 1, burger_product_id: burgerId, name: `OiFmtMenu ${RUN}`,
+        price_normal_cents: 700, price_maxi_cents: 850, is_available: true, display_order: 65535,
+        slots: [{ name: 'Accompagnement', slot_type: 'side', is_required: true, options: [baseId] }],
+      },
+    });
+    expect(menuRes.status(), await menuRes.text()).toBe(201);
+    const menuId = (await menuRes.json()).data.id;
+
+    fx3 = { burgerId, baseId, variantId, menuId };
+  });
+
+  test.afterAll(async () => {
+    if (admin3 && fx3) {
+      const h = { 'X-CSRF-Token': admin3.csrf };
+      await admin3.ctx.put(`${ADMIN}/admin/api/menus/${fx3.menuId}`, {
+        headers: h, data: {
+          category_id: 1, burger_product_id: fx3.burgerId, name: `OiFmtMenu ${RUN}`,
+          price_normal_cents: 700, price_maxi_cents: 850, is_available: false, display_order: 65535,
+          slots: [{ name: 'Accompagnement', slot_type: 'side', is_required: true, options: [fx3.baseId] }],
+        },
+      });
+      await admin3.ctx.put(`${ADMIN}/admin/api/products/${fx3.baseId}`, {
+        headers: h, data: { category_id: 4, name: `OiFmtBase ${RUN}`, price_cents: 200, vat_rate: 100, is_available: false, display_order: 65535 },
+      });
+      await admin3.ctx.put(`${ADMIN}/admin/api/products/${fx3.variantId}`, {
+        headers: h, data: { category_id: 4, name: `OiFmtMaxi ${RUN}`, price_cents: 350, vat_rate: 100, is_available: false, display_order: 65535 },
+      });
+      await admin3.ctx.put(`${ADMIN}/admin/api/products/${fx3.burgerId}`, {
+        headers: h, data: { category_id: 3, name: `OiFmtBurger ${RUN}`, price_cents: 600, vat_rate: 100, is_available: false, display_order: 65535 },
+      });
+    }
+    if (admin3) await admin3.ctx.dispose();
+    if (kiosk3) await kiosk3.dispose();
+  });
+
+  test('GET /api/menus/{id} : commandable en Normal (base OK), non commandable en Maxi (variante en rupture)', async () => {
+    const detail = await (await kiosk3.get(`${KIOSK}/api/menus/${fx3.menuId}`)).json();
+    const slot = detail.data.slots[0];
+    expect(slot.option_is_orderable[String(fx3.baseId)]).toBe(true);
+    expect(slot.option_is_orderable_maxi[String(fx3.baseId)]).toBe(false);
+  });
+
+  test('POST /api/orders format=normal : accepte (base disponible)', async () => {
+    const res = await kiosk3.post(`${KIOSK}/api/orders`, {
+      data: {
+        service_mode: 'takeaway',
+        items: [{
+          type: 'menu', menu_id: fx3.menuId, quantity: 1, format: 'normal',
+          selections: [{ menu_slot_id: (await (await kiosk3.get(`${KIOSK}/api/menus/${fx3.menuId}`)).json()).data.slots[0].id, product_id: fx3.baseId }],
+        }],
+      },
+    });
+    expect(res.status(), await res.text()).toBe(201);
+  });
+
+  test('POST /api/orders format=maxi : refuse (422 OPTION_UNAVAILABLE, variante en rupture)', async () => {
+    const detail = await (await kiosk3.get(`${KIOSK}/api/menus/${fx3.menuId}`)).json();
+    const slotId = detail.data.slots[0].id;
+    const res = await kiosk3.post(`${KIOSK}/api/orders`, {
+      data: {
+        service_mode: 'takeaway',
+        items: [{
+          type: 'menu', menu_id: fx3.menuId, quantity: 1, format: 'maxi',
+          selections: [{ menu_slot_id: slotId, product_id: fx3.baseId }],
+        }],
+      },
+    });
+    expect(res.status()).toBe(422);
+    expect((await res.json()).error.code).toBe('OPTION_UNAVAILABLE');
+  });
+
+  test('navigateur : le composeur borne grise l option au passage en Maxi, la deselectionne', async ({ page }) => {
+    await page.goto(`/products.html?category=1&mode=a-emporter`);
+    const tile = page.locator('.product-card', { hasText: `OiFmtMenu ${RUN}` });
+    await expect(tile).toBeVisible();
+    await tile.click();
+
+    await expect(page.locator('.composer-overlay [role="dialog"]')).toBeVisible();
+
+    // Etape Format (0) : passe en Maxi avant d'avancer au slot.
+    await page.locator('[data-size="M"]').click();
+    await expect(page.locator('.composer-step__notice')).toBeVisible();
+    await expect(page.locator('.composer-step__notice')).toContainText('Accompagnement');
+
+    await page.locator('#composer-next').click(); // format -> slot Accompagnement
+    const optionTile = page.locator(`#slot-grid .composer-card[data-pid="${fx3.baseId}"]`);
+    await expect(optionTile).toBeVisible();
+    await expect(optionTile).toBeDisabled();
+    await expect(optionTile).toHaveAttribute('aria-pressed', 'false');
+  });
+});
