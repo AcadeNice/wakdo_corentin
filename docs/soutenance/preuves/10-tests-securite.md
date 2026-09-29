@@ -39,11 +39,26 @@ egalement verts. Les 13 tests marques de l'execution datee (section 4) et les li
 « ecart » de la section 5 decrivent donc un etat AVANT correctif qui n'est plus celui du
 depot ; ce rejeu confirme chacun des 11 ecarts corrige, sans exception restante.
 
+**Mise a jour de l'apres-midi du 2026-09-29 (revue adversariale des correctifs).** Une relecture
+par des agents qui n'avaient pas ecrit les correctifs a trouve des manques, corriges en TDD :
+`680820f` (la table `password_reset_throttle` n'etait purgee par aucun cron : ajoutee a
+`docker/cron/scripts/purge-throttle.sh` ; l'adresse y etait gardee en clair : empreinte SHA-256,
+migration `0021` ; un changement de mot de passe fait par l'administrateur ferme desormais les
+sessions du compte ; chevalet et mode de service en types stricts), `e9f00d8` (modification d'un
+menu : emplacements apparies par type et nom puis par position, lignes verrouillees, commande
+concurrente traduite en `409`), `186c5d7` (option de menu disponible ou non selon le format servi,
+`option_is_orderable_maxi` ; au comptoir, quantite hors 1-20 refusee en `422` au lieu d'etre
+ramenee a 1, y compris sur `POST /admin/api/orders` ; plafond de 20 par ligne sur la borne et au
+comptoir). **Rejeu sur `c2b8c1c`** (`bash tests/e2e/run-security.sh`, `APP_DEBUG=false`) : phase
+principale 99 reussis + 8 sautes (107 tests), phase reinitialisation 4 sur 4, phase base arretee
+4 sur 4, 0 echec. **Statut en production** : tout ce qui precede est corrige dans le code de la
+branche `docs/contre-audit` ; la production (`dc1829d`) ne l'aura qu'apres la release du 29/09.
+
 ## 1. La base existante (reprise, pas dupliquee)
 
 | Preuve deja en place | Ce qu'elle couvre |
 |---|---|
-| `src/app/Health/captured-responses.json` (158 routes) + `tests/Unit/Health/CapturedResponsesTest.php`, `RouteSecurityCoverageTest.php`, `RouteMatrixTest.php` | pour chaque route, la vraie reponse sans session, sans permission, sans jeton CSRF, avec un corps mal type, avec un PIN faux ; une route ajoutee sans sa ligne de securite fait echouer la CI |
+| `src/app/Health/captured-responses.json` (158 routes) + `tests/Unit/Health/CapturedResponsesTest.php`, `RouteSecurityCoverageTest.php`, `tests/Unit/Admin/Api/RouteMatrixTest.php` | pour chaque route, la vraie reponse sans session, sans permission, sans jeton CSRF, avec un corps mal type, avec un PIN faux ; une route ajoutee sans sa ligne de securite fait echouer la CI |
 | `tests/Unit/Admin/HtmlRouteCsrfTest.php`, `HtmlRouteSessionTest.php`, `HtmlRoutePermissionTest.php`, `HtmlRoutePinTest.php`, `tests/Unit/Auth/CsrfTest.php` | gardes CSRF / session / permission / PIN de chaque page HTML, en unitaire |
 | `tests/Integration/RouteMatrixRoleDbTest.php`, `tests/e2e/rbac-demo.spec.js`, `tests/e2e/rbac-channel.spec.js` | grille role x permission contre une vraie base ; refus 403 par compte de demonstration ; cloisonnement des pages comptoir / drive |
 | `tests/Unit/Auth/ThrottlePolicyTest.php`, `PinThrottleTest.php`, `tests/Integration/AuthServiceDbTest.php`, `PinThrottleDbTest.php` | courbe de blocage (seuil, delai, plafond) de la connexion et du PIN |
@@ -68,7 +83,7 @@ depot ; ce rejeu confirme chacun des 11 ecarts corrige, sans exception restante.
 | `tests/e2e/security-mass-assignment.spec.js` | 7 | champs non prevus dans les corps (RG-T16) |
 | `tests/e2e/security-info-leak.spec.js` | 7 | pages d'erreur, 500 en mode production, fichiers sensibles, listing, sonde |
 | `tests/e2e/security-borne.spec.js` | 6 | isolement du back-office, secrets dans le JS, stockage navigateur, CORS |
-| `tests/e2e/security-order-integrity.spec.js` | 7 | idempotence, prix serveur, quantites, deni de service sur le stock |
+| `tests/e2e/security-order-integrity.spec.js` | 7 (14 au rejeu du 29/09 apres-midi) | idempotence, prix serveur, quantites, deni de service sur le stock ; puis `ORDER_TOO_LARGE` et disponibilite d'option par format |
 | `tests/e2e/security-dbdown.spec.js` | 4 | base arretee : reponses generiques, connexion en echec ferme |
 | `tests/e2e/run-security.sh` | — | lanceur : pile jetable `APP_DEBUG=false`, trois phases |
 | `tests/Integration/Security/PasswordResetExpiryDbTest.php` | 5 | expiration du lien contre une vraie MariaDB, horloge injectee |
@@ -107,8 +122,10 @@ nouvelle retentative (`--retries=0`), puis demonte tout, volumes compris. Trois 
 
 Un sous-ensemble : `tests/e2e/run-security.sh security-xss.spec.js security-csrf.spec.js`.
 La suite tourne aussi avec le lanceur E2E habituel (valeurs de `.env.example`,
-`APP_DEBUG=true`) : les 8 tests des phases 2 et 3 et le test de la 500 « mode production » se
-sautent alors d'eux-memes.
+`APP_DEBUG=true`) : les 8 tests des phases 2 et 3 se sautent alors d'eux-memes. L'ancien test
+de la 500 « mode production » ne se saute plus : depuis `2fe8a4a`, il verifie que sa charge est
+refusee proprement (`422 INVALID_QUANTITY`) ; la vraie 500 n'est plus prouvee que base arretee,
+par `security-dbdown.spec.js`.
 
 Test PHP (base MariaDB jetable, comme le job CI `static-tests`) :
 `WAKDO_DB_TESTS=1 DB_HOST=<base> ... php phpunit.phar -c phpunit.xml tests/Integration/Security`.
@@ -125,10 +142,13 @@ fichiers deposes) visent la pile jetable. Seule exception, en lecture : deux `GE
 | n° 2, 07:31 | `run-security.sh` (APP_DEBUG=false, 3 phases) | 100 | 87 | 13 | 0 | 0 |
 | controle | lanceur E2E habituel (APP_DEBUG=true, phase 1) | 100 | 79 | 12 | 0 | 9 |
 | PHP | PHPUnit 11.5, MariaDB 11.4 jetable | 5 (36 assertions) | 5 | 0 | 0 | 0 |
-| rejeu, phase principale (29/09, apres correctifs) | `run-security.sh` (APP_DEBUG=false) | 103 | 95 | 0 | 0 | 8 (joues dans les phases suivantes) |
+| rejeu, phase principale (29/09 matin, sur `2fe8a4a`) | `run-security.sh` (APP_DEBUG=false) | 103 | 95 | 0 | 0 | 8 (joues dans les phases suivantes) |
 | rejeu, phase reinitialisation | `run-security.sh` (APP_DEBUG=false) | 4 | 4 | 0 | 0 | 0 |
 | rejeu, phase base arretee | `run-security.sh` (APP_DEBUG=false) | 4 | 4 | 0 | 0 | 0 |
 | rejeu, PHP | PHPUnit, MariaDB jetable | 5 | 5 | 0 | 0 | 0 |
+| rejeu de l'apres-midi, phase principale (sur `c2b8c1c`) | `run-security.sh` (APP_DEBUG=false) | 107 | 99 | 0 | 0 | 8 (joues dans les phases suivantes) |
+| rejeu de l'apres-midi, phase reinitialisation | `run-security.sh` (APP_DEBUG=false) | 4 | 4 | 0 | 0 | 0 |
+| rejeu de l'apres-midi, phase base arretee | `run-security.sh` (APP_DEBUG=false) | 4 | 4 | 0 | 0 | 0 |
 
 **Rejoue le 2026-09-29, sur le commit `2fe8a4a` — confirme.** Les quatre premieres lignes
 datent de 07:30-07:31 le 2026-09-29, AVANT les commits `08d7a96`, `ef7fd37`, `fce3085` et
@@ -210,6 +230,8 @@ n'avait ete corrige. Les onze l'ont ete depuis, par trois commits merges le meme
 mise a jour en tete de fiche), plus un quatrieme commit qui ajoute une borne complementaire ;
 chaque entree corrigee garde son constat original (c'est l'interet de la fiche) et porte la
 mention « corrige » avec le commit et le test qui le prouve, rejoue le 2026-09-29 (vert).
+Les chemins et numeros de ligne cites dans les constats sont ceux du code au moment du
+constat (commit `fddc26c`) ; le code a bouge depuis.
 
 ### Importants
 
@@ -261,7 +283,8 @@ s'applique donc des la requete suivante, sans attendre la deconnexion. Test rejo
 - **m2 — `Permissions-Policy` absente** sur les deux hotes (`docker/apache/httpd.conf`,
   `docker/apache/vhost.conf`). **Corrige le 2026-09-29 (commit `08d7a96`)** : en-tete pose une
   fois dans `httpd.conf` (herite par les deux vhosts), toutes les fonctionnalites
-  capteur/media/paiement coupees. Test rejoue le 2026-09-29, vert pour les deux hotes.
+  capteur/media/paiement coupees. Test rejoue le 2026-09-29, vert pour les deux hotes (le test
+  verifie la presence de l'en-tete, `security-headers.spec.js`, pas chacune de ses valeurs).
 - **m3 — CSP du back-office sans `base-uri` ni `form-action`** (`docker/apache/vhost.conf:247`) ;
   ces deux directives ne retombent pas sur `default-src`. La borne les pose
   (`docker/apache/vhost.conf:145`). **Corrige le 2026-09-29 (commit `08d7a96`)** : les deux
@@ -281,7 +304,12 @@ s'applique donc des la requete suivante, sans attendre la deconnexion. Test rejo
   inondation de la boite visee. **Corrige le 2026-09-29 (commit `ef7fd37`)** : throttle par
   adresse ET par IP (`App\Auth\PasswordResetThrottle`, table `password_reset_throttle`,
   migration `0020_session_invalidation.sql`), seuils par defaut 5 (adresse) / 15 (IP), reponse
-  429 neutre au-dela. Test rejoue le 2026-09-29, vert.
+  429 neutre au-dela. Test rejoue le 2026-09-29, vert. Le test navigateur couvre la limite par
+  adresse ; la limite par IP est prouvee par `tests/Unit/Auth/PasswordResetThrottleTest.php`.
+  Complements de l'apres-midi (`680820f`, revue adversariale) : la table n'etait purgee par
+  aucun cron, elle l'est desormais (`docker/cron/scripts/purge-throttle.sh`, prouve par
+  `tests/shell/purge-throttle.test.sh`) ; l'adresse y etait gardee en clair, elle est desormais
+  stockee en empreinte SHA-256 (migration `0021`, `PasswordResetThrottleHashMigrationDbTest`).
 - **m7 — Sessions conservees apres une reinitialisation du mot de passe** :
   `PasswordResetService::confirmReset()` (`src/app/Auth/PasswordResetService.php:98`) change le
   hash sans fermer les sessions ouvertes du compte. **Corrige le 2026-09-29 (commit
@@ -338,7 +366,8 @@ s'applique donc des la requete suivante, sans attendre la deconnexion. Test rejo
   fiabilite de l'IP cliente derriere le proxy releve de Traefik (non verifie, voir le point
   X-Forwarded-For ci-dessous). En production reelle, l'API kiosk serait reservee au reseau du
   restaurant ou a des bornes identifiees (hors perimetre code de ce projet) ; en
-  demonstration, la remise a zero quotidienne des donnees restaure le stock.
+  demonstration, la remise a zero des donnees (`docs/ops/demo-reset.md`) restaure le stock,
+  mais c'est une commande lancee a la main : aucune planification n'est versionnee.
 - **HTTPS, HSTS, TLS** relevent de Traefik en production et ne se testent pas sur la pile
   locale en HTTP. Le cookie `Secure` est teste en simulant l'en-tete `X-Forwarded-Proto` que
   pose Traefik ; la lecture de production du 2026-09-29 montre `Secure` et un HSTS

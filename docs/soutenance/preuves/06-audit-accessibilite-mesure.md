@@ -38,6 +38,12 @@ reels, et par le detail des 10 elements qui passaient sous le seuil au premier p
    inchanges par rapport au 28/09, seule la date change dans les artefacts
    (`docs/soutenance/preuves/rapports/resume.json`). Ce rejeu confirme qu'aucun des
    correctifs du 29/09 n'a introduit de regression visible a cet outil.
+7. **Rejeu de l'apres-midi du 2026-09-29** (12:44 UTC, commit `fe8b738`, rapports deposes par
+   `3212b6c`), apres les correctifs qui changent le rendu de la borne et du comptoir (options de
+   menu grisees selon le format, messages de refus dans la page, anneau de focus sur tuile
+   grisee) : memes 19 ecrans, **934 mesures**, 0 violation, 0 contraste sous le seuil. La
+   mesure en moins est sur la page Sante (65 -> 64), dont le contenu depend des reponses
+   capturees, recapturees entre les deux mesures ; ce n'est pas une regression.
 
 Les six campagnes sont conservees telles quelles, l'une a la suite de l'autre : un
 dossier qui montre « 10 violations trouvees, voici les corrections, voici la remesure a

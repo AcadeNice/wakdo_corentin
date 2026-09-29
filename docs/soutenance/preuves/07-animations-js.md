@@ -244,11 +244,11 @@ l'animation raccourcie.
 
 `src/public/admin/assets/css/admin.css` (back-office) portait, au moment de ce
 lot, aucun `@keyframes` ni `animation:`. Ce n'est plus le cas aujourd'hui :
-`.row-highlight` (`admin.css:2991-2993`) anime un fondu de 4 secondes sur la
+`.row-highlight` (`admin.css:3005-3007` au 29/09) anime un fondu de 4 secondes sur la
 ligne de commande venant d'etre creee au comptoir (`@keyframes
-row-highlight-fade`, `admin.css:2994-2997`), ajoutee apres ce lot. Cette
+row-highlight-fade`, `admin.css:3008-3011`), ajoutee apres ce lot. Cette
 animation-la respecte elle aussi `prefers-reduced-motion: reduce`
-(`admin.css:3015` et suivantes, meme principe que la section 4.3 ci-dessus) :
+(`admin.css:3029` et suivantes, meme principe que la section 4.3 ci-dessus) :
 le code CSS du depot reste couvert dans son ensemble, mais par deux points de
 verification distincts plutot que par l'absence totale d'animation admin
 affirmee au moment ou ce document a ete ecrit.

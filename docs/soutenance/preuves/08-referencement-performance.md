@@ -158,7 +158,7 @@ section absente.
   fichiers JavaScript de la borne et du back-office restaient sans accents
   (« Recapitulatif », « Categories »). C'est fait : le lot F38 (`567bb0a`, demande de
   fusion **#150**, « accents, apostrophes et accords des textes affiches ») les a
-  corriges. Verifie sur le code actuel : `page-product-menu.js:478` affiche
+  corriges. Verifie sur le code actuel : `page-product-menu.js:673` (29/09) affiche
   « Récapitulatif », `category-strip.js:69,71` et `health.js:1528,1597` affichent
   « Catégories »/« Catégorie » ; une recherche des formes sans accent ne remonte plus
   rien dans `src/public/borne/assets/js/` ni `src/public/admin/assets/js/`.

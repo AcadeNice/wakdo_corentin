@@ -85,8 +85,8 @@ L'information ne repose pas sur la seule couleur : un libelle textuel ou une ico
 « les ratios de contraste exacts n'ont pas ete mesures avec un outil dedie »). Les
 ratios ont depuis ete mesures a l'outil `axe-core` sur des ecrans reels, et les 10 noeuds
 trouves sous le seuil AA — dont un dans ce perimetre borne — ont ete corriges puis
-remesures conformes. La campagne courante (2026-09-28) porte sur **19 ecrans et
-935 mesures**, contre 11 ecrans et 407 a la campagne d'origine. Detail complet, chiffres
+remesures conformes. La campagne courante (rejouee le 2026-09-29 apres-midi, commit
+`fe8b738`) porte sur **19 ecrans et 934 mesures** (935 le 28/09), contre 11 ecrans et 407 a la campagne d'origine. Detail complet, chiffres
 avant/apres, et methode : `06-audit-accessibilite-mesure.md`.
 
 ---
@@ -197,7 +197,7 @@ Verdicts : **conforme** (preuve dans le code) · **partiel** (couvert mais reser
 ## 8. Reserves honnetes (a ne pas survendre au jury)
 
 1. **Aucun audit avec lecteur d'ecran reel.** Le mapping ARIA est correct dans le code, mais le rendu effectif sous NVDA/VoiceOver/TalkBack n'a pas ete teste sur cette borne. Toute affirmation de restitution vocale reelle est [UNVERIFIED].
-2. **Ratios de contraste non mesures a l'outil — RESOLU, voir `06-audit-accessibilite-mesure.md`.** Cette reserve disait que les tokens etaient choisis pour viser AA sans rapport d'outil joint. Depuis, `axe-core` a mesure 407 ratios sur 11 ecrans reels ; 10 noeuds sous le seuil AA ont ete trouves (dont un sur ce perimetre borne, `#767676` sur un fond gris a 4,16:1), corriges (`#767676` -> `#6E6E6E`), puis remesures conformes sur les 11 ecrans. La campagne a ete rejouee et **elargie a 18 ecrans (858 mesures) le 2026-09-26**, apres la refonte du back-office : le resultat reste a 0 violation. Le detail, les chiffres avant/apres et la methode sont dans le document cite.
+2. **Ratios de contraste non mesures a l'outil — RESOLU, voir `06-audit-accessibilite-mesure.md`.** Cette reserve disait que les tokens etaient choisis pour viser AA sans rapport d'outil joint. Depuis, `axe-core` a mesure 407 ratios sur 11 ecrans reels ; 10 noeuds sous le seuil AA ont ete trouves (dont un sur ce perimetre borne, `#767676` sur un fond gris a 4,16:1), corriges (`#767676` -> `#6E6E6E`), puis remesures conformes sur les 11 ecrans. La campagne a ete rejouee et **elargie a 18 ecrans (858 mesures) le 2026-09-26**, apres la refonte du back-office : le resultat reste a 0 violation ; derniere campagne, le 2026-09-29 apres-midi : 19 ecrans, 934 mesures, 0 violation. Le detail, les chiffres avant/apres et la methode sont dans le document cite.
 3. **Coherence du style de focus partielle.** Le focus n'est pas perdu (pas de reset global), mais quelques controles secondaires (bouton info allergenes `.allergen-info-btn`, fermeture modale allergenes `.allergen-modal-close`, reperables par selecteur dans `style.css`) reposent sur l'anneau de focus natif du navigateur plutot que sur le halo jaune maison. C'est conforme (focus visible) mais visuellement heterogene. `.size-btn` (la carte de choix de taille) n'en fait PAS partie : il porte son propre `:focus-visible` (`style.css:2127`), meme convention que `.choice-btn`.
 4. **Champ chevalet hors des 5 pages lues.** Le picker de chevalet (sur place) a un focus visible en CSS (`style.css`, cherchez « .chevalet__input ») mais son etiquette textuelle vit dans une modale JS non incluse dans les 5 pages de ce perimetre ; verdict « partiel » par prudence.
 5. **Contenu genere = surface a re-tester.** Les cartes produit et le panneau commande sont construits en JavaScript. Les attributs ARIA sont poses dans le code (`page-products.js`, `order-panel.js`), mais leur presence a l'ecran depend de l'execution correcte du rendu ; a demontrer en live plutot qu'a affirmer.
@@ -285,8 +285,8 @@ chacun a sa date, pas contradictoires.
 
 Deux resultats a retenir pour l'oral :
 
-- **0 violation WCAG AA** sur les treize ecrans, contrastes compris (935 mesures au total
-  avec la borne, campagne du 2026-09-28).
+- **0 violation WCAG AA** sur les treize ecrans, contrastes compris (934 mesures au total
+  avec la borne, rejeu du 2026-09-29 apres-midi ; 935 le 28/09).
 - **Un ecart trouve, corrige, et invisible pour l'outil** : le bloc de slot du formulaire
   menu etait un `<fieldset>` sans `<legend>`, donc un groupe de champs sans nom pour une
   technologie d'assistance. Aucune regle du jeu WCAG A/AA active ne couvre ce cas ; c'est

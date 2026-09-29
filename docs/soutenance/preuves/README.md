@@ -32,7 +32,7 @@ Perimetre principal : la **borne de commande client** (`src/public/borne/`), int
 - `w3c/borne-rendu.json` — sortie sur le DOM rendu (0 erreur, 1 avertissement assume).
 - `w3c/borne-modale-allergenes.json` — idem, modale allergenes ouverte.
 - `w3c/dom-rendu/` — les 4 fichiers de HTML rendu (JS execute) reellement soumis au validateur.
-- `rapports/` — audit d'accessibilite mesure : `resume.json` (19 ecrans), `contrastes-mesures.csv` (935 mesures, campagne du 2026-09-28, rejouee a l'identique le 2026-09-29 sur le commit `3fd08c4`), `axe-<ecran>.json` (x19).
+- `rapports/` — audit d'accessibilite mesure : `resume.json` (19 ecrans), `contrastes-mesures.csv` (934 mesures, rejeu du 2026-09-29 apres-midi sur le commit `fe8b738` ; 935 le 28/09 et le 29/09 au matin sur `3fd08c4`), `axe-<ecran>.json` (x19).
 - `captures-responsive/` — **52 captures** Playwright : la borne (5 ecrans x 360 / 390 / 768 / 1366 px) et le back-office (16 ecrans x 360 / 390 px).
 - `captures-controle-saisie/` — controle de saisie pendant la frappe, modal PIN avant / apres correctif, et message du serveur apres un PIN refuse (fiche 09). Les trois captures « apres » sont regenerees ; `modal-pin-avant.png` ne l'est pas, et ne peut pas l'etre : elle montre le defaut corrige depuis.
 
@@ -62,10 +62,14 @@ Trois commandes, une par famille d'artefacts. Chacune monte sa propre pile jetab
 
 Ce dossier est scope Bloc 1 (front-end), mais une fiche Bloc 2 y a ete ajoutee car elle est
 la seule preuve executable de l'axe securite : [`10-tests-securite.md`](10-tests-securite.md)
-— 100 tests Playwright + 5 tests PHP contre une pile reelle (borne + back-office), 11 ecarts
-trouves le 2026-09-29, dont 8 corriges par les commits `08d7a96`/`ef7fd37` le meme jour et 3
-par le commit `fce3085` (branche `fix/sec-order`, fusionnee par `86306ef`) ; la suite n'a pas
-ete rejouee depuis ces correctifs (voir la fiche pour le detail et les reserves).
+— 100 tests Playwright a sa creation (107 en phase principale au dernier rejeu) + 5 tests PHP
+contre une pile reelle (borne + back-office), 11 ecarts trouves le 2026-09-29, dont 8 corriges
+par les commits `08d7a96`/`ef7fd37` le meme jour et 3 par le commit `fce3085` (branche
+`fix/sec-order`, fusionnee par `86306ef`), completes par `33538c6`, puis par `680820f`,
+`e9f00d8` et `186c5d7` apres une revue adversariale. La suite a ete rejouee apres ces
+correctifs : le matin sur `2fe8a4a` (95 reussis + 8 sautes, puis 4 et 4), l'apres-midi sur
+`c2b8c1c` (99 reussis + 8 sautes, puis 4 et 4), 0 echec, 0 test marque restant. Corrige dans
+le code le 29/09, en production apres la release du 29/09.
 
 ## Findings releves pendant l'exercice (hors perimetre preuve, a traiter separement)
 

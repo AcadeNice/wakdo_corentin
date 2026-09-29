@@ -26,9 +26,9 @@
 > Le meme jour, une suite de tests de securite executables (100 Playwright + 5 PHP,
 > `docs/soutenance/preuves/10-tests-securite.md`) trouve 11 ecarts, tous corriges par
 > trois commits (`08d7a96`, `ef7fd37`, `fce3085`) : 19 migrations, 24 entites (nouvelle
-> entite `password_reset_throttle`, migration 0020) ; la suite n'a pas ete rejouee apres
-> ces trois commits (section G.5, Q2.11).
-> **Recomptage final du 2026-09-29, sur le commit `2fe8a4a`** (branche `docs/contre-audit`,
+> entite `password_reset_throttle`, migration 0020) ; la suite a ete rejouee ensuite
+> (voir les deux recomptages ci-dessous, section G.5, Q2.11).
+> **Recomptage du matin du 2026-09-29, sur le commit `2fe8a4a`** (branche `docs/contre-audit`,
 > pas encore fusionnee - apres un contre-audit independant a 5 relecteurs qui a trouve une
 > nouvelle regression, corrigee en TDD) : PHPUnit **2 508 tests, 8 626 assertions, 0 echec,
 > 0 depreciation** ; PHPStan niveau 6, **0 erreur**. Tests JavaScript : **461, 0 echec**.
@@ -45,6 +45,19 @@
 > **L'audit d'accessibilite a ete rejoue le 2026-09-29 (09:49 UTC) apres les correctifs**,
 > sur le commit `3fd08c4` : **19 ecrans, 935 mesures, 0 violation**, chiffres inchanges par
 > rapport au 28/09 (seule la date change dans `docs/soutenance/preuves/rapports/resume.json`).
+> **Recomptage final de l'apres-midi du 2026-09-29**, apres la revue adversariale des
+> correctifs (`680820f`, `e9f00d8`, `186c5d7`, `c2b8c1c`), sur une copie figee du code
+> (`186c5d7` pour les tests, `c2b8c1c`/`fe8b738` pour le reste) : PHPUnit **2 535 tests,
+> 8 716 assertions, 0 echec, 0 depreciation** ; PHPStan niveau 6, **0 erreur** ; tests
+> JavaScript **492, 0 echec** ; tests shell **47 assertions, 0 echec**. Suite navigateur
+> complete : **214 tests, 202 reussis, 11 sautes, 1 echec** (debordement de la carte
+> « Migrations » de la page Sante, corrige par `c2b8c1c`, balayage rejoue : **4 807
+> verifications, 0 echec**). Suite de securite : phase principale **99 reussis + 8 sautes
+> (107 tests)**, reinitialisation 4 sur 4, base arretee 4 sur 4. Page Sante recapturee sur
+> `c2b8c1c` : **158 succes sur 158, 670 refus obtenus sur 689 tentes**. Accessibilite
+> (12:44 UTC, `fe8b738`) : **19 ecrans, 934 mesures, 0 violation**. Migrations : **20
+> fichiers (0001 a 0021, sans 0004)**. **Production** : tout le 29/09 est sur la branche
+> `docs/contre-audit` ; la production (`dc1829d`) ne l'aura qu'apres la release du 29/09.
 
 ---
 
@@ -94,16 +107,16 @@ depot coute plus cher que le chiffre lui-meme.
 | Commits (sur `main`, commit deploye `04bece0`, 28/09) | 242. **Etat au 29/09** (commit `main` `dc1829d`) : **244** | `git rev-list --count 04bece0` ; a la veille, revalider avec `git rev-list --count main` |
 | Demandes de fusion fusionnees | 192 (derniere au 28/09 : #194, la release deployee `04bece0`). **Etat au 29/09** : **194** fusionnees, derniere **#196** (release deployee `dc1829d`) | API de la forge : `GET /api/v1/repos/AcadeNice/corentin_wakdo/pulls?state=closed`, compter les entrees `merged: true` (le decompte par `git log` ne voit pas les anciennes fusions, dont le titre ne finit pas par `(#n)`) |
 | Repartition des commits | 111 `feat`, 42 `docs`, 41 `fix`, 11 `chore`, 8 `ci`, 4 `test`, 2 `refactor` | `git log --pretty=%s 04bece0 \| grep -oE '^[a-z]+' \| sort \| uniq -c` |
-| Lignes PHP livrees | 27 168 sur 137 fichiers | `find src -name '*.php' -type f -exec cat {} + \| wc -l` |
-| Lignes JavaScript livrees | 8 711 sur 30 fichiers | `find src -name '*.js' -type f -exec cat {} + \| wc -l` |
-| dont borne client | 3 311 sur 21 modules | `wc -l src/public/borne/assets/js/*.js` |
-| Lignes CSS | 5 792 (borne 2 322 + back-office 3 470) | `wc -l src/public/*/assets/css/*.css` |
-| Methodes de test PHP | 1 295 sur 116 fichiers | `grep -rhoE 'public function test[A-Za-z0-9_]*' tests --include='*.php' \| wc -l` |
-| Appels de test JavaScript | 450 sur 29 fichiers | `grep -rhoE "\b(it\|test)\(" tests/js --include='*.test.js' \| wc -l` |
-| Scenarios de bout en bout | 92 sur 22 specs | `grep -rhoE '^\s*test\(' tests/e2e --include='*.spec.js' \| wc -l` |
+| Lignes PHP livrees | 28 264 sur 140 fichiers (29/09, `fe8b738`) | `find src -name '*.php' -type f -exec cat {} + \| wc -l` |
+| Lignes JavaScript livrees | 9 210 sur 30 fichiers (29/09) | `find src -name '*.js' -type f -exec cat {} + \| wc -l` |
+| dont borne client | 3 551 sur 21 modules (29/09) | `wc -l src/public/borne/assets/js/*.js` |
+| Lignes CSS | 5 806 (borne 2 322 + back-office 3 484, 29/09) | `wc -l src/public/*/assets/css/*.css` |
+| Methodes de test PHP | 1 410 sur 124 fichiers (29/09) | `grep -rhoE 'public function test[A-Za-z0-9_]*' tests --include='*.php' \| wc -l` |
+| Appels de test JavaScript | 498 sur 31 fichiers (29/09) | `grep -rhoE "\b(it\|test)\(" tests/js --include='*.test.js' \| wc -l` |
+| Scenarios de bout en bout | 191 appels `test(` sur 36 specs (29/09 ; 214 tests a l'execution, certains etant generes par boucle) | `grep -rhoE '^\s*test\(' tests/e2e --include='*.spec.js' \| wc -l` |
 | Analyse statique | PHPStan niveau 6, sans erreur | `phpstan.neon` (`level: 6`) |
 | Entites du modele | 24 | `docs/merise/dictionary.md` (3.1 a 3.24) |
-| Migrations / jeux de donnees | 19 / 10, idempotents | `ls db/migrations/*.sql \| wc -l` ; `ls db/seeds/*.sql \| wc -l` |
+| Migrations / jeux de donnees | 20 / 10, idempotents (0001 a 0021, sans 0004) | `ls db/migrations/*.sql \| wc -l` ; `ls db/seeds/*.sql \| wc -l` |
 | Roles / permissions | 5 / 23 | `db/seeds/0001_rbac_and_reference.sql` |
 | Routes declarees | 158 (77 GET, 67 POST, 9 PUT, 5 DELETE) dans `src/app/Core/routes.php` | `grep -c "router->add(" src/app/Core/routes.php` |
 | Controleurs | 23 au premier niveau (2 abstraits, 14 `AdminController`, 6 `Controller`, 1 `AuthenticatedController`) + 11 sous `Admin/Api` (10 concrets + 1 trait `JsonApiTrait`) | `ls src/app/Controllers/*.php src/app/Controllers/Admin/Api/*.php \| wc -l` |
@@ -116,16 +129,16 @@ depot coute plus cher que le chiffre lui-meme.
 | Taches planifiees actives | 4 (+ 3 modeles commentes) | `docker/cron/crontab` |
 
 **Sur les suites de tests - une precaution de formulation.** La derniere execution
-complete mesuree donne **2 508 tests PHP pour 8 626 assertions, 0 echec, 0 depreciation**
-et **461 tests JavaScript, 0 echec** (mesure du 2026-09-29, sur le commit `2fe8a4a`,
-branche `docs/contre-audit`, pas encore fusionnee). La suite navigateur complete
-(36 fichiers de specs) donne **197 scenarios reussis, 12 sautes, 0 echec** ; le balayage
-du back-office donne **4 812 verifications, 0 echec**.
+complete mesuree donne **2 535 tests PHP pour 8 716 assertions, 0 echec, 0 depreciation**
+et **492 tests JavaScript, 0 echec** (mesure de l'apres-midi du 2026-09-29, sur le commit
+`186c5d7`, branche `docs/contre-audit`). La suite navigateur complete (36 fichiers de specs,
+214 tests) donne **202 reussis, 11 sautes, 1 echec** corrige ensuite par `c2b8c1c` ; le
+balayage du back-office rejoue donne **4 807 verifications, 0 echec**.
 Ces chiffres continuent de croitre a chaque demande de fusion : ce sont donc un
 **plancher**, pas un plafond. Deux options a l'oral, au choix :
 
 - relancer les suites la veille et annoncer le resultat exact ;
-- dire *"plus de 2 500 tests PHP et plus de 460 tests JavaScript, derniere execution
+- dire *"plus de 2 500 tests PHP et pres de 500 tests JavaScript, derniere execution
   complete le 29 septembre"*.
 
 L'ecart entre le comptage statique de methodes et le nombre de tests executes s'explique
@@ -321,10 +334,10 @@ d'acces**, pas l'esthetique :
    correspondant dans son intitule accessible (`page-products.js`).
 4. **Composition d'un menu** - modales successives (taille, accompagnement, boisson).
    Le piege a tabulation est ecrit a la main dans `page-product-menu.js`
-   (`trapFocus`, l.531-542) : boucle sur la touche de tabulation, plus la fermeture a
-   l'echappement (`escHandler`, l.283-287). Le composeur n'a ni clic sur le fond ni
+   (`trapFocus`, l.726-737 au 29/09) : boucle sur la touche de tabulation, plus la fermeture a
+   l'echappement (`escHandler`, l.424-428). Le composeur n'a ni clic sur le fond ni
    retour du focus au declencheur : Annuler et Ajouter renvoient tous deux vers
-   `products.html` (l.498-499, l.554). Ces deux comportements-la existent sur l'autre
+   `products.html` (l.694 et `cancelComposer`, l.746-749). Ces deux comportements-la existent sur l'autre
    modale de la borne, celle de confirmation d'un geste destructeur (ex. Abandon de
    commande) : `confirm-modal.js` ferme au clic sur le fond (l.62) et rend le focus a
    l'element declencheur a la fermeture (`previouslyFocused`, l.19 et l.44-46).
@@ -360,7 +373,7 @@ Distinguer clairement les deux outils - c'est ce qui montre qu'on sait ce qu'on 
 - **Le balayage de mise en page**, ecrit pour le projet, qui mesure ce qu'axe ne regarde
   pas : chevauchement d'elements, texte coupe, defilement horizontal, taille de cible,
   alignement, ordre de tabulation et visibilite du focus, contraste des messages
-  d'erreur reellement declenches. **4 812 verifications, 0 echec**, sur 5 roles connectes
+  d'erreur reellement declenches. **4 807 verifications, 0 echec** (rejeu du 29/09 apres-midi), sur 5 roles connectes
   plus l'etat non connecte, et **4 largeurs** : 1366, 1024, 768 et 390 px.
 
 **La trajectoire est le vrai argument.** Dire cette suite de trois nombres :
@@ -483,7 +496,7 @@ et supprimer le reste.
 - Le point a souligner : les quatre entites du domaine securite viennent de la
   modelisation de la menace, pas du besoin fonctionnel. Un modele qui porte ses propres
   contre-mesures, c'est ce que veut dire "par conception".
-- Construction de la base : **19 migrations et 10 jeux de donnees de reference**, tous
+- Construction de la base : **20 migrations et 10 jeux de donnees de reference**, tous
   idempotents et rejouables, suivis par une table de migrations. Le saut sur le numero
   0004 est une decision tracee, pas un oubli.
 - Montrer le diagramme du modele conceptuel (`docs/merise/_diagrams/`).
@@ -505,7 +518,12 @@ et supprimer le reste.
   (panier vide), `INVALID_QUANTITY` (quantite hors 1-20 ou non entiere), `TOO_MANY_ITEMS`
   (plus de 50 lignes), `ORDER_TOO_LARGE` (plus de 50 articles au total, corrige le
   2026-09-29, commit `33538c6`), `INVALID_ITEM_TYPE` et `INVALID_IDEMPOTENCY_KEY` (corps
-  mal forme, corrige le 2026-09-29, commit `fce3085`).
+  mal forme, corrige le 2026-09-29, commit `fce3085`), `OPTION_UNAVAILABLE` (option de menu
+  indisponible pour le format servi, completee le 29/09 apres-midi par `186c5d7`). Ces codes
+  sont ceux de l'API de la borne (`POST /api/orders`). Cote API d'administration
+  (`POST /admin/api/orders`), les memes refus ressortent en `422 VALIDATION_ERROR`, avec le
+  message dans `error.fields.items` : par exemple « Ajoutez au moins un produit ou un menu. »
+  pour une commande vide.
 - Le trajet complet d'une requete, a savoir dire d'une traite :
   *"point d'entree, routeur, controleur, depot, base - puis retour en HTML ou en JSON."*
 
@@ -543,7 +561,7 @@ Ce qui distingue une securite pensee d'une securite ajoutee, c'est qu'elle comme
 une analyse, pas par une liste de correctifs.
 
 - Le dossier porte une **modelisation de la menace** (section 19) construite en trois
-  niveaux : 5 frontieres de confiance, un registre de 9 risques, et une analyse par
+  niveaux : 5 frontieres de confiance, un registre de 11 risques (R1 a R11), et une analyse par
   categories de menaces (usurpation, alteration, repudiation, divulgation, deni de
   service, elevation de privilege).
 - Les donnees sont classees en 4 niveaux de sensibilite. Les empreintes de mot de passe
@@ -630,7 +648,8 @@ Voir la section 4.2 pour le deroulement precis. L'idee a verbaliser :
 **G.5 - La suite de securite executable, et ce qu'elle a trouve**
 
 A dire sans attendre la question, avant que le jury ne pense que la securite n'a ete
-qu'affirmee : une suite de 100 tests Playwright et 5 tests PHP attaque l'application
+qu'affirmee : une suite de tests Playwright (100 a sa creation, 107 en phase principale au
+dernier rejeu) et 5 tests PHP attaque l'application
 **de l'exterieur**, sur une pile complete, comme le ferait un client malveillant
 (`docs/soutenance/preuves/10-tests-securite.md`). Elle a trouve deux defauts importants
 - une commande anonyme sans plafond de quantite pouvait vider le stock d'un ingredient en
@@ -641,8 +660,15 @@ test d'abord : chaque test restait rouge, marque, jusqu'a ce que le correctif le
 passer. La suite a ete rejouee le 2026-09-29 apres ces correctifs (sur le commit `2fe8a4a`) :
 phase principale 95 reussis (8 sautes, joues dans les phases suivantes), phase
 reinitialisation 4 reussis, phase base arretee 4 reussis, 0 echec, **0 test marque en echec
-restant** - plus les 5 tests PHP de securite, egalement verts. Confirmation par la commande
-`bash tests/e2e/run-security.sh` (detail dans la fiche).
+restant** - plus les 5 tests PHP de securite, egalement verts. L'apres-midi, une relecture
+par des agents qui n'avaient pas ecrit ces correctifs a trouve des manques (table de
+limitation du mot de passe oublie jamais purgee et gardant l'adresse en clair, sessions non
+fermees quand l'admin change un mot de passe, option de menu indisponible en Maxi seulement,
+quantite corrigee en silence au comptoir), corriges eux aussi test d'abord ; rejeu sur
+`c2b8c1c` : phase principale 99 reussis + 8 sautes, reinitialisation 4, base arretee 4,
+0 echec. **Statut de production a dire juste** : corrige dans le code le 29/09, en
+production apres la release du 29/09 (a verifier sur `/api/health`, champ `version`, avant
+l'oral). Confirmation par la commande `bash tests/e2e/run-security.sh` (detail dans la fiche).
 
 **Criteres servis :** Cr 3.d (donnees personnelles), Cr 4.e (securite),
 Cr 4.f (discipline de versionnement), Cr 4.g (livraison testee).
@@ -806,7 +832,7 @@ gestes enchainent chacun une reconnexion puis une action) :**
 | 28:00 | Connexion administrateur | 1. `POST {{ _.baseUrl }}/admin/api/auth/login` (compte admin) | La connexion JSON, le cookie de session, le jeton anti-falsification renvoye |
 | 28:30 | Lecture des statistiques | 2. `GET {{ _.baseUrl }}/admin/api/stats` | Une lecture autorisee, enveloppe `{ "data": ... }` |
 | 29:00 | Cuisine tente d'annuler | 3. `POST {{ _.baseUrl }}/admin/api/auth/login` (compte cuisine) puis 4. `POST {{ _.baseUrl }}/admin/api/orders/K1/cancel` | **403** : la cuisine *voit* les commandes (`order.read`) mais ne peut pas les annuler — la permission est decoupee au geste pres, et c'est le code qui la verifie, pas le nom du role |
-| 29:30 | Comptoir cree une commande vide | 5. `POST {{ _.baseUrl }}/admin/api/auth/login` (compte comptoir) puis 6. `POST {{ _.baseUrl }}/admin/api/orders` avec `{"items": []}` | **422** (`EMPTY_ORDER`) et non 403 : la permission passe, c'est la validation qui refuse |
+| 29:30 | Comptoir cree une commande vide | 5. `POST {{ _.baseUrl }}/admin/api/auth/login` (compte comptoir) puis 6. `POST {{ _.baseUrl }}/admin/api/orders` avec `{"items": []}`, en-tetes `X-CSRF-Token` et `Content-Type: application/json` | **422** `VALIDATION_ERROR`, message dans `error.fields.items` (« Ajoutez au moins un produit ou un menu. ») et non 403 : la permission passe, c'est la validation qui refuse (`EMPTY_ORDER` est le code de l'API de la borne, pas de celle-ci) |
 
 **La requete du geste 29:00, telle qu'a preparer dans Insomnia :**
 
@@ -816,9 +842,15 @@ Headers: X-CSRF-Token: {{ _.csrf }}
 Body (JSON): { "pin_email": "<email du compte cuisine>", "pin": "<PIN du compte cuisine>" }
 ```
 
+**Le jeton anti-falsification change a chaque connexion.** Apres chaque requete de
+connexion (1, 3 et 5), relire `data.csrf_token` dans la reponse et le reporter dans la
+variable `csrf` ; sinon la requete suivante rend `403 CSRF_INVALID`. Les requetes qui
+envoient un corps JSON (4 et 6) portent aussi `Content-Type: application/json`, sinon
+`415 UNSUPPORTED_MEDIA_TYPE`.
+
 Connecte avec le compte cuisine (role `kitchen`), cette requete rend **403 FORBIDDEN**
 (`"Permission manquante"`). La raison tient a l'ordre des controles dans
-`OrderApiController::apiCancel` : `guardApi('order.cancel')` (l.252-254) s'execute AVANT
+`OrderApiController::apiCancel` : `guardApi('order.cancel')` (l.261-263 au 29/09) s'execute AVANT
 toute recherche de la commande et avant la verification du jeton CSRF — le role `kitchen`
 ne recoit que `order.read` au seed (`db/seeds/0001_rbac_and_reference.sql`), pas
 `order.cancel`, donc c'est le controle de permission qui refuse, pas une verification sur
@@ -901,7 +933,7 @@ est en section 8. La proposer soi-meme si la question sur l'IA tombe.
 | B1 | Cr 2.c echanges asynchrones | E | `data.js`, memoisation de promesse |
 | B1 | Cr 2.d bibliotheques externes | E | **Non couvert au sens strict, argumente** |
 | B2 | Cr 3.a analyse et modele | F.1 | Dictionnaire, 24 entites |
-| B2 | Cr 3.b construction de la base | F.1, H.1 | 19 migrations, 10 jeux de donnees |
+| B2 | Cr 3.b construction de la base | F.1, H.1 | 20 migrations, 10 jeux de donnees |
 | B2 | Cr 3.c SQL | G.2 | Decrement atomique, depots PDO |
 | B2 | Cr 3.d donnees personnelles | G.1 | Classification 4 niveaux, anonymisation |
 | B2 | Cr 4.b developpement serveur | F.2 | 158 routes, API JSON complete |
@@ -949,15 +981,15 @@ bonne reponse est *"le code fait foi, et voici pourquoi le document a pris du re
 | Ecart | Le document dit | Le code dit |
 |---|---|---|
 | **API `PUT`/`DELETE`** | "reste au stade prevu" (dossier, C4.b) | **Livree** : 57 routes sous `/admin/api/`, dont 9 `PUT` et 5 `DELETE`, 10 controleurs dedies, decision d'architecture 0017. **C'est l'ecart le plus important** : le dossier declare absente une fonctionnalite demontrable. |
-| Nombre de tests | 755 PHP / 233 JS (dossier, deux endroits) | Derniere execution mesuree (28/09/2026, commit `04bece0`) : 2 386 PHP / 7 886 assertions / 446 JS. Comptage statique aujourd'hui : 1 295 methodes / 450 appels. |
+| Nombre de tests | 755 PHP / 233 JS (dossier, deux endroits) | Derniere execution mesuree (29/09/2026 apres-midi, commit `186c5d7`) : 2 535 PHP / 8 716 assertions / 492 JS. Comptage statique le meme jour : 1 410 methodes / 498 appels. |
 | Decisions d'architecture | "seize" (dossier, quatre endroits) | **20**. Les 0018-0020 portent les familles d'ingredients, la page Sante de l'API et l'annulation par le responsable. |
-| Migrations | "dix fichiers, 0001 a 0011" (dossier, C3.b) | **18 fichiers**, 0001 a 0019 (sans 0004). Le saut sur 0004 reste volontaire et trace. |
-| Fichiers PHP de l'application | "103 fichiers" avec une repartition detaillee | **135** sous `src/app`, dont **33 controleurs + 1 trait** (23 au premier niveau + 10 controleurs et 1 trait `JsonApiTrait` sous `Admin/Api`). |
-| Modules de la borne | "18 modules, 2 979 lignes" | **21 modules, 3 311 lignes**. |
-| Feuille de style du back-office | "2 714 lignes" | **3 470 lignes** (refonte du 26 septembre, complements du 28). |
+| Migrations | "dix fichiers, 0001 a 0011" (dossier, C3.b) | **20 fichiers**, 0001 a 0021 (sans 0004, mesure du 29/09). Le saut sur 0004 reste volontaire et trace. |
+| Fichiers PHP de l'application | "103 fichiers" avec une repartition detaillee | **138** sous `src/app` (29/09), dont **33 controleurs + 1 trait** (23 au premier niveau + 10 controleurs et 1 trait `JsonApiTrait` sous `Admin/Api`). |
+| Modules de la borne | "18 modules, 2 979 lignes" | **21 modules, 3 551 lignes** (29/09). |
+| Feuille de style du back-office | "2 714 lignes" | **3 484 lignes** (29/09 ; refonte du 26 septembre, complements du 28 et du 29). |
 | Operations du modele de traitements | "28 operations" | **40**, depuis la version 0.5 (`docs/merise/mct.md` §14). |
 | Dependances de developpement | "deux" | **trois** (`@axe-core/playwright` en plus). Le fond tient : zero dependance de production. |
-| Nombre d'entites | 21 entites classifiees (dossier, section 19.4) | **23**. `pin_throttle` et `category_ingredient_family` sont desormais classees en INTERNAL (`PROJECT_CONTEXT.md` 19.4, corrige). |
+| Nombre d'entites | 21 entites classifiees (dossier, section 19.4) | **24**. `pin_throttle`, `category_ingredient_family` et `password_reset_throttle` sont classees en INTERNAL (`PROJECT_CONTEXT.md` 19.4, corrige). |
 | Empreintes de mot de passe | "bcrypt ou argon2" (dossier, sections 7, 16, 18) | **argon2id**, et le dossier lui-meme l'ecrit en section 19.3. |
 | Services conteneurises | 4 en section 16, 5 ailleurs | **5**, dont un a execution unique. |
 | Regles transverses | "RG-T13 a RG-T21" en introduction de la section 19 | **22 regles**, RG-T22 comprise. |
@@ -968,7 +1000,7 @@ bonne reponse est *"le code fait foi, et voici pourquoi le document a pris du re
 1. **Regle.** Le dossier indiquait que la production servait encore le mode de deboguage
    detaille et que `/api/health` annonçait un environnement de developpement. C'est
    desormais un fait etabli et verifiable en direct : `/api/health` annonce
-   `"app_env":"production"` (`src/app/Controllers/HealthController.php:47`). Le dossier
+   `"app_env":"production"` (`src/app/Controllers/HealthController.php:52` au 29/09). Le dossier
    reste a corriger sur ce point s'il n'est pas deja mis a jour.
 2. **A verifier.** Les captures d'annexe du back-office datent du 24 septembre, avant la
    refonte du 26. Les recapturer, ou dater la mesure dans le dossier.
@@ -1100,7 +1132,10 @@ La suppression d'un compte se fait par anonymisation plutot que par effacement d
 preserver l'integrite des commandes passees : l'adresse devient une valeur neutre, la
 ligne reste, une date d'anonymisation est posee (decision d'architecture 0007). Le role
 est denormalise dans le journal d'audit pour qu'il survive a l'anonymisation. Purges de
-retention automatisees : journal d'audit environ 12 mois, compteurs de tentatives 24 h.
+retention automatisees : journal d'audit environ 12 mois, compteurs de tentatives 24 h
+(connexion, PIN et mot de passe oublie : cette derniere table n'etait purgee par aucun cron
+avant le correctif du 29/09, `680820f`, et elle ne garde plus qu'une empreinte SHA-256 de
+l'adresse).
 
 **Q2.11 - Avez-vous fait des tests de securite ?** **(rude)**
 Oui, une suite executable qui attaque l'application de l'exterieur : 100 tests
@@ -1110,7 +1145,9 @@ trouve 11 ecarts le 29 septembre - deux importants (deni de service par quantite
 commande, changement de role non applique a une session ouverte) et neuf mineurs
 (en-tetes manquants, sessions ouvertes sans necessite, mot de passe oublie sans limite) -
 tous corriges le jour meme, test d'abord, et la suite rejouee le meme jour confirme 0 test
-marque en echec restant. Ce que je NE fais PAS, et que je dis avant qu'on
+marque en echec restant (dernier rejeu : 99 reussis et 8 sautes en phase principale, puis
+4 et 4). Ces correctifs sont dans le code le 29/09 et en production apres la release du
+29/09. Ce que je NE fais PAS, et que je dis avant qu'on
 me le demande : pas de scanner automatique (ZAP, sqlmap, Burp), les charges sont ecrites a
 la main et la liste est bornee ; HTTPS et TLS relevent de Traefik, hors de mon code, et ne
 sont pas testes sur la pile locale.
@@ -1120,7 +1157,7 @@ sont pas testes sur la pile locale.
 **Q3.1 - Qu'est-ce qui vous permet de dire que votre site est accessible ?**
 Je ne dis pas qu'il est accessible : je dis qu'il ne porte aucune violation detectable
 automatiquement. axe-core 4.13.0 sur les regles WCAG 2.0 A/AA et 2.1 A/AA, 19 ecrans,
-0 violation toutes gravites, 935 rapports de contraste, 0 sous le seuil. Et 4 812
+0 violation toutes gravites, 934 rapports de contraste (29/09 apres-midi), 0 sous le seuil. Et 4 807
 verifications sans echec au balayage de mise en page, sur 5 roles et 4 largeurs.
 
 **Q3.2 - Quelle est la limite de votre audit ?** **(rude)**
@@ -1169,7 +1206,7 @@ passaient.
 
 **Q4.1 - Comment deploie-t-on votre application ?**
 Une seule commande : `docker compose up -d`. Un service a execution unique applique les
-19 migrations et les 10 jeux de donnees, tous idempotents, puis s'arrete ; l'application
+20 migrations et les 10 jeux de donnees, tous idempotents, puis s'arrete ; l'application
 demarre ensuite. En production, le deploiement part sur chaque arrivee dans `main` et
 peut etre relance a la demande.
 
@@ -1236,7 +1273,7 @@ montants sont stockes et calcules en entiers, et convertis en euros seulement a
 l'affichage (RG-T04).
 
 **Q5.4 - Comment construisez-vous la base sur une machine neuve ?**
-19 migrations puis 10 jeux de donnees, appliques dans l'ordre lexicographique par un
+20 migrations puis 10 jeux de donnees, appliques dans l'ordre lexicographique par un
 service a execution unique, avec un suivi en table. Tous sont idempotents : les rejouer
 ne casse rien, ce qui rend l'operation sure a relancer. L'integration continue applique
 exactement la meme sequence sur une base ephemere avant de lancer les tests.
@@ -1296,7 +1333,7 @@ appris ; un test d'integration qui verifie qu'un role sans permission recoit 403
 C'est precisement le piege que j'ai ferme. Sans base de donnees, ils s'ignoreraient
 tout seuls et le pipeline serait vert. Le drapeau `--fail-on-skipped` fait echouer
 l'integration des qu'un test est ignore. L'integration monte une base MariaDB ephemere,
-lui applique les 19 migrations et les 10 jeux de donnees, puis lance la suite. La
+lui applique les 20 migrations et les 10 jeux de donnees, puis lance la suite. La
 configuration refuse aussi les tests douteux et ceux qui n'assertent rien.
 
 **Q7.3 - Avez-vous pratique le developpement pilote par les tests ?**
@@ -1305,7 +1342,7 @@ compteurs de tentatives et les droits. Honnetement, pas partout : sur des ecrans
 back-office, le test est venu apres. Je prefere le dire que pretendre une discipline
 uniforme.
 
-**Q7.4 - Vous annoncez 1 295 methodes mais plus de 2 500 tests. D'ou vient l'ecart ?**
+**Q7.4 - Vous annoncez 1 410 methodes mais plus de 2 500 tests. D'ou vient l'ecart ?**
 Des jeux de donnees de test. Une methode associee a un fournisseur de donnees s'execute
 une fois par jeu, et compte pour autant de tests. C'est ce qui permet de couvrir de
 nombreux cas de validation sans dupliquer le code du test.
@@ -1410,10 +1447,10 @@ sans acces aux journaux.
 
 Je remonte la pile, en le disant a voix haute :
 
-1. **Base** : nouvelle migration `db/migrations/0021_category_description.sql` (la
-   derniere migration livree est `0020_session_invalidation.sql` (`user.session_epoch` +
-   `password_reset_throttle`, 2026-09-29), la prochaine est donc
-   `0021`), `ALTER TABLE category ADD COLUMN description VARCHAR(255) NULL`, avec une
+1. **Base** : nouvelle migration `db/migrations/0022_category_description.sql` (la
+   derniere migration livree est `0021_password_reset_throttle_hash_identifier.sql`
+   (empreinte SHA-256 de l'adresse, 2026-09-29), la prochaine est donc `0022` ; relire
+   `ls db/migrations` la veille), `ALTER TABLE category ADD COLUMN description VARCHAR(255) NULL`, avec une
    garde d'idempotence sur `information_schema`.
 2. **Depot** : `src/app/Catalogue/CategoryRepository.php`, ajouter la colonne aux
    requetes et a la liste blanche de colonnes (RG-T16).
