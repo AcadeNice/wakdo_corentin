@@ -69,4 +69,21 @@ final class HealthControllerTest extends TestCase
         self::assertNull($payload['version']);
         self::assertNull($payload['deployed_at']);
     }
+
+    /**
+     * Sonde PUBLIQUE, anonyme : ne doit jamais rendre le numero de version du moteur
+     * PHP (information disclosure, OWASP A05). La page `/admin/health` (App\Health\
+     * HealthReport), elle, reste derriere `role.manage` et garde ce champ -- ce test
+     * ne porte que sur `App\Controllers\HealthController`.
+     */
+    public function testDoesNotExposePhpVersion(): void
+    {
+        $missing = sys_get_temp_dir() . '/wakdo_version_does_not_exist_' . getmypid();
+        @unlink($missing);
+
+        $body = $this->controller($missing)->index()->body();
+        $payload = json_decode($body, true);
+
+        self::assertArrayNotHasKey('php_version', $payload);
+    }
 }

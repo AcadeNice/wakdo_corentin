@@ -131,21 +131,15 @@ test.describe('Fuite d informations', () => {
       const body = await res.text();
       expect(body).not.toMatch(/password|secret|token|wakdo-db|DB_|smtp|@/i);
       const keys = Object.keys(JSON.parse(body)).sort();
-      expect(keys).toEqual(['app_env', 'categories', 'db', 'deployed_at', 'php_version', 'status', 'version']);
+      expect(keys).toEqual(['app_env', 'categories', 'db', 'deployed_at', 'status', 'version']);
     }
     await ctx.dispose();
   });
 
   test('sonde publique /api/health : pas de numero de version du moteur PHP', async () => {
-    // CONSTAT (mineur) : App\Controllers\HealthController::index renvoie PHP_VERSION
-    // ("php_version": "8.3.22", aussi en production le 2026-09-29) a tout visiteur anonyme,
-    // y compris par l'hote borne. Le reste de la configuration masque les versions
-    // (ServerTokens Prod, expose_php = Off) ; cette sonde les redonne. Le commit deploye
-    // ("version") est utile au deploiement continu ; la version de PHP ne l'est pas.
     const ctx = await pwRequest.newContext();
     const body = await (await ctx.get(`${KIOSK}/api/health`)).json();
     expect(body.status).toBe('ok');
-    test.fail(true, 'PHP_VERSION expose par src/app/Controllers/HealthController.php (champ php_version)');
     expect(body.php_version).toBeUndefined();
     await ctx.dispose();
   });

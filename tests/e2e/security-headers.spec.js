@@ -89,15 +89,8 @@ test.describe('En-tetes de securite HTTP', () => {
   });
 
   test('back-office : la CSP borne aussi base-uri et form-action (directives sans repli sur default-src)', async ({ request }) => {
-    // CONSTAT (mineur) : la CSP du vhost admin (docker/apache/vhost.conf, bloc <IfModule
-    // mod_headers.c> du vhost ${APP_HOST_ADMIN}) ne porte ni base-uri ni form-action. Ces
-    // deux directives ne retombent PAS sur default-src (CSP niveau 3) : une balise <base>
-    // ou un formulaire injectes pourraient viser une autre origine. Le risque reste borne
-    // (l'echappement HTML est prouve par security-xss.spec.js), c'est une defense en
-    // profondeur manquante, que la borne, elle, pose.
     const { headers } = await headersOf(request, `${ADMIN}/login`);
     expect(headers['content-security-policy']).toBeTruthy();
-    test.fail(true, 'CSP admin sans base-uri ni form-action (docker/apache/vhost.conf, vhost admin)');
     const d = cspDirectives(headers['content-security-policy']);
     expect(d['base-uri']).toEqual(["'self'"]);
     expect(d['form-action']).toEqual(["'self'"]);
@@ -105,12 +98,8 @@ test.describe('En-tetes de securite HTTP', () => {
 
   for (const host of [KIOSK, ADMIN]) {
     test(`${host} : Permissions-Policy est posee`, async ({ request }) => {
-      // CONSTAT (mineur) : aucun des deux vhosts ne pose Permissions-Policy
-      // (docker/apache/httpd.conf et vhost.conf). Ni la borne ni le back-office n'utilisent
-      // camera, micro, geolocalisation ou paiement : les couper explicitement ne coute rien.
       const { status, headers } = await headersOf(request, `${host}/`);
       expect(status).toBeLessThan(500);
-      test.fail(true, 'Permissions-Policy absente (docker/apache/httpd.conf / vhost.conf)');
       expect(headers['permissions-policy']).toBeTruthy();
     });
   }
