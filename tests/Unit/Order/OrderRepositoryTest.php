@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Order;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use App\Catalogue\MenuRepository;
 use App\Catalogue\ProductRepository;
@@ -241,9 +242,7 @@ final class OrderRepositoryTest extends TestCase
         ];
     }
 
-    /**
-     * @dataProvider outOfRangeQuantities
-     */
+    #[DataProvider('outOfRangeQuantities')]
     public function testQuantityOutOfRangeIsRejectedRatherThanClampedToOne(int $quantity): void
     {
         // Avant ce correctif : max(1, (int) ...) ramenait toute valeur hors bornes a 1

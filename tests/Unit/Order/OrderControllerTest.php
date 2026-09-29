@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Order;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use App\Controllers\OrderController;
 use App\Core\Config;
@@ -285,9 +286,7 @@ final class OrderControllerTest extends TestCase
         ];
     }
 
-    /**
-     * @dataProvider outOfRangeQuantities
-     */
+    #[DataProvider('outOfRangeQuantities')]
     public function testCreateWithOutOfRangeQuantityReturns422NotAServerError(int|string|float $quantity): void
     {
         $db = new FakeOrderDatabase();
@@ -343,9 +342,9 @@ final class OrderControllerTest extends TestCase
     }
 
     /**
-     * @dataProvider malformedOrderBodies
      * @param array<string, mixed> $payload
      */
+    #[DataProvider('malformedOrderBodies')]
     public function testCreateWithMalformedItemReturns422NotAServerError(array $payload): void
     {
         // Avant ce correctif : array_map(fn (array $item) ...) sous strict_types leve un
