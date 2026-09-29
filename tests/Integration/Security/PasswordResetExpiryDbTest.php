@@ -30,7 +30,7 @@ use App\Tests\Support\SpyMailer;
 final class PasswordResetExpiryDbTest extends TestCase
 {
     private const TTL = 3600;
-    private const OLD_PASSWORD = 'AncienMotDePasse1';
+    private const OLD_PASSWORD = 'AncienAncienAncien1';
     private const NEW_PASSWORD = 'NouveauMotDePasse2';
 
     private Database $db;
