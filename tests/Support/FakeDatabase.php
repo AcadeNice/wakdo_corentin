@@ -470,6 +470,16 @@ final class FakeDatabase implements DatabaseInterface
     /** Si non nul, execute() leve cette exception (simulation panne DB / violation de contrainte). */
     public ?Throwable $failOnExecute = null;
 
+    /**
+     * Restreint failOnExecute a la SEULE ecriture dont le SQL CONTIENT cette
+     * sous-chaine ; vide (defaut) = TOUTE ecriture echoue, comportement historique
+     * inchange. Sert a simuler une violation qui ne frappe qu'UNE ecriture precise
+     * au milieu d'une transaction (ex. le DELETE d'un menu_slot en course avec une
+     * commande concurrente, MenuRepository::reconcileSlots()) sans faire echouer les
+     * ecritures qui la precedent dans la meme transaction.
+     */
+    public string $failOnExecuteMatching = '';
+
     /** Si non nul, fetch() leve cette exception (simulation panne DB en LECTURE, ex. base arretee). */
     public ?Throwable $failOnFetch = null;
 
@@ -814,13 +824,14 @@ final class FakeDatabase implements DatabaseInterface
             return $this->menuSlotRows;
         }
 
-        // reconcileSlots() (MenuRepository::update()) : identite {id, slot_type}
-        // des menu_slot EXISTANTS du menu, pour l'appariement par position au sein
-        // du meme slot_type. Distincte de la route juste au-dessus ('FROM
-        // menu_slot s', LEFT JOIN options pour slotsWithOptions()) par son texte
-        // SQL propre ; derivee du MEME $menuSlotRows (dedoublonne par id), pour que
-        // les deux lectures restent coherentes sans deux jeux de donnees a tenir a jour.
-        if (str_contains($sql, 'SELECT id, slot_type FROM menu_slot WHERE menu_id')) {
+        // reconcileSlots() (MenuRepository::update()) : identite {id, slot_type, name}
+        // des menu_slot EXISTANTS du menu (verrouilles, FOR UPDATE), pour
+        // l'appariement par NOM puis par position au sein du meme slot_type.
+        // Distincte de la route juste au-dessus ('FROM menu_slot s', LEFT JOIN
+        // options pour slotsWithOptions()) par son texte SQL propre ; derivee du
+        // MEME $menuSlotRows (dedoublonne par id), pour que les deux lectures
+        // restent coherentes sans deux jeux de donnees a tenir a jour.
+        if (str_contains($sql, 'SELECT id, slot_type, name FROM menu_slot WHERE menu_id')) {
             $seen = [];
             $rows = [];
             foreach ($this->menuSlotRows as $row) {
@@ -829,7 +840,7 @@ final class FakeDatabase implements DatabaseInterface
                     continue;
                 }
                 $seen[$id] = true;
-                $rows[] = ['id' => $id, 'slot_type' => (string) ($row['slot_type'] ?? '')];
+                $rows[] = ['id' => $id, 'slot_type' => (string) ($row['slot_type'] ?? ''), 'name' => (string) ($row['name'] ?? '')];
             }
 
             return $rows;
@@ -902,7 +913,7 @@ final class FakeDatabase implements DatabaseInterface
 
     public function execute(string $sql, array $params = []): int
     {
-        if ($this->failOnExecute !== null) {
+        if ($this->failOnExecute !== null && ($this->failOnExecuteMatching === '' || str_contains($sql, $this->failOnExecuteMatching))) {
             throw $this->failOnExecute;
         }
 

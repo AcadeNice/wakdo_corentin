@@ -332,4 +332,96 @@ final class MenuRepositoryDbTest extends TestCase
         self::assertNotNull($selectionAfter);
         self::assertSame($drinkSlotId, (int) $selectionAfter['menu_slot_id']);
     }
+
+    /**
+     * Contre-audit (constat 3, reserve) : deux emplacements du MEME slot_type sont
+     * autorises (MenuController::SLOT_TYPES ne les limite pas a un seul). L'ancien
+     * appariement PUREMENT positionnel faisait alors heriter un id existant du nom ET
+     * des options d'un AUTRE emplacement du meme type des que l'admin les
+     * INTERVERTISSAIT sans toucher leur nom -- l'id deja commande par un client passe
+     * recevait en silence un nom et des options qu'il n'a jamais eus. Preuve contre
+     * une vraie base : place une commande sur le PREMIER emplacement ('Accompagnement
+     * 1'), soumet les deux emplacements avec leur POSITION echangee mais le MEME nom,
+     * et verifie que chaque id garde son propre nom ET ses nouvelles options -- jamais
+     * ceux de l'autre.
+     */
+    public function testUpdateMatchesSlotsByNameBeforePositionWhenTwoSlotsOfTheSameTypeAreSwapped(): void
+    {
+        self::assertCount(3, $this->productIds);
+        [$burger, $optA, $optB] = $this->productIds;
+
+        $repo = new MenuRepository($this->db);
+
+        $id = $repo->create(
+            [
+                'category_id' => $this->categoryId,
+                'burger_product_id' => $burger,
+                'name' => $this->name,
+                'price_normal_cents' => 790,
+                'price_maxi_cents' => 990,
+                'is_available' => 1,
+                'display_order' => 50,
+            ],
+            [
+                ['name' => 'Accompagnement 1', 'slot_type' => 'side', 'is_required' => 1, 'display_order' => 0, 'options' => [$optA]],
+                ['name' => 'Accompagnement 2', 'slot_type' => 'side', 'is_required' => 1, 'display_order' => 1, 'options' => [$optB]],
+            ],
+        );
+        self::assertGreaterThan(0, $id);
+
+        $initialSlots = $repo->slotsWithOptions($id);
+        self::assertCount(2, $initialSlots);
+        $slotOneId = $initialSlots[0]['name'] === 'Accompagnement 1' ? $initialSlots[0]['id'] : $initialSlots[1]['id'];
+        $slotTwoId = $initialSlots[0]['name'] === 'Accompagnement 2' ? $initialSlots[0]['id'] : $initialSlots[1]['id'];
+        self::assertNotSame($slotOneId, $slotTwoId);
+
+        // Une commande passee choisit 'Accompagnement 1' (optA) : c'est CET id qui ne
+        // doit jamais heriter du nom/options de 'Accompagnement 2' apres l'update.
+        $this->placeOrderOnSlot($id, $slotOneId, $optA);
+
+        // Soumission avec les DEUX emplacements INTERVERTIS en POSITION (2 d'abord, 1
+        // ensuite) mais le MEME nom que l'existant, et de NOUVELLES options chacun --
+        // simule un admin qui glisse-depose les deux blocs du builder sans renommer.
+        $repo->update(
+            $id,
+            [
+                'category_id' => $this->categoryId,
+                'burger_product_id' => $burger,
+                'name' => $this->name,
+                'price_normal_cents' => 790,
+                'price_maxi_cents' => 990,
+                'is_available' => 1,
+                'display_order' => 50,
+            ],
+            [
+                ['name' => 'Accompagnement 2', 'slot_type' => 'side', 'is_required' => 1, 'display_order' => 0, 'options' => [$optA]],
+                ['name' => 'Accompagnement 1', 'slot_type' => 'side', 'is_required' => 1, 'display_order' => 1, 'options' => [$optB]],
+            ],
+        );
+
+        $slotsAfter = $repo->slotsWithOptions($id);
+        self::assertCount(2, $slotsAfter);
+        $byId = [];
+        foreach ($slotsAfter as $slot) {
+            $byId[$slot['id']] = $slot;
+        }
+
+        // L'id qui porte l'HISTORIQUE de commande ('Accompagnement 1', optA choisi)
+        // garde CE nom et recoit SES nouvelles options ([optB], soumises pour
+        // "Accompagnement 1") -- jamais le nom ni les options de "Accompagnement 2".
+        self::assertSame('Accompagnement 1', $byId[$slotOneId]['name']);
+        self::assertSame([$optB], $byId[$slotOneId]['option_product_ids']);
+        self::assertSame('Accompagnement 2', $byId[$slotTwoId]['name']);
+        self::assertSame([$optA], $byId[$slotTwoId]['option_product_ids']);
+
+        // La selection de commande passee reste rattachee au MEME id, dont le nom
+        // n'a pas ete silencieusement echange.
+        $selection = $this->db->fetch(
+            'SELECT menu_slot_id FROM order_item_selection WHERE order_item_id IN '
+            . '(SELECT id FROM order_item WHERE order_id = :oid)',
+            ['oid' => $this->orderIds[0]],
+        );
+        self::assertNotNull($selection);
+        self::assertSame($slotOneId, (int) $selection['menu_slot_id']);
+    }
 }

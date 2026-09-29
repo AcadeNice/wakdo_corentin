@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Catalogue;
 
+use PDOException;
 use App\Core\DatabaseInterface;
 
 /**
@@ -238,10 +239,11 @@ final class MenuRepository
      * Regle d'appariement (aucun identifiant de slot n'est transmis : ni le
      * formulaire HTML -- champ cache slots_json --, ni le corps JSON de l'API
      * -- MenuApiController::toForm() -- n'envoient d'id, seulement
-     * name/slot_type/is_required/options) : appariement par POSITION AU SEIN DU
-     * MEME slot_type (reconcileSlots()). Le n-ieme slot existant de type "drink"
-     * est apparie au n-ieme slot SOUMIS de type "drink", quelle que soit sa position
-     * parmi les autres types. Choisie plutot qu'un appariement par position
+     * name/slot_type/is_required/options) : d'abord par (slot_type, nom identique),
+     * puis, pour le reste, par POSITION AU SEIN DU MEME slot_type (reconcileSlots()).
+     * Deux slots du meme type intervertis gardent donc chacun leur id ; un slot
+     * renomme reprend l'id du n-ieme slot existant de son type encore libre.
+     * La position au sein du type est choisie plutot qu'un appariement par position
      * ABSOLUE (index dans la liste entiere des slots) : retirer un slot d'un
      * AUTRE type ne decale alors plus artificiellement l'identite des slots
      * suivants, et changer le TYPE d'un slot a une position donnee est traite
@@ -314,10 +316,24 @@ final class MenuRepository
 
     /**
      * Reconcilie EN PLACE les menu_slot d'un menu avec la configuration soumise.
-     * Voir le docblock de update() pour le POURQUOI (bug FK RESTRICT corrige) et
-     * la regle d'appariement (position au sein du meme slot_type).
+     * Voir le docblock de update() pour le POURQUOI (bug FK RESTRICT corrige).
      *
-     * Deux passes deliberement separees :
+     * Regle d'appariement EN DEUX TEMPS (contre-audit, constat 3 : deux emplacements
+     * du MEME slot_type sont autorises -- MenuController::SLOT_TYPES ne les limite
+     * pas a un seul -- et l'ancien appariement PUREMENT positionnel faisait alors
+     * heriter un id existant du nom ET des options d'un AUTRE emplacement du meme
+     * type des que l'admin les INTERVERTISSAIT sans toucher leur nom : l'id commande
+     * par un client passe recevait en silence un nom et des options qu'il n'a jamais
+     * eus) :
+     *  1. Appariement par (slot_type, NOM identique) : priorite absolue. Un slot
+     *     soumis dont le nom correspond EXACTEMENT a un slot existant du meme type
+     *     est apparie a LUI, quelle que soit sa position dans la soumission.
+     *  2. Le reste (nom nouveau, ou modifie a dessein) retombe sur l'ancien
+     *     appariement par POSITION au sein du meme slot_type, sur les entrees
+     *     encore disponibles apres la passe 1 -- comportement inchange pour une
+     *     edition de contenu legitime (renommer un slot).
+     *
+     * Trois passes deliberement separees :
      *  1. Appariement PUR, aucune ecriture : construit le plan (quel slot soumis
      *     va sur quel id existant, ou aucun -> nouveau) et la liste des ids
      *     surnumeraires (retires du formulaire). La garde FK-safe tourne sur
@@ -326,36 +342,78 @@ final class MenuRepository
      *     doute sur l'etat ecrit avant le rollback de la transaction appelante.
      *  2. Ecritures, une fois le plan entier valide par la garde.
      *
+     * Fenetre de concurrence (contre-audit, constat 3) : la lecture des slots
+     * existants VERROUILLE leurs lignes (SELECT ... FOR UPDATE), avant meme la garde
+     * "deja commande" -- deux administrateurs qui reconfigurent le MEME menu en
+     * parallele ne peuvent plus se chevaucher. Ce verrou ne couvre pas la commande
+     * CONCURRENTE elle-meme (order_item_selection.menu_slot_id n'est jamais
+     * verrouillee par une lecture menu_slot) : si la course est malgre tout gagnee
+     * par une commande passee entre le pre-check et le DELETE, la violation FK
+     * (SQLSTATE 23000) est traduite en MenuSlotInUseException (refus propre, 409)
+     * plutot que de remonter un PDOException brut (500).
+     *
      * @param list<array{name:string, slot_type:string, is_required:int, display_order:int, options:list<int>}> $slots
      * @throws MenuSlotInUseException si un slot retire est deja reference par order_item_selection
+     *         (garde prealable), ou si la FK est violee malgre elle (course, 23000)
      */
     private function reconcileSlots(DatabaseInterface $db, int $menuId, array $slots): void
     {
         $existing = $db->fetchAll(
-            'SELECT id, slot_type FROM menu_slot WHERE menu_id = :id ORDER BY display_order, id',
+            'SELECT id, slot_type, name FROM menu_slot WHERE menu_id = :id ORDER BY display_order, id FOR UPDATE',
             ['id' => $menuId],
         );
 
-        /** @var array<string, list<int>> $pool */
+        /** @var array<string, list<array{id:int, name:string}>> $pool */
         $pool = [];
         foreach ($existing as $row) {
-            $pool[(string) $row['slot_type']][] = (int) $row['id'];
+            $pool[(string) $row['slot_type']][] = ['id' => (int) $row['id'], 'name' => (string) ($row['name'] ?? '')];
         }
 
-        /** @var list<array{slot: array{name:string, slot_type:string, is_required:int, display_order:int, options:list<int>}, existingId: int|null}> $plan */
+        /** @var array<int, array{slot: array{name:string, slot_type:string, is_required:int, display_order:int, options:list<int>}, existingId: int|null}> $plan */
         $plan = [];
-        foreach ($slots as $slot) {
+        /** @var list<int> $pendingIndexes indices de $slots dont l'appariement par nom n'a rien trouve */
+        $pendingIndexes = [];
+
+        // Passe 1 : appariement EXACT (slot_type, nom identique), priorite absolue.
+        foreach ($slots as $index => $slot) {
+            $type = $slot['slot_type'];
+            $matchAt = null;
+            foreach ($pool[$type] ?? [] as $i => $candidate) {
+                if ($candidate['name'] === $slot['name']) {
+                    $matchAt = $i;
+                    break;
+                }
+            }
+            if ($matchAt === null) {
+                $pendingIndexes[] = $index;
+                continue;
+            }
+            $plan[$index] = ['slot' => $slot, 'existingId' => $pool[$type][$matchAt]['id']];
+            array_splice($pool[$type], $matchAt, 1);
+        }
+
+        // Passe 2 : le reste, apparie par POSITION au sein du meme slot_type (sur les
+        // entrees encore disponibles) -- comportement inchange pour un renommage.
+        foreach ($pendingIndexes as $index) {
+            $slot = $slots[$index];
             $type = $slot['slot_type'];
             $existingId = null;
             if (isset($pool[$type]) && $pool[$type] !== []) {
-                $existingId = array_shift($pool[$type]);
+                $existingId = array_shift($pool[$type])['id'];
             }
-            $plan[] = ['slot' => $slot, 'existingId' => $existingId];
+            $plan[$index] = ['slot' => $slot, 'existingId' => $existingId];
         }
+        ksort($plan);
+        $plan = array_values($plan);
 
-        // Slots surnumeraires : les ids qui restent dans $pool n'ont trouve aucun
-        // homologue soumis de leur slot_type -> le formulaire les retire.
-        $surplus = array_merge([], ...array_values($pool));
+        // Slots surnumeraires : les entrees qui restent dans $pool n'ont trouve
+        // aucun homologue soumis de leur slot_type -> le formulaire les retire.
+        $surplus = [];
+        foreach ($pool as $candidates) {
+            foreach ($candidates as $candidate) {
+                $surplus[] = $candidate['id'];
+            }
+        }
         foreach ($surplus as $slotId) {
             if ($this->isSlotReferencedByOrders($db, $slotId)) {
                 throw new MenuSlotInUseException(
@@ -385,8 +443,24 @@ final class MenuRepository
         }
 
         foreach ($surplus as $slotId) {
-            // CASCADE (fk_menu_slot_option_menu_slot_id) retire ses options.
-            $db->execute('DELETE FROM menu_slot WHERE id = :id', ['id' => $slotId]);
+            // CASCADE (fk_menu_slot_option_menu_slot_id) retire ses options. Le
+            // pre-check ci-dessus (isSlotReferencedByOrders) couvre le cas courant ;
+            // ce catch est le filet pour la course gagnee ENTRE ce pre-check et ce
+            // DELETE (voir le docblock de la methode).
+            try {
+                $db->execute('DELETE FROM menu_slot WHERE id = :id', ['id' => $slotId]);
+            } catch (PDOException $exception) {
+                if ((string) $exception->getCode() === '23000') {
+                    throw new MenuSlotInUseException(
+                        'Un slot retiré du menu vient d\'être référencé par une commande passée '
+                        . 'entre-temps : mise à jour impossible. Réessayez.',
+                        0,
+                        $exception,
+                    );
+                }
+
+                throw $exception;
+            }
         }
     }
 
