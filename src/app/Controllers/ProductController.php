@@ -9,6 +9,7 @@ use Throwable;
 use App\Auth\Csrf;
 use App\Auth\GuardResult;
 use App\Auth\PasswordHasher;
+use App\Auth\PinGate;
 use App\Auth\PinThrottle;
 use App\Auth\PinVerifier;
 use App\Catalogue\CategoryIngredientFamilyRepository;
@@ -1275,20 +1276,13 @@ class ProductController extends AdminController
      * echecs ayant arme le verrou sont deja audites), ce qui borne l'amplification
      * de l'audit append-only (RG-T14).
      */
+    /**
+     * Delegue a `PinGate::auditFailedPin()` (RGPD art. 5.1.c, minimisation) : plus
+     * aucune adresse en clair dans `audit_log`, voir le POURQUOI complet la-bas.
+     */
     private function logFailedPin(DatabaseInterface $db, string $email, int $productId): void
     {
-        $db->execute(
-            'INSERT INTO audit_log (actor_user_id, actor_role_id, action_code, entity_type, entity_id, summary) '
-            . 'VALUES (:uid, :rid, :code, :etype, :eid, :summary)',
-            [
-                'uid' => null,
-                'rid' => null,
-                'code' => 'pin.failed',
-                'etype' => 'product',
-                'eid' => $productId,
-                'summary' => 'Échec PIN action sensible (email tenté: ' . $email . ')',
-            ],
-        );
+        PinGate::auditFailedPin($db, $email, 'product', $productId, 'action sensible');
     }
 
     private function writeAudit(DatabaseInterface $db, string $action, int $userId, int $roleId, int $entityId, string $summary): void

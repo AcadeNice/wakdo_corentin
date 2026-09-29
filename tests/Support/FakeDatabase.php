@@ -424,6 +424,18 @@ final class FakeDatabase implements DatabaseInterface
      */
     public ?string $pinThrottleLockoutUntil = null;
 
+    /**
+     * Ligne {id} renvoyee par la recherche du compte CIBLE d'un PIN echoue
+     * (PinGate::auditFailedPin(), minimisation RGPD art. 5.1.c) ; null = aucun
+     * compte pour cette adresse ("adresse inconnue"). Distinct de $emailLookupRow
+     * (PasswordResetService, requete 'AND is_active = 1') : cette recherche-ci
+     * porte sur N'IMPORTE QUEL compte, actif ou non, puisqu'elle sert a auditer
+     * une tentative, pas a authentifier.
+     *
+     * @var array<string, mixed>|null
+     */
+    public ?array $pinFailedTargetUserRow = null;
+
     /** Compteur pin_throttle relu apres l'upsert (PinThrottle::recordFailure) ; 1 par defaut. */
     public int $pinThrottleAttempts = 1;
 
@@ -501,6 +513,14 @@ final class FakeDatabase implements DatabaseInterface
 
         if (str_contains($sql, 'password_reset_token_hash')) {
             return $this->resetUserRow;
+        }
+
+        // Recherche du compte CIBLE pour l'audit pin.failed minimise
+        // (PinGate::auditFailedPin()) : distinguee de la route generique
+        // ci-dessous par sa projection 'id AS target_user_id' (aucun chevauchement
+        // de substring avec 'SELECT id FROM user WHERE email').
+        if (str_contains($sql, 'id AS target_user_id FROM user WHERE email')) {
+            return $this->pinFailedTargetUserRow;
         }
 
         if (str_contains($sql, 'SELECT id FROM user WHERE email')) {

@@ -108,6 +108,63 @@ final class HtmlRoutePinTest extends TestCase
         self::assertSame(1, HtmlRouteHarness::pinFailures($db), "$method $path : le refus devrait venir de la porte du code (une trace pin.failed), pas d'une autre validation.");
     }
 
+    /**
+     * Minimisation RGPD (art. 5.1.c) : sur CHAQUE route `pin = always` (toutes
+     * les ressources back-office HTML dont le PIN echoue via `PinGate::
+     * auditFailedPin()`, cf. PinGate.php), l'adresse SAISIE au champ `pin_email`
+     * ne doit jamais apparaitre dans `audit_log` (ni `summary`, ni `details`), et
+     * `details.target_user_id` doit porter l'identifiant du compte quand
+     * l'adresse en designe un, ou `null` + "adresse inconnue" sinon. Un seul test
+     * parametre (le meme montage route-par-route que
+     * `testValidFormWithoutCodeIsRefusedWithoutBusinessWrite` ci-dessus) plutot
+     * qu'une copie par controleur : la table `alwaysPinRoutes()` couvre deja
+     * Order, User, Role, Product (delete), Menu (delete) et Ingredient
+     * (inventory + adjust) -- les 6 ressources HTML du PIN d'action sensible.
+     */
+    #[DataProvider('alwaysPinRoutes')]
+    public function testWrongPinNeverLeaksTheAttemptedEmailAndRecordsTargetUserId(string $method, string $path, bool $anonymous, ?string $permission): void
+    {
+        $scenario = $this->scenario($method, $path);
+        $baseForm = HtmlRouteHarness::form($scenario);
+
+        // Cas 1 : l'adresse saisie correspond a un compte EXISTANT -> son
+        // identifiant est trace dans `details`, jamais l'adresse.
+        [, $dbKnown] = $this->call(
+            $method,
+            $path,
+            $anonymous,
+            $permission,
+            $scenario,
+            $baseForm + ['pin_email' => 'cible@wakdo.local', 'pin' => 'faux'],
+            42,
+        );
+        $writeKnown = $this->pinFailedWrite($dbKnown);
+        self::assertNotNull($writeKnown, "$method $path : devrait tracer pin.failed sur PIN invalide.");
+        self::assertStringNotContainsString('cible@wakdo.local', (string) $writeKnown['params']['summary'], "$method $path : l'adresse saisie ne doit jamais apparaitre dans summary.");
+        self::assertStringNotContainsString('cible@wakdo.local', (string) ($writeKnown['params']['details'] ?? ''), "$method $path : l'adresse saisie ne doit jamais apparaitre dans details.");
+        $detailsKnown = json_decode((string) ($writeKnown['params']['details'] ?? '{}'), true);
+        self::assertSame(42, $detailsKnown['target_user_id'] ?? null, "$method $path : target_user_id attendu quand l'adresse correspond a un compte existant.");
+        self::assertStringNotContainsString('inconnue', (string) $writeKnown['params']['summary'], "$method $path : un compte connu ne doit pas dire « adresse inconnue ».");
+
+        // Cas 2 : l'adresse saisie ne correspond a AUCUN compte -> null + "adresse inconnue".
+        [, $dbUnknown] = $this->call(
+            $method,
+            $path,
+            $anonymous,
+            $permission,
+            $scenario,
+            $baseForm + ['pin_email' => 'personne@wakdo.local', 'pin' => 'faux'],
+        );
+        $writeUnknown = $this->pinFailedWrite($dbUnknown);
+        self::assertNotNull($writeUnknown, "$method $path : devrait tracer pin.failed sur PIN invalide.");
+        self::assertStringNotContainsString('personne@wakdo.local', (string) $writeUnknown['params']['summary'], "$method $path : l'adresse saisie ne doit jamais apparaitre dans summary.");
+        self::assertStringNotContainsString('personne@wakdo.local', (string) ($writeUnknown['params']['details'] ?? ''), "$method $path : l'adresse saisie ne doit jamais apparaitre dans details.");
+        $detailsUnknown = json_decode((string) ($writeUnknown['params']['details'] ?? '{}'), true);
+        self::assertArrayHasKey('target_user_id', $detailsUnknown, "$method $path : details doit toujours porter la cle target_user_id.");
+        self::assertNull($detailsUnknown['target_user_id'], "$method $path : adresse inconnue -> target_user_id null.");
+        self::assertStringContainsString('adresse inconnue', (string) $writeUnknown['params']['summary'], "$method $path : adresse inconnue -> le resume doit le dire en clair.");
+    }
+
     #[DataProvider('alwaysPinRoutes')]
     public function testSameFormWithTheCodeIsApplied(string $method, string $path, bool $anonymous, ?string $permission): void
     {
@@ -247,16 +304,40 @@ final class HtmlRoutePinTest extends TestCase
      * @param array<string, string> $form sans _csrf, ajoute ici
      * @return array{0: Response, 1: FakeDatabase}
      */
-    private function call(string $method, string $path, bool $anonymous, ?string $permission, array $scenario, array $form): array
+    /**
+     * @param array<string, mixed> $scenario
+     * @param array<string, string> $form sans _csrf, ajoute ici
+     * @param int|null $pinFailedTargetUserId compte EXISTANT simule pour la
+     *        recherche cible de `PinGate::auditFailedPin()` (minimisation RGPD) ;
+     *        null (defaut, deja la valeur par defaut de `FakeDatabase::
+     *        $pinFailedTargetUserRow`) = adresse ne correspondant a aucun compte.
+     * @return array{0: Response, 1: FakeDatabase}
+     */
+    private function call(string $method, string $path, bool $anonymous, ?string $permission, array $scenario, array $form, ?int $pinFailedTargetUserId = null): array
     {
         $session = $anonymous ? HtmlRouteHarness::anonymousSession() : HtmlRouteHarness::authenticatedSession();
         /** @var list<string> $extra */
         $extra = is_array($scenario['extraPerms'] ?? null) ? $scenario['extraPerms'] : [];
         $db = HtmlRouteHarness::grantedDb(array_values(array_unique(array_merge($permission === null ? [] : [$permission], $extra))));
         HtmlRouteHarness::primeWorld($db, $method, $path);
+        $db->pinFailedTargetUserRow = $pinFailedTargetUserId !== null ? ['target_user_id' => $pinFailedTargetUserId] : null;
         $form['_csrf'] = Csrf::token($session);
 
         return [HtmlRouteHarness::exercise($method, $path, $session, $db, $form, $scenario), $db];
+    }
+
+    /**
+     * @return array{sql: string, params: array<string, mixed>}|null
+     */
+    private function pinFailedWrite(FakeDatabase $db): ?array
+    {
+        foreach ($db->writes as $write) {
+            if (str_contains($write['sql'], 'INSERT INTO audit_log') && ($write['params']['code'] ?? null) === 'pin.failed') {
+                return $write;
+            }
+        }
+
+        return null;
     }
 
     /**
