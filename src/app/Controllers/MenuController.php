@@ -12,6 +12,7 @@ use App\Auth\PinThrottle;
 use App\Auth\PinVerifier;
 use App\Catalogue\CategoryRepository;
 use App\Catalogue\MenuRepository;
+use App\Catalogue\MenuSlotInUseException;
 use App\Catalogue\ProductRepository;
 use App\Core\DatabaseInterface;
 use App\Core\Money;
@@ -171,7 +172,19 @@ class MenuController extends AdminController
             return $this->renderForm($guard, $id, $form, $slots, $errors, 422);
         }
 
-        $this->menuRepository()->update($id, $data, $slots);
+        // Conflit d'etat (ADR-0006), pas une validation : un slot retire de la
+        // configuration soumise est deja choisi dans une commande passee (FK
+        // order_item_selection.menu_slot_id RESTRICT). reconcileSlots() garde ce
+        // cas AVANT toute ecriture (MenuRepository::update()) -> rien n'est ecrit,
+        // le formulaire se ré-affiche avec le message sous le builder de slots.
+        try {
+            $this->menuRepository()->update($id, $data, $slots);
+        } catch (MenuSlotInUseException $exception) {
+            $errors['slots'] = $exception->getMessage();
+
+            return $this->renderForm($guard, $id, $form, $slots, $errors, 409);
+        }
+
         $this->setFlash('Menu mis à jour.');
 
         return $this->redirect('/admin/menus');

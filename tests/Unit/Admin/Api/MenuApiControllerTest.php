@@ -262,6 +262,53 @@ final class MenuApiControllerTest extends TestCase
         self::assertSame(1, $update['params']['available'] ?? null);
     }
 
+    public function testUpdateReconcilesMatchingSlotTypeInPlace(): void
+    {
+        // mlt 8.5 RG-2 corrige (meme garantie que le back-office HTML) : un slot
+        // soumis dont le slot_type correspond a un slot EXISTANT est mis a jour
+        // EN PLACE, jamais supprime puis reinsere.
+        $db = $this->permittedDb();
+        $db->menuRow = ['id' => 15, 'category_id' => 3, 'burger_product_id' => 7, 'name' => 'Menu Big Mac', 'price_normal_cents' => 890, 'price_maxi_cents' => 990, 'is_available' => 1, 'display_order' => 1];
+        $db->menuSlotRows = [
+            ['id' => 20, 'name' => 'Boisson', 'slot_type' => 'drink', 'is_required' => 1, 'display_order' => 0, 'product_id' => 7],
+        ];
+        $request = $this->jsonRequest('PUT', '/admin/api/menus/15', $this->validBody());
+
+        $response = $this->controller($request, $db)->apiUpdate(['id' => '15']);
+
+        self::assertSame(200, $response->status());
+        self::assertTrue($db->wrote('UPDATE menu_slot SET'));
+        // 'DELETE FROM menu_slot WHERE id' (suppression d'un SLOT), pas le
+        // substring plus large 'DELETE FROM menu_slot' qui matcherait aussi
+        // 'DELETE FROM menu_slot_option ...' (remplacement des options du slot
+        // apparie, attendu ici).
+        self::assertFalse($db->wrote('DELETE FROM menu_slot WHERE id'));
+        self::assertFalse($db->wrote('INSERT INTO menu_slot ('));
+    }
+
+    public function testUpdateRejectsRemovalOfSlotReferencedByOrderReturns409(): void
+    {
+        // Conflit d'etat (ADR-0006) : 'side' est deja choisi par une commande
+        // passee (order_item_selection.menu_slot_id RESTRICT) -> 409 CONFLICT,
+        // meme convention que apiDestroy(), aucune ecriture destructrice.
+        $db = $this->permittedDb();
+        $db->menuRow = ['id' => 15, 'category_id' => 3, 'burger_product_id' => 7, 'name' => 'Menu Big Mac', 'price_normal_cents' => 890, 'price_maxi_cents' => 990, 'is_available' => 1, 'display_order' => 1];
+        $db->menuSlotRows = [
+            ['id' => 20, 'name' => 'Boisson', 'slot_type' => 'drink', 'is_required' => 1, 'display_order' => 0, 'product_id' => 7],
+            ['id' => 21, 'name' => 'Accompagnement', 'slot_type' => 'side', 'is_required' => 1, 'display_order' => 1, 'product_id' => 7],
+        ];
+        $db->referencedSlotIds = [21];
+        // validBody() ne soumet qu'un slot 'drink' -> tentative de retirer 'side'.
+        $request = $this->jsonRequest('PUT', '/admin/api/menus/15', $this->validBody());
+
+        $response = $this->controller($request, $db)->apiUpdate(['id' => '15']);
+        $body = json_decode($response->body(), true);
+
+        self::assertSame(409, $response->status());
+        self::assertSame('CONFLICT', $body['error']['code'] ?? null);
+        self::assertFalse($db->wrote('DELETE FROM menu_slot'));
+    }
+
     public function testUpdateRejectsStringFalseAsIsAvailable(): void
     {
         $db = $this->permittedDb();
