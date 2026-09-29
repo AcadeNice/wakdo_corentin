@@ -205,7 +205,7 @@ deja au bon endroit pour qu'un ecran vienne se poser dessus.
   remplacee plutot que modifiee.
 
 ## Errata
-- Erratum (2026-09-28, audit #195) : « neuf lignes de correspondance » restaure le chiffre
+- Erratum (ecrit le 2026-09-29 par BYAN, `02609c5`, constat de l'audit #195 du 28/09) : « neuf lignes de correspondance » restaure le chiffre
   d'origine de cette fiche, mais ce chiffre etait deja faux le jour de sa redaction (meme
   commit `ab0c553`, 2026-09-27) : le jeu de donnees `db/seeds/0010_ingredient_families.sql`
   compte 23 lignes, reparties sur 8 des 9 categories (`menus` n'en recoit volontairement

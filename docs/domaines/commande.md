@@ -35,7 +35,7 @@ automatique des commandes restees en attente de paiement.
 
 ### Cuisine
 - `GET /kitchen/display` (`KitchenController::display`, `order.read`) : file des
-  commandes payees, landing du role `kitchen`.
+  commandes `paid`, `preparing` et `ready`, landing du role `kitchen`.
 - `POST /admin/orders/{number}/ready` (`OrderAdminController::ready`, `order.read` —
   pas `order.deliver` : marquer une commande prete est un geste de cuisine, pas de
   remise) : `paid` ou `preparing -> ready` (idempotent si deja `ready`).
@@ -64,12 +64,17 @@ automatique des commandes restees en attente de paiement.
   `src/public/admin/assets/css/admin.css`) — elle reste atteignable au clavier
   (`aria-disabled`, pas l'attribut `disabled`) mais le focus y etait invisible (WCAG 2.4.7)
   avant ce correctif.
+- Complement du 29/09 apres-midi (commit `186c5d7`) : la disponibilite d'une option est
+  calculee pour le format servi (`option_is_orderable_maxi`) ; au changement de format, la
+  borne et le comptoir grisent et deselectionnent une option devenue indisponible. Au
+  comptoir, une quantite hors 1-20 ou non entiere est refusee (`422`, meme message que la
+  borne) au lieu d'etre ramenee a 1 ; la borne et le comptoir plafonnent chaque ligne a 20.
 
 ### Annulation
 - `GET /admin/orders/{number}/cancel` (confirmation) et
   `POST /admin/orders/{number}/cancel` (`OrderAdminController::cancel`, `order.cancel`) :
   `pending_payment`, `paid`, `preparing` ou `ready -> cancelled`
-  (`OrderRepository::cancel` ~786, 802), PIN equipier + `audit_log` + remise en stock
+  (`OrderRepository::cancel`, l.864-952 au 29/09), PIN equipier + `audit_log` + remise en stock
   conditionnelle (si la commande avait des mouvements de vente, donc si elle etait
   encaissee) dans la meme transaction (RG-T13/RG-T14). Le refus « canal non visible » et
   le refus « numero inconnu » rendent tous deux `403`, verifie AVANT le PIN, pour ne pas
@@ -85,7 +90,7 @@ Un seul endpoint de creation (contrairement au HTML qui a une page par canal) :
 - `GET /admin/api/orders` / `GET /admin/api/orders/{number}` (`order.read`)
 - `POST /admin/api/orders` (`order.create`) : source deduite du role si canal fixe,
   choisie dans le corps sinon — dans les DEUX cas, verifiee contre les sources visibles
-  du role (`OrderApiController::apiStore` ~165)
+  du role (`OrderApiController::apiStore`, ~l.155-170 au 29/09)
 - `POST /admin/api/orders/{number}/ready` (`order.read`, comme son equivalent HTML)
 - `POST /admin/api/orders/{number}/deliver` (`order.deliver`)
 - `POST /admin/api/orders/{number}/cancel` (`order.cancel`, PIN)
@@ -109,8 +114,8 @@ automatique d'une annulation humaine).
 - RG-T19 (idempotence) et RG-T20 (decrement de stock atomique a l'encaissement, pas de
   verrou prealable sur `ingredient`) : voir `docs/merise/mlt.md` section 2.
 - RG-T09 : `source = 'drive'` implique `service_mode = 'drive'`, verifiee separement a la
-  creation staff (`OrderRepository::createStaffOrder` ~283) et a la modification
-  (`OrderRepository::replaceItems` ~214) — pas dans un `resolveHeader` partage.
+  creation staff (`OrderRepository::createStaffOrder`, ~l.325 au 29/09) et a la modification
+  (`OrderRepository::replaceItems`, ~l.252 au 29/09) — pas dans un `resolveHeader` partage.
 - RG-T12 : filtre par canal du tableau de bord des commandes, base sur les sources
   visibles du role (`role_visible_source`).
 - RG-T13/T14 : l'annulation est l'unique action sensible du domaine commande (PIN +

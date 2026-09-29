@@ -192,7 +192,7 @@ Fichiers : `db/migrations/0011_ingredient_allergen_review.sql`,
 `docs/merise/dictionary.md` note 15, `docs/merise/mld.md` 4.6.
 
 ## Errata
-- Erratum (2026-09-28, audit #195) : les deux consequences ci-dessus ont ete precisees sur
+- Erratum (ecrit le 2026-09-29 par BYAN, `02609c5`, constat de l'audit #195 du 28/09) : les deux consequences ci-dessus ont ete precisees sur
   place. Precision exacte, restauree ici : la table `product` porte 58 lignes, variantes de
   taille comprises — 53 produits de base (seed `db/seeds/0002_catalogue.sql`) + 5 variantes
   50cl des sodas fontaine (seed `db/seeds/0005_drink_sizes.sql`, en place depuis le

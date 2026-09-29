@@ -3,9 +3,9 @@
 **Phase Merise** : P1 - Conception, etape 2 (data dictionary first, mantra #33)
 **Version** : v0.8 — prod-like, 24 entites (19 prod-like + couche security-by-design + classement des ingredients)
 **Historique** : v0.8 (2026-09-29) — deux correctifs de securite merges : `user.session_epoch` (colonne, invalidation de session) et nouvelle entite `password_reset_throttle` (throttle de la demande de reinitialisation par adresse et par IP), migration `0020_session_invalidation.sql`, commit `ef7fd37` ; compte d'entites 23 -> 24 (section 7). v0.7 (2026-09-29) — contre-audit independant (base MariaDB jetable) : association I7 recorrigee (l'attribution reelle differe par TYPE de mouvement — session pour `sale`/`restock`, PIN pour `cancellation`/`inventory_correction`/`adjustment`, pas une repartition par role) ; tableau des entites (section 10) corrige (`audit_log` n'est PAS ecrit par RESTOCK/INVENTORY_COUNT/ADJUST, ecrit par le mapping allergene de MANAGE_INGREDIENT) ; reference `mct.md` (v0.3 -> v0.5). v0.6 (2026-09-28) — audit final : correction du role `manager` (order_source NULL sans `order.create`, ADR-0020/D5), de l'association I7 (`stock_movement.user_id` porte l'acteur counter/drive, pas seulement les mouvements manuels), de la contrainte `source`/`service_mode` (deja posee en base, migration 0001) et des references vers `docs/notes/revue-alignement-p1.md` (non versionne) remplacees par les journaux traces `docs/journal/`. v0.5 (2026-09-27) — migration 0017 : attribut `ingredient.family` et `category_ingredient_family` (attribut multivalue de CATEGORY sorti en table par la premiere forme normale, association `accepts`, cardinalite I8) ; la famille reste un domaine de valeurs et non une entite, arbitrage motive en 5.3 ; compte d'entites 22 -> 23. v0.4 (2026-09-24) — mise en coherence avec le code livre (2a09597) : diagrammes des sections 4.1 a 7.1 re-extraits des migrations 0001 a 0011 (colonnes `allergens_*` de 0011, `preparing_at` / `ready_at` de 0009, entite `pin_throttle` et association `taken_by`), association `anchors` corrigee (un produit ancre 0 a N menus), cardinalites I2, I6, I7, R5, R6 et R9 alignees sur leur justification et sur les contraintes du DDL, association `taken_by` ajoutee au tableau 6.2 (O9), commande de rendu des diagrammes mise a jour (section 11).
-**Date** : 2026-06-04 (ajouts security-by-design 2026-06-11)
-**Branche** : `feat/p1-conception`
-**Statut** : prod-like — toutes les decisions D1-D8 + stock appliquees (voir `docs/journal/2026-06-04--conception-prodlike-revision.md` pour D1-D3 et `docs/journal/2026-06-04--p1-merise-v0.2-rewrite-and-forgejo-migration.md` pour D4-D8 + stock) ; couche security-by-design (audit_log + colonnes imputabilite/auth) en cours
+**Date** : 2026-06-04 (premiere redaction ; derniere mise a jour 2026-09-29)
+**Branche** : premiere redaction sur `feat/p1-conception` ; etat actuel sur `docs/contre-audit` (29/09), en production apres la release du 29/09
+**Statut** : prod-like — toutes les decisions D1-D8 + stock appliquees (voir `docs/journal/2026-06-04--conception-prodlike-revision.md` pour D1-D3 et `docs/journal/2026-06-04--p1-merise-v0.2-rewrite-and-forgejo-migration.md` pour D4-D8 + stock) ; couche security-by-design (audit_log + colonnes imputabilite/auth + tables de limitation) livree
 **Auteur** : BYAN (couche methodologie)
 
 ---
@@ -73,7 +73,7 @@ Merise standard pour les modeles de cette taille.
 | Catalogue | category, product, menu, menu_slot, menu_slot_option | 5 |
 | Ingredients & Stock | ingredient, product_ingredient, allergen, ingredient_allergen, stock_movement, category_ingredient_family | 6 |
 | Order | customer_order, order_item, order_item_selection, order_item_modifier | 4 |
-| RBAC & Audit | user, role, role_visible_source, permission, role_permission, audit_log, login_throttle, pin_throttle | 8 |
+| RBAC & Audit | user, role, role_visible_source, permission, role_permission, audit_log, login_throttle, pin_throttle, password_reset_throttle | 9 |
 
 > **Couche security-by-design (2026-06-11)** : `audit_log` (entite 20) est un journal transverse,
 > append-only des actions sensibles ; il est place dans le sous-domaine RBAC & Audit parce que
@@ -603,8 +603,11 @@ purge cron quotidienne. Association R9 : `user` (0,1) -- (1,1) `pin_throttle` (u
 `throttle_kind` ('email' ou 'ip') — meme motif que `role_visible_source` (discriminant + identifiant
 generique). Cle UNIQUE composite `(throttle_kind, identifier)`, pas de FK (`identifier` peut porter une
 adresse email qui ne resout vers aucun compte, l'anti-enumeration RG-2 l'exige). Memes colonnes de
-comptage que `login_throttle`/`pin_throttle`, bornes propres (`PASSWORD_RESET_*`), memes purges cron.
-Voir dictionnaire 3.24 et note 13.
+comptage que `login_throttle`/`pin_throttle`, bornes propres (`PASSWORD_RESET_*`), memes purges cron
+(`docker/cron/scripts/purge-throttle.sh`). Depuis la migration `0021_password_reset_throttle_hash_
+identifier.sql` (constat de minimisation RGPD art. 5.1.c corrige le 2026-09-29), `identifier` porte
+l'empreinte SHA-256 de l'adresse (pas l'adresse en clair) pour la dimension `email` ; la dimension `ip`
+reste en clair. Voir dictionnaire 3.24 et note 13.
 
 **`user.session_epoch` (security-by-design, meme migration 0020)** : compteur d'invalidation de session,
 pas une nouvelle entite — une colonne ajoutee sur `user`. Pose en session a la connexion et relu en base
@@ -710,12 +713,14 @@ Pre-validation : chaque entite participe a au moins un traitement.
 | `permission` | Gestion de la matrice de permissions admin |
 | `role_permission` | Gestion de la matrice de permissions admin |
 | `stock_movement` | Automatique a l'encaissement (PAY_ORDER, transition vers `preparing`) et a l'annulation d'une commande encaissee ; reapprovisionnement manuel et correction d'inventaire |
-| `audit_log` | Ecrit par les operations sensibles : UPDATE/DELETE product/menu (8.2/8.3/8.6), le mapping allergene de MANAGE_INGREDIENT (8.8, `ingredient.allergens`), CANCEL_ORDER (7.1), operations utilisateur (10.1-10.3, 10.6-10.7), MANAGE_RBAC (10.4), et logins echoues/reussis (12.1). PAS RESTOCK/INVENTORY_COUNT/ADJUST (9.1/9.2/9.4) : ces trois operations de stock journalisent uniquement via `stock_movement.user_id` (RG-T14, voir I7 ci-dessus), sans ligne `audit_log` separee — les citer ici serait une double comptabilisation qui ne correspond a aucune ecriture reelle. |
+| `audit_log` | Ecrit par les operations sensibles (verifie par grep des `INSERT INTO audit_log` dans `src/app`, 29/09) : UPDATE/DELETE product (8.2/8.3), DELETE menu (8.6 ; la modification d'un menu n'ecrit PAS de ligne d'audit), le mapping allergene de MANAGE_INGREDIENT (8.8, `ingredient.allergens`), l'import CSV (8.9, `product.import`, a chaque import applique), CANCEL_ORDER (7.1), operations utilisateur (10.1-10.3, 10.5 effacement, 10.6-10.7 dont `pin.set`), MANAGE_RBAC (10.4), logins echoues/reussis (12.1), reinitialisation de mot de passe (12.3, `auth.password_reset`), expiration automatique (13.6, `order.expire`, sans acteur humain) et PIN faux (`pin.failed`, point unique `PinGate::auditFailedPin()`). PAS RESTOCK/INVENTORY_COUNT/ADJUST (9.1/9.2/9.4) : ces trois operations de stock journalisent uniquement via `stock_movement.user_id` (RG-T14, voir I7 ci-dessus), sans ligne `audit_log` separee — les citer ici serait une double comptabilisation qui ne correspond a aucune ecriture reelle. |
 | `login_throttle` | Lu et ecrit par AUTHENTICATE_USER (12.1) : throttle par IP source upserte a chaque echec de login, lu pour imposer la fenetre de backoff, purge par un cron quotidien |
 | `pin_throttle` | Lu et ecrit par les operations sensibles sous PIN (RG-T13, RG-T22) : verrou evalue avant la verification du PIN, compteur incremente a chaque echec, remis a zero apres un PIN valide, purge par un cron quotidien |
+| `category_ingredient_family` | Lu par le constructeur de recette (familles d'ingredients proposees selon la categorie du produit) ; ecrite seulement par le seed 0010 (aucune ecriture applicative, mesure du 29/09) |
+| `password_reset_throttle` | Lu et ecrit par RESET_PASSWORD (12.3) : verrou par empreinte d'adresse et par IP evalue avant tout envoi, compteur upserte a chaque demande, purge par le cron quotidien |
 
 La validation croisee MCD <-> MCT (mantra #34) est completee de maniere exhaustive dans `mct.md`
-(v0.5), qui integre desormais les operations security-by-design (actions sensibles protegees par PIN,
+(v0.7), qui integre desormais les operations security-by-design (actions sensibles protegees par PIN,
 ecritures d'audit, reset/lockout, anonymisation). Les ajouts de la couche traitements y sont suivis.
 
 ---

@@ -27,11 +27,13 @@ PIN d'action sensible. Pas d'auth cote borne (front public).
 ## Regles metier
 - RG-6 / RG-T02 : session valide (idle + absolu + compte actif, role et epoch de session
   relus en base a chaque requete) sinon 302 `/login`.
-- RG-8 / RG-9 : throttle login par compte + par IP (`login_throttle`), backoff degressif.
+- RG-8 / RG-9 : throttle login par compte (`user.failed_login_attempts` / `lockout_until`) + par IP (`login_throttle`), backoff degressif.
 - RESET_PASSWORD (12.3) : throttle par adresse et par IP (`password_reset_throttle`,
   migration `0020_session_invalidation.sql`) avant tout travail ; la confirmation
   incremente `user.session_epoch`, ce qui invalide immediatement les sessions ouvertes
-  avant la reinitialisation.
+  avant la reinitialisation. Depuis `680820f` (29/09), l'adresse y est stockee en empreinte
+  SHA-256 (migration `0021`), la table est purgee par le cron, et un administrateur qui change
+  le mot de passe d'un compte incremente aussi son `session_epoch` (sessions fermees).
 - RG-T13 : PIN d'action sensible (voir [users](users.md), [rbac](rbac.md), stock).
 - Anti-enumeration : reponses neutres (reset, login, throttle de reset) ; leurre de
   timing argon2id.
@@ -43,7 +45,7 @@ PIN d'action sensible. Pas d'auth cote borne (front public).
 
 ## Tables
 `user` (dont `session_epoch`, migration `0020_session_invalidation.sql`), `login_throttle`,
-`pin_throttle`, `password_reset_throttle` (meme migration 0020), `audit_log` (login +
-pin.failed). Detail : `docs/merise/mlt.md` section 12 (authentification) et section 2
+`pin_throttle`, `password_reset_throttle` (meme migration 0020), `audit_log` (`auth.login_success`,
+`auth.login_failed`, `auth.password_reset`, `pin.set`, `pin.failed`). Detail : `docs/merise/mlt.md` section 12 (authentification) et section 2
 « Regles de gestion transverses » (RG-T02 relecture session, RG-T13 PIN, RG-T22 throttle
 du PIN — le document n'a pas de section 22).

@@ -80,7 +80,7 @@ session, sur toutes les actions sensibles. Garde comme evolution nommee.
   Postman et Bruno regenerees depuis `scripts/gen_postman.py`.
 
 ## Errata
-- Erratum (2026-09-28, audit #195) : une consequence avait ete inseree sans marque entre les
+- Erratum (ecrit le 2026-09-29 par BYAN, `02609c5`, constat de l'audit #195 du 28/09) : une consequence avait ete inseree sans marque entre les
   deux premieres puces ci-dessus, retiree pour l'enregistrement et reposee ici, datee. La
   permission `order.read` accordee par cette fiche est aussi celle qui garde l'ecran de
   cuisine (`GET /kitchen/display`, `KitchenController::display`, guard `order.read`) et le

@@ -3,7 +3,7 @@
 **Phase Merise** : P1 - Conception, etape 1 (dictionnaire de donnees d'abord, mantra #33)
 **Version** : v0.7 — prod-like, 24 entites (19 prod-like + couche security-by-design + classement des ingredients, incl. les entites `login_throttle`, `pin_throttle`, `category_ingredient_family` et `password_reset_throttle`)
 **Date** : 2026-06-04 (ajouts security-by-design 2026-06-11 ; classement des ingredients 2026-09-27 ; corrections d'audit 2026-09-28 ; contre-audit independant 2026-09-29 ; deux correctifs merges le 2026-09-29 : reconciliation des emplacements de menu, `audit_log.pin.failed` sans adresse saisie — migration 0019 ; deux correctifs de securite merges le 2026-09-29 : `user.session_epoch` + throttle de reinitialisation de mot de passe — migration 0020, commit `ef7fd37` ; en-tetes de securite completes, TRACE coupe, sonde publique sans version PHP — commit `08d7a96`)
-**Branche** : `feat/p1-conception`
+**Branche** : premiere redaction sur `feat/p1-conception` ; etat actuel sur `docs/contre-audit` (29/09), en production apres la release du 29/09
 **Statut** : prod-like — toutes les decisions D1-D8 + stock appliquees (voir `docs/journal/2026-06-04--conception-prodlike-revision.md` pour D1-D3 et `docs/journal/2026-06-04--p1-merise-v0.2-rewrite-and-forgejo-migration.md` pour D4-D8 + stock) ; couche security-by-design en cours (voir note 13) ; colonnes additives post-v0.3 des migrations 0003/0005/0006/0007 alignees sur le deploye (voir note 14)
 **Auteur** : BYAN (couche methodologie)
 
@@ -114,9 +114,9 @@ Un article vendable unique, disponible a la carte ou comme composant dans un slo
 | `name` | VARCHAR(120) | NO | — | — | `nom` | renomme depuis `nom` ; pas d'index dedie (seul l'index composite `(category_id, is_available, display_order)` existe, migration 0001) |
 | `description` | TEXT | YES | NULL | — | (ajoute) | renseigne plus tard via l'admin |
 | `price_cents` | INT UNSIGNED | NO | — | CHECK > 0 | `prix` (FLOAT) | conversion FLOAT -> INT centimes au seed (voir note 1) |
-| `maxi_variant_product_id` | INT UNSIGNED | YES | NULL | FK -> `product(id)`, ON DELETE SET NULL | (migration 0006) | auto-reference : variante servie quand un menu est commande au format Maxi (ex. Moyenne Frite -> Grande Frite). Data-driven (la regle vit dans la donnee). SET NULL = degradation gracieuse : si la variante Grande est retiree du catalogue, le produit de base reste vendable, il perd seulement sa substitution Maxi. Voir note 14 |
 | `size_cl` | SMALLINT UNSIGNED | YES | NULL | — | (migration 0007) | variante de TAILLE a la carte : volume en centilitres d'une boisson fontaine (ex. 30 / 50 cl). NULL = produit sans dimension taille (bouteille, non-boisson). La ligne de base ET la variante portent leur volume pour l'affichage du picker. Voir note 14 |
 | `base_product_id` | INT UNSIGNED | YES | NULL | FK -> `product(id)`, ON DELETE CASCADE | (migration 0007) | auto-reference vers la ligne de base d'une variante de taille. NULL = produit de base ou autonome (visible dans la grille catalogue) ; NON NULL = variante de taille (masquee de la grille, atteinte via le picker). CASCADE : une variante de taille n'a pas de sens sans sa base (suppression de la base -> suppression de ses variantes). Voir note 14 |
+| `maxi_variant_product_id` | INT UNSIGNED | YES | NULL | FK -> `product(id)`, ON DELETE SET NULL | (migration 0006) | auto-reference : variante servie quand un menu est commande au format Maxi (ex. Moyenne Frite -> Grande Frite). Data-driven (la regle vit dans la donnee). SET NULL = degradation gracieuse : si la variante Grande est retiree du catalogue, le produit de base reste vendable, il perd seulement sa substitution Maxi. Voir note 14 |
 | `vat_rate` | SMALLINT UNSIGNED | NO | 100 | CHECK IN (55, 100) | (ajoute) | taux de TVA en pour-mille : 100 = 10%, 55 = 5,5%. Defaut 10%. Voir note 9 |
 | `image_path` | VARCHAR(255) | YES | NULL | — | `image` | chemin relatif, voir note 8 |
 | `is_available` | TINYINT(1) | NO | 1 | — | (ajoute) | bascule de disponibilite manuelle depuis l'admin |
@@ -706,7 +706,7 @@ jointure pure, meme forme que `ingredient_allergen` (3.9).
 **Zero ligne pour une categorie = aucun filtre pour cette categorie** (ex. `menus`, dont le burger
 impose peut porter n'importe quelle famille d'ingredient) — l'absence est une decision, pas un oubli.
 
-**Volume** : seed 0010, 8 des 9 categories restreintes (`menus` exclue), 2 a 5 familles chacune.
+**Volume** : seed 0010, 8 des 9 categories restreintes (`menus` exclue), 1 a 5 familles chacune.
 
 ---
 
@@ -724,7 +724,7 @@ demandee et l'IP source, distinguees par `throttle_kind` — plutot que deux tab
 |---|---|---|---|---|---|
 | `id` | INT UNSIGNED | NO | AUTO_INCREMENT | PK | |
 | `throttle_kind` | ENUM('email','ip') | NO | — | — | dimension de la ligne : adresse demandee ou IP source |
-| `identifier` | VARCHAR(254) | NO | — | — | valeur throttlee : adresse email (normalisee en minuscules) si `throttle_kind='email'`, adresse IP si `throttle_kind='ip'` |
+| `identifier` | VARCHAR(254) | NO | — | — | valeur throttlee : empreinte SHA-256 de l'adresse normalisee si `throttle_kind='email'` (migration 0021), adresse IP en clair si `throttle_kind='ip'` |
 | `failed_attempts` | SMALLINT UNSIGNED | NO | 0 | — | demandes consecutives dans la fenetre courante |
 | `window_started_at` | DATETIME | NO | CURRENT_TIMESTAMP | — | debut de la fenetre de comptage courante |
 | `lockout_until` | DATETIME | YES | NULL | — | fin de la fenetre de backoff degressif ; NULL = non throttle |
@@ -736,7 +736,10 @@ une adresse inconnue exactement comme une adresse connue. Meme backoff degressif
 bornes propres `PASSWORD_RESET_*` (`.env.example`), seuils distincts par dimension (l'IP tolere plus
 de tentatives que l'adresse : plusieurs equipiers d'un meme poste peuvent demander une
 reinitialisation depuis la meme IP). Purge cron alignee sur `login_throttle`/`pin_throttle`
-(`THROTTLE_PURGE_AFTER_HOURS`).
+(`THROTTLE_PURGE_AFTER_HOURS`, `docker/cron/scripts/purge-throttle.sh`). Depuis la migration 0021
+(minimisation RGPD art. 5.1.c, constat corrige le 2026-09-29), `App\Auth\PasswordResetThrottle::
+hashEmail()` ecrit l'empreinte SHA-256 de l'adresse normalisee pour la dimension `email`, sans
+conserver l'adresse en clair (la dimension `ip` n'est pas concernee).
 
 ---
 
@@ -875,11 +878,6 @@ modele de stock reste fidele.
 - Pour les ingredients accompagnement et boisson, `quantity_maxi > quantity_normal` (le Maxi consomme plus).
 - Le format se propage de la ligne de menu (`order_item.format`) a ses selections de slot ; une
   ligne de produit autonome est par defaut a `normal`.
-- Un seul produit par choix (ex. un produit `Fries`), pas de produits medium/large separes.
-
-Calibration : le supplement Maxi est dans la fourchette ~1,50 EUR pour ce modele (derive de
-donnees internes ; recoupe avec l'ordre de grandeur du marche pour plausibilite. Wakdo est un pastiche
-fictif, donc les prix exacts ne sont pas copies d'une chaine reelle).
 
 Calibration : le supplement Maxi est dans la fourchette ~1,50 EUR pour ce modele (derive de
 donnees internes ; recoupe avec l'ordre de grandeur du marche pour plausibilite. Wakdo est un pastiche
@@ -888,7 +886,7 @@ fictif, donc les prix exacts ne sont pas copies d'une chaine reelle).
 ### Note 8 — Stockage des images : chemin en VARCHAR vs BLOB en BDD
 
 Les colonnes `image_path` (`category`, `product`, `menu`) stockent un **chemin relatif** depuis la
-racine publique (ex. `uploads/products/<64-hex>.jpg`), pas un chemin serveur absolu. Le repertoire de
+racine publique (ex. `uploads/products/<32 caracteres hexadecimaux>.jpg`, nom tire par `bin2hex(random_bytes(16))``), pas un chemin serveur absolu. Le repertoire de
 destination (`public/uploads`) est CALCULE par `ImageUploader` depuis l'emplacement du fichier PHP
 (`dirname(__DIR__, 2) . '/public/uploads'`), pas lu depuis une variable d'environnement — il n'existe
 pas de `UPLOAD_DIR` dans `.env`. Le nom de fichier stocke est en outre REGENERE cote serveur
@@ -973,7 +971,7 @@ individuel. L'attribution par personne d'une transition d'etat n'a aucune valeur
 (`paid_at`, `delivered_at`, `cancelled_at`) sans la complexite d'un event store.
 
 La machine a 6 etats combinee aux timestamps de phase (`paid_at`, `preparing_at`, `ready_at`,
-`delivered_at`, `cancelled_at` — les deux derniers ajoutes par la migration 0009, voir note 6) fournit
+`delivered_at`, `cancelled_at` — `preparing_at` et `ready_at` ajoutes par la migration 0009, voir note 6) fournit
 toutes les donnees KPI necessaires, sans reintroduire d'event store :
 - Temps de remise : `delivered_at - paid_at`
 - Taux et timing d'annulation : `cancelled_at - created_at`

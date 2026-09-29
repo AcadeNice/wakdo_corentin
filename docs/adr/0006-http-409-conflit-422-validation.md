@@ -25,7 +25,7 @@ Convention harmonisee sur tous les controleurs :
 - Remediation : PR #33 (Category/Product/Menu) ; les controleurs suivants naissent en 409.
 
 ## Errata
-- Erratum (2026-09-28, audit #195) : « le contrat documente (`byan-api.md`) » designe en
+- Erratum (ecrit le 2026-09-29 par BYAN, `02609c5`, constat de l'audit #195 du 28/09) : « le contrat documente (`byan-api.md`) » designe en
   realite un fichier d'outillage BYAN generique (`.claude/rules/byan-api.md`, l'API du
   meta-outil byan_web), sans rapport avec l'API Wakdo. Le contrat d'API reellement vise est
   `docs/api/conventions.md`.

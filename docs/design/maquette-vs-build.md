@@ -90,7 +90,7 @@ Cette note garde la trace de la decomposition maquette -> code et des ecarts res
 | Maquette | Kiosk construit | Verdict |
 |----------|-----------------|---------|
 | 1. Accueil sur place / a emporter | `index.html` | conforme |
-| 2 + 6. Ecran de commande unique (bandeau + grille + **panneau persistant**) | `products.html` : bandeau categories (`category-strip.js`) + grille + **panneau de commande persistant** a droite (`order-panel.js`) | conforme, sauf : le panneau n'affiche pas le numero de commande de la maquette (section 4.2) |
+| 2 + 6. Ecran de commande unique (bandeau + grille + **panneau persistant**) | `products.html` : bandeau categories (`category-strip.js`) + grille + **panneau de commande persistant** a droite (`order-panel.js`) | conforme, sauf : le panneau n'affiche pas le numero de commande de la maquette (section 4, point 2) |
 | (pas de page categories separee) | `categories.html` plein ecran "Que souhaitez-vous commander ?" | ecran **ajoute** (la maquette met les categories en bandeau) |
 | 3-5. Composeur menu = **assistant modal en etapes** | `page-product-menu.js` : composeur **modal pilote par les slots** de `/api/menus/{id}` (format Maxi puis 1 etape par slot) | conforme |
 | 8. Modale d'option produit (taille + quantite) | `product-options.js` : **modale** d'options (taille R4 + stepper de quantite) au-dessus de la grille | conforme |

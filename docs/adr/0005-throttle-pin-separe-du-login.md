@@ -1,6 +1,6 @@
 # ADR-0005 — Throttle du PIN separe des compteurs de connexion (RG-T22)
 
-- Statut : Accepte
+- Statut : Accepte, complete le 2026-09-29 (meme motif reutilise par `password_reset_throttle`)
 - Date : 2026-06-15
 
 ## Contexte
@@ -23,7 +23,7 @@ verification ; sous verrou actif, pas de nouvelle ligne `pin.failed` (anti-ampli
 - Brique : `App\Auth\PinThrottle`. Regle : RG-T22. Cf. ADR-0004.
 
 ## Errata
-- Erratum (2026-09-28, audit #195) : le contexte ci-dessus dit « PIN (ADR-0004) est court
+- Erratum (ecrit le 2026-09-29 par BYAN, `02609c5`, constat de l'audit #195 du 28/09) : le contexte ci-dessus dit « PIN (ADR-0004) est court
   (4 chiffres) » ; le PIN est en realite long de 4 a 12 chiffres
   (`STAFF_PIN_MIN_LENGTH`/`STAFF_PIN_MAX_LENGTH`, `App\Auth\PinVerifier` lignes 134/139),
   vrai depuis la creation de la brique (commit `7c35f8e`, 2026-06-15). Le raisonnement de

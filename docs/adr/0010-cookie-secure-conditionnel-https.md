@@ -40,6 +40,6 @@ Applique aux deux points (pose du cookie + expiration au logout).
 - `httponly` et `SameSite=Strict` restent inconditionnels. Revele par [E2E admin](../domaines/auth.md).
 
 ## Errata
-- Erratum (2026-09-28, audit #195) : le lien « [E2E admin](../domaines/auth.md) » pointait
+- Erratum (ecrit le 2026-09-29 par BYAN, `02609c5`, constat de l'audit #195 du 28/09) : le lien « [E2E admin](../domaines/auth.md) » pointait
   vers une fiche de domaine qui ne documente pas ce parcours E2E. Le test reel est
   `tests/e2e/admin.spec.js` (`garde -> login -> dashboard -> logout`).

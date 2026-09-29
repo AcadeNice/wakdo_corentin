@@ -173,8 +173,7 @@ parent et que ce parent est deja pris par le controleur HTML.
     pour le contrat a jour).
 - Fichiers concernes : `src/app/Controllers/Admin/Api/*` (dont `OrderApiController` et
   `StatsApiController`, ajoutes au second chantier), `src/app/Auth/PinGate.php`,
-  `src/app/Core/routes.php` (routes ; extraites de `src/public/admin/index.php` le
-  2026-09-27, commit `64bdb67`), `docs/api/conventions.md` (section 5.3),
+  `src/public/admin/index.php` (routes), `docs/api/conventions.md` (section 5.3),
   `docs/api/wakdo-admin.postman_collection.json`.
 
 ## Addendum (2026-09-26) — Connexion JSON (`/admin/api/auth/*`)
@@ -286,22 +285,34 @@ CSRF), plutot que d'echanger un risque contre un autre sans filet.
   dans `RouteMatrixTest` lui-meme.
 
 ## Errata
-- Erratum (2026-09-28, audit #195) : « quatre copies (2 HTML + 2 JSON) » de la duplication
+- Erratum (ecrit le 2026-09-29 par BYAN, `02609c5`, constat de l'audit #195 du 28/09) : « quatre copies (2 HTML + 2 JSON) » de la duplication
   `mb_strlen($note) > 255` est perime : la note libre est verifiee dans les TROIS methodes
   API (`apiRestock`/`apiInventory`/`apiAdjust`, `IngredientApiController` lignes 276/427/496)
   et les TROIS methodes HTML correspondantes (`restock`/`inventory`/`adjust`,
-  `IngredientController` lignes 503/580/693) — six copies (3 HTML + 3 JSON), pas quatre.
-- Erratum (2026-09-28, audit #195) : les deux mentions « (chantier RBAC canal,
+  `IngredientController` lignes 504/581/694 au 29/09 apres-midi) — six copies (3 HTML + 3 JSON), pas quatre.
+- Erratum (ecrit le 2026-09-29 par BYAN, `02609c5`, constat de l'audit #195 du 28/09) : les deux mentions « (chantier RBAC canal,
   pre-soutenance) » / « Mise a jour (pre-soutenance, ...) » ci-dessus restaurent le mot
   d'origine (« post-soutenance ») pour l'enregistrement, mais le mot d'origine etait
   lui-meme imprecis : le chantier de cloisonnement des canaux a ete livre le 2026-09-26 par
   le commit `6b8ecf0` (PR #156), soit AVANT la soutenance (2026-10-05). Lire partout
   « pre-soutenance » avec la date exacte du 2026-09-26 (#156).
-- Erratum (2026-09-28, audit #195) : « `src/public/admin/index.php` (ligne 56) » restaure
+- Erratum (ecrit le 2026-09-29 par BYAN, `02609c5`, constat de l'audit #195 du 28/09) : « `src/public/admin/index.php` (ligne 56) » restaure
   la ligne d'origine (77) de premiere redaction ; les routes ayant ete extraites vers
   `src/app/Core/routes.php` le 2026-09-27 (commit `64bdb67`), l'appel a
-  `(new SessionManager($config))->start()` vit aujourd'hui a la ligne 56 de
-  `src/public/admin/index.php` (le fichier a retreci apres extraction des routes).
-- Erratum (2026-09-28, audit #195) : « hook prive equivalent » restaure le mot d'origine,
+  `(new SessionManager($config))->start()` vit aujourd'hui a la ligne 62 de
+  `src/public/admin/index.php`, et n'est plus inconditionnel : depuis `ef7fd37` (29/09), il
+  n'est appele que si `SessionRoutePolicy::needsSession()` le demande (l.61-63), aucune
+  session n'etant ouverte pour l'API publique `/api/*`.
+- Erratum (ecrit le 2026-09-29 par BYAN, `02609c5`, constat de l'audit #195 du 28/09) : « hook prive equivalent » restaure le mot d'origine,
   mais `AuthController::authService()` et `AuthApiController::authService()` sont tous deux
   declares `protected` (verifie dans le code), pas `private`.
+- Erratum (2026-09-29, BYAN, contre-audit) : « Fichiers concernes : ... `src/public/admin/index.php`
+  (routes) » est perime : les routes ont ete extraites vers `src/app/Core/routes.php` le
+  2026-09-27 (commit `64bdb67`). Une passe precedente avait corrige cette ligne directement dans
+  le corps, sans marque ; le texte d'origine y est restaure et la correction portee ici.
+- Erratum (2026-09-29, BYAN, contre-audit) : « les controleurs HTML gardent leur copie historique
+  intacte » n'est plus exact pour la trace d'un PIN faux : depuis `aa2a843` (option A, RGPD art.
+  5.1.c), les six controleurs HTML qui demandent un PIN (`RoleController`, `MenuController`,
+  `UserController`, `IngredientController`, `OrderAdminController`, `ProductController`) delegent
+  l'ecriture de `pin.failed` au point unique `PinGate::auditFailedPin()`, partage avec l'API
+  JSON. Le reste de leur sequence PIN (verrou, leurre de timing) reste leur copie propre.

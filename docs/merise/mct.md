@@ -3,8 +3,8 @@
 **Phase Merise** : P1 - Conception, etape 3 (apres le MCD)
 **Version** : v0.7 — prod-like, machine a 6 etats (+ couche security-by-design 2026-06-11)
 **Historique** : v0.3 (2026-09-24) — mise en coherence avec le code livre (2a09597) : CREATE_ORDER (3.3) ne decrit plus que la creation, nouvelle operation PAY_ORDER (3.3ter) pour l'encaissement, CREATE_COUNTER_ORDER (4.1) en deux transactions, DISPLAY_CONFIRMATION (3.4) sur le statut `preparing`, COMPOSE_CART (3.2) sans modificateur d'ingredient cote borne, CANCEL_ORDER (7.1) sur quatre statuts avec re-credit conditionne aux mouvements `sale`, modificateurs d'ingredient envoyes par la saisie comptoir et drive (et non par la borne), role `kitchen` qui marque une commande prete, tableau des operations complete (30 operations), matrice de verification croisee MCT -> MCD (section 15) mise a jour, dont `pin_throttle`. v0.4 (2026-09-28) — audit final sur pieces : `manager` ajoute a CANCEL_ORDER/LIST_ORDERS_DISPLAY/MARK_READY (a `order.read` + `order.cancel` depuis ADR-0020) ; operation `ADJUST` (ajustement libre de stock) et operations RBAC/catalogue manquantes ajoutees (35 operations) ; DELETE_PRODUCT et MANAGE_CATEGORY realignes sur le comportement reel du code (pas de pre-controle PHP listant les blocages, pas de proposition de desactivation en cascade) ; LOAD_CATALOGUE sans controle horaire applicatif ; READ_STATS decrit sur les seuls indicateurs codes ; footnotes de la section 15 renumerotees. v0.5 (2026-09-29) — contre-audit independant (base MariaDB jetable) : RESET_USER_PIN (10.6) corrigee (met `pin_hash` a NULL, pas de PIN de remplacement ; audit `user.update` avec `details={"fields":["pin_hash"]}`, pas `user.reset_pin`) ; SET_OWN_PIN (10.7) corrigee (ecrit bien une ligne `audit_log` `pin.set`) ; CREATE_PRODUCT (8.1) corrigee (categorie EXISTANTE, pas necessairement active) ; DELETE_MENU (8.6) alignee sur l'absence de pre-verification et le message HTTP 409 exact ; MANAGE_CATEGORY (8.7) corrigee (aucune suppression physique, seule la bascule `is_active` existe) ; MANAGE_INGREDIENT (8.8) complete (ecrit `audit_log` `ingredient.allergens`) ; nouvelle section 5.2 MARK_READY (fiche absente malgre la mention dans le tableau et le texte) ; tableau §14 complete de 5 operations absentes (IMPORT... deja present ; ajout de `ENRICH_INGREDIENT`, `REORDER_CATALOGUE`, `TRACK_ORDER_PUBLIC`, `READ_HEALTH`, `EXPIRE_ORDER`) et recompte (40 operations). v0.6 (2026-09-29) — correctif merge apres le contre-audit : UPDATE_MENU (8.5) corrigee, les emplacements sont reconcilies en place (`MenuRepository::reconcileSlots()`) au lieu d'un delete-and-reinsert qui levait une erreur serveur 500 sur un menu deja commande (FK `order_item_selection.menu_slot_id` RESTRICT) ; ajout de l'ERR-1 (409 si un emplacement retire est deja reference). v0.7 (2026-09-29) — deux correctifs de securite merges : AUTHENTICATE_USER (12.1) precisee (session_epoch pose a la connexion ; role_id/session_epoch relus en base a chaque requete ulterieure, RG-T02, commit `ef7fd37`) ; RESET_PASSWORD (12.3) durcie (throttle par adresse et par IP, invalidation des sessions ouvertes via `session_epoch`, commit `ef7fd37`) ; nouvelle entite security-by-design `password_reset_throttle` (24e entite, section 15 note 6). 40 operations inchangees (aucune nouvelle operation MCT, seules des regles de securite existantes sont renforcees).
-**Date** : 2026-06-04 (ajouts security-by-design 2026-06-11)
-**Branche** : `feat/p1-conception`
+**Date** : 2026-06-04 (premiere redaction ; derniere mise a jour 2026-09-29)
+**Branche** : premiere redaction sur `feat/p1-conception` ; etat actuel sur `docs/contre-audit` (29/09), en production apres la release du 29/09
 **Statut** : prod-like — toutes les decisions D1-D8 + stock appliquees (voir `docs/journal/2026-06-04--conception-prodlike-revision.md` pour D1-D3 et `docs/journal/2026-06-04--p1-merise-v0.2-rewrite-and-forgejo-migration.md` pour D4-D8 + stock ; ADR-0020 remplace D5 sur l'annulation) ; operations security-by-design ajoutees (ERASE_USER_PII, RESET_PASSWORD, ensemble sensible protege par PIN, ecritures audit_log, throttling d'authentification) — 40 operations (PAY_ORDER, MARK_READY et ADJUST notamment, voir section 14)
 **Auteur** : BYAN (couche methodologie)
 
@@ -352,10 +352,10 @@ Pour chaque operation, le document fournit :
 | **Synchronisation** | Aucune |
 | **Condition** | L'acteur detient la permission `menu.update`. Le menu existe. La configuration mise a jour preserve au moins un slot avec au moins une option. |
 | **Operation** | UPDATE_MENU |
-| **Description** | UPDATE des colonnes `menu`. Si la configuration des slots est modifiee : les emplacements sont RECONCILIES EN PLACE (`reconcileSlots()`, corrige le 2026-09-29 — voir Erratum ci-dessous), et non plus supprimes puis reinseres : un emplacement soumis est apparie par POSITION au sein du meme `slot_type` a un emplacement existant (UPDATE de ses champs + remplacement total de ses options), un emplacement soumis sans homologue est INSERT, un emplacement existant sans homologue soumis et sans reference dans `order_item_selection` est DELETE. Le tout dans une transaction. Les snapshots dans `order_item` ne sont pas affectes. |
-| **Entites MCD** | R : `order_item_selection` (verifie qu'un emplacement retire n'y est pas deja reference, avant toute ecriture) — W: `menu` (UPDATE), `menu_slot` (UPDATE et/ou INSERT et/ou DELETE), `menu_slot_option` (remplacement total par emplacement apparie ou nouveau) |
+| **Description** | UPDATE des colonnes `menu`. Si la configuration des slots est modifiee : les emplacements sont RECONCILIES EN PLACE (`reconcileSlots()`, corrige le 2026-09-29 — voir Erratum ci-dessous), et non plus supprimes puis reinseres : un emplacement soumis est apparie a un emplacement existant du meme `slot_type`, d'abord par NOM identique puis, pour le reste, par POSITION (depuis `e9f00d8`, 29/09 ; lignes lues en `FOR UPDATE`) — UPDATE de ses champs + remplacement total de ses options, un emplacement soumis sans homologue est INSERT, un emplacement existant sans homologue soumis et sans reference dans `order_item_selection` est DELETE. Le tout dans une transaction. Les snapshots dans `order_item` ne sont pas affectes. |
+| **Entites MCD** | R : `order_item_selection` (verifie qu'un emplacement retire n'y est pas deja reference, avant toute ecriture sur les emplacements) — W: `menu` (UPDATE), `menu_slot` (UPDATE et/ou INSERT et/ou DELETE), `menu_slot_option` (remplacement total par emplacement apparie ou nouveau) |
 | **Resultat** | Menu mis a jour |
-| **ERR-1** | Un emplacement retire de la configuration soumise est deja reference par `order_item_selection` (FK `ON DELETE RESTRICT`) : `MenuSlotInUseException`, levee AVANT toute ecriture. HTML -> formulaire reaffiche avec le message sous le constructeur d'emplacements, HTTP 409 ; API -> `409 CONFLICT`. Rien n'est ecrit (rollback de la transaction). |
+| **ERR-1** | Un emplacement retire de la configuration soumise est deja reference par `order_item_selection` (FK `ON DELETE RESTRICT`) : `MenuSlotInUseException`, levee avant toute ecriture sur les emplacements ; l'UPDATE de `menu`, execute juste avant dans la meme transaction (`MenuRepository::update()`), est annule par le rollback. Une commande concurrente qui reference l'emplacement entre ce controle et le DELETE produit la meme exception (violation 23000 traduite, `e9f00d8`). HTML -> formulaire reaffiche avec le message sous le constructeur d'emplacements, HTTP 409 ; API -> `409 CONFLICT`. Rien ne reste ecrit. |
 
 **Erratum (2026-09-29, contre-audit independant)** : avant cette date, `update()` reconstruisait
 systematiquement les emplacements en delete-and-reinsert (DELETE de `menu_slot_option`, DELETE de
@@ -406,7 +406,7 @@ deja commande au moins une fois avec une selection d'emplacement etait modifie ;
 | **Synchronisation** | OR (creer ingredient, modifier ingredient, modifier composition, modifier mapping allergene) |
 | **Condition** | L'acteur detient la permission `ingredient.manage`. |
 | **Operation** | MANAGE_INGREDIENT |
-| **Description** | CRUD sur `ingredient` (name, unit, pack_size, pack_label, stock_capacity, low_stock_pct, critical_stock_pct, is_active). Gestion de la composition `product_ingredient` (quantity_normal, quantity_maxi, is_removable, is_addable, extra_price_cents) pour tout produit. Gestion du mapping `ingredient_allergen` (14 allergenes reglementes UE) : la sauvegarde re-ecrit `ingredient_allergen` pour l'ingredient, pose `ingredient.allergens_reviewed_at`/`allergens_source`, et ajoute dans la MEME transaction une ligne `audit_log` (`action_code='ingredient.allergens'`) — seule sous-operation de 8.8 qui journalise (`IngredientRepository::saveAllergens`). Desactiver un ingredient (`is_active=0`) le masque du configurateur sans suppression. La suppression physique de `ingredient` est bloquee s'il est reference dans `product_ingredient` (FK `ON DELETE RESTRICT`) ou `stock_movement` (FK `ON DELETE RESTRICT`). |
+| **Description** | CRUD sur `ingredient` (name, unit, pack_size, pack_label, stock_capacity, low_stock_pct, critical_stock_pct, is_active). Gestion de la composition `product_ingredient` (quantity_normal, quantity_maxi, is_removable, is_addable, extra_price_cents) pour tout produit. Gestion du mapping `ingredient_allergen` (14 allergenes reglementes UE) : la sauvegarde re-ecrit `ingredient_allergen` pour l'ingredient, pose `ingredient.allergens_reviewed_at`/`allergens_source`, et ajoute dans la MEME transaction une ligne `audit_log` (`action_code='ingredient.allergens'`) — seule sous-operation de 8.8 qui journalise (`IngredientRepository::setAllergens`, `IngredientRepository.php:228`). Desactiver un ingredient (`is_active=0`) le masque du configurateur sans suppression. La suppression physique de `ingredient` est bloquee s'il est reference dans `product_ingredient` (FK `ON DELETE RESTRICT`) ou `stock_movement` (FK `ON DELETE RESTRICT`). |
 | **Entites MCD** | R: `product` (FK validation), `allergen` (FK validation) — W: `ingredient` (INSERT/UPDATE/DELETE conditional), `product_ingredient` (INSERT/UPDATE/DELETE), `ingredient_allergen` (INSERT/DELETE), `audit_log` (INSERT `ingredient.allergens`, seulement pour le mapping allergene) |
 | **Resultat** | Ingredient / composition / mapping allergene mis a jour |
 
@@ -451,7 +451,7 @@ deja commande au moins une fois avec une selection d'emplacement etait modifie ;
 | **Evenement declencheur** | Un membre du personnel ou un manager enregistre le resultat d'un inventaire physique |
 | **Acteur** | KITCHEN, COUNTER, DRIVE, MANAGER ou ADMIN |
 | **Synchronisation** | Aucune |
-| **Condition** | L'acteur detient la permission `stock.count`. L'ingredient existe. Comptage physique `actual_quantity >= 0`. |
+| **Condition** | L'acteur detient la permission `stock.count`. PIN equipier obligatoire (RG-T13) : l'equipier resolu par le PIN est l'acteur enregistre (`stock_movement.user_id`), pas le compte de session. L'ingredient existe. Comptage physique `actual_quantity >= 0`. |
 | **Operation** | INVENTORY_COUNT |
 | **Description** | Calcul de `delta = actual_quantity - ingredient.stock_quantity` (peut etre negatif ou positif). UPDATE `ingredient.stock_quantity = actual_quantity`, PLAFONNE a `stock_capacity` (meme `clampToCapacity` que RESTOCK, migration `0008`) : un comptage physique superieur a la capacite configuree est retenu a la capacite. INSERT d'une ligne `stock_movement` : type `inventory_correction`, delta = l'ecart reellement applique (apres plafonnement), `user_id` de l'acteur. Les deux ecritures dans la meme transaction. |
 | **Entites MCD** | R: `ingredient` (read current stock_quantity) — W: `ingredient` (UPDATE stock_quantity, plafonne), `stock_movement` (INSERT type `inventory_correction`, delta applique) |
@@ -715,6 +715,9 @@ et `docs/uml/state-commande.md`.
                       |
                       v
                [ cancelled ]  (terminal)
+
+  Depuis pending_payment seulement : [cron, sans acteur humain] EXPIRE_ORDER (13.6,
+  `order.expire`) -> [ cancelled ] quand l'encaissement n'arrive pas dans le delai.
 ```
 
 **Note sur la transition `pending_payment -> preparing`** : dans le contexte RNCP, le
@@ -766,11 +769,11 @@ manager, qui n'a pas `order.deliver`, en est exclu.
 | 21 | UPDATE_USER | RBAC | ADMIN | user | — |
 | 22 | DEACTIVATE_USER | RBAC | ADMIN | user | — |
 | 23 | MANAGE_RBAC | RBAC | ADMIN | role_permission, role, role_visible_source | role, permission |
-| 24 | READ_STATS | Stats | MANAGER/ADMIN | — | customer_order, order_item |
+| 24 | READ_STATS | Stats | MANAGER/ADMIN | — | customer_order, order_item, category, product, product_ingredient, menu, ingredient (`StatsRepository`) |
 | 25 | AUTHENTICATE_USER | Auth | ALL BACK | user | user, role, role_permission |
 | 26 | LOGOUT_USER | Auth | ALL BACK | — | — |
 | 27 | ERASE_USER_PII | RBAC | ADMIN | user, audit_log | user |
-| 28 | RESET_PASSWORD | Auth | ALL BACK | user, audit_log | user |
+| 28 | RESET_PASSWORD | Auth | ALL BACK | user, audit_log, password_reset_throttle | user, password_reset_throttle |
 | 29 | PAY_ORDER | Order kiosk / counter / drive | CUSTOMER/COUNTER/DRIVE/ADMIN | customer_order, ingredient, stock_movement | order_item, order_item_modifier, product_ingredient |
 | 30 | MARK_READY | Preparation | KITCHEN/COUNTER/DRIVE/MANAGER/ADMIN | customer_order | role_visible_source |
 | 31 | ADJUST | Stock | KITCHEN/COUNTER/DRIVE/MANAGER/ADMIN | ingredient, stock_movement | ingredient |
@@ -812,20 +815,20 @@ Verification que chaque entite MCD participe a au moins une operation MCT.
 
 | Entite MCD | Operations en lecture | Operations en ecriture | Couverture |
 |------------|---------------------|----------------------|----------|
-| `category` | 1, 9, 12, 15, 37 | 15, 37 | OK |
-| `product` | 1, 2, 3, 5, 9, 11, 12, 32, 37 | 9, 10, 11, 32, 37 | OK |
-| `menu` | 1, 2, 3, 5, 12, 14 | 12, 13, 14 | OK |
+| `category` | 1, 9, 12, 15, 24, 37 | 15, 37 | OK |
+| `product` | 1, 2, 3, 5, 9, 11, 12, 24, 32, 37 | 9, 10, 11, 32, 37 | OK |
+| `menu` | 1, 2, 3, 5, 12, 14, 24 | 12, 13, 14 | OK |
 | `menu_slot` | 1, 2, 5 | 12, 13, 14 | OK |
 | `menu_slot_option` | 1, 2, 5, 11 | 12, 13, 14 | OK |
-| `ingredient` | 1, 3, 5, 8, 16, 17, 18, 19, 32, 36 | 5, 8, 16, 17, 18, 29, 31, 32, 33, 36 | OK |
-| `product_ingredient` | 3, 5, 8, 29 | 16, 32 | OK |
+| `ingredient` | 1, 3, 5, 8, 16, 17, 18, 19, 24, 32, 36 | 5, 8, 16, 17, 18, 29, 31, 32, 33, 36 | OK |
+| `product_ingredient` | 3, 5, 8, 24, 29 | 16, 32 | OK |
 | `allergen` | 1 | — (seed statique) | OK (1) |
 | `ingredient_allergen` | 1 | 16 | OK |
 | `customer_order` | 6, 8, 24, 29, 38 | 3, 5, 7, 8, 29, 30, 40 | OK |
 | `order_item` | 6, 8, 14, 24, 29 | 3, 5 | OK |
 | `order_item_selection` | 6 | 3, 5 | OK |
 | `order_item_modifier` | 6, 8, 29 | 3, 5 (seulement quand le corps en porte) | OK |
-| `user` | 8, 25 | 20, 21, 22, 25, 34, 35 | OK |
+| `user` | 8, 25 | 20, 21, 22, 25, 27, 28, 34, 35 | OK |
 | `role` | 20, 23, 25 | 23 | OK |
 | `role_visible_source` | 6, 30 | 23 | OK |
 | `permission` | 23 | — (seed statique) | OK (1) |
@@ -834,6 +837,7 @@ Verification que chaque entite MCD participe a au moins une operation MCT.
 | `audit_log` | (vue d'audit admin) | 8, 10, 11, 14, 16, 20, 21, 22, 23, 25, 27, 28, 32, 34, 35, 40 | OK (2) |
 | `login_throttle` | 25 | 25 | OK (3) |
 | `pin_throttle` | 8, 10, 11, 14, 18, 20, 21, 22, 23, 27, 31, 32, 34 | 8, 10, 11, 14, 18, 20, 21, 22, 23, 27, 31, 32, 34 | OK (4) |
+| `password_reset_throttle` | 28 | 28 | OK (6) |
 | `category_ingredient_family` | (constructeur de recette) | — (seed, migration 0017) | OK (5) |
 
 (1) `allergen` et `permission` sont en lecture seule au niveau MCT : leurs valeurs sont declarees
@@ -866,7 +870,9 @@ MANAGE_INGREDIENT/MANAGE_CATEGORY.
 mot de passe, par ADRESSE et par IP source (deux dimensions dans la meme table, discriminees par
 `throttle_kind`) : il est lu (gate avant travail) ET ecrit (upserte sur chaque soumission non
 bloquee) par `RESET_PASSWORD` (28). Sa purge suit le meme principe que `login_throttle`/`pin_throttle`
-(cron, `mlt.md`), hors du perimetre des operations MCT.
+(`docker/cron/scripts/purge-throttle.sh`, ajoutee le 2026-09-29 par `680820f`), hors du perimetre
+des operations MCT. Depuis la migration `0021`, la dimension adresse stocke l'empreinte SHA-256 de
+l'adresse normalisee, pas l'adresse en clair.
 
 **Conclusion** : 24/24 entites couvertes (19 prod-like + `audit_log` + `login_throttle` +
 `pin_throttle` + `category_ingredient_family` + `password_reset_throttle`). Coherence MCT <-> MCD validee.

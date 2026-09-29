@@ -34,16 +34,16 @@ est defini par RG-T13. Les operations de stock tracent via `stock_movement.user_
 - Brique : `App\Auth\PinVerifier`. Regle : `docs/merise/mlt.md` RG-T13/RG-T14.
 
 ## Errata
-- Erratum (2026-09-28, audit #195) : la consequence ci-dessus disait « PIN (4 chiffres) » ;
+- Erratum (ecrit le 2026-09-29 par BYAN, `02609c5`, constat de l'audit #195 du 28/09) : la consequence ci-dessus disait « PIN (4 chiffres) » ;
   le PIN est en realite long de 4 a 12 chiffres (`STAFF_PIN_MIN_LENGTH`/
   `STAFF_PIN_MAX_LENGTH`, `App\Auth\PinVerifier` lignes 134/139), vrai depuis la creation
   de la brique (commit `7c35f8e`, 2026-06-15 — le meme jour que cette fiche). Le corps
   d'origine est restaure ci-dessus pour l'enregistrement ; le fait exact est ici.
-- Erratum (2026-09-28, audit #195) : « un manager peut autoriser sur le poste d'un autre
+- Erratum (ecrit le 2026-09-29 par BYAN, `02609c5`, constat de l'audit #195 du 28/09) : « un manager peut autoriser sur le poste d'un autre
   sans relog » peut laisser croire que le PIN delegue un droit. Ce n'est pas le cas : le
   PIN identifie l'ACTEUR pour `audit_log`, mais la permission (`role_permission`) reste
   verifiee sur la SESSION, AVANT la demande de PIN (`guard('order.cancel')` avant le PIN
-  dans `OrderAdminController::cancel()`, ligne 224). Un manager qui entre son PIN sur un
+  dans `OrderAdminController::cancel()`, ligne 225 au 29/09). Un manager qui entre son PIN sur un
   poste sans `order.cancel` ne debloque donc rien ; voir la Precision (ADR-0020) en tete de
   fiche, qui le dit deja explicitement.
 - Complement (2026-09-29, contre-audit independant) : cette fiche etablit que le PIN

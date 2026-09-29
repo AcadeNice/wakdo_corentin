@@ -158,3 +158,11 @@ anonyme.
   lancement. Ils ne sont declenches que par un clic.
 - (-) La page relit l'etat toutes les 15 secondes tant qu'elle est ouverte et visible ; la
   relecture est suspendue quand l'onglet est masque.
+
+## Errata
+
+- Erratum (2026-09-29, BYAN, contre-audit) : le champ `commit` de `captured-responses.json`,
+  signale plus haut comme a remettre a jour, l'a ete a la recapture du 29/09 apres-midi : il vaut
+  `c2b8c1c` (fichier depose par `fe8b738`), ou le routeur declare bien les 158 routes capturees.
+  Resultat de cette recapture : 158 succes obtenus sur 158, 670 refus obtenus sur 689 tentes
+  (les 19 autres sont enregistres « non reproduit » avec le code reellement observe).

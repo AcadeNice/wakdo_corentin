@@ -295,12 +295,17 @@ flowchart LR
     Manager -.-> UC69
     Admin -.-> UC69
 
-    %% API JSON : meme perimetre fonctionnel que le HTML, canal alternatif
+    %% API JSON : meme perimetre fonctionnel que le HTML, canal alternatif,
+    %% ouvert a chaque role selon ses permissions (pas reserve au manager et a l'admin)
     Manager --> UC71
     Admin --> UC71
+    Kitchen --> UC71
+    Counter --> UC71
+    Drive --> UC71
 
-    %% suivi public de commande, canal kiosk uniquement
-    Customer --> UC72
+    %% suivi public de commande (GET /api/orders/{number}) : route publique,
+    %% pas appelee par les ecrans de la borne livree
+    Customer -.-> UC72
 ```
 
 Notes de lecture :
@@ -317,7 +322,12 @@ Notes de lecture :
   et n'est pas concerne.
 - **UC71** ne cree aucune capacite nouvelle : c'est un canal JSON (`/admin/api`, 57
   routes) vers les MEMES cas que le HTML (sections 4.2, 4.4, 4.5, 4.6), avec les memes
-  permissions et gardes PIN.
+  permissions et gardes PIN ; chaque role y accede selon ses permissions (la cuisine lit la
+  file, le comptoir et le drive creent et remettent leurs commandes), pas seulement le manager
+  et l'admin.
+- **UC72** (`GET /api/orders/{number}`) est une route publique documentee et testee, mais
+  aucun ecran de la borne livree ne l'appelle (verifie dans `src/public/borne/assets/js/`,
+  29/09) : le lien est donc en pointille.
 
 ---
 
@@ -358,7 +368,7 @@ agit sur `/admin/orders`, la meme liste que l'admin, avec `order.read` + `order.
 | Cas | Operation MCT | Permission | Description | Entites |
 |---|---|---|---|---|
 | Consulter les commandes | 5.1 LIST_ORDERS_DISPLAY (elargie) | `order.read` | Voit `/admin/orders` (`OrderAdminController::index`) comme l'admin, toutes sources, pas de filtre par canal — mais ce n'est PAS la file de preparation stricte : `/admin/orders` liste les 50 commandes les PLUS RECENTES TOUS STATUTS confondus (historique + action), la ou `/kitchen/display` (KitchenController, le vrai equivalent de LIST_ORDERS_DISPLAY 5.1) ne montre QUE `paid`/`preparing`/`ready`. Le manager n'a pas d'ecran `/kitchen/display` dedie ; `/admin/orders` lui sert des deux (consultation large + actions ready/cancel). | `customer_order`, `order_item`, `order_item_selection`, `order_item_modifier`, `role_visible_source` |
-| Marquer une commande prete | MARK_READY (`mct.md` 5.2) | `order.read` | Meme bouton « Prete » que kitchen/counter/drive/admin. | `customer_order` |
+| Marquer une commande prete | MARK_READY (`mct.md` 5.2) | `order.read` | Depuis l'ecran cuisine (`/kitchen/display`, `order.read`), seul ecran ou le bouton « Prete » existe ; `/admin/orders` n'offre que « Annuler » (`Views/admin/orders/index.php`). | `customer_order` |
 | Annuler une commande | 7.1 CANCEL_ORDER | `order.cancel` + PIN | Meme flux PIN + audit que counter/drive/admin (7.1). | `customer_order`, `ingredient`, `stock_movement`, `audit_log` |
 
 ### 4.3 Acteur Kitchen (role `kitchen`)
@@ -400,7 +410,7 @@ agit sur `/admin/orders`, la meme liste que l'admin, avec `order.read` + `order.
 | Cas | Operation MCT | Description |
 |---|---|---|
 | S'authentifier | 12.1 AUTHENTICATE_USER | Tous les roles back-office passent par ce cas avant d'acceder a leurs cas (relation `<<include>>`). Verification argon2id, regeneration de session (anti-fixation), `is_active=1` requis, redirection vers `role.default_route`. Le Customer du kiosk n'est pas authentifie. |
-| Se deconnecter | 12.2 LOGOUT_USER | Destruction de session (`session_destroy()`) sur clic ou expiration (idle 4h / absolu 10h). |
+| Se deconnecter | 12.2 LOGOUT_USER | Destruction de session (`AuthService::logout()`) sur clic. A l'expiration (inactivite 4h / absolu 10h), `SessionGuard::check()` REFUSE la session (retour a la connexion) sans la detruire ; le fichier de session est ensuite supprime par le ramasse-miettes de PHP. |
 
 ---
 

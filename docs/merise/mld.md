@@ -3,9 +3,9 @@
 **Phase Merise** : P1 - Conception, etape 5 (apres MCD, MCT, MLT)
 **Version** : v0.9 — prod-like, 24 tables (19 prod-like + couche security-by-design + classement des ingredients)
 **Historique** : v0.9 (2026-09-29) — deux correctifs de securite merges : colonne `user.session_epoch` et nouvelle table `password_reset_throttle` (throttle de la demande de reinitialisation par adresse et par IP), migration `0020_session_invalidation.sql`, commit `ef7fd37` ; compte de tables 23 -> 24 (section 8). v0.8 (2026-09-29) — correctif merge apres le contre-audit : `audit_log.summary`/`details` precises sur le cas `pin.failed` (minimisation RGPD art. 5.1.c, migration `0019_pin_failed_audit_minimisation.sql`). v0.7 (2026-09-29) — contre-audit independant (base MariaDB jetable) : ordre reel des colonnes de `product` corrige (`size_cl`, `base_product_id` AVANT `maxi_variant_product_id`, migrations 0006/0007 posees au meme point d'ancrage `AFTER price_cents`) ; `vat_rate` note `DEFAULT 100` ; section 11 corrigee (`pin_throttle` n'est PAS creee par `0001_init_schema.sql`, elle est creee par la premiere migration additive `0002_pin_throttle.sql`) ; volumes de seed corriges (58 produits apres tous les seeds, 6 comptes utilisateur au total). v0.6 (2026-09-28) — audit final : slots du composeur de menu alignes sur le seed reel (Accompagnement/Boisson/Sauce), `stock_movement.user_id`/`customer_order.acting_user_id` corriges (utilisateur de session, sans PIN, a la creation d'une commande counter/drive), calcul HT precise (arrondi par unite puis multiplie), section 8 recalee sur 23 tables (ajout de `category_ingredient_family`), sections 9 et 11 reecrites au present/passe pour refleter le livre reel, references vers `docs/notes/revue-alignement-p1.md` (non versionne) remplacees par les journaux traces `docs/journal/`. v0.5 (2026-09-27) — migration 0017 : colonne `ingredient.family` (nullable) et table `category_ingredient_family` (4.23), qui filtrent le selecteur d'ingredients du constructeur de recette selon la categorie du produit ; compte de tables 22 -> 23 ; voir `docs/adr/0018-familles-ingredients-filtre-recette.md`. v0.4 (2026-09-24) — mise en coherence avec le code livre (2a09597) : les quatre diagrammes relationnels re-extraits des migrations 0001 a 0011 (colonnes `preparing_at` / `ready_at` de 0009 et `allergens_*` de 0011, descriptions et chemins d'image), cle etrangere nullable notee en 0..1, relation `user` -> `pin_throttle` corrigee en 1 vers 0..1 (unicite de `actor_user_id`), rendus SVG regeneres avec `_diagrams/mermaid-config.json`.
-**Date** : 2026-06-04 (ajouts security-by-design 2026-06-11)
-**Branche** : `feat/p1-conception`
-**Statut** : prod-like — toutes les decisions D1-D8 + stock appliquees (voir `docs/journal/2026-06-04--conception-prodlike-revision.md` pour D1-D3 et `docs/journal/2026-06-04--p1-merise-v0.2-rewrite-and-forgejo-migration.md` pour D4-D8 + stock) ; couche security-by-design (audit_log + colonnes imputabilite/auth) en cours
+**Date** : 2026-06-04 (premiere redaction ; derniere mise a jour 2026-09-29)
+**Branche** : premiere redaction sur `feat/p1-conception` ; etat actuel sur `docs/contre-audit` (29/09), en production apres la release du 29/09
+**Statut** : prod-like — toutes les decisions D1-D8 + stock appliquees (voir `docs/journal/2026-06-04--conception-prodlike-revision.md` pour D1-D3 et `docs/journal/2026-06-04--p1-merise-v0.2-rewrite-and-forgejo-migration.md` pour D4-D8 + stock) ; couche security-by-design (audit_log + colonnes imputabilite/auth + tables de limitation) livree, DDL dans `db/migrations/` (20 fichiers, 0001 a 0021 sans 0004)
 **Auteur** : BYAN (couche methodologique)
 
 ---
@@ -17,8 +17,8 @@ association traduite selon sa cardinalite, contraintes referentielles materialis
 index dimensionnes pour les patterns d'acces frequents.
 
 C'est l'etape qui transforme la modelisation conceptuelle en une specification implementable.
-Le DDL SQL (`db/migrations/0001_init_schema.sql`) sera derive directement de ce
-document en P2.
+Le DDL SQL (`db/migrations/0001_init_schema.sql`, puis les migrations additives) a ete
+derive de ce document en P2 ; il est livre (section 11).
 
 **Sources** :
 - `docs/merise/dictionary.md` (v0.2 — types et contraintes par attribut, source de verite)
@@ -1123,7 +1123,7 @@ stock_movement (id, #ingredient_id, movement_type, delta,
 | `movement_type` | ENUM('sale','cancellation','restock','inventory_correction','adjustment') | NO | Nature du mouvement |
 | `delta` | INT | NO | Changement signe : negatif pour consommation, positif pour reapprovisionnement/annulation/correction |
 | `order_id` | INT UNSIGNED | YES | FK -> customer_order ; non-null pour `sale` et `cancellation` |
-| `user_id` | INT UNSIGNED | YES | FK -> user ; utilisateur AGISSANT (equipier de session pour vente counter/drive ou annulation, manager/admin pour reapprovisionnement/correction) ; null uniquement pour les ventes de la borne (kiosk, anonyme) |
+| `user_id` | INT UNSIGNED | YES | FK -> user ; utilisateur AGISSANT. Selon `movement_type` : `sale` = equipier de SESSION (comptoir/drive, `OrderRepository::createStaffOrder`), NULL pour une vente borne (kiosk, anonyme) ; `cancellation` = equipier resolu par PIN (`OrderRepository::cancel`) ; `restock` = equipier de SESSION (9.1, sans PIN) ; `inventory_correction`/`adjustment` = equipier resolu par PIN (9.2/9.4, `IngredientApiController::apiInventory`/`apiAdjust`) |
 | `note` | VARCHAR(255) | YES | Note humaine optionnelle |
 | `created_at` | DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP | NO | Horodatage immuable |
 
@@ -1307,7 +1307,7 @@ password_reset_throttle (id, throttle_kind, identifier, failed_attempts,
 |---|---|---|---|
 | `id` | INT UNSIGNED AUTO_INCREMENT | NO | PK |
 | `throttle_kind` | ENUM('email','ip') | NO | Dimension de la ligne : adresse demandee ou IP source |
-| `identifier` | VARCHAR(254) | NO | Adresse email (normalisee en minuscules) ou adresse IP selon `throttle_kind`. Fait partie de la cle UNIQUE composite avec `throttle_kind` |
+| `identifier` | VARCHAR(254) | NO | Pour `throttle_kind = 'ip'` : adresse IP en clair. Pour `throttle_kind = 'email'` : empreinte SHA-256 de l'adresse normalisee (minuscules, espaces de bord retires) depuis la migration 0021 — l'adresse en clair, ecrite par la migration 0020, a ete convertie (minimisation RGPD art. 5.1.c). Fait partie de la cle UNIQUE composite avec `throttle_kind` |
 | `failed_attempts` | SMALLINT UNSIGNED NOT NULL DEFAULT 0 | NO | Demandes consecutives dans la fenetre courante |
 | `window_started_at` | DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP | NO | Debut de la fenetre de comptage courante |
 | `lockout_until` | DATETIME | YES | Fin de la fenetre de backoff degressif ; NULL = pas throttle |
@@ -1319,8 +1319,14 @@ adresse connue. Meme backoff degressif que le login (RG-8) et le PIN (RG-T22), b
 (`PASSWORD_RESET_EMAIL_THROTTLE_THRESHOLD`, `PASSWORD_RESET_IP_THROTTLE_THRESHOLD`,
 `PASSWORD_RESET_THROTTLE_BASE_SECONDS`, `PASSWORD_RESET_THROTTLE_MAX_SECONDS`, `.env.example`), seuils
 distincts par dimension (l'IP tolere plus de tentatives que l'adresse). Meme purge cron que
-`login_throttle`/`pin_throttle` (`THROTTLE_PURGE_AFTER_HOURS`). Pas de `updated_at` (lignes upsertees,
-pas editees via une UI).
+`login_throttle`/`pin_throttle` (`THROTTLE_PURGE_AFTER_HOURS`, `docker/cron/scripts/purge-throttle.sh`,
+`docker/cron/crontab` 04h45). Pas de `updated_at` (lignes upsertees, pas editees via une UI).
+
+**Empreinte de l'adresse (migration 0021)** : `App\Auth\PasswordResetThrottle::hashEmail()` calcule le
+SHA-256 de l'adresse normalisee avant chaque lecture/ecriture de la dimension `email` ; la table ne sert
+qu'a comparer deux tentatives entre elles par egalite exacte sur la cle unique, sans lire ni envoyer
+d'adresse (l'envoi de l'e-mail est fait separement par `PasswordResetService`, depuis l'adresse fournie
+par l'appelant).
 
 ---
 
@@ -1329,6 +1335,8 @@ pas editees via une UI).
 | Colonne FK | References | ON DELETE | Justification |
 |---|---|---|---|
 | `product.category_id` | `category(id)` | RESTRICT | Pas de produit orphelin |
+| `product.base_product_id` | `product(id)` | CASCADE | Une variante de taille disparait avec son produit de base (migration 0007) |
+| `product.maxi_variant_product_id` | `product(id)` | SET NULL | Le produit reste, seul le lien vers sa variante Maxi est rompu (migration 0006) |
 | `menu.category_id` | `category(id)` | RESTRICT | Idem |
 | `menu.burger_product_id` | `product(id)` | RESTRICT | La definition du menu requiert son burger d'ancrage |
 | `menu_slot.menu_id` | `menu(id)` | CASCADE | Les slots n'ont pas de sens sans leur menu |
@@ -1419,6 +1427,7 @@ MCT / MLT.
 | `audit_log` | `(action_code, created_at)` | Audit par type d'action sur une plage de temps |
 | `login_throttle` | `lockout_until` | Purge cron quotidienne des lignes sans verrouillage actif |
 | `pin_throttle` | `lockout_until` | Purge cron quotidienne des lignes sans verrouillage actif (RG-T22) |
+| `password_reset_throttle` | `lockout_until` | Meme purge cron (`idx_password_reset_throttle_lockout_until`, migration 0020) |
 
 **Index non ajoutes** (intentionnel) :
 - `customer_order.order_number` : l'index UK suffit ; aucune requete de plage attendue sur cette colonne.
@@ -1499,7 +1508,8 @@ sur `customer_order` — decision 2.A) ; le modele de composition fixe `menu_pro
 | `audit_log` | ~5k-10k | 200 octets | ~2 MB |
 | `login_throttle` | ~100-1k | 80 octets | < 1 MB |
 | `pin_throttle` | ~10-100 | 80 octets | < 1 MB (1 ligne par user back-office) |
-| `category_ingredient_family` | ~20-30 | 40 octets | < 1 KB (8 des 9 categories, 2 a 5 familles chacune) |
+| `category_ingredient_family` | ~20-30 | 40 octets | < 1 KB (8 des 9 categories, 1 a 5 familles chacune) |
+| `password_reset_throttle` | ~10-100 | 110 octets | < 1 MB (lignes ephemeres, purgees par le cron) |
 
 **Total estime** : ~190 MB de donnees + ~60-80 MB pour les index = ~250-270 MB sur 6 mois
 (`audit_log` est negligeable : les actions sensibles sont d'un ordre de grandeur plus rares que les commandes).
@@ -1548,8 +1558,8 @@ que le document reste exact une fois le travail fait.
    `ingredient_allergen` -> `user` -> `role_visible_source`/`role_permission` -> `customer_order` ->
    `order_item` -> `order_item_selection`/`order_item_modifier` -> `stock_movement` -> `audit_log`).
    `pin_throttle` n'y figure PAS : elle est creee par la premiere migration additive
-   (`0002_pin_throttle.sql`), pas par `0001_init_schema.sql`. Seize migrations additives suivent dans
-   `db/migrations/`, numerotees 0002 a 0018 (la numerotation saute 0004), appliquees par un runner
+   (`0002_pin_throttle.sql`), pas par `0001_init_schema.sql`. Dix-neuf migrations additives suivent dans
+   `db/migrations/`, numerotees 0002 a 0021 (la numerotation saute 0004 ; 20 fichiers au total, mesure du 29/09), appliquees par un runner
    idempotent (`db/migrate.sh` cote hote, `db/migrate-container.sh` en conteneur), suivi par nom de
    fichier dans `schema_migrations`.
 
@@ -1571,5 +1581,7 @@ que le document reste exact une fois le travail fait.
 
 4. **Tests de validation** : les contraintes CHECK et les comportements ON DELETE sont exerces par la
    suite d'integration (`tests/Integration/*DbTest.php`, execution sur une vraie base) plutot que par
-   une suite dediee au DDL seul ; deux tests ciblent directement une migration
-   (`ManagerOrderCancelMigrationDbTest`, `IngredientFamilyMigrationDbTest`).
+   une suite dediee au DDL seul ; cinq tests ciblent directement une migration
+   (`IngredientFamilyMigrationDbTest`, `ManagerOrderCancelMigrationDbTest`,
+   `PinFailedAuditMinimisationMigrationDbTest`, `SessionInvalidationMigrationDbTest`,
+   `PasswordResetThrottleHashMigrationDbTest`, sous `tests/Integration/`).

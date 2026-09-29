@@ -32,7 +32,7 @@ borne. Login = vue PHP, pas un endpoint JSON.
 - Controleurs non-`final` (seam de test) ; vues sous `src/app/Views/admin`.
 
 ## Errata
-- Erratum (2026-09-28, audit #195) : la phrase de decision « Login = vue PHP, pas un
+- Erratum (ecrit le 2026-09-29 par BYAN, `02609c5`, constat de l'audit #195 du 28/09) : la phrase de decision « Login = vue PHP, pas un
   endpoint JSON. » avait ete completee sur place par « (l'ajout d'une API JSON
   d'administration sous `/admin/api/...`, distincte de `/api/*`, est une decision
   posterieure : voir ADR-0017) ». Le corps d'origine est restaure ci-dessus ; la precision
