@@ -299,7 +299,7 @@ final class RoleControllerTest extends TestCase
         $response = $this->controller($this->post($this->createForm(['default_route' => $unsafeRoute]), '/admin/roles'), $db)->store();
 
         self::assertSame(422, $response->status());
-        self::assertStringContainsString('doit commencer par un seul', $response->body());
+        self::assertStringContainsString('choisissez une page de la liste', $response->body());
         self::assertFalse($db->wrote('INSERT INTO role '));
     }
 
@@ -425,7 +425,7 @@ final class RoleControllerTest extends TestCase
         $response = $this->controller($this->post($form, '/admin/roles/5'), $db)->update(['id' => '5']);
 
         self::assertSame(422, $response->status());
-        self::assertStringContainsString('doit commencer par un seul', $response->body());
+        self::assertStringContainsString('choisissez une page de la liste', $response->body());
         self::assertFalse($db->wrote('UPDATE role SET'));
     }
 

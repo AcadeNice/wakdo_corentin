@@ -24,11 +24,18 @@ final class RedirectPath
     /**
      * Chemin local sur : commence par UN SEUL `/` (jamais `//`, une URL relative au
      * protocole que le navigateur resout vers un AUTRE hote), sans antislash
-     * (`\`, que certains navigateurs normalisent en `/`), sans schema (un schema
-     * ne commence jamais par `/`, donc deja exclu par la regle precedente, verifie
-     * explicitement ici pour rester correct si cette regle change un jour), et sans
-     * caractere de controle (repli d'en-tete HTTP ou construction cote client
-     * d'une valeur qu'un navigateur ignorerait silencieusement).
+     * (`\`, que certains navigateurs normalisent en `/`), sans caractere de
+     * controle (repli d'en-tete HTTP ou construction cote client d'une valeur
+     * qu'un navigateur ignorerait silencieusement), et sans deux-points juste
+     * apres le premier segment (par exemple `/javascript:alert(1)`). Ce n'est PAS
+     * une detection de schema d'URL au sens strict -- un schema ne commence jamais
+     * par `/`, donc `isLocal()` l'a deja exclu avant d'arriver ici (revue adverse,
+     * D-6 mineur : l'ancien commentaire decrivait la mauvaise regle). Ce test
+     * rejette plutot un motif de contournement connu : un deux-points impose tot
+     * dans le chemin, qu'un consommateur en aval (proxy, navigateur ancien,
+     * bibliotheque cliente) peut reinterpreter comme un separateur de schema
+     * malgre le `/` de tete. Rejete par prudence ; aucun chemin legitime de ce
+     * depot n'a cette forme.
      */
     public static function isLocal(string $path): bool
     {
