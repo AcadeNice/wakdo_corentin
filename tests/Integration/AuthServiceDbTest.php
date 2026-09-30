@@ -206,6 +206,63 @@ final class AuthServiceDbTest extends TestCase
     }
 
     /**
+     * D-3 (contre-audit 30/09), preuve contre une vraie MariaDB : deux echecs
+     * dont l'ETAT LU EST PERIME (les deux "requetes" observent le MEME compteur
+     * initial AVANT que l'une ou l'autre n'ecrive) ne doivent PAS se perdre --
+     * le compteur final doit valoir 2, pas 1.
+     *
+     * `pcntl_fork`/`proc_open` sont indisponibles dans l'image PHP de ce depot
+     * (`docker/php-fpm/php.ini:78`, verifie : `function_exists()` renvoie faux
+     * pour les deux) : un vrai test MULTI-PROCESSUS n'est pas possible avec les
+     * outils du depot. Cette version simule fidelement l'INTERLEAVING via
+     * Reflection sur la methode privee `recordFailure()` : les DEUX lectures
+     * (`findActiveUserByEmail`, RG-1) sont faites d'abord, avant TOUTE ecriture
+     * -- exactement la fenetre de course qui perdait un increment dans le code
+     * d'origine ($currentAttempts, lu hors transaction, servait de base a un
+     * calcul PHP `+ 1` ecrase par la deuxieme requete). Le correctif D-3 ayant
+     * retire ce parametre (l'increment est desormais 100% cote SQL, relu SOUS
+     * LE VERROU DE LIGNE pris par sa propre transaction), rejouer les DEUX
+     * echecs -- quel que soit ce que chacun a lu avant d'ecrire -- doit
+     * necessairement additionner a 2.
+     */
+    public function testTwoFailuresWithStaleReadStateBothIncrementAccountCounter(): void
+    {
+        $reflection = new \ReflectionClass(AuthService::class);
+        $findMethod = $reflection->getMethod('findActiveUserByEmail');
+        $findMethod->setAccessible(true);
+        $recordFailureMethod = $reflection->getMethod('recordFailure');
+        $recordFailureMethod->setAccessible(true);
+
+        $service = $this->service();
+
+        // Les DEUX "requetes" lisent le MEME etat initial (0 echec, utilisateur
+        // jetable frais) AVANT que l'une ou l'autre n'ecrive quoi que ce soit --
+        // c'est cette lecture partagee et perimee que D-3 corrige.
+        $readA = $findMethod->invoke($service, $this->email());
+        $readB = $findMethod->invoke($service, $this->email());
+        self::assertSame(0, (int) ($readA['failed_login_attempts'] ?? -1));
+        self::assertSame(0, (int) ($readB['failed_login_attempts'] ?? -1));
+
+        $accountPolicy = \App\Auth\ThrottlePolicy::fromConfig($this->config, 'account');
+        $ipPolicy = \App\Auth\ThrottlePolicy::fromConfig($this->config, 'ip');
+        $roleId = (int) ($readA['role_id'] ?? 0);
+
+        // Requete A ecrit son echec (a partir de son etat lu, deja perime pour B)...
+        $recordFailureMethod->invoke($service, $this->userId, $roleId, self::TEST_IP, $accountPolicy, $ipPolicy, time());
+        // ...puis requete B ecrit le sien, sans jamais relire l'etat de A : sous
+        // l'ancien code (increment PHP a partir de $currentAttempts=0 fige des la
+        // lecture), B aurait ecrase le compteur de A avec la MEME valeur 1.
+        $recordFailureMethod->invoke($service, $this->userId, $roleId, self::TEST_IP, $accountPolicy, $ipPolicy, time());
+
+        $user = $this->db->fetch(
+            'SELECT failed_login_attempts FROM user WHERE id = :id',
+            ['id' => $this->userId],
+        );
+        self::assertNotNull($user);
+        self::assertSame(2, (int) ($user['failed_login_attempts'] ?? -1), 'les deux echecs doivent s\'additionner (D-3) : aucun ne doit se perdre malgre la lecture perimee.');
+    }
+
+    /**
      * Preuve de BOUT EN BOUT, contre une vraie MariaDB, que le hash de
      * reference du leurre (AuthService::referenceHashForDecoy(), chemin "email
      * inconnu") ne peut pas etre un tombstone RGPD. L'anonymisation

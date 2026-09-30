@@ -98,7 +98,7 @@ final class AuthService
             // meme compte une fois deverrouille (cf. PasswordHasherInterface::
             // verifyDecoy()).
             $this->hasher->verifyDecoy($password, $this->stringOrNull($user['password_hash'] ?? null));
-            $this->recordFailure(null, null, 0, $ip, $accountPolicy, $ipPolicy, $now);
+            $this->recordFailure(null, null, $ip, $accountPolicy, $ipPolicy, $now);
 
             return AuthResult::failure();
         }
@@ -108,7 +108,7 @@ final class AuthService
         // STOCKE quelconque d'un autre compte, pour le meme motif que ci-dessus.
         if ($user === null) {
             $this->hasher->verifyDecoy($password, $this->referenceHashForDecoy());
-            $this->recordFailure(null, null, 0, $ip, $accountPolicy, $ipPolicy, $now);
+            $this->recordFailure(null, null, $ip, $accountPolicy, $ipPolicy, $now);
 
             return AuthResult::failure();
         }
@@ -118,8 +118,7 @@ final class AuthService
         $storedHash = (string) ($user['password_hash'] ?? '');
 
         if (!$this->hasher->verify($password, $storedHash)) {
-            $attempts = (int) ($user['failed_login_attempts'] ?? 0);
-            $this->recordFailure($userId, $roleId, $attempts, $ip, $accountPolicy, $ipPolicy, $now);
+            $this->recordFailure($userId, $roleId, $ip, $accountPolicy, $ipPolicy, $now);
 
             return AuthResult::failure();
         }
@@ -247,7 +246,6 @@ final class AuthService
     private function recordFailure(
         ?int $userId,
         ?int $roleId,
-        int $currentAttempts,
         string $ip,
         ThrottlePolicy $accountPolicy,
         ThrottlePolicy $ipPolicy,
@@ -261,7 +259,6 @@ final class AuthService
         $this->db->transaction(function (DatabaseInterface $db) use (
             $userId,
             $roleId,
-            $currentAttempts,
             $ip,
             $accountPolicy,
             $ipPolicy,
@@ -269,27 +266,39 @@ final class AuthService
             $nowDt,
             $windowCutoff,
         ): void {
-            // Dimension compte. Pour ne pas reveler par le timing si l'email existe
-            // (anti-enumeration, RG-2), on emet la MEME requete dans les deux cas :
-            // sur email inconnu, un UPDATE sur id = 0 (aucune ligne touchee car les
-            // PK user sont AUTO_INCREMENT >= 1), donc meme profil d'I/O, effet nul.
-            if ($userId !== null) {
-                $newAttempts = $currentAttempts + 1;
-                $lockSeconds = $accountPolicy->lockoutSeconds($newAttempts);
-                $lockUntil = $lockSeconds > 0 ? date('Y-m-d H:i:s', $now + $lockSeconds) : null;
+            // Dimension compte. D-3 (contre-audit 30/09) : increment ATOMIQUE cote
+            // SQL (comme la dimension IP ci-dessous), PUIS relecture SOUS LE VERROU
+            // DE LIGNE pris par cet UPDATE (persiste jusqu'au commit de CETTE
+            // transaction) pour calculer le backoff -- avant ce correctif, le
+            // compteur etait LU hors transaction (RG-1, findActiveUserByEmail())
+            // puis ecrit en PHP ($currentAttempts + 1) : deux echecs concurrents
+            // sur le MEME compte, lisant tous deux l'ancienne valeur avant que
+            // l'un des deux n'ecrive, ne faisaient progresser le compteur que
+            // d'UNE unite au lieu de deux (perte d'increment, meme defaut que
+            // celui deja corrige cote IP).
+            //
+            // Pour ne pas reveler par le timing si l'email existe (anti-enumeration,
+            // RG-2), on emet la MEME requete EXACTE dans les deux cas : sur email
+            // inconnu ou compte deja verrouille, $targetId vaut 0 (aucune ligne user
+            // ne porte cette PK, AUTO_INCREMENT demarrant a 1 : effet nul, meme
+            // profil d'I/O).
+            $targetId = $userId ?? 0;
 
-                $db->execute(
-                    'UPDATE user SET failed_login_attempts = :attempts, last_failed_login_at = :now, '
-                    . 'lockout_until = :lock WHERE id = :id',
-                    ['attempts' => $newAttempts, 'now' => $nowDt, 'lock' => $lockUntil, 'id' => $userId],
-                );
-            } else {
-                $db->execute(
-                    'UPDATE user SET failed_login_attempts = :attempts, last_failed_login_at = :now, '
-                    . 'lockout_until = :lock WHERE id = :id',
-                    ['attempts' => 0, 'now' => $nowDt, 'lock' => null, 'id' => 0],
-                );
-            }
+            $db->execute(
+                'UPDATE user SET failed_login_attempts = failed_login_attempts + 1, last_failed_login_at = :now '
+                . 'WHERE id = :id',
+                ['now' => $nowDt, 'id' => $targetId],
+            );
+
+            $row = $db->fetch('SELECT failed_login_attempts FROM user WHERE id = :id', ['id' => $targetId]);
+            $accountAttempts = (int) ($row['failed_login_attempts'] ?? 1);
+            $accountLockSeconds = $accountPolicy->lockoutSeconds($accountAttempts);
+            $accountLockUntil = $accountLockSeconds > 0 ? date('Y-m-d H:i:s', $now + $accountLockSeconds) : null;
+
+            $db->execute(
+                'UPDATE user SET lockout_until = :lock WHERE id = :id',
+                ['lock' => $accountLockUntil, 'id' => $targetId],
+            );
 
             // Dimension IP : increment ATOMIQUE cote SQL (failed_attempts + 1) pour
             // eviter le lost-update sous concurrence ; la fenetre glissante est

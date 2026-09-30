@@ -346,26 +346,50 @@ final class AuthServiceTest extends TestCase
 
     public function testWrongPasswordSetsLockoutOnceThresholdReached(): void
     {
-        // 4 echecs deja enregistres : le 5e (= seuil) doit poser un lockout_until.
+        // D-3 (revise, contre-audit 30/09) : le compteur n'est plus calcule en PHP
+        // a partir de la lecture RG-1 -- il est relu APRES l'increment atomique
+        // (accountThrottleRow simule cette relecture, meme motif que throttleRow
+        // pour la dimension IP). 5 (= seuil) doit poser un lockout_until.
         $this->db->userRow = $this->userRow(['failed_login_attempts' => 4]);
+        $this->db->accountThrottleRow = ['failed_login_attempts' => 5];
 
         $this->service()->authenticate('admin@wakdo.local', 'WRONG', '203.0.113.1', self::NOW);
 
-        $userUpdate = $this->firstWrite('UPDATE user SET failed_login_attempts');
-        self::assertSame(5, $userUpdate['params']['attempts'] ?? null);
-        self::assertSame(date('Y-m-d H:i:s', self::NOW + 60), $userUpdate['params']['lock'] ?? null);
+        $lockWrite = $this->firstWrite('UPDATE user SET lockout_until = :lock');
+        self::assertSame(date('Y-m-d H:i:s', self::NOW + 60), $lockWrite['params']['lock'] ?? null);
     }
 
     public function testWrongPasswordBelowThresholdLeavesLockoutNull(): void
     {
         $this->db->userRow = $this->userRow(['failed_login_attempts' => 0]);
+        $this->db->accountThrottleRow = ['failed_login_attempts' => 1];
 
         $this->service()->authenticate('admin@wakdo.local', 'WRONG', '203.0.113.1', self::NOW);
 
-        $userUpdate = $this->firstWrite('UPDATE user SET failed_login_attempts');
-        self::assertSame(1, $userUpdate['params']['attempts'] ?? null);
-        self::assertArrayHasKey('lock', $userUpdate['params']);
-        self::assertNull($userUpdate['params']['lock']);
+        $lockWrite = $this->firstWrite('UPDATE user SET lockout_until = :lock');
+        self::assertArrayHasKey('lock', $lockWrite['params']);
+        self::assertNull($lockWrite['params']['lock']);
+    }
+
+    /**
+     * D-3 (contre-audit 30/09) : preuve du gabarit SQL du correctif -- increment
+     * ATOMIQUE cote SQL (`failed_login_attempts + 1`), jamais une valeur calculee
+     * en PHP a partir de la lecture RG-1 (faite HORS de cette transaction, donc
+     * potentiellement perimee sous deux echecs concurrents sur le MEME compte).
+     * Avant ce correctif, l'UPDATE portait un parametre `:attempts` egal a
+     * `$currentAttempts + 1` ; deux echecs concurrents lisant la MEME valeur
+     * n'auraient fait progresser le compteur que d'UNE unite au lieu de deux
+     * (perte d'increment, meme defaut que celui deja corrige cote IP).
+     */
+    public function testAccountCounterUsesAtomicSqlIncrementNotAPhpComputedValue(): void
+    {
+        $this->db->userRow = $this->userRow(['failed_login_attempts' => 4]);
+
+        $this->service()->authenticate('admin@wakdo.local', 'WRONG', '203.0.113.1', self::NOW);
+
+        $increment = $this->firstWrite('UPDATE user SET failed_login_attempts = failed_login_attempts + 1');
+        self::assertNotNull($increment, 'increment atomique attendu (meme gabarit que la dimension IP).');
+        self::assertArrayNotHasKey('attempts', $increment['params'], 'plus de valeur PHP-calculee liee en parametre.');
     }
 
     public function testIpUpsertUsesAtomicIncrementAndSqlWindowReset(): void
