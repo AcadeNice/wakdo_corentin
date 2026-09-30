@@ -272,6 +272,39 @@ final class PasswordResetControllerTest extends TestCase
 
         self::assertSame(200, $response->status());
         self::assertStringContainsString('ne correspondent pas', $response->body());
+        // D-7.a (revue adverse) : voir testShowConfirmSetsNoReferrerPolicy.
+        self::assertSame('no-referrer', $response->header('Referrer-Policy'));
+    }
+
+    /**
+     * D-7.a (revue adverse, contre-audit 30/09) : GET /reset_password?token=...
+     * charge des ressources de meme origine (feuille de style, script, logo) et
+     * poste son formulaire vers lui-meme -- avec la politique globale
+     * "strict-origin-when-cross-origin" (httpd.conf), le navigateur envoie
+     * l'URL COMPLETE (jeton compris) en Referer sur ces requetes de meme
+     * origine, capture par le journal d'acces (%{Referer}i). "no-referrer" sur
+     * CETTE reponse coupe les trois fuites (ressources ET envoi du formulaire)
+     * a la source : aucune donnee de reference n'est envoyee du tout.
+     *
+     * Pose cote APPLICATION (pas dans le vhost Apache) : un essai avec
+     * <Location "/reset_password"> ne matche jamais dans ce vhost --
+     * `RewriteRule ^ index.php [L]` (sans [PT]) reecrit l'URI interne vers
+     * "index.php" AVANT toute evaluation <Location> ulterieure (verifie en
+     * conteneur jetable : meme le <Location /api> deja present, pour
+     * X-Wakdo-Handled-By, ne s'applique jamais sur une vraie requete /api/*
+     * de ce vhost -- constat independant de ce correctif, signale a part).
+     */
+    public function testShowConfirmSetsNoReferrerPolicy(): void
+    {
+        $response = $this->controller(
+            new Request('GET', '/reset_password', ['token' => 'raw-token'], [], '', '203.0.113.5'),
+            new SessionManager(new Config(), true),
+            new FakeDatabase(),
+            new SpyMailer(),
+        )->showConfirm();
+
+        self::assertSame(200, $response->status());
+        self::assertSame('no-referrer', $response->header('Referrer-Policy'));
     }
 
     public function testSubmitConfirmValidTokenRedirectsToLogin(): void

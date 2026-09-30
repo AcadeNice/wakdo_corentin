@@ -99,18 +99,16 @@ try {
     $cors->applyTo($request, $errorResponse);
     $errorResponse->send();
 } finally {
-    // D-5 (contre-audit 30/09) : la reponse est deja PARTIE (try et catch se
-    // terminent tous deux par un send()) -- c'est ICI, et seulement ici, qu'un
-    // travail differe (ex. l'envoi SMTP du lien de reinitialisation, cf.
-    // PasswordResetService::requestReset()) peut s'executer sans retarder le
-    // client. fastcgi_finish_request() (PHP-FPM) ferme la connexion cote client
-    // AVANT de rendre la main a ce script, pour que la file s'execute apres que
-    // le client a deja recu sa reponse ; absente (ex. serveur de developpement
-    // integre), la file s'execute simplement en fin de requete (repli le plus
-    // simple : le client attend un peu plus longtemps, mais aucune donnee
-    // sensible n'est de toute facon deja partie a ce stade).
-    if (function_exists('fastcgi_finish_request')) {
-        fastcgi_finish_request();
-    }
-    DeferredActions::flush();
+    // D-5 (contre-audit 30/09, durci D-5.a revue adverse) : la reponse est deja
+    // PARTIE (try et catch se terminent tous deux par un send()) -- c'est ICI,
+    // et seulement ici, qu'un travail differe (ex. l'envoi SMTP du lien de
+    // reinitialisation, cf. PasswordResetService::requestReset()) peut
+    // s'executer sans retarder le client. DeferredActions::finishRequest()
+    // ferme D'ABORD la session PHP (libere son verrou de fichier AVANT que le
+    // travail differe ne s'execute -- sans ca, une 2e requete portant le meme
+    // cookie restait bloquee sur ce verrou jusqu'a la fin de l'envoi SMTP,
+    // rouvrant le canal par le temps que D-5 devait fermer), PUIS rend la main
+    // au client (fastcgi_finish_request(), quand la SAPI la fournit), PUIS vide
+    // la file.
+    DeferredActions::finishRequest();
 }

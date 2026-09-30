@@ -63,4 +63,58 @@ final class DeferredActions
     {
         self::$queue = [];
     }
+
+    /**
+     * D-5.a (revue adverse, contre-audit 30/09) : orchestre la fin de requete
+     * dans l'ORDRE qui ferme le canal par le temps. Avant ce correctif, le
+     * front controller appelait `fastcgi_finish_request()` PUIS `flush()` avec
+     * la session PHP encore ouverte : le gestionnaire de session par defaut
+     * (fichiers, `docker/php-fpm/php.ini`) tient un verrou de fichier jusqu'a
+     * `session_write_close()` -- jamais appele -- donc une SECONDE requete
+     * portant le MEME cookie de session restait bloquee sur ce verrou jusqu'a
+     * la fin de l'envoi SMTP differe (mesure : 2,31 s contre 0,00 s apres
+     * `session_write_close()`). L'attaquant a deja le cookie (il en a besoin
+     * pour le jeton CSRF du formulaire), donc cette 2e requete rouvrait le
+     * canal par le temps que D-5 devait fermer.
+     *
+     * Ordre correct : (1) fermer la session -- SEULEMENT si une session est
+     * active, l'appeler sans session emettrait un avertissement PHP pour rien
+     * -- (2) rendre la main au client (`fastcgi_finish_request()`, si la SAPI
+     * la fournit), (3) vider la file (le travail differe, ex. l'envoi SMTP).
+     * Rien de ce qui suit ne doit reecrire en session : aucune des actions
+     * differees enregistrees dans ce depot n'accede a `$_SESSION` (seule
+     * PasswordResetService::requestReset() y met un mailer, qui ne touche
+     * jamais la session).
+     *
+     * Les trois etapes sont injectables (seams) pour que l'ORDRE soit
+     * verifiable en test sans dependre d'un vrai serveur PHP-FPM (la SAPI CLI
+     * de PHPUnit ne fournit ni session active par defaut ni
+     * `fastcgi_finish_request()`) ; par defaut, les vraies fonctions PHP.
+     *
+     * @param null|callable(): bool $sessionActive Vrai si une session PHP est active.
+     * @param null|callable(): void $closeSession  Ferme la session (libere son verrou).
+     * @param null|callable(): void $finishRequest Rend la main au client si la SAPI le permet.
+     */
+    public static function finishRequest(
+        ?callable $sessionActive = null,
+        ?callable $closeSession = null,
+        ?callable $finishRequest = null,
+    ): void {
+        $sessionActive ??= static fn (): bool => session_status() === PHP_SESSION_ACTIVE;
+        $closeSession ??= static function (): void {
+            session_write_close();
+        };
+        $finishRequest ??= static function (): void {
+            if (function_exists('fastcgi_finish_request')) {
+                fastcgi_finish_request();
+            }
+        };
+
+        if ($sessionActive()) {
+            $closeSession();
+        }
+
+        $finishRequest();
+        self::flush();
+    }
 }

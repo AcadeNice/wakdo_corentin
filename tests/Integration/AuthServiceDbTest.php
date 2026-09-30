@@ -11,6 +11,7 @@ use App\Auth\PasswordHasher;
 use App\Auth\SessionManager;
 use App\Core\Config;
 use App\Core\Database;
+use App\Core\DatabaseInterface;
 use App\Tests\Support\SpyPasswordHasher;
 
 /**
@@ -206,60 +207,92 @@ final class AuthServiceDbTest extends TestCase
     }
 
     /**
-     * D-3 (contre-audit 30/09), preuve contre une vraie MariaDB : deux echecs
-     * dont l'ETAT LU EST PERIME (les deux "requetes" observent le MEME compteur
-     * initial AVANT que l'une ou l'autre n'ecrive) ne doivent PAS se perdre --
-     * le compteur final doit valoir 2, pas 1.
+     * D-3 (contre-audit 30/09, durci par la revue adverse) : preuve
+     * d'atomicite avec DEUX VRAIES connexions PDO contre la meme MariaDB, sans
+     * `proc_open`/`pcntl_fork` (indisponibles dans l'image PHP de ce depot,
+     * `docker/php-fpm/php.ini:78` ; verifie : `function_exists()` renvoie faux
+     * pour les deux -- un vrai test MULTI-PROCESSUS n'est pas possible avec les
+     * outils du depot).
      *
-     * `pcntl_fork`/`proc_open` sont indisponibles dans l'image PHP de ce depot
-     * (`docker/php-fpm/php.ini:78`, verifie : `function_exists()` renvoie faux
-     * pour les deux) : un vrai test MULTI-PROCESSUS n'est pas possible avec les
-     * outils du depot. Cette version simule fidelement l'INTERLEAVING via
-     * Reflection sur la methode privee `recordFailure()` : les DEUX lectures
-     * (`findActiveUserByEmail`, RG-1) sont faites d'abord, avant TOUTE ecriture
-     * -- exactement la fenetre de course qui perdait un increment dans le code
-     * d'origine ($currentAttempts, lu hors transaction, servait de base a un
-     * calcul PHP `+ 1` ecrase par la deuxieme requete). Le correctif D-3 ayant
-     * retire ce parametre (l'increment est desormais 100% cote SQL, relu SOUS
-     * LE VERROU DE LIGNE pris par sa propre transaction), rejouer les DEUX
-     * echecs -- quel que soit ce que chacun a lu avant d'ecrire -- doit
-     * necessairement additionner a 2.
+     * La revue adverse a releve, a raison, que la version precedente de ce
+     * test appelait `recordFailure()` deux fois DE SUITE : deux appels
+     * sequentiels s'additionnent avec N'IMPORTE QUELLE implementation (meme
+     * l'ancienne, non atomique), donc ce test ne prouvait rien de plus qu'une
+     * addition ordinaire.
+     *
+     * Cette version construit une VRAIE lecture perimee : la connexion B ouvre
+     * sa transaction et LIT `failed_login_attempts` (0, instantane REPEATABLE
+     * READ) ; PENDANT que cette transaction reste ouverte, la connexion A (un
+     * VRAI `AuthService`, sur SA PROPRE connexion PDO) execute un echec de
+     * connexion COMPLET et le VALIDE (commit), portant le compteur a 1 ; B,
+     * TOUJOURS DANS SA TRANSACTION DEJA OUVERTE AVANT LE COMMIT DE A, execute
+     * ENSUITE son propre increment atomique. Si cet increment relisait la
+     * valeur AVANT de calculer (comme le faisait le code d'origine,
+     * `$currentAttempts + 1` calcule en PHP a partir d'une lecture HORS
+     * transaction), B ecraserait le compteur de A avec 0+1=1 (l'echec de A
+     * serait perdu). Avec l'increment SQL atomique
+     * (`failed_login_attempts = failed_login_attempts + 1`), une UPDATE
+     * INnoDB fait toujours une LECTURE COURANTE (pas l'instantane de la
+     * transaction) [CLAIM L2, comportement documente d'InnoDB sous
+     * REPEATABLE READ pour les ecritures] : B lit et incremente la valeur
+     * COMMISE la plus recente (1, apres A), quel que soit ce que sa PROPRE
+     * lecture anterieure avait vu -- le resultat final DOIT etre 2.
+     *
+     * Portee honnete : l'UPDATE de B, ci-dessous, REPRODUIT le gabarit SQL
+     * exact de `AuthService::recordFailure()` (dimension compte) plutot que
+     * d'invoquer cette methode PRIVEE -- elle ouvre SA PROPRE transaction
+     * (`$this->db->transaction()`), ce qui ne peut pas s'imbriquer dans la
+     * transaction de B deja ouverte sur la MEME connexion PDO (pas de
+     * savepoints ici). Ce test prouve donc que LE GABARIT survit a une lecture
+     * perimee sous une vraie MariaDB ; c'est
+     * `AuthServiceTest::testAccountCounterUsesAtomicSqlIncrementNotAPhpComputedValue`
+     * (unitaire, FakeDatabase) qui pin le fait qu'`AuthService::recordFailure()`
+     * emet EXACTEMENT ce gabarit -- les deux ensemble couvrent le contrat complet.
      */
-    public function testTwoFailuresWithStaleReadStateBothIncrementAccountCounter(): void
+    public function testAccountCounterIncrementSurvivesAStaleReadUnderARealConcurrentTransaction(): void
     {
-        $reflection = new \ReflectionClass(AuthService::class);
-        $findMethod = $reflection->getMethod('findActiveUserByEmail');
-        $findMethod->setAccessible(true);
-        $recordFailureMethod = $reflection->getMethod('recordFailure');
-        $recordFailureMethod->setAccessible(true);
+        $connectionB = new Database($this->config);
 
-        $service = $this->service();
+        $connectionB->transaction(function (DatabaseInterface $db): void {
+            // B lit un instantane qui va devenir PERIME : la transaction reste
+            // ouverte pendant tout le bloc, donc cette lecture (et l'instantane
+            // REPEATABLE READ qu'elle etablit) precede le travail de A ci-dessous.
+            $before = $db->fetch(
+                'SELECT failed_login_attempts FROM user WHERE id = :id',
+                ['id' => $this->userId],
+            );
+            self::assertNotNull($before);
+            self::assertSame(0, (int) ($before['failed_login_attempts'] ?? -1));
 
-        // Les DEUX "requetes" lisent le MEME etat initial (0 echec, utilisateur
-        // jetable frais) AVANT que l'une ou l'autre n'ecrive quoi que ce soit --
-        // c'est cette lecture partagee et perimee que D-3 corrige.
-        $readA = $findMethod->invoke($service, $this->email());
-        $readB = $findMethod->invoke($service, $this->email());
-        self::assertSame(0, (int) ($readA['failed_login_attempts'] ?? -1));
-        self::assertSame(0, (int) ($readB['failed_login_attempts'] ?? -1));
+            // A : un VRAI echec de connexion, VRAI AuthService, SA PROPRE
+            // connexion PDO (this->db, distincte de $db=$connectionB) -- s'execute
+            // et se valide ENTIEREMENT ici, alors que la transaction de B est
+            // TOUJOURS OUVERTE.
+            $resultA = $this->service()->authenticate($this->email(), 'WRONG-PASSWORD', self::TEST_IP);
+            self::assertFalse($resultA->success);
 
-        $accountPolicy = \App\Auth\ThrottlePolicy::fromConfig($this->config, 'account');
-        $ipPolicy = \App\Auth\ThrottlePolicy::fromConfig($this->config, 'ip');
-        $roleId = (int) ($readA['role_id'] ?? 0);
+            $afterA = $this->db->fetch(
+                'SELECT failed_login_attempts FROM user WHERE id = :id',
+                ['id' => $this->userId],
+            );
+            self::assertSame(1, (int) ($afterA['failed_login_attempts'] ?? -1), 'precondition : le commit de A doit etre visible en dehors de sa propre transaction.');
 
-        // Requete A ecrit son echec (a partir de son etat lu, deja perime pour B)...
-        $recordFailureMethod->invoke($service, $this->userId, $roleId, self::TEST_IP, $accountPolicy, $ipPolicy, time());
-        // ...puis requete B ecrit le sien, sans jamais relire l'etat de A : sous
-        // l'ancien code (increment PHP a partir de $currentAttempts=0 fige des la
-        // lecture), B aurait ecrase le compteur de A avec la MEME valeur 1.
-        $recordFailureMethod->invoke($service, $this->userId, $roleId, self::TEST_IP, $accountPolicy, $ipPolicy, time());
+            // B, dans sa transaction ouverte AVANT le commit de A, execute
+            // MAINTENANT son propre increment atomique -- le meme gabarit SQL que
+            // AuthService::recordFailure() (D-3).
+            $db->execute(
+                'UPDATE user SET failed_login_attempts = failed_login_attempts + 1, last_failed_login_at = NOW() '
+                . 'WHERE id = :id',
+                ['id' => $this->userId],
+            );
+        });
 
-        $user = $this->db->fetch(
+        $after = $this->db->fetch(
             'SELECT failed_login_attempts FROM user WHERE id = :id',
             ['id' => $this->userId],
         );
-        self::assertNotNull($user);
-        self::assertSame(2, (int) ($user['failed_login_attempts'] ?? -1), 'les deux echecs doivent s\'additionner (D-3) : aucun ne doit se perdre malgre la lecture perimee.');
+        self::assertNotNull($after);
+        self::assertSame(2, (int) ($after['failed_login_attempts'] ?? -1), 'les deux echecs (A et B) doivent s\'additionner : B ne doit PAS ecraser le commit de A avec sa propre lecture perimee.');
     }
 
     /**
