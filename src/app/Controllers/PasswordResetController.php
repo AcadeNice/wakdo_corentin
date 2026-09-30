@@ -209,16 +209,16 @@ class PasswordResetController extends Controller
      * serait sure a envoyer : rien n'est envoye) coupe les trois fuites d'un
      * coup.
      *
-     * Posee ICI (cote application), PAS dans le vhost Apache : plusieurs
-     * mecanismes Apache pour exclure CONDITIONNELLEMENT cette seule route de sa
-     * valeur par defaut ont ete essayes et ecartes, tous verifies en conteneur
-     * jetable (`<Location>`, `Header setifempty`, `Header ... env=` avec une
-     * variable posee par `SetEnvIf`/`RewriteRule [E=...]`) -- voir
-     * `docker/apache/vhost.conf` (vhost admin) pour le detail de chaque essai
-     * et pourquoi il echoue. Le vhost admin ne pose donc plus Referrer-Policy
-     * du tout ; `App\Core\Response::headers()` pose la valeur par defaut pour
-     * toute reponse qui ne l'a pas deja fixee, ce qui laisse `setHeader()`
-     * ci-dessous, appele AVANT `send()`, l'emporter pour cette seule route.
+     * Posee ICI (cote application) : `App\Core\Response::headers()` pose une
+     * valeur par defaut ("strict-origin-when-cross-origin") pour toute reponse
+     * qui ne l'a pas deja fixee, donc `setHeader()` ci-dessous, appele AVANT
+     * `send()`, l'emporte pour cette seule route -- que ce soit CE defaut PHP
+     * ou celui, equivalent, pose par le vhost admin (`Header ... "expr=-z
+     * resp('Referrer-Policy')"`, D-7.b, `docker/apache/vhost.conf`) pour les
+     * reponses qu'Apache seul peut produire (fichiers statiques, erreurs
+     * Apache). Plusieurs mecanismes Apache pour exclure CONDITIONNELLEMENT
+     * cette seule route sans le concours de PHP ont ete essayes et ecartes
+     * avant D-7.b -- voir `docker/apache/vhost.conf` pour le detail.
      */
     private function renderConfirm(string $token, ?string $error, int $status = 200): Response
     {

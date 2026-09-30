@@ -82,17 +82,19 @@ final class ErrorResponseTest extends TestCase
     }
 
     /**
-     * D-7 (2e revue adverse, contre-audit 30/09, mineur) : une page d'erreur
-     * HTML charge sa propre feuille de style (meme origine) -- si elle etait
-     * servie pour /reset_password?token=... (exception non attrapee), la
-     * politique par defaut laisserait cette requete de ressource porter le
-     * jeton en Referer. "no-referrer" ferme ce cas pour TOUTE page d'erreur
-     * HTML, sans avoir a connaitre la route d'origine.
+     * D-7 (2e revue adverse, contre-audit 30/09, mineur) : une erreur FATALE
+     * (500) peut survenir en plein traitement d'une route qui porte un secret
+     * dans son URL (ex. /reset_password?token=... si showConfirm() levait une
+     * exception non attrapee) -- sa propre feuille de style (meme origine)
+     * porterait alors ce jeton en Referer sous la politique par defaut.
+     * "no-referrer" ferme ce cas, LIMITE a la page 500 : un 404/405 ordinaire
+     * n'a rien a voir avec une route precise et garde la politique par defaut
+     * (`security-headers.spec.js` l'attend sur les 404/405 HTML).
      */
-    public function testHtmlErrorPagesSetNoReferrerPolicy(): void
+    public function testOnlyTheServerErrorPageSetsNoReferrerPolicy(): void
     {
-        self::assertSame('no-referrer', ErrorResponse::notFound('/admin/nope')->header('Referrer-Policy'));
-        self::assertSame('no-referrer', ErrorResponse::methodNotAllowed('/admin/products', 'DELETE')->header('Referrer-Policy'));
+        self::assertNull(ErrorResponse::notFound('/admin/nope')->header('Referrer-Policy'));
+        self::assertNull(ErrorResponse::methodNotAllowed('/admin/products', 'DELETE')->header('Referrer-Policy'));
         self::assertSame('no-referrer', ErrorResponse::internal('/admin/products', false, 'detail')->header('Referrer-Policy'));
     }
 }

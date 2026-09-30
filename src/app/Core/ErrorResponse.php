@@ -50,7 +50,18 @@ final class ErrorResponse
             return (new Response())->json(['data' => null, 'error' => ['code' => 'INTERNAL_ERROR', 'message' => $debug ? $message : 'Internal server error']], 500);
         }
 
-        return self::page(500, 'Une erreur est survenue', 'La demande n\'a pas pu aboutir. Rien n\'a été enregistré si l\'action était en cours. Réessaie dans un instant ; si cela recommence, préviens un responsable.', $debug ? $message : null);
+        // D-7 (2e revue adverse, contre-audit 30/09, mineur) : une erreur FATALE
+        // (contrairement a un 404/405 ordinaire, qui n'a rien a voir avec une
+        // route precise) peut survenir en PLEIN TRAITEMENT d'une route qui
+        // porte un secret dans son URL -- ex. GET /reset_password?token=...
+        // si `showConfirm()` levait une exception non attrapee. La page charge
+        // sa propre feuille de style (meme origine) : sans "no-referrer", la
+        // politique par defaut laisserait cette requete de ressource porter le
+        // jeton en Referer. Limite a CETTE page (500), pas a `page()` en
+        // general : un 404/405 ordinaire garde la politique par defaut
+        // (`security-headers.spec.js` l'attend sur `/admin/adresse-inconnue`).
+        return self::page(500, 'Une erreur est survenue', 'La demande n\'a pas pu aboutir. Rien n\'a été enregistré si l\'action était en cours. Réessaie dans un instant ; si cela recommence, préviens un responsable.', $debug ? $message : null)
+            ->setHeader('Referrer-Policy', 'no-referrer');
     }
 
     private static function page(int $status, string $title, string $text, ?string $detail = null): Response
@@ -72,13 +83,6 @@ final class ErrorResponse
             . '<a class="btn btn-secondary" href="/login">Page de connexion</a></p>'
             . '</div></main></body></html>';
 
-        // D-7 (2e revue adverse, contre-audit 30/09) : cette page charge sa
-        // propre feuille de style (meme origine). Si elle est servie pour
-        // /reset_password?token=... (ex. exception non attrapee dans
-        // showConfirm()), la politique par defaut laisserait cette requete de
-        // feuille de style porter le jeton en Referer -- "no-referrer"
-        // l'exclut pour TOUTE page d'erreur, sans avoir a distinguer la route
-        // d'origine.
-        return (new Response())->html($html, $status)->setHeader('Referrer-Policy', 'no-referrer');
+        return (new Response())->html($html, $status);
     }
 }
