@@ -35,3 +35,16 @@ verification ; sous verrou actif, pas de nouvelle ligne `pin.failed` (anti-ampli
   discriminees par `throttle_kind`) au lieu d'une seule — voir `docs/merise/dictionary.md`
   3.24. Avant ce correctif, cette route n'avait aucune limite ; trouve par la suite de tests
   de securite executables (`docs/soutenance/preuves/10-tests-securite.md`, ecart m6).
+- Erratum (2026-09-30, BYAN, contre-audit independant de la documentation) : cette fiche
+  argumente pour une dimension dediee « utilisateur agissant », separee de la connexion, afin
+  qu'un tiers ne puisse pas verrouiller la connexion d'une victime en spammant son PIN. Un
+  contournement SYMETRIQUE a ete trouve et corrige le meme jour, ailleurs dans le code :
+  `ProfileController::updatePin()` (re-verification du mot de passe courant sur
+  `/admin/profile/pin`, PAS un PIN d'action sensible) comptait a tort sur `pin_throttle` au
+  lieu du budget de connexion, ce qui permettait a une action PIN REUSSIE d'un tiers de
+  remettre a zero le compteur de cette re-verification. Corrige en le faisant compter sur le
+  MEME budget que la connexion (`App\Auth\AccountLockout`, dimension compte de RG-8), pas sur
+  `pin_throttle` — le raisonnement de cette fiche (isoler le budget du PIN d'action sensible de
+  celui de la connexion) reste valide ; l'erreur portait sur un troisieme formulaire, la
+  re-verification du mot de passe, qui n'est pas un PIN d'action sensible et n'aurait pas du
+  toucher `pin_throttle`. Detail : `docs/merise/mlt.md` 10.7 (PRE-2bis), `docs/domaines/auth.md`.

@@ -20,6 +20,16 @@ Gestion des roles et de la matrice role/permission (mlt 10.4 MANAGE_RBAC), permi
 - `Authorizer::can` recharge les permissions a chaque verification (effet immediat).
 - Garde-fous anti-lockout : le role `admin` conserve `role.manage` ET reste actif ;
   `code` immuable apres creation ; `order_source` borne a l'ENUM ; code dupli -> 409.
+- `default_route` (page d'accueil apres connexion) : n'accepte qu'un chemin local (un seul
+  `/` en tete, pas de schema type `mot:`) — corrige le 2026-09-30 (revue adversariale,
+  `App\Auth\RedirectPath::isLocal`) ; avant ce correctif, seule la longueur (120) etait
+  verifiee, une valeur `https://...`/`//...` aurait pu rediriger tous les comptes du role
+  hors du site apres connexion.
+- Elevation de privilege (D-4, corrige le 2026-09-30) : un acteur sans `role.manage` ne peut
+  affecter un role, ni agir sur un compte dont le role courant deborde le sien, QUE si les
+  permissions du role vise sont toutes incluses dans les siennes (`array_diff`) — sinon
+  `403`. Verifie avant la demande de PIN, y compris si le role vise est desactive. `role.manage`
+  reste le court-circuit total : il autorise de toute facon a editer n'importe quel role.
 
 ## Decisions
 [ADR-0004](../adr/0004-pin-action-sensible-audit.md) (PIN + audit),

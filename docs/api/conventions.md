@@ -59,9 +59,13 @@ dans `src/app/Core/Response.php`, resolution (404 / 405) dans `src/app/Core/Rout
 
 **En-tetes de securite** (poses par Apache, `docker/apache/httpd.conf` et `vhost.conf`, sur
 les deux hotes) : `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`,
-`Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` (toutes les
-fonctionnalites capteur/media/paiement coupees — ajoutee le 2026-09-29, commit `08d7a96`,
-aucun des deux fronts n'en a l'usage). `ServerTokens Prod` (`docker/apache/httpd.conf:52`)
+`Permissions-Policy` (toutes les fonctionnalites capteur/media/paiement coupees — ajoutee le
+2026-09-29, commit `08d7a96`, aucun des deux fronts n'en a l'usage). `Referrer-Policy` differe
+depuis le 2026-09-30 (revue adversariale, D-7) : le vhost borne la pose de facon
+inconditionnelle en Apache (`strict-origin-when-cross-origin`) ; l'hote admin la pose cote
+application (`App\Core\Response::send()`, meme valeur par defaut, `no-referrer` sur les
+reponses de `/reset_password` pour ne pas exposer le jeton de reinitialisation dans le
+journal via l'en-tete `Referer`) — voir le detail dans `docs/soutenance/preuves/10-tests-securite.md`. `ServerTokens Prod` (`docker/apache/httpd.conf:52`)
 reduit l'en-tete `Server` a `Apache`, sans numero de version ; `Header unset Server`
 (`httpd.conf:103`) est present mais n'a pas d'effet reel sur cet en-tete, pose par le
 coeur du serveur et non par `mod_headers` — l'en-tete `Server: Apache` reste donc envoye,
@@ -822,10 +826,13 @@ Voir [ADR-0015](../adr/0015-allergenes-calcules-par-produit.md).
   cote application (idle 4h, absolue 10h), pas par la duree du cookie. A chaque requete
   authentifiee, `App\Auth\SessionGuard::check()` relit EN BASE (une seule requete SQL)
   `is_active`, `role_id` et `session_epoch`, et compare ce dernier a la valeur posee en
-  session a la connexion : un compte desactive, un role change, ou une reinitialisation de
-  mot de passe (qui incremente `session_epoch`) invalident la session des la requete
-  suivante. Corrige le 2026-09-29 (commit `ef7fd37`) — avant cette date, seul `is_active`
-  etait relu, `role_id` restant celui de la connexion jusqu'a une reconnexion.
+  session a la connexion : un compte desactive ou une reinitialisation de mot de passe (qui
+  incremente `session_epoch`) FERMENT la session des la requete suivante ; un changement de
+  role, lui, N'INVALIDE PAS la session, il applique juste le nouveau role a la requete
+  suivante (`SessionGuard::check()` renvoie un `GuardResult` valide avec le `role_id` a jour
+  -- seuls `is_active = 0` et un `session_epoch` desaccorde renvoient un guard invalide).
+  Corrige le 2026-09-29 (commit `ef7fd37`) — avant cette date, seul `is_active` etait relu,
+  `role_id` restant celui de la connexion jusqu'a une reconnexion.
 - **Une session PHP n'est ouverte que si la route en a besoin** (`App\Auth\SessionRoutePolicy`,
   corrige le 2026-09-29, commit `ef7fd37`) : les quatre routes d'authentification HTML, les
   prefixes back-office, et `POST /admin/api/auth/login` (qui CREE la session). Avant cette
@@ -843,7 +850,8 @@ Voir [ADR-0015](../adr/0015-allergenes-calcules-par-produit.md).
 - **API d'administration JSON (`/admin/api/*`, section 5.3)** : session admin + verification
   de permission via `role_permission` + jeton CSRF en en-tete `X-CSRF-Token` (le meme jeton
   synchroniseur que le HTML, transporte differemment faute de formulaire) ; actions sensibles
-  avec re-autorisation PIN (`mlt.md` RG-T13) dans le corps JSON.
+  avec re-authentification par PIN (`mlt.md` RG-T13) dans le corps JSON -- le PIN identifie
+  l'acteur, la permission reste verifiee sur la session (ADR-0004).
 - **Connexion JSON (`/admin/api/auth/*`, section 5.3bis)** : `POST .../login` OUVRE la
   session JSON (pose le cookie, sans jeton CSRF prealable — protection Content-Type/CORS/
   SameSite, detaillee en 5.3bis) ; `.../logout` et `.../me` suivent ensuite la meme regle que

@@ -1,15 +1,17 @@
 # Diagramme de sequence - Passer une commande (borne client)
 
 **Phase UML** : P1 - Conception, complement UML (apres MCD)
-**Statut** : v0.4 - realigne sur le code livre : creation puis encaissement (deux appels)
-**Date** : 2026-06-11 (v0.2), 2026-09-24 (v0.3), 2026-09-28 (v0.4)
+**Statut** : v0.5 - realigne sur le code livre : creation puis encaissement (deux appels)
+**Date** : 2026-06-11 (v0.2), 2026-09-24 (v0.3), 2026-09-28 (v0.4), 2026-09-30 (v0.5)
 **Historique** : v0.3 (2026-09-24) - mise en coherence avec le code livre (2a09597) : la creation atomique
 (un seul `POST /api/orders` qui cree, encaisse et decremente le stock) est remplacee par les deux appels
 reels (creation en `pending_payment`, puis encaissement vers `preparing`) ; aucun modificateur d'ingredient
 n'est construit par la borne ; panier conserve dans le navigateur ; repli JSON retire ; garde-fous
 d'idempotence et de verrou decrits tels qu'ils sont livres. v0.4 (2026-09-28) - audit final sur pieces :
 cle d'idempotence de plus de 36 caracteres -> 422 `INVALID_IDEMPOTENCY_KEY` (#186), cle vide -> `NULL`
-en base ; references de routes recalees sur `src/app/Core/routes.php`.
+en base ; references de routes recalees sur `src/app/Core/routes.php`. v0.5 (2026-09-30) -
+contre-audit independant de la documentation (BYAN) : reponse de l'encaissement corrigee, elle
+porte aussi `id` (`OrderController::present()`), pas seulement `order_number`/`status`/`total_ttc_cents`.
 **Branche** : `feat/p1-conception`
 **Auteur methodologie** : BYAN
 
@@ -138,7 +140,7 @@ sequenceDiagram
     API->>BDD: lire la commande (statut)
     API->>BDD: transaction : SELECT ...<br/>FOR UPDATE, UPDATE status<br/>= preparing, paid_at,<br/>preparing_at WHERE status<br/>= pending_payment
     API->>BDD: meme transaction : par<br/>ingredient, UPDATE stock<br/>et INSERT stock_movement<br/>(sale), puis COMMIT
-    API-->>Borne: 200 {order_number,<br/>status: preparing,<br/>total_ttc_cents}
+    API-->>Borne: 200 {id, order_number,<br/>status: preparing,<br/>total_ttc_cents}
 
     Note over Client,BDD: Phase 5 - Confirmation
 

@@ -248,7 +248,10 @@ Couche transverse, regles `RG-T*` definies dans `docs/merise/mlt.md`. Synthese :
   de mot de passe fait par un administrateur (`680820f`). 5 roles seedes, 23
   permissions figees, matrice `role_permission` editable (back-office, voir domaine 10).
 - **PIN d'action sensible (RG-T13)** : certaines operations exigent une
-  re-autorisation par PIN equipier (argon2id) -- source unique : `App\Health\RouteSecurity`.
+  re-authentification par PIN equipier (argon2id) -- source unique : `App\Health\RouteSecurity`.
+  Le PIN identifie QUI agit (l'acteur inscrit dans `audit_log`) ; il ne verifie PAS que cet
+  acteur detient la permission de l'action, verifiee a part sur la session, avant la
+  demande de PIN (ADR-0004).
   Sont PIN-gated : annulation de commande, creation/modification/desactivation d'un
   utilisateur, reinitialisation de PIN, effacement PII, gestion RBAC (creation/modification
   de role), suppression de produit, changement de prix ou de TVA d'un produit, suppression de
@@ -261,7 +264,12 @@ Couche transverse, regles `RG-T*` definies dans `docs/merise/mlt.md`. Synthese :
   aucune suppression de categorie (seul un `DELETE` existe cote JSON,
   `/admin/api/categories/{id}`, lui non plus sans PIN). L'`acting_user_id` resolu par le PIN
   est ecrit dans `audit_log` (RG-T14) dans la **meme transaction** que l'effet (RG-T08). Les
-  operations de stock tracent via `stock_movement.user_id` (pas de double-journal).
+  operations de stock tracent via `stock_movement.user_id` (pas de double-journal). Le code
+  applicatif n'ecrit dans `audit_log` que par `INSERT` ; la table n'est PAS protegee au
+  niveau base (l'utilisateur applicatif garde `UPDATE`/`DELETE` sur toute la base,
+  `db/init/10-scope-app-user.sh`) -- seules la migration `0019` (minimisation RGPD d'un
+  `summary`) et la purge de retention (`purge-audit-log.sh`) la modifient, en dehors du
+  chemin applicatif normal.
 - **Throttling** (backoff degressif, pas de verrou definitif) :
   - login par compte (`user.failed_login_attempts` / `lockout_until`) + par IP
     (`login_throttle`, RG-8/9) ;
@@ -310,7 +318,8 @@ Threat model STRIDE + classification des donnees : `docs/PROJECT_CONTEXT.md` sec
   `role_visible_source`.
 - **Commande (livre)** : `customer_order`, `order_item`,
   `order_item_selection`, `order_item_modifier`.
-- **Transverses** : `audit_log` (journal immuable), `login_throttle`, `pin_throttle`,
+- **Transverses** : `audit_log` (ajout seul cote application : `INSERT` uniquement dans le
+  code, pas de protection au niveau base -- voir section 7), `login_throttle`, `pin_throttle`,
   `password_reset_throttle` (par adresse et par IP, migration `0020` ; adresse en empreinte
   SHA-256 depuis la migration `0021`).
 

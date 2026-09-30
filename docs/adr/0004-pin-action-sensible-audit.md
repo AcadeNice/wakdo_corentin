@@ -56,3 +56,11 @@ est defini par RG-T13. Les operations de stock tracent via `stock_movement.user_
   qui n'ecrit plus que le contexte de l'action et, quand l'adresse correspond a un compte
   existant, son identifiant stable ; migration `0019_pin_failed_audit_minimisation.sql`
   purge les lignes deja ecrites. Detail : `docs/merise/mlt.md` RG-T14.
+- Erratum (2026-09-30, BYAN, contre-audit independant de la documentation) : « trace
+  immuable » dans les Consequences ci-dessus donne l'impression que la base l'interdit ; ce
+  n'est vrai qu'au niveau applicatif. Le code n'ecrit dans `audit_log` que par `INSERT`, mais
+  l'utilisateur SQL applicatif garde `UPDATE`/`DELETE` sur toute la base
+  (`db/init/10-scope-app-user.sh`), et la table est modifiee, hors du chemin applicatif
+  normal, par la migration `0019` (un `UPDATE` de minimisation, ci-dessus) et par la purge de
+  retention planifiee (`purge-audit-log.sh`, un `DELETE`). Detail : `docs/merise/mlt.md`
+  RG-T14, `docs/merise/dictionary.md` 3.20.
