@@ -6,9 +6,8 @@ la borne (site statique + API publique `/api/*`, hote kiosk) et le back-office (
 `/admin/*`, API JSON `/admin/api/*`, hote admin). Etat au 2026-09-29, code du commit
 `fddc26c` (branche `dev`, fusionne dans `main` par `dc1829d`). La production sert depuis
 `aab4e96` (release du 29/09, deployee 13:50 UTC, champ `version` de `/api/health`). Les
-correctifs de la revue adversariale du 30/09, detailles en section 8, sont dans le code
-(branche `fix/audit-3009`) mais pas encore en production : ils seront livres par la
-release du 30/09.
+correctifs de la revue adversariale du 30/09, detailles en section 8, sont en production
+depuis la release du 30/09 (champ `version` de `/api/health`).
 
 **Ce que cette preuve apporte.** Les protections du projet etaient decrites (ADR, modele de
 menaces, `SECURITY.md`) et verifiees en grande partie par des tests unitaires et par la
@@ -394,8 +393,7 @@ restriction manquante (A-2, relevee par l'audit API du meme jour). Chaque correc
 relu par un agent qui n'avait pas ecrit le code (deux tours de revue adversariale), avec des
 demonstrations dans des conteneurs jetables (image de l'application, ou paire Apache +
 PHP-FPM isolee montee sur le code de cet arbre, `--network none`, aucun conteneur `wakdo-*`
-touche). Aucun des huit n'est encore en production au moment d'ecrire cette section
-(branche `fix/audit-3009`) ; ils seront livres par la release du 30/09. Mesure finale de la
+touche). Les huit sont en production depuis la release du 30/09. Mesure finale de la
 suite de securite apres ces correctifs : phase principale 108 reussis (8 sautes), phase
 reinitialisation 5 reussis, phase base arretee 4 reussis, soit 117 reussis, 0 echec.
 

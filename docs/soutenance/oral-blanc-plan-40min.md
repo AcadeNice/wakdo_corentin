@@ -73,9 +73,9 @@
 > succes, 670 refus obtenus sur 689 tentes, capture du 2026-09-29 ; aucune route ajoutee
 > le 30/09). Routes : 158. Tables : 24. Migrations : 20 fichiers (0001 a 0021, sans 0004 ;
 > la prochaine migration sera 0022). Decisions d'architecture : 20 (recomptes sur l'arbre
-> du 30/09). **Production** : sert toujours `aab4e96` (release du 29/09) au moment
-> d'ecrire cette ligne ; les correctifs du 30/09 seront livres par la release du 30/09
-> (hash a completer apres la fusion, ne pas l'anticiper).
+> du 30/09). **Production** : les correctifs du 30/09 sont en production depuis la release
+> du 30/09 ; le champ `version` de `/api/health` donne le commit servi (a verifier avant
+> l'oral).
 
 ---
 
@@ -694,13 +694,15 @@ fermees quand l'admin change un mot de passe, option de menu indisponible en Max
 quantite corrigee en silence au comptoir), corriges eux aussi test d'abord ; rejeu sur
 `c2b8c1c` : phase principale 99 reussis + 8 sautes, reinitialisation 4, base arretee 4,
 0 echec. **Le 30/09**, cinq audits independants de la documentation (metier, PHP, front,
-securite, API) et deux revues adversariales ont trouve sept autres defauts de code
-(D-1 a D-7, dont une possibilite d'escalade de privilege via `user.update`, D-4), tous
+securite, API) et deux revues adversariales ont trouve huit autres defauts de code
+(A-2 : la route publique de paiement laissait lire le statut et le total d'une commande
+comptoir ou drive ; D-1 a D-7, dont une possibilite d'escalade de privilege via
+`user.update`, D-4), tous
 corriges et testes le jour meme ; rejeu final : phase principale **108 reussis** (8
 sautes), reinitialisation **5 reussis**, base arretee **4 reussis**, **117 reussis,
 0 echec**. **Statut de production a dire juste** : corrige dans le code, en production
-depuis la release du 29/09 (`aab4e96`) pour les onze premiers ecarts ; les sept du
-30/09 seront en production apres la release du 30/09 (a verifier sur `/api/health`,
+depuis la release du 29/09 (`aab4e96`) pour les onze premiers ecarts ; les huit du
+30/09 sont en production depuis la release du 30/09 (a verifier sur `/api/health`,
 champ `version`, avant l'oral). Confirmation par la commande
 `bash tests/e2e/run-security.sh` (detail dans la fiche).
 
@@ -858,7 +860,7 @@ Insomnia de l'oral, elle, est construite a la main, comme le decrit `demo-api.md
 (section 8) : il n'existe pas de generateur automatique pour Insomnia. Le mode d'emploi
 de reference, ecrit pour
 Postman et Bruno, est dans `docs/api/demo-api.md` : les noms de variables d'environnement
-(`baseUrl`, `email`, `csrf`, `pin_email`, `pin`...) et l'enchainement des requetes s'y
+(`baseUrl`, `csrf`, `pin_email`, `pin`) et l'enchainement des requetes s'y
 retrouvent a l'identique dans la collection Insomnia.
 
 **Deroulement, en quatre gestes qui representent six requetes HTTP (les deux derniers
@@ -1188,9 +1190,12 @@ tous corriges le jour meme, test d'abord, et la suite rejouee le meme jour confi
 marque en echec restant (dernier rejeu du 29/09 : 99 reussis et 8 sautes en phase
 principale, puis 4 et 4). Ces correctifs sont en production depuis la release du 29/09
 (`aab4e96`). **Le 30/09**, une nouvelle passe d'audit et deux revues adversariales ont
-trouve sept autres defauts de code (D-1 a D-7), tous corriges et testes le jour meme ;
+trouve huit autres defauts de code (A-2 et D-1 a D-7), tous corriges et testes le jour
+meme ; A-2 : la route publique de paiement de la borne ne filtrait pas le canal, un anonyme
+pouvait lire le statut et le total d'une commande comptoir ou drive en devinant son numero
+(elle rend desormais la meme reponse 404 qu'un numero inconnu) ;
 dernier rejeu : 108 reussis et 8 sautes en phase principale, puis 5 et 4, soit 117
-reussis, 0 echec. Ces sept correctifs seront en production apres la release du 30/09.
+reussis, 0 echec. Ces huit correctifs sont en production depuis la release du 30/09.
 Ce que je NE fais PAS, et que je dis avant qu'on
 me le demande : pas de scanner automatique (ZAP, sqlmap, Burp), les charges sont ecrites a
 la main et la liste est bornee ; HTTPS et TLS relevent de Traefik, hors de mon code, et ne

@@ -3,7 +3,7 @@
 **Phase Merise** : P1 - Conception, etape 1 (dictionnaire de donnees d'abord, mantra #33)
 **Version** : v0.7 — prod-like, 24 entites (19 prod-like + couche security-by-design + classement des ingredients, incl. les entites `login_throttle`, `pin_throttle`, `category_ingredient_family` et `password_reset_throttle`)
 **Date** : 2026-06-04 (ajouts security-by-design 2026-06-11 ; classement des ingredients 2026-09-27 ; corrections d'audit 2026-09-28 ; contre-audit independant 2026-09-29 ; deux correctifs merges le 2026-09-29 : reconciliation des emplacements de menu, `audit_log.pin.failed` sans adresse saisie — migration 0019 ; deux correctifs de securite merges le 2026-09-29 : `user.session_epoch` + throttle de reinitialisation de mot de passe — migration 0020, commit `ef7fd37` ; en-tetes de securite completes, TRACE coupe, sonde publique sans version PHP — commit `08d7a96`)
-**Branche** : premiere redaction sur `feat/p1-conception` ; etat actuel sur `docs/contre-audit` (29/09), en production depuis la release du 29/09 (`aab4e96`)
+**Branche** : premiere redaction sur `feat/p1-conception` ; etat au 29/09 en production par la release du 29/09 (`aab4e96`) ; mises a jour du 30/09 (audit_log, password_reset_throttle, pin_hash) en production depuis la release du 30/09
 **Statut** : prod-like — toutes les decisions D1-D8 + stock appliquees (voir `docs/journal/2026-06-04--conception-prodlike-revision.md` pour D1-D3 et `docs/journal/2026-06-04--p1-merise-v0.2-rewrite-and-forgejo-migration.md` pour D4-D8 + stock) ; couche security-by-design en cours (voir note 13) ; colonnes additives post-v0.3 des migrations 0003/0005/0006/0007 alignees sur le deploye (voir note 14)
 **Auteur** : BYAN (couche methodologie)
 

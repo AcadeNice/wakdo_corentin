@@ -70,9 +70,9 @@ par les commits `08d7a96`/`ef7fd37` le meme jour et 3 par le commit `fce3085` (b
 correctifs : le matin sur `2fe8a4a` (95 reussis + 8 sautes, puis 4 et 4), l'apres-midi sur
 `c2b8c1c` (99 reussis + 8 sautes, puis 4 et 4), 0 echec, 0 test marque restant. Corrige dans
 le code le 29/09, en production depuis la release du 29/09 (`aab4e96`). Un contre-audit du
-30/09 a trouve sept autres defauts (D-1 a D-7, dont l'escalade de privilege D-4), corriges
-le jour meme et testes ; dernier rejeu : 108 reussis + 8 sautes, puis 5 et 4 (117 reussis,
-0 echec) ; ces sept correctifs seront en production apres la release du 30/09.
+30/09 a trouve huit autres defauts (A-2 et D-1 a D-7, dont l'escalade de privilege D-4),
+corriges le jour meme et testes ; dernier rejeu : 108 reussis + 8 sautes, puis 5 et 4 (117
+reussis, 0 echec) ; ces huit correctifs sont en production depuis la release du 30/09.
 
 ## Findings releves pendant l'exercice (hors perimetre preuve, a traiter separement)
 
