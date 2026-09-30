@@ -49,8 +49,13 @@ class UserController extends AdminController
      * Message partage HTML/API (meme texte, enveloppe differente) -- protected pour
      * que UserApiController le reutilise. Volontairement sans code de permission
      * brut (equipiers non techniques) : voir roleExceedsActorPermissions().
+     *
+     * 2e revue adverse (mineur) : l'ancien texte disait « role administrateur »,
+     * ce qui n'est plus toujours vrai depuis la generalisation -- un role NON admin
+     * mais plus dote (permissions ou sources visibles) declenche aussi ce refus.
+     * Reformule sans cette hypothese.
      */
-    protected const ROLE_MANAGE_REQUIRED = 'Seul un compte autorisé à gérer les rôles peut faire cette action : elle concerne un compte ou un rôle administrateur.';
+    protected const ROLE_MANAGE_REQUIRED = "Vous ne pouvez pas attribuer ce rôle ni modifier ce compte : il donne des droits que votre propre rôle n'a pas.";
 
     /** @see UserController::update() pour le POURQUOI (auto-promotion). */
     protected const SELF_ROLE_CHANGE_FORBIDDEN = 'Vous ne pouvez pas modifier votre propre rôle.';

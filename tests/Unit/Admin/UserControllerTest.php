@@ -269,7 +269,7 @@ final class UserControllerTest extends TestCase
         $response = $this->controller($this->post($this->createForm(['role_id' => '9']), '/admin/users'), $db)->store();
 
         self::assertSame(403, $response->status());
-        self::assertStringContainsString('gérer les rôles', $response->body());
+        self::assertStringContainsString('droits que votre propre rôle', $response->body());
         self::assertFalse($db->wrote('INSERT INTO user'));
         self::assertSame([], $db->auditActions());
     }
@@ -593,7 +593,7 @@ final class UserControllerTest extends TestCase
         $response = $this->controller($this->post($form, '/admin/users/5'), $db)->update(['id' => '5']);
 
         self::assertSame(403, $response->status());
-        self::assertStringContainsString('gérer les rôles', $response->body());
+        self::assertStringContainsString('droits que votre propre rôle', $response->body());
         self::assertFalse($db->wrote('UPDATE user SET'));
         self::assertSame([], $db->auditActions()); // bloque AVANT la resolution du PIN
     }
@@ -674,7 +674,7 @@ final class UserControllerTest extends TestCase
         $response = $this->controller($this->post(['_csrf' => $this->csrf, 'pin_email' => 'sam@wakdo.local', 'pin' => '4729'], '/admin/users/5/deactivate'), $db)->deactivate(['id' => '5']);
 
         self::assertSame(403, $response->status());
-        self::assertStringContainsString('gérer les rôles', $response->body());
+        self::assertStringContainsString('droits que votre propre rôle', $response->body());
         self::assertFalse($db->wrote('SET is_active = 0'));
         self::assertSame([], $db->auditActions());
     }
