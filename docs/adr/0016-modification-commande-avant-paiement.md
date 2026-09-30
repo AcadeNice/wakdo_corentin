@@ -255,3 +255,14 @@ Fichiers : `src/app/Order/OrderRepository.php` (`replaceItems`, `lockOrder`,
 `src/app/Controllers/OrderController.php`, `src/public/borne/assets/js/checkout.js`,
 `src/public/borne/assets/js/page-payment.js`. Regles : `docs/merise/mlt.md` 3.3bis.
 Cycle de vie : `docs/uml/state-commande.md` (boucle M1).
+
+- Erratum (ecrit le 2026-09-30 par BYAN, constat d'un contre-audit independant) : la
+  section « (b bis) » ci-dessus qualifie `service_mode` de « distinction fiscale (TVA
+  salle contre vente a emporter) ». Cette etiquette etait deja inexacte au moment ou ce
+  lot a ete ecrit : dans le code lu (`OrderRepository::resolveLine`/`line`), la TVA est
+  un attribut du produit (`product.vat_rate`), pas du mode de service (voir
+  `docs/merise/dictionary.md` note 9, `docs/merise/mlt.md` RG-6bis). Le risque reel
+  documente dans cette section reste entier : un `service_mode`/`service_tag` perime
+  porte un plateau a une table vide et fausse les statistiques de repartition par
+  canal — seule l'etiquette « fiscale » donnee a ce risque est corrigee ici, pas le
+  corps du lot ni le code.

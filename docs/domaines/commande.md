@@ -15,7 +15,8 @@ automatique des commandes restees en attente de paiement.
   voir [ADR-0016](../adr/0016-modification-commande-avant-paiement.md)), renvoi a
   l'identique si elle est deja encaissee, `409 ORDER_CANCELLED` si elle est `cancelled`.
   **Corrige le 2026-09-29** (commits `fce3085` et `33538c6`, branche `fix/sec-order`,
-  fusionnee par `86306ef`) : quantite bornee a 1-20 par ligne (`INVALID_QUANTITY`, 422), 50
+  fusionnee par `86306ef` — ce meme comportement est repris sur `main` par le commit
+  `9e22a21`) : quantite bornee a 1-20 par ligne (`INVALID_QUANTITY`, 422), 50
   lignes au plus par commande (`TOO_MANY_ITEMS`, 422), 50 articles au total tous lignes
   confondues (`ORDER_TOO_LARGE`, 422, `OrderRepository::MAX_ITEMS_PER_ORDER`),
   `idempotency_key` qui n'est pas une chaine refusee (`INVALID_IDEMPOTENCY_KEY`),
@@ -55,7 +56,8 @@ automatique des commandes restees en attente de paiement.
   ~412). Encaissement direct, sans PIN (`order.create` suffit) : le comptoir insere la
   commande en `pending_payment` (`persist()`), puis encaisse via `pay()` dans une
   SECONDE transaction (`createStaffOrder`), sans etape intermediaire visible pour
-  l'equipier. **Corrige le 2026-09-29** (commit `fce3085`) : la
+  l'equipier. **Corrige le 2026-09-29** (commit `fce3085`, branche `fix/sec-order` —
+  repris sur `main` par le commit `9e22a21`) : la
   saisie comptoir/drive grise elle aussi une option de menu indisponible
   (`CounterOrderController::slotsWithAvailability`, meme regle et memes champs
   `option_is_orderable`/`option_names` que le composeur borne, `counter-order.js`).
@@ -64,7 +66,8 @@ automatique des commandes restees en attente de paiement.
   `src/public/admin/assets/css/admin.css`) — elle reste atteignable au clavier
   (`aria-disabled`, pas l'attribut `disabled`) mais le focus y etait invisible (WCAG 2.4.7)
   avant ce correctif.
-- Complement du 29/09 apres-midi (commit `186c5d7`) : la disponibilite d'une option est
+- Complement du 29/09 apres-midi (commit `186c5d7`, branche `fix/sec-order` — repris
+  sur `main` par le commit `9e22a21`) : la disponibilite d'une option est
   calculee pour le format servi (`option_is_orderable_maxi`) ; au changement de format, la
   borne et le comptoir grisent et deselectionnent une option devenue indisponible. Au
   comptoir, une quantite hors 1-20 ou non entiere est refusee (`422`, meme message que la

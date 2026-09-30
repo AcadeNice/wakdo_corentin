@@ -152,7 +152,7 @@ distincts**, et les confondre serait une erreur qu'un jury technique reperera.
 
 | Mesure | Outil | Resultat | Source |
 |---|---|---|---|
-| Audit d'accessibilite | axe-core 4.13.0 via Playwright, regles WCAG 2.0 A/AA et WCAG 2.1 A/AA | **19 ecrans** (6 borne, 13 back-office), **0 violation** toutes gravites, **935 rapports de contraste**, **0 sous le seuil**, minimum releve **3,59**. Resolutions : 1080x1920 pour la borne, 1440x900 pour le back-office. **Un seul role : administrateur** | `docs/soutenance/preuves/rapports/resume.json`, campagne du 2026-09-28, rejouee a l'identique le 2026-09-29 (commit `3fd08c4`) |
+| Audit d'accessibilite | axe-core 4.13.0 via Playwright, regles WCAG 2.0 A/AA et WCAG 2.1 A/AA | **19 ecrans** (6 borne, 13 back-office), **0 violation** toutes gravites, **934 rapports de contraste**, **0 sous le seuil**, minimum releve **3,59**. Resolutions : 1080x1920 pour la borne, 1440x900 pour le back-office. **Un seul role : administrateur** | `docs/soutenance/preuves/rapports/resume.json`, campagne du 2026-09-28, rejouee a l'identique le 2026-09-29 (commit `3fd08c4`) |
 | Balayage de mise en page et d'ergonomie | outil ecrit pour le projet (`tests/e2e/backoffice-sweep/`), 12 familles de verifications | **4 812 verifications, 0 echec** - 5 roles connectes plus l'etat non connecte, toutes les pages atteignables (111 pages-roles), **4 largeurs** (1366, 1024, 768, 390 px). Trajectoire : **104 echecs avant la refonte, 11 apres le premier lot, 0 le 26/09 ; le 28/09, 3 echecs sur la page Sante, qui n'avait pas encore ete balayee, corriges (#183), 0 a nouveau ; le 29/09, mesure a 4 812** | mesure du 2026-09-29 sur `2fe8a4a`. Les sorties de cet outil ne sont pas versionnees : le relancer pour produire le rapport |
 | Canal auxiliaire par le temps sur la connexion | mesure directe des 4 chemins | compte inexistant 257,4 ms / mot de passe faux 251,4 ms / compte verrouille 253,3 ms / connexion reussie 252,6 ms. **Ecart maximal 6,0 ms pour un bruit de mesure de 13,8 ms** | mesure du 2026-09-26 |
 
@@ -229,7 +229,10 @@ pas a reclamer de preuve : elle vient.
 
 - Wakdo est une borne de commande pour un fast-food. Tous les modes de service
   (sur place, a emporter, drive) sont en emballages papier sur plateau ou en sac ;
-  la distinction sur place / a emporter est surtout fiscale (taux de TVA).
+  la TVA n'est pas liee au mode de service : elle est fixee par produit (10 % par
+  defaut, 5,5 % pour les contenants refermables comme les bouteilles), conformement
+  a la doctrine BOFiP ; le mode de service (sur place / a emporter / drive) n'est
+  conserve que pour le service et les statistiques.
 - Trois canaux de prise de commande : la borne client autonome, le comptoir tenu
   par un equipier, le drive.
 - **Ce qui est inclus** : catalogue, composition de menus, panier, encaissement simule,
@@ -365,7 +368,7 @@ Distinguer clairement les deux outils - c'est ce qui montre qu'on sait ce qu'on 
 
 - **axe-core 4.13.0**, pilote par Playwright dans un vrai navigateur, sur les regles
   WCAG 2.0 niveaux A et AA et les ajouts WCAG 2.1 niveaux A et AA. Resultat :
-  **19 ecrans**, **0 violation** toutes gravites, **935 rapports de contraste**,
+  **19 ecrans**, **0 violation** toutes gravites, **934 rapports de contraste**,
   **0 sous le seuil**, minimum releve **3,59**.
   Pourquoi un vrai navigateur et pas un rendu simule : sans rendu, il n'y a ni couleur
   calculee ni geometrie, donc aucun rapport de contraste calculable. C'est la raison
