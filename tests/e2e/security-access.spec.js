@@ -62,6 +62,28 @@ async function roleIds(admin) {
   return Object.fromEntries(data.map((r) => [r.code, r.id]));
 }
 
+// L'API RBAC n'expose pas de catalogue {code -> id} pour les permissions (seuls
+// /admin/api/roles/{id} donne permission_ids, sans les codes en regard). On lit
+// l'id depuis le formulaire /admin/roles/new, ou RoleController::form.php range
+// chaque permission dans un groupe humain stable (admin/roles/form.php, $permMap) :
+// le groupe "Comptes" liste user.create/read/update/deactivate sous les libelles
+// fixes Creer/Voir/Modifier/Desactiver, dans l'ordre des id (ORDER BY id).
+async function userUpdatePermissionId(admin) {
+  const html = await (await admin.ctx.get(`${ADMIN}/admin/roles/new`)).text();
+  // 'perm-group-title">Comptes<' (pas '>Comptes<' seul) : la liste deroulante
+  // "Page d'accueil apres connexion" porte AUSSI une option "Comptes" (route
+  // /admin/users), qui precede le groupe de permissions dans le HTML.
+  const start = html.indexOf('perm-group-title">Comptes<');
+  if (start === -1) throw new Error('groupe de permissions "Comptes" introuvable');
+  const nextGroup = html.indexOf('perm-group-title', start + 1);
+  const chunk = html.slice(start, nextGroup === -1 ? html.length : nextGroup);
+  const re = /name="perm_(\d+)"[^>]*>\s*([^<]+?)\s*<\/label>/g;
+  for (let m = re.exec(chunk); m !== null; m = re.exec(chunk)) {
+    if (m[2].trim() === 'Modifier') return Number(m[1]);
+  }
+  throw new Error('permission user.update introuvable dans le groupe Comptes');
+}
+
 async function createUser(admin, roleId, label) {
   const email = `sec-${label}-${RUN}@wakdo.local`;
   const res = await admin.ctx.post(`${ADMIN}/admin/api/users`, {
@@ -232,6 +254,38 @@ test.describe('Controle d acces horizontal et vertical', () => {
     // Le compte n'existe pas apres coup.
     const users = await (await admin.ctx.get(`${ADMIN}/admin/api/users`)).text();
     expect(users).not.toContain(`sec-mgr-${RUN}@wakdo.local`);
+  });
+
+  // D-4 (elevation de privilege) : `user.update` seul ne doit pas equivaloir a
+  // `role.manage`. Un role sur-mesure ne portant QUE `user.update` (jamais livre en
+  // demo : seul `admin`, qui porte aussi `role.manage`, a `user.update` au seed) ne
+  // doit pas pouvoir promouvoir un tiers compte au role admin.
+  test('D-4 : un role avec user.update mais sans role.manage ne peut pas promouvoir un compte au role admin', async () => {
+    const permId = await userUpdatePermissionId(admin);
+    const roleRes = await admin.ctx.post(`${ADMIN}/admin/api/roles`, {
+      headers: withCsrf(admin),
+      data: { code: `sec_noroleman_${RUN}`, label: `Sec No Role Manage ${RUN}`, permission_ids: [permId], pin_email: ADMIN_EMAIL, pin: ADMIN_PIN },
+    });
+    expect(roleRes.status(), await roleRes.text()).toBe(201);
+    const noRoleManageRoleId = (await roleRes.json()).data.id;
+
+    const actor = await createUser(admin, noRoleManageRoleId, 'noroleman');
+    const target = await createUser(admin, roles.counter, 'escaltarget');
+    const actorSession = await apiSession(actor.email, TEMP_PASSWORD);
+
+    // Refuse AVANT meme la resolution du PIN (pas de pin_email/pin dans le corps).
+    const promote = await actorSession.ctx.fetch(`${ADMIN}/admin/api/users/${target.id}`, {
+      method: 'PUT',
+      headers: withCsrf(actorSession),
+      data: { email: target.email, first_name: 'Sec', last_name: 'escaltarget', role_id: roles.admin },
+    });
+    expect(promote.status(), await promote.text()).toBe(403);
+    expect((await promote.json()).error.code).toBe('FORBIDDEN');
+
+    const after = (await (await admin.ctx.get(`${ADMIN}/admin/api/users/${target.id}`)).json()).data;
+    expect(after.role_id).toBe(roles.counter);
+
+    await actorSession.ctx.dispose();
   });
 
   test('un compte desactive perd l acces des la requete suivante, sur une session deja ouverte', async () => {

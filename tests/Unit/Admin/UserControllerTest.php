@@ -255,6 +255,39 @@ final class UserControllerTest extends TestCase
         self::assertSame(409, $response->status());
     }
 
+    // --- D-4 (elevation de privilege) : affecter un role admin exige role.manage ---
+
+    public function testStoreBlocksAssigningAdminRoleWithoutActorRoleManage(): void
+    {
+        $db = $this->permittedDb();
+        // Acteur (role 1) SANS role.manage ; role vise (9) AVEC role.manage.
+        // guard->roleId vient de guardUserRow (SessionGuard relit EN BASE), pas de la session.
+        $db->guardUserRow = ['is_active' => 1, 'role_id' => 1];
+        $db->canByRole = ['1:role.manage' => false, '9:role.manage' => true];
+
+        $response = $this->controller($this->post($this->createForm(['role_id' => '9']), '/admin/users'), $db)->store();
+
+        self::assertSame(403, $response->status());
+        self::assertStringContainsString('role.manage', $response->body());
+        self::assertFalse($db->wrote('INSERT INTO user'));
+        self::assertSame([], $db->auditActions());
+    }
+
+    public function testStoreAllowsAssigningAdminRoleWithActorRoleManage(): void
+    {
+        $db = $this->permittedDb();
+        // guard->roleId vient de guardUserRow (SessionGuard relit EN BASE), pas de la session.
+        $db->guardUserRow = ['is_active' => 1, 'role_id' => 1];
+        $db->canByRole = ['1:role.manage' => true, '9:role.manage' => true];
+        $this->actingPin($db);
+        $db->lastInsertId = 42;
+
+        $response = $this->controller($this->post($this->createForm(['role_id' => '9']), '/admin/users'), $db)->store();
+
+        self::assertSame(302, $response->status());
+        self::assertTrue($db->wrote('INSERT INTO user'));
+    }
+
     // --- Mise a jour (user.update) ---
 
     public function testUpdateNotFound(): void
@@ -279,6 +312,83 @@ final class UserControllerTest extends TestCase
         $audit = $this->findWrite($db, 'INSERT INTO audit_log');
         self::assertNotNull($audit);
         self::assertSame('user.update', $audit['params']['code'] ?? null);
+    }
+
+    public function testUpdateBlocksChangingOwnRoleId(): void
+    {
+        $db = $this->permittedDb();
+        $db->userManageRow = $this->target(['id' => 1, 'role_id' => 4]); // cible = acteur de session
+
+        $form = $this->createForm(['role_id' => '9', 'email' => 'staff@wakdo.local']);
+        $response = $this->controller($this->post($form, '/admin/users/1'), $db)->update(['id' => '1']);
+
+        self::assertSame(403, $response->status());
+        self::assertStringContainsString('propre rôle', $response->body());
+        self::assertFalse($db->wrote('UPDATE user SET'));
+    }
+
+    public function testUpdateBlocksDeactivatingOwnAccount(): void
+    {
+        $db = $this->permittedDb();
+        $db->userManageRow = $this->target(['id' => 1, 'role_id' => 4]); // cible = acteur de session
+
+        // is_active absent du form (case decochee) -> tentative d'auto-desactivation.
+        $form = $this->createForm(['role_id' => '4', 'email' => 'staff@wakdo.local']);
+        $response = $this->controller($this->post($form, '/admin/users/1'), $db)->update(['id' => '1']);
+
+        self::assertSame(403, $response->status());
+        self::assertStringContainsString('propre compte', $response->body());
+        self::assertFalse($db->wrote('UPDATE user SET'));
+    }
+
+    public function testUpdateBlocksModifyingAdminAccountWithoutActorRoleManage(): void
+    {
+        $db = $this->permittedDb();
+        // Acteur (role 1) SANS role.manage ; role COURANT de la cible (4) AVEC role.manage.
+        // guard->roleId vient de guardUserRow (SessionGuard relit EN BASE), pas de la session.
+        $db->guardUserRow = ['is_active' => 1, 'role_id' => 1];
+        $db->canByRole = ['1:role.manage' => false, '4:role.manage' => true];
+        $db->userManageRow = $this->target(['id' => 5, 'role_id' => 4]);
+
+        $form = $this->createForm(['email' => 'staff@wakdo.local', 'first_name' => 'Renamed', 'is_active' => '1']);
+        $response = $this->controller($this->post($form, '/admin/users/5'), $db)->update(['id' => '5']);
+
+        self::assertSame(403, $response->status());
+        self::assertStringContainsString('role.manage', $response->body());
+        self::assertFalse($db->wrote('UPDATE user SET'));
+        self::assertSame([], $db->auditActions()); // bloque AVANT la resolution du PIN
+    }
+
+    public function testUpdateBlocksAssigningAdminRoleWithoutActorRoleManage(): void
+    {
+        $db = $this->permittedDb();
+        // Acteur (role 1) et role COURANT de la cible (4) SANS role.manage ; role VISE (9) AVEC.
+        // guard->roleId vient de guardUserRow (SessionGuard relit EN BASE), pas de la session.
+        $db->guardUserRow = ['is_active' => 1, 'role_id' => 1];
+        $db->canByRole = ['1:role.manage' => false, '4:role.manage' => false, '9:role.manage' => true];
+        $db->userManageRow = $this->target(['id' => 5, 'role_id' => 4]);
+
+        $form = $this->createForm(['role_id' => '9', 'email' => 'staff@wakdo.local', 'is_active' => '1']);
+        $response = $this->controller($this->post($form, '/admin/users/5'), $db)->update(['id' => '5']);
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($db->wrote('UPDATE user SET'));
+    }
+
+    public function testUpdateAllowsModifyingAdminAccountWithActorRoleManage(): void
+    {
+        $db = $this->permittedDb();
+        // guard->roleId vient de guardUserRow (SessionGuard relit EN BASE), pas de la session.
+        $db->guardUserRow = ['is_active' => 1, 'role_id' => 1];
+        $db->canByRole = ['1:role.manage' => true, '4:role.manage' => true];
+        $db->userManageRow = $this->target(['id' => 5, 'role_id' => 4]);
+        $this->actingPin($db);
+
+        $form = $this->createForm(['email' => 'staff@wakdo.local', 'first_name' => 'Renamed', 'is_active' => '1']);
+        $response = $this->controller($this->post($form, '/admin/users/5'), $db)->update(['id' => '5']);
+
+        self::assertSame(302, $response->status());
+        self::assertTrue($db->wrote('UPDATE user SET email'));
     }
 
     public function testUpdateBlocksRemovingLastActiveAdmin(): void
@@ -310,6 +420,22 @@ final class UserControllerTest extends TestCase
 
         self::assertSame(403, $response->status());
         self::assertFalse($db->wrote('SET is_active = 0'));
+    }
+
+    public function testDeactivateBlocksAdminAccountWithoutActorRoleManage(): void
+    {
+        $db = $this->permittedDb();
+        // guard->roleId vient de guardUserRow (SessionGuard relit EN BASE), pas de la session.
+        $db->guardUserRow = ['is_active' => 1, 'role_id' => 1];
+        $db->canByRole = ['1:role.manage' => false, '4:role.manage' => true];
+        $db->userManageRow = $this->target(['id' => 5, 'role_id' => 4]);
+
+        $response = $this->controller($this->post(['_csrf' => $this->csrf, 'pin_email' => 'sam@wakdo.local', 'pin' => '4729'], '/admin/users/5/deactivate'), $db)->deactivate(['id' => '5']);
+
+        self::assertSame(403, $response->status());
+        self::assertStringContainsString('role.manage', $response->body());
+        self::assertFalse($db->wrote('SET is_active = 0'));
+        self::assertSame([], $db->auditActions());
     }
 
     public function testDeactivateBlocksLastActiveAdmin(): void
@@ -355,6 +481,20 @@ final class UserControllerTest extends TestCase
 
     // --- Reset PIN (user.update) ---
 
+    public function testResetPinBlocksAdminAccountWithoutActorRoleManage(): void
+    {
+        $db = $this->permittedDb();
+        // guard->roleId vient de guardUserRow (SessionGuard relit EN BASE), pas de la session.
+        $db->guardUserRow = ['is_active' => 1, 'role_id' => 1];
+        $db->canByRole = ['1:role.manage' => false, '4:role.manage' => true];
+        $db->userManageRow = $this->target(['id' => 5, 'role_id' => 4]);
+
+        $response = $this->controller($this->post(['_csrf' => $this->csrf, 'pin_email' => 'sam@wakdo.local', 'pin' => '4729'], '/admin/users/5/reset-pin'), $db)->resetPin(['id' => '5']);
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($db->wrote('UPDATE user SET pin_hash = NULL'));
+    }
+
     public function testResetPinClearsPin(): void
     {
         $db = $this->permittedDb();
@@ -368,6 +508,20 @@ final class UserControllerTest extends TestCase
     }
 
     // --- Anonymisation RGPD (user.update) ---
+
+    public function testEraseBlocksAdminAccountWithoutActorRoleManage(): void
+    {
+        $db = $this->permittedDb();
+        // guard->roleId vient de guardUserRow (SessionGuard relit EN BASE), pas de la session.
+        $db->guardUserRow = ['is_active' => 1, 'role_id' => 1];
+        $db->canByRole = ['1:role.manage' => false, '4:role.manage' => true];
+        $db->userManageRow = $this->target(['id' => 5, 'role_id' => 4, 'anonymized_at' => null]);
+
+        $response = $this->controller($this->post(['_csrf' => $this->csrf, 'pin_email' => 'sam@wakdo.local', 'pin' => '4729'], '/admin/users/5/erase'), $db)->erase(['id' => '5']);
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($db->wrote('anonymized_at = NOW()'));
+    }
 
     public function testEraseRejectsAlreadyAnonymisedWith409(): void
     {
