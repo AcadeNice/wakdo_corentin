@@ -41,7 +41,7 @@ class UserController extends AdminController
      * jamais equivaloir a `role.manage`. Message partage HTML/API (meme texte,
      * enveloppe differente) -- protected pour que UserApiController le reutilise.
      */
-    protected const ROLE_MANAGE_REQUIRED = 'Cette action nécessite la permission de gestion des rôles (role.manage) : elle concerne un compte ou un rôle administrateur.';
+    protected const ROLE_MANAGE_REQUIRED = 'Seul un compte autorisé à gérer les rôles peut faire cette action : elle concerne un compte ou un rôle administrateur.';
 
     /** @see UserController::update() pour le POURQUOI (auto-promotion). */
     protected const SELF_ROLE_CHANGE_FORBIDDEN = 'Vous ne pouvez pas modifier votre propre rôle.';
