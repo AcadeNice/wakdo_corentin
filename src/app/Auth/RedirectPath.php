@@ -29,13 +29,15 @@ final class RedirectPath
      * qu'un navigateur ignorerait silencieusement), et sans deux-points juste
      * apres le premier segment (par exemple `/javascript:alert(1)`). Ce n'est PAS
      * une detection de schema d'URL au sens strict -- un schema ne commence jamais
-     * par `/`, donc `isLocal()` l'a deja exclu avant d'arriver ici (revue adverse,
-     * D-6 mineur : l'ancien commentaire decrivait la mauvaise regle). Ce test
-     * rejette plutot un motif de contournement connu : un deux-points impose tot
-     * dans le chemin, qu'un consommateur en aval (proxy, navigateur ancien,
-     * bibliotheque cliente) peut reinterpreter comme un separateur de schema
-     * malgre le `/` de tete. Rejete par prudence ; aucun chemin legitime de ce
-     * depot n'a cette forme.
+     * par `/`, donc la PREMIERE regle de cette methode (`$path[0] !== '/'`, ci-dessous)
+     * l'a deja exclu avant que ce test ne s'execute (2e revue adverse, D-6 mineur :
+     * les versions precedentes de ce commentaire disaient encore « avant d'arriver
+     * ici », ambigu puisque « ici » designe cette meme methode). Ce test rejette
+     * plutot un deux-points impose tot dans le chemin, qu'un consommateur en aval
+     * (proxy, navigateur ancien, bibliotheque cliente) pourrait reinterpreter comme
+     * un separateur de schema malgre le `/` de tete -- par prudence, sans qu'un tel
+     * contournement soit documente pour ce depot precis ; aucun chemin legitime de
+     * ce depot n'a cette forme.
      */
     public static function isLocal(string $path): bool
     {

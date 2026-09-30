@@ -6,6 +6,7 @@ namespace App\Tests\Integration;
 
 use PHPUnit\Framework\TestCase;
 use Throwable;
+use App\Auth\AccountLockout;
 use App\Auth\AuthService;
 use App\Auth\PasswordHasher;
 use App\Auth\SessionManager;
@@ -231,29 +232,37 @@ final class AuthServiceDbTest extends TestCase
      * `$currentAttempts + 1` calcule en PHP a partir d'une lecture HORS
      * transaction), B ecraserait le compteur de A avec 0+1=1 (l'echec de A
      * serait perdu). Avec l'increment SQL atomique
-     * (`failed_login_attempts = failed_login_attempts + 1`), une UPDATE
-     * INnoDB fait toujours une LECTURE COURANTE (pas l'instantane de la
-     * transaction) [CLAIM L2, comportement documente d'InnoDB sous
-     * REPEATABLE READ pour les ecritures] : B lit et incremente la valeur
-     * COMMISE la plus recente (1, apres A), quel que soit ce que sa PROPRE
-     * lecture anterieure avait vu -- le resultat final DOIT etre 2.
+     * (`failed_login_attempts = failed_login_attempts + 1`), une UPDATE lit
+     * toujours la derniere valeur VALIDEE, jamais l'instantane de la
+     * transaction qui l'execute [CLAIM L2, MySQL Reference Manual, chapitre
+     * "InnoDB Locking and Transaction Model", section "Consistent Nonlocking
+     * Reads" : l'instantane s'applique aux lectures SELECT, jamais aux
+     * ecritures UPDATE/DELETE, qui verrouillent et lisent toujours la version
+     * la plus recente -- comportement herite par MariaDB/InnoDB] : B lit et
+     * incremente la valeur COMMISE la plus recente (1, apres A), quel que soit
+     * ce que sa PROPRE lecture anterieure avait vu -- le resultat final DOIT
+     * etre 2.
      *
-     * Portee honnete : l'UPDATE de B, ci-dessous, REPRODUIT le gabarit SQL
-     * exact de `AuthService::recordFailure()` (dimension compte) plutot que
-     * d'invoquer cette methode PRIVEE -- elle ouvre SA PROPRE transaction
-     * (`$this->db->transaction()`), ce qui ne peut pas s'imbriquer dans la
-     * transaction de B deja ouverte sur la MEME connexion PDO (pas de
-     * savepoints ici). Ce test prouve donc que LE GABARIT survit a une lecture
-     * perimee sous une vraie MariaDB ; c'est
-     * `AuthServiceTest::testAccountCounterUsesAtomicSqlIncrementNotAPhpComputedValue`
-     * (unitaire, FakeDatabase) qui pin le fait qu'`AuthService::recordFailure()`
-     * emet EXACTEMENT ce gabarit -- les deux ensemble couvrent le contrat complet.
+     * Depuis la deduplication du motif SQL (2e revue adverse), B appelle
+     * directement `AccountLockout::recordFailureWithin()` -- LE MEME code
+     * qu'utilise desormais `AuthService::recordFailure()` (dimension compte)
+     * -- plutot que de le recopier : ce test exerce donc du code applicatif
+     * REEL, pas seulement un gabarit SQL recopie. `recordFailureWithin()`
+     * n'ouvre pas sa propre transaction (elle prend `$db` en parametre),
+     * donc elle s'imbrique sans probleme dans la transaction de B deja
+     * ouverte sur la MEME connexion PDO (`recordFailure()`, elle, ouvrirait
+     * la sienne et ne pourrait pas s'imbriquer ici, cf. son propre
+     * commentaire). Verifie aussi `lockout_until` : a 2 echecs (sous le seuil
+     * de 5, `ACCOUNT_LOCKOUT_THRESHOLD`), il doit rester NULL -- preuve que le
+     * calcul du verrou, pas seulement l'incrementation, s'est correctement
+     * execute sur la valeur commise par A.
      */
     public function testAccountCounterIncrementSurvivesAStaleReadUnderARealConcurrentTransaction(): void
     {
         $connectionB = new Database($this->config);
+        $accountLockoutB = new AccountLockout($connectionB, $this->config);
 
-        $connectionB->transaction(function (DatabaseInterface $db): void {
+        $connectionB->transaction(function (DatabaseInterface $db) use ($accountLockoutB): void {
             // B lit un instantane qui va devenir PERIME : la transaction reste
             // ouverte pendant tout le bloc, donc cette lecture (et l'instantane
             // REPEATABLE READ qu'elle etablit) precede le travail de A ci-dessous.
@@ -278,21 +287,19 @@ final class AuthServiceDbTest extends TestCase
             self::assertSame(1, (int) ($afterA['failed_login_attempts'] ?? -1), 'precondition : le commit de A doit etre visible en dehors de sa propre transaction.');
 
             // B, dans sa transaction ouverte AVANT le commit de A, execute
-            // MAINTENANT son propre increment atomique -- le meme gabarit SQL que
-            // AuthService::recordFailure() (D-3).
-            $db->execute(
-                'UPDATE user SET failed_login_attempts = failed_login_attempts + 1, last_failed_login_at = NOW() '
-                . 'WHERE id = :id',
-                ['id' => $this->userId],
-            );
+            // MAINTENANT son propre increment atomique -- via le MEME code
+            // (AccountLockout::recordFailureWithin()) que AuthService::
+            // recordFailure() (D-3, dedupplique en 2e revue adverse).
+            $accountLockoutB->recordFailureWithin($db, $this->userId);
         });
 
         $after = $this->db->fetch(
-            'SELECT failed_login_attempts FROM user WHERE id = :id',
+            'SELECT failed_login_attempts, lockout_until FROM user WHERE id = :id',
             ['id' => $this->userId],
         );
         self::assertNotNull($after);
         self::assertSame(2, (int) ($after['failed_login_attempts'] ?? -1), 'les deux echecs (A et B) doivent s\'additionner : B ne doit PAS ecraser le commit de A avec sa propre lecture perimee.');
+        self::assertNull($after['lockout_until'], '2 echecs restent sous le seuil (5) : le verrou ne doit pas etre pose.');
     }
 
     /**
