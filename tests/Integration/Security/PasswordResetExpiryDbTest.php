@@ -10,6 +10,7 @@ use App\Auth\PasswordHasher;
 use App\Auth\PasswordResetService;
 use App\Core\Config;
 use App\Core\Database;
+use App\Core\DeferredActions;
 use App\Tests\Support\SpyMailer;
 
 /**
@@ -156,6 +157,11 @@ final class PasswordResetExpiryDbTest extends TestCase
     {
         $before = count($this->mailer->sent);
         $this->service()->requestReset($this->email, 'http://admin.wakdo.test', $now);
+        // D-5 (contre-audit 30/09) : l'envoi n'est plus synchrone (cf.
+        // PasswordResetServiceTest::testRequestActiveUserDefersMailSendUntilFlush) ;
+        // le flush explicite reproduit ce que le front controller fait APRES avoir
+        // emis la reponse HTTP.
+        DeferredActions::flush();
         self::assertCount($before + 1, $this->mailer->sent, 'un lien envoye');
 
         $url = $this->mailer->sent[$before]['resetUrl'];

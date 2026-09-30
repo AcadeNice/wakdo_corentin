@@ -13,6 +13,7 @@ use App\Auth\SessionManager;
 use App\Controllers\PasswordResetController;
 use App\Core\Config;
 use App\Core\Database;
+use App\Core\DeferredActions;
 use App\Core\Request;
 use App\Tests\Support\FakeDatabase;
 use App\Tests\Support\SpyMailer;
@@ -62,10 +63,14 @@ final class PasswordResetControllerTest extends TestCase
         $this->setEnv('ARGON2_MEMORY_COST', '1024');
         $this->setEnv('ARGON2_TIME_COST', '1');
         $this->setEnv('ARGON2_THREADS', '1');
+        // D-5 (contre-audit 30/09) : file d'actions differees, etat STATIQUE par
+        // processus -- la vider avant/apres chaque test isole les tests entre eux.
+        DeferredActions::reset();
     }
 
     protected function tearDown(): void
     {
+        DeferredActions::reset();
         foreach ($this->touchedKeys as $key) {
             putenv($key);
         }
@@ -147,6 +152,37 @@ final class PasswordResetControllerTest extends TestCase
         // upsert + verrou pour l'email, upsert + verrou pour l'IP, puis le leurre.
         self::assertCount(5, $db->writes);
         self::assertStringContainsString('WHERE id = 0', $db->writes[4]['sql']);
+    }
+
+    /**
+     * D-5 (contre-audit 30/09) : le controleur doit rendre sa reponse SANS avoir
+     * appele le mailer de facon synchrone -- l'envoi SMTP (potentiellement lent)
+     * pour une adresse CONNUE ne doit jamais retarder la reponse au-dela de ce
+     * que prend le chemin adresse-inconnue (qui, lui, n'a jamais rien a envoyer),
+     * sans quoi la duree de la reponse revele l'existence d'un compte. L'action
+     * differee n'appelle le mailer QU'APRES coup (ici : au flush explicite, qui
+     * reproduit ce que le front controller fait APRES `Response::send()`).
+     */
+    public function testSubmitRequestKnownEmailDefersMailSendUntilAfterResponse(): void
+    {
+        $session = new SessionManager(new Config(), true);
+        $token = Csrf::token($session);
+        $db = new FakeDatabase();
+        $db->emailLookupRow = ['id' => 7];
+        $mailer = new SpyMailer();
+
+        $request = $this->post(['_csrf' => $token, 'email' => 'admin@wakdo.local'], '/forgot_password');
+        $response = $this->controller($request, $session, $db, $mailer)->submitRequest();
+
+        // La reponse est deja construite (et pourrait deja avoir ete envoyee par
+        // le front controller) ; le mailer n'a pourtant PAS encore ete appele.
+        self::assertSame(200, $response->status());
+        self::assertStringContainsString('Si un compte', $response->body());
+        self::assertSame([], $mailer->sent, 'le mailer ne doit pas etre appele de facon synchrone (D-5).');
+
+        // Le front controller vide la file APRES avoir emis la reponse.
+        DeferredActions::flush();
+        self::assertCount(1, $mailer->sent);
     }
 
     public function testSubmitRequestBlockedByThrottleIsNeutralAndSilentWith429(): void
