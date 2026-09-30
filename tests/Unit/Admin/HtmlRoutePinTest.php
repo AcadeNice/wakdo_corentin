@@ -30,9 +30,14 @@ use App\Tests\Support\HtmlRouteHarness;
  * « Aucune ecriture metier » : un refus de code (ou de mot de passe courant,
  * D-1) ecrit VOLONTAIREMENT deux traces, la ligne d'audit_log de l'echec
  * (`pin.failed`, RG-T14, ou `auth.reauth_failed`, D-1) et le compteur
- * anti-essais `pin_throttle` (RG-T22, reutilise par D-1 avec l'utilisateur de
- * session comme cle) ; tout le reste (INSERT, UPDATE, DELETE, REPLACE) doit
- * etre absent, et la trace presente prouve que c'est bien la porte du code (ou
+ * anti-essais correspondant -- `pin_throttle` (RG-T22) pour le PIN d'action
+ * sensible, `user.failed_login_attempts`/`lockout_until` (dimension COMPTE,
+ * `App\Auth\AccountLockout`) pour la re-verification du mot de passe depuis
+ * D-1.a (revue adverse : partager pin_throttle etait une faille, corrigee --
+ * une action PIN reussie AILLEURS, meme avec l'email+PIN d'un tiers, ne doit
+ * plus jamais remettre ce compteur-la a zero) ; tout le reste (INSERT, UPDATE,
+ * DELETE, REPLACE) doit etre absent, et la trace presente prouve que c'est
+ * bien la porte du code (ou
  * du mot de passe) qui a refuse.
  */
 final class HtmlRoutePinTest extends TestCase

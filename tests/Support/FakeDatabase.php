@@ -51,6 +51,15 @@ final class FakeDatabase implements DatabaseInterface
     public ?array $accountThrottleRow = null;
 
     /**
+     * lockout_until DU COMPTE (user.lockout_until) renvoye pour la porte de
+     * AccountLockout::isLocked() (D-1.a, reverification du mot de passe sur
+     * /admin/profile/pin) ; null = pas de verrou. DISTINCT de
+     * $pinThrottleLockoutUntil (pin_throttle) : les deux compteurs ne doivent
+     * plus jamais s'influencer l'un l'autre.
+     */
+    public ?string $userAccountLockoutUntil = null;
+
+    /**
      * Reponse de la recherche par token de reinitialisation (12.3) ; null = aucun.
      *
      * @var array<string, mixed>|null
@@ -635,6 +644,14 @@ final class FakeDatabase implements DatabaseInterface
         // en PHP, sans jamais dependre d'une valeur lue AVANT la transaction.
         if (str_contains($sql, 'SELECT failed_login_attempts FROM user WHERE id')) {
             return $this->accountThrottleRow;
+        }
+
+        // D-1.a (contre-audit 30/09) : verrou DU COMPTE (AccountLockout::
+        // isLocked(), reverification du mot de passe sur /admin/profile/pin) --
+        // AVANT ce predicat pour ne pas etre masque par une route plus large
+        // matchant 'FROM user WHERE id'.
+        if (str_contains($sql, 'SELECT lockout_until FROM user WHERE id')) {
+            return ['lockout_until' => $this->userAccountLockoutUntil];
         }
 
         // Re-verification d'identite au set de PIN (ProfileController) : lecture du

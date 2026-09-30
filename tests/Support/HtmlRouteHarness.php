@@ -509,6 +509,18 @@ final class HtmlRouteHarness
             if (str_contains($sql, 'pin_throttle')) {
                 continue;
             }
+            // D-1.a (contre-audit 30/09) : la re-verification du mot de passe
+            // (ProfileController::updatePin()) compte desormais son echec sur la
+            // dimension COMPTE (App\Auth\AccountLockout, user.failed_login_attempts/
+            // lockout_until) -- plus jamais pin_throttle. Exclue au meme titre :
+            // c'est la trace VOLONTAIRE d'un refus de code/mot de passe, jamais
+            // une ecriture metier.
+            if (str_contains($sql, 'UPDATE user SET failed_login_attempts = failed_login_attempts + 1')) {
+                continue;
+            }
+            if (str_contains($sql, 'UPDATE user SET lockout_until = :lock WHERE id = :id')) {
+                continue;
+            }
             if (str_contains($sql, 'INSERT INTO audit_log') && in_array($write['params']['code'] ?? null, ['pin.failed', 'auth.reauth_failed'], true)) {
                 continue;
             }

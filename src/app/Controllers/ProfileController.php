@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Auth\AccountLockout;
 use App\Auth\Csrf;
 use App\Auth\GuardResult;
 use App\Auth\PasswordHasher;
-use App\Auth\PinThrottle;
 use App\Auth\PinVerifier;
 use App\Auth\UserRepository;
 use App\Core\DatabaseInterface;
@@ -27,17 +27,25 @@ use App\Core\Response;
  * throttled -- avant ce correctif, elle pouvait etre tentee sans aucune limite
  * ni trace, ce qui laissait une personne devant une session ouverte (le poste
  * partage que le modele de menace decrit) essayer des mots de passe sans armer
- * le verrou de connexion. Reutilise PinThrottle (RG-T22, ADR-0005) avec
- * l'UTILISATEUR DE SESSION comme cle -- la meme table/politique que le throttle
- * du PIN d'action sensible, plutot qu'une dimension dediee : c'est la MEME
- * identite qui echoue une verification d'identite, que ce soit ici (mot de
- * passe) ou ailleurs (email+PIN) ; conflater les deux ne relache rien (un
- * attaquant qui epuiserait l'un epuise aussi l'autre) et evite une septieme
- * table pour un seul champ (Rasoir d'Ockham). SET du PIN lui-meme toujours pas
- * throttle (seul l'ACCES au formulaire l'est desormais) : un utilisateur qui
- * vient de passer la re-verification peut enregistrer son PIN sans limite
- * artificielle. L'audit ne porte que l'evenement (set vs change vs echec de
- * re-verification), jamais le PIN, un hash, ni le mot de passe saisi.
+ * le verrou de connexion.
+ *
+ * D-1.a (revue adverse, meme contre-audit) : la PREMIERE version de ce
+ * correctif reutilisait `PinThrottle` (pin_throttle, RG-T22) avec l'utilisateur
+ * de SESSION comme cle -- en partageant le compteur avec le PIN d'action
+ * sensible. C'ETAIT UNE FAILLE, pas une simplification : TOUTE action PIN
+ * reussie remet ce compteur a zero, MEME autorisee par l'email+PIN d'un TIERS
+ * (`PinGate::reset()`, `PinVerifier::resolveActingUser()` accepte tout compte
+ * actif) -- sur le poste partage, un collegue pouvait alterner des echecs de
+ * mot de passe et des actions PIN anodines avec SES PROPRES identifiants pour
+ * ne jamais armer le verrou. Corrige : cette re-verification utilise desormais
+ * `App\Auth\AccountLockout`, la dimension COMPTE de `user.failed_login_attempts`/
+ * `lockout_until` -- LE MEME budget que la CONNEXION (RG-8), puisque c'est le
+ * MEME secret (le mot de passe du compte) qui est attaque ici et la ; jamais
+ * plus celui du PIN. SET du PIN lui-meme toujours pas throttle (seul l'ACCES
+ * au formulaire l'est) : un utilisateur qui vient de passer la re-verification
+ * peut enregistrer son PIN sans limite artificielle. L'audit ne porte que
+ * l'evenement (set vs change vs echec de re-verification), jamais le PIN, un
+ * hash, ni le mot de passe saisi.
  *
  * Non `final` : les tests sous-classent pour injecter des doubles.
  */
@@ -112,8 +120,9 @@ class ProfileController extends AdminController
         // session) -- rien a rendre indiscernable d'un "email inconnu" -- donc payer
         // ce cout n'apporterait aucune garantie de plus, juste une charge CPU
         // gratuite pendant que le verrou est actif. Message generique, ne revele pas
-        // si le mot de passe fourni etait bon.
-        if ($this->pinThrottle()->isLocked($userId)) {
+        // si le mot de passe fourni etait bon. D-1.a : verrou DU COMPTE
+        // (AccountLockout), plus jamais celui du PIN (pin_throttle).
+        if ($this->accountLockout()->isLocked($userId)) {
             return $this->renderPinForm($guard, $userId, self::REAUTH_LOCKED_MESSAGE, 422);
         }
 
@@ -130,10 +139,10 @@ class ProfileController extends AdminController
             return $this->renderPinForm($guard, $userId, 'Mot de passe actuel incorrect.', 422);
         }
 
-        // Succes de la re-verification : remet a zero le compteur de l'utilisateur
-        // de session (un equipier qui s'est trompe puis a reussi n'est pas penalise
-        // plus tard, meme regle que PinGate::reset()).
-        $this->pinThrottle()->reset($userId);
+        // Succes de la re-verification : remet a zero le compteur DU COMPTE
+        // (D-1.a -- un equipier qui s'est trompe puis a reussi n'est pas penalise
+        // plus tard, mais sur SON PROPRE budget ; plus jamais pin_throttle).
+        $this->accountLockout()->reset($userId);
 
         // `pinIsSet` AVANT l'ecriture : distingue une premiere definition d'un changement
         // pour le libelle d'audit (aucune valeur sensible n'est tracee).
@@ -190,14 +199,14 @@ class ProfileController extends AdminController
     }
 
     /**
-     * Throttle de la re-verification d'identite (D-1), cle = utilisateur de
-     * SESSION. Passe par db() (pas $this->database) : c'est la meme couture que
-     * currentPasswordHash()/writePinAudit(), celle que les tests routent vers le
-     * double.
+     * Verrou de la re-verification d'identite (D-1, dimension COMPTE depuis
+     * D-1.a -- plus jamais pin_throttle). Passe par db() (pas $this->database) :
+     * c'est la meme couture que currentPasswordHash()/writePinAudit(), celle
+     * que les tests routent vers le double.
      */
-    protected function pinThrottle(): PinThrottle
+    protected function accountLockout(): AccountLockout
     {
-        return new PinThrottle($this->db(), $this->config);
+        return new AccountLockout($this->db(), $this->config);
     }
 
     protected function passwordHasher(): PasswordHasher
@@ -207,16 +216,17 @@ class ProfileController extends AdminController
 
     /**
      * D-1 : echec de re-verification du mot de passe courant. Increment du
-     * throttle (pin_throttle, cle = utilisateur de session) et trace d'audit
-     * `auth.reauth_failed`, dans UNE seule transaction (RG-T08 : pas d'etat
-     * partiel si la base tombe entre les deux). Aucune valeur saisie n'est
-     * journalisee -- seul l'identifiant du compte agissant, deja connu de la
-     * session (RGPD art. 5.1.c, meme discipline que PinGate::auditFailedPin()).
+     * verrou (dimension COMPTE depuis D-1.a, `App\Auth\AccountLockout` -- plus
+     * jamais pin_throttle) et trace d'audit `auth.reauth_failed`, dans UNE
+     * seule transaction (RG-T08 : pas d'etat partiel si la base tombe entre
+     * les deux). Aucune valeur saisie n'est journalisee -- seul l'identifiant
+     * du compte agissant, deja connu de la session (RGPD art. 5.1.c, meme
+     * discipline que PinGate::auditFailedPin()).
      */
     private function recordReauthFailure(int $userId, int $roleId): void
     {
         $this->db()->transaction(function (DatabaseInterface $db) use ($userId, $roleId): void {
-            $this->pinThrottle()->recordFailureWithin($db, $userId);
+            $this->accountLockout()->recordFailureWithin($db, $userId);
 
             $db->execute(
                 'INSERT INTO audit_log (actor_user_id, actor_role_id, action_code, entity_type, entity_id, summary) '
