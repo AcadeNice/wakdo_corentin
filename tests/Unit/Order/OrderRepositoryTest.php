@@ -943,6 +943,71 @@ final class OrderRepositoryTest extends TestCase
         self::assertSame(7, $move['uid']);
     }
 
+    // --- pay() : restriction de canal (A-2, relecture adverse) ---
+    //
+    // pay() a deux appelants : la route publique anonyme (canal kiosk uniquement,
+    // via $restrictToSource) et createStaffOrder() en interne juste apres avoir
+    // cree une commande comptoir/drive (sans restriction -- le canal vient d'etre
+    // fixe par ce meme appelant, deja de confiance). Sans cette restriction,
+    // n'importe qui pouvait encaisser une commande comptoir/drive encore en
+    // attente par le canal public, ou lire le statut/total d'une commande deja
+    // encaissee.
+
+    public function testPayRestrictedToSourceRejectsPendingOrderFromAnotherChannel(): void
+    {
+        $db = new FakeOrderDatabase();
+        $db->orderByNumber = ['id' => 100, 'order_number' => 'C100', 'total_ttc_cents' => 890, 'status' => 'pending_payment', 'source' => 'counter'];
+
+        try {
+            $this->repo($db)->pay('C100', null, 'kiosk');
+            self::fail('ORDER_NOT_FOUND attendu.');
+        } catch (OrderValidationException $exception) {
+            self::assertSame('ORDER_NOT_FOUND', $exception->getMessage());
+        }
+        // La garde de canal precede toute transition/decrement : aucune ecriture.
+        self::assertSame(0, $db->countWrites('UPDATE customer_order SET status'));
+        self::assertSame(0, $db->countWrites('UPDATE ingredient SET stock_quantity'));
+        self::assertSame(0, $db->countWrites('INSERT INTO stock_movement'));
+    }
+
+    public function testPayRestrictedToSourceRejectsAlreadyEncashedOrderFromAnotherChannel(): void
+    {
+        // Une commande drive DEJA encaissee (preparing) ne doit pas repondre par sa
+        // branche idempotente (200 + statut + total) sous la restriction kiosk : ce
+        // serait encore une fuite par le canal public. Meme 404 qu'un numero inconnu.
+        $db = new FakeOrderDatabase();
+        $db->orderByNumber = ['id' => 100, 'order_number' => 'D100', 'total_ttc_cents' => 890, 'status' => 'preparing', 'source' => 'drive'];
+
+        $this->expectException(OrderValidationException::class);
+        $this->expectExceptionMessage('ORDER_NOT_FOUND');
+        $this->repo($db)->pay('D100', null, 'kiosk');
+    }
+
+    public function testPayRestrictedToSourceAllowsMatchingChannel(): void
+    {
+        $db = new FakeOrderDatabase();
+        $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => 'pending_payment', 'source' => 'kiosk'];
+
+        $res = $this->repo($db)->pay('K100', null, 'kiosk');
+
+        self::assertSame('preparing', $res['status']);
+        self::assertSame(1, $db->countWrites('UPDATE customer_order SET status'));
+    }
+
+    public function testPayWithoutRestrictionIgnoresSourceForInternalStaffFlow(): void
+    {
+        // createStaffOrder() appelle pay() SANS restriction juste apres avoir cree la
+        // commande comptoir/drive : ce canal est deja de confiance (fixe par ce meme
+        // appelant), l'absence de $restrictToSource ne doit rien casser ici.
+        $db = new FakeOrderDatabase();
+        $db->orderByNumber = ['id' => 100, 'order_number' => 'C100', 'total_ttc_cents' => 890, 'status' => 'pending_payment', 'source' => 'counter'];
+
+        $res = $this->repo($db)->pay('C100', 7);
+
+        self::assertSame('preparing', $res['status']);
+        self::assertSame(1, $db->countWrites('UPDATE customer_order SET status'));
+    }
+
     public function testDeliverTransitionsPaidToDelivered(): void
     {
         $db = new FakeOrderDatabase();

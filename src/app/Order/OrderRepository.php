@@ -631,18 +631,36 @@ class OrderRepository
      * la transition `preparing` s'applique, mais aucun mouvement de stock n'est
      * produit faute de composition. La logique s'active des que les recettes existent.
      *
+     * RESTRICTION DE CANAL (A-2, relecture adverse) : ce endpoint public anonyme
+     * (route borne) n'appelait pas findByNumber() -- comme show() avant son propre
+     * correctif -- donc ne filtrait pas par source, alors que les numeros sont
+     * SEQUENTIELS (prefixe canal + id) : n'importe qui pouvait lire le statut ET le
+     * total d'une commande comptoir/drive, alors que ces commandes ne sont pas
+     * anonymes par nature. Elles sont encaissees des leur creation (POST-1), donc
+     * jamais laissees en pending_payment : l'encaissement anonyme (transition +
+     * decrement RG-T20) n'etait pas atteignable, et ce filtre l'interdit si ce
+     * parcours change. $restrictToSource, quand fourni, rejette toute
+     * commande d'un AUTRE canal en ORDER_NOT_FOUND -- AVANT toute lecture de statut
+     * ou ecriture -- avec la MEME reponse qu'un numero inconnu (anti-enumeration,
+     * comme show()). NULL (defaut) : createStaffOrder() ci-dessus appelle pay()
+     * juste apres avoir fixe lui-meme la source de la commande qu'il vient de creer
+     * -- canal deja de confiance, aucune restriction a y appliquer.
+     *
      * @param int|null $actingUserId acteur comptoir/drive (stock_movement.user_id +
      *                               customer_order.acting_user_id) ; NULL pour le kiosk.
+     * @param string|null $restrictToSource canal auquel restreindre la lecture
+     *                                       ('kiosk' pour la route publique) ; NULL
+     *                                       pour ne pas restreindre (appel interne).
      * @return array{id:int, order_number:string, total_ttc_cents:int, status:string}
      * @throws OrderValidationException
      */
-    public function pay(string $orderNumber, ?int $actingUserId = null): array
+    public function pay(string $orderNumber, ?int $actingUserId = null, ?string $restrictToSource = null): array
     {
         $order = $this->db->fetch(
-            'SELECT id, order_number, total_ttc_cents, status FROM customer_order WHERE order_number = :n',
+            'SELECT id, order_number, total_ttc_cents, status, source FROM customer_order WHERE order_number = :n',
             ['n' => $orderNumber],
         );
-        if ($order === null) {
+        if ($order === null || ($restrictToSource !== null && (string) ($order['source'] ?? '') !== $restrictToSource)) {
             throw new OrderValidationException('ORDER_NOT_FOUND');
         }
 
