@@ -769,7 +769,7 @@ class UserController extends AdminController
             'title'     => ($id !== 0 ? 'Modifier' : 'Nouvel') . ' utilisateur - Wakdo Admin',
             'activeNav' => 'users',
             'userId'    => $id,
-            'roles'     => $this->rolesForSelect(),
+            'roles'     => $this->rolesForSelect($guard, (int) ($values['role_id'] ?? 0)),
             'values'    => [
                 'email'      => (string) ($values['email'] ?? ''),
                 'first_name' => (string) ($values['first_name'] ?? ''),
@@ -801,18 +801,32 @@ class UserController extends AdminController
 
     /**
      * Roles actifs pour le select (id + label), via une lecture directe (pas de
-     * repo dedie avant le lot RBAC).
+     * repo dedie avant le lot RBAC). D-4 mineur (revue adverse) : filtre les roles
+     * que l'acteur ne pourrait de toute facon pas affecter (roleExceedsPermissions,
+     * la garde serveur reste l'autorite -- ceci n'est qu'un confort d'interface, pas
+     * une seconde barriere). $currentRoleId (role deja selectionne dans le
+     * formulaire re-affiche, ou role reel du compte en cours d'edition) reste
+     * TOUJOURS propose, meme hors de cette regle, pour que la case selectionnee ne
+     * disparaisse jamais silencieusement de la liste.
      *
      * @return list<array{id:int, label:string}>
      */
-    private function rolesForSelect(): array
+    private function rolesForSelect(GuardResult $guard, int $currentRoleId): array
     {
         $rows = $this->db()->fetchAll('SELECT id, label FROM role WHERE is_active = 1 ORDER BY label');
+        $hasRoleManage = $this->may($guard, 'role.manage');
+        $actorPermissions = $hasRoleManage ? [] : $this->authorizer()->permissionsFor($guard->roleId ?? 0);
 
-        return array_map(static fn (array $r): array => [
-            'id'    => (int) ($r['id'] ?? 0),
-            'label' => (string) ($r['label'] ?? ''),
-        ], $rows);
+        $roles = [];
+        foreach ($rows as $r) {
+            $id = (int) ($r['id'] ?? 0);
+            if (!$hasRoleManage && $id !== $currentRoleId && $this->roleExceedsPermissions($id, $actorPermissions)) {
+                continue;
+            }
+            $roles[] = ['id' => $id, 'label' => (string) ($r['label'] ?? '')];
+        }
+
+        return $roles;
     }
 
     private function notFound(GuardResult $guard): Response

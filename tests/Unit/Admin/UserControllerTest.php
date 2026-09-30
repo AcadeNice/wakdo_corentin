@@ -376,6 +376,65 @@ final class UserControllerTest extends TestCase
         self::assertFalse($db->wrote('UPDATE user SET'));
     }
 
+    // --- D-4 mineur (revue adverse) : la liste de roles offerte au formulaire ne
+    // propose pas un role que l'acteur ne pourrait pas affecter -- le serveur reste
+    // l'autorite (assignsRoleBeyondActorPermissions le refuserait de toute facon a
+    // l'envoi), mais l'interface ne doit pas suggerer un choix voue au refus. ---
+
+    public function testCreateFormHidesRolesBeyondActorPermissions(): void
+    {
+        $db = $this->permittedDb();
+        $db->guardUserRow = ['is_active' => 1, 'role_id' => 1];
+        $db->canByRole = ['1:role.manage' => false];
+        $db->rolesRows = [
+            ['id' => 4, 'label' => 'Counter Staff'],
+            ['id' => 9, 'label' => 'Admin Bis'],
+        ];
+        $db->permissionCodesByRole = ['9' => ['user.read', 'user.create', 'user.update', 'user.deactivate', 'stock.manage']];
+
+        $response = $this->controller($this->get('/admin/users/new'), $db)->create();
+
+        self::assertSame(200, $response->status());
+        $body = $response->body();
+        self::assertStringContainsString('value="4"', $body);
+        self::assertStringNotContainsString('value="9"', $body);
+    }
+
+    public function testCreateFormShowsAllRolesWhenActorHasRoleManage(): void
+    {
+        $db = $this->permittedDb();
+        $db->guardUserRow = ['is_active' => 1, 'role_id' => 1];
+        // canResult = true (defaut permittedDb()) -> l'acteur porte role.manage -> aucun filtre.
+        $db->rolesRows = [
+            ['id' => 4, 'label' => 'Counter Staff'],
+            ['id' => 9, 'label' => 'Admin Bis'],
+        ];
+
+        $response = $this->controller($this->get('/admin/users/new'), $db)->create();
+
+        self::assertStringContainsString('value="9"', $response->body());
+    }
+
+    public function testEditFormKeepsCurrentRoleEvenIfBeyondActorPermissions(): void
+    {
+        $db = $this->permittedDb();
+        $db->guardUserRow = ['is_active' => 1, 'role_id' => 1];
+        $db->canByRole = ['1:role.manage' => false];
+        $db->rolesRows = [
+            ['id' => 4, 'label' => 'Counter Staff'],
+            ['id' => 9, 'label' => 'Admin Bis'],
+        ];
+        $db->permissionCodesByRole = ['9' => ['user.read', 'user.create', 'user.update', 'user.deactivate', 'stock.manage']];
+        $db->userManageRow = $this->target(['id' => 5, 'role_id' => 9]);
+
+        $response = $this->controller($this->get('/admin/users/5/edit'), $db)->edit(['id' => '5']);
+
+        // Role courant du compte edite : reste visible meme hors de la regle, sinon
+        // le formulaire perdrait silencieusement la selection en cours.
+        self::assertStringContainsString('value="9"', $response->body());
+    }
+
+
     // --- Mise a jour (user.update) ---
 
     public function testUpdateNotFound(): void
