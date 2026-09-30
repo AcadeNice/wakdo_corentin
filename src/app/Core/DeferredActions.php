@@ -16,10 +16,11 @@ use Throwable;
  * d'un compte.
  *
  * Le front controller (src/public/admin/index.php) vide la file JUSTE APRES
- * `Response::send()` : `fastcgi_finish_request()` d'abord quand la SAPI la
- * fournit (le client recoit sa reponse et la connexion se ferme AVANT que la
- * file ne s'execute), sinon la file s'execute simplement en fin de requete
- * (repli le plus simple, cf. la note "sinon en fin de requete" du correctif).
+ * `Response::send()`, via `finishRequest()` -- voir cette methode pour l'ordre
+ * exact (D-5.a : fermer la session AVANT de rendre la main au client, sans
+ * quoi une 2e requete restait bloquee sur le verrou de fichier de la session
+ * jusqu'a la fin du travail differe, rouvrant le canal par le temps que ce
+ * fichier existe pour fermer).
  *
  * Etat STATIQUE PAR PROCESSUS : sous PHP-FPM, un processus ne traite qu'UNE
  * requete a la fois (pas de fuite entre requetes concurrentes) et repart d'une

@@ -80,4 +80,21 @@ final class ErrorResponseTest extends TestCase
         $json = json_decode(ErrorResponse::internal('/api/products', true, 'detail')->body(), true);
         self::assertSame('detail', $json['error']['message']);
     }
+
+    /**
+     * D-7 (2e revue adverse, contre-audit 30/09, mineur) : une erreur FATALE
+     * (500) peut survenir en plein traitement d'une route qui porte un secret
+     * dans son URL (ex. /reset_password?token=... si showConfirm() levait une
+     * exception non attrapee) -- sa propre feuille de style (meme origine)
+     * porterait alors ce jeton en Referer sous la politique par defaut.
+     * "no-referrer" ferme ce cas, LIMITE a la page 500 : un 404/405 ordinaire
+     * n'a rien a voir avec une route precise et garde la politique par defaut
+     * (`security-headers.spec.js` l'attend sur les 404/405 HTML).
+     */
+    public function testOnlyTheServerErrorPageSetsNoReferrerPolicy(): void
+    {
+        self::assertNull(ErrorResponse::notFound('/admin/nope')->header('Referrer-Policy'));
+        self::assertNull(ErrorResponse::methodNotAllowed('/admin/products', 'DELETE')->header('Referrer-Policy'));
+        self::assertSame('no-referrer', ErrorResponse::internal('/admin/products', false, 'detail')->header('Referrer-Policy'));
+    }
 }

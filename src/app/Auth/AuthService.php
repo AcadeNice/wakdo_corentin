@@ -98,7 +98,7 @@ final class AuthService
             // meme compte une fois deverrouille (cf. PasswordHasherInterface::
             // verifyDecoy()).
             $this->hasher->verifyDecoy($password, $this->stringOrNull($user['password_hash'] ?? null));
-            $this->recordFailure(null, null, $ip, $accountPolicy, $ipPolicy, $now);
+            $this->recordFailure(null, null, $ip, $ipPolicy, $now);
 
             return AuthResult::failure();
         }
@@ -108,7 +108,7 @@ final class AuthService
         // STOCKE quelconque d'un autre compte, pour le meme motif que ci-dessus.
         if ($user === null) {
             $this->hasher->verifyDecoy($password, $this->referenceHashForDecoy());
-            $this->recordFailure(null, null, $ip, $accountPolicy, $ipPolicy, $now);
+            $this->recordFailure(null, null, $ip, $ipPolicy, $now);
 
             return AuthResult::failure();
         }
@@ -118,7 +118,7 @@ final class AuthService
         $storedHash = (string) ($user['password_hash'] ?? '');
 
         if (!$this->hasher->verify($password, $storedHash)) {
-            $this->recordFailure($userId, $roleId, $ip, $accountPolicy, $ipPolicy, $now);
+            $this->recordFailure($userId, $roleId, $ip, $ipPolicy, $now);
 
             return AuthResult::failure();
         }
@@ -250,7 +250,6 @@ final class AuthService
         ?int $userId,
         ?int $roleId,
         string $ip,
-        ThrottlePolicy $accountPolicy,
         ThrottlePolicy $ipPolicy,
         int $now,
     ): void {
@@ -263,22 +262,17 @@ final class AuthService
             $userId,
             $roleId,
             $ip,
-            $accountPolicy,
             $ipPolicy,
             $now,
             $nowDt,
             $windowCutoff,
         ): void {
-            // Dimension compte. D-3 (contre-audit 30/09) : increment ATOMIQUE cote
-            // SQL (comme la dimension IP ci-dessous), PUIS relecture SOUS LE VERROU
-            // DE LIGNE pris par cet UPDATE (persiste jusqu'au commit de CETTE
-            // transaction) pour calculer le backoff -- avant ce correctif, le
-            // compteur etait LU hors transaction (RG-1, findActiveUserByEmail())
-            // puis ecrit en PHP ($currentAttempts + 1) : deux echecs concurrents
-            // sur le MEME compte, lisant tous deux l'ancienne valeur avant que
-            // l'un des deux n'ecrive, ne faisaient progresser le compteur que
-            // d'UNE unite au lieu de deux (perte d'increment, meme defaut que
-            // celui deja corrige cote IP).
+            // Dimension compte. Deleguee a AccountLockout (2e revue adverse,
+            // contre-audit 30/09) : c'est le MEME increment atomique + relecture
+            // sous verrou de ligne que la re-verification du mot de passe sur
+            // /admin/profile/pin (D-1.a) -- le motif SQL n'existe plus qu'a un
+            // seul endroit, celui-ci evite toute divergence future entre les deux
+            // appelants.
             //
             // Pour ne pas reveler par le timing si l'email existe (anti-enumeration,
             // RG-2), on emet la MEME requete EXACTE dans les deux cas : sur email
@@ -286,22 +280,7 @@ final class AuthService
             // ne porte cette PK, AUTO_INCREMENT demarrant a 1 : effet nul, meme
             // profil d'I/O).
             $targetId = $userId ?? 0;
-
-            $db->execute(
-                'UPDATE user SET failed_login_attempts = failed_login_attempts + 1, last_failed_login_at = :now '
-                . 'WHERE id = :id',
-                ['now' => $nowDt, 'id' => $targetId],
-            );
-
-            $row = $db->fetch('SELECT failed_login_attempts FROM user WHERE id = :id', ['id' => $targetId]);
-            $accountAttempts = (int) ($row['failed_login_attempts'] ?? 1);
-            $accountLockSeconds = $accountPolicy->lockoutSeconds($accountAttempts);
-            $accountLockUntil = $accountLockSeconds > 0 ? date('Y-m-d H:i:s', $now + $accountLockSeconds) : null;
-
-            $db->execute(
-                'UPDATE user SET lockout_until = :lock WHERE id = :id',
-                ['lock' => $accountLockUntil, 'id' => $targetId],
-            );
+            $this->accountLockout()->recordFailureWithin($db, $targetId, $now);
 
             // Dimension IP : increment ATOMIQUE cote SQL (failed_attempts + 1) pour
             // eviter le lost-update sous concurrence ; la fenetre glissante est
@@ -410,5 +389,16 @@ final class AuthService
     private function stringOrNull(mixed $value): ?string
     {
         return is_string($value) ? $value : null;
+    }
+
+    /**
+     * Dimension COMPTE du verrou (2e revue adverse, contre-audit 30/09) :
+     * partagee avec `ProfileController::updatePin()` (D-1.a) via ce meme
+     * service, pour que l'increment atomique + relecture sous verrou de ligne
+     * n'existe qu'a un seul endroit (`AccountLockout::recordFailureWithin()`).
+     */
+    private function accountLockout(): AccountLockout
+    {
+        return new AccountLockout($this->db, $this->config);
     }
 }

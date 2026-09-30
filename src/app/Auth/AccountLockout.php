@@ -27,15 +27,16 @@ use App\Core\DatabaseInterface;
  * Correction retenue (la plus simple) : la re-verification du mot de passe
  * porte sur le MEME secret que la connexion (le mot de passe du compte) --
  * elle merite donc le MEME budget, `user.failed_login_attempts`/
- * `lockout_until`, jamais celui du PIN. `AuthService::recordFailure()`/
- * `recordSuccess()` portent une logique EQUIVALENTE pour cette dimension lors
- * de AUTHENTICATE_USER (meme increment SQL atomique, meme `ThrottlePolicy`
- * 'account'), mais couplee dans la MEME transaction que la dimension IP :
- * non reutilisable telle quelle sans toucher un code deja teste et revu.
- * Cette classe REPLIQUE la seule dimension compte (memes requetes, memes
- * garanties -- verrou de ligne pris par l'UPDATE atomique, relecture SOUS ce
- * verrou dans la meme transaction) pour ce second appelant, en toute
- * isolation.
+ * `lockout_until`, jamais celui du PIN.
+ *
+ * Extraite pour que le motif SQL (increment atomique, relecture SOUS LE
+ * VERROU DE LIGNE pris par cet UPDATE, dans la MEME transaction que
+ * l'appelant) n'existe QU'A UN SEUL ENDROIT : `AuthService::recordFailure()`
+ * (dimension compte de AUTHENTICATE_USER, RG-8) et
+ * `ProfileController::recordReauthFailure()` (D-1.a) appellent tous deux
+ * `recordFailureWithin()`, chacun DANS SA PROPRE transaction (elle n'ouvre
+ * jamais la sienne dans cette variante -- c'est `recordFailure()`, la seule a
+ * le faire, qui sert les appelants qui n'ont pas deja de transaction ouverte).
  *
  * Consequence assumee : des echecs repetes de re-verification sur
  * `/admin/profile/pin` comptent desormais AUSSI vers le verrou de CONNEXION
