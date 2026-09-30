@@ -227,6 +227,7 @@ final class UserApiControllerTest extends TestCase
         // grantedCodes (allowlist de permittedDb()) ne contient pas role.manage :
         // l'acteur en est prive par defaut. Role vise (9) marque AVEC role.manage.
         $db->canByRole = ['9:role.manage' => true];
+        $db->permissionCodesByRole = ['9' => ['role.manage']];
         $request = $this->jsonRequest('POST', '/admin/api/users', $this->validBody(['role_id' => 9]));
 
         $response = $this->controller($request, $db)->apiStore();
@@ -257,6 +258,7 @@ final class UserApiControllerTest extends TestCase
         $db->userManageRow = ['id' => 5, 'email' => 'e@wakdo.fr', 'first_name' => 'E', 'last_name' => 'Q', 'role_id' => 2, 'is_active' => 1];
         // role COURANT de la cible (2) marque AVEC role.manage ; role_id inchange dans le corps.
         $db->canByRole = ['2:role.manage' => true];
+        $db->permissionCodesByRole = ['2' => ['role.manage']];
         $request = $this->jsonRequest('PUT', '/admin/api/users/5', $this->validBody(['email' => 'e@wakdo.fr']));
 
         $response = $this->controller($request, $db)->apiUpdate(['id' => '5']);
@@ -272,11 +274,31 @@ final class UserApiControllerTest extends TestCase
         $db = $this->permittedDb();
         $db->userManageRow = ['id' => 5, 'email' => 'e@wakdo.fr', 'first_name' => 'E', 'last_name' => 'Q', 'role_id' => 2, 'is_active' => 1];
         $db->canByRole = ['9:role.manage' => true];
+        $db->permissionCodesByRole = ['9' => ['role.manage']];
         $request = $this->jsonRequest('PUT', '/admin/api/users/5', $this->validBody(['email' => 'e@wakdo.fr', 'role_id' => 9]));
 
         $response = $this->controller($request, $db)->apiUpdate(['id' => '5']);
 
         self::assertSame(403, $response->status());
+        self::assertFalse($db->wrote('UPDATE user SET'));
+    }
+
+    // --- D-4 generalise (revue adverse) : au-dela de role.manage. ---
+
+    public function testUpdateBlocksModifyingAccountWhoseCurrentRoleExceedsActorWithoutRoleManage(): void
+    {
+        $db = $this->permittedDb();
+        $db->userManageRow = ['id' => 5, 'email' => 'e@wakdo.fr', 'first_name' => 'E', 'last_name' => 'Q', 'role_id' => 2, 'is_active' => 1];
+        // grantedCodes (defaut permittedDb()) ne contient pas stock.manage : le role
+        // COURANT de la cible (2) le porte quand meme, sans que role.manage soit en cause.
+        $db->permissionCodesByRole = ['2' => ['user.read', 'user.create', 'user.update', 'user.deactivate', 'stock.manage']];
+        $request = $this->jsonRequest('PUT', '/admin/api/users/5', $this->validBody(['email' => 'e@wakdo.fr']));
+
+        $response = $this->controller($request, $db)->apiUpdate(['id' => '5']);
+        $body = json_decode($response->body(), true);
+
+        self::assertSame(403, $response->status());
+        self::assertSame('FORBIDDEN', $body['error']['code'] ?? null);
         self::assertFalse($db->wrote('UPDATE user SET'));
     }
 
@@ -361,6 +383,7 @@ final class UserApiControllerTest extends TestCase
         $db = $this->permittedDb();
         $db->userManageRow = ['id' => 5, 'email' => 'e@wakdo.fr', 'first_name' => 'E', 'last_name' => 'Q', 'role_id' => 2, 'is_active' => 1];
         $db->canByRole = ['2:role.manage' => true];
+        $db->permissionCodesByRole = ['2' => ['role.manage']];
         $request = $this->jsonRequest('DELETE', '/admin/api/users/5', []);
 
         $response = $this->controller($request, $db)->apiDestroy(['id' => '5']);
@@ -413,6 +436,7 @@ final class UserApiControllerTest extends TestCase
         $db = $this->permittedDb();
         $db->userManageRow = ['id' => 5, 'email' => 'e@wakdo.fr', 'first_name' => 'E', 'last_name' => 'Q', 'role_id' => 2, 'is_active' => 1];
         $db->canByRole = ['2:role.manage' => true];
+        $db->permissionCodesByRole = ['2' => ['role.manage']];
         $request = $this->jsonRequest('POST', '/admin/api/users/5/reset-pin', ['pin_email' => 'e@e.fr', 'pin' => '4729']);
 
         $response = $this->controller($request, $db)->apiResetPin(['id' => '5']);
@@ -465,6 +489,7 @@ final class UserApiControllerTest extends TestCase
         $db = $this->permittedDb();
         $db->userManageRow = ['id' => 5, 'email' => 'e@wakdo.fr', 'first_name' => 'E', 'last_name' => 'Q', 'role_id' => 2, 'is_active' => 1, 'anonymized_at' => null];
         $db->canByRole = ['2:role.manage' => true];
+        $db->permissionCodesByRole = ['2' => ['role.manage']];
         $request = $this->jsonRequest('POST', '/admin/api/users/5/erase', []);
 
         $response = $this->controller($request, $db)->apiErase(['id' => '5']);

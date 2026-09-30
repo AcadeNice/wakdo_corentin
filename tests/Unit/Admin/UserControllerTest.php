@@ -264,6 +264,7 @@ final class UserControllerTest extends TestCase
         // guard->roleId vient de guardUserRow (SessionGuard relit EN BASE), pas de la session.
         $db->guardUserRow = ['is_active' => 1, 'role_id' => 1];
         $db->canByRole = ['1:role.manage' => false, '9:role.manage' => true];
+        $db->permissionCodesByRole = ['9' => ['role.manage']];
 
         $response = $this->controller($this->post($this->createForm(['role_id' => '9']), '/admin/users'), $db)->store();
 
@@ -286,6 +287,61 @@ final class UserControllerTest extends TestCase
 
         self::assertSame(302, $response->status());
         self::assertTrue($db->wrote('INSERT INTO user'));
+    }
+
+    // --- D-4 generalise (revue adverse) : au-dela de role.manage, un acteur ne
+    // peut affecter, ni laisser en place, un role dont l'ensemble des permissions
+    // deborde le sien -- meme quand role.manage n'est pas en cause du tout. ---
+
+    public function testStoreBlocksAssigningRoleWithPermissionsBeyondActorWithoutRoleManage(): void
+    {
+        $db = $this->permittedDb();
+        // Acteur (role 1) : permissions par defaut (user.read/create/update/deactivate),
+        // aucune n'est role.manage. Role vise (9) : les memes, PLUS stock.manage, que
+        // l'acteur ne detient pas -- l'ancienne regle (role.manage seul) laissait passer.
+        $db->guardUserRow = ['is_active' => 1, 'role_id' => 1];
+        $db->canByRole = ['1:role.manage' => false, '9:role.manage' => false];
+        $db->permissionCodesByRole = ['9' => ['user.read', 'user.create', 'user.update', 'user.deactivate', 'stock.manage']];
+
+        $response = $this->controller($this->post($this->createForm(['role_id' => '9']), '/admin/users'), $db)->store();
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($db->wrote('INSERT INTO user'));
+        self::assertSame([], $db->auditActions());
+    }
+
+    public function testStoreAllowsAssigningRoleWithPermissionsSubsetOfActor(): void
+    {
+        $db = $this->permittedDb();
+        $db->guardUserRow = ['is_active' => 1, 'role_id' => 1];
+        $db->canByRole = ['1:role.manage' => false, '9:role.manage' => false];
+        // Role vise (9) : un SOUS-ENSEMBLE strict des permissions de l'acteur -> autorise.
+        $db->permissionCodesByRole = ['9' => ['user.read', 'user.update']];
+        $this->actingPin($db);
+        $db->lastInsertId = 43;
+
+        $response = $this->controller($this->post($this->createForm(['role_id' => '9']), '/admin/users'), $db)->store();
+
+        self::assertSame(302, $response->status());
+        self::assertTrue($db->wrote('INSERT INTO user'));
+    }
+
+    public function testUpdateBlocksModifyingAccountWhoseCurrentRoleExceedsActorWithoutRoleManage(): void
+    {
+        $db = $this->permittedDb();
+        // Cible (id 5, role 4) : role.manage absent des deux cotes, mais le role
+        // COURANT de la cible porte stock.manage, que l'acteur n'a pas.
+        $db->guardUserRow = ['is_active' => 1, 'role_id' => 1];
+        $db->canByRole = ['1:role.manage' => false, '4:role.manage' => false];
+        $db->permissionCodesByRole = ['4' => ['user.read', 'user.create', 'user.update', 'user.deactivate', 'stock.manage']];
+        $db->userManageRow = $this->target(['id' => 5, 'role_id' => 4]);
+
+        $form = $this->createForm(['email' => 'staff@wakdo.local', 'first_name' => 'Renamed', 'is_active' => '1']);
+        $response = $this->controller($this->post($form, '/admin/users/5'), $db)->update(['id' => '5']);
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($db->wrote('UPDATE user SET'));
+        self::assertSame([], $db->auditActions());
     }
 
     // --- Mise a jour (user.update) ---
@@ -348,6 +404,7 @@ final class UserControllerTest extends TestCase
         // guard->roleId vient de guardUserRow (SessionGuard relit EN BASE), pas de la session.
         $db->guardUserRow = ['is_active' => 1, 'role_id' => 1];
         $db->canByRole = ['1:role.manage' => false, '4:role.manage' => true];
+        $db->permissionCodesByRole = ['4' => ['role.manage']];
         $db->userManageRow = $this->target(['id' => 5, 'role_id' => 4]);
 
         $form = $this->createForm(['email' => 'staff@wakdo.local', 'first_name' => 'Renamed', 'is_active' => '1']);
@@ -366,6 +423,7 @@ final class UserControllerTest extends TestCase
         // guard->roleId vient de guardUserRow (SessionGuard relit EN BASE), pas de la session.
         $db->guardUserRow = ['is_active' => 1, 'role_id' => 1];
         $db->canByRole = ['1:role.manage' => false, '4:role.manage' => false, '9:role.manage' => true];
+        $db->permissionCodesByRole = ['9' => ['role.manage']];
         $db->userManageRow = $this->target(['id' => 5, 'role_id' => 4]);
 
         $form = $this->createForm(['role_id' => '9', 'email' => 'staff@wakdo.local', 'is_active' => '1']);
@@ -428,6 +486,7 @@ final class UserControllerTest extends TestCase
         // guard->roleId vient de guardUserRow (SessionGuard relit EN BASE), pas de la session.
         $db->guardUserRow = ['is_active' => 1, 'role_id' => 1];
         $db->canByRole = ['1:role.manage' => false, '4:role.manage' => true];
+        $db->permissionCodesByRole = ['4' => ['role.manage']];
         $db->userManageRow = $this->target(['id' => 5, 'role_id' => 4]);
 
         $response = $this->controller($this->post(['_csrf' => $this->csrf, 'pin_email' => 'sam@wakdo.local', 'pin' => '4729'], '/admin/users/5/deactivate'), $db)->deactivate(['id' => '5']);
@@ -487,6 +546,7 @@ final class UserControllerTest extends TestCase
         // guard->roleId vient de guardUserRow (SessionGuard relit EN BASE), pas de la session.
         $db->guardUserRow = ['is_active' => 1, 'role_id' => 1];
         $db->canByRole = ['1:role.manage' => false, '4:role.manage' => true];
+        $db->permissionCodesByRole = ['4' => ['role.manage']];
         $db->userManageRow = $this->target(['id' => 5, 'role_id' => 4]);
 
         $response = $this->controller($this->post(['_csrf' => $this->csrf, 'pin_email' => 'sam@wakdo.local', 'pin' => '4729'], '/admin/users/5/reset-pin'), $db)->resetPin(['id' => '5']);
@@ -515,6 +575,7 @@ final class UserControllerTest extends TestCase
         // guard->roleId vient de guardUserRow (SessionGuard relit EN BASE), pas de la session.
         $db->guardUserRow = ['is_active' => 1, 'role_id' => 1];
         $db->canByRole = ['1:role.manage' => false, '4:role.manage' => true];
+        $db->permissionCodesByRole = ['4' => ['role.manage']];
         $db->userManageRow = $this->target(['id' => 5, 'role_id' => 4, 'anonymized_at' => null]);
 
         $response = $this->controller($this->post(['_csrf' => $this->csrf, 'pin_email' => 'sam@wakdo.local', 'pin' => '4729'], '/admin/users/5/erase'), $db)->erase(['id' => '5']);
