@@ -112,7 +112,7 @@ final class OrderControllerTest extends TestCase
     public function testPayReturns200Preparing(): void
     {
         $db = new FakeOrderDatabase();
-        $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => 'pending_payment'];
+        $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => 'pending_payment', 'source' => 'kiosk'];
 
         $response = $this->controller($db, '', '/api/orders/K100/pay')->pay(['number' => 'K100']);
 
@@ -142,7 +142,7 @@ final class OrderControllerTest extends TestCase
         // 'cancelled' est le seul statut terminal qui refuse le paiement (INVALID_TRANSITION).
         // Les etats encaisses (paid/preparing/ready/delivered) sont idempotents -> 200.
         $db = new FakeOrderDatabase();
-        $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => 'cancelled'];
+        $db->orderByNumber = ['id' => 100, 'order_number' => 'K100', 'total_ttc_cents' => 890, 'status' => 'cancelled', 'source' => 'kiosk'];
 
         $response = $this->controller($db, '', '/api/orders/K100/pay')->pay(['number' => 'K100']);
 
@@ -150,6 +150,60 @@ final class OrderControllerTest extends TestCase
         $data = json_decode($response->body(), true);
         self::assertIsArray($data);
         self::assertSame('INVALID_TRANSITION', $data['error']['code'] ?? null);
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function nonKioskChannels(): array
+    {
+        return [
+            'comptoir' => ['counter', 'C100'],
+            'drive'    => ['drive', 'D100'],
+        ];
+    }
+
+    /**
+     * A-2 (relecture adverse) : POST /api/orders/{number}/pay est PUBLIC ANONYME (borne
+     * kiosk) et les numeros sont sequentiels (K/C/D + id) -- avant ce correctif, pay() ne
+     * filtrait pas par source : n'importe qui pouvait ENCAISSER une commande comptoir/drive
+     * encore en pending_payment (elle passait en preparation, partait en cuisine, le stock
+     * etait decremente) et en lire le statut ET le total. Meme reponse 404 ORDER_NOT_FOUND
+     * qu'un numero inconnu (anti-enumeration, comme show()), et aucune ecriture.
+     */
+    #[DataProvider('nonKioskChannels')]
+    public function testPayNonKioskPendingOrderReturns404SameAsUnknownWithoutAnyWrite(string $source, string $number): void
+    {
+        $db = new FakeOrderDatabase();
+        $db->orderByNumber = ['id' => 100, 'order_number' => $number, 'total_ttc_cents' => 890, 'status' => 'pending_payment', 'source' => $source];
+
+        $response = $this->controller($db, '', "/api/orders/$number/pay")->pay(['number' => $number]);
+        $unknown = $this->controller(new FakeOrderDatabase(), '', '/api/orders/K999/pay')->pay(['number' => 'K999']);
+
+        self::assertSame(404, $response->status());
+        $data = json_decode($response->body(), true);
+        self::assertIsArray($data);
+        self::assertSame('ORDER_NOT_FOUND', $data['error']['code'] ?? null);
+        self::assertSame($unknown->body(), $response->body());
+        // La garde de canal precede toute transition/decrement de stock.
+        self::assertSame([], $db->writes);
+    }
+
+    public function testPayNonKioskAlreadyEncashedOrderReturns404NotItsStatus(): void
+    {
+        // Une commande comptoir DEJA encaissee (preparing) ne doit pas non plus repondre
+        // par la branche idempotente de pay() (200 + statut + total) : ce serait encore
+        // une fuite du statut/total d'une commande non-kiosk par le canal public.
+        $db = new FakeOrderDatabase();
+        $db->orderByNumber = ['id' => 100, 'order_number' => 'C100', 'total_ttc_cents' => 890, 'status' => 'preparing', 'source' => 'counter'];
+
+        $response = $this->controller($db, '', '/api/orders/C100/pay')->pay(['number' => 'C100']);
+
+        self::assertSame(404, $response->status());
+        $data = json_decode($response->body(), true);
+        self::assertIsArray($data);
+        self::assertSame('ORDER_NOT_FOUND', $data['error']['code'] ?? null);
+        self::assertSame([], $db->writes);
     }
 
     public function testCreateWithASpentKeyReturns409OrderCancelled(): void

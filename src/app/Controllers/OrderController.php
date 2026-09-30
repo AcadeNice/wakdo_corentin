@@ -19,7 +19,8 @@ use App\Order\OrderValidationException;
  *  - POST /api/orders               : creation en pending_payment (RG-5 etapes 1-4) ;
  *  - POST /api/orders/{number}/pay  : encaissement -> preparing (part en cuisine sans
  *    geste manuel supplementaire ; paid_at + preparing_at poses ensemble, voir
- *    OrderRepository::pay) + decrement stock (RG-T20).
+ *    OrderRepository::pay) + decrement stock (RG-T20). RESTREINT AU CANAL KIOSK
+ *    (A-2, relecture adverse) : voir le commentaire de pay() ci-dessous.
  *
  * Les erreurs metier (OrderValidationException) sont mappees par code :
  * ORDER_NOT_FOUND -> 404, INVALID_TRANSITION -> 409, le reste (reference /
@@ -46,12 +47,22 @@ class OrderController extends Controller
     }
 
     /**
+     * RESTREINT AU CANAL KIOSK (A-2, relecture adverse), comme show() ci-dessous :
+     * cet endpoint est PUBLIC, sans session, et les numeros sont SEQUENTIELS
+     * (prefixe canal + id) -- avant ce correctif, `pay()` ne filtrait pas par
+     * source : n'importe qui pouvait deviner un numero comptoir/drive voisin et en
+     * lire le statut et le total (branche idempotente), alors que ces commandes sont
+     * saisies par un equipier identifie, pas anonymes. Elles sont encaissees des leur
+     * creation (createStaffOrder, POST-1) : l'encaissement anonyme n'etait donc pas
+     * atteignable, mais seul ce filtre le garantit si ce parcours change. Une commande d'un AUTRE canal rend la MEME
+     * reponse 404 qu'un numero inconnu (anti-enumeration).
+     *
      * @param array<string, string> $params
      */
     public function pay(array $params = []): Response
     {
         try {
-            $order = $this->orders()->pay((string) ($params['number'] ?? ''));
+            $order = $this->orders()->pay((string) ($params['number'] ?? ''), null, 'kiosk');
         } catch (OrderValidationException $exception) {
             return $this->orderError($exception);
         }
