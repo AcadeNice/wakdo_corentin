@@ -72,6 +72,13 @@ final class ErrorResponse
             . '<a class="btn btn-secondary" href="/login">Page de connexion</a></p>'
             . '</div></main></body></html>';
 
-        return (new Response())->html($html, $status);
+        // D-7 (2e revue adverse, contre-audit 30/09) : cette page charge sa
+        // propre feuille de style (meme origine). Si elle est servie pour
+        // /reset_password?token=... (ex. exception non attrapee dans
+        // showConfirm()), la politique par defaut laisserait cette requete de
+        // feuille de style porter le jeton en Referer -- "no-referrer"
+        // l'exclut pour TOUTE page d'erreur, sans avoir a distinguer la route
+        // d'origine.
+        return (new Response())->html($html, $status)->setHeader('Referrer-Policy', 'no-referrer');
     }
 }

@@ -80,4 +80,19 @@ final class ErrorResponseTest extends TestCase
         $json = json_decode(ErrorResponse::internal('/api/products', true, 'detail')->body(), true);
         self::assertSame('detail', $json['error']['message']);
     }
+
+    /**
+     * D-7 (2e revue adverse, contre-audit 30/09, mineur) : une page d'erreur
+     * HTML charge sa propre feuille de style (meme origine) -- si elle etait
+     * servie pour /reset_password?token=... (exception non attrapee), la
+     * politique par defaut laisserait cette requete de ressource porter le
+     * jeton en Referer. "no-referrer" ferme ce cas pour TOUTE page d'erreur
+     * HTML, sans avoir a connaitre la route d'origine.
+     */
+    public function testHtmlErrorPagesSetNoReferrerPolicy(): void
+    {
+        self::assertSame('no-referrer', ErrorResponse::notFound('/admin/nope')->header('Referrer-Policy'));
+        self::assertSame('no-referrer', ErrorResponse::methodNotAllowed('/admin/products', 'DELETE')->header('Referrer-Policy'));
+        self::assertSame('no-referrer', ErrorResponse::internal('/admin/products', false, 'detail')->header('Referrer-Policy'));
+    }
 }
