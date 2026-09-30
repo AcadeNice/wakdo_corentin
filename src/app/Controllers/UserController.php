@@ -37,6 +37,19 @@ class UserController extends AdminController
     private const ENTITY = 'user';
 
     /**
+     * D-4 (elevation de privilege) : `user.update`/`user.create` seuls ne doivent
+     * jamais equivaloir a `role.manage`. Message partage HTML/API (meme texte,
+     * enveloppe differente) -- protected pour que UserApiController le reutilise.
+     */
+    protected const ROLE_MANAGE_REQUIRED = 'Seul un compte autorisé à gérer les rôles peut faire cette action : elle concerne un compte ou un rôle administrateur.';
+
+    /** @see UserController::update() pour le POURQUOI (auto-promotion). */
+    protected const SELF_ROLE_CHANGE_FORBIDDEN = 'Vous ne pouvez pas modifier votre propre rôle.';
+
+    /** @see UserController::update() pour le POURQUOI (auto-desactivation hors de l'ecran dedie). */
+    protected const SELF_DEACTIVATE_FORBIDDEN = 'Vous ne pouvez pas désactiver votre propre compte.';
+
+    /**
      * @param array<string, string> $params
      */
     public function index(array $params = []): Response
@@ -91,6 +104,13 @@ class UserController extends AdminController
         }
         if ($this->userRepository()->emailExists($data['email'])) {
             return $this->renderForm($guard, 0, $form, ['email' => 'Cet email est déjà utilisé.'], 409);
+        }
+
+        // D-4 : creer un compte avec un role qui porte deja `role.manage` exige que
+        // l'ACTEUR la porte lui-meme, sinon `user.create` suffirait a se donner (via
+        // un tiers compte fraichement cree) les pleins pouvoirs RBAC.
+        if ($this->assignsAdminRoleWithoutPermission($guard, $data['role_id'])) {
+            return $this->renderForm($guard, 0, $form, ['role_id' => self::ROLE_MANAGE_REQUIRED], 403);
         }
 
         [$actor, $errorMsg] = $this->resolvePin($guard, $form, 0);
@@ -173,6 +193,29 @@ class UserController extends AdminController
         }
 
         $isActive = isset($form['is_active']) ? 1 : 0;
+
+        // D-4 (elevation de privilege) : `user.update` seul ne doit pas equivaloir a
+        // `role.manage`. Affecter un role qui porte deja cette permission, OU toucher
+        // un compte dont le role COURANT la porte deja (changer son role, son mot de
+        // passe, le desactiver...), exige que l'ACTEUR la porte lui-meme (S-10).
+        if ($this->targetHoldsAdminRoleWithoutPermission($guard, $current) || $this->assignsAdminRoleWithoutPermission($guard, $data['role_id'])) {
+            return $this->renderForm($guard, $id, $form, ['role_id' => self::ROLE_MANAGE_REQUIRED], 403);
+        }
+
+        // D-4 (integrite de session) : ni sa propre promotion/retrogradation de role,
+        // ni sa propre desactivation par CET ecran -- sinon l'ecran dedie de
+        // desactivation (avec sa propre garde) serait contournable par une simple
+        // case a decocher ici.
+        $isSelf = $id === ($guard->userId ?? 0);
+        if ($isSelf && $data['role_id'] !== (int) ($current['role_id'] ?? 0)) {
+            return $this->renderForm($guard, $id, $form, ['role_id' => self::SELF_ROLE_CHANGE_FORBIDDEN], 403);
+        }
+        if ($isSelf && $isActive === 0) {
+            // Cle 'role_id' (le formulaire n'a pas de slot d'erreur dedie a
+            // is_active) : meme convention que le message de verrou anti-lockout
+            // ci-dessous, qui reutilise deja cette cle pour un etat de compte.
+            return $this->renderForm($guard, $id, $form, ['role_id' => self::SELF_DEACTIVATE_FORBIDDEN], 403);
+        }
 
         // Anti-lockout : on ne retire pas le statut d'admin actif au DERNIER admin
         // actif (desactivation OU changement de role) -> sinon back-office inaccessible.
@@ -262,7 +305,12 @@ class UserController extends AdminController
 
         // mlt 10.3 PRE-2 : pas d'auto-desactivation (on ne se coupe pas l'acces).
         if ($id === ($guard->userId ?? 0)) {
-            return $this->renderConfirm($guard, 'deactivate', $id, $user, 'Vous ne pouvez pas désactiver votre propre compte.', 403);
+            return $this->renderConfirm($guard, 'deactivate', $id, $user, self::SELF_DEACTIVATE_FORBIDDEN, 403);
+        }
+        // D-4 : desactiver un compte dont le role COURANT porte `role.manage` exige
+        // que l'ACTEUR la porte lui-meme.
+        if ($this->targetHoldsAdminRoleWithoutPermission($guard, $user)) {
+            return $this->renderConfirm($guard, 'deactivate', $id, $user, self::ROLE_MANAGE_REQUIRED, 403);
         }
         if ($this->isLastActiveAdmin($user)) {
             return $this->renderConfirm($guard, 'deactivate', $id, $user, 'Impossible de désactiver le dernier administrateur actif.', 422);
@@ -322,6 +370,12 @@ class UserController extends AdminController
         $user = $this->userRepository()->find($id);
         if ($user === null) {
             return $this->notFound($guard);
+        }
+
+        // D-4 : reinitialiser le PIN d'un compte dont le role COURANT porte
+        // `role.manage` exige que l'ACTEUR la porte lui-meme (mutation de credential).
+        if ($this->targetHoldsAdminRoleWithoutPermission($guard, $user)) {
+            return $this->renderConfirm($guard, 'reset-pin', $id, $user, self::ROLE_MANAGE_REQUIRED, 403);
         }
 
         [$actor, $errorMsg] = $this->resolvePin($guard, $form, $id);
@@ -384,6 +438,12 @@ class UserController extends AdminController
             return $this->notFound($guard);
         }
 
+        // D-4 : anonymiser un compte dont le role COURANT porte `role.manage` exige
+        // que l'ACTEUR la porte lui-meme.
+        if ($this->targetHoldsAdminRoleWithoutPermission($guard, $user)) {
+            return $this->renderConfirm($guard, 'erase', $id, $user, self::ROLE_MANAGE_REQUIRED, 403);
+        }
+
         // PRE-3 : deja anonymise -> 409.
         if (($user['anonymized_at'] ?? null) !== null) {
             return $this->renderConfirm($guard, 'erase', $id, $user, 'Ce compte est déjà anonymisé.', 409);
@@ -444,6 +504,45 @@ class UserController extends AdminController
     private function may(GuardResult $guard, string $permission): bool
     {
         return $guard->roleId !== null && $this->authorizer()->can($guard->roleId, $permission);
+    }
+
+    /**
+     * Le role $roleId porte-t-il `role.manage` (permission de niveau admin) ? Passe
+     * par l'Authorizer, qui recharge la base a CHAQUE appel (RG-3) : un role
+     * personnalise qui obtient `role.manage` plus tard tombe immediatement sous
+     * cette garde, sans liste figee a maintenir.
+     */
+    private function roleHasRoleManage(int $roleId): bool
+    {
+        return $roleId > 0 && $this->authorizer()->can($roleId, 'role.manage');
+    }
+
+    /**
+     * D-4 (elevation de privilege) : `user.create`/`user.update` seuls ne doivent
+     * jamais equivaloir a `role.manage`. Affecter un role qui porte deja cette
+     * permission (role de niveau admin) exige que l'ACTEUR de session la porte
+     * lui-meme -- sinon n'importe quel role dote de `user.update`/`user.create`
+     * pourrait se donner, ou donner a un tiers, les pleins pouvoirs RBAC via une
+     * simple creation/edition de compte.
+     */
+    protected function assignsAdminRoleWithoutPermission(GuardResult $guard, int $newRoleId): bool
+    {
+        return !$this->may($guard, 'role.manage') && $this->roleHasRoleManage($newRoleId);
+    }
+
+    /**
+     * D-4 (elevation de privilege) : meme garde pour un compte dont le role COURANT
+     * porte deja `role.manage` -- changer son role, son mot de passe, le
+     * desactiver, reinitialiser son PIN ou l'anonymiser exige alors aussi
+     * `role.manage` cote acteur, meme quand `role_id` ne change pas dans cette
+     * mutation precise (S-10 : `user.update` seul equivalait jusque-la a un droit
+     * d'administration sur tout compte, admin compris).
+     *
+     * @param array<string, mixed> $targetUser
+     */
+    protected function targetHoldsAdminRoleWithoutPermission(GuardResult $guard, array $targetUser): bool
+    {
+        return !$this->may($guard, 'role.manage') && $this->roleHasRoleManage((int) ($targetUser['role_id'] ?? 0));
     }
 
     /**

@@ -92,6 +92,12 @@ class UserApiController extends UserController
             return $this->conflictResponse('Cet email est déjà utilisé.');
         }
 
+        // D-4 : creer un compte avec un role qui porte deja `role.manage` exige que
+        // l'ACTEUR la porte lui-meme (meme garde que UserController::store()).
+        if ($this->assignsAdminRoleWithoutPermission($guard, (int) $data['role_id'])) {
+            return $this->errorResponse(403, 'FORBIDDEN', self::ROLE_MANAGE_REQUIRED);
+        }
+
         [$email, $pin] = $this->pinFields($body);
         $actorSessionId = $guard->userId ?? 0;
         $actor = $this->pinGate()->resolve($actorSessionId, $email, $pin, 'user', 0);
@@ -173,6 +179,23 @@ class UserApiController extends UserController
         }
         $isActive = $isActiveBool ? 1 : 0;
 
+        // D-4 (elevation de privilege) : meme garde que UserController::update() --
+        // affecter un role qui porte `role.manage`, ou toucher un compte dont le role
+        // COURANT la porte deja, exige que l'ACTEUR la porte lui-meme (S-10).
+        if ($this->targetHoldsAdminRoleWithoutPermission($guard, $current) || $this->assignsAdminRoleWithoutPermission($guard, (int) $data['role_id'])) {
+            return $this->errorResponse(403, 'FORBIDDEN', self::ROLE_MANAGE_REQUIRED);
+        }
+
+        // D-4 (integrite de session) : ni sa propre promotion/retrogradation de role,
+        // ni sa propre desactivation par cet endpoint.
+        $isSelf = $id === ($guard->userId ?? 0);
+        if ($isSelf && $data['role_id'] !== (int) ($current['role_id'] ?? 0)) {
+            return $this->errorResponse(403, 'FORBIDDEN', self::SELF_ROLE_CHANGE_FORBIDDEN);
+        }
+        if ($isSelf && $isActive === 0) {
+            return $this->errorResponse(403, 'FORBIDDEN', self::SELF_DEACTIVATE_FORBIDDEN);
+        }
+
         if ($this->isLastActiveAdmin($current) && ($isActive === 0 || $data['role_id'] !== (int) ($current['role_id'] ?? 0))) {
             return $this->validationErrorResponse(['role_id' => 'Impossible de retirer le dernier administrateur actif.']);
         }
@@ -247,7 +270,12 @@ class UserApiController extends UserController
         }
 
         if ($id === ($guard->userId ?? 0)) {
-            return $this->errorResponse(403, 'FORBIDDEN', 'Vous ne pouvez pas désactiver votre propre compte.');
+            return $this->errorResponse(403, 'FORBIDDEN', self::SELF_DEACTIVATE_FORBIDDEN);
+        }
+        // D-4 : desactiver un compte dont le role COURANT porte `role.manage` exige
+        // que l'ACTEUR la porte lui-meme.
+        if ($this->targetHoldsAdminRoleWithoutPermission($guard, $user)) {
+            return $this->errorResponse(403, 'FORBIDDEN', self::ROLE_MANAGE_REQUIRED);
         }
         if ($this->isLastActiveAdmin($user)) {
             return $this->validationErrorResponse(['id' => 'Impossible de désactiver le dernier administrateur actif.']);
@@ -295,8 +323,14 @@ class UserApiController extends UserController
 
         $id = (int) ($params['id'] ?? 0);
         $repo = $this->userRepository();
-        if ($repo->find($id) === null) {
+        $target = $repo->find($id);
+        if ($target === null) {
             return $this->notFoundResponse();
+        }
+        // D-4 : reinitialiser le PIN d'un compte dont le role COURANT porte
+        // `role.manage` exige que l'ACTEUR la porte lui-meme (mutation de credential).
+        if ($this->targetHoldsAdminRoleWithoutPermission($guard, $target)) {
+            return $this->errorResponse(403, 'FORBIDDEN', self::ROLE_MANAGE_REQUIRED);
         }
 
         [$email, $pin] = $this->pinFields($body);
@@ -344,6 +378,12 @@ class UserApiController extends UserController
         $user = $repo->find($id);
         if ($user === null) {
             return $this->notFoundResponse();
+        }
+
+        // D-4 : anonymiser un compte dont le role COURANT porte `role.manage` exige
+        // que l'ACTEUR la porte lui-meme.
+        if ($this->targetHoldsAdminRoleWithoutPermission($guard, $user)) {
+            return $this->errorResponse(403, 'FORBIDDEN', self::ROLE_MANAGE_REQUIRED);
         }
 
         if (($user['anonymized_at'] ?? null) !== null) {

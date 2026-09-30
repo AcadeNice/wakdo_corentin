@@ -415,6 +415,19 @@ final class FakeDatabase implements DatabaseInterface
     public array $roleSources = [];
 
     /**
+     * Recouvrement PAR ROLE de can() : cle "<roleId>:<code>" -> bool, prioritaire sur
+     * $grantedCodes/$canResult quand elle existe pour le couple (role, code) demande.
+     * Necessaire aux tests D-4 (elevation de privilege, UserController) qui doivent
+     * distinguer, DANS LE MEME test, "le role de L'ACTEUR porte role.manage" de "le
+     * role VISE (cible actuelle ou nouvellement affectee) porte role.manage" -- deux
+     * roles differents que $grantedCodes/$canResult (une seule reponse, insensible
+     * au role demande) ne peuvent pas exprimer separement.
+     *
+     * @var array<string, bool>
+     */
+    public array $canByRole = [];
+
+    /**
      * Allowlist optionnelle de codes de permission accordes (RG-T03). Si non nul,
      * can() repond par appartenance du :code lie a cette liste (permet de tester la
      * differenciation par permission, ex. RG-4 : stock.read sans stock.manage) ;
@@ -577,9 +590,16 @@ final class FakeDatabase implements DatabaseInterface
         }
 
         if (str_contains($sql, 'SELECT 1 AS granted FROM role_permission')) {
-            if ($this->grantedCodes !== null) {
-                $code = $params['code'] ?? null;
+            $code = $params['code'] ?? null;
+            $role = $params['role'] ?? null;
+            if (is_string($code) && $role !== null) {
+                $key = $role . ':' . $code;
+                if (array_key_exists($key, $this->canByRole)) {
+                    return ($this->canByRole[$key] && $this->roleActive) ? ['granted' => 1] : null;
+                }
+            }
 
+            if ($this->grantedCodes !== null) {
                 return (is_string($code) && in_array($code, $this->grantedCodes, true) && $this->roleActive) ? ['granted' => 1] : null;
             }
 
