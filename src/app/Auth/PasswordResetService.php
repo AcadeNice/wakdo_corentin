@@ -6,6 +6,7 @@ namespace App\Auth;
 
 use App\Core\Config;
 use App\Core\DatabaseInterface;
+use App\Core\DeferredActions;
 
 /**
  * Reinitialisation de mot de passe (mlt.md 12.3), en deux phases : demande puis
@@ -63,8 +64,19 @@ final class PasswordResetService
             ['hash' => $tokenHash, 'exp' => $expiresAt, 'id' => $userId],
         );
 
+        // D-5 (contre-audit 30/09) : l'envoi SMTP N'EST PLUS synchrone. Avant ce
+        // correctif, appeler le mailer ICI retardait la reponse HTTP du temps
+        // reel de la transaction SMTP -- pour une adresse CONNUE seulement (le
+        // chemin adresse-inconnue, payEnumerationDecoy(), n'envoie jamais rien),
+        // ce qui pouvait reveler l'existence d'un compte par la SEULE duree de la
+        // reponse, malgre un corps de reponse deja neutre. L'appel est mis en
+        // file (DeferredActions) et le front controller la vide APRES avoir
+        // emis la reponse -- le mail part alors pour une adresse connue exactement
+        // comme pour une adresse inconnue du point de vue du client : apres coup.
         $resetUrl = rtrim($baseUrl, '/') . '/reset_password?token=' . $rawToken;
-        $this->mailer->sendPasswordReset($email, $resetUrl);
+        DeferredActions::push(function () use ($email, $resetUrl): void {
+            $this->mailer->sendPasswordReset($email, $resetUrl);
+        });
     }
 
     /**

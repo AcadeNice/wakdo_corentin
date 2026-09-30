@@ -491,8 +491,10 @@ final class HtmlRouteHarness
 
     /**
      * Ecritures METIER : toutes sauf la trace d'un echec de code personnel
-     * (ligne `pin.failed` d'audit_log, RG-T14) et le compteur anti-essais
-     * (`pin_throttle`, RG-T22), que le refus du code ecrit volontairement.
+     * (ligne `pin.failed` d'audit_log, RG-T14), l'echec de re-verification du
+     * mot de passe courant (ligne `auth.reauth_failed`, D-1) et le compteur
+     * anti-essais (`pin_throttle`, RG-T22, reutilise par D-1 avec l'utilisateur
+     * de session comme cle) -- que ces deux refus ecrivent volontairement.
      *
      * @return list<string>
      */
@@ -507,7 +509,7 @@ final class HtmlRouteHarness
             if (str_contains($sql, 'pin_throttle')) {
                 continue;
             }
-            if (str_contains($sql, 'INSERT INTO audit_log') && ($write['params']['code'] ?? null) === 'pin.failed') {
+            if (str_contains($sql, 'INSERT INTO audit_log') && in_array($write['params']['code'] ?? null, ['pin.failed', 'auth.reauth_failed'], true)) {
                 continue;
             }
             $out[] = $sql;
@@ -519,6 +521,12 @@ final class HtmlRouteHarness
     public static function pinFailures(FakeDatabase $db): int
     {
         return count(array_filter($db->auditActions(), static fn (string $code): bool => $code === 'pin.failed'));
+    }
+
+    /** D-1 : echecs de re-verification du mot de passe courant (`auth.reauth_failed`). */
+    public static function reauthFailures(FakeDatabase $db): int
+    {
+        return count(array_filter($db->auditActions(), static fn (string $code): bool => $code === 'auth.reauth_failed'));
     }
 
     // --- Comment atteindre chaque action ---

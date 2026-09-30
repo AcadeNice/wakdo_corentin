@@ -42,6 +42,15 @@ final class FakeDatabase implements DatabaseInterface
     public ?array $throttleRow = null;
 
     /**
+     * Compteur DU COMPTE (user.failed_login_attempts) relu apres son increment
+     * atomique (D-3, AuthService::recordFailure()) ; null => 1 par defaut cote
+     * service. Pendant DISTINCT de $throttleRow (dimension IP).
+     *
+     * @var array<string, mixed>|null
+     */
+    public ?array $accountThrottleRow = null;
+
+    /**
      * Reponse de la recherche par token de reinitialisation (12.3) ; null = aucun.
      *
      * @var array<string, mixed>|null
@@ -618,6 +627,14 @@ final class FakeDatabase implements DatabaseInterface
 
         if (str_contains($sql, 'FROM user WHERE id = :id AND pin_hash IS NOT NULL')) {
             return $this->userPinSet ? ['id' => 1] : null;
+        }
+
+        // D-3 (contre-audit 30/09) : relecture du compteur DU COMPTE apres son
+        // increment atomique (AuthService::recordFailure()), meme motif que
+        // throttleRow pour la dimension IP -- sert au calcul du backoff compte
+        // en PHP, sans jamais dependre d'une valeur lue AVANT la transaction.
+        if (str_contains($sql, 'SELECT failed_login_attempts FROM user WHERE id')) {
+            return $this->accountThrottleRow;
         }
 
         // Re-verification d'identite au set de PIN (ProfileController) : lecture du

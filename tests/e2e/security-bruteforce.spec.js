@@ -231,4 +231,55 @@ test.describe('Force brute et enumeration', () => {
     expect(statuses.slice(20).some((st) => st === 429)).toBe(true);
     await ctx.dispose();
   });
+
+  test('re-authentification profil (D-1) : verrou apres 5 echecs, sans reveler si le mot de passe etait bon', async () => {
+    // Compte JETABLE dedie (jamais admin@wakdo.local) : le verrou pose ici est
+    // par UTILISATEUR DE SESSION (pin_throttle) -- l'isoler evite qu'il ne genne
+    // un autre spec qui reutiliserait la session admin sur cette meme route.
+    const email = await createUser('counter', 'reauth');
+    const s = await apiSession(email, TEMP_PASSWORD, ip(9));
+
+    const wrong = [];
+    for (let i = 0; i < 5; i += 1) {
+      const r = await s.ctx.post(`${ADMIN}/admin/profile/pin`, {
+        form: { _csrf: s.csrf, current_password: `faux-${i}`, pin: '1111', pin_confirm: '1111' }, maxRedirects: 0,
+      });
+      wrong.push(r.status());
+    }
+    expect(wrong.every((st) => st === 422), wrong.join(',')).toBe(true);
+
+    // Le verrou tient MEME avec le bon mot de passe (gate AVANT verify) : ni
+    // enregistrement du PIN (redirection 302), ni message "mot de passe actuel
+    // incorrect" -- avant D-1, cette route n'avait aucune limite ni trace.
+    const locked = await s.ctx.post(`${ADMIN}/admin/profile/pin`, {
+      form: { _csrf: s.csrf, current_password: TEMP_PASSWORD, pin: '2222', pin_confirm: '2222' }, maxRedirects: 0,
+    });
+    expect(locked.status()).toBe(422);
+    const lockedBody = await locked.text();
+    expect(lockedBody).not.toContain('Mot de passe actuel incorrect');
+    await s.ctx.dispose();
+  });
+
+  test('verrou par IP (D-2) : une connexion reussie ne remet pas le compteur a zero', async () => {
+    // Avant D-2, une connexion reussie remettait le compteur IP a 0 -- un
+    // attaquant qui connait un couple valide pouvait alterner 19 echecs et 1
+    // succes sans jamais atteindre le plafond de 20.
+    const attacker = await ctxFrom(ip(10));
+    for (let i = 0; i < 19; i += 1) {
+      const r = await apiLogin(attacker, `balayage2-${i}-${RUN}@wakdo.local`, 'x');
+      expect(r.status()).toBe(401);
+    }
+
+    const ok = await apiLogin(attacker, ADMIN_EMAIL, ADMIN_PASSWORD);
+    expect(ok.status()).toBe(200);
+
+    // Un seul echec de plus (19 + 1 = 20) doit desormais suffire a atteindre le
+    // plafond, PUISQUE le succes ci-dessus n'a rien remis a zero.
+    const twentieth = await apiLogin(attacker, `balayage2-last-${RUN}@wakdo.local`, 'x');
+    expect(twentieth.status()).toBe(401);
+
+    const blocked = await apiLogin(attacker, ADMIN_EMAIL, ADMIN_PASSWORD);
+    expect(blocked.status()).toBe(429);
+    await attacker.dispose();
+  });
 });

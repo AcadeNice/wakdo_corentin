@@ -16,6 +16,7 @@ use App\Core\Autoloader;
 use App\Core\Config;
 use App\Core\Cors;
 use App\Core\Database;
+use App\Core\DeferredActions;
 use App\Core\ErrorDisplay;
 use App\Core\ErrorResponse;
 use App\Core\Request;
@@ -97,4 +98,19 @@ try {
     // doit rester lisible par le navigateur de la borne (RG enveloppe d'erreur).
     $cors->applyTo($request, $errorResponse);
     $errorResponse->send();
+} finally {
+    // D-5 (contre-audit 30/09) : la reponse est deja PARTIE (try et catch se
+    // terminent tous deux par un send()) -- c'est ICI, et seulement ici, qu'un
+    // travail differe (ex. l'envoi SMTP du lien de reinitialisation, cf.
+    // PasswordResetService::requestReset()) peut s'executer sans retarder le
+    // client. fastcgi_finish_request() (PHP-FPM) ferme la connexion cote client
+    // AVANT de rendre la main a ce script, pour que la file s'execute apres que
+    // le client a deja recu sa reponse ; absente (ex. serveur de developpement
+    // integre), la file s'execute simplement en fin de requete (repli le plus
+    // simple : le client attend un peu plus longtemps, mais aucune donnee
+    // sensible n'est de toute facon deja partie a ce stade).
+    if (function_exists('fastcgi_finish_request')) {
+        fastcgi_finish_request();
+    }
+    DeferredActions::flush();
 }

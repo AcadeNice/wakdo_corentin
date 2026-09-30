@@ -7,8 +7,10 @@ namespace App\Controllers;
 use App\Auth\Csrf;
 use App\Auth\GuardResult;
 use App\Auth\PasswordHasher;
+use App\Auth\PinThrottle;
 use App\Auth\PinVerifier;
 use App\Auth\UserRepository;
+use App\Core\DatabaseInterface;
 use App\Core\Response;
 
 /**
@@ -20,15 +22,31 @@ use App\Core\Response;
  * Le PIN est un credential sensible : le (re)definir exige le mot de passe COURANT
  * (re-verification d'identite sur poste a session partagee, meme posture que la
  * verification PIN d'ADR-0004) ET ecrit une ligne `audit_log` (ADR-0004, RG-T14).
- * Le SET du PIN n'est PAS throttle : la surface de brute-force est la VERIFICATION
- * du PIN (couverte par pin_throttle / RG-T22, ADR-0005), pas sa definition par un
- * utilisateur deja authentifie. L'audit ne porte que l'evenement (set vs change),
- * jamais le PIN ni un hash.
+ *
+ * Corrige au contre-audit du 30/09 (D-1) : cette RE-VERIFICATION est desormais
+ * throttled -- avant ce correctif, elle pouvait etre tentee sans aucune limite
+ * ni trace, ce qui laissait une personne devant une session ouverte (le poste
+ * partage que le modele de menace decrit) essayer des mots de passe sans armer
+ * le verrou de connexion. Reutilise PinThrottle (RG-T22, ADR-0005) avec
+ * l'UTILISATEUR DE SESSION comme cle -- la meme table/politique que le throttle
+ * du PIN d'action sensible, plutot qu'une dimension dediee : c'est la MEME
+ * identite qui echoue une verification d'identite, que ce soit ici (mot de
+ * passe) ou ailleurs (email+PIN) ; conflater les deux ne relache rien (un
+ * attaquant qui epuiserait l'un epuise aussi l'autre) et evite une septieme
+ * table pour un seul champ (Rasoir d'Ockham). SET du PIN lui-meme toujours pas
+ * throttle (seul l'ACCES au formulaire l'est desormais) : un utilisateur qui
+ * vient de passer la re-verification peut enregistrer son PIN sans limite
+ * artificielle. L'audit ne porte que l'evenement (set vs change vs echec de
+ * re-verification), jamais le PIN, un hash, ni le mot de passe saisi.
  *
  * Non `final` : les tests sous-classent pour injecter des doubles.
  */
 class ProfileController extends AdminController
 {
+    // Message clair pour un equipier non technique, sans reveler si le mot de
+    // passe soumis etait correct (D-1).
+    private const REAUTH_LOCKED_MESSAGE = 'Trop de tentatives. Réessayez dans quelques minutes.';
+
     /**
      * @param array<string, string> $params
      */
@@ -87,14 +105,35 @@ class ProfileController extends AdminController
             return $this->renderPinForm($guard, $userId, $error, 422);
         }
 
+        // D-1 (contre-audit 30/09) : verrou evalue AVANT toute verification (gate-
+        // before-verify, meme posture que le login et que PinGate::resolve()). Un
+        // compte deja verrouille ne paie MEME PAS le cout argon2id : a la difference
+        // du login, il n'y a ici qu'une seule identite possible (celle de la
+        // session) -- rien a rendre indiscernable d'un "email inconnu" -- donc payer
+        // ce cout n'apporterait aucune garantie de plus, juste une charge CPU
+        // gratuite pendant que le verrou est actif. Message generique, ne revele pas
+        // si le mot de passe fourni etait bon.
+        if ($this->pinThrottle()->isLocked($userId)) {
+            return $this->renderPinForm($guard, $userId, self::REAUTH_LOCKED_MESSAGE, 422);
+        }
+
         // Re-verification d'identite : (re)definir un credential sensible exige le mot
         // de passe courant. Message generique (ne distingue pas mot de passe vide /
         // faux) ; verify paie le cout argon2id, sans leurre dedie ici car l'utilisateur
         // est deja authentifie (l'enumeration de comptes ne s'applique pas a sa propre
-        // session). Echec -> 422 (requete bien formee, semantiquement refusee).
+        // session). Echec -> 422 (requete bien formee, semantiquement refusee) + trace
+        // d'audit (`auth.reauth_failed`, jamais la valeur saisie) et increment du
+        // throttle, dans UNE transaction (RG-T08).
         if (!$this->passwordHasher()->verify($currentPassword, $this->currentPasswordHash($userId))) {
+            $this->recordReauthFailure($userId, $guard->roleId ?? 0);
+
             return $this->renderPinForm($guard, $userId, 'Mot de passe actuel incorrect.', 422);
         }
+
+        // Succes de la re-verification : remet a zero le compteur de l'utilisateur
+        // de session (un equipier qui s'est trompe puis a reussi n'est pas penalise
+        // plus tard, meme regle que PinGate::reset()).
+        $this->pinThrottle()->reset($userId);
 
         // `pinIsSet` AVANT l'ecriture : distingue une premiere definition d'un changement
         // pour le libelle d'audit (aucune valeur sensible n'est tracee).
@@ -150,9 +189,48 @@ class ProfileController extends AdminController
         return new PinVerifier($this->database, $this->config, $this->passwordHasher());
     }
 
+    /**
+     * Throttle de la re-verification d'identite (D-1), cle = utilisateur de
+     * SESSION. Passe par db() (pas $this->database) : c'est la meme couture que
+     * currentPasswordHash()/writePinAudit(), celle que les tests routent vers le
+     * double.
+     */
+    protected function pinThrottle(): PinThrottle
+    {
+        return new PinThrottle($this->db(), $this->config);
+    }
+
     protected function passwordHasher(): PasswordHasher
     {
         return new PasswordHasher($this->config);
+    }
+
+    /**
+     * D-1 : echec de re-verification du mot de passe courant. Increment du
+     * throttle (pin_throttle, cle = utilisateur de session) et trace d'audit
+     * `auth.reauth_failed`, dans UNE seule transaction (RG-T08 : pas d'etat
+     * partiel si la base tombe entre les deux). Aucune valeur saisie n'est
+     * journalisee -- seul l'identifiant du compte agissant, deja connu de la
+     * session (RGPD art. 5.1.c, meme discipline que PinGate::auditFailedPin()).
+     */
+    private function recordReauthFailure(int $userId, int $roleId): void
+    {
+        $this->db()->transaction(function (DatabaseInterface $db) use ($userId, $roleId): void {
+            $this->pinThrottle()->recordFailureWithin($db, $userId);
+
+            $db->execute(
+                'INSERT INTO audit_log (actor_user_id, actor_role_id, action_code, entity_type, entity_id, summary) '
+                . 'VALUES (:uid, :rid, :code, :etype, :eid, :summary)',
+                [
+                    'uid'     => $userId,
+                    'rid'     => $roleId,
+                    'code'    => 'auth.reauth_failed',
+                    'etype'   => 'user',
+                    'eid'     => $userId,
+                    'summary' => 'Échec de re-authentification (PIN self-service)',
+                ],
+            );
+        });
     }
 
     /**

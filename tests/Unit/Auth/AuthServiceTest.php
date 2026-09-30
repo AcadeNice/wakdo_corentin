@@ -346,26 +346,50 @@ final class AuthServiceTest extends TestCase
 
     public function testWrongPasswordSetsLockoutOnceThresholdReached(): void
     {
-        // 4 echecs deja enregistres : le 5e (= seuil) doit poser un lockout_until.
+        // D-3 (revise, contre-audit 30/09) : le compteur n'est plus calcule en PHP
+        // a partir de la lecture RG-1 -- il est relu APRES l'increment atomique
+        // (accountThrottleRow simule cette relecture, meme motif que throttleRow
+        // pour la dimension IP). 5 (= seuil) doit poser un lockout_until.
         $this->db->userRow = $this->userRow(['failed_login_attempts' => 4]);
+        $this->db->accountThrottleRow = ['failed_login_attempts' => 5];
 
         $this->service()->authenticate('admin@wakdo.local', 'WRONG', '203.0.113.1', self::NOW);
 
-        $userUpdate = $this->firstWrite('UPDATE user SET failed_login_attempts');
-        self::assertSame(5, $userUpdate['params']['attempts'] ?? null);
-        self::assertSame(date('Y-m-d H:i:s', self::NOW + 60), $userUpdate['params']['lock'] ?? null);
+        $lockWrite = $this->firstWrite('UPDATE user SET lockout_until = :lock');
+        self::assertSame(date('Y-m-d H:i:s', self::NOW + 60), $lockWrite['params']['lock'] ?? null);
     }
 
     public function testWrongPasswordBelowThresholdLeavesLockoutNull(): void
     {
         $this->db->userRow = $this->userRow(['failed_login_attempts' => 0]);
+        $this->db->accountThrottleRow = ['failed_login_attempts' => 1];
 
         $this->service()->authenticate('admin@wakdo.local', 'WRONG', '203.0.113.1', self::NOW);
 
-        $userUpdate = $this->firstWrite('UPDATE user SET failed_login_attempts');
-        self::assertSame(1, $userUpdate['params']['attempts'] ?? null);
-        self::assertArrayHasKey('lock', $userUpdate['params']);
-        self::assertNull($userUpdate['params']['lock']);
+        $lockWrite = $this->firstWrite('UPDATE user SET lockout_until = :lock');
+        self::assertArrayHasKey('lock', $lockWrite['params']);
+        self::assertNull($lockWrite['params']['lock']);
+    }
+
+    /**
+     * D-3 (contre-audit 30/09) : preuve du gabarit SQL du correctif -- increment
+     * ATOMIQUE cote SQL (`failed_login_attempts + 1`), jamais une valeur calculee
+     * en PHP a partir de la lecture RG-1 (faite HORS de cette transaction, donc
+     * potentiellement perimee sous deux echecs concurrents sur le MEME compte).
+     * Avant ce correctif, l'UPDATE portait un parametre `:attempts` egal a
+     * `$currentAttempts + 1` ; deux echecs concurrents lisant la MEME valeur
+     * n'auraient fait progresser le compteur que d'UNE unite au lieu de deux
+     * (perte d'increment, meme defaut que celui deja corrige cote IP).
+     */
+    public function testAccountCounterUsesAtomicSqlIncrementNotAPhpComputedValue(): void
+    {
+        $this->db->userRow = $this->userRow(['failed_login_attempts' => 4]);
+
+        $this->service()->authenticate('admin@wakdo.local', 'WRONG', '203.0.113.1', self::NOW);
+
+        $increment = $this->firstWrite('UPDATE user SET failed_login_attempts = failed_login_attempts + 1');
+        self::assertNotNull($increment, 'increment atomique attendu (meme gabarit que la dimension IP).');
+        self::assertArrayNotHasKey('attempts', $increment['params'], 'plus de valeur PHP-calculee liee en parametre.');
     }
 
     public function testIpUpsertUsesAtomicIncrementAndSqlWindowReset(): void
@@ -438,15 +462,44 @@ final class AuthServiceTest extends TestCase
         self::assertSame(self::NOW, $this->session->getInt('last_activity'));
         self::assertSame(0, $this->session->getInt('session_epoch'));
 
-        // RG-5/RG-9 : reset compteur + clear throttle + audit succes, 1 transaction.
+        // RG-5/RG-9 (revise D-2, contre-audit 30/09) : reset du compteur DU COMPTE
+        // + audit succes, 1 transaction. Le compteur IP N'EST PLUS touche au succes
+        // (cf. testSuccessfulLoginDoesNotResetIpThrottleCounter ci-dessous) : avant
+        // ce correctif, cette meme assertion attendait un `wrote(true)` sur le
+        // login_throttle -- c'etait precisement le defaut D-2 (19 echecs + 1 succes
+        // remettait le plafond IP a zero).
         self::assertTrue($this->db->wrote('UPDATE user SET failed_login_attempts = 0'));
-        self::assertTrue($this->db->wrote('UPDATE login_throttle SET failed_attempts = 0'));
+        self::assertFalse($this->db->wrote('UPDATE login_throttle'));
         self::assertSame(['auth.login_success'], $this->db->auditActions());
         self::assertSame(['begin', 'commit'], $this->db->transactionEvents);
 
         // RG-5 : last_login_at pose a l'instant fige (assertion explicite, pas
         // seulement le prefixe de la requete).
         self::assertSame(date('Y-m-d H:i:s', self::NOW), $this->firstWrite('last_login_at')['params']['now'] ?? null);
+    }
+
+    /**
+     * D-2 (contre-audit 30/09) : un succes ne doit RIEN ecrire sur la dimension
+     * IP -- ni reset des tentatives, ni clear du verrou, ni rafraichissement de
+     * la fenetre. Avant ce correctif, `AuthService::recordSuccess()` remettait
+     * le compteur IP a 0 sur CHAQUE connexion reussie : avec des identifiants
+     * valides connus, alterner 19 echecs et 1 succes empechait le plafond IP de
+     * jamais s'atteindre (seul le compteur du compte restait, RG-9 d'origine).
+     * La ligne IP doit desormais rester intacte et expirer SEULE, avec sa
+     * fenetre glissante (IP_THROTTLE_WINDOW_SECONDS), au prochain echec.
+     */
+    public function testSuccessfulLoginDoesNotResetIpThrottleCounter(): void
+    {
+        $this->db->userRow = $this->userRow();
+        // L'IP n'est pas verrouillee (isLockedUntil() a besoin d'un lockout_until
+        // futur pour bloquer), mais porte deja des echecs anterieurs -- exactement
+        // le scenario "19 echecs, encore sous le plafond de 20" de D-2.
+        $this->db->ipLockoutUntil = null;
+
+        $result = $this->service()->authenticate('admin@wakdo.local', 'correct horse', '203.0.113.1', self::NOW);
+
+        self::assertTrue($result->success);
+        self::assertFalse($this->db->wrote('login_throttle'), 'un succes ne doit ecrire NULLE PART dans login_throttle (D-2).');
     }
 
     /**
