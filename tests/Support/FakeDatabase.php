@@ -437,6 +437,28 @@ final class FakeDatabase implements DatabaseInterface
     public array $canByRole = [];
 
     /**
+     * Recouvrement PAR ROLE de la LISTE de codes de permission (cle roleId, valeur
+     * list<string>), prioritaire sur $permissionCodes quand la cle existe. Cle
+     * ENTIERE, pas chaine : un litteral PHP ['9' => [...]] normalise deja la cle en
+     * int 9 (cles de tableau numeriques), ce que reflete le type ci-dessous.
+     * Sert `Authorizer::permissionsFor()` ET `RoleRepository::permissionCodesFor()`
+     * (meme forme de requete, distinguees seulement par le nom du parametre lie :
+     * `:role` pour la premiere, `:id` pour la seconde -- $params['id'] ?? $params
+     * ['role'] les couvre toutes les deux). Contrairement a $permissionCodes/
+     * $roleActive (une seule reponse globale), ce recouvrement laisse passer sa
+     * valeur MEME quand $roleActive vaut false : c'est exactement le comportement
+     * reel de `RoleRepository::permissionCodesFor()`, qui lit `role_permission`
+     * SANS jointure sur `role.is_active` (D-4, limite du role desactive relevee en
+     * revue -- la garde de UserController doit lire les permissions d'un role cible
+     * MEME s'il est desormais desactive, sans changer `Authorizer::can()` pour
+     * l'autorisation normale des routes, qui doit continuer de filtrer les roles
+     * desactives).
+     *
+     * @var array<int, list<string>>
+     */
+    public array $permissionCodesByRole = [];
+
+    /**
      * Allowlist optionnelle de codes de permission accordes (RG-T03). Si non nul,
      * can() repond par appartenance du :code lie a cette liste (permet de tester la
      * differenciation par permission, ex. RG-4 : stock.read sans stock.manage) ;
@@ -604,7 +626,12 @@ final class FakeDatabase implements DatabaseInterface
             if (is_string($code) && $role !== null) {
                 $key = $role . ':' . $code;
                 if (array_key_exists($key, $this->canByRole)) {
-                    return ($this->canByRole[$key] && $this->roleActive) ? ['granted' => 1] : null;
+                    // Recouvrement EXPLICITE, par role : une affirmation precise du test
+                    // l'emporte sur le repli global $roleActive (memes semantiques que
+                    // $permissionCodesByRole, necessaire pour simuler un role DESACTIVE
+                    // pour la cible D-4 tout en gardant l'acteur autorise sur ses propres
+                    // permissions dans le meme test).
+                    return $this->canByRole[$key] ? ['granted' => 1] : null;
                 }
             }
 
@@ -935,9 +962,17 @@ final class FakeDatabase implements DatabaseInterface
         }
 
         // Sert Authorizer::permissionsFor ET RoleRepository::permissionCodesFor
-        // (meme requete 'SELECT p.code FROM role_permission rp JOIN permission p') :
-        // les deux renvoient $permissionCodes (le diff RBAC reutilise ce bouton).
+        // (meme forme de requete 'SELECT p.code FROM role_permission rp JOIN
+        // permission p') : $permissionCodesByRole (par role) est prioritaire sur
+        // $permissionCodes (global) quand la cle existe, ET ignore $roleActive --
+        // voir le docblock de $permissionCodesByRole pour le POURQUOI (D-4, role
+        // desactive).
         if (str_contains($sql, 'SELECT p.code FROM role_permission')) {
+            $roleParam = $params['id'] ?? ($params['role'] ?? null);
+            if (is_int($roleParam) && array_key_exists($roleParam, $this->permissionCodesByRole)) {
+                return array_map(static fn (string $code): array => ['code' => $code], $this->permissionCodesByRole[$roleParam]);
+            }
+
             if (!$this->roleActive) {
                 return [];
             }

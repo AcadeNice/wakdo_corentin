@@ -92,9 +92,10 @@ class UserApiController extends UserController
             return $this->conflictResponse('Cet email est déjà utilisé.');
         }
 
-        // D-4 : creer un compte avec un role qui porte deja `role.manage` exige que
-        // l'ACTEUR la porte lui-meme (meme garde que UserController::store()).
-        if ($this->assignsAdminRoleWithoutPermission($guard, (int) $data['role_id'])) {
+        // D-4 (generalise) : affecter un role dont l'ensemble des permissions
+        // deborde celui de l'ACTEUR exige qu'il les detienne toutes (meme garde
+        // que UserController::store()).
+        if ($this->assignsRoleBeyondActorPermissions($guard, (int) $data['role_id'])) {
             return $this->errorResponse(403, 'FORBIDDEN', self::ROLE_MANAGE_REQUIRED);
         }
 
@@ -179,10 +180,11 @@ class UserApiController extends UserController
         }
         $isActive = $isActiveBool ? 1 : 0;
 
-        // D-4 (elevation de privilege) : meme garde que UserController::update() --
-        // affecter un role qui porte `role.manage`, ou toucher un compte dont le role
-        // COURANT la porte deja, exige que l'ACTEUR la porte lui-meme (S-10).
-        if ($this->targetHoldsAdminRoleWithoutPermission($guard, $current) || $this->assignsAdminRoleWithoutPermission($guard, (int) $data['role_id'])) {
+        // D-4 (generalise, elevation de privilege) : meme garde que UserController::
+        // update() -- affecter un role dont l'ensemble deborde celui de l'ACTEUR, ou
+        // toucher un compte dont le role COURANT deborde deja, exige qu'il les
+        // detienne toutes (S-10).
+        if ($this->targetHoldsRoleBeyondActorPermissions($guard, $current) || $this->assignsRoleBeyondActorPermissions($guard, (int) $data['role_id'])) {
             return $this->errorResponse(403, 'FORBIDDEN', self::ROLE_MANAGE_REQUIRED);
         }
 
@@ -272,9 +274,9 @@ class UserApiController extends UserController
         if ($id === ($guard->userId ?? 0)) {
             return $this->errorResponse(403, 'FORBIDDEN', self::SELF_DEACTIVATE_FORBIDDEN);
         }
-        // D-4 : desactiver un compte dont le role COURANT porte `role.manage` exige
-        // que l'ACTEUR la porte lui-meme.
-        if ($this->targetHoldsAdminRoleWithoutPermission($guard, $user)) {
+        // D-4 (generalise) : desactiver un compte dont le role COURANT deborde
+        // l'ensemble de permissions de l'ACTEUR exige qu'il les detienne toutes.
+        if ($this->targetHoldsRoleBeyondActorPermissions($guard, $user)) {
             return $this->errorResponse(403, 'FORBIDDEN', self::ROLE_MANAGE_REQUIRED);
         }
         if ($this->isLastActiveAdmin($user)) {
@@ -327,9 +329,10 @@ class UserApiController extends UserController
         if ($target === null) {
             return $this->notFoundResponse();
         }
-        // D-4 : reinitialiser le PIN d'un compte dont le role COURANT porte
-        // `role.manage` exige que l'ACTEUR la porte lui-meme (mutation de credential).
-        if ($this->targetHoldsAdminRoleWithoutPermission($guard, $target)) {
+        // D-4 (generalise) : reinitialiser le PIN d'un compte dont le role COURANT
+        // deborde l'ensemble de permissions de l'ACTEUR exige qu'il les detienne
+        // toutes (mutation de credential).
+        if ($this->targetHoldsRoleBeyondActorPermissions($guard, $target)) {
             return $this->errorResponse(403, 'FORBIDDEN', self::ROLE_MANAGE_REQUIRED);
         }
 
@@ -380,9 +383,9 @@ class UserApiController extends UserController
             return $this->notFoundResponse();
         }
 
-        // D-4 : anonymiser un compte dont le role COURANT porte `role.manage` exige
-        // que l'ACTEUR la porte lui-meme.
-        if ($this->targetHoldsAdminRoleWithoutPermission($guard, $user)) {
+        // D-4 (generalise) : anonymiser un compte dont le role COURANT deborde
+        // l'ensemble de permissions de l'ACTEUR exige qu'il les detienne toutes.
+        if ($this->targetHoldsRoleBeyondActorPermissions($guard, $user)) {
             return $this->errorResponse(403, 'FORBIDDEN', self::ROLE_MANAGE_REQUIRED);
         }
 
