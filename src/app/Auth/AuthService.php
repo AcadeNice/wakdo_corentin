@@ -157,8 +157,11 @@ final class AuthService
         $this->session->set('session_epoch', (int) ($user['session_epoch'] ?? 0));
         Csrf::rotate($this->session);
 
+        // D-6 (redirection ouverte, defense en profondeur) : RedirectPath::sanitize()
+        // retombe sur '/' si la valeur stockee n'est plus un chemin local -- couvre
+        // une ligne posee avant le correctif de saisie de RoleController::validate().
         $routeRaw = $user['default_route'] ?? null;
-        $defaultRoute = is_string($routeRaw) && $routeRaw !== '' ? $routeRaw : '/';
+        $defaultRoute = RedirectPath::sanitize(is_string($routeRaw) ? $routeRaw : null, '/');
 
         return AuthResult::success($userId, $roleId, $defaultRoute);
     }

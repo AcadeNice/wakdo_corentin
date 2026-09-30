@@ -393,6 +393,22 @@ final class AuthServiceTest extends TestCase
         self::assertSame(date('Y-m-d H:i:s', self::NOW + 60), $lockWrite['params']['lock'] ?? null);
     }
 
+    /**
+     * D-6 (redirection ouverte, defense en profondeur) : une valeur non locale deja
+     * en base (posee avant le correctif de saisie de RoleController, ou par un acces
+     * direct a la base) ne doit PAS servir de redirection post-connexion -- on
+     * retombe sur '/'.
+     */
+    public function testOpenRedirectDefaultRouteFallsBackToRootWhenNotLocal(): void
+    {
+        $this->db->userRow = $this->userRow(['default_route' => '//evil.example']);
+
+        $result = $this->service()->authenticate('admin@wakdo.local', 'correct horse', '203.0.113.1', self::NOW);
+
+        self::assertTrue($result->success);
+        self::assertSame('/', $result->redirectTo);
+    }
+
     public function testIpThrottleLeavesLockNullBelowThreshold(): void
     {
         $this->db->userRow = $this->userRow(['failed_login_attempts' => 0]);
