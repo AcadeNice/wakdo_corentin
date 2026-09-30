@@ -174,7 +174,9 @@ l'ordre des lignes soumises.
   ligne (dès que la limite est atteinte, l'analyse s'arrête et le fichier est
   refusé) : la boucle d'analyse ne tourne pas au-delà sur un fichier
   surdimensionné.
-- Type de fichier vérifié (extension `.csv`, contenu texte).
+- Type de fichier vérifié (extension `.csv`, contenu texte) -- vérification propre au
+  formulaire HTML (`$_FILES`, nom de fichier) ; l'API JSON reçoit le contenu directement
+  dans le champ `csv` (chaîne), sans nom de fichier à vérifier.
 - Neutralisation de l'injection de formule, sur les colonnes de texte
   **seulement** (`categorie`, `produit`, `description`, `ingredient`, `unite` —
   les colonnes numériques sont de toute façon validées par leurs propres
@@ -237,7 +239,11 @@ Content-Type: application/json
 { "csv": "categorie;produit;description;prix_ttc;tva;taille_cl;disponible;ingredient;unite;quantite;retirable;ajoutable\n3;Cheeseburger;;6,90;10;;oui;Pain;unite;1;non;non\n" }
 ```
 
-Réponse : `{ "data": { "errors": [...], "productsToCreate": [...], "productsToUpdate": [...], "productsUnchanged": [...], "ingredientsExisting": [...], "ingredientsToCreate": [...], "totalDataLines": 1, "hasPriceChange": false } }`.
+Réponse : `{ "data": { "errors": [...], "productsToCreate": [...], "productsToUpdate": [...], "productsUnchanged": [...], "ingredientsExisting": [...], "ingredientsToCreate": [...], "totalDataLines": 1, "hasPriceChange": false, "plan": {...} } }`.
+`plan.products` porte la liste complète des lignes analysées (action, `existing_id`,
+`price_changed`, recette) -- c'est la même donnée que `productsToCreate`/`productsToUpdate`/
+`productsUnchanged` regroupée, utile pour un client qui veut l'ensemble sans reconstituer les
+trois listes.
 
 **3. Appliquer**
 
@@ -253,9 +259,13 @@ Content-Type: application/json
 `hasPriceChange: true`. Réponse : `{ "data": { "created": 2, "updated": 1, "unchanged": 0, "ingredients_created": 3, "price_changed": 0, "audit_summary": "..." } }`.
 Si le fichier contient encore une erreur au moment d'appliquer (état changé entre
 l'aperçu et la confirmation) : `422 VALIDATION_ERROR` avec le détail dans
-`error.fields.details`, rien n'est écrit.
+`error.fields.details`, rien n'est écrit. Codes d'erreur additionnels (`ProductApiController::
+apiImportRun`) : `403 FORBIDDEN` sans la permission `product.create` ; `409 CONFLICT`
+(`ImportBlockedException`) si l'état change PENDANT l'écriture elle-même (entre la lecture
+faite par `apply()` et l'écriture, rien n'est écrit) ; `500 IMPORT_FAILED` (message générique,
+rien n'est écrit) sur une exception imprévue.
 
-> La collection Postman/Bruno du projet est sur `main` (dossier "03-Produits") et
+> La collection Postman/Bruno du projet est sur `main` (dossier Produits ; Bruno : `03-Produits`) et
 > couvre le modèle CSV (`GET .../import/template`) et l'aperçu sans écriture
 > (`POST .../import?dry_run=1`). La troisième requête — appliquer l'import pour de
 > vrai (sans `dry_run`) — n'y est pas encore ; ce document reste la référence pour

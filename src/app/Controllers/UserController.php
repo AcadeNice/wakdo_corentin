@@ -11,6 +11,7 @@ use App\Auth\PasswordHasher;
 use App\Auth\PinGate;
 use App\Auth\PinThrottle;
 use App\Auth\PinVerifier;
+use App\Auth\RoleRepository;
 use App\Auth\UserRepository;
 use App\Core\DatabaseInterface;
 use App\Core\Response;
@@ -35,6 +36,32 @@ use App\Core\Response;
 class UserController extends AdminController
 {
     private const ENTITY = 'user';
+
+    /** @var list<string> ENUM role_visible_source.source / customer_order.source (voir visibleSourcesOfRole()) */
+    private const ALL_ORDER_SOURCES = ['kiosk', 'counter', 'drive'];
+
+    /**
+     * D-4 (elevation de privilege, generalise en revue adverse) : `user.update`/
+     * `user.create` seuls ne doivent jamais permettre de donner, ou de laisser en
+     * place sur un compte, des permissions que l'ACTEUR de session ne detient pas
+     * lui-meme -- pas seulement `role.manage` (cas particulier : un role qui porte
+     * cette permission deborde forcement celui de tout acteur qui ne l'a pas).
+     * Message partage HTML/API (meme texte, enveloppe differente) -- protected pour
+     * que UserApiController le reutilise. Volontairement sans code de permission
+     * brut (equipiers non techniques) : voir roleExceedsActorPermissions().
+     *
+     * 2e revue adverse (mineur) : l'ancien texte disait « role administrateur »,
+     * ce qui n'est plus toujours vrai depuis la generalisation -- un role NON admin
+     * mais plus dote (permissions ou sources visibles) declenche aussi ce refus.
+     * Reformule sans cette hypothese.
+     */
+    protected const ROLE_MANAGE_REQUIRED = "Vous ne pouvez pas attribuer ce rôle ni modifier ce compte : il donne des droits que votre propre rôle n'a pas.";
+
+    /** @see UserController::update() pour le POURQUOI (auto-promotion). */
+    protected const SELF_ROLE_CHANGE_FORBIDDEN = 'Vous ne pouvez pas modifier votre propre rôle.';
+
+    /** @see UserController::update() pour le POURQUOI (auto-desactivation hors de l'ecran dedie). */
+    protected const SELF_DEACTIVATE_FORBIDDEN = 'Vous ne pouvez pas désactiver votre propre compte.';
 
     /**
      * @param array<string, string> $params
@@ -91,6 +118,14 @@ class UserController extends AdminController
         }
         if ($this->userRepository()->emailExists($data['email'])) {
             return $this->renderForm($guard, 0, $form, ['email' => 'Cet email est déjà utilisé.'], 409);
+        }
+
+        // D-4 (generalise) : affecter un role dont l'ensemble des permissions
+        // deborde celui de l'ACTEUR exige qu'il les detienne toutes -- sinon
+        // `user.create` suffirait a donner (via un tiers compte fraichement cree)
+        // des droits que l'acteur lui-meme n'a pas.
+        if ($this->assignsRoleBeyondActorPermissions($guard, $data['role_id'])) {
+            return $this->renderForm($guard, 0, $form, ['role_id' => self::ROLE_MANAGE_REQUIRED], 403);
         }
 
         [$actor, $errorMsg] = $this->resolvePin($guard, $form, 0);
@@ -173,6 +208,30 @@ class UserController extends AdminController
         }
 
         $isActive = isset($form['is_active']) ? 1 : 0;
+
+        // D-4 (generalise, elevation de privilege) : `user.update` seul ne doit pas
+        // permettre de donner ou de laisser a un compte des permissions que l'ACTEUR
+        // ne detient pas lui-meme. Affecter un role dont l'ensemble deborde le sien,
+        // OU toucher un compte dont le role COURANT deborde deja (changer son role,
+        // son mot de passe, le desactiver...), exige qu'il les detienne toutes (S-10).
+        if ($this->targetHoldsRoleBeyondActorPermissions($guard, $current) || $this->assignsRoleBeyondActorPermissions($guard, $data['role_id'])) {
+            return $this->renderForm($guard, $id, $form, ['role_id' => self::ROLE_MANAGE_REQUIRED], 403);
+        }
+
+        // D-4 (integrite de session) : ni sa propre promotion/retrogradation de role,
+        // ni sa propre desactivation par CET ecran -- sinon l'ecran dedie de
+        // desactivation (avec sa propre garde) serait contournable par une simple
+        // case a decocher ici.
+        $isSelf = $id === ($guard->userId ?? 0);
+        if ($isSelf && $data['role_id'] !== (int) ($current['role_id'] ?? 0)) {
+            return $this->renderForm($guard, $id, $form, ['role_id' => self::SELF_ROLE_CHANGE_FORBIDDEN], 403);
+        }
+        if ($isSelf && $isActive === 0) {
+            // Cle 'role_id' (le formulaire n'a pas de slot d'erreur dedie a
+            // is_active) : meme convention que le message de verrou anti-lockout
+            // ci-dessous, qui reutilise deja cette cle pour un etat de compte.
+            return $this->renderForm($guard, $id, $form, ['role_id' => self::SELF_DEACTIVATE_FORBIDDEN], 403);
+        }
 
         // Anti-lockout : on ne retire pas le statut d'admin actif au DERNIER admin
         // actif (desactivation OU changement de role) -> sinon back-office inaccessible.
@@ -262,7 +321,12 @@ class UserController extends AdminController
 
         // mlt 10.3 PRE-2 : pas d'auto-desactivation (on ne se coupe pas l'acces).
         if ($id === ($guard->userId ?? 0)) {
-            return $this->renderConfirm($guard, 'deactivate', $id, $user, 'Vous ne pouvez pas désactiver votre propre compte.', 403);
+            return $this->renderConfirm($guard, 'deactivate', $id, $user, self::SELF_DEACTIVATE_FORBIDDEN, 403);
+        }
+        // D-4 (generalise) : desactiver un compte dont le role COURANT deborde
+        // l'ensemble de permissions de l'ACTEUR exige qu'il les detienne toutes.
+        if ($this->targetHoldsRoleBeyondActorPermissions($guard, $user)) {
+            return $this->renderConfirm($guard, 'deactivate', $id, $user, self::ROLE_MANAGE_REQUIRED, 403);
         }
         if ($this->isLastActiveAdmin($user)) {
             return $this->renderConfirm($guard, 'deactivate', $id, $user, 'Impossible de désactiver le dernier administrateur actif.', 422);
@@ -322,6 +386,13 @@ class UserController extends AdminController
         $user = $this->userRepository()->find($id);
         if ($user === null) {
             return $this->notFound($guard);
+        }
+
+        // D-4 (generalise) : reinitialiser le PIN d'un compte dont le role COURANT
+        // deborde l'ensemble de permissions de l'ACTEUR exige qu'il les detienne
+        // toutes (mutation de credential).
+        if ($this->targetHoldsRoleBeyondActorPermissions($guard, $user)) {
+            return $this->renderConfirm($guard, 'reset-pin', $id, $user, self::ROLE_MANAGE_REQUIRED, 403);
         }
 
         [$actor, $errorMsg] = $this->resolvePin($guard, $form, $id);
@@ -384,6 +455,12 @@ class UserController extends AdminController
             return $this->notFound($guard);
         }
 
+        // D-4 (generalise) : anonymiser un compte dont le role COURANT deborde
+        // l'ensemble de permissions de l'ACTEUR exige qu'il les detienne toutes.
+        if ($this->targetHoldsRoleBeyondActorPermissions($guard, $user)) {
+            return $this->renderConfirm($guard, 'erase', $id, $user, self::ROLE_MANAGE_REQUIRED, 403);
+        }
+
         // PRE-3 : deja anonymise -> 409.
         if (($user['anonymized_at'] ?? null) !== null) {
             return $this->renderConfirm($guard, 'erase', $id, $user, 'Ce compte est déjà anonymisé.', 409);
@@ -444,6 +521,128 @@ class UserController extends AdminController
     private function may(GuardResult $guard, string $permission): bool
     {
         return $guard->roleId !== null && $this->authorizer()->can($guard->roleId, $permission);
+    }
+
+    /**
+     * Permissions du role $roleId, INDEPENDAMMENT de son etat actif (D-4, limite
+     * relevee en revue adverse) : `Authorizer::can()`/`permissionsFor()` filtrent
+     * `role.is_active = 1` (RG-T03, correct pour l'AUTORISATION NORMALE d'une
+     * route -- un role desactive ne doit donner acces a rien). Mais la garde
+     * ci-dessous protege un COMPTE CIBLE, pas une route : si son role est
+     * desactive puis reactive, ses permissions sont intactes, donc la garde doit
+     * les lire des maintenant, meme desactive -- sans quoi desactiver le role
+     * suffirait a le rendre editable par n'importe qui. `RoleRepository::
+     * permissionCodesFor()` lit `role_permission` SANS jointure sur `role`, donc
+     * sans ce filtre : c'est le seul changement, `Authorizer::can()` reste
+     * inchange pour tout le reste (RG-T03 intact).
+     *
+     * @return list<string>
+     */
+    private function permissionCodesOfRole(int $roleId): array
+    {
+        return $roleId > 0 ? (new RoleRepository($this->db()))->permissionCodesFor($roleId) : [];
+    }
+
+    /**
+     * D-4 generalise (revue adverse) : ne protege plus seulement `role.manage`.
+     * Le role $roleId deborde-t-il l'ensemble des permissions de l'ACTEUR de
+     * session -- c'est-a-dire porte-t-il au moins une permission que l'acteur ne
+     * detient pas lui-meme ? Un acteur qui porte `role.manage` garde tous les
+     * droits (court-circuit explicite : il peut de toute facon editer n'importe
+     * quel role via `RoleController`, donc la comparaison d'ensembles serait
+     * toujours vraie pour lui de toute maniere, mais `role.manage` n'implique pas
+     * mecaniquement les AUTRES permissions -- le court-circuit evite un faux
+     * refus sur un role qu'il pourrait par ailleurs parfaitement gerer).
+     *
+     * @param list<string> $actorPermissions
+     */
+    private function roleExceedsPermissions(int $roleId, array $actorPermissions): bool
+    {
+        if ($roleId <= 0) {
+            return false;
+        }
+        $rolePermissions = $this->permissionCodesOfRole($roleId);
+
+        return $rolePermissions !== [] && array_diff($rolePermissions, $actorPermissions) !== [];
+    }
+
+    /**
+     * Sources de commande visibles par le role $roleId (`role_visible_source`),
+     * ligne vide normalisee en vue GLOBALE (D-4, portee des donnees releve en 2e
+     * revue adverse) : l'ABSENCE de ligne signifie "toutes les sources" (seed 0001
+     * l.25-26 : admin/manager n'ont aucune ligne et voient tout), pas "aucune
+     * source" -- meme convention que `OrderQueryRepository::visibleSources()`.
+     * `RoleRepository::visibleSources()` elle-meme n'est PAS touchee (l'ecran RBAC
+     * doit continuer d'afficher les cases telles qu'enregistrees) : cette
+     * normalisation ne vit que dans cette garde.
+     *
+     * @return list<string>
+     */
+    private function visibleSourcesOfRole(int $roleId): array
+    {
+        $sources = (new RoleRepository($this->db()))->visibleSources($roleId);
+
+        return $sources === [] ? self::ALL_ORDER_SOURCES : $sources;
+    }
+
+    /**
+     * D-4, portee des donnees (2e revue adverse) : $roleId deborde-t-il l'ACTEUR sur
+     * la portee des commandes visibles, MEME sans deborder sur les permissions ?
+     * Un role limite au drive dote de `user.update` ne doit pas pouvoir affecter,
+     * ni laisser en place, un role qui voit PLUS de canaux (jusqu'a la vue
+     * globale) : il ne gagne aucune permission, mais il elargit ce qu'il peut
+     * faire voir a un tiers compte (ou reprendre lui-meme en s'y connectant).
+     *
+     * @param list<string> $actorSources
+     */
+    private function roleExceedsVisibleSources(int $roleId, array $actorSources): bool
+    {
+        return $roleId > 0 && array_diff($this->visibleSourcesOfRole($roleId), $actorSources) !== [];
+    }
+
+    private function roleExceedsActorPermissions(GuardResult $guard, int $roleId): bool
+    {
+        if ($this->may($guard, 'role.manage')) {
+            return false;
+        }
+
+        $actorRoleId = $guard->roleId ?? 0;
+        if ($this->roleExceedsPermissions($roleId, $this->authorizer()->permissionsFor($actorRoleId))) {
+            return true;
+        }
+
+        return $this->roleExceedsVisibleSources($roleId, $this->visibleSourcesOfRole($actorRoleId));
+    }
+
+    /**
+     * D-4 (elevation de privilege, generalise) : `user.create`/`user.update` seuls
+     * ne doivent jamais permettre de donner a un tiers des permissions que
+     * l'ACTEUR de session ne detient pas lui-meme -- pas seulement `role.manage`.
+     * Affecter un role dont l'ensemble des permissions deborde celui de l'acteur
+     * (role.manage compris, cas particulier de cette regle) exige donc que
+     * l'acteur les detienne toutes, sinon n'importe quel role dote de
+     * `user.update`/`user.create` pourrait donner a un tiers des droits qu'il n'a
+     * pas via une simple creation/edition de compte.
+     */
+    protected function assignsRoleBeyondActorPermissions(GuardResult $guard, int $newRoleId): bool
+    {
+        return $this->roleExceedsActorPermissions($guard, $newRoleId);
+    }
+
+    /**
+     * D-4 (elevation de privilege, generalise) : meme garde pour un compte dont le
+     * role COURANT deborde deja l'ensemble de permissions de l'acteur -- changer
+     * son role, son mot de passe, le desactiver, reinitialiser son PIN ou
+     * l'anonymiser exige alors que l'acteur detienne TOUTES les permissions de ce
+     * role, meme quand `role_id` ne change pas dans cette mutation precise (S-10 :
+     * `user.update` seul equivalait jusque-la a un droit d'administration sur tout
+     * compte plus dote, admin ou non).
+     *
+     * @param array<string, mixed> $targetUser
+     */
+    protected function targetHoldsRoleBeyondActorPermissions(GuardResult $guard, array $targetUser): bool
+    {
+        return $this->roleExceedsActorPermissions($guard, (int) ($targetUser['role_id'] ?? 0));
     }
 
     /**
@@ -617,7 +816,7 @@ class UserController extends AdminController
             'title'     => ($id !== 0 ? 'Modifier' : 'Nouvel') . ' utilisateur - Wakdo Admin',
             'activeNav' => 'users',
             'userId'    => $id,
-            'roles'     => $this->rolesForSelect(),
+            'roles'     => $this->rolesForSelect($guard, (int) ($values['role_id'] ?? 0)),
             'values'    => [
                 'email'      => (string) ($values['email'] ?? ''),
                 'first_name' => (string) ($values['first_name'] ?? ''),
@@ -649,18 +848,37 @@ class UserController extends AdminController
 
     /**
      * Roles actifs pour le select (id + label), via une lecture directe (pas de
-     * repo dedie avant le lot RBAC).
+     * repo dedie avant le lot RBAC). D-4 mineur (revue adverse) : filtre les roles
+     * que l'acteur ne pourrait de toute facon pas affecter (roleExceedsPermissions,
+     * la garde serveur reste l'autorite -- ceci n'est qu'un confort d'interface, pas
+     * une seconde barriere). $currentRoleId (role deja selectionne dans le
+     * formulaire re-affiche, ou role reel du compte en cours d'edition) reste
+     * TOUJOURS propose, meme hors de cette regle, pour que la case selectionnee ne
+     * disparaisse jamais silencieusement de la liste.
      *
      * @return list<array{id:int, label:string}>
      */
-    private function rolesForSelect(): array
+    private function rolesForSelect(GuardResult $guard, int $currentRoleId): array
     {
         $rows = $this->db()->fetchAll('SELECT id, label FROM role WHERE is_active = 1 ORDER BY label');
+        $hasRoleManage = $this->may($guard, 'role.manage');
+        $actorRoleId = $guard->roleId ?? 0;
+        $actorPermissions = $hasRoleManage ? [] : $this->authorizer()->permissionsFor($actorRoleId);
+        $actorSources = $hasRoleManage ? [] : $this->visibleSourcesOfRole($actorRoleId);
 
-        return array_map(static fn (array $r): array => [
-            'id'    => (int) ($r['id'] ?? 0),
-            'label' => (string) ($r['label'] ?? ''),
-        ], $rows);
+        $roles = [];
+        foreach ($rows as $r) {
+            $id = (int) ($r['id'] ?? 0);
+            if (
+                !$hasRoleManage && $id !== $currentRoleId
+                && ($this->roleExceedsPermissions($id, $actorPermissions) || $this->roleExceedsVisibleSources($id, $actorSources))
+            ) {
+                continue;
+            }
+            $roles[] = ['id' => $id, 'label' => (string) ($r['label'] ?? '')];
+        }
+
+        return $roles;
     }
 
     private function notFound(GuardResult $guard): Response

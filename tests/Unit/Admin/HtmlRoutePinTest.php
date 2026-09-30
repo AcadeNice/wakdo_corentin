@@ -23,13 +23,22 @@ use App\Tests\Support\HtmlRouteHarness;
  *  - `pin = price` : sans code, un changement de prix (ou de TVA) est refuse ;
  *    une modification qui ne touche ni prix ni TVA passe sans code.
  *  - route d'ecriture SANS `pin` : le formulaire valide, sans code, reussit.
- *  - `reauth = password` : sans le mot de passe courant, refus sans ecriture.
+ *  - `reauth = password` : sans le mot de passe courant, refus sans ecriture
+ *    METIER (D-1, contre-audit 30/09 : le refus lui-meme est desormais compte
+ *    et trace, comme le refus de PIN ci-dessous).
  *
- * « Aucune ecriture metier » : un refus de code ecrit VOLONTAIREMENT deux
- * traces, la ligne `pin.failed` d'audit_log (RG-T14) et le compteur anti-essais
- * `pin_throttle` (RG-T22) ; tout le reste (INSERT, UPDATE, DELETE, REPLACE) doit
- * etre absent, et la trace `pin.failed` presente prouve que c'est bien la porte
- * du code qui a refuse.
+ * « Aucune ecriture metier » : un refus de code (ou de mot de passe courant,
+ * D-1) ecrit VOLONTAIREMENT deux traces, la ligne d'audit_log de l'echec
+ * (`pin.failed`, RG-T14, ou `auth.reauth_failed`, D-1) et le compteur
+ * anti-essais correspondant -- `pin_throttle` (RG-T22) pour le PIN d'action
+ * sensible, `user.failed_login_attempts`/`lockout_until` (dimension COMPTE,
+ * `App\Auth\AccountLockout`) pour la re-verification du mot de passe depuis
+ * D-1.a (revue adverse : partager pin_throttle etait une faille, corrigee --
+ * une action PIN reussie AILLEURS, meme avec l'email+PIN d'un tiers, ne doit
+ * plus jamais remettre ce compteur-la a zero) ; tout le reste (INSERT, UPDATE,
+ * DELETE, REPLACE) doit etre absent, et la trace presente prouve que c'est
+ * bien la porte du code (ou
+ * du mot de passe) qui a refuse.
  */
 final class HtmlRoutePinTest extends TestCase
 {
@@ -244,7 +253,11 @@ final class HtmlRoutePinTest extends TestCase
         [$response, $db] = $this->call($method, $path, $anonymous, $permission, $scenario, $form);
 
         self::assertSame(422, $response->status(), "$method $path sans le mot de passe courant devrait etre refusee (422), obtenu {$response->status()}.");
-        self::assertSame([], HtmlRouteHarness::writes($db), "$method $path sans le mot de passe courant ne devrait rien ecrire.");
+        // D-1 : le refus ecrit desormais volontairement deux traces (throttle +
+        // audit `auth.reauth_failed`, meme discipline que le refus de PIN) ;
+        // aucune ecriture METIER en revanche.
+        self::assertSame([], HtmlRouteHarness::businessWrites($db), "$method $path sans le mot de passe courant ne devrait faire aucune ecriture metier.");
+        self::assertSame(1, HtmlRouteHarness::reauthFailures($db), "$method $path : le refus devrait etre trace (auth.reauth_failed).");
     }
 
     // --- aides ---

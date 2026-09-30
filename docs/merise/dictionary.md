@@ -3,7 +3,7 @@
 **Phase Merise** : P1 - Conception, etape 1 (dictionnaire de donnees d'abord, mantra #33)
 **Version** : v0.7 — prod-like, 24 entites (19 prod-like + couche security-by-design + classement des ingredients, incl. les entites `login_throttle`, `pin_throttle`, `category_ingredient_family` et `password_reset_throttle`)
 **Date** : 2026-06-04 (ajouts security-by-design 2026-06-11 ; classement des ingredients 2026-09-27 ; corrections d'audit 2026-09-28 ; contre-audit independant 2026-09-29 ; deux correctifs merges le 2026-09-29 : reconciliation des emplacements de menu, `audit_log.pin.failed` sans adresse saisie — migration 0019 ; deux correctifs de securite merges le 2026-09-29 : `user.session_epoch` + throttle de reinitialisation de mot de passe — migration 0020, commit `ef7fd37` ; en-tetes de securite completes, TRACE coupe, sonde publique sans version PHP — commit `08d7a96`)
-**Branche** : premiere redaction sur `feat/p1-conception` ; etat actuel sur `docs/contre-audit` (29/09), en production apres la release du 29/09
+**Branche** : premiere redaction sur `feat/p1-conception` ; etat au 29/09 en production par la release du 29/09 (`aab4e96`) ; mises a jour du 30/09 (audit_log, password_reset_throttle, pin_hash) en production depuis la release du 30/09
 **Statut** : prod-like — toutes les decisions D1-D8 + stock appliquees (voir `docs/journal/2026-06-04--conception-prodlike-revision.md` pour D1-D3 et `docs/journal/2026-06-04--p1-merise-v0.2-rewrite-and-forgejo-migration.md` pour D4-D8 + stock) ; couche security-by-design en cours (voir note 13) ; colonnes additives post-v0.3 des migrations 0003/0005/0006/0007 alignees sur le deploye (voir note 14)
 **Auteur** : BYAN (couche methodologie)
 
@@ -423,7 +423,7 @@ ne sont pas authentifies et n'ont pas de ligne ici.
 | `id` | INT UNSIGNED | NO | AUTO_INCREMENT | PK | |
 | `email` | VARCHAR(254) | NO | — | UNIQUE | longueur max selon RFC 5321 |
 | `password_hash` | VARCHAR(255) | NO | — | — | hash argon2id, code en dur dans `PasswordHasher` (choix security-by-design non configurable ; il n'existe pas de variable `PASSWORD_ALGO`, seuls les couts `ARGON2_MEMORY_COST`/`ARGON2_TIME_COST`/`ARGON2_THREADS` se lisent depuis `.env`) ; longueur typique 96 caracteres, marge jusqu'a 255 |
-| `pin_hash` | VARCHAR(255) | YES | NULL | — | hash argon2id du PIN par membre du personnel qui autorise les actions sensibles (prix/RBAC/utilisateur/annulation/inventaire). NULL = aucun PIN defini. Security-by-design, voir note 13. Colonne posee juste apres `password_hash` (migration `0001_init_schema.sql`), pas en fin de table |
+| `pin_hash` | VARCHAR(255) | YES | NULL | — | hash argon2id du PIN par membre du personnel, qui identifie l'acteur des actions sensibles (prix/RBAC/utilisateur/annulation/inventaire) sans verifier sa permission (verifiee a part, sur la session -- ADR-0004). NULL = aucun PIN defini. Security-by-design, voir note 13. Colonne posee juste apres `password_hash` (migration `0001_init_schema.sql`), pas en fin de table |
 | `first_name` | VARCHAR(60) | NO | — | — | |
 | `last_name` | VARCHAR(60) | NO | — | — | |
 | `role_id` | INT UNSIGNED | NO | — | FK -> `role(id)`, ON DELETE RESTRICT | un utilisateur ne peut exister sans role |
@@ -626,7 +626,13 @@ Ajout security-by-design (voir note 13).
 | `details` | JSON | YES | NULL | — | diff before/after optionnel. Pour les actions ciblant un utilisateur, stocke les **noms de champs** modifies, pas les valeurs PII ; pour `pin.failed`, forme differente (pas un diff) : `{"target_user_id": <id du compte correspondant ou null>, "context": <contexte de l'action>}` (`PinGate::auditFailedPin()`, 2026-09-29) |
 | `created_at` | DATETIME | NO | CURRENT_TIMESTAMP | INDEX | timestamp immuable |
 
-**Immuabilite** : aucun UPDATE ni DELETE au niveau applicatif (meme discipline que `stock_movement`).
+**Immuabilite** : le code applicatif n'ecrit ici que par INSERT (meme discipline que
+`stock_movement`) ; la table n'est PAS protegee au niveau base (l'utilisateur applicatif garde
+`UPDATE`/`DELETE` sur toute la base, `db/init/10-scope-app-user.sh`). Deux exceptions
+documentees, hors du chemin applicatif normal : la migration `0019_pin_failed_audit_minimisation.sql`
+(un `UPDATE` de minimisation RGPD sur les lignes `pin.failed` deja ecrites) et la purge de
+retention planifiee (`purge-audit-log.sh`, un `DELETE` sur les lignes au-dela de
+`AUDIT_LOG_RETENTION_DAYS`).
 **Index** : `(actor_user_id, created_at)`, `(entity_type, entity_id)`, `(action_code, created_at)`.
 **Retention** : fenetre propre (~12 mois, interet legitime / tracabilite fiscale), decouplee
 du cycle de vie des PII utilisateur (note 13). Une purge planifiee (cron) retire les lignes au-dela de la fenetre.
@@ -987,7 +993,7 @@ remplacent aucune decision v0.2 ; ils ajoutent imputabilite, cycle de vie d'auth
 
 **Imputabilite — compte partage hybride + PIN.** Les sessions back-office restent partagees par
 poste de travail pour le flux de routine (un terminal fast-food est partage, les `equipiers` tournent). Un
-PIN par membre du personnel (`user.pin_hash`, argon2id) autorise un ensemble defini d'**actions sensibles**
+PIN par membre du personnel (`user.pin_hash`, argon2id) re-authentifie l'acteur pour un ensemble defini d'**actions sensibles**
 (editions prix/menu 8.2/8.3/8.6, annulation de commande 7.1, correction d'inventaire 9.2, ajustement libre
 de stock 9.4, gestion des utilisateurs 10.1-10.3, RBAC 10.4). La plupart de ces actions ecrivent le
 `user_id` agissant dans `audit_log` (3.20) ; les TROIS operations de stock (reapprovisionnement 9.1,

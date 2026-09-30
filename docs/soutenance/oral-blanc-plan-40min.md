@@ -57,7 +57,25 @@
 > `c2b8c1c` : **158 succes sur 158, 670 refus obtenus sur 689 tentes**. Accessibilite
 > (12:44 UTC, `fe8b738`) : **19 ecrans, 934 mesures, 0 violation**. Migrations : **20
 > fichiers (0001 a 0021, sans 0004)**. **Production** : tout le 29/09 est sur la branche
-> `docs/contre-audit` ; la production (`dc1829d`) ne l'aura qu'apres la release du 29/09.
+> `docs/contre-audit` ; en production depuis la release du 29/09 (`aab4e96`).
+> **Recomptage final du 2026-09-30**, apres cinq audits independants de la documentation et
+> deux revues adversariales des correctifs qui en decoulent (D-1 a D-7, A-2), sur le code
+> revu (commit `17c8fe5`) : PHPStan niveau 6, **0 erreur** ; PHPUnit **2 610 tests,
+> 8 924 assertions, 0 echec, 0 depreciation** ; tests JavaScript (node:test) **492, 0 echec** ;
+> tests shell : 2 fichiers verts (nombre de cas non recompte ce jour-la, reste a 47
+> assertions au 29/09). Suite navigateur complete (36 fichiers de specs, pile jetable) :
+> **212 reussis, 11 sautes, 0 echec** ; balayage du back-office : **4 812 verifications,
+> 0 echec**. Suite de securite `tests/e2e/run-security.sh` (3 phases, `APP_DEBUG=false`) :
+> phase principale **108 reussis** (8 sautes, joues dans les phases suivantes), phase
+> reinitialisation **5 reussis**, phase base arretee **4 reussis** ; total **117 reussis,
+> 0 echec**. **Non rejoues le 30/09** : l'audit d'accessibilite (19 ecrans, 934 mesures,
+> 0 violation, mesure du 2026-09-29) et la capture des reponses de la page Sante (158
+> succes, 670 refus obtenus sur 689 tentes, capture du 2026-09-29 ; aucune route ajoutee
+> le 30/09). Routes : 158. Tables : 24. Migrations : 20 fichiers (0001 a 0021, sans 0004 ;
+> la prochaine migration sera 0022). Decisions d'architecture : 20 (recomptes sur l'arbre
+> du 30/09). **Production** : les correctifs du 30/09 sont en production depuis la release
+> du 30/09 ; le champ `version` de `/api/health` donne le commit servi (a verifier avant
+> l'oral).
 
 ---
 
@@ -107,13 +125,13 @@ depot coute plus cher que le chiffre lui-meme.
 | Commits (sur `main`, commit deploye `04bece0`, 28/09) | 242. **Etat au 29/09** (commit `main` `dc1829d`) : **244** | `git rev-list --count 04bece0` ; a la veille, revalider avec `git rev-list --count main` |
 | Demandes de fusion fusionnees | 192 (derniere au 28/09 : #194, la release deployee `04bece0`). **Etat au 29/09** : **194** fusionnees, derniere **#196** (release deployee `dc1829d`) | API de la forge : `GET /api/v1/repos/AcadeNice/corentin_wakdo/pulls?state=closed`, compter les entrees `merged: true` (le decompte par `git log` ne voit pas les anciennes fusions, dont le titre ne finit pas par `(#n)`) |
 | Repartition des commits | 111 `feat`, 42 `docs`, 41 `fix`, 11 `chore`, 8 `ci`, 4 `test`, 2 `refactor` | `git log --pretty=%s 04bece0 \| grep -oE '^[a-z]+' \| sort \| uniq -c` |
-| Lignes PHP livrees | 28 264 sur 140 fichiers (29/09, `fe8b738`) | `find src -name '*.php' -type f -exec cat {} + \| wc -l` |
+| Lignes PHP livrees | 29 059 sur 143 fichiers (30/09) | `find src -name '*.php' -type f -exec cat {} + \| wc -l` |
 | Lignes JavaScript livrees | 9 210 sur 30 fichiers (29/09) | `find src -name '*.js' -type f -exec cat {} + \| wc -l` |
 | dont borne client | 3 551 sur 21 modules (29/09) | `wc -l src/public/borne/assets/js/*.js` |
 | Lignes CSS | 5 806 (borne 2 322 + back-office 3 484, 29/09) | `wc -l src/public/*/assets/css/*.css` |
-| Methodes de test PHP | 1 410 sur 124 fichiers (29/09) | `grep -rhoE 'public function test[A-Za-z0-9_]*' tests --include='*.php' \| wc -l` |
-| Appels de test JavaScript | 498 sur 31 fichiers (29/09) | `grep -rhoE "\b(it\|test)\(" tests/js --include='*.test.js' \| wc -l` |
-| Scenarios de bout en bout | 191 appels `test(` sur 36 specs (29/09 ; 214 tests a l'execution, certains etant generes par boucle) | `grep -rhoE '^\s*test\(' tests/e2e --include='*.spec.js' \| wc -l` |
+| Methodes de test PHP | 1 481 sur 127 fichiers (30/09) | `grep -rhoE 'public function test[A-Za-z0-9_]*' tests --include='*.php' \| wc -l` |
+| Appels de test JavaScript | 498 sur 31 fichiers (29/09, inchange le 30/09) | `grep -rhoE "\b(it\|test)\(" tests/js --include='*.test.js' \| wc -l` |
+| Scenarios de bout en bout | 198 appels `test(` sur 36 specs (30/09 ; 223 tests a l'execution, certains etant generes par boucle : 212 reussis, 11 sautes) | `grep -rhoE '^\s*test\(' tests/e2e --include='*.spec.js' \| wc -l` |
 | Analyse statique | PHPStan niveau 6, sans erreur | `phpstan.neon` (`level: 6`) |
 | Entites du modele | 24 | `docs/merise/dictionary.md` (3.1 a 3.24) |
 | Migrations / jeux de donnees | 20 / 10, idempotents (0001 a 0021, sans 0004) | `ls db/migrations/*.sql \| wc -l` ; `ls db/seeds/*.sql \| wc -l` |
@@ -129,17 +147,18 @@ depot coute plus cher que le chiffre lui-meme.
 | Taches planifiees actives | 4 (+ 3 modeles commentes) | `docker/cron/crontab` |
 
 **Sur les suites de tests - une precaution de formulation.** La derniere execution
-complete mesuree donne **2 535 tests PHP pour 8 716 assertions, 0 echec, 0 depreciation**
-et **492 tests JavaScript, 0 echec** (mesure de l'apres-midi du 2026-09-29, sur le commit
-`186c5d7`, branche `docs/contre-audit`). La suite navigateur complete (36 fichiers de specs,
-214 tests) donne **202 reussis, 11 sautes, 1 echec** corrige ensuite par `c2b8c1c` ; le
-balayage du back-office rejoue donne **4 807 verifications, 0 echec**.
+complete mesuree donne **2 610 tests PHP pour 8 924 assertions, 0 echec, 0 depreciation**
+et **492 tests JavaScript, 0 echec** (recomptage final du 2026-09-30, sur le commit
+`17c8fe5`, apres les correctifs D-1 a D-7 et A-2 revus deux fois de facon adversariale).
+La suite navigateur complete (36 fichiers de specs, pile jetable) donne **212 reussis,
+11 sautes, 0 echec** ; le balayage du back-office rejoue donne **4 812 verifications,
+0 echec**.
 Ces chiffres continuent de croitre a chaque demande de fusion : ce sont donc un
 **plancher**, pas un plafond. Deux options a l'oral, au choix :
 
 - relancer les suites la veille et annoncer le resultat exact ;
-- dire *"plus de 2 500 tests PHP et pres de 500 tests JavaScript, derniere execution
-  complete le 29 septembre"*.
+- dire *"plus de 2 600 tests PHP et pres de 500 tests JavaScript, derniere execution
+  complete le 30 septembre"*.
 
 L'ecart entre le comptage statique de methodes et le nombre de tests executes s'explique
 et doit etre su : une methode associee a un fournisseur de donnees s'execute une fois par
@@ -152,9 +171,9 @@ distincts**, et les confondre serait une erreur qu'un jury technique reperera.
 
 | Mesure | Outil | Resultat | Source |
 |---|---|---|---|
-| Audit d'accessibilite | axe-core 4.13.0 via Playwright, regles WCAG 2.0 A/AA et WCAG 2.1 A/AA | **19 ecrans** (6 borne, 13 back-office), **0 violation** toutes gravites, **935 rapports de contraste**, **0 sous le seuil**, minimum releve **3,59**. Resolutions : 1080x1920 pour la borne, 1440x900 pour le back-office. **Un seul role : administrateur** | `docs/soutenance/preuves/rapports/resume.json`, campagne du 2026-09-28, rejouee a l'identique le 2026-09-29 (commit `3fd08c4`) |
+| Audit d'accessibilite | axe-core 4.13.0 via Playwright, regles WCAG 2.0 A/AA et WCAG 2.1 A/AA | **19 ecrans** (6 borne, 13 back-office), **0 violation** toutes gravites, **934 rapports de contraste**, **0 sous le seuil**, minimum releve **3,59**. Resolutions : 1080x1920 pour la borne, 1440x900 pour le back-office. **Un seul role : administrateur** | `docs/soutenance/preuves/rapports/resume.json`, campagne du 2026-09-28, rejouee a l'identique le 2026-09-29 (commit `3fd08c4`) |
 | Balayage de mise en page et d'ergonomie | outil ecrit pour le projet (`tests/e2e/backoffice-sweep/`), 12 familles de verifications | **4 812 verifications, 0 echec** - 5 roles connectes plus l'etat non connecte, toutes les pages atteignables (111 pages-roles), **4 largeurs** (1366, 1024, 768, 390 px). Trajectoire : **104 echecs avant la refonte, 11 apres le premier lot, 0 le 26/09 ; le 28/09, 3 echecs sur la page Sante, qui n'avait pas encore ete balayee, corriges (#183), 0 a nouveau ; le 29/09, mesure a 4 812** | mesure du 2026-09-29 sur `2fe8a4a`. Les sorties de cet outil ne sont pas versionnees : le relancer pour produire le rapport |
-| Canal auxiliaire par le temps sur la connexion | mesure directe des 4 chemins | compte inexistant 257,4 ms / mot de passe faux 251,4 ms / compte verrouille 253,3 ms / connexion reussie 252,6 ms. **Ecart maximal 6,0 ms pour un bruit de mesure de 13,8 ms** | mesure du 2026-09-26 |
+| Canal auxiliaire par le temps sur la connexion | mesure directe des 4 chemins, faite a la main | compte inexistant 257,4 ms / mot de passe faux 251,4 ms / compte verrouille 253,3 ms / connexion reussie 252,6 ms. **Ecart maximal 6,0 ms pour un bruit de mesure de 13,8 ms** | mesure manuelle du 2026-09-26 ; le script de mesure n'est pas versionne dans le depot, non rejouable a la demande |
 
 La lecture a donner au jury pour la troisieme : *"l'ecart entre les chemins est plus
 petit que le bruit de ma propre mesure. Autrement dit, le temps de reponse ne permet
@@ -229,7 +248,10 @@ pas a reclamer de preuve : elle vient.
 
 - Wakdo est une borne de commande pour un fast-food. Tous les modes de service
   (sur place, a emporter, drive) sont en emballages papier sur plateau ou en sac ;
-  la distinction sur place / a emporter est surtout fiscale (taux de TVA).
+  la TVA n'est pas liee au mode de service : elle est fixee par produit (10 % par
+  defaut, 5,5 % pour les contenants refermables comme les bouteilles), conformement
+  a la doctrine BOFiP ; le mode de service (sur place / a emporter / drive) n'est
+  conserve que pour le service et les statistiques.
 - Trois canaux de prise de commande : la borne client autonome, le comptoir tenu
   par un equipier, le drive.
 - **Ce qui est inclus** : catalogue, composition de menus, panier, encaissement simule,
@@ -365,7 +387,7 @@ Distinguer clairement les deux outils - c'est ce qui montre qu'on sait ce qu'on 
 
 - **axe-core 4.13.0**, pilote par Playwright dans un vrai navigateur, sur les regles
   WCAG 2.0 niveaux A et AA et les ajouts WCAG 2.1 niveaux A et AA. Resultat :
-  **19 ecrans**, **0 violation** toutes gravites, **935 rapports de contraste**,
+  **19 ecrans**, **0 violation** toutes gravites, **934 rapports de contraste**,
   **0 sous le seuil**, minimum releve **3,59**.
   Pourquoi un vrai navigateur et pas un rendu simule : sans rendu, il n'y a ni couleur
   calculee ni geometrie, donc aucun rapport de contraste calculable. C'est la raison
@@ -373,7 +395,7 @@ Distinguer clairement les deux outils - c'est ce qui montre qu'on sait ce qu'on 
 - **Le balayage de mise en page**, ecrit pour le projet, qui mesure ce qu'axe ne regarde
   pas : chevauchement d'elements, texte coupe, defilement horizontal, taille de cible,
   alignement, ordre de tabulation et visibilite du focus, contraste des messages
-  d'erreur reellement declenches. **4 807 verifications, 0 echec** (rejeu du 29/09 apres-midi), sur 5 roles connectes
+  d'erreur reellement declenches. **4 812 verifications, 0 echec** (rejeu du 30/09), sur 5 roles connectes
   plus l'etat non connecte, et **4 largeurs** : 1366, 1024, 768 et 390 px.
 
 **La trajectoire est le vrai argument.** Dire cette suite de trois nombres :
@@ -600,7 +622,9 @@ Ne pas reciter les 22 regles. En choisir quatre et les tenir.
 4. **Les actions sensibles demandent un code personnel, et laissent une trace
    (RG-T13, RG-T14, RG-T22).** Au comptoir, plusieurs equipiers se relaient sur la meme
    session. Une annulation de commande ou un changement de droits exige une
-   re-autorisation par identifiant d'equipier plus code personnel ; la ligne de journal
+   re-authentification de l'acteur par identifiant d'equipier plus code personnel
+   (le code identifie qui agit, la permission reste verifiee sur la session, ADR-0004) ;
+   la ligne de journal
    d'audit est ecrite **dans la meme transaction** que l'action - soit les deux, soit
    aucune. Un compteur de tentatives separe de celui de la connexion protege ce code.
    Le contenu de cette ligne est lui-meme minimise (RGPD art. 5.1.c) : depuis le
@@ -623,7 +647,10 @@ C'est le morceau a garder pour un jury technique.
 > le bruit : le temps ne distingue pas les chemins."*
 
 Le code : `src/app/Auth/AuthService.php`, methode `authenticate`, et
-`PasswordHasherInterface::verifyDecoy`. Les empreintes sont en argon2id.
+`PasswordHasherInterface::verifyDecoy`. Les empreintes sont en argon2id. **Si le jury
+demande a voir le script de mesure** : la mesure a ete faite a la main le 2026-09-26,
+et le script n'est pas versionne dans le depot ; le dire tel quel plutot que de
+promettre une preuve introuvable.
 
 Le meme raisonnement s'applique au compte **verrouille**. S'il ne payait pas le cout du
 leurre, il repondrait plus vite qu'un compte inconnu. Et s'il n'incrementait pas le
@@ -666,9 +693,18 @@ limitation du mot de passe oublie jamais purgee et gardant l'adresse en clair, s
 fermees quand l'admin change un mot de passe, option de menu indisponible en Maxi seulement,
 quantite corrigee en silence au comptoir), corriges eux aussi test d'abord ; rejeu sur
 `c2b8c1c` : phase principale 99 reussis + 8 sautes, reinitialisation 4, base arretee 4,
-0 echec. **Statut de production a dire juste** : corrige dans le code le 29/09, en
-production apres la release du 29/09 (a verifier sur `/api/health`, champ `version`, avant
-l'oral). Confirmation par la commande `bash tests/e2e/run-security.sh` (detail dans la fiche).
+0 echec. **Le 30/09**, cinq audits independants de la documentation (metier, PHP, front,
+securite, API) et deux revues adversariales ont trouve huit autres defauts de code
+(A-2 : la route publique de paiement laissait lire le statut et le total d'une commande
+comptoir ou drive ; D-1 a D-7, dont une possibilite d'escalade de privilege via
+`user.update`, D-4), tous
+corriges et testes le jour meme ; rejeu final : phase principale **108 reussis** (8
+sautes), reinitialisation **5 reussis**, base arretee **4 reussis**, **117 reussis,
+0 echec**. **Statut de production a dire juste** : corrige dans le code, en production
+depuis la release du 29/09 (`aab4e96`) pour les onze premiers ecarts ; les huit du
+30/09 sont en production depuis la release du 30/09 (a verifier sur `/api/health`,
+champ `version`, avant l'oral). Confirmation par la commande
+`bash tests/e2e/run-security.sh` (detail dans la fiche).
 
 **Criteres servis :** Cr 3.d (donnees personnelles), Cr 4.e (securite),
 Cr 4.f (discipline de versionnement), Cr 4.g (livraison testee).
@@ -818,10 +854,13 @@ captures ouvertes dans un troisieme onglet.
 L'outil de demonstration en direct est **Insomnia**, avec une collection construite par
 l'auteur lui-meme. Les deux collections livrees dans `docs/api/` restent la reference et
 le point de depart : une pour Postman (`wakdo-admin.postman_collection.json`) et une au
-format Bruno (`docs/api/bruno/`) ; toutes deux sont importables dans Insomnia (Postman
-directement, Bruno via ses fichiers `.bru`). Le mode d'emploi de reference, ecrit pour
+format Bruno (`docs/api/bruno/`) ; la collection Postman peut servir de point de depart
+a l'import dans Insomnia (a verifier la veille dans la version installee). La collection
+Insomnia de l'oral, elle, est construite a la main, comme le decrit `demo-api.md`
+(section 8) : il n'existe pas de generateur automatique pour Insomnia. Le mode d'emploi
+de reference, ecrit pour
 Postman et Bruno, est dans `docs/api/demo-api.md` : les noms de variables d'environnement
-(`baseUrl`, `email`, `csrf`, `pin_email`, `pin`...) et l'enchainement des requetes s'y
+(`baseUrl`, `csrf`, `pin_email`, `pin`) et l'enchainement des requetes s'y
 retrouvent a l'identique dans la collection Insomnia.
 
 **Deroulement, en quatre gestes qui representent six requetes HTTP (les deux derniers
@@ -831,7 +870,7 @@ gestes enchainent chacun une reconnexion puis une action) :**
 |---|---|---|---|
 | 28:00 | Connexion administrateur | 1. `POST {{ _.baseUrl }}/admin/api/auth/login` (compte admin) | La connexion JSON, le cookie de session, le jeton anti-falsification renvoye |
 | 28:30 | Lecture des statistiques | 2. `GET {{ _.baseUrl }}/admin/api/stats` | Une lecture autorisee, enveloppe `{ "data": ... }` |
-| 29:00 | Cuisine tente d'annuler | 3. `POST {{ _.baseUrl }}/admin/api/auth/login` (compte cuisine) puis 4. `POST {{ _.baseUrl }}/admin/api/orders/K1/cancel` | **403** : la cuisine *voit* les commandes (`order.read`) mais ne peut pas les annuler — la permission est decoupee au geste pres, et c'est le code qui la verifie, pas le nom du role |
+| 29:00 | Cuisine tente d'annuler | 3. `POST {{ _.baseUrl }}/admin/api/auth/login` (compte cuisine) puis 4. `POST {{ _.baseUrl }}/admin/api/orders/K1/cancel` | **403** : la cuisine *voit* les commandes (`order.read`) mais ne peut pas les annuler — c'est le code qui verifie la permission d'annuler, pas le nom du role (nuance a garder : ce decoupage n'est pas systematique, marquer une commande « prete » ne demande qu'`order.read`, sans permission dediee) |
 | 29:30 | Comptoir cree une commande vide | 5. `POST {{ _.baseUrl }}/admin/api/auth/login` (compte comptoir) puis 6. `POST {{ _.baseUrl }}/admin/api/orders` avec `{"items": []}`, en-tetes `X-CSRF-Token` et `Content-Type: application/json` | **422** `VALIDATION_ERROR`, message dans `error.fields.items` (« Ajoutez au moins un produit ou un menu. ») et non 403 : la permission passe, c'est la validation qui refuse (`EMPTY_ORDER` est le code de l'API de la borne, pas de celle-ci) |
 
 **La requete du geste 29:00, telle qu'a preparer dans Insomnia :**
@@ -845,8 +884,10 @@ Body (JSON): { "pin_email": "<email du compte cuisine>", "pin": "<PIN du compte 
 **Le jeton anti-falsification change a chaque connexion.** Apres chaque requete de
 connexion (1, 3 et 5), relire `data.csrf_token` dans la reponse et le reporter dans la
 variable `csrf` ; sinon la requete suivante rend `403 CSRF_INVALID`. Les requetes qui
-envoient un corps JSON (4 et 6) portent aussi `Content-Type: application/json`, sinon
-`415 UNSUPPORTED_MEDIA_TYPE`.
+envoient un corps JSON (1, 3, 5 et 6, et 4 pour un compte autorise) portent aussi
+`Content-Type: application/json`, sinon `415 UNSUPPORTED_MEDIA_TYPE`. La requete 4 par
+le compte cuisine ne peut pas rendre ce 415 : la garde `order.cancel` refuse avant la
+lecture du corps.
 
 Connecte avec le compte cuisine (role `kitchen`), cette requete rend **403 FORBIDDEN**
 (`"Permission manquante"`). La raison tient a l'ordre des controles dans
@@ -981,10 +1022,10 @@ bonne reponse est *"le code fait foi, et voici pourquoi le document a pris du re
 | Ecart | Le document dit | Le code dit |
 |---|---|---|
 | **API `PUT`/`DELETE`** | "reste au stade prevu" (dossier, C4.b) | **Livree** : 57 routes sous `/admin/api/`, dont 9 `PUT` et 5 `DELETE`, 10 controleurs dedies, decision d'architecture 0017. **C'est l'ecart le plus important** : le dossier declare absente une fonctionnalite demontrable. |
-| Nombre de tests | 755 PHP / 233 JS (dossier, deux endroits) | Derniere execution mesuree (29/09/2026 apres-midi, commit `186c5d7`) : 2 535 PHP / 8 716 assertions / 492 JS. Comptage statique le meme jour : 1 410 methodes / 498 appels. |
+| Nombre de tests | 755 PHP / 233 JS (dossier, deux endroits) | Derniere execution mesuree (30/09/2026, commit `17c8fe5`) : 2 610 PHP / 8 924 assertions / 492 JS. Comptage statique le meme jour : 1 481 methodes / 498 appels. |
 | Decisions d'architecture | "seize" (dossier, quatre endroits) | **20**. Les 0018-0020 portent les familles d'ingredients, la page Sante de l'API et l'annulation par le responsable. |
 | Migrations | "dix fichiers, 0001 a 0011" (dossier, C3.b) | **20 fichiers**, 0001 a 0021 (sans 0004, mesure du 29/09). Le saut sur 0004 reste volontaire et trace. |
-| Fichiers PHP de l'application | "103 fichiers" avec une repartition detaillee | **138** sous `src/app` (29/09), dont **33 controleurs + 1 trait** (23 au premier niveau + 10 controleurs et 1 trait `JsonApiTrait` sous `Admin/Api`). |
+| Fichiers PHP de l'application | "103 fichiers" avec une repartition detaillee | **141** sous `src/app` (30/09), dont **33 controleurs + 1 trait** (23 au premier niveau + 10 controleurs et 1 trait `JsonApiTrait` sous `Admin/Api`). |
 | Modules de la borne | "18 modules, 2 979 lignes" | **21 modules, 3 551 lignes** (29/09). |
 | Feuille de style du back-office | "2 714 lignes" | **3 484 lignes** (29/09 ; refonte du 26 septembre, complements du 28 et du 29). |
 | Operations du modele de traitements | "28 operations" | **40**, depuis la version 0.5 (`docs/merise/mct.md` §14). |
@@ -1113,8 +1154,9 @@ deux, soit aucune (RG-T13, RG-T14). Un compteur de tentatives separe protege ce 
 Requetes preparees PDO, sans emulation, valeurs liees et non concatenees (RG-T06). Pour
 les identifiants dynamiques d'un tri, qui ne peuvent pas etre lies comme des valeurs, une
 liste blanche de jetons (RG-T17). Cote affichage, echappement en sortie :
-`htmlspecialchars` au back-office, `textContent` sur la borne, avec une fonction
-d'echappement centralisee dans `state.js` (RG-T15).
+`htmlspecialchars` au back-office ; sur la borne, gabarits `innerHTML` dont chaque
+valeur de catalogue passe par la fonction d'echappement centralisee `escHtml()` de
+`state.js`, et `textContent` pour les textes isoles (RG-T15).
 
 **Q2.9 - Le mot de passe administrateur est en clair dans un fichier du depot. Pourquoi ?** **(rude)**
 Parce que c'est voulu et documente. La production est un site de **demonstration** pour
@@ -1145,9 +1187,16 @@ trouve 11 ecarts le 29 septembre - deux importants (deni de service par quantite
 commande, changement de role non applique a une session ouverte) et neuf mineurs
 (en-tetes manquants, sessions ouvertes sans necessite, mot de passe oublie sans limite) -
 tous corriges le jour meme, test d'abord, et la suite rejouee le meme jour confirme 0 test
-marque en echec restant (dernier rejeu : 99 reussis et 8 sautes en phase principale, puis
-4 et 4). Ces correctifs sont dans le code le 29/09 et en production apres la release du
-29/09. Ce que je NE fais PAS, et que je dis avant qu'on
+marque en echec restant (dernier rejeu du 29/09 : 99 reussis et 8 sautes en phase
+principale, puis 4 et 4). Ces correctifs sont en production depuis la release du 29/09
+(`aab4e96`). **Le 30/09**, une nouvelle passe d'audit et deux revues adversariales ont
+trouve huit autres defauts de code (A-2 et D-1 a D-7), tous corriges et testes le jour
+meme ; A-2 : la route publique de paiement de la borne ne filtrait pas le canal, un anonyme
+pouvait lire le statut et le total d'une commande comptoir ou drive en devinant son numero
+(elle rend desormais la meme reponse 404 qu'un numero inconnu) ;
+dernier rejeu : 108 reussis et 8 sautes en phase principale, puis 5 et 4, soit 117
+reussis, 0 echec. Ces huit correctifs sont en production depuis la release du 30/09.
+Ce que je NE fais PAS, et que je dis avant qu'on
 me le demande : pas de scanner automatique (ZAP, sqlmap, Burp), les charges sont ecrites a
 la main et la liste est bornee ; HTTPS et TLS relevent de Traefik, hors de mon code, et ne
 sont pas testes sur la pile locale.
@@ -1157,8 +1206,8 @@ sont pas testes sur la pile locale.
 **Q3.1 - Qu'est-ce qui vous permet de dire que votre site est accessible ?**
 Je ne dis pas qu'il est accessible : je dis qu'il ne porte aucune violation detectable
 automatiquement. axe-core 4.13.0 sur les regles WCAG 2.0 A/AA et 2.1 A/AA, 19 ecrans,
-0 violation toutes gravites, 934 rapports de contraste (29/09 apres-midi), 0 sous le seuil. Et 4 807
-verifications sans echec au balayage de mise en page, sur 5 roles et 4 largeurs.
+0 violation toutes gravites, 934 rapports de contraste (mesure du 29/09, non rejouee depuis), 0 sous le seuil. Et 4 812
+verifications sans echec au balayage de mise en page (rejeu du 30/09), sur 5 roles et 4 largeurs.
 
 **Q3.2 - Quelle est la limite de votre audit ?** **(rude)**
 Un outil automatise ne decide que ce qui est decidable par programme. Il voit un

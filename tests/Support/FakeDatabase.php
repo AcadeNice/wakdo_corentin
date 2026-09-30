@@ -42,6 +42,24 @@ final class FakeDatabase implements DatabaseInterface
     public ?array $throttleRow = null;
 
     /**
+     * Compteur DU COMPTE (user.failed_login_attempts) relu apres son increment
+     * atomique (D-3, AuthService::recordFailure()) ; null => 1 par defaut cote
+     * service. Pendant DISTINCT de $throttleRow (dimension IP).
+     *
+     * @var array<string, mixed>|null
+     */
+    public ?array $accountThrottleRow = null;
+
+    /**
+     * lockout_until DU COMPTE (user.lockout_until) renvoye pour la porte de
+     * AccountLockout::isLocked() (D-1.a, reverification du mot de passe sur
+     * /admin/profile/pin) ; null = pas de verrou. DISTINCT de
+     * $pinThrottleLockoutUntil (pin_throttle) : les deux compteurs ne doivent
+     * plus jamais s'influencer l'un l'autre.
+     */
+    public ?string $userAccountLockoutUntil = null;
+
+    /**
      * Reponse de la recherche par token de reinitialisation (12.3) ; null = aucun.
      *
      * @var array<string, mixed>|null
@@ -415,6 +433,53 @@ final class FakeDatabase implements DatabaseInterface
     public array $roleSources = [];
 
     /**
+     * Recouvrement PAR ROLE des sources visibles (cle roleId, valeur list<string>),
+     * prioritaire sur $roleSources (global) quand la cle existe. Meme raison que
+     * $permissionCodesByRole : les tests D-4 (portee role_visible_source) doivent
+     * distinguer, DANS LE MEME test, les sources de l'ACTEUR de celles du role VISE
+     * -- deux roles differents que $roleSources (une seule reponse, insensible au
+     * role demande) ne peut pas exprimer separement.
+     *
+     * @var array<int, list<string>>
+     */
+    public array $visibleSourcesByRole = [];
+
+    /**
+     * Recouvrement PAR ROLE de can() : cle "<roleId>:<code>" -> bool, prioritaire sur
+     * $grantedCodes/$canResult quand elle existe pour le couple (role, code) demande.
+     * Necessaire aux tests D-4 (elevation de privilege, UserController) qui doivent
+     * distinguer, DANS LE MEME test, "le role de L'ACTEUR porte role.manage" de "le
+     * role VISE (cible actuelle ou nouvellement affectee) porte role.manage" -- deux
+     * roles differents que $grantedCodes/$canResult (une seule reponse, insensible
+     * au role demande) ne peuvent pas exprimer separement.
+     *
+     * @var array<string, bool>
+     */
+    public array $canByRole = [];
+
+    /**
+     * Recouvrement PAR ROLE de la LISTE de codes de permission (cle roleId, valeur
+     * list<string>), prioritaire sur $permissionCodes quand la cle existe. Cle
+     * ENTIERE, pas chaine : un litteral PHP ['9' => [...]] normalise deja la cle en
+     * int 9 (cles de tableau numeriques), ce que reflete le type ci-dessous.
+     * Sert `Authorizer::permissionsFor()` ET `RoleRepository::permissionCodesFor()`
+     * (meme forme de requete, distinguees seulement par le nom du parametre lie :
+     * `:role` pour la premiere, `:id` pour la seconde -- $params['id'] ?? $params
+     * ['role'] les couvre toutes les deux). Contrairement a $permissionCodes/
+     * $roleActive (une seule reponse globale), ce recouvrement laisse passer sa
+     * valeur MEME quand $roleActive vaut false : c'est exactement le comportement
+     * reel de `RoleRepository::permissionCodesFor()`, qui lit `role_permission`
+     * SANS jointure sur `role.is_active` (D-4, limite du role desactive relevee en
+     * revue -- la garde de UserController doit lire les permissions d'un role cible
+     * MEME s'il est desormais desactive, sans changer `Authorizer::can()` pour
+     * l'autorisation normale des routes, qui doit continuer de filtrer les roles
+     * desactives).
+     *
+     * @var array<int, list<string>>
+     */
+    public array $permissionCodesByRole = [];
+
+    /**
      * Allowlist optionnelle de codes de permission accordes (RG-T03). Si non nul,
      * can() repond par appartenance du :code lie a cette liste (permet de tester la
      * differenciation par permission, ex. RG-4 : stock.read sans stock.manage) ;
@@ -577,9 +642,21 @@ final class FakeDatabase implements DatabaseInterface
         }
 
         if (str_contains($sql, 'SELECT 1 AS granted FROM role_permission')) {
-            if ($this->grantedCodes !== null) {
-                $code = $params['code'] ?? null;
+            $code = $params['code'] ?? null;
+            $role = $params['role'] ?? null;
+            if (is_string($code) && $role !== null) {
+                $key = $role . ':' . $code;
+                if (array_key_exists($key, $this->canByRole)) {
+                    // Recouvrement EXPLICITE, par role : une affirmation precise du test
+                    // l'emporte sur le repli global $roleActive (memes semantiques que
+                    // $permissionCodesByRole, necessaire pour simuler un role DESACTIVE
+                    // pour la cible D-4 tout en gardant l'acteur autorise sur ses propres
+                    // permissions dans le meme test).
+                    return $this->canByRole[$key] ? ['granted' => 1] : null;
+                }
+            }
 
+            if ($this->grantedCodes !== null) {
                 return (is_string($code) && in_array($code, $this->grantedCodes, true) && $this->roleActive) ? ['granted' => 1] : null;
             }
 
@@ -598,6 +675,22 @@ final class FakeDatabase implements DatabaseInterface
 
         if (str_contains($sql, 'FROM user WHERE id = :id AND pin_hash IS NOT NULL')) {
             return $this->userPinSet ? ['id' => 1] : null;
+        }
+
+        // D-3 (contre-audit 30/09) : relecture du compteur DU COMPTE apres son
+        // increment atomique (AuthService::recordFailure()), meme motif que
+        // throttleRow pour la dimension IP -- sert au calcul du backoff compte
+        // en PHP, sans jamais dependre d'une valeur lue AVANT la transaction.
+        if (str_contains($sql, 'SELECT failed_login_attempts FROM user WHERE id')) {
+            return $this->accountThrottleRow;
+        }
+
+        // D-1.a (contre-audit 30/09) : verrou DU COMPTE (AccountLockout::
+        // isLocked(), reverification du mot de passe sur /admin/profile/pin) --
+        // AVANT ce predicat pour ne pas etre masque par une route plus large
+        // matchant 'FROM user WHERE id'.
+        if (str_contains($sql, 'SELECT lockout_until FROM user WHERE id')) {
+            return ['lockout_until' => $this->userAccountLockoutUntil];
         }
 
         // Re-verification d'identite au set de PIN (ProfileController) : lecture du
@@ -894,13 +987,28 @@ final class FakeDatabase implements DatabaseInterface
         }
 
         if (str_contains($sql, 'FROM role_visible_source WHERE role_id')) {
+            // Sert RoleRepository::visibleSources() (param 'id') ET
+            // OrderQueryRepository::visibleSources() (param 'r').
+            $roleParam = $params['id'] ?? ($params['r'] ?? null);
+            if (is_int($roleParam) && array_key_exists($roleParam, $this->visibleSourcesByRole)) {
+                return array_map(static fn (string $s): array => ['source' => $s], $this->visibleSourcesByRole[$roleParam]);
+            }
+
             return $this->roleSources;
         }
 
         // Sert Authorizer::permissionsFor ET RoleRepository::permissionCodesFor
-        // (meme requete 'SELECT p.code FROM role_permission rp JOIN permission p') :
-        // les deux renvoient $permissionCodes (le diff RBAC reutilise ce bouton).
+        // (meme forme de requete 'SELECT p.code FROM role_permission rp JOIN
+        // permission p') : $permissionCodesByRole (par role) est prioritaire sur
+        // $permissionCodes (global) quand la cle existe, ET ignore $roleActive --
+        // voir le docblock de $permissionCodesByRole pour le POURQUOI (D-4, role
+        // desactive).
         if (str_contains($sql, 'SELECT p.code FROM role_permission')) {
+            $roleParam = $params['id'] ?? ($params['role'] ?? null);
+            if (is_int($roleParam) && array_key_exists($roleParam, $this->permissionCodesByRole)) {
+                return array_map(static fn (string $code): array => ['code' => $code], $this->permissionCodesByRole[$roleParam]);
+            }
+
             if (!$this->roleActive) {
                 return [];
             }

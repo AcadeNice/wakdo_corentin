@@ -14,7 +14,8 @@ catalogue consomme par la borne.
   2026-09-29 : l'ancien delete-and-reinsert levait une erreur serveur 500 sur un menu
   deja commande, FK `order_item_selection.menu_slot_id` RESTRICT) ; `409` si un
   emplacement retire est deja reference par une commande. **Corrige le 2026-09-29**
-  (commit `fce3085`, branche `fix/sec-order`, fusionnee par `86306ef`) : `GET /api/menus/{id}` (`CatalogueController`)
+  (commit `fce3085`, branche `fix/sec-order`, fusionnee par `86306ef` — ce meme
+  comportement est repris sur `main` par le commit `9e22a21`) : `GET /api/menus/{id}` (`CatalogueController`)
   expose desormais, par option de slot, `option_is_orderable` (meme regle de
   disponibilite RG-T21 que le burger du menu) et `option_names` — avant ce correctif,
   une option retiree ou en rupture restait proposee sans indication, seule

@@ -104,7 +104,7 @@
       <div>
         <p class="big">Une borne de commande pour un fast-food, sur le modele des grandes enseignes.</p>
         <p class="muted">Tous les modes de service sont en emballages papier (plateau ou sac).
-          La distinction sur place / a emporter est surtout fiscale (TVA).</p>
+          La TVA depend du produit (10 % / 5,5 %), pas du mode de service.</p>
       </div>
       <div>
         <div class="card"><h3>3 canaux de commande</h3>
@@ -330,8 +330,8 @@ GET  /api/orders/{n}        -> consultation statut</div>
           Permissions rechargees a chaque requete.</p></div>
       <div class="card"><h3>PIN d'action sensible</h3>
         <p class="muted">Suppression, changement de prix, RBAC, inventaire :
-          re-autorisation par PIN, avec un backoff anti-brute-force
-          separe du login. <span class="mono">RG-T13 / RG-T22</span></p></div>
+          re-authentification par PIN (identification de l'acteur), avec un backoff
+          anti-brute-force separe du login. <span class="mono">RG-T13 / RG-T22</span></p></div>
     </div>
   </section>
 

@@ -22,7 +22,20 @@ desactivation, reinitialisation de PIN, effacement RGPD.
   confirmation avec le message « Vous ne pouvez pas desactiver/anonymiser votre propre
   compte. » ; API JSON : `403 FORBIDDEN`, meme message, aucun code dedie du type
   `SELF_DEACTIVATION`) ; on ne retire pas le statut du **dernier admin actif**
-  (update/deactivate/erase) ; effacement deja fait -> 409.
+  (update/deactivate/erase) ; effacement deja fait -> 409 ; pas de changement de son propre
+  `role_id` depuis l'ecran d'edition.
+- Elevation de privilege (corrige le 2026-09-30, revue adversariale) : creer ou modifier un
+  compte, lui affecter un role, ou agir sur un compte dont le role courant deborde celui de
+  l'acteur (desactivation, reinitialisation de PIN, anonymisation) exige que l'acteur
+  detienne lui-meme toutes les permissions de ce role, sinon `role.manage`
+  (`UserController::roleExceedsActorPermissions`) — avant ce correctif, seul
+  `activeRoleExists()` etait verifie, ce qui permettait a un role personnalise dote de
+  `user.update` de s'affecter le role `admin`. Aucun role du jeu de demonstration n'est
+  concerne (seul `admin` porte `user.*` au seed). La garde compare aussi, depuis une 2e
+  revue adversariale le meme jour, la portee des sources de commande visibles
+  (`role_visible_source`) : un role limite a un canal ne peut plus affecter ni garder un
+  role qui voit davantage de canaux, meme a permissions identiques par ailleurs
+  (`c5a8fc4`).
 
 ## Decisions
 [ADR-0004](../adr/0004-pin-action-sensible-audit.md) (PIN + audit),

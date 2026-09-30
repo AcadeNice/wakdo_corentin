@@ -27,6 +27,14 @@ const TARGETS = [
   { name: 'back-office - API JSON', url: `${ADMIN}/admin/api/categories` },
   { name: 'back-office - 404 HTML', url: `${ADMIN}/admin/adresse-inconnue` },
   { name: 'sonde publique /api/health', url: `${ADMIN}/api/health` },
+  // D-7.b (2e revue adverse, contre-audit 30/09) : ces deux reponses ne
+  // passent JAMAIS par PHP (`App\Core\Response`) -- l'une est un fichier
+  // statique servi directement par Apache, l'autre une erreur Apache seule
+  // (`Require all denied`, docker/apache/vhost.conf) -- c'est precisement la
+  // regression que D-7.b corrige (Referrer-Policy avait disparu de ces deux
+  // categories de reponses sur l'hote admin).
+  { name: 'back-office - fichier statique (assets)', url: `${ADMIN}/assets/css/admin.css` },
+  { name: 'back-office - erreur Apache (fichier protege)', url: `${ADMIN}/.env` },
 ];
 
 async function headersOf(request, url) {
@@ -80,6 +88,28 @@ test.describe('En-tetes de securite HTTP', () => {
     expect(d['base-uri']).toEqual(["'self'"]);
     expect(d['form-action']).toEqual(["'self'"]);
     expect(d['style-src']).toEqual(["'self'"]);
+  });
+
+  /**
+   * D-7.b (2e revue adverse, contre-audit 30/09) : le vhost admin pose
+   * desormais Referrer-Policy par defaut ("expr=-z resp(...)", ne s'applique
+   * QUE si la reponse n'en porte pas deja une) -- il ne doit donc JAMAIS
+   * ajouter une SECONDE ligne a cote de celle posee par PHP sur /reset_password.
+   * `headersArray()` (contrairement a `headers()`, qui fusionnerait deux
+   * valeurs) expose chaque occurrence de l'en-tete separement : on verifie
+   * qu'il n'y en a bien qu'UNE, avec la BONNE valeur, sur une page ordinaire
+   * ET sur /reset_password.
+   */
+  test('back-office : Referrer-Policy n a jamais deux valeurs (Apache + application)', async ({ request }) => {
+    const login = await request.get(`${ADMIN}/login`, { maxRedirects: 0 });
+    const loginEntries = login.headersArray().filter((h) => h.name.toLowerCase() === 'referrer-policy');
+    expect(loginEntries, JSON.stringify(loginEntries)).toHaveLength(1);
+    expect(loginEntries[0].value).toBe('strict-origin-when-cross-origin');
+
+    const reset = await request.get(`${ADMIN}/reset_password?token=abc`, { maxRedirects: 0 });
+    const resetEntries = reset.headersArray().filter((h) => h.name.toLowerCase() === 'referrer-policy');
+    expect(resetEntries, JSON.stringify(resetEntries)).toHaveLength(1);
+    expect(resetEntries[0].value).toBe('no-referrer');
   });
 
   test('back-office : les en-tetes du front controller sont poses aussi sur une page de connexion (X-Robots-Tag)', async ({ request }) => {

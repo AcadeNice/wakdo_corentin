@@ -13,6 +13,7 @@ use App\Auth\SessionManager;
 use App\Controllers\PasswordResetController;
 use App\Core\Config;
 use App\Core\Database;
+use App\Core\DeferredActions;
 use App\Core\Request;
 use App\Tests\Support\FakeDatabase;
 use App\Tests\Support\SpyMailer;
@@ -62,10 +63,14 @@ final class PasswordResetControllerTest extends TestCase
         $this->setEnv('ARGON2_MEMORY_COST', '1024');
         $this->setEnv('ARGON2_TIME_COST', '1');
         $this->setEnv('ARGON2_THREADS', '1');
+        // D-5 (contre-audit 30/09) : file d'actions differees, etat STATIQUE par
+        // processus -- la vider avant/apres chaque test isole les tests entre eux.
+        DeferredActions::reset();
     }
 
     protected function tearDown(): void
     {
+        DeferredActions::reset();
         foreach ($this->touchedKeys as $key) {
             putenv($key);
         }
@@ -147,6 +152,37 @@ final class PasswordResetControllerTest extends TestCase
         // upsert + verrou pour l'email, upsert + verrou pour l'IP, puis le leurre.
         self::assertCount(5, $db->writes);
         self::assertStringContainsString('WHERE id = 0', $db->writes[4]['sql']);
+    }
+
+    /**
+     * D-5 (contre-audit 30/09) : le controleur doit rendre sa reponse SANS avoir
+     * appele le mailer de facon synchrone -- l'envoi SMTP (potentiellement lent)
+     * pour une adresse CONNUE ne doit jamais retarder la reponse au-dela de ce
+     * que prend le chemin adresse-inconnue (qui, lui, n'a jamais rien a envoyer),
+     * sans quoi la duree de la reponse revele l'existence d'un compte. L'action
+     * differee n'appelle le mailer QU'APRES coup (ici : au flush explicite, qui
+     * reproduit ce que le front controller fait APRES `Response::send()`).
+     */
+    public function testSubmitRequestKnownEmailDefersMailSendUntilAfterResponse(): void
+    {
+        $session = new SessionManager(new Config(), true);
+        $token = Csrf::token($session);
+        $db = new FakeDatabase();
+        $db->emailLookupRow = ['id' => 7];
+        $mailer = new SpyMailer();
+
+        $request = $this->post(['_csrf' => $token, 'email' => 'admin@wakdo.local'], '/forgot_password');
+        $response = $this->controller($request, $session, $db, $mailer)->submitRequest();
+
+        // La reponse est deja construite (et pourrait deja avoir ete envoyee par
+        // le front controller) ; le mailer n'a pourtant PAS encore ete appele.
+        self::assertSame(200, $response->status());
+        self::assertStringContainsString('Si un compte', $response->body());
+        self::assertSame([], $mailer->sent, 'le mailer ne doit pas etre appele de facon synchrone (D-5).');
+
+        // Le front controller vide la file APRES avoir emis la reponse.
+        DeferredActions::flush();
+        self::assertCount(1, $mailer->sent);
     }
 
     public function testSubmitRequestBlockedByThrottleIsNeutralAndSilentWith429(): void
@@ -236,6 +272,39 @@ final class PasswordResetControllerTest extends TestCase
 
         self::assertSame(200, $response->status());
         self::assertStringContainsString('ne correspondent pas', $response->body());
+        // D-7.a (revue adverse) : voir testShowConfirmSetsNoReferrerPolicy.
+        self::assertSame('no-referrer', $response->header('Referrer-Policy'));
+    }
+
+    /**
+     * D-7.a (revue adverse, contre-audit 30/09) : GET /reset_password?token=...
+     * charge des ressources de meme origine (feuille de style, script, logo) et
+     * poste son formulaire vers lui-meme -- avec la politique globale
+     * "strict-origin-when-cross-origin" (httpd.conf), le navigateur envoie
+     * l'URL COMPLETE (jeton compris) en Referer sur ces requetes de meme
+     * origine, capture par le journal d'acces (%{Referer}i). "no-referrer" sur
+     * CETTE reponse coupe les trois fuites (ressources ET envoi du formulaire)
+     * a la source : aucune donnee de reference n'est envoyee du tout.
+     *
+     * Pose cote APPLICATION (pas dans le vhost Apache) : un essai avec
+     * <Location "/reset_password"> ne matche jamais dans ce vhost --
+     * `RewriteRule ^ index.php [L]` (sans [PT]) reecrit l'URI interne vers
+     * "index.php" AVANT toute evaluation <Location> ulterieure (verifie en
+     * conteneur jetable : meme le <Location /api> deja present, pour
+     * X-Wakdo-Handled-By, ne s'applique jamais sur une vraie requete /api/*
+     * de ce vhost -- constat independant de ce correctif, signale a part).
+     */
+    public function testShowConfirmSetsNoReferrerPolicy(): void
+    {
+        $response = $this->controller(
+            new Request('GET', '/reset_password', ['token' => 'raw-token'], [], '', '203.0.113.5'),
+            new SessionManager(new Config(), true),
+            new FakeDatabase(),
+            new SpyMailer(),
+        )->showConfirm();
+
+        self::assertSame(200, $response->status());
+        self::assertSame('no-referrer', $response->header('Referrer-Policy'));
     }
 
     public function testSubmitConfirmValidTokenRedirectsToLogin(): void

@@ -255,6 +255,277 @@ final class UserControllerTest extends TestCase
         self::assertSame(409, $response->status());
     }
 
+    // --- D-4 (elevation de privilege) : affecter un role admin exige role.manage ---
+
+    public function testStoreBlocksAssigningAdminRoleWithoutActorRoleManage(): void
+    {
+        $db = $this->permittedDb();
+        // Acteur (role 1) SANS role.manage ; role vise (9) AVEC role.manage.
+        // guard->roleId vient de guardUserRow (SessionGuard relit EN BASE), pas de la session.
+        $db->guardUserRow = ['is_active' => 1, 'role_id' => 1];
+        $db->canByRole = ['1:role.manage' => false, '9:role.manage' => true];
+        $db->permissionCodesByRole = ['9' => ['role.manage']];
+
+        $response = $this->controller($this->post($this->createForm(['role_id' => '9']), '/admin/users'), $db)->store();
+
+        self::assertSame(403, $response->status());
+        self::assertStringContainsString('droits que votre propre rôle', $response->body());
+        self::assertFalse($db->wrote('INSERT INTO user'));
+        self::assertSame([], $db->auditActions());
+    }
+
+    public function testStoreAllowsAssigningAdminRoleWithActorRoleManage(): void
+    {
+        $db = $this->permittedDb();
+        // guard->roleId vient de guardUserRow (SessionGuard relit EN BASE), pas de la session.
+        $db->guardUserRow = ['is_active' => 1, 'role_id' => 1];
+        $db->canByRole = ['1:role.manage' => true, '9:role.manage' => true];
+        $this->actingPin($db);
+        $db->lastInsertId = 42;
+
+        $response = $this->controller($this->post($this->createForm(['role_id' => '9']), '/admin/users'), $db)->store();
+
+        self::assertSame(302, $response->status());
+        self::assertTrue($db->wrote('INSERT INTO user'));
+    }
+
+    // --- D-4 generalise (revue adverse) : au-dela de role.manage, un acteur ne
+    // peut affecter, ni laisser en place, un role dont l'ensemble des permissions
+    // deborde le sien -- meme quand role.manage n'est pas en cause du tout. ---
+
+    public function testStoreBlocksAssigningRoleWithPermissionsBeyondActorWithoutRoleManage(): void
+    {
+        $db = $this->permittedDb();
+        // Acteur (role 1) : permissions par defaut (user.read/create/update/deactivate),
+        // aucune n'est role.manage. Role vise (9) : les memes, PLUS stock.manage, que
+        // l'acteur ne detient pas -- l'ancienne regle (role.manage seul) laissait passer.
+        $db->guardUserRow = ['is_active' => 1, 'role_id' => 1];
+        $db->canByRole = ['1:role.manage' => false, '9:role.manage' => false];
+        $db->permissionCodesByRole = ['9' => ['user.read', 'user.create', 'user.update', 'user.deactivate', 'stock.manage']];
+
+        $response = $this->controller($this->post($this->createForm(['role_id' => '9']), '/admin/users'), $db)->store();
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($db->wrote('INSERT INTO user'));
+        self::assertSame([], $db->auditActions());
+    }
+
+    public function testStoreAllowsAssigningRoleWithPermissionsSubsetOfActor(): void
+    {
+        $db = $this->permittedDb();
+        $db->guardUserRow = ['is_active' => 1, 'role_id' => 1];
+        $db->canByRole = ['1:role.manage' => false, '9:role.manage' => false];
+        // Role vise (9) : un SOUS-ENSEMBLE strict des permissions de l'acteur -> autorise.
+        $db->permissionCodesByRole = ['9' => ['user.read', 'user.update']];
+        $this->actingPin($db);
+        $db->lastInsertId = 43;
+
+        $response = $this->controller($this->post($this->createForm(['role_id' => '9']), '/admin/users'), $db)->store();
+
+        self::assertSame(302, $response->status());
+        self::assertTrue($db->wrote('INSERT INTO user'));
+    }
+
+    public function testUpdateBlocksModifyingAccountWhoseCurrentRoleExceedsActorWithoutRoleManage(): void
+    {
+        $db = $this->permittedDb();
+        // Cible (id 5, role 4) : role.manage absent des deux cotes, mais le role
+        // COURANT de la cible porte stock.manage, que l'acteur n'a pas.
+        $db->guardUserRow = ['is_active' => 1, 'role_id' => 1];
+        $db->canByRole = ['1:role.manage' => false, '4:role.manage' => false];
+        $db->permissionCodesByRole = ['4' => ['user.read', 'user.create', 'user.update', 'user.deactivate', 'stock.manage']];
+        $db->userManageRow = $this->target(['id' => 5, 'role_id' => 4]);
+
+        $form = $this->createForm(['email' => 'staff@wakdo.local', 'first_name' => 'Renamed', 'is_active' => '1']);
+        $response = $this->controller($this->post($form, '/admin/users/5'), $db)->update(['id' => '5']);
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($db->wrote('UPDATE user SET'));
+        self::assertSame([], $db->auditActions());
+    }
+
+    // --- D-4, portee des donnees (2e revue adverse) : role_visible_source n'etait
+    // pas comparee. Un role sans permission en trop peut quand meme voir PLUS de
+    // canaux de commande que l'acteur ; l'absence de ligne role_visible_source
+    // signifie une vue GLOBALE (seed 0001 l.25-26, meme convention que
+    // OrderQueryRepository::visibleSources()), pas "aucune source". ---
+
+    public function testUpdateBlocksModifyingAccountWhoseCurrentRoleHasBroaderVisibleSourcesWithoutRoleManage(): void
+    {
+        $db = $this->permittedDb();
+        // Memes permissions des deux cotes (aucun ecart de ce cote) ; seule la
+        // PORTEE differe : l'acteur ne voit que drive, le role COURANT de la cible
+        // n'a AUCUNE ligne role_visible_source -> vue globale (kiosk+counter+drive).
+        $db->guardUserRow = ['is_active' => 1, 'role_id' => 1];
+        $db->canByRole = ['1:role.manage' => false, '4:role.manage' => false];
+        $db->permissionCodesByRole = [
+            '1' => ['user.read', 'user.create', 'user.update', 'user.deactivate'],
+            '4' => ['user.read', 'user.create', 'user.update', 'user.deactivate'],
+        ];
+        $db->visibleSourcesByRole = ['1' => ['drive'], '4' => []];
+        $db->userManageRow = $this->target(['id' => 5, 'role_id' => 4]);
+
+        $form = $this->createForm(['email' => 'staff@wakdo.local', 'first_name' => 'Renamed', 'is_active' => '1']);
+        $response = $this->controller($this->post($form, '/admin/users/5'), $db)->update(['id' => '5']);
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($db->wrote('UPDATE user SET'));
+        self::assertSame([], $db->auditActions());
+    }
+
+    public function testStoreBlocksAssigningRoleWithBroaderVisibleSourcesWithoutRoleManage(): void
+    {
+        $db = $this->permittedDb();
+        // Role vise (9) : memes permissions que l'acteur, mais voit drive ET
+        // counter contre drive seul pour l'acteur -- pas une vue globale, un
+        // simple canal en plus suffit a etre "plus dote" en portee de donnees.
+        $db->guardUserRow = ['is_active' => 1, 'role_id' => 1];
+        $db->canByRole = ['1:role.manage' => false, '9:role.manage' => false];
+        $db->permissionCodesByRole = [
+            '1' => ['user.read', 'user.create', 'user.update', 'user.deactivate'],
+            '9' => ['user.read', 'user.create', 'user.update', 'user.deactivate'],
+        ];
+        $db->visibleSourcesByRole = ['1' => ['drive'], '9' => ['drive', 'counter']];
+
+        $response = $this->controller($this->post($this->createForm(['role_id' => '9']), '/admin/users'), $db)->store();
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($db->wrote('INSERT INTO user'));
+        self::assertSame([], $db->auditActions());
+    }
+
+    public function testStoreAllowsAssigningRoleWithVisibleSourcesSubsetOfActor(): void
+    {
+        $db = $this->permittedDb();
+        $db->guardUserRow = ['is_active' => 1, 'role_id' => 1];
+        $db->canByRole = ['1:role.manage' => false, '9:role.manage' => false];
+        $db->permissionCodesByRole = [
+            '1' => ['user.read', 'user.create', 'user.update', 'user.deactivate'],
+            '9' => ['user.read', 'user.update'],
+        ];
+        // Role vise (9) : SOUS-ENSEMBLE strict des sources de l'acteur -> autorise.
+        $db->visibleSourcesByRole = ['1' => ['drive', 'counter'], '9' => ['drive']];
+        $this->actingPin($db);
+        $db->lastInsertId = 44;
+
+        $response = $this->controller($this->post($this->createForm(['role_id' => '9']), '/admin/users'), $db)->store();
+
+        self::assertSame(302, $response->status());
+        self::assertTrue($db->wrote('INSERT INTO user'));
+    }
+
+    public function testCreateFormHidesRoleWithBroaderVisibleSources(): void
+    {
+        $db = $this->permittedDb();
+        $db->guardUserRow = ['is_active' => 1, 'role_id' => 1];
+        $db->canByRole = ['1:role.manage' => false];
+        $db->rolesRows = [
+            ['id' => 4, 'label' => 'Counter Staff'],
+            ['id' => 9, 'label' => 'Vue Globale'],
+        ];
+        // Memes permissions pour les deux roles (celles par defaut de permittedDb(),
+        // aucun recouvrement necessaire) ; seule la portee differe pour le role 9.
+        $db->visibleSourcesByRole = ['1' => ['drive'], '4' => ['drive'], '9' => []];
+
+        $response = $this->controller($this->get('/admin/users/new'), $db)->create();
+
+        self::assertSame(200, $response->status());
+        $body = $response->body();
+        self::assertStringContainsString('value="4"', $body);
+        self::assertStringNotContainsString('value="9"', $body);
+    }
+
+    /**
+     * D-4, limite du role desactive (revue adverse) : Authorizer::can()/permissionsFor()
+     * filtrent `role.is_active = 1`, donc un role cible DESACTIVE ne remontait plus
+     * aucune permission par l'ancien chemin -- la garde devait rester declenchee quand
+     * meme, en lisant `role_permission` independamment de l'etat actif du role
+     * (RoleRepository::permissionCodesFor(), sans jointure sur `role.is_active`).
+     * $roleActive = false ici simule un role DESACTIVE (repli global de la fausse
+     * base) ; les deux roles (acteur et cible) sont recouverts explicitement par
+     * permissionCodesByRole, qui ignore ce repli -- exactement le comportement reel.
+     */
+    public function testUpdateBlocksModifyingAccountWhoseRoleIsDeactivatedButStillOverPermissioned(): void
+    {
+        $db = $this->permittedDb();
+        $db->guardUserRow = ['is_active' => 1, 'role_id' => 1];
+        $db->roleActive = false;
+        // Recouvrement explicite (ignore $roleActive) : l'acteur garde ses propres
+        // permissions malgre le repli global desactive -- seul le role CIBLE (4) est
+        // simule desactive, via le meme repli, pour prouver que la garde le lit quand meme.
+        $db->canByRole = ['1:user.update' => true];
+        $db->permissionCodesByRole = [
+            '1' => ['user.read', 'user.create', 'user.update', 'user.deactivate'],
+            '4' => ['user.read', 'user.create', 'user.update', 'user.deactivate', 'stock.manage'],
+        ];
+        $db->userManageRow = $this->target(['id' => 5, 'role_id' => 4]);
+
+        $form = $this->createForm(['email' => 'staff@wakdo.local', 'first_name' => 'Renamed', 'is_active' => '1']);
+        $response = $this->controller($this->post($form, '/admin/users/5'), $db)->update(['id' => '5']);
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($db->wrote('UPDATE user SET'));
+    }
+
+    // --- D-4 mineur (revue adverse) : la liste de roles offerte au formulaire ne
+    // propose pas un role que l'acteur ne pourrait pas affecter -- le serveur reste
+    // l'autorite (assignsRoleBeyondActorPermissions le refuserait de toute facon a
+    // l'envoi), mais l'interface ne doit pas suggerer un choix voue au refus. ---
+
+    public function testCreateFormHidesRolesBeyondActorPermissions(): void
+    {
+        $db = $this->permittedDb();
+        $db->guardUserRow = ['is_active' => 1, 'role_id' => 1];
+        $db->canByRole = ['1:role.manage' => false];
+        $db->rolesRows = [
+            ['id' => 4, 'label' => 'Counter Staff'],
+            ['id' => 9, 'label' => 'Admin Bis'],
+        ];
+        $db->permissionCodesByRole = ['9' => ['user.read', 'user.create', 'user.update', 'user.deactivate', 'stock.manage']];
+
+        $response = $this->controller($this->get('/admin/users/new'), $db)->create();
+
+        self::assertSame(200, $response->status());
+        $body = $response->body();
+        self::assertStringContainsString('value="4"', $body);
+        self::assertStringNotContainsString('value="9"', $body);
+    }
+
+    public function testCreateFormShowsAllRolesWhenActorHasRoleManage(): void
+    {
+        $db = $this->permittedDb();
+        $db->guardUserRow = ['is_active' => 1, 'role_id' => 1];
+        // canResult = true (defaut permittedDb()) -> l'acteur porte role.manage -> aucun filtre.
+        $db->rolesRows = [
+            ['id' => 4, 'label' => 'Counter Staff'],
+            ['id' => 9, 'label' => 'Admin Bis'],
+        ];
+
+        $response = $this->controller($this->get('/admin/users/new'), $db)->create();
+
+        self::assertStringContainsString('value="9"', $response->body());
+    }
+
+    public function testEditFormKeepsCurrentRoleEvenIfBeyondActorPermissions(): void
+    {
+        $db = $this->permittedDb();
+        $db->guardUserRow = ['is_active' => 1, 'role_id' => 1];
+        $db->canByRole = ['1:role.manage' => false];
+        $db->rolesRows = [
+            ['id' => 4, 'label' => 'Counter Staff'],
+            ['id' => 9, 'label' => 'Admin Bis'],
+        ];
+        $db->permissionCodesByRole = ['9' => ['user.read', 'user.create', 'user.update', 'user.deactivate', 'stock.manage']];
+        $db->userManageRow = $this->target(['id' => 5, 'role_id' => 9]);
+
+        $response = $this->controller($this->get('/admin/users/5/edit'), $db)->edit(['id' => '5']);
+
+        // Role courant du compte edite : reste visible meme hors de la regle, sinon
+        // le formulaire perdrait silencieusement la selection en cours.
+        self::assertStringContainsString('value="9"', $response->body());
+    }
+
+
     // --- Mise a jour (user.update) ---
 
     public function testUpdateNotFound(): void
@@ -279,6 +550,85 @@ final class UserControllerTest extends TestCase
         $audit = $this->findWrite($db, 'INSERT INTO audit_log');
         self::assertNotNull($audit);
         self::assertSame('user.update', $audit['params']['code'] ?? null);
+    }
+
+    public function testUpdateBlocksChangingOwnRoleId(): void
+    {
+        $db = $this->permittedDb();
+        $db->userManageRow = $this->target(['id' => 1, 'role_id' => 4]); // cible = acteur de session
+
+        $form = $this->createForm(['role_id' => '9', 'email' => 'staff@wakdo.local']);
+        $response = $this->controller($this->post($form, '/admin/users/1'), $db)->update(['id' => '1']);
+
+        self::assertSame(403, $response->status());
+        self::assertStringContainsString('propre rôle', $response->body());
+        self::assertFalse($db->wrote('UPDATE user SET'));
+    }
+
+    public function testUpdateBlocksDeactivatingOwnAccount(): void
+    {
+        $db = $this->permittedDb();
+        $db->userManageRow = $this->target(['id' => 1, 'role_id' => 4]); // cible = acteur de session
+
+        // is_active absent du form (case decochee) -> tentative d'auto-desactivation.
+        $form = $this->createForm(['role_id' => '4', 'email' => 'staff@wakdo.local']);
+        $response = $this->controller($this->post($form, '/admin/users/1'), $db)->update(['id' => '1']);
+
+        self::assertSame(403, $response->status());
+        self::assertStringContainsString('propre compte', $response->body());
+        self::assertFalse($db->wrote('UPDATE user SET'));
+    }
+
+    public function testUpdateBlocksModifyingAdminAccountWithoutActorRoleManage(): void
+    {
+        $db = $this->permittedDb();
+        // Acteur (role 1) SANS role.manage ; role COURANT de la cible (4) AVEC role.manage.
+        // guard->roleId vient de guardUserRow (SessionGuard relit EN BASE), pas de la session.
+        $db->guardUserRow = ['is_active' => 1, 'role_id' => 1];
+        $db->canByRole = ['1:role.manage' => false, '4:role.manage' => true];
+        $db->permissionCodesByRole = ['4' => ['role.manage']];
+        $db->userManageRow = $this->target(['id' => 5, 'role_id' => 4]);
+
+        $form = $this->createForm(['email' => 'staff@wakdo.local', 'first_name' => 'Renamed', 'is_active' => '1']);
+        $response = $this->controller($this->post($form, '/admin/users/5'), $db)->update(['id' => '5']);
+
+        self::assertSame(403, $response->status());
+        self::assertStringContainsString('droits que votre propre rôle', $response->body());
+        self::assertFalse($db->wrote('UPDATE user SET'));
+        self::assertSame([], $db->auditActions()); // bloque AVANT la resolution du PIN
+    }
+
+    public function testUpdateBlocksAssigningAdminRoleWithoutActorRoleManage(): void
+    {
+        $db = $this->permittedDb();
+        // Acteur (role 1) et role COURANT de la cible (4) SANS role.manage ; role VISE (9) AVEC.
+        // guard->roleId vient de guardUserRow (SessionGuard relit EN BASE), pas de la session.
+        $db->guardUserRow = ['is_active' => 1, 'role_id' => 1];
+        $db->canByRole = ['1:role.manage' => false, '4:role.manage' => false, '9:role.manage' => true];
+        $db->permissionCodesByRole = ['9' => ['role.manage']];
+        $db->userManageRow = $this->target(['id' => 5, 'role_id' => 4]);
+
+        $form = $this->createForm(['role_id' => '9', 'email' => 'staff@wakdo.local', 'is_active' => '1']);
+        $response = $this->controller($this->post($form, '/admin/users/5'), $db)->update(['id' => '5']);
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($db->wrote('UPDATE user SET'));
+    }
+
+    public function testUpdateAllowsModifyingAdminAccountWithActorRoleManage(): void
+    {
+        $db = $this->permittedDb();
+        // guard->roleId vient de guardUserRow (SessionGuard relit EN BASE), pas de la session.
+        $db->guardUserRow = ['is_active' => 1, 'role_id' => 1];
+        $db->canByRole = ['1:role.manage' => true, '4:role.manage' => true];
+        $db->userManageRow = $this->target(['id' => 5, 'role_id' => 4]);
+        $this->actingPin($db);
+
+        $form = $this->createForm(['email' => 'staff@wakdo.local', 'first_name' => 'Renamed', 'is_active' => '1']);
+        $response = $this->controller($this->post($form, '/admin/users/5'), $db)->update(['id' => '5']);
+
+        self::assertSame(302, $response->status());
+        self::assertTrue($db->wrote('UPDATE user SET email'));
     }
 
     public function testUpdateBlocksRemovingLastActiveAdmin(): void
@@ -310,6 +660,23 @@ final class UserControllerTest extends TestCase
 
         self::assertSame(403, $response->status());
         self::assertFalse($db->wrote('SET is_active = 0'));
+    }
+
+    public function testDeactivateBlocksAdminAccountWithoutActorRoleManage(): void
+    {
+        $db = $this->permittedDb();
+        // guard->roleId vient de guardUserRow (SessionGuard relit EN BASE), pas de la session.
+        $db->guardUserRow = ['is_active' => 1, 'role_id' => 1];
+        $db->canByRole = ['1:role.manage' => false, '4:role.manage' => true];
+        $db->permissionCodesByRole = ['4' => ['role.manage']];
+        $db->userManageRow = $this->target(['id' => 5, 'role_id' => 4]);
+
+        $response = $this->controller($this->post(['_csrf' => $this->csrf, 'pin_email' => 'sam@wakdo.local', 'pin' => '4729'], '/admin/users/5/deactivate'), $db)->deactivate(['id' => '5']);
+
+        self::assertSame(403, $response->status());
+        self::assertStringContainsString('droits que votre propre rôle', $response->body());
+        self::assertFalse($db->wrote('SET is_active = 0'));
+        self::assertSame([], $db->auditActions());
     }
 
     public function testDeactivateBlocksLastActiveAdmin(): void
@@ -355,6 +722,21 @@ final class UserControllerTest extends TestCase
 
     // --- Reset PIN (user.update) ---
 
+    public function testResetPinBlocksAdminAccountWithoutActorRoleManage(): void
+    {
+        $db = $this->permittedDb();
+        // guard->roleId vient de guardUserRow (SessionGuard relit EN BASE), pas de la session.
+        $db->guardUserRow = ['is_active' => 1, 'role_id' => 1];
+        $db->canByRole = ['1:role.manage' => false, '4:role.manage' => true];
+        $db->permissionCodesByRole = ['4' => ['role.manage']];
+        $db->userManageRow = $this->target(['id' => 5, 'role_id' => 4]);
+
+        $response = $this->controller($this->post(['_csrf' => $this->csrf, 'pin_email' => 'sam@wakdo.local', 'pin' => '4729'], '/admin/users/5/reset-pin'), $db)->resetPin(['id' => '5']);
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($db->wrote('UPDATE user SET pin_hash = NULL'));
+    }
+
     public function testResetPinClearsPin(): void
     {
         $db = $this->permittedDb();
@@ -368,6 +750,21 @@ final class UserControllerTest extends TestCase
     }
 
     // --- Anonymisation RGPD (user.update) ---
+
+    public function testEraseBlocksAdminAccountWithoutActorRoleManage(): void
+    {
+        $db = $this->permittedDb();
+        // guard->roleId vient de guardUserRow (SessionGuard relit EN BASE), pas de la session.
+        $db->guardUserRow = ['is_active' => 1, 'role_id' => 1];
+        $db->canByRole = ['1:role.manage' => false, '4:role.manage' => true];
+        $db->permissionCodesByRole = ['4' => ['role.manage']];
+        $db->userManageRow = $this->target(['id' => 5, 'role_id' => 4, 'anonymized_at' => null]);
+
+        $response = $this->controller($this->post(['_csrf' => $this->csrf, 'pin_email' => 'sam@wakdo.local', 'pin' => '4729'], '/admin/users/5/erase'), $db)->erase(['id' => '5']);
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($db->wrote('anonymized_at = NOW()'));
+    }
 
     public function testEraseRejectsAlreadyAnonymisedWith409(): void
     {

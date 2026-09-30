@@ -4,7 +4,10 @@ Titre professionnel RNCP 37805 — Bloc 2 (back-office, API), axe securite.
 Perimetre : les deux surfaces de Wakdo, telles qu'elles tournent en production —
 la borne (site statique + API publique `/api/*`, hote kiosk) et le back-office (pages HTML
 `/admin/*`, API JSON `/admin/api/*`, hote admin). Etat au 2026-09-29, code du commit
-`fddc26c` (branche `dev`, fusionne dans `main` par `dc1829d`, celui que sert la production).
+`fddc26c` (branche `dev`, fusionne dans `main` par `dc1829d`). La production sert depuis
+`aab4e96` (release du 29/09, deployee 13:50 UTC, champ `version` de `/api/health`). Les
+correctifs de la revue adversariale du 30/09, detailles en section 8, sont en production
+depuis la release du 30/09 (champ `version` de `/api/health`).
 
 **Ce que cette preuve apporte.** Les protections du projet etaient decrites (ADR, modele de
 menaces, `SECURITY.md`) et verifiees en grande partie par des tests unitaires et par la
@@ -51,8 +54,8 @@ concurrente traduite en `409`), `186c5d7` (option de menu disponible ou non selo
 ramenee a 1, y compris sur `POST /admin/api/orders` ; plafond de 20 par ligne sur la borne et au
 comptoir). **Rejeu sur `c2b8c1c`** (`bash tests/e2e/run-security.sh`, `APP_DEBUG=false`) : phase
 principale 99 reussis + 8 sautes (107 tests), phase reinitialisation 4 sur 4, phase base arretee
-4 sur 4, 0 echec. **Statut en production** : tout ce qui precede est corrige dans le code de la
-branche `docs/contre-audit` ; la production (`dc1829d`) ne l'aura qu'apres la release du 29/09.
+4 sur 4, 0 echec. **Statut en production** : tout ce qui precede est en production depuis la
+release `aab4e96` du 29/09 (deployee 13:50 UTC, champ `version` de `/api/health`).
 
 ## 1. La base existante (reprise, pas dupliquee)
 
@@ -194,7 +197,7 @@ ASVS 4.0 (chapitre ou exigence).
 | 5 | Connexion JSON sans jeton : protegee par le type de contenu impose (415 pour un formulaire) | A01 | `security-csrf` | prouve |
 | 6 | Horizontal : comptoir / drive ne lisent ni ne modifient la commande de l'autre canal (API et HTML, etat relu) | A01 ; ASVS V4.2.1 | `security-access` | prouve |
 | 6 | Vertical : cuisine n'ecrit que « prete » (13 ecritures refusees, API et HTML) ; responsable ne cree ni compte ni role | A01 ; ASVS V4.1 | `security-access` | prouve |
-| 6 | Compte desactive, role desactive : acces coupe sur une session deja ouverte | A01 ; ASVS V4.1 | `security-access` | prouve |
+| 6 | Compte desactive : session fermee des la requete suivante ; role desactive : plus aucune permission sur une session deja ouverte (les pages SANS permission dediee -- tableau de bord, `/admin/me`, `/admin/profile/pin`, `/admin/privacy` -- restent accessibles, cf. `App\Health\RouteSecurity`) | A01 ; ASVS V4.1 | `security-access` | prouve |
 | 6 | Compte change de role : droits de l'ancien role conserves jusqu'a la reconnexion | A01 | `security-access` | **ecart i1, corrige le 2026-09-29 (commit `ef7fd37`), rejoue le 29/09, vert** |
 | 6 | 44 pages d'administration sans session : redirection `/login`, corps vide | A01 | `security-access` | prouve |
 | 6 | Methodes non prevues : 405, ressource relue inchangee | A05 ; ASVS V14.5.1 | `security-access` | prouve |
@@ -260,9 +263,8 @@ anonyme (jusqu'a 1000 articles). Nouveau test e2e dedie, rejoue le 2026-09-29, v
 
 **i1 — Changement de role d'un compte connecte non applique a sa session.**
 `SessionGuard::check()` relit `is_active` en base a chaque requete
-(`src/app/Auth/SessionGuard.php:57`) mais prend `role_id` dans la session
-(`src/app/Auth/SessionGuard.php:36`), pose une fois a la connexion
-(`src/app/Auth/AuthService.php:146`). Un responsable retrograde en equipier cuisine garde
+(`src/app/Auth/SessionGuard.php`) mais prend `role_id` dans la session, pose une fois a la
+connexion (`AuthService::authenticate()`). Un responsable retrograde en equipier cuisine garde
 l'acces aux statistiques jusqu'a sa deconnexion (au plus 10 h). La desactivation du compte ou
 du role, elle, coupe l'acces aussitot (prouve). Test : `security-access.spec.js`.
 
@@ -273,7 +275,7 @@ s'applique donc des la requete suivante, sans attendre la deconnexion. Test rejo
 
 ### Mineurs
 
-- **m1 — Session ouverte pour chaque appel anonyme.** `src/public/admin/index.php:56` demarre la
+- **m1 — Session ouverte pour chaque appel anonyme.** Le front controller (`src/public/admin/index.php`) demarrait la
   session avant le dispatch, pour toute requete : chaque appel de la borne a `/api/*` (et la
   sonde `/api/health`, y compris en production) recoit un `Set-Cookie: WAKDO_SID` et cree un
   fichier de session. Pas de droit gagne ; stockage serveur qui grossit avec le trafic anonyme.
@@ -285,9 +287,9 @@ s'applique donc des la requete suivante, sans attendre la deconnexion. Test rejo
   fois dans `httpd.conf` (herite par les deux vhosts), toutes les fonctionnalites
   capteur/media/paiement coupees. Test rejoue le 2026-09-29, vert pour les deux hotes (le test
   verifie la presence de l'en-tete, `security-headers.spec.js`, pas chacune de ses valeurs).
-- **m3 — CSP du back-office sans `base-uri` ni `form-action`** (`docker/apache/vhost.conf:247`) ;
-  ces deux directives ne retombent pas sur `default-src`. La borne les pose
-  (`docker/apache/vhost.conf:145`). **Corrige le 2026-09-29 (commit `08d7a96`)** : les deux
+- **m3 — CSP du back-office sans `base-uri` ni `form-action`** (vhost admin, `docker/apache/vhost.conf`) ;
+  ces deux directives ne retombent pas sur `default-src`. La borne les posait deja (meme
+  fichier, vhost kiosk). **Corrige le 2026-09-29 (commit `08d7a96`)** : les deux
   directives ajoutees au vhost admin (`base-uri 'self'`, `form-action 'self'`). Test rejoue le 2026-09-29, vert.
 - **m4 — `TRACE` accepte par Apache** (200, la requete est renvoyee en echo), faute de
   `TraceEnable Off` dans `docker/apache/httpd.conf`. Les navigateurs actuels interdisent
@@ -311,7 +313,7 @@ s'applique donc des la requete suivante, sans attendre la deconnexion. Test rejo
   `tests/shell/purge-throttle.test.sh`) ; l'adresse y etait gardee en clair, elle est desormais
   stockee en empreinte SHA-256 (migration `0021`, `PasswordResetThrottleHashMigrationDbTest`).
 - **m7 — Sessions conservees apres une reinitialisation du mot de passe** :
-  `PasswordResetService::confirmReset()` (`src/app/Auth/PasswordResetService.php:98`) change le
+  `PasswordResetService::confirmReset()` change le
   hash sans fermer les sessions ouvertes du compte. **Corrige le 2026-09-29 (commit
   `ef7fd37`)** : la meme instruction `UPDATE` incremente desormais `user.session_epoch` ; toute
   session ouverte avant la reinitialisation est rejetee par `SessionGuard::check()` des la
@@ -338,7 +340,7 @@ s'applique donc des la requete suivante, sans attendre la deconnexion. Test rejo
   suppose que Traefik est le seul point d'entree et ajoute lui-meme l'en-tete — **non verifie,
   releve de Traefik ; le verrou par compte ne depend pas de l'IP** (seul le verrou par IP,
   RG-8/9, et le verrou par IP du throttle de reinitialisation, en dependent).
-- **Hote inconnu** : le premier vhost (sonde `/healthz`, `docker/apache/vhost.conf:26`) sert la
+- **Hote inconnu** : le premier vhost (sonde `/healthz`, `docker/apache/vhost.conf`) sert la
   page par defaut d'Apache ; aucun contenu applicatif (prouve). En production, Traefik ne relaie
   que les deux noms declares.
 - **Identifiants de chemin lus comme entiers** : `/api/products/1' OR 1=1` renvoie le produit 1
@@ -382,3 +384,50 @@ s'applique donc des la requete suivante, sans attendre la deconnexion. Test rejo
   mesuree ici — une mesure en reseau local serait trop bruitee pour conclure.
 - Les tests `security-reset` et `security-dbdown` ne tournent que dans `run-security.sh`
   (ils lisent le journal et arretent la base de la pile jetable).
+
+## 8. Contre-audit du 30/09 — huit correctifs supplementaires (A-2, D-1 a D-7)
+
+Un contre-audit independant de la documentation securite (2026-09-30) a confronte chaque
+promesse au code et trouve sept defauts de code (D-1 a D-7, hors documentation) plus une
+restriction manquante (A-2, relevee par l'audit API du meme jour). Chaque correctif a ete
+relu par un agent qui n'avait pas ecrit le code (deux tours de revue adversariale), avec des
+demonstrations dans des conteneurs jetables (image de l'application, ou paire Apache +
+PHP-FPM isolee montee sur le code de cet arbre, `--network none`, aucun conteneur `wakdo-*`
+touche). Les huit sont en production depuis la release du 30/09. Mesure finale de la
+suite de securite apres ces correctifs : phase principale 108 reussis (8 sautes), phase
+reinitialisation 5 reussis, phase base arretee 4 reussis, soit 117 reussis, 0 echec.
+
+| # | Defaut | Preuve | Statut |
+|---|---|---|---|
+| A-2 | `POST /api/orders/{n}/pay` (public, anonyme) repondait pour une commande de N'IMPORTE QUEL canal, pas seulement la borne | `OrderRepository::pay()` restreint desormais la lecture au canal `kiosk` pour cette route ; une commande comptoir/drive rend `ORDER_NOT_FOUND`, MEME reponse qu'un numero inconnu, AVANT toute lecture de statut. Test navigateur dedie. | corrige, approuve en revue |
+| D-1 | La re-verification du mot de passe sur `/admin/profile/pin` n'etait limitee par AUCUN compteur ni tracee ; le budget mis en place ensuite se partageait avec le PIN (une action PIN reussie d'un tiers le remettait a zero) | Compte desormais sur le MEME budget que la connexion (`App\Auth\AccountLockout`, gate-before-verify) ; echec trace `auth.reauth_failed` dans la MEME transaction que l'increment. Demonstration navigateur : 4 echecs, action PIN reussie avec l'email et le PIN d'un tiers, 5e echec, bon mot de passe refuse (verrou tenu). | corrige, approuve en 2e revue |
+| D-2 | Une connexion reussie remettait a zero le compteur IP (`login_throttle`) : avec un couple d'identifiants valide connu, alterner echecs et succes empechait d'atteindre le plafond IP | Seul le compteur du compte est remis a zero au succes ; la ligne IP expire avec sa fenetre glissante. Preuve base reelle : 19 echecs conserves apres un succes. | corrige, approuve |
+| D-3 | Le compteur par compte s'incrementait par une LECTURE PHP suivie d'une ECRITURE, hors transaction : des tentatives paralleles pouvaient lire la meme valeur et passer toutes la porte | Increment SQL atomique (`failed_login_attempts = failed_login_attempts + 1`), relecture SOUS le verrou de ligne pris par cet UPDATE. Test a deux connexions PDO : la connexion B ouvre sa transaction et lit une valeur perimee (0), la connexion A fait un echec reel et le valide, B execute ensuite l'increment atomique — le resultat observe (2) est coherent avec [CLAIM L2, manuel de reference MySQL/MariaDB, « Consistent Nonlocking Reads »] : un `UPDATE` lit la derniere valeur validee, pas l'instantane de la transaction qui l'execute. | corrige, approuve |
+| D-4 | `user.update`/`user.create` ne verifiaient que l'existence du role vise (`activeRoleExists()`), pas ses permissions : un role personnalise dote de `user.update` pouvait s'affecter le role `admin` | Un acteur sans `role.manage` ne peut affecter un role, ni agir sur un compte dont le role deborde le sien, QUE si les permissions du role vise sont toutes incluses dans les siennes (verifie avant la demande de PIN, y compris pour un role vise desactive). Aucun role du jeu de demonstration n'est concerne (seul `admin` porte `user.*` au seed). **Limite residuelle fermee en 2e revue** (`c5a8fc4`) : la garde compare desormais aussi la portee des sources de commande visibles (`role_visible_source`) ; un role limite a un canal ne peut plus affecter ni garder un role qui voit davantage de canaux, meme a permissions identiques par ailleurs (une ligne absente vaut vue globale, meme convention que `OrderQueryRepository::visibleSources()`). | corrige, approuve (les deux tours) |
+| D-5 | Le verrou de session PHP restait tenu pendant l'envoi SMTP DIFFERE du courriel de reinitialisation : une 2e requete sur le meme cookie servait d'oracle de temps (le canal par le temps que ce lot devait fermer revenait, avec une requete de plus) | `DeferredActions::finishRequest()` ferme la session (`session_write_close()`) AVANT `fastcgi_finish_request()`, pas apres. Preuve en conteneur jetable : la requete B attend 0,00 s contre l'ancien ordre (2,31 a 2,50 s selon la mesure). Aucune ecriture de session apres la fermeture (jeton CSRF, flash, regeneration : tous poses avant `send()`). | corrige, approuve |
+| D-6 | `default_route` (page d'accueil d'un role apres connexion) n'etait bornee qu'en LONGUEUR (120 caracteres), pas en forme : une valeur `https://...`/`//...` aurait pu rediriger tous les comptes du role hors du site | `RedirectPath::isLocal()` n'accepte qu'un chemin commencant par un seul `/`, sans schema. Message d'ecran clair (« Page d'accueil apres connexion invalide : choisissez une page de la liste. »). | corrige, approuve |
+| D-7 | Le lien `GET /reset_password?token=<jeton brut>` etait journalise en clair par le format `combined` d'Apache (ligne de requete complete, query string comprise) | Format de journal dedie sans chaine de requete pour cette seule route (`combined_no_query`), et l'application pose `Referrer-Policy: no-referrer` sur les reponses de `/reset_password` (`PasswordResetController::renderConfirm()`) et sur la page d'erreur 500 (`ErrorResponse`, pour le cas ou une exception non attrapee survient en plein traitement de cette route) pour empecher le jeton de fuiter par l'en-tete `Referer` des ressources que la page charge. Preuve en conteneur jetable (paire Apache + PHP-FPM) : journal d'acces sans jeton ni `Referer` ; test navigateur Chromium sensible (avec l'ancienne politique, la feuille de style et le POST portaient bien `?token=...` en `Referer`). | corrige pour le jeton et le 500, reserve D-7.b fermee (ci-dessous) |
+
+### Reserve D-7.b — fermee (`a8af3d2`) : `Referrer-Policy` restauree sur les reponses servies par Apache seul
+
+Poser `no-referrer` cote application pour `/reset_password` avait eu un effet de bord releve
+par la 2e revue adversariale : `Referrer-Policy: strict-origin-when-cross-origin`, posee
+auparavant au niveau serveur Apache pour les deux hotes, avait disparu du vhost admin pour les
+fichiers vraiment statiques (`/assets/...`) et pour les erreurs produites par Apache lui-meme
+(403 sur `.env`, 502/503/504 quand PHP-FPM ne repond pas). Le correctif `a8af3d2` repose
+l'en-tete au niveau du vhost admin avec une condition d'expression
+(`expr=-z resp('Referrer-Policy')`, dans `docker/apache/vhost.conf`) : elle ne s'applique que
+si la reponse ne porte deja aucune valeur, ce qui couvre les reponses servies par Apache seul
+sans entrer en concurrence avec la valeur posee par l'application
+(`App\Core\Response::headers()`, ou `no-referrer` sur `/reset_password` et sur la page 500).
+Verifie en conteneur jetable : aucune ligne `Referrer-Policy` en double sur une meme reponse
+(`headersArray()`, qui expose les doublons contrairement a `headers()`). Deux cibles ajoutees
+a `security-headers.spec.js` (`${ADMIN}/assets/css/admin.css` et `${ADMIN}/.env`) plus une
+assertion dediee anti-doublon, pour que la suite exerce reellement les classes de reponses qui
+avaient regresse.
+
+**Methode de revue** : deux tours de relecture adversariale par un agent distinct de celui qui
+a ecrit chaque correctif, rejeu de la suite PHPUnit ciblee sur une base jetable a chaque tour,
+et une demonstration executee (pas seulement lue) pour chaque defaut a effet observable (verrou
+de session, journal Apache, navigateur Chromium). Rien de cette section ne repose sur une
+lecture de la production ou d'un secret.

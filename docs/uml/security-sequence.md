@@ -1,8 +1,8 @@
 # Diagramme de sequence securite - Annulation de commande avec PIN (CANCEL_ORDER)
 
 **Phase UML** : P1 - Conception, complement UML (passe security-by-design)
-**Statut** : v0.7 - realigne sur le code livre (`OrderAdminController`, `OrderRepository::cancel`)
-**Date** : 2026-06-12 (v0.2), 2026-09-24 (v0.3), 2026-09-28 (v0.4), 2026-09-29 (v0.5, v0.6, v0.7)
+**Statut** : v0.8 - realigne sur le code livre (`OrderAdminController`, `OrderRepository::cancel`)
+**Date** : 2026-06-12 (v0.2), 2026-09-24 (v0.3), 2026-09-28 (v0.4), 2026-09-29 (v0.5, v0.6, v0.7), 2026-09-30 (v0.8)
 **Historique** : v0.3 (2026-09-24) - mise en coherence avec le code livre (2a09597) : route
 `/admin/orders/{number}/cancel` (page de confirmation en GET, envoi en POST) au lieu de
 `POST /api/orders/{id}/cancel` ; PIN saisi avec la demande et verifie en premier ; echec de PIN
@@ -24,6 +24,9 @@ et par l'API), corrige pour ne plus ecrire l'adresse saisie au formulaire dans `
 migration `0019_pin_failed_audit_minimisation.sql`). v0.7 (2026-09-29) - correctif de
 securite merge : pas 1 precise — `SessionGuard::check()` relit desormais `role_id` et
 `session_epoch` en base en plus de `is_active`, a chaque requete (RG-T02, commit `ef7fd37`).
+v0.8 (2026-09-30) - contre-audit independant de la documentation (BYAN) : etape 4.4 (parcours
+JSON `apiCancel`) precisee -- la lecture du corps JSON (`requireJsonBody`, `415`/`400`) se
+fait entre la verification CSRF et le controle de visibilite de canal, elle manquait au recit.
 **Branche** : `feat/p1-conception`
 **Auteur methodologie** : BYAN
 
@@ -223,7 +226,8 @@ argon2id, classe RESTRICTED et tenu hors des journaux et des reponses (`dictiona
 ### 4.4 Parcours JSON equivalent (`POST /admin/api/orders/{number}/cancel`)
 
 Le back-office HTML n'est pas le seul point d'entree : `OrderApiController::apiCancel`
-applique le MEME flux, dans le MEME ordre — garde `order.cancel`, CSRF (header), visibilite
+applique le MEME flux, dans le MEME ordre — garde `order.cancel`, CSRF (header), lecture du
+corps JSON (`requireJsonBody`, `415`/`400` si absent ou mal forme), visibilite
 de canal (`sourceVisible`, meme regle RG-T12 que `sourceVisibleToRole`, 403 FORBIDDEN si le
 numero est inconnu ou le canal non visible), puis PIN equipier via `PinGate::resolve`
 (memes verrou et leurre de temps que `PinThrottle`/`PinVerifier`), puis

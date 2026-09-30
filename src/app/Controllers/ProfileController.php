@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Auth\AccountLockout;
 use App\Auth\Csrf;
 use App\Auth\GuardResult;
 use App\Auth\PasswordHasher;
 use App\Auth\PinVerifier;
 use App\Auth\UserRepository;
+use App\Core\DatabaseInterface;
 use App\Core\Response;
 
 /**
@@ -20,15 +22,39 @@ use App\Core\Response;
  * Le PIN est un credential sensible : le (re)definir exige le mot de passe COURANT
  * (re-verification d'identite sur poste a session partagee, meme posture que la
  * verification PIN d'ADR-0004) ET ecrit une ligne `audit_log` (ADR-0004, RG-T14).
- * Le SET du PIN n'est PAS throttle : la surface de brute-force est la VERIFICATION
- * du PIN (couverte par pin_throttle / RG-T22, ADR-0005), pas sa definition par un
- * utilisateur deja authentifie. L'audit ne porte que l'evenement (set vs change),
- * jamais le PIN ni un hash.
+ *
+ * Corrige au contre-audit du 30/09 (D-1) : cette RE-VERIFICATION est desormais
+ * throttled -- avant ce correctif, elle pouvait etre tentee sans aucune limite
+ * ni trace, ce qui laissait une personne devant une session ouverte (le poste
+ * partage que le modele de menace decrit) essayer des mots de passe sans armer
+ * le verrou de connexion.
+ *
+ * D-1.a (revue adverse, meme contre-audit) : la PREMIERE version de ce
+ * correctif reutilisait `PinThrottle` (pin_throttle, RG-T22) avec l'utilisateur
+ * de SESSION comme cle -- en partageant le compteur avec le PIN d'action
+ * sensible. C'ETAIT UNE FAILLE, pas une simplification : TOUTE action PIN
+ * reussie remet ce compteur a zero, MEME autorisee par l'email+PIN d'un TIERS
+ * (`PinGate::reset()`, `PinVerifier::resolveActingUser()` accepte tout compte
+ * actif) -- sur le poste partage, un collegue pouvait alterner des echecs de
+ * mot de passe et des actions PIN anodines avec SES PROPRES identifiants pour
+ * ne jamais armer le verrou. Corrige : cette re-verification utilise desormais
+ * `App\Auth\AccountLockout`, la dimension COMPTE de `user.failed_login_attempts`/
+ * `lockout_until` -- LE MEME budget que la CONNEXION (RG-8), puisque c'est le
+ * MEME secret (le mot de passe du compte) qui est attaque ici et la ; jamais
+ * plus celui du PIN. SET du PIN lui-meme toujours pas throttle (seul l'ACCES
+ * au formulaire l'est) : un utilisateur qui vient de passer la re-verification
+ * peut enregistrer son PIN sans limite artificielle. L'audit ne porte que
+ * l'evenement (set vs change vs echec de re-verification), jamais le PIN, un
+ * hash, ni le mot de passe saisi.
  *
  * Non `final` : les tests sous-classent pour injecter des doubles.
  */
 class ProfileController extends AdminController
 {
+    // Message clair pour un equipier non technique, sans reveler si le mot de
+    // passe soumis etait correct (D-1).
+    private const REAUTH_LOCKED_MESSAGE = 'Trop de tentatives. Réessayez dans quelques minutes.';
+
     /**
      * @param array<string, string> $params
      */
@@ -87,14 +113,36 @@ class ProfileController extends AdminController
             return $this->renderPinForm($guard, $userId, $error, 422);
         }
 
+        // D-1 (contre-audit 30/09) : verrou evalue AVANT toute verification (gate-
+        // before-verify, meme posture que le login et que PinGate::resolve()). Un
+        // compte deja verrouille ne paie MEME PAS le cout argon2id : a la difference
+        // du login, il n'y a ici qu'une seule identite possible (celle de la
+        // session) -- rien a rendre indiscernable d'un "email inconnu" -- donc payer
+        // ce cout n'apporterait aucune garantie de plus, juste une charge CPU
+        // gratuite pendant que le verrou est actif. Message generique, ne revele pas
+        // si le mot de passe fourni etait bon. D-1.a : verrou DU COMPTE
+        // (AccountLockout), plus jamais celui du PIN (pin_throttle).
+        if ($this->accountLockout()->isLocked($userId)) {
+            return $this->renderPinForm($guard, $userId, self::REAUTH_LOCKED_MESSAGE, 422);
+        }
+
         // Re-verification d'identite : (re)definir un credential sensible exige le mot
         // de passe courant. Message generique (ne distingue pas mot de passe vide /
         // faux) ; verify paie le cout argon2id, sans leurre dedie ici car l'utilisateur
         // est deja authentifie (l'enumeration de comptes ne s'applique pas a sa propre
-        // session). Echec -> 422 (requete bien formee, semantiquement refusee).
+        // session). Echec -> 422 (requete bien formee, semantiquement refusee) + trace
+        // d'audit (`auth.reauth_failed`, jamais la valeur saisie) et increment du
+        // throttle, dans UNE transaction (RG-T08).
         if (!$this->passwordHasher()->verify($currentPassword, $this->currentPasswordHash($userId))) {
+            $this->recordReauthFailure($userId, $guard->roleId ?? 0);
+
             return $this->renderPinForm($guard, $userId, 'Mot de passe actuel incorrect.', 422);
         }
+
+        // Succes de la re-verification : remet a zero le compteur DU COMPTE
+        // (D-1.a -- un equipier qui s'est trompe puis a reussi n'est pas penalise
+        // plus tard, mais sur SON PROPRE budget ; plus jamais pin_throttle).
+        $this->accountLockout()->reset($userId);
 
         // `pinIsSet` AVANT l'ecriture : distingue une premiere definition d'un changement
         // pour le libelle d'audit (aucune valeur sensible n'est tracee).
@@ -150,9 +198,49 @@ class ProfileController extends AdminController
         return new PinVerifier($this->database, $this->config, $this->passwordHasher());
     }
 
+    /**
+     * Verrou de la re-verification d'identite (D-1, dimension COMPTE depuis
+     * D-1.a -- plus jamais pin_throttle). Passe par db() (pas $this->database) :
+     * c'est la meme couture que currentPasswordHash()/writePinAudit(), celle
+     * que les tests routent vers le double.
+     */
+    protected function accountLockout(): AccountLockout
+    {
+        return new AccountLockout($this->db(), $this->config);
+    }
+
     protected function passwordHasher(): PasswordHasher
     {
         return new PasswordHasher($this->config);
+    }
+
+    /**
+     * D-1 : echec de re-verification du mot de passe courant. Increment du
+     * verrou (dimension COMPTE depuis D-1.a, `App\Auth\AccountLockout` -- plus
+     * jamais pin_throttle) et trace d'audit `auth.reauth_failed`, dans UNE
+     * seule transaction (RG-T08 : pas d'etat partiel si la base tombe entre
+     * les deux). Aucune valeur saisie n'est journalisee -- seul l'identifiant
+     * du compte agissant, deja connu de la session (RGPD art. 5.1.c, meme
+     * discipline que PinGate::auditFailedPin()).
+     */
+    private function recordReauthFailure(int $userId, int $roleId): void
+    {
+        $this->db()->transaction(function (DatabaseInterface $db) use ($userId, $roleId): void {
+            $this->accountLockout()->recordFailureWithin($db, $userId);
+
+            $db->execute(
+                'INSERT INTO audit_log (actor_user_id, actor_role_id, action_code, entity_type, entity_id, summary) '
+                . 'VALUES (:uid, :rid, :code, :etype, :eid, :summary)',
+                [
+                    'uid'     => $userId,
+                    'rid'     => $roleId,
+                    'code'    => 'auth.reauth_failed',
+                    'etype'   => 'user',
+                    'eid'     => $userId,
+                    'summary' => 'Échec de re-authentification (PIN self-service)',
+                ],
+            );
+        });
     }
 
     /**

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Unit\Admin;
 
 use PDOException;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use App\Auth\Csrf;
 use App\Auth\PasswordHasher;
@@ -274,6 +275,46 @@ final class RoleControllerTest extends TestCase
         self::assertSame(403, $response->status());
     }
 
+    /**
+     * D-6 (redirection ouverte) : `default_route` n'est borne qu'en longueur avant
+     * ce correctif. Une valeur `https://...` servirait ensuite de redirection
+     * post-connexion (AuthService::authenticate()) vers un hote externe.
+     *
+     * @return iterable<string, array{0: string}>
+     */
+    public static function openRedirectValuesProvider(): iterable
+    {
+        yield 'absolute https url' => ['https://evil.example/phish'];
+        yield 'protocol-relative url' => ['//evil.example'];
+        yield 'backslash variant' => ['/\\evil.example'];
+        yield 'javascript scheme' => ['javascript:alert(1)'];
+    }
+
+    #[DataProvider('openRedirectValuesProvider')]
+    public function testStoreRejectsNonLocalDefaultRoute(string $unsafeRoute): void
+    {
+        $db = $this->permittedDb();
+        $this->actingPin($db);
+
+        $response = $this->controller($this->post($this->createForm(['default_route' => $unsafeRoute]), '/admin/roles'), $db)->store();
+
+        self::assertSame(422, $response->status());
+        self::assertStringContainsString('choisissez une page de la liste', $response->body());
+        self::assertFalse($db->wrote('INSERT INTO role '));
+    }
+
+    public function testStoreAcceptsLocalDefaultRoute(): void
+    {
+        $db = $this->permittedDb();
+        $this->actingPin($db);
+        $db->lastInsertId = 11;
+
+        $response = $this->controller($this->post($this->createForm(['default_route' => '/kitchen/display']), '/admin/roles'), $db)->store();
+
+        self::assertSame(302, $response->status());
+        self::assertTrue($db->wrote('INSERT INTO role '));
+    }
+
     public function testStoreWithoutValidPinLogsFailed(): void
     {
         $db = $this->permittedDb();
@@ -373,6 +414,19 @@ final class RoleControllerTest extends TestCase
         self::assertTrue($db->wrote('UPDATE role SET'));
         self::assertTrue($db->wrote('INSERT INTO role_permission'));
         self::assertSame('role.manage', ($this->findWrite($db, 'INSERT INTO audit_log')['params']['code'] ?? null));
+    }
+
+    public function testUpdateRejectsNonLocalDefaultRoute(): void
+    {
+        $db = $this->permittedDb();
+        $db->roleManageRow = ['id' => 5, 'code' => 'counter', 'label' => 'Counter', 'description' => null, 'default_route' => '/counter/orders', 'order_source' => 'counter', 'is_active' => 1];
+
+        $form = ['_csrf' => $this->csrf, 'label' => 'Counter', 'default_route' => '//evil.example', 'order_source' => 'counter', 'perm_1' => '1', 'is_active' => '1', 'pin_email' => 'sam@wakdo.local', 'pin' => '4729'];
+        $response = $this->controller($this->post($form, '/admin/roles/5'), $db)->update(['id' => '5']);
+
+        self::assertSame(422, $response->status());
+        self::assertStringContainsString('choisissez une page de la liste', $response->body());
+        self::assertFalse($db->wrote('UPDATE role SET'));
     }
 
     public function testUpdateBlocksRemovingRoleManageFromAdmin(): void

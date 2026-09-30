@@ -219,6 +219,25 @@ final class UserApiControllerTest extends TestCase
         self::assertFalse($db->wrote('INSERT INTO user'));
     }
 
+    // --- D-4 (elevation de privilege) : affecter un role admin exige role.manage ---
+
+    public function testStoreBlocksAssigningAdminRoleWithoutActorRoleManage(): void
+    {
+        $db = $this->permittedDb();
+        // grantedCodes (allowlist de permittedDb()) ne contient pas role.manage :
+        // l'acteur en est prive par defaut. Role vise (9) marque AVEC role.manage.
+        $db->canByRole = ['9:role.manage' => true];
+        $db->permissionCodesByRole = ['9' => ['role.manage']];
+        $request = $this->jsonRequest('POST', '/admin/api/users', $this->validBody(['role_id' => 9]));
+
+        $response = $this->controller($request, $db)->apiStore();
+        $body = json_decode($response->body(), true);
+
+        self::assertSame(403, $response->status());
+        self::assertSame('FORBIDDEN', $body['error']['code'] ?? null);
+        self::assertFalse($db->wrote('INSERT INTO user'));
+    }
+
     public function testUpdateLastActiveAdminRoleChangeReturns422(): void
     {
         $db = $this->permittedDb();
@@ -230,6 +249,133 @@ final class UserApiControllerTest extends TestCase
         $response = $this->controller($request, $db)->apiUpdate(['id' => '5']);
 
         self::assertSame(422, $response->status());
+        self::assertFalse($db->wrote('UPDATE user SET'));
+    }
+
+    public function testUpdateBlocksModifyingAccountWithAdminRoleWithoutActorRoleManage(): void
+    {
+        $db = $this->permittedDb();
+        $db->userManageRow = ['id' => 5, 'email' => 'e@wakdo.fr', 'first_name' => 'E', 'last_name' => 'Q', 'role_id' => 2, 'is_active' => 1];
+        // role COURANT de la cible (2) marque AVEC role.manage ; role_id inchange dans le corps.
+        $db->canByRole = ['2:role.manage' => true];
+        $db->permissionCodesByRole = ['2' => ['role.manage']];
+        $request = $this->jsonRequest('PUT', '/admin/api/users/5', $this->validBody(['email' => 'e@wakdo.fr']));
+
+        $response = $this->controller($request, $db)->apiUpdate(['id' => '5']);
+        $body = json_decode($response->body(), true);
+
+        self::assertSame(403, $response->status());
+        self::assertSame('FORBIDDEN', $body['error']['code'] ?? null);
+        self::assertFalse($db->wrote('UPDATE user SET'));
+    }
+
+    public function testUpdateBlocksAssigningAdminRoleWithoutActorRoleManage(): void
+    {
+        $db = $this->permittedDb();
+        $db->userManageRow = ['id' => 5, 'email' => 'e@wakdo.fr', 'first_name' => 'E', 'last_name' => 'Q', 'role_id' => 2, 'is_active' => 1];
+        $db->canByRole = ['9:role.manage' => true];
+        $db->permissionCodesByRole = ['9' => ['role.manage']];
+        $request = $this->jsonRequest('PUT', '/admin/api/users/5', $this->validBody(['email' => 'e@wakdo.fr', 'role_id' => 9]));
+
+        $response = $this->controller($request, $db)->apiUpdate(['id' => '5']);
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($db->wrote('UPDATE user SET'));
+    }
+
+    // --- D-4 generalise (revue adverse) : au-dela de role.manage. ---
+
+    public function testUpdateBlocksModifyingAccountWhoseCurrentRoleExceedsActorWithoutRoleManage(): void
+    {
+        $db = $this->permittedDb();
+        $db->userManageRow = ['id' => 5, 'email' => 'e@wakdo.fr', 'first_name' => 'E', 'last_name' => 'Q', 'role_id' => 2, 'is_active' => 1];
+        // grantedCodes (defaut permittedDb()) ne contient pas stock.manage : le role
+        // COURANT de la cible (2) le porte quand meme, sans que role.manage soit en cause.
+        $db->permissionCodesByRole = ['2' => ['user.read', 'user.create', 'user.update', 'user.deactivate', 'stock.manage']];
+        $request = $this->jsonRequest('PUT', '/admin/api/users/5', $this->validBody(['email' => 'e@wakdo.fr']));
+
+        $response = $this->controller($request, $db)->apiUpdate(['id' => '5']);
+        $body = json_decode($response->body(), true);
+
+        self::assertSame(403, $response->status());
+        self::assertSame('FORBIDDEN', $body['error']['code'] ?? null);
+        self::assertFalse($db->wrote('UPDATE user SET'));
+    }
+
+    /**
+     * D-4, portee des donnees (2e revue adverse) : role_visible_source n'etait pas
+     * comparee. Meme cout HTML/API (UserApiControllerTest miroir de UserControllerTest
+     * pour cette regle). Absence de ligne = vue GLOBALE (seed 0001 l.25-26), pas
+     * "aucune source" -- voir UserController::visibleSourcesOfRole().
+     */
+    public function testUpdateBlocksModifyingAccountWhoseCurrentRoleHasBroaderVisibleSourcesWithoutRoleManage(): void
+    {
+        $db = $this->permittedDb();
+        $db->userManageRow = ['id' => 5, 'email' => 'e@wakdo.fr', 'first_name' => 'E', 'last_name' => 'Q', 'role_id' => 2, 'is_active' => 1];
+        // Memes permissions des deux cotes (repli $permissionCodes par defaut) ;
+        // seule la portee differe : l'acteur (role 0 dans ces tests) ne voit que
+        // drive, le role COURANT de la cible (2) n'a AUCUNE ligne -> vue globale.
+        $db->visibleSourcesByRole = ['0' => ['drive'], '2' => []];
+        $request = $this->jsonRequest('PUT', '/admin/api/users/5', $this->validBody(['email' => 'e@wakdo.fr']));
+
+        $response = $this->controller($request, $db)->apiUpdate(['id' => '5']);
+        $body = json_decode($response->body(), true);
+
+        self::assertSame(403, $response->status());
+        self::assertSame('FORBIDDEN', $body['error']['code'] ?? null);
+        self::assertFalse($db->wrote('UPDATE user SET'));
+    }
+
+    /**
+     * D-4, limite du role desactive (revue adverse) : la garde doit lire les
+     * permissions du role CIBLE independamment de son etat actif (RoleRepository::
+     * permissionCodesFor(), sans jointure sur `role.is_active`), sans changer
+     * Authorizer::can() pour l'autorisation normale des routes. $roleActive = false
+     * simule un role CIBLE desactive ; l'acteur (role 0 par defaut dans ces tests,
+     * cf. FakeDatabase) est recouvert explicitement pour rester autorise malgre ce
+     * repli global.
+     */
+    public function testUpdateBlocksModifyingAccountWhoseRoleIsDeactivatedButStillOverPermissioned(): void
+    {
+        $db = $this->permittedDb();
+        $db->userManageRow = ['id' => 5, 'email' => 'e@wakdo.fr', 'first_name' => 'E', 'last_name' => 'Q', 'role_id' => 2, 'is_active' => 1];
+        $db->roleActive = false;
+        $db->canByRole = ['0:user.update' => true];
+        $db->permissionCodesByRole = [
+            '0' => ['user.read', 'user.create', 'user.update', 'user.deactivate'],
+            '2' => ['user.read', 'user.create', 'user.update', 'user.deactivate', 'stock.manage'],
+        ];
+        $request = $this->jsonRequest('PUT', '/admin/api/users/5', $this->validBody(['email' => 'e@wakdo.fr']));
+
+        $response = $this->controller($request, $db)->apiUpdate(['id' => '5']);
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($db->wrote('UPDATE user SET'));
+    }
+
+    public function testUpdateBlocksSelfRoleChange(): void
+    {
+        $db = $this->permittedDb();
+        $db->userManageRow = ['id' => 1, 'email' => 'me@wakdo.fr', 'first_name' => 'Me', 'last_name' => 'Self', 'role_id' => 2, 'is_active' => 1];
+        $request = $this->jsonRequest('PUT', '/admin/api/users/1', $this->validBody(['email' => 'me@wakdo.fr', 'role_id' => 3]));
+
+        $response = $this->controller($request, $db)->apiUpdate(['id' => '1']);
+        $body = json_decode($response->body(), true);
+
+        self::assertSame(403, $response->status());
+        self::assertSame('FORBIDDEN', $body['error']['code'] ?? null);
+        self::assertFalse($db->wrote('UPDATE user SET'));
+    }
+
+    public function testUpdateBlocksSelfDeactivation(): void
+    {
+        $db = $this->permittedDb();
+        $db->userManageRow = ['id' => 1, 'email' => 'me@wakdo.fr', 'first_name' => 'Me', 'last_name' => 'Self', 'role_id' => 2, 'is_active' => 1];
+        $request = $this->jsonRequest('PUT', '/admin/api/users/1', $this->validBody(['email' => 'me@wakdo.fr', 'role_id' => 2, 'is_active' => false]));
+
+        $response = $this->controller($request, $db)->apiUpdate(['id' => '1']);
+
+        self::assertSame(403, $response->status());
         self::assertFalse($db->wrote('UPDATE user SET'));
     }
 
@@ -283,6 +429,20 @@ final class UserApiControllerTest extends TestCase
         self::assertSame(403, $response->status());
     }
 
+    public function testDestroyBlocksAccountWithAdminRoleWithoutActorRoleManage(): void
+    {
+        $db = $this->permittedDb();
+        $db->userManageRow = ['id' => 5, 'email' => 'e@wakdo.fr', 'first_name' => 'E', 'last_name' => 'Q', 'role_id' => 2, 'is_active' => 1];
+        $db->canByRole = ['2:role.manage' => true];
+        $db->permissionCodesByRole = ['2' => ['role.manage']];
+        $request = $this->jsonRequest('DELETE', '/admin/api/users/5', []);
+
+        $response = $this->controller($request, $db)->apiDestroy(['id' => '5']);
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($db->wrote('SET is_active = 0'));
+    }
+
     public function testDestroyValidDeactivates(): void
     {
         $db = $this->permittedDb();
@@ -319,6 +479,20 @@ final class UserApiControllerTest extends TestCase
         $response = $this->controller($request, $db)->apiResetPin(['id' => '5']);
 
         self::assertSame(422, $response->status());
+        self::assertFalse($db->wrote('UPDATE user SET pin_hash'));
+    }
+
+    public function testResetPinBlocksAccountWithAdminRoleWithoutActorRoleManage(): void
+    {
+        $db = $this->permittedDb();
+        $db->userManageRow = ['id' => 5, 'email' => 'e@wakdo.fr', 'first_name' => 'E', 'last_name' => 'Q', 'role_id' => 2, 'is_active' => 1];
+        $db->canByRole = ['2:role.manage' => true];
+        $db->permissionCodesByRole = ['2' => ['role.manage']];
+        $request = $this->jsonRequest('POST', '/admin/api/users/5/reset-pin', ['pin_email' => 'e@e.fr', 'pin' => '4729']);
+
+        $response = $this->controller($request, $db)->apiResetPin(['id' => '5']);
+
+        self::assertSame(403, $response->status());
         self::assertFalse($db->wrote('UPDATE user SET pin_hash'));
     }
 
@@ -359,6 +533,20 @@ final class UserApiControllerTest extends TestCase
         $response = $this->controller($request, $db)->apiErase(['id' => '5']);
 
         self::assertSame(409, $response->status());
+    }
+
+    public function testEraseBlocksAccountWithAdminRoleWithoutActorRoleManage(): void
+    {
+        $db = $this->permittedDb();
+        $db->userManageRow = ['id' => 5, 'email' => 'e@wakdo.fr', 'first_name' => 'E', 'last_name' => 'Q', 'role_id' => 2, 'is_active' => 1, 'anonymized_at' => null];
+        $db->canByRole = ['2:role.manage' => true];
+        $db->permissionCodesByRole = ['2' => ['role.manage']];
+        $request = $this->jsonRequest('POST', '/admin/api/users/5/erase', []);
+
+        $response = $this->controller($request, $db)->apiErase(['id' => '5']);
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($db->wrote('anonymized_at = NOW()'));
     }
 
     public function testEraseWithValidPinAnonymizes(): void
