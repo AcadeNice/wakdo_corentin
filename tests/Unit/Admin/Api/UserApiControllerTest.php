@@ -302,6 +302,33 @@ final class UserApiControllerTest extends TestCase
         self::assertFalse($db->wrote('UPDATE user SET'));
     }
 
+    /**
+     * D-4, limite du role desactive (revue adverse) : la garde doit lire les
+     * permissions du role CIBLE independamment de son etat actif (RoleRepository::
+     * permissionCodesFor(), sans jointure sur `role.is_active`), sans changer
+     * Authorizer::can() pour l'autorisation normale des routes. $roleActive = false
+     * simule un role CIBLE desactive ; l'acteur (role 0 par defaut dans ces tests,
+     * cf. FakeDatabase) est recouvert explicitement pour rester autorise malgre ce
+     * repli global.
+     */
+    public function testUpdateBlocksModifyingAccountWhoseRoleIsDeactivatedButStillOverPermissioned(): void
+    {
+        $db = $this->permittedDb();
+        $db->userManageRow = ['id' => 5, 'email' => 'e@wakdo.fr', 'first_name' => 'E', 'last_name' => 'Q', 'role_id' => 2, 'is_active' => 1];
+        $db->roleActive = false;
+        $db->canByRole = ['0:user.update' => true];
+        $db->permissionCodesByRole = [
+            '0' => ['user.read', 'user.create', 'user.update', 'user.deactivate'],
+            '2' => ['user.read', 'user.create', 'user.update', 'user.deactivate', 'stock.manage'],
+        ];
+        $request = $this->jsonRequest('PUT', '/admin/api/users/5', $this->validBody(['email' => 'e@wakdo.fr']));
+
+        $response = $this->controller($request, $db)->apiUpdate(['id' => '5']);
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($db->wrote('UPDATE user SET'));
+    }
+
     public function testUpdateBlocksSelfRoleChange(): void
     {
         $db = $this->permittedDb();

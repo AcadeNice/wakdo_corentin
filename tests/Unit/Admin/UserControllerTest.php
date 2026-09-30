@@ -344,6 +344,38 @@ final class UserControllerTest extends TestCase
         self::assertSame([], $db->auditActions());
     }
 
+    /**
+     * D-4, limite du role desactive (revue adverse) : Authorizer::can()/permissionsFor()
+     * filtrent `role.is_active = 1`, donc un role cible DESACTIVE ne remontait plus
+     * aucune permission par l'ancien chemin -- la garde devait rester declenchee quand
+     * meme, en lisant `role_permission` independamment de l'etat actif du role
+     * (RoleRepository::permissionCodesFor(), sans jointure sur `role.is_active`).
+     * $roleActive = false ici simule un role DESACTIVE (repli global de la fausse
+     * base) ; les deux roles (acteur et cible) sont recouverts explicitement par
+     * permissionCodesByRole, qui ignore ce repli -- exactement le comportement reel.
+     */
+    public function testUpdateBlocksModifyingAccountWhoseRoleIsDeactivatedButStillOverPermissioned(): void
+    {
+        $db = $this->permittedDb();
+        $db->guardUserRow = ['is_active' => 1, 'role_id' => 1];
+        $db->roleActive = false;
+        // Recouvrement explicite (ignore $roleActive) : l'acteur garde ses propres
+        // permissions malgre le repli global desactive -- seul le role CIBLE (4) est
+        // simule desactive, via le meme repli, pour prouver que la garde le lit quand meme.
+        $db->canByRole = ['1:user.update' => true];
+        $db->permissionCodesByRole = [
+            '1' => ['user.read', 'user.create', 'user.update', 'user.deactivate'],
+            '4' => ['user.read', 'user.create', 'user.update', 'user.deactivate', 'stock.manage'],
+        ];
+        $db->userManageRow = $this->target(['id' => 5, 'role_id' => 4]);
+
+        $form = $this->createForm(['email' => 'staff@wakdo.local', 'first_name' => 'Renamed', 'is_active' => '1']);
+        $response = $this->controller($this->post($form, '/admin/users/5'), $db)->update(['id' => '5']);
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($db->wrote('UPDATE user SET'));
+    }
+
     // --- Mise a jour (user.update) ---
 
     public function testUpdateNotFound(): void

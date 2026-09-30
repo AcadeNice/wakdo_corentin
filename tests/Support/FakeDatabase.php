@@ -626,7 +626,12 @@ final class FakeDatabase implements DatabaseInterface
             if (is_string($code) && $role !== null) {
                 $key = $role . ':' . $code;
                 if (array_key_exists($key, $this->canByRole)) {
-                    return ($this->canByRole[$key] && $this->roleActive) ? ['granted' => 1] : null;
+                    // Recouvrement EXPLICITE, par role : une affirmation precise du test
+                    // l'emporte sur le repli global $roleActive (memes semantiques que
+                    // $permissionCodesByRole, necessaire pour simuler un role DESACTIVE
+                    // pour la cible D-4 tout en gardant l'acteur autorise sur ses propres
+                    // permissions dans le meme test).
+                    return $this->canByRole[$key] ? ['granted' => 1] : null;
                 }
             }
 

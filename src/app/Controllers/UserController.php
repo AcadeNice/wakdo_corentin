@@ -11,6 +11,7 @@ use App\Auth\PasswordHasher;
 use App\Auth\PinGate;
 use App\Auth\PinThrottle;
 use App\Auth\PinVerifier;
+use App\Auth\RoleRepository;
 use App\Auth\UserRepository;
 use App\Core\DatabaseInterface;
 use App\Core\Response;
@@ -515,15 +516,23 @@ class UserController extends AdminController
     }
 
     /**
-     * Permissions du role $roleId, via l'Authorizer (recharge de la base a CHAQUE
-     * appel, RG-3) : un role personnalise qui gagne ou perd une permission plus
-     * tard tombe immediatement sous cette garde, sans liste figee a maintenir.
+     * Permissions du role $roleId, INDEPENDAMMENT de son etat actif (D-4, limite
+     * relevee en revue adverse) : `Authorizer::can()`/`permissionsFor()` filtrent
+     * `role.is_active = 1` (RG-T03, correct pour l'AUTORISATION NORMALE d'une
+     * route -- un role desactive ne doit donner acces a rien). Mais la garde
+     * ci-dessous protege un COMPTE CIBLE, pas une route : si son role est
+     * desactive puis reactive, ses permissions sont intactes, donc la garde doit
+     * les lire des maintenant, meme desactive -- sans quoi desactiver le role
+     * suffirait a le rendre editable par n'importe qui. `RoleRepository::
+     * permissionCodesFor()` lit `role_permission` SANS jointure sur `role`, donc
+     * sans ce filtre : c'est le seul changement, `Authorizer::can()` reste
+     * inchange pour tout le reste (RG-T03 intact).
      *
      * @return list<string>
      */
     private function permissionCodesOfRole(int $roleId): array
     {
-        return $roleId > 0 ? $this->authorizer()->permissionsFor($roleId) : [];
+        return $roleId > 0 ? (new RoleRepository($this->db()))->permissionCodesFor($roleId) : [];
     }
 
     /**
