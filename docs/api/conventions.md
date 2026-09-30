@@ -61,11 +61,16 @@ dans `src/app/Core/Response.php`, resolution (404 / 405) dans `src/app/Core/Rout
 les deux hotes) : `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`,
 `Permissions-Policy` (toutes les fonctionnalites capteur/media/paiement coupees — ajoutee le
 2026-09-29, commit `08d7a96`, aucun des deux fronts n'en a l'usage). `Referrer-Policy` differe
-depuis le 2026-09-30 (revue adversariale, D-7) : le vhost borne la pose de facon
-inconditionnelle en Apache (`strict-origin-when-cross-origin`) ; l'hote admin la pose cote
-application (`App\Core\Response::send()`, meme valeur par defaut, `no-referrer` sur les
-reponses de `/reset_password` pour ne pas exposer le jeton de reinitialisation dans le
-journal via l'en-tete `Referer`) — voir le detail dans `docs/soutenance/preuves/10-tests-securite.md`. `ServerTokens Prod` (`docker/apache/httpd.conf:52`)
+legerement entre les deux hotes depuis le 2026-09-30 (deux tours de revue adversariale, D-7) :
+le vhost borne la pose de facon inconditionnelle en Apache (`strict-origin-when-cross-origin`,
+`docker/apache/vhost.conf`) ; le vhost admin la pose aussi en Apache mais seulement si la
+reponse n'en porte pas deja une (`expr=-z resp('Referrer-Policy')`), ce qui couvre les
+fichiers statiques et les erreurs qu'Apache sert seul (403 sur `.env`, 502/503 si PHP-FPM ne
+repond pas) sans entrer en concurrence avec l'application ; l'application
+(`App\Core\Response::send()`) pose la meme valeur par defaut pour ses propres reponses,
+remplacee par `no-referrer` sur `/reset_password` et sur la page d'erreur 500 pour ne pas
+exposer le jeton de reinitialisation dans le journal via l'en-tete `Referer` — voir le detail
+dans `docs/soutenance/preuves/10-tests-securite.md`. `ServerTokens Prod` (`docker/apache/httpd.conf:52`)
 reduit l'en-tete `Server` a `Apache`, sans numero de version ; `Header unset Server`
 (`httpd.conf:103`) est present mais n'a pas d'effet reel sur cet en-tete, pose par le
 coeur du serveur et non par `mod_headers` — l'en-tete `Server: Apache` reste donc envoye,

@@ -31,9 +31,11 @@ desactivation, reinitialisation de PIN, effacement RGPD.
   (`UserController::roleExceedsActorPermissions`) — avant ce correctif, seul
   `activeRoleExists()` etait verifie, ce qui permettait a un role personnalise dote de
   `user.update` de s'affecter le role `admin`. Aucun role du jeu de demonstration n'est
-  concerne (seul `admin` porte `user.*` au seed). Limite residuelle : la portee des sources
-  de commande visibles (`role_visible_source`) n'est pas comparee par cette garde, seules
-  les permissions le sont.
+  concerne (seul `admin` porte `user.*` au seed). La garde compare aussi, depuis une 2e
+  revue adversariale le meme jour, la portee des sources de commande visibles
+  (`role_visible_source`) : un role limite a un canal ne peut plus affecter ni garder un
+  role qui voit davantage de canaux, meme a permissions identiques par ailleurs
+  (`c5a8fc4`).
 
 ## Decisions
 [ADR-0004](../adr/0004-pin-action-sensible-audit.md) (PIN + audit),

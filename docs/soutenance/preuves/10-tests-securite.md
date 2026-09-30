@@ -5,8 +5,10 @@ Perimetre : les deux surfaces de Wakdo, telles qu'elles tournent en production �
 la borne (site statique + API publique `/api/*`, hote kiosk) et le back-office (pages HTML
 `/admin/*`, API JSON `/admin/api/*`, hote admin). Etat au 2026-09-29, code du commit
 `fddc26c` (branche `dev`, fusionne dans `main` par `dc1829d`). La production sert depuis
-`aab4e96` (release du 29/09, deployee 13:50 UTC, champ `version` de `/api/health`), qui
-inclut aussi les correctifs de la revue adversariale du 30/09 detailles en section 8.
+`aab4e96` (release du 29/09, deployee 13:50 UTC, champ `version` de `/api/health`). Les
+correctifs de la revue adversariale du 30/09, detailles en section 8, sont dans le code
+(branche `fix/audit-3009`) mais pas encore en production : ils seront livres par la
+release du 30/09.
 
 **Ce que cette preuve apporte.** Les protections du projet etaient decrites (ADR, modele de
 menaces, `SECURITY.md`) et verifiees en grande partie par des tests unitaires et par la
@@ -388,11 +390,14 @@ s'applique donc des la requete suivante, sans attendre la deconnexion. Test rejo
 
 Un contre-audit independant de la documentation securite (2026-09-30) a confronte chaque
 promesse au code et trouve sept defauts de code (D-1 a D-7, hors documentation) plus une
-restriction manquante deja en production (A-2). Chaque correctif a ete relu par un agent qui
-n'avait pas ecrit le code (deux tours de revue adversariale), avec des demonstrations dans des
-conteneurs jetables (image de l'application, ou paire Apache + PHP-FPM isolee montee sur le
-code de cet arbre, `--network none`, aucun conteneur `wakdo-*` touche). Chiffres de tests non
-repris ici (voir la note de tete de fiche) : ils seront mis a jour avec la mesure finale.
+restriction manquante (A-2, relevee par l'audit API du meme jour). Chaque correctif a ete
+relu par un agent qui n'avait pas ecrit le code (deux tours de revue adversariale), avec des
+demonstrations dans des conteneurs jetables (image de l'application, ou paire Apache +
+PHP-FPM isolee montee sur le code de cet arbre, `--network none`, aucun conteneur `wakdo-*`
+touche). Aucun des huit n'est encore en production au moment d'ecrire cette section
+(branche `fix/audit-3009`) ; ils seront livres par la release du 30/09. Mesure finale de la
+suite de securite apres ces correctifs : phase principale 108 reussis (8 sautes), phase
+reinitialisation 5 reussis, phase base arretee 4 reussis, soit 117 reussis, 0 echec.
 
 | # | Defaut | Preuve | Statut |
 |---|---|---|---|
@@ -400,29 +405,28 @@ repris ici (voir la note de tete de fiche) : ils seront mis a jour avec la mesur
 | D-1 | La re-verification du mot de passe sur `/admin/profile/pin` n'etait limitee par AUCUN compteur ni tracee ; le budget mis en place ensuite se partageait avec le PIN (une action PIN reussie d'un tiers le remettait a zero) | Compte desormais sur le MEME budget que la connexion (`App\Auth\AccountLockout`, gate-before-verify) ; echec trace `auth.reauth_failed` dans la MEME transaction que l'increment. Demonstration navigateur : 4 echecs, action PIN reussie avec l'email et le PIN d'un tiers, 5e echec, bon mot de passe refuse (verrou tenu). | corrige, approuve en 2e revue |
 | D-2 | Une connexion reussie remettait a zero le compteur IP (`login_throttle`) : avec un couple d'identifiants valide connu, alterner echecs et succes empechait d'atteindre le plafond IP | Seul le compteur du compte est remis a zero au succes ; la ligne IP expire avec sa fenetre glissante. Preuve base reelle : 19 echecs conserves apres un succes. | corrige, approuve |
 | D-3 | Le compteur par compte s'incrementait par une LECTURE PHP suivie d'une ECRITURE, hors transaction : des tentatives paralleles pouvaient lire la meme valeur et passer toutes la porte | Increment SQL atomique (`failed_login_attempts = failed_login_attempts + 1`), relecture SOUS le verrou de ligne pris par cet UPDATE. Test a deux connexions PDO : la connexion B ouvre sa transaction et lit une valeur perimee (0), la connexion A fait un echec reel et le valide, B execute ensuite l'increment atomique — le resultat observe (2) est coherent avec [CLAIM L2, manuel de reference MySQL/MariaDB, « Consistent Nonlocking Reads »] : un `UPDATE` lit la derniere valeur validee, pas l'instantane de la transaction qui l'execute. | corrige, approuve |
-| D-4 | `user.update`/`user.create` ne verifiaient que l'existence du role vise (`activeRoleExists()`), pas ses permissions : un role personnalise dote de `user.update` pouvait s'affecter le role `admin` | Un acteur sans `role.manage` ne peut affecter un role, ni agir sur un compte dont le role deborde le sien, QUE si les permissions du role vise sont toutes incluses dans les siennes (verifie avant la demande de PIN, y compris pour un role vise desactive). Aucun role du jeu de demonstration n'est concerne (seul `admin` porte `user.*` au seed). Limite residuelle documentee (`docs/domaines/users.md`, `docs/domaines/rbac.md`, R8) : la portee des sources de commande visibles n'est pas comparee par cette garde. | corrige, approuve (limite documentee) |
+| D-4 | `user.update`/`user.create` ne verifiaient que l'existence du role vise (`activeRoleExists()`), pas ses permissions : un role personnalise dote de `user.update` pouvait s'affecter le role `admin` | Un acteur sans `role.manage` ne peut affecter un role, ni agir sur un compte dont le role deborde le sien, QUE si les permissions du role vise sont toutes incluses dans les siennes (verifie avant la demande de PIN, y compris pour un role vise desactive). Aucun role du jeu de demonstration n'est concerne (seul `admin` porte `user.*` au seed). **Limite residuelle fermee en 2e revue** (`c5a8fc4`) : la garde compare desormais aussi la portee des sources de commande visibles (`role_visible_source`) ; un role limite a un canal ne peut plus affecter ni garder un role qui voit davantage de canaux, meme a permissions identiques par ailleurs (une ligne absente vaut vue globale, meme convention que `OrderQueryRepository::visibleSources()`). | corrige, approuve (les deux tours) |
 | D-5 | Le verrou de session PHP restait tenu pendant l'envoi SMTP DIFFERE du courriel de reinitialisation : une 2e requete sur le meme cookie servait d'oracle de temps (le canal par le temps que ce lot devait fermer revenait, avec une requete de plus) | `DeferredActions::finishRequest()` ferme la session (`session_write_close()`) AVANT `fastcgi_finish_request()`, pas apres. Preuve en conteneur jetable : la requete B attend 0,00 s contre l'ancien ordre (2,31 a 2,50 s selon la mesure). Aucune ecriture de session apres la fermeture (jeton CSRF, flash, regeneration : tous poses avant `send()`). | corrige, approuve |
 | D-6 | `default_route` (page d'accueil d'un role apres connexion) n'etait bornee qu'en LONGUEUR (120 caracteres), pas en forme : une valeur `https://...`/`//...` aurait pu rediriger tous les comptes du role hors du site | `RedirectPath::isLocal()` n'accepte qu'un chemin commencant par un seul `/`, sans schema. Message d'ecran clair (« Page d'accueil apres connexion invalide : choisissez une page de la liste. »). | corrige, approuve |
-| D-7 | Le lien `GET /reset_password?token=<jeton brut>` etait journalise en clair par le format `combined` d'Apache (ligne de requete complete, query string comprise) | Format de journal dedie sans chaine de requete pour cette seule route (`combined_no_query`), et l'application pose `Referrer-Policy: no-referrer` sur les reponses de `/reset_password` (`PasswordResetController::renderConfirm()`) pour empecher le jeton de fuiter par l'en-tete `Referer` des ressources que la page charge. Preuve en conteneur jetable (paire Apache + PHP-FPM) : journal d'acces sans jeton ni `Referer` ; test navigateur Chromium sensible (avec l'ancienne politique, la feuille de style et le POST portaient bien `?token=...` en `Referer`). | corrige pour le jeton, approuve avec reserve |
+| D-7 | Le lien `GET /reset_password?token=<jeton brut>` etait journalise en clair par le format `combined` d'Apache (ligne de requete complete, query string comprise) | Format de journal dedie sans chaine de requete pour cette seule route (`combined_no_query`), et l'application pose `Referrer-Policy: no-referrer` sur les reponses de `/reset_password` (`PasswordResetController::renderConfirm()`) et sur la page d'erreur 500 (`ErrorResponse`, pour le cas ou une exception non attrapee survient en plein traitement de cette route) pour empecher le jeton de fuiter par l'en-tete `Referer` des ressources que la page charge. Preuve en conteneur jetable (paire Apache + PHP-FPM) : journal d'acces sans jeton ni `Referer` ; test navigateur Chromium sensible (avec l'ancienne politique, la feuille de style et le POST portaient bien `?token=...` en `Referer`). | corrige pour le jeton et le 500, reserve D-7.b fermee (ci-dessous) |
 
-### Reserve sur D-7 : regression de `Referrer-Policy` sur les reponses servies par Apache seul
+### Reserve D-7.b — fermee (`a8af3d2`) : `Referrer-Policy` restauree sur les reponses servies par Apache seul
 
-Poser `no-referrer` cote application pour `/reset_password` a eu un effet de bord : avant ce
-correctif, `Referrer-Policy: strict-origin-when-cross-origin` etait posee au niveau serveur
-Apache pour les reponses des deux hotes. Depuis, sur l'hote admin, cet en-tete n'est plus pose
-par Apache ; il ne l'est plus que par l'application (`App\Core\Response::send()`), qui ne
-s'execute que pour une reponse PHP. Les fichiers vraiment statiques (`/assets/...`) et les
-erreurs produites par Apache lui-meme (403 des chemins interdits, 502/503/504 quand PHP-FPM ne
-repond pas) sur l'hote admin n'ont donc plus cet en-tete, a la date de cette redaction
-(2026-09-30). Impact reel limite (un navigateur conforme applique deja
-`strict-origin-when-cross-origin` par defaut en l'absence d'en-tete, et ces reponses ne
-chargent aucune ressource), mais c'est une regression mesurable par un scanner d'en-tetes, et
-`security-headers.spec.js` ne teste actuellement que des reponses PHP cote admin — la
-regression y est invisible a cette suite. Reste a faire (config Apache du vhost admin, hors du
-perimetre de cette redaction documentaire) : reposer l'en-tete par defaut au niveau du vhost
-admin, CONDITIONNE a son absence (pour ne pas dupliquer la valeur `no-referrer` posee par PHP
-sur `/reset_password`), et ajouter une ressource statique admin plus une erreur Apache aux
-cibles de `security-headers.spec.js`.
+Poser `no-referrer` cote application pour `/reset_password` avait eu un effet de bord releve
+par la 2e revue adversariale : `Referrer-Policy: strict-origin-when-cross-origin`, posee
+auparavant au niveau serveur Apache pour les deux hotes, avait disparu du vhost admin pour les
+fichiers vraiment statiques (`/assets/...`) et pour les erreurs produites par Apache lui-meme
+(403 sur `.env`, 502/503/504 quand PHP-FPM ne repond pas). Le correctif `a8af3d2` repose
+l'en-tete au niveau du vhost admin avec une condition d'expression
+(`expr=-z resp('Referrer-Policy')`, dans `docker/apache/vhost.conf`) : elle ne s'applique que
+si la reponse ne porte deja aucune valeur, ce qui couvre les reponses servies par Apache seul
+sans entrer en concurrence avec la valeur posee par l'application
+(`App\Core\Response::headers()`, ou `no-referrer` sur `/reset_password` et sur la page 500).
+Verifie en conteneur jetable : aucune ligne `Referrer-Policy` en double sur une meme reponse
+(`headersArray()`, qui expose les doublons contrairement a `headers()`). Deux cibles ajoutees
+a `security-headers.spec.js` (`${ADMIN}/assets/css/admin.css` et `${ADMIN}/.env`) plus une
+assertion dediee anti-doublon, pour que la suite exerce reellement les classes de reponses qui
+avaient regresse.
 
 **Methode de revue** : deux tours de relecture adversariale par un agent distinct de celui qui
 a ecrit chaque correctif, rejeu de la suite PHPUnit ciblee sur une base jetable a chaque tour,
