@@ -433,6 +433,18 @@ final class FakeDatabase implements DatabaseInterface
     public array $roleSources = [];
 
     /**
+     * Recouvrement PAR ROLE des sources visibles (cle roleId, valeur list<string>),
+     * prioritaire sur $roleSources (global) quand la cle existe. Meme raison que
+     * $permissionCodesByRole : les tests D-4 (portee role_visible_source) doivent
+     * distinguer, DANS LE MEME test, les sources de l'ACTEUR de celles du role VISE
+     * -- deux roles differents que $roleSources (une seule reponse, insensible au
+     * role demande) ne peut pas exprimer separement.
+     *
+     * @var array<int, list<string>>
+     */
+    public array $visibleSourcesByRole = [];
+
+    /**
      * Recouvrement PAR ROLE de can() : cle "<roleId>:<code>" -> bool, prioritaire sur
      * $grantedCodes/$canResult quand elle existe pour le couple (role, code) demande.
      * Necessaire aux tests D-4 (elevation de privilege, UserController) qui doivent
@@ -975,6 +987,13 @@ final class FakeDatabase implements DatabaseInterface
         }
 
         if (str_contains($sql, 'FROM role_visible_source WHERE role_id')) {
+            // Sert RoleRepository::visibleSources() (param 'id') ET
+            // OrderQueryRepository::visibleSources() (param 'r').
+            $roleParam = $params['id'] ?? ($params['r'] ?? null);
+            if (is_int($roleParam) && array_key_exists($roleParam, $this->visibleSourcesByRole)) {
+                return array_map(static fn (string $s): array => ['source' => $s], $this->visibleSourcesByRole[$roleParam]);
+            }
+
             return $this->roleSources;
         }
 
