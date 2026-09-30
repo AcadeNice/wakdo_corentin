@@ -95,6 +95,46 @@ final class AuthServiceDbTest extends TestCase
         self::assertSame('auth.login_success', $this->lastAuditAction());
     }
 
+    /**
+     * D-2 (contre-audit 30/09) : preuve de bout en bout, contre une vraie
+     * MariaDB, qu'un succes ne remet PLUS a zero le compteur IP. Avant ce
+     * correctif, `recordSuccess()` executait le MEME reset que pour le compte
+     * sur `login_throttle` -- avec des identifiants valides connus, alterner 19
+     * echecs et 1 succes empechait le plafond IP (20) de jamais s'atteindre.
+     */
+    public function testSuccessfulLoginDoesNotResetIpThrottleCounter(): void
+    {
+        // Seed une ligne login_throttle deja porteuse d'echecs anterieurs (comme
+        // apres plusieurs tentatives ratees), SANS verrou actif (lockout_until
+        // NULL) pour que la connexion reussisse.
+        $this->db->execute(
+            'INSERT INTO login_throttle (ip_address, failed_attempts, window_started_at, last_attempt_at) '
+            . 'VALUES (:ip, 19, NOW(), NOW())',
+            ['ip' => self::TEST_IP],
+        );
+
+        $result = $this->service()->authenticate($this->email(), self::PASSWORD, self::TEST_IP);
+
+        self::assertTrue($result->success);
+
+        $throttle = $this->db->fetch(
+            'SELECT failed_attempts, lockout_until FROM login_throttle WHERE ip_address = :ip',
+            ['ip' => self::TEST_IP],
+        );
+        self::assertNotNull($throttle);
+        self::assertSame(19, (int) ($throttle['failed_attempts'] ?? -1), 'le compteur IP ne doit pas etre remis a zero par un succes (D-2).');
+        self::assertNull($throttle['lockout_until']);
+
+        // Le compte, lui, EST remis a zero (RG-9 revise : seul le compteur du
+        // COMPTE l'est au succes).
+        $user = $this->db->fetch(
+            'SELECT failed_login_attempts FROM user WHERE id = :id',
+            ['id' => $this->userId],
+        );
+        self::assertNotNull($user);
+        self::assertSame(0, (int) ($user['failed_login_attempts'] ?? -1));
+    }
+
     public function testFailedLoginIncrementsAccountAndCreatesThrottleAndAuditFailure(): void
     {
         $result = $this->service()->authenticate($this->email(), 'WRONG-PASSWORD', self::TEST_IP);

@@ -138,7 +138,7 @@ final class AuthService
         // RG-5 + RG-9 : reset compteurs + clear IP + audit succes (+ rehash si
         // du), une transaction. Fait AVANT de poser l'identite en session : si
         // la base echoue, aucune session authentifiee ne subsiste (fail-closed, D9).
-        $this->recordSuccess($userId, $roleId, $ip, $now, $rehashedPassword);
+        $this->recordSuccess($userId, $roleId, $now, $rehashedPassword);
 
         // RG-4 : identite + horodatages pour les bornes idle/absolue (RG-6),
         // puis rotation du jeton CSRF anterieur a l'authentification. role_id
@@ -333,16 +333,27 @@ final class AuthService
     }
 
     /**
-     * RG-9 : remise a zero du compteur compte + clear du throttle IP + audit du
-     * succes (+ rehash du mot de passe si $rehashedPassword est fourni, point
-     * (b) de la convergence du parc -- cf. PasswordHasherInterface::needsRehash()),
-     * une seule transaction (RG-T08).
+     * RG-9 (revise D-2, contre-audit 30/09) : remise a zero du SEUL compteur du
+     * COMPTE + audit du succes (+ rehash du mot de passe si $rehashedPassword
+     * est fourni, point (b) de la convergence du parc -- cf.
+     * PasswordHasherInterface::needsRehash()), une seule transaction (RG-T08).
+     *
+     * Le compteur IP (login_throttle) N'EST PLUS touche ici -- avant ce
+     * correctif, un succes le remettait a zero exactement comme le compte : avec
+     * un couple d'identifiants valides connu, alterner 19 echecs et 1 succes
+     * empechait le plafond IP (20) de jamais s'atteindre, laissant seule la
+     * dimension compte porter la defense (D-2). La ligne IP est desormais
+     * laissee expirer PAR ELLE-MEME, avec sa fenetre glissante
+     * (IP_THROTTLE_WINDOW_SECONDS) : le prochain echec (recordFailure(), qui
+     * reinitialise deja le compteur en SQL si `window_started_at` est perime)
+     * la remet naturellement a 1, et un verrou deja pose expire de lui-meme des
+     * que `lockout_until` passe.
      */
-    private function recordSuccess(int $userId, int $roleId, string $ip, int $now, ?string $rehashedPassword = null): void
+    private function recordSuccess(int $userId, int $roleId, int $now, ?string $rehashedPassword = null): void
     {
         $nowDt = date('Y-m-d H:i:s', $now);
 
-        $this->db->transaction(function (DatabaseInterface $db) use ($userId, $roleId, $ip, $nowDt, $rehashedPassword): void {
+        $this->db->transaction(function (DatabaseInterface $db) use ($userId, $roleId, $nowDt, $rehashedPassword): void {
             if ($rehashedPassword !== null) {
                 $db->execute(
                     'UPDATE user SET password_hash = :hash WHERE id = :id',
@@ -353,15 +364,6 @@ final class AuthService
             $db->execute(
                 'UPDATE user SET failed_login_attempts = 0, lockout_until = NULL, last_login_at = :now WHERE id = :id',
                 ['now' => $nowDt, 'id' => $userId],
-            );
-
-            // Clear de la ligne IP : 0 ligne affectee si aucune n'existait (benin).
-            // Placeholders distincts (cf. recordFailure : prepare reelle, un nom
-            // ne peut etre lie qu'une fois).
-            $db->execute(
-                'UPDATE login_throttle SET failed_attempts = 0, lockout_until = NULL, '
-                . 'window_started_at = :now_w, last_attempt_at = :now_l WHERE ip_address = :ip',
-                ['now_w' => $nowDt, 'now_l' => $nowDt, 'ip' => $ip],
             );
 
             $this->writeAudit($db, 'auth.login_success', $userId, $roleId, 'Connexion réussie');
