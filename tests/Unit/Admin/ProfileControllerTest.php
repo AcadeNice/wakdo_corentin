@@ -246,9 +246,9 @@ final class ProfileControllerTest extends TestCase
     {
         // Re-verification d'identite : mauvais mot de passe courant -> 422, pas
         // d'ecriture du PIN. D-1 (contre-audit 2026-09-30) : cet echec est
-        // desormais compte (pin_throttle, cle = utilisateur de session) et trace
-        // (auth.reauth_failed) -- avant ce correctif, ce formulaire n'armait
-        // aucun verrou et ne laissait aucune trace (poste a session partagee).
+        // desormais compte (dimension COMPTE, D-1.a) et trace (auth.reauth_failed)
+        // -- avant ce correctif, ce formulaire n'armait aucun verrou et ne
+        // laissait aucune trace (poste a session partagee).
         $db = $this->permittedDb();
         $request = $this->post([
             '_csrf' => $this->csrf, 'pin' => '4729', 'pin_confirm' => '4729', 'current_password' => 'wrong-password',
@@ -263,10 +263,14 @@ final class ProfileControllerTest extends TestCase
 
     public function testUpdatePinRejectsWrongCurrentPasswordRecordsThrottleAndAudit(): void
     {
-        // D-1 : un echec incremente pin_throttle (cle = utilisateur de SESSION,
-        // meme table/politique que le throttle PIN des actions sensibles) et
-        // ecrit une trace d'audit `auth.reauth_failed`, SANS jamais y ecrire la
-        // valeur saisie (RGPD art. 5.1.c, meme discipline que pin.failed).
+        // D-1.a (revue adverse, contre-audit 30/09) : un echec incremente
+        // DESORMAIS le compteur DU COMPTE (user.failed_login_attempts, meme
+        // increment SQL atomique et meme politique que AuthService::
+        // recordFailure(), reutilise via App\Auth\AccountLockout) -- PLUS
+        // pin_throttle (D-1 d'origine, corrige : ce compteur etait partage avec
+        // le PIN d'action sensible et remis a zero par le succes d'un TIERS).
+        // Ecrit aussi une trace d'audit `auth.reauth_failed`, SANS jamais y
+        // ecrire la valeur saisie (RGPD art. 5.1.c, meme discipline que pin.failed).
         $db = $this->permittedDb();
         $request = $this->post([
             '_csrf' => $this->csrf, 'pin' => '4729', 'pin_confirm' => '4729', 'current_password' => 'wrong-password',
@@ -274,7 +278,8 @@ final class ProfileControllerTest extends TestCase
         $response = $this->controller($request, $db)->updatePin();
 
         self::assertSame(422, $response->status());
-        self::assertTrue($db->wrote('INSERT INTO pin_throttle'));
+        self::assertTrue($db->wrote('UPDATE user SET failed_login_attempts = failed_login_attempts + 1'));
+        self::assertFalse($db->wrote('pin_throttle'), 'D-1.a : la re-verification du mot de passe ne doit plus toucher pin_throttle.');
         self::assertSame(['auth.reauth_failed'], $db->auditActions());
 
         $audit = null;
@@ -295,15 +300,16 @@ final class ProfileControllerTest extends TestCase
 
     public function testUpdatePinLockedRejectsWithoutPayingArgon2idOrRevealingPassword(): void
     {
-        // D-1 : le verrou (pin_throttle, cle = utilisateur de session) est evalue
-        // AVANT toute verification. Un compte deja verrouille ne paie MEME PAS
-        // argon2id (contrairement au login, il n'y a ici qu'une seule identite
-        // possible -- celle de la session -- donc rien a rendre indiscernable
-        // d'un "email inconnu" ; payer le cout n'apporterait aucune garantie
-        // supplementaire, juste une charge CPU inutile pendant le verrou) et le
-        // message ne revele pas si le mot de passe fourni etait bon.
+        // D-1.a : le verrou lu est DESORMAIS celui du COMPTE (user.lockout_until,
+        // AccountLockout::isLocked()), evalue AVANT toute verification. Un
+        // compte deja verrouille ne paie MEME PAS argon2id (contrairement au
+        // login, il n'y a ici qu'une seule identite possible -- celle de la
+        // session -- donc rien a rendre indiscernable d'un "email inconnu" ;
+        // payer le cout n'apporterait aucune garantie supplementaire, juste une
+        // charge CPU inutile pendant le verrou) et le message ne revele pas si
+        // le mot de passe fourni etait bon.
         $db = $this->permittedDb();
-        $db->pinThrottleLockoutUntil = date('Y-m-d H:i:s', time() + 300);
+        $db->userAccountLockoutUntil = date('Y-m-d H:i:s', time() + 300);
 
         // Mot de passe COURANT ET CORRECT : si la verification etait quand meme
         // executee, elle reussirait et le PIN serait enregistre -- la preuve que
@@ -314,7 +320,7 @@ final class ProfileControllerTest extends TestCase
         self::assertStringNotContainsString('Mot de passe actuel incorrect', $response->body());
         self::assertFalse($db->wrote('UPDATE user SET pin_hash'));
         self::assertSame([], $db->auditActions());
-        self::assertFalse($db->wrote('INSERT INTO pin_throttle')); // pas de double-compte sous verrou deja actif
+        self::assertFalse($db->wrote('failed_login_attempts + 1')); // pas de double-compte sous verrou deja actif
 
         foreach ($db->reads as $read) {
             self::assertStringNotContainsString('password_hash FROM user', $read['sql']);
@@ -323,14 +329,49 @@ final class ProfileControllerTest extends TestCase
 
     public function testUpdatePinValidResetsThrottleOnSuccess(): void
     {
-        // D-1 : un succes remet a zero le compteur de l'utilisateur de session
-        // (un manager qui s'est trompe puis a reussi n'est pas penalise plus tard).
+        // D-1.a : un succes remet a zero le compteur DU COMPTE (D-1.a) --
+        // jamais pin_throttle desormais (un manager qui s'est trompe puis a
+        // reussi n'est pas penalise plus tard, mais sur SON PROPRE budget).
         $db = $this->permittedDb();
         $db->userPinSet = false;
         $response = $this->controller($this->validPost(), $db)->updatePin();
 
         self::assertSame(302, $response->status());
-        self::assertTrue($db->wrote('UPDATE pin_throttle SET failed_attempts = 0'));
+        self::assertTrue($db->wrote('UPDATE user SET failed_login_attempts = 0'));
+        self::assertFalse($db->wrote('pin_throttle'), 'D-1.a : le succes ne doit plus toucher pin_throttle.');
+    }
+
+    /**
+     * D-1.a (revue adverse, contre-audit 30/09) : LE test qui prouve le
+     * contournement d'origine et sa fermeture. Avant ce correctif, le verrou de
+     * re-verification (pin_throttle, cle = utilisateur de SESSION) etait remis
+     * a zero par TOUTE action PIN reussie -- MEME autorisee par l'email+PIN
+     * d'un TIERS (`PinGate::reset()`/`PinThrottle::reset()`, appele par ex. par
+     * `OrderAdminController::cancel()`). Sur le poste partage du modele de
+     * menace, un collegue pouvait alterner des echecs de mot de passe et des
+     * actions PIN anodines avec SES PROPRES identifiants pour ne jamais laisser
+     * le compteur atteindre le seuil.
+     *
+     * Ce test simule ce contournement directement : un `PinThrottle::reset()`
+     * (le meme appel qu'un succes de PIN ailleurs) sur la MEME base, alors que
+     * le compte est deja verrouille sur SA PROPRE dimension (user.lockout_until)
+     * -- la reverification doit rester bloquee, puisque les deux compteurs
+     * sont desormais INDEPENDANTS.
+     */
+    public function testUpdatePinReauthLockoutSurvivesAThirdPartyPinThrottleReset(): void
+    {
+        $db = $this->permittedDb();
+        $db->userAccountLockoutUntil = date('Y-m-d H:i:s', time() + 300);
+
+        // Action PIN reussie AILLEURS, avec l'email+PIN d'un TIERS : avant
+        // D-1.a, ceci remettait a zero le MEME compteur que celui-ci.
+        (new \App\Auth\PinThrottle($db, new \App\Core\Config()))->reset(1);
+
+        $response = $this->controller($this->validPost(), $db)->updatePin();
+
+        self::assertSame(422, $response->status());
+        self::assertStringNotContainsString('Mot de passe actuel incorrect', $response->body());
+        self::assertFalse($db->wrote('UPDATE user SET pin_hash'), 'le verrou du compte doit rester actif malgre le reset de pin_throttle.');
     }
 
     public function testUpdatePinFailsWhenNoRowAffected(): void

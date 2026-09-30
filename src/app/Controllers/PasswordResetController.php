@@ -195,6 +195,31 @@ class PasswordResetController extends Controller
         return Response::make('', $status, ['Location' => $location]);
     }
 
+    /**
+     * D-7.a (revue adverse, contre-audit 30/09) : cette page porte le jeton
+     * BRUT de reinitialisation dans sa propre URL (`?token=...`). La politique
+     * par defaut (`Referrer-Policy: strict-origin-when-cross-origin`, posee
+     * par `Response::headers()`) laisse le navigateur envoyer l'URL COMPLETE --
+     * jeton compris -- en en-tete Referer sur toute requete de MEME origine :
+     * les ressources de cette page (feuille de style, script, logo,
+     * `layout.php`/`reset.php`) ET l'envoi du formulaire lui-meme (qui poste
+     * vers `/reset_password`) en sont, capturant le jeton dans le journal
+     * d'acces (`%{Referer}i`) meme sur un envoi qui echoue (jeton encore
+     * valable jusqu'a 1h). `no-referrer` (aucune restriction sur QUELLE partie
+     * serait sure a envoyer : rien n'est envoye) coupe les trois fuites d'un
+     * coup.
+     *
+     * Posee ICI (cote application), PAS dans le vhost Apache : plusieurs
+     * mecanismes Apache pour exclure CONDITIONNELLEMENT cette seule route de sa
+     * valeur par defaut ont ete essayes et ecartes, tous verifies en conteneur
+     * jetable (`<Location>`, `Header setifempty`, `Header ... env=` avec une
+     * variable posee par `SetEnvIf`/`RewriteRule [E=...]`) -- voir
+     * `docker/apache/vhost.conf` (vhost admin) pour le detail de chaque essai
+     * et pourquoi il echoue. Le vhost admin ne pose donc plus Referrer-Policy
+     * du tout ; `App\Core\Response::headers()` pose la valeur par defaut pour
+     * toute reponse qui ne l'a pas deja fixee, ce qui laisse `setHeader()`
+     * ci-dessous, appele AVANT `send()`, l'emporter pour cette seule route.
+     */
     private function renderConfirm(string $token, ?string $error, int $status = 200): Response
     {
         return $this->view('auth/reset', [
@@ -202,6 +227,6 @@ class PasswordResetController extends Controller
             'csrfToken' => Csrf::token($this->sessionManager()),
             'token'     => $token,
             'error'     => $error,
-        ], $status);
+        ], $status)->setHeader('Referrer-Policy', 'no-referrer');
     }
 }

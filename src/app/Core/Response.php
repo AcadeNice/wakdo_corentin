@@ -58,11 +58,38 @@ final class Response
     }
 
     /**
+     * En-tetes REELLEMENT emis par send() -- pas necessairement ceux poses
+     * explicitement (cf. Referrer-Policy ci-dessous). $this->header($name)
+     * reste le miroir de ce qu'un appelant a explicitement pose (utilise par
+     * la majorite des tests existants) ; cette methode est le point que send()
+     * utilise pour emettre, et celui que les tests de valeur par defaut lisent.
+     *
      * @return array<string, string>
      */
     public function headers(): array
     {
-        return $this->headers;
+        $headers = $this->headers;
+
+        // D-7.a (revue adverse, contre-audit 30/09) : valeur par defaut posee
+        // ICI (cote PHP), pas par Apache -- le vhost admin (docker/apache/
+        // vhost.conf) ne pose plus Referrer-Policy du tout. Plusieurs
+        // mecanismes Apache pour l'exclure CONDITIONNELLEMENT sur la seule
+        // route /reset_password ont ete essayes et ecartes, tous verifies en
+        // conteneur jetable : `<Location>` ne matche jamais (la reecriture
+        // interne change l'URI AVANT toute correspondance ulterieure) ;
+        // `Header setifempty` ne detecte pas la valeur deja posee par le
+        // backend et EN AJOUTE UNE SECONDE ; `Header ... env=` avec une
+        // variable posee par `SetEnvIf Request_URI` ou par `RewriteRule
+        // [E=...]` n'est jamais vue comme vraie par `Header` (alors que
+        // `CustomLog`, sur la MEME variable, la voit correctement). Poser la
+        // valeur par defaut ICI, et laisser un controleur la remplacer AVANT
+        // send() (PasswordResetController::renderConfirm() -> "no-referrer"
+        // pour /reset_password), evite tout cet interfacage Apache fragile.
+        if (!isset($headers['Referrer-Policy'])) {
+            $headers['Referrer-Policy'] = 'strict-origin-when-cross-origin';
+        }
+
+        return $headers;
     }
 
     /**
@@ -105,7 +132,7 @@ final class Response
     {
         http_response_code($this->status);
 
-        foreach ($this->headers as $name => $value) {
+        foreach ($this->headers() as $name => $value) {
             header($name . ': ' . $value);
         }
 
