@@ -4,8 +4,8 @@
 (`680820f`) : `password_reset_throttle` purgee par le cron et adresse stockee en empreinte
 SHA-256 (migration `0021`), changement de mot de passe par l'admin qui ferme les sessions du
 compte ; modification de menu par appariement (type, nom) avec verrou (`e9f00d8`). Tout le
-29/09 est dans le code de la branche `docs/contre-audit`, en production apres la release du
-29/09. Version v0.5 (2026-09-29) — deux correctifs de securite : en-tetes HTTP durcis,
+29/09 est dans le code de la branche `docs/contre-audit` (squash `9e22a21` sur `main`, PR
+#197), en production depuis la release du 29/09 (`aab4e96`). Version v0.5 (2026-09-29) — deux correctifs de securite : en-tetes HTTP durcis,
 `TraceEnable Off`, sonde `/api/health` sans version PHP (commit `08d7a96`) ; garde de
 session relisant `role_id`/`session_epoch` en base a chaque requete, `SessionRoutePolicy`
 (aucune session sur `/api/*`), throttle de reinitialisation de mot de passe (commit
@@ -251,9 +251,11 @@ Couche transverse, regles `RG-T*` definies dans `docs/merise/mlt.md`. Synthese :
   re-autorisation par PIN equipier (argon2id) -- source unique : `App\Health\RouteSecurity`.
   Sont PIN-gated : annulation de commande, creation/modification/desactivation d'un
   utilisateur, reinitialisation de PIN, effacement PII, gestion RBAC (creation/modification
-  de role), suppression de produit, changement de prix d'un produit, suppression de menu,
-  import CSV de produits quand il change un prix (`POST /admin/api/products/import`, champ
-  `price`), ajustement de stock et comptage d'inventaire. Des actions voisines ne le sont
+  de role), suppression de produit, changement de prix ou de TVA d'un produit, suppression de
+  menu, import CSV de produits quand le fichier change au moins un prix (`POST
+  /admin/api/products/import` ; c'est la valeur `price` de la colonne PIN de
+  `RouteSecurity`, pas un champ du corps -- le corps de l'import porte `csv`), ajustement de
+  stock et comptage d'inventaire. Des actions voisines ne le sont
   volontairement PAS : suppression
   d'un ingredient, reappro de stock (`stock.manage`) ; le back-office HTML n'offre d'ailleurs
   aucune suppression de categorie (seul un `DELETE` existe cote JSON,
@@ -271,7 +273,7 @@ Couche transverse, regles `RG-T*` definies dans `docs/merise/mlt.md`. Synthese :
     SHA-256 (migration `0021`, `680820f`) et la table est purgee par
     `docker/cron/scripts/purge-throttle.sh` comme les deux autres.
 - **En-tetes HTTP** (`docker/apache/httpd.conf`/`vhost.conf`, durcis dans le code le
-  2026-09-29, commit `08d7a96`, en production apres la release du 29/09) : `Permissions-Policy` (toutes les fonctionnalites capteur/media/paiement
+  2026-09-29, commit `08d7a96`, en production depuis la release du 29/09, `aab4e96`) : `Permissions-Policy` (toutes les fonctionnalites capteur/media/paiement
   coupees), `TraceEnable Off` (methode `TRACE` refusee sur les deux hotes), CSP du
   back-office completee de `base-uri 'self'` et `form-action 'self'` (ne retombent pas sur
   `default-src` en CSP niveau 3), et la sonde publique `/api/health` sans version PHP

@@ -227,7 +227,7 @@ Reseaux :
 - Envoi POST JSON de la commande vers l'API
 - Ecran de confirmation avec le numero de commande genere par le serveur
 - Responsive cible 1920x1080 portrait (borne) **+ adaptatif** autres resolutions
-- **Accessibilite RGAA** : police OpenDys pour dyslexiques, navigation clavier, contrastes, alts, pas d'info via couleur seule
+- **Accessibilite RGAA** : police OpenDyslexic pour dyslexiques, navigation clavier, contrastes, alts, pas d'info via couleur seule
 - **SEO / semantique** : balises HTML5 (`article`, `aside`, `nav`), schema.org, meta tags uniques, canonical, favicon
 
 **OUT scope :**
@@ -256,7 +256,7 @@ Reseaux :
 - `GET /api/products/{id}`, `GET /api/menus/{id}` (avec ses emplacements et leur disponibilite par format), `GET /api/allergens`
 - `POST /api/orders` — creer une commande (body JSON, retour `{id, order_number, status, total_ttc_cents}`)
 - `POST /api/orders/{number}/pay` — paiement simule
-- `GET /api/orders/{number}` — recuperer statut commande
+- `GET /api/orders/{number}` — statut d'une commande borne uniquement (`order_number`, `status` ; une commande d'un autre canal rend `404 ORDER_NOT_FOUND`, meme reponse qu'un numero inconnu)
 - `GET /api/health` — sonde publique (10 routes publiques au total, `src/app/Core/routes.php`)
 - Middleware CORS present en defense en profondeur (origine exacte, sans wildcard) ; la borne consomme en realite `/api/*` en meme origine via le proxy du vhost kiosk, pas via CORS (section 5)
 - Reponses JSON standardisees : `{data: [...], total: N}` pour une liste, `{data: {...}}` pour un element, `{data: null, error: {code, message}}` en echec
@@ -322,7 +322,7 @@ Reseaux :
 | Cr 1.a.4 | Code commente, indente | Conventions de code appliquees partout |
 | Cr 1.a.5 | Balises semantiques | `<article>`, `<aside>`, `<nav>`, `<header>`, `<main>`, `<section>` |
 | Cr 1.b.1-3 | Responsive + multi-navigateurs | Media queries + @supports + tests Chrome/FF/Safari |
-| Cr 1.c.1-4 | Accessibilite RGAA/OpenDys | alt, aria-label, navigation clavier, police OpenDys, pas d'info via couleur seule |
+| Cr 1.c.1-4 | Accessibilite RGAA/OpenDyslexic | alt, aria-label, navigation clavier, police OpenDyslexic, pas d'info via couleur seule |
 | Cr 1.d.1-4 | Classes CSS reutilisables | Convention BEM ou similaire, regroupe par theme, sans repetition |
 | Cr 1.e.1-11 | SEO + meta + semantique | hierarchie titres, schema.org, canonical, alt images, favicon, temps chargement |
 | Cr 2.a.1-5 | JS ES6+ + DOM + animations | Modules ES6, classes, async/await, pas de jQuery |
@@ -584,7 +584,7 @@ Buffer : ~8 h pour imprevus. Cible effective : ~264 h sur 20 semaines = **~13 h/
 | **PDO** | Abstraction BDD PHP avec prepared statements (anti-SQLi) |
 | **BEM** | Convention naming CSS Block__Element--Modifier |
 | **RGAA** | Referentiel General d'Amelioration de l'Accessibilite (France) |
-| **OpenDys** | Police de caractere pour personnes dyslexiques |
+| **OpenDyslexic** | Police de caractere pour personnes dyslexiques |
 
 ---
 
@@ -775,7 +775,7 @@ et/ou une entite reelle du modele.
 | R7 | PII utilisateur (`user.email`/`first_name`/`last_name`) | Demande d'effacement RGPD non honoree, ou rupture de l'integrite referentielle a la suppression | Fort (conformite) | Faible | Anonymisation (`ERASE_USER_PII`, `mlt.md` 10.5) : la ligne est conservee, PII remplacees par un placeholder `anon-<id>@wakdo.invalid`, credentials invalides, `anonymized_at` pose ; `audit_log` retient sa propre fenetre | Faible — effacement et tracabilite coexistent ; les FK (`audit_log.actor_user_id`, `customer_order.acting_user_id`, `stock_movement.user_id`) restent valides |
 | R8 | Matrice RBAC (`role_permission`) | Elevation de privilege via modification de role non controlee | Fort | Faible | `MANAGE_RBAC` (`mlt.md` 10.4) PIN-gated (RG-T13) + `audit_log` du diff de permissions (RG-T14, RG-6) ; `role_id` derriere l'allowlist (RG-T16) | Faible — tout gain/perte de capacite est nominatif et trace |
 | R9 | `stock_movement` (demarque) | Correction d'inventaire masquant une demarque | Moyen | Moyenne | `INVENTORY_COUNT` (`mlt.md` 9.2) PIN-gated (RG-T13) ; le `user_id` capture par PIN est ecrit dans `stock_movement.user_id` (append-only) | Faible — la correction devient attribuable a une personne meme sur poste partage |
-| R10 | `ingredient.stock_quantity` / disponibilite catalogue | Deni de service : une commande anonyme (`POST /api/orders`, sans session) porte une quantite demesuree sur une seule ligne, ou un nombre de lignes arbitraire, et vide le stock d'un ingredient en deux requetes | Fort | Moyenne (avant correctif) | **Corrige dans le code le 2026-09-29, en production apres la release du 29/09** (commit `fce3085`, branche `fix/sec-order`, fusionnee par `86306ef`) : quantite bornee 1-20 par ligne (`INVALID_QUANTITY`, `OrderRepository::resolveQuantity`), 50 lignes au plus par commande (`TOO_MANY_ITEMS`) ; avant cette borne, `max(1, ...)` ne relevait en silence que les valeurs inferieures a 1 : une quantite demesuree passait telle quelle jusqu'a l'ecriture SQL (`order_item.quantity` etant un `SMALLINT UNSIGNED`). Une borne complementaire sur le TOTAL d'articles par commande (`OrderRepository::MAX_ITEMS_PER_ORDER` = 50, code `ORDER_TOO_LARGE`) est corrigee le 2026-09-29 (commit `33538c6`) : sans elle, 50 lignes a 20 articles chacune (les deux bornes individuelles respectees) restaient possibles dans UNE commande anonyme. | Faible mais assume : ces bornes limitent ce qu'UNE commande consomme, pas le nombre de commandes successives depuis la meme source. Une limitation par IP a ete ECARTEE (des bornes reelles d'un meme restaurant partagent la meme adresse ; la fiabilite de l'IP derriere le proxy releve de Traefik, non verifie ici). En production reelle, l'API kiosk serait reservee au reseau du restaurant ou a des bornes identifiees (hors perimetre code) ; en demonstration, la remise a zero quotidienne restaure le stock. |
+| R10 | `ingredient.stock_quantity` / disponibilite catalogue | Deni de service : une commande anonyme (`POST /api/orders`, sans session) porte une quantite demesuree sur une seule ligne, ou un nombre de lignes arbitraire, et vide le stock d'un ingredient en deux requetes | Fort | Moyenne (avant correctif) | **Corrige dans le code le 2026-09-29, en production depuis la release du 29/09** (`aab4e96` ; commit `fce3085`, branche `docs/contre-audit` ; sur `main` : squash `9e22a21`, PR #197) : quantite bornee 1-20 par ligne (`INVALID_QUANTITY`, `OrderRepository::resolveQuantity`), 50 lignes au plus par commande (`TOO_MANY_ITEMS`) ; avant cette borne, `max(1, ...)` ne relevait en silence que les valeurs inferieures a 1 : une quantite demesuree passait telle quelle jusqu'a l'ecriture SQL (`order_item.quantity` etant un `SMALLINT UNSIGNED`). Une borne complementaire sur le TOTAL d'articles par commande (`OrderRepository::MAX_ITEMS_PER_ORDER` = 50, code `ORDER_TOO_LARGE`) est corrigee le 2026-09-29 (commit `33538c6`, meme branche) : sans elle, 50 lignes a 20 articles chacune (les deux bornes individuelles respectees) restaient possibles dans UNE commande anonyme. | Faible mais assume : ces bornes limitent ce qu'UNE commande consomme, pas le nombre de commandes successives depuis la meme source. Une limitation par IP a ete ECARTEE (des bornes reelles d'un meme restaurant partagent la meme adresse ; la fiabilite de l'IP derriere le proxy releve de Traefik, non verifie ici). En production reelle, l'API kiosk serait reservee au reseau du restaurant ou a des bornes identifiees (hors perimetre code) ; en demonstration, la remise a zero quotidienne restaure le stock. |
 | R11 | Session back-office (autorisation) | Elevation de privilege : un role retire ou change en base (`user.role_id`) ne s'appliquait qu'a la PROCHAINE connexion, pas a une session deja ouverte — `SessionGuard::check()` ne relisait que `is_active`, le `role_id` utilise pour l'autorisation venait de la session posee a la connexion | Fort | Faible | **Corrige le 2026-09-29** (commit `ef7fd37`) : `SessionGuard::check()` relit desormais `is_active`, `role_id` ET `session_epoch` en base, dans la MEME requete SQL, a chaque requete authentifiee (RG-T02) ; un changement/retrait de role s'applique des la requete suivante | Faible — la fenetre d'exposition est bornee au temps de propagation d'une requete, plus de fenetre "jusqu'a la prochaine connexion" |
 
 ### 19.3 Analyse STRIDE par element
@@ -818,7 +818,7 @@ actions sensibles non-stock avec `actor_user_id` (capture par PIN, RG-T13), `act
 `summary` non-personnel ; pas d'UPDATE/DELETE applicatif. Ceci inclut l'echec de PIN
 (`pin.failed`) : `PinGate::auditFailedPin()` ecrit un `summary` de contexte fixe, sans
 l'adresse saisie au formulaire (corrige le 2026-09-29, RGPD art. 5.1.c, migration
-`0019_pin_failed_audit_minimisation.sql`, un `UPDATE` qui retire l'adresse des lignes deja ecrites ; dans le code, en production apres la release du 29/09). L'attribution
+`0019_pin_failed_audit_minimisation.sql`, un `UPDATE` qui retire l'adresse des lignes deja ecrites ; dans le code, en production depuis la release du 29/09, `aab4e96`). L'attribution
 des commandes comptoir/drive passe par `customer_order.acting_user_id` (`mlt.md` 4.1 RG-5) et
 celle du stock par `stock_movement.user_id` (`mlt.md` 9.1/9.2). Les actions stock ne sont pas
 doublement journalisees : `stock_movement` (append-only) fournit deja la piste.
@@ -847,8 +847,8 @@ ingredient ; la commande elle-meme (`customer_order`, `order_item`, `order_item_
 concurrentes qui partagent des ingredients. Une commande anonyme pouvait neanmoins porter une
 quantite demesuree sur une seule ligne (ou un nombre de lignes arbitraire) et vider le stock
 d'un ingredient en deux requetes (voir R10, 19.2) — **corrige le 2026-09-29** (commit
-`fce3085`, branche `fix/sec-order`, fusionnee par `86306ef` : quantite bornee 1-20, 50
-lignes au plus par commande). Residuel assume : ces bornes ne couvrent que le contenu
+`fce3085`, branche `docs/contre-audit` ; sur `main` : squash `9e22a21`, PR #197) : quantite
+bornee 1-20, 50 lignes au plus par commande. Residuel assume : ces bornes ne couvrent que le contenu
 d'UNE commande, pas le nombre de commandes successives depuis la meme source (R10, 19.2).
 
 **Elevation of privilege.** Le RBAC est permission-driven : le code teste une permission, pas
@@ -892,8 +892,8 @@ colonne.
 purge et empreinte SHA-256 de `password_reset_throttle`, migration 0021, `680820f` ; sessions
 fermees quand l'admin change un mot de passe ; appariement des emplacements de menu par type et
 nom, `e9f00d8` ; disponibilite d'option par format, quantite stricte au comptoir, plafond de 20 a
-la borne, `186c5d7` ; tout le 29/09 est dans le code de la branche `docs/contre-audit`, en
-production apres la release du 29/09). Version 1.8 — 2026-09-29 (quatre correctifs de securite : R10/R11
+la borne, `186c5d7` ; tout le 29/09 est dans le code de la branche `docs/contre-audit` (squash
+`9e22a21` sur `main`), en production depuis la release du 29/09, `aab4e96`). Version 1.8 — 2026-09-29 (quatre correctifs de securite : R10/R11
 ajoutes au registre des risques, STRIDE Spoofing/Denial of service/Elevation of privilege
 precisees, entite `password_reset_throttle` (24e) classifiee INTERNAL, commits
 `08d7a96`/`ef7fd37`/`fce3085`/`33538c6` ; residuel assume sur R10 precise (pas de limitation

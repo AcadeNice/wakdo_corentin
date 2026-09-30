@@ -4,7 +4,7 @@
 `/api/health` sans version PHP (commit `08d7a96`), garde de session relisant role/epoch,
 `/api/*` sans session, throttle de reinitialisation de mot de passe (commit `ef7fd37`), bornes
 de commande (quantite, nombre de lignes, type de corps) et disponibilite des options de menu
-(commit `fce3085`, branche `fix/sec-order`, fusionnee par `86306ef`) ;
+(commit `fce3085`, branche `docs/contre-audit` ; sur `main` : squash `9e22a21`, PR #197) ;
 v0.3 - API d'administration JSON livree sous `/admin/api/*` (section 5.3,
 [ADR-0017](../adr/0017-api-admin-json.md))
 **Perimetre** : back-office admin (rendu serveur) + API REST publique sous `/api/*` + API
@@ -80,7 +80,7 @@ la requete recue).
 | Famille | Prefixe | Rendu | Authentification | Exemple |
 |---|---|---|---|---|
 | Pages back-office | aucun | HTML (vue serveur + `layout.php`) | session admin | `/login`, `/forgot_password` |
-| API REST publique | `/api/` | JSON (enveloppe section 7) | publique ou session (section 10) | `/api/health`, `/api/categories` (livre) |
+| API REST publique | `/api/` | JSON (enveloppe section 7) | aucune (pas de session ni de cookie, `SessionRoutePolicy`, section 9) | `/api/health`, `/api/categories` (livre) |
 | API d'administration JSON | `/admin/api/` | JSON (enveloppe section 7) | session admin + permission + PIN (section 5.3) | `/admin/api/products` (livre) |
 
 La borne (kiosk) consomme l'API REST `/api/*` en lecture pour le catalogue (voir section 8.3).
@@ -102,7 +102,9 @@ Deux decisions, dont une sourcee et une de coherence :
 - **Separateur de mots : `_` (snake_case)**. Aucun standard n'impose `-` ou `_` dans un segment
   (les deux sont des caracteres `unreserved`, RFC 3986 §2.3). On retient `_` pour n'avoir **qu'une
   seule convention de casse** sur tout le projet : colonnes DB, champs JSON (section 8) et chemins
-  d'URL partagent le snake_case. Cela calque les noms de tables (`order_item` -> `/api/order_items`)
+  d'URL partagent le snake_case. Cela calque les noms de tables (exemple hypothetique :
+  `order_item` -> `/api/order_items`, route non exposee -- les lignes de commande n'ont pas
+  d'endpoint dedie, elles voyagent dans le corps de `/api/orders`, section 5.2)
   et reduit la charge a memoriser (Rasoir d'Ockham, mantra #37).
 
 Autres regles :
@@ -161,14 +163,56 @@ La borne est publique (aucune session) ; cf. `mlt.md` CREATE_ORDER, declencheur 
 | GET | `/api/menus/{id}` | (lecture publique) | READ_CATALOGUE | livre (slots de composition) |
 | GET | `/api/allergens` | (lecture publique) | READ_CATALOGUE | livre (14 allergenes INCO) |
 | POST | `/api/orders` | (kiosk public) | CREATE_ORDER (mlt 3.3) | livre (idempotency_key, RG-T19) |
-| POST | `/api/orders/{number}/pay` | (kiosk public) | (encaissement) | livre (passe directement a `preparing` -- `paid_at` ET `preparing_at` poses dans la meme transaction -- + decrement stock RG-T20 ; `OrderRepository::pay()`) |
+| POST | `/api/orders/{number}/pay` | (kiosk public) | (encaissement) | livre, RESTREINT AU CANAL KIOSK (A-2, relecture adverse) : une commande d'un AUTRE canal rend la MEME reponse `404 ORDER_NOT_FOUND` qu'un numero inconnu, verifiee AVANT toute lecture de statut (anti-enumeration, meme garde que le `GET` ci-dessous). Passe directement a `preparing` -- `paid_at` ET `preparing_at` poses dans la meme transaction -- + decrement stock RG-T20 ; `OrderRepository::pay()`. Reponse `200 {data:{id, order_number, status, total_ttc_cents}}` |
 | GET | `/api/orders/{number}` | (lecture publique) | (suivi statut) | livre, RESTREINT AU CANAL KIOSK (relecture adverse, point 5b) : cet endpoint est public et anonyme, et les numeros sont sequentiels (prefixe canal + id auto-incremente) -- une commande comptoir/drive n'est PAS "kiosk anonyme" et son statut/total n'a pas a etre lisible sans authentification. Une commande d'un AUTRE canal rend la MEME reponse `404 ORDER_NOT_FOUND` qu'un numero inconnu (anti-enumeration). Champs renvoyes : `order_number`, `status` -- `total_ttc_cents` a ete RETIRE (aucun ecran borne ne le consomme sur cet endpoint ; `create()`/`pay()` continuent de le renvoyer, eux, car l'ecran de paiement en a besoin) |
 
+**Corps de `POST /api/orders`** (`OrderRepository::createPending` -> `resolveHeader`/`resolveAndTotal`/`resolveLine`), non decrit ailleurs dans `docs/api/` avant ce correctif (A-4, audit du 30/09) :
+
+| Champ | Type | Regle |
+|---|---|---|
+| `idempotency_key` | string, facultative | 36 caracteres au plus (largeur de la colonne, un UUID) ; type non chaine -> `422 INVALID_IDEMPOTENCY_KEY` (section 8.2bis) |
+| `service_mode` | string, **obligatoire** | une valeur parmi `dine_in`, `takeaway`, `drive`, sinon `422 INVALID_SERVICE_MODE` |
+| `service_tag` | string, facultative | gardee uniquement en `dine_in` (ignoree, videe pour les autres modes), 20 caracteres au plus, sinon `422 INVALID_SERVICE_TAG` |
+| `items` | array, **obligatoire, non vide** | au plus 50 elements (sinon `422 TOO_MANY_ITEMS`) ; chaque element doit etre un objet JSON, sinon `422 INVALID_ITEM_TYPE` ; somme des quantites au plus 50 (sinon `422 ORDER_TOO_LARGE`) |
+| `items[].type` | string | `"product"` ou `"menu"` ; toute autre valeur -> `422 INVALID_ITEM_TYPE` |
+| `items[].product_id` | int, requis si `type:"product"` | produit inconnu, indisponible ou en rupture calculee (RG-T21) -> `422 PRODUCT_UNAVAILABLE` |
+| `items[].menu_id` | int, requis si `type:"menu"` | menu inconnu, indisponible, ou burger impose en rupture calculee -> `422 MENU_UNAVAILABLE` |
+| `items[].quantity` | int, facultative | entre 1 et 20 par ligne, entier exact ; absente vaut 1 ; hors bornes ou non entiere -> `422 INVALID_QUANTITY` |
+| `items[].format` | string, facultative (menu seulement) | `"normal"` (defaut) ou `"maxi"` |
+| `items[].selections` | array, requise pour un menu avec slots | `[{"menu_slot_id":<int>,"product_id":<int>}]` ; option hors slot -> `422 INVALID_SELECTION` ; option retiree/en rupture (sur la variante EFFECTIVEMENT servie en Maxi) -> `422 OPTION_UNAVAILABLE` |
+| `items[].modifiers` | array, facultative, PAR LIGNE (product ou menu) | `[{"ingredient_id":<int>,"action":"add"\|"remove"}]` ; ingredient hors recette -> `422 INVALID_MODIFIER` ; retrait d'un ingredient non retirable -> `422 INGREDIENT_NOT_REMOVABLE` ; ajout d'un ingredient non ajoutable -> `422 INGREDIENT_NOT_ADDABLE` |
+
+Exemple (un produit a l'unite + un menu Maxi avec une selection de slot) :
+
+```json
+{
+  "idempotency_key": "3f6a1e2b-...-uuid",
+  "service_mode": "dine_in",
+  "service_tag": "12",
+  "items": [
+    { "type": "product", "product_id": 14, "quantity": 2 },
+    { "type": "menu", "menu_id": 1, "quantity": 1, "format": "maxi",
+      "selections": [ { "menu_slot_id": 16, "product_id": 23 } ] }
+  ]
+}
+```
+
+Reponse `201 { "data": { "id": 1, "order_number": "K1", "status": "pending_payment", "total_ttc_cents": <int> } }`.
+Cette route ne controle NI l'en-tete `Content-Type` NI la syntaxe JSON : `Request::json()`
+renvoie `[]` pour un corps absent ou illisible, traite alors comme un panier vide sans
+`service_mode` -- `422 INVALID_SERVICE_MODE` (pas `400`/`415`), y compris avec
+`Content-Type: text/plain`.
+
 **`GET /api/menus/{id}`, champs de slot ajoutes (corrige le 2026-09-29, commit `fce3085`,
-branche `fix/sec-order`, fusionnee par `86306ef`)** : chaque slot de `detail.slots` porte desormais
-`option_is_orderable` (map `product_id -> bool`, meme regle de disponibilite que RG-T21 :
-`is_available = 1` ET hors rupture calculee) et `option_names` (map `product_id ->
-nom`, y compris pour une option retiree du catalogue commandable). Avant ce correctif,
+branche `docs/contre-audit` ; sur `main` : squash `9e22a21`, PR #197)** : chaque element de
+`data.slots` (et non `detail.slots` -- les slots sont directement sous `data`, meme enveloppe
+`{data: {...}}` qu'une ressource unitaire, section 7) porte desormais `option_is_orderable` (map `product_id ->
+bool`, disponibilite en format normal, meme regle que RG-T21 : `is_available = 1` ET hors
+rupture calculee), `option_is_orderable_maxi` (meme map pour le format Maxi -- la disponibilite
+de la VARIANTE quand l'option en a une, sinon egale a `option_is_orderable`, ajoutee l'apres-midi
+du 29/09, commit `186c5d7`, branche `docs/contre-audit` ; sur `main` : squash `9e22a21`, PR #197)
+et `option_names` (map `product_id -> nom`, y compris pour une
+option retiree du catalogue commandable). Avant ce correctif,
 seule la liste `option_product_ids` (appartenance au slot) etait exposee, sans indication
 de disponibilite — le composeur borne laissait choisir une option en rupture sans le
 signaler.
@@ -240,7 +284,7 @@ Menus composes (`menu.read` / `menu.create` / `menu.update` / `menu.delete`) :
 | GET | `/admin/api/menus` | non | |
 | GET | `/admin/api/menus/{id}` | non | inclut `slots` (composition) |
 | POST | `/admin/api/menus` | non | `slots` = tableau JSON natif (le formulaire HTML le soumet en `slots_json` serialise ; meme garde serveur F12/RG-T16 des deux cotes) |
-| PUT | `/admin/api/menus/{id}` | non | PUT PARTIEL sur `is_available` (voir note ci-dessous). Emplacements de slot reconcilies en place (position au sein du meme `slot_type`, corrige le 2026-09-29) ; `409 CONFLICT` si un emplacement retire de la configuration soumise est deja reference par une commande |
+| PUT | `/admin/api/menus/{id}` | non | PUT PARTIEL sur `is_available` (voir note ci-dessous). Emplacements de slot reconcilies en place : d'abord par (`slot_type`, nom identique, priorite absolue), puis par position au sein du meme `slot_type` pour le reste (renommages, corrige le 2026-09-29) ; `409 CONFLICT` si un emplacement retire de la configuration soumise est deja reference par une commande |
 | DELETE | `/admin/api/menus/{id}` | oui | `409 CONFLICT` si reference par des commandes (proposer la desactivation) |
 | POST | `/admin/api/menus/{id}/toggle` | non | bascule la disponibilite |
 
@@ -306,15 +350,25 @@ Utilisateurs et RBAC (`user.read` / `user.create` / `user.update` / `user.deacti
 |---|---|---|---|
 | GET | `/admin/api/users` | non | |
 | GET | `/admin/api/users/{id}` | non | |
-| POST | `/admin/api/users` | oui | mlt 10.1 |
-| PUT | `/admin/api/users/{id}` | oui | mlt 10.2. PUT PARTIEL sur `is_active` (voir note ci-dessous) |
-| DELETE | `/admin/api/users/{id}` | oui | == desactivation (`user.deactivate`), PAS de suppression physique ni d'effacement RGPD (mlt 10.3) ; anti-lockout (dernier admin actif) -> `422 VALIDATION_ERROR` |
-| POST | `/admin/api/users/{id}/reset-pin` | oui | efface le PIN de la cible (redefini ensuite en self-service HTML) |
-| POST | `/admin/api/users/{id}/erase` | oui | anonymisation RGPD (mlt 10.5, tombstone, ADR-0007) ; `403` sur son propre compte, `409` si deja anonymise |
+| POST | `/admin/api/users` | oui | mlt 10.1 ; garde d'elevation de privilege (voir note ci-dessous) |
+| PUT | `/admin/api/users/{id}` | oui | mlt 10.2. PUT PARTIEL sur `is_active` (voir note ci-dessous) ; garde d'elevation de privilege (voir note ci-dessous) |
+| DELETE | `/admin/api/users/{id}` | oui | == desactivation (`user.deactivate`), PAS de suppression physique ni d'effacement RGPD (mlt 10.3) ; `403 FORBIDDEN` sur son propre compte ; anti-lockout (dernier admin actif) -> `422 VALIDATION_ERROR` ; garde d'elevation de privilege (voir note ci-dessous) |
+| POST | `/admin/api/users/{id}/reset-pin` | oui | efface le PIN de la cible (redefini ensuite en self-service HTML) ; garde d'elevation de privilege (voir note ci-dessous) |
+| POST | `/admin/api/users/{id}/erase` | oui | anonymisation RGPD (mlt 10.5, tombstone, ADR-0007) ; `403` sur son propre compte, `409` si deja anonymise ; garde d'elevation de privilege (voir note ci-dessous) |
 | GET | `/admin/api/roles` | non | |
 | GET | `/admin/api/roles/{id}` | non | inclut `permission_ids`, `permissions`, `visible_sources` |
-| POST | `/admin/api/roles` | oui | `permission_ids: [int]`, `visible_sources: ["kiosk"\|"counter"\|"drive"]` (mlt 10.4) |
+| POST | `/admin/api/roles` | oui | corps : `code`, `label`, `description`?, `default_route`?, `order_source`? (`counter`\|`drive`\|vide), `permission_ids: [int]`, `visible_sources: ["kiosk"\|"counter"\|"drive"]` (mlt 10.4) |
 | PUT | `/admin/api/roles/{id}` | oui | garde-fou anti-lockout (`422 VALIDATION_ERROR`) : le role `admin` garde `role.manage` et reste actif. PUT PARTIEL sur `is_active` (voir note ci-dessous) |
+
+> **Garde d'elevation de privilege (`/admin/api/users/*`, chantier RBAC en cours).** Les
+> routes de creation, modification, desactivation, reinitialisation de PIN et
+> effacement d'un compte refusent en `403 FORBIDDEN` une action qui donnerait a la
+> cible des droits que l'ACTEUR n'a pas lui-meme (toucher un compte dont le role
+> COURANT porte `role.manage`, ou lui assigner un role qui la porte, sans que
+> l'acteur la porte lui-meme), ainsi qu'une action sur son PROPRE role (changer son
+> propre role, se desactiver soi-meme). Regle en cours de generalisation au moment
+> de cette redaction ; consulter le code (`UserApiController`) pour le detail exact
+> a la date de lecture.
 
 > **PUT partiel sur `is_active` / `is_available`** -- `is_active` sur
 > `/admin/api/users/{id}` et `/admin/api/roles/{id}` ; `is_available` sur
@@ -561,8 +615,10 @@ Erreur :
 ```
 
 Exception documentee : `GET /api/health` renvoie un objet de diagnostic plat, hors enveloppe, car il
-sert le monitoring et non un client applicatif. Dans le code depuis le 2026-09-29 (commit `08d7a96`, en production apres la release
-du 29/09 ; jusque-la la production renvoie encore `php_version`), 6 cles
+sert le monitoring et non un client applicatif. Dans le code depuis le 2026-09-29 (commit `08d7a96`),
+en production depuis la release du 29/09 (`aab4e96`, deployee le 29/09 a 13:50 UTC ; observe :
+`curl https://corentin-wakdo.stark.a3n.fr/api/health` renvoie 6 cles, sans `php_version`),
+6 cles
 exactement : `status`, `app_env`, `db`, `categories`, `version`, `deployed_at` — `php_version` a ete
 retire (`App\Controllers\HealthController`) : cette sonde est publique et anonyme, exposer la version
 du moteur PHP a tout visiteur est une fuite d'information inutile (OWASP A05). Avant cette date, une
@@ -621,6 +677,22 @@ stable).
 | `RATE_LIMITED` | 429 | throttling generique (prevu, hors connexion — voir `TOO_MANY_ATTEMPTS` pour la connexion, seul cas realise a ce jour) |
 | `INTERNAL_ERROR` | 500 | erreur interne, message generique (pas de divulgation) |
 
+Codes propres a la creation de commande (`POST /api/orders`, `OrderController`/`OrderRepository`,
+detail narratif ci-dessous) :
+
+| Code | HTTP | Sens |
+|---|---|---|
+| `ORDER_NOT_FOUND` | 404 | numero de commande inconnu, ou d'un canal different de celui attendu (anti-enumeration, cf. tableau des routes 5.2) |
+| `EMPTY_ORDER` | 422 | `items` absent, vide, ou dont le total facture est nul ou negatif |
+| `INVALID_SERVICE_MODE` | 422 | `service_mode` absent ou hors `dine_in`\|`takeaway`\|`drive` |
+| `INVALID_SERVICE_TAG` | 422 | `service_tag` non scalaire, ou de plus de 20 caracteres |
+| `PRODUCT_UNAVAILABLE` | 422 | `product_id` inconnu, retire (`is_available=0`), ou en rupture calculee (RG-T21) |
+| `MENU_UNAVAILABLE` | 422 | `menu_id` inconnu, retire, ou dont le burger impose est en rupture calculee (RG-T21) |
+| `INVALID_SELECTION` | 422 | option de slot hors de la configuration du menu (`menu_slot_id`/`product_id` incoherents) |
+| `INVALID_MODIFIER` | 422 | `ingredient_id` absent de la recette du produit/burger de la ligne |
+| `INGREDIENT_NOT_REMOVABLE` | 422 | retrait demande sur un ingredient dont la recette interdit le retrait |
+| `INGREDIENT_NOT_ADDABLE` | 422 | ajout demande sur un ingredient dont la recette interdit l'ajout |
+
 Codes specifiques nommes par le MLT, en surcharge du socle : `CANNOT_CANCEL_IN_STATE` (422) et
 `INVALID_TRANSITION` (409) pour l'annulation (`mlt.md` 7.1, `security-sequence.md`). Meme format
 d'enveloppe.
@@ -633,22 +705,28 @@ qu'il hesitait serait bloque — commande impayable, cle interdisant d'en creer 
 La borne repart alors d'une cle neuve, **une seule fois** (une reprise sur n'importe
 quelle erreur masquerait un vrai probleme, par exemple un article indisponible).
 
-**`INVALID_IDEMPOTENCY_KEY` (422).** Rendu par `POST /api/orders` (et par la creation au
-comptoir ou au drive) quand la cle depasse 36 caracteres, la largeur de sa colonne
-(`VARCHAR(36)`, un UUID). Avant ce controle, une cle trop longue faisait echouer l'insertion
-en base et la commande repondait 500 (trouve le 28/09/2026 en capturant les reponses de la
-page Sante) ; elle est desormais refusee a la validation, avant toute ecriture. Depuis le
-correctif ci-dessous, une valeur qui n'est meme pas une chaine (ex. un tableau JSON) rend le
-meme code, au lieu d'etre castee en silence.
+**`INVALID_IDEMPOTENCY_KEY` (422).** Rendu par `POST /api/orders` -- seule route qui lit
+cette cle (`idempotency_key`, RG-T19) -- quand la cle depasse 36 caracteres, la largeur de sa
+colonne (`VARCHAR(36)`, un UUID). La saisie comptoir/drive (`CounterOrderController`,
+`OrderApiController::apiStore`) n'en transmet aucune (`grep idempotency` sur ces deux
+fichiers : aucun resultat au 30/09), donc ce code, en l'etat actuel du code, ne sort que de
+la borne. Avant ce controle, une cle trop longue faisait echouer l'insertion en base et la
+commande repondait 500 (trouve le 28/09/2026 en capturant les reponses de la page Sante) ;
+elle est desormais refusee a la validation, avant toute ecriture. Depuis le correctif
+ci-dessous, une valeur qui n'est meme pas une chaine (ex. un tableau JSON) rend le meme code,
+au lieu d'etre castee en silence.
 
 **`INVALID_QUANTITY`, `TOO_MANY_ITEMS`, `INVALID_ITEM_TYPE`, `OPTION_UNAVAILABLE` (422,
-corriges le 2026-09-29, commit `fce3085`, branche `fix/sec-order`, fusionnee par
-`86306ef`).** Rendus par `POST /api/orders`
-et la creation comptoir/drive (`OrderRepository`) : `INVALID_QUANTITY` pour une quantite
-de ligne hors 1-20 ou non entiere ; `TOO_MANY_ITEMS` au-dela de 50 lignes distinctes ;
-`INVALID_ITEM_TYPE` pour un article du panier qui n'est pas un objet JSON ;
-`OPTION_UNAVAILABLE` pour une option de slot indisponible (rupture calculee ou retrait
-manuel) sur l'option effectivement servie. Avant ce correctif, une commande anonyme
+corriges le 2026-09-29, commit `fce3085`, branche `docs/contre-audit` ; sur `main` : squash
+`9e22a21`, PR #197).** `INVALID_QUANTITY` (quantite de ligne hors 1-20 ou non entiere) et
+`OPTION_UNAVAILABLE` (option de slot indisponible) sont rendus aussi bien par `POST
+/api/orders` que par la creation comptoir/drive (`OrderRepository`, chemin partage).
+`TOO_MANY_ITEMS` (au-dela de 50 lignes distinctes) et `INVALID_ITEM_TYPE` (article du panier
+qui n'est pas un objet JSON) restent, eux, propres a la borne : au comptoir et sur
+`/admin/api/orders`, `CounterOrderController::decodeItems()` ignore un article mal forme
+(non-objet, `type` inconnu, identifiant invalide) plutot que de le rejeter -- un panier ainsi
+entierement vide rend `422 VALIDATION_ERROR`, `error.fields.items` (« Ajoutez au moins un
+produit ou un menu. »), pas `INVALID_ITEM_TYPE`. Avant ce correctif, une commande anonyme
 pouvait porter une quantite demesuree sur une seule ligne (vidage de stock en deux
 requetes), un panier de taille arbitraire, ou une option retiree/en rupture restait
 commandable.
@@ -663,7 +741,8 @@ d'administration (`POST /admin/api/orders`), ces refus ressortent en `422 VALIDA
 avec le message dans `error.fields.items` (`OrderApiController::apiStore()`,
 `CounterOrderController::messageFor()`), pas avec le code propre de la borne.
 
-**`ORDER_TOO_LARGE` (422, corrige le 2026-09-29, commit `33538c6`).** Regle
+**`ORDER_TOO_LARGE` (422, corrige le 2026-09-29, commit `33538c6`, branche `docs/contre-audit` ;
+sur `main` : squash `9e22a21`, PR #197).** Regle
 complementaire : au plus 50 articles au total par commande (somme des quantites de
 toutes les lignes, `OrderRepository::MAX_ITEMS_PER_ORDER`, verifiee dans
 `resolveAndTotal()`), distincte de `TOO_MANY_ITEMS` qui borne le nombre de LIGNES
