@@ -46,8 +46,10 @@ votre instance ecoute ailleurs.
 ## 2. Renseigner l'environnement puis se connecter
 
 1. Dans l'environnement, renseignez `email` et `password` avec le compte de demo du seed
-   (cf. `db/seeds/0001_rbac_and_reference.sql`, section "bootstrap administrator" — pas
-   recopie ici pour ne pas dupliquer un identifiant de demonstration dans un fichier distinct).
+   (cf. `db/seeds/0001_rbac_and_reference.sql`, section "bootstrap administrator"). L'adresse
+   (`admin@wakdo.local`) est volontairement publique -- c'est le compte de demonstration de
+   l'oral (voir les commandes `newman`/`bru run` plus bas, qui l'ecrivent en clair) ; seul le
+   mot de passe n'est pas recopie ici.
 2. Executez **1. Connexion > Se connecter**. Reponse `200` :
    `{ data: { user: {id, email, display_name, role}, permissions: [...], csrf_token } }`.
    Le script de test de la requete range `csrf_token` dans la variable d'environnement
@@ -277,10 +279,12 @@ Toute reponse suit l'enveloppe `{ "data": ... }` ou `{ "data": null, "error": { 
 | `TOO_MANY_ATTEMPTS` | 429 | verrou IP (throttling de connexion), `Retry-After` en secondes |
 | `FORBIDDEN` | 403 | le compte utilise n'a pas la permission requise (section 5, RBAC) |
 | `CSRF_INVALID` | 403 | `csrf` perime ou vide (relancer `Se connecter`) |
+| `INVALID_JSON` | 400 | corps JSON mal forme (virgule en trop, guillemet manquant) ou racine qui n'est pas un objet `{...}` -- une faute de frappe dans un corps tape a la main en Insomnia produit typiquement ce code |
+| `UNSUPPORTED_MEDIA_TYPE` | 415 | corps non vide envoye sans en-tete `Content-Type: application/json` |
 | `PIN_INVALID` | 422 | `pin_email`/`pin` absents, faux, ou compte verrouille (RG-T22) |
 | `VALIDATION_ERROR` | 422 | champ manquant/invalide, detail dans `error.fields` |
 | `CONFLICT` | 409 | doublon (slug/email/code) ou suppression bloquee par une reference |
-| `NOT_FOUND` | 404 | id absent en base (variable d'environnement pas encore renseignee ?) |
+| `NOT_FOUND` | 404 | id absent en base (variable d'environnement pas encore renseignee ?) ; exception : un numero de commande inconnu sur `/admin/api/orders/{number}` renvoie `403 FORBIDDEN`, comme un canal non visible (anti-enumeration, voir 8.6) |
 
 ## 8. Avec Insomnia, pas a pas
 
@@ -352,9 +356,11 @@ CHEMIN, pas dans le corps (`docs/api/conventions.md` section 4) : par exemple
 La liste exacte des actions PIN-gated est la colonne PIN de
 `src/app/Health/RouteSecurity.php` (reprise dans `conventions.md` section 5.3) : annulation
 de commande, gestion utilisateur (creation/modification/desactivation/reinitialisation de
-PIN), effacement PII, gestion RBAC, suppression de produit, changement de prix produit,
-suppression de menu, import CSV de produits quand il change un prix (`POST
-/admin/api/products/import`, champ `price`), ajustement de stock, comptage d'inventaire.
+PIN), effacement PII, gestion RBAC, suppression de produit, changement de prix ou de TVA
+d'un produit, suppression de menu, import CSV de produits quand le fichier change au moins
+un prix (`POST /admin/api/products/import` ; c'est la valeur `price` de la colonne PIN de
+`RouteSecurity`, pas un champ du corps -- le corps de l'import porte `csv`), ajustement de
+stock, comptage d'inventaire.
 Pour ces requetes, ajouter dans le corps JSON
 les deux champs `pin_email`/`pin` (modele "identifiant equipier + PIN", RG-T13), en plus
 des eventuels autres champs de la requete :
@@ -373,7 +379,8 @@ Le PIN doit avoir ete defini au prealable par son titulaire via `/admin/profile/
 | `AUTH_REQUIRED` | 401 | pas de session valide (relancer la connexion, 8.2) |
 | `CSRF_INVALID` | 403 | `X-CSRF-Token` absent ou perime (8.3) |
 | `FORBIDDEN` | 403 | permission manquante pour le role connecte |
-| `UNSUPPORTED_MEDIA_TYPE` | 415 | corps non vide sans `Content-Type: application/json`, sur une route qui lit un corps (`JsonApiTrait::requireJsonBody()`) |
+| `INVALID_JSON` | 400 | corps JSON mal forme (virgule en trop, guillemet manquant) ou racine qui n'est pas un objet -- typiquement une faute de frappe dans un corps tape a la main |
+| `UNSUPPORTED_MEDIA_TYPE` | 415 | l'en-tete `Content-Type` n'est pas `application/json`, sur une route qui lit un corps (`JsonApiTrait::requireJsonBody()`) |
 | `VALIDATION_ERROR` | 422 | champ manquant/invalide, detail dans `error.fields` |
 | `PIN_INVALID` | 422 | `pin_email`/`pin` absents, faux, ou compte agissant verrouille (8.7) |
 | `NOT_FOUND` | 404 | identifiant absent en base ; exception : un numero de commande inconnu sur `/admin/api/orders/{number}` renvoie `403 FORBIDDEN`, comme un canal non visible, pour ne pas reveler quels numeros existent (`OrderApiController`) |

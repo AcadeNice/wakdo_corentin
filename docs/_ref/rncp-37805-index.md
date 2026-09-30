@@ -57,7 +57,7 @@ Domaines : Integration Web / responsive / Normes & accessibilite / Standardisati
 | Id | Critere |
 |---|---|
 | Cr 1.c.1 | Les attributs des elements visuels sont correctement renseignes pour les logiciels de lecture d'ecran |
-| Cr 1.c.2 | Une police specifique pour les personnes dyslexiques est prevue et integree (OpenDys) |
+| Cr 1.c.2 | Une police specifique pour les personnes dyslexiques est prevue et integree (OpenDyslexic) |
 | Cr 1.c.3 | Les informations importantes ne sont pas uniquement transmises par un code couleur mais sont textuellement exprimees |
 | Cr 1.c.4 | L'utilisateur peut naviguer, acceder aux fonctionnalites et au contenu en utilisant le clavier |
 

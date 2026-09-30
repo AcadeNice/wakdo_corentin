@@ -98,7 +98,7 @@ final class AuthService
             // meme compte une fois deverrouille (cf. PasswordHasherInterface::
             // verifyDecoy()).
             $this->hasher->verifyDecoy($password, $this->stringOrNull($user['password_hash'] ?? null));
-            $this->recordFailure(null, null, 0, $ip, $accountPolicy, $ipPolicy, $now);
+            $this->recordFailure(null, null, $ip, $ipPolicy, $now);
 
             return AuthResult::failure();
         }
@@ -108,7 +108,7 @@ final class AuthService
         // STOCKE quelconque d'un autre compte, pour le meme motif que ci-dessus.
         if ($user === null) {
             $this->hasher->verifyDecoy($password, $this->referenceHashForDecoy());
-            $this->recordFailure(null, null, 0, $ip, $accountPolicy, $ipPolicy, $now);
+            $this->recordFailure(null, null, $ip, $ipPolicy, $now);
 
             return AuthResult::failure();
         }
@@ -118,8 +118,7 @@ final class AuthService
         $storedHash = (string) ($user['password_hash'] ?? '');
 
         if (!$this->hasher->verify($password, $storedHash)) {
-            $attempts = (int) ($user['failed_login_attempts'] ?? 0);
-            $this->recordFailure($userId, $roleId, $attempts, $ip, $accountPolicy, $ipPolicy, $now);
+            $this->recordFailure($userId, $roleId, $ip, $ipPolicy, $now);
 
             return AuthResult::failure();
         }
@@ -138,7 +137,7 @@ final class AuthService
         // RG-5 + RG-9 : reset compteurs + clear IP + audit succes (+ rehash si
         // du), une transaction. Fait AVANT de poser l'identite en session : si
         // la base echoue, aucune session authentifiee ne subsiste (fail-closed, D9).
-        $this->recordSuccess($userId, $roleId, $ip, $now, $rehashedPassword);
+        $this->recordSuccess($userId, $roleId, $now, $rehashedPassword);
 
         // RG-4 : identite + horodatages pour les bornes idle/absolue (RG-6),
         // puis rotation du jeton CSRF anterieur a l'authentification. role_id
@@ -157,8 +156,11 @@ final class AuthService
         $this->session->set('session_epoch', (int) ($user['session_epoch'] ?? 0));
         Csrf::rotate($this->session);
 
+        // D-6 (redirection ouverte, defense en profondeur) : RedirectPath::sanitize()
+        // retombe sur '/' si la valeur stockee n'est plus un chemin local -- couvre
+        // une ligne posee avant le correctif de saisie de RoleController::validate().
         $routeRaw = $user['default_route'] ?? null;
-        $defaultRoute = is_string($routeRaw) && $routeRaw !== '' ? $routeRaw : '/';
+        $defaultRoute = RedirectPath::sanitize(is_string($routeRaw) ? $routeRaw : null, '/');
 
         return AuthResult::success($userId, $roleId, $defaultRoute);
     }
@@ -247,9 +249,7 @@ final class AuthService
     private function recordFailure(
         ?int $userId,
         ?int $roleId,
-        int $currentAttempts,
         string $ip,
-        ThrottlePolicy $accountPolicy,
         ThrottlePolicy $ipPolicy,
         int $now,
     ): void {
@@ -261,35 +261,26 @@ final class AuthService
         $this->db->transaction(function (DatabaseInterface $db) use (
             $userId,
             $roleId,
-            $currentAttempts,
             $ip,
-            $accountPolicy,
             $ipPolicy,
             $now,
             $nowDt,
             $windowCutoff,
         ): void {
-            // Dimension compte. Pour ne pas reveler par le timing si l'email existe
-            // (anti-enumeration, RG-2), on emet la MEME requete dans les deux cas :
-            // sur email inconnu, un UPDATE sur id = 0 (aucune ligne touchee car les
-            // PK user sont AUTO_INCREMENT >= 1), donc meme profil d'I/O, effet nul.
-            if ($userId !== null) {
-                $newAttempts = $currentAttempts + 1;
-                $lockSeconds = $accountPolicy->lockoutSeconds($newAttempts);
-                $lockUntil = $lockSeconds > 0 ? date('Y-m-d H:i:s', $now + $lockSeconds) : null;
-
-                $db->execute(
-                    'UPDATE user SET failed_login_attempts = :attempts, last_failed_login_at = :now, '
-                    . 'lockout_until = :lock WHERE id = :id',
-                    ['attempts' => $newAttempts, 'now' => $nowDt, 'lock' => $lockUntil, 'id' => $userId],
-                );
-            } else {
-                $db->execute(
-                    'UPDATE user SET failed_login_attempts = :attempts, last_failed_login_at = :now, '
-                    . 'lockout_until = :lock WHERE id = :id',
-                    ['attempts' => 0, 'now' => $nowDt, 'lock' => null, 'id' => 0],
-                );
-            }
+            // Dimension compte. Deleguee a AccountLockout (2e revue adverse,
+            // contre-audit 30/09) : c'est le MEME increment atomique + relecture
+            // sous verrou de ligne que la re-verification du mot de passe sur
+            // /admin/profile/pin (D-1.a) -- le motif SQL n'existe plus qu'a un
+            // seul endroit, celui-ci evite toute divergence future entre les deux
+            // appelants.
+            //
+            // Pour ne pas reveler par le timing si l'email existe (anti-enumeration,
+            // RG-2), on emet la MEME requete EXACTE dans les deux cas : sur email
+            // inconnu ou compte deja verrouille, $targetId vaut 0 (aucune ligne user
+            // ne porte cette PK, AUTO_INCREMENT demarrant a 1 : effet nul, meme
+            // profil d'I/O).
+            $targetId = $userId ?? 0;
+            $this->accountLockout()->recordFailureWithin($db, $targetId, $now);
 
             // Dimension IP : increment ATOMIQUE cote SQL (failed_attempts + 1) pour
             // eviter le lost-update sous concurrence ; la fenetre glissante est
@@ -333,16 +324,27 @@ final class AuthService
     }
 
     /**
-     * RG-9 : remise a zero du compteur compte + clear du throttle IP + audit du
-     * succes (+ rehash du mot de passe si $rehashedPassword est fourni, point
-     * (b) de la convergence du parc -- cf. PasswordHasherInterface::needsRehash()),
-     * une seule transaction (RG-T08).
+     * RG-9 (revise D-2, contre-audit 30/09) : remise a zero du SEUL compteur du
+     * COMPTE + audit du succes (+ rehash du mot de passe si $rehashedPassword
+     * est fourni, point (b) de la convergence du parc -- cf.
+     * PasswordHasherInterface::needsRehash()), une seule transaction (RG-T08).
+     *
+     * Le compteur IP (login_throttle) N'EST PLUS touche ici -- avant ce
+     * correctif, un succes le remettait a zero exactement comme le compte : avec
+     * un couple d'identifiants valides connu, alterner 19 echecs et 1 succes
+     * empechait le plafond IP (20) de jamais s'atteindre, laissant seule la
+     * dimension compte porter la defense (D-2). La ligne IP est desormais
+     * laissee expirer PAR ELLE-MEME, avec sa fenetre glissante
+     * (IP_THROTTLE_WINDOW_SECONDS) : le prochain echec (recordFailure(), qui
+     * reinitialise deja le compteur en SQL si `window_started_at` est perime)
+     * la remet naturellement a 1, et un verrou deja pose expire de lui-meme des
+     * que `lockout_until` passe.
      */
-    private function recordSuccess(int $userId, int $roleId, string $ip, int $now, ?string $rehashedPassword = null): void
+    private function recordSuccess(int $userId, int $roleId, int $now, ?string $rehashedPassword = null): void
     {
         $nowDt = date('Y-m-d H:i:s', $now);
 
-        $this->db->transaction(function (DatabaseInterface $db) use ($userId, $roleId, $ip, $nowDt, $rehashedPassword): void {
+        $this->db->transaction(function (DatabaseInterface $db) use ($userId, $roleId, $nowDt, $rehashedPassword): void {
             if ($rehashedPassword !== null) {
                 $db->execute(
                     'UPDATE user SET password_hash = :hash WHERE id = :id',
@@ -353,15 +355,6 @@ final class AuthService
             $db->execute(
                 'UPDATE user SET failed_login_attempts = 0, lockout_until = NULL, last_login_at = :now WHERE id = :id',
                 ['now' => $nowDt, 'id' => $userId],
-            );
-
-            // Clear de la ligne IP : 0 ligne affectee si aucune n'existait (benin).
-            // Placeholders distincts (cf. recordFailure : prepare reelle, un nom
-            // ne peut etre lie qu'une fois).
-            $db->execute(
-                'UPDATE login_throttle SET failed_attempts = 0, lockout_until = NULL, '
-                . 'window_started_at = :now_w, last_attempt_at = :now_l WHERE ip_address = :ip',
-                ['now_w' => $nowDt, 'now_l' => $nowDt, 'ip' => $ip],
             );
 
             $this->writeAudit($db, 'auth.login_success', $userId, $roleId, 'Connexion réussie');
@@ -396,5 +389,16 @@ final class AuthService
     private function stringOrNull(mixed $value): ?string
     {
         return is_string($value) ? $value : null;
+    }
+
+    /**
+     * Dimension COMPTE du verrou (2e revue adverse, contre-audit 30/09) :
+     * partagee avec `ProfileController::updatePin()` (D-1.a) via ce meme
+     * service, pour que l'increment atomique + relecture sous verrou de ligne
+     * n'existe qu'a un seul endroit (`AccountLockout::recordFailureWithin()`).
+     */
+    private function accountLockout(): AccountLockout
+    {
+        return new AccountLockout($this->db, $this->config);
     }
 }

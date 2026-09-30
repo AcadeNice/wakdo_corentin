@@ -231,4 +231,108 @@ test.describe('Force brute et enumeration', () => {
     expect(statuses.slice(20).some((st) => st === 429)).toBe(true);
     await ctx.dispose();
   });
+
+  test('re-authentification profil (D-1) : verrou apres 5 echecs, sans reveler si le mot de passe etait bon', async () => {
+    // Compte JETABLE dedie (jamais admin@wakdo.local) : le verrou pose ici est
+    // par COMPTE (user.failed_login_attempts/lockout_until, D-1.a) -- l'isoler
+    // evite qu'il ne gene un autre spec qui reutiliserait la session admin sur
+    // cette meme route, et evite de verrouiller admin@wakdo.local (partage
+    // avec le verrou de CONNEXION du compte depuis D-1.a).
+    const email = await createUser('counter', 'reauth');
+    const s = await apiSession(email, TEMP_PASSWORD, ip(9));
+
+    const wrong = [];
+    for (let i = 0; i < 5; i += 1) {
+      const r = await s.ctx.post(`${ADMIN}/admin/profile/pin`, {
+        form: { _csrf: s.csrf, current_password: `faux-${i}`, pin: '1111', pin_confirm: '1111' }, maxRedirects: 0,
+      });
+      wrong.push(r.status());
+    }
+    expect(wrong.every((st) => st === 422), wrong.join(',')).toBe(true);
+
+    // Le verrou tient MEME avec le bon mot de passe (gate AVANT verify) : ni
+    // enregistrement du PIN (redirection 302), ni message "mot de passe actuel
+    // incorrect" -- avant D-1, cette route n'avait aucune limite ni trace.
+    const locked = await s.ctx.post(`${ADMIN}/admin/profile/pin`, {
+      form: { _csrf: s.csrf, current_password: TEMP_PASSWORD, pin: '2222', pin_confirm: '2222' }, maxRedirects: 0,
+    });
+    expect(locked.status()).toBe(422);
+    const lockedBody = await locked.text();
+    expect(lockedBody).not.toContain('Mot de passe actuel incorrect');
+    await s.ctx.dispose();
+  });
+
+  test('re-authentification profil (D-1.a) : le verrou ne se remet pas a zero par une action PIN reussie avec l identite d un tiers', async () => {
+    // Avant D-1.a, le compteur de re-verification partageait pin_throttle
+    // (cle = utilisateur de SESSION) avec le PIN d'action sensible -- remis a
+    // zero par TOUTE action PIN reussie, MEME autorisee par l'email+PIN d'un
+    // TIERS (PinVerifier::resolveActingUser() accepte tout compte actif). Sur
+    // le poste partage, un collegue pouvait alterner des echecs de mot de
+    // passe et des actions PIN anodines avec SES PROPRES identifiants pour ne
+    // jamais armer le verrou. Le compte JETABLE est distinct de celui du test
+    // precedent (compteurs par compte, D-1.a).
+    const email = await createUser('counter', 'reauth2');
+    const s = await apiSession(email, TEMP_PASSWORD, ip(12));
+
+    for (let i = 0; i < 4; i += 1) {
+      const r = await s.ctx.post(`${ADMIN}/admin/profile/pin`, {
+        form: { _csrf: s.csrf, current_password: `faux-${i}`, pin: '3333', pin_confirm: '3333' }, maxRedirects: 0,
+      });
+      expect(r.status()).toBe(422);
+    }
+
+    // Action PIN reussie AILLEURS, avec L'IDENTITE D'ADMIN (un tiers pour
+    // cette session) : annulation d'une commande jetable, autorisee par
+    // admin@wakdo.local + son PIN -- jamais celui de la session courante.
+    const { data: products } = await (await s.ctx.get(`http://kiosk.wakdo.test/api/products`)).json();
+    const productId = products.find((p) => p.is_orderable).id;
+    const created = await s.ctx.post(`${ADMIN}/admin/api/orders`, {
+      headers: { 'X-CSRF-Token': s.csrf },
+      data: { service_mode: 'takeaway', items: [{ type: 'product', product_id: productId, quantity: 1 }] },
+    });
+    expect(created.status()).toBe(201);
+    const number = (await created.json()).data.order_number;
+    const cancelled = await s.ctx.post(`${ADMIN}/admin/api/orders/${number}/cancel`, {
+      headers: { 'X-CSRF-Token': s.csrf },
+      data: { pin_email: ADMIN_EMAIL, pin: ADMIN_PIN },
+    });
+    expect(cancelled.status()).toBe(200);
+
+    // Un 5e echec doit desormais verrouiller -- preuve que le succes PIN
+    // ci-dessus n'a RIEN remis a zero pour cette session.
+    const fifth = await s.ctx.post(`${ADMIN}/admin/profile/pin`, {
+      form: { _csrf: s.csrf, current_password: 'faux-4', pin: '3333', pin_confirm: '3333' }, maxRedirects: 0,
+    });
+    expect(fifth.status()).toBe(422);
+
+    const locked = await s.ctx.post(`${ADMIN}/admin/profile/pin`, {
+      form: { _csrf: s.csrf, current_password: TEMP_PASSWORD, pin: '3333', pin_confirm: '3333' }, maxRedirects: 0,
+    });
+    expect(locked.status()).toBe(422);
+    expect(await locked.text()).not.toContain('Mot de passe actuel incorrect');
+    await s.ctx.dispose();
+  });
+
+  test('verrou par IP (D-2) : une connexion reussie ne remet pas le compteur a zero', async () => {
+    // Avant D-2, une connexion reussie remettait le compteur IP a 0 -- un
+    // attaquant qui connait un couple valide pouvait alterner 19 echecs et 1
+    // succes sans jamais atteindre le plafond de 20.
+    const attacker = await ctxFrom(ip(10));
+    for (let i = 0; i < 19; i += 1) {
+      const r = await apiLogin(attacker, `balayage2-${i}-${RUN}@wakdo.local`, 'x');
+      expect(r.status()).toBe(401);
+    }
+
+    const ok = await apiLogin(attacker, ADMIN_EMAIL, ADMIN_PASSWORD);
+    expect(ok.status()).toBe(200);
+
+    // Un seul echec de plus (19 + 1 = 20) doit desormais suffire a atteindre le
+    // plafond, PUISQUE le succes ci-dessus n'a rien remis a zero.
+    const twentieth = await apiLogin(attacker, `balayage2-last-${RUN}@wakdo.local`, 'x');
+    expect(twentieth.status()).toBe(401);
+
+    const blocked = await apiLogin(attacker, ADMIN_EMAIL, ADMIN_PASSWORD);
+    expect(blocked.status()).toBe(429);
+    await attacker.dispose();
+  });
 });

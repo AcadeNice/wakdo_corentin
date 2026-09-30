@@ -19,6 +19,10 @@ const ADMIN = 'http://admin.wakdo.test';
 // CORS_ALLOWED_ORIGIN de .env.example, que copient les deux lanceurs de pile jetable.
 const ALLOWED_ORIGIN = process.env.SEC_CORS_ORIGIN || 'http://kiosk.localhost:8080';
 const EVIL_ORIGIN = 'https://attaquant.example';
+// Compte de demo comptoir (seed), utilise uniquement pour creer UNE commande jetable
+// (produit deja commandable du catalogue de demo, quantite 1 : aucun effet durable).
+const COMPTOIR_EMAIL = 'comptoir@wakdo.local';
+const COMPTOIR_PASSWORD = 'WakdoComptoir2026!';
 
 const SECRET_IN_CODE = /(password|passwd|mot_de_passe)\s*[:=]\s*['"][^'"]+['"]|api[_-]?key\s*[:=]|secret\s*[:=]\s*['"]|Bearer\s+[A-Za-z0-9._-]{10,}|BEGIN (RSA |EC )?PRIVATE KEY|@wakdo\.local|WakdoAdmin|Wakdo\w*2026!|DB_(PASSWORD|USER|HOST)|mysql:host|AKIA[0-9A-Z]{16}|sk_live_|WAKDO_SID|\$argon2/i;
 
@@ -164,6 +168,40 @@ test.describe('Surface de la borne', () => {
       expect(res.status(), guess).toBe(404);
       expect((await res.json()).error.code).toBe('ORDER_NOT_FOUND');
     }
+    await ctx.dispose();
+  });
+
+  test('encaissement public (POST /pay) : canal kiosk seulement, jamais comptoir/drive (A-2)', async () => {
+    // Une commande comptoir est encaissee IMMEDIATEMENT a sa creation (createStaffOrder,
+    // POST-1) : elle n'est donc jamais visible en pending_payment depuis l'exterieur --
+    // le scenario reproduit ici est le PLUS FAVORABLE a l'attaquant qu'une commande reelle
+    // puisse offrir au canal public (deja preparing). Avant ce correctif, /pay repondait
+    // 200 avec le statut ET le total de cette commande (idempotence de pay() sans garde de
+    // canal) ; le correctif doit rendre la MEME reponse 404 qu'un numero inconnu.
+    const ctx = await pwRequest.newContext();
+    const login = await ctx.post(`${ADMIN}/admin/api/auth/login`, { data: { email: COMPTOIR_EMAIL, password: COMPTOIR_PASSWORD } });
+    expect(login.status()).toBe(200);
+    const csrf = (await login.json()).data.csrf_token;
+
+    const { data: products } = await (await ctx.get(`${KIOSK}/api/products`)).json();
+    const created = await ctx.post(`${ADMIN}/admin/api/orders`, {
+      headers: { 'X-CSRF-Token': csrf },
+      data: { service_mode: 'takeaway', items: [{ type: 'product', product_id: products.find((p) => p.is_orderable).id, quantity: 1 }] },
+    });
+    expect(created.status(), await created.text()).toBe(201);
+    const number = (await created.json()).data.order_number;
+
+    const pay = await ctx.post(`${KIOSK}/api/orders/${number}/pay`);
+    const unknown = await ctx.post(`${KIOSK}/api/orders/C999999/pay`);
+    const payBody = await pay.json();
+    expect(pay.status()).toBe(404);
+    expect(payBody.error.code).toBe('ORDER_NOT_FOUND');
+    expect(payBody).toEqual(await unknown.json());
+
+    // La commande comptoir n'a pas ete touchee (toujours visible du back-office, statut
+    // inchange) : le canal public n'a rien pu ecrire sur elle.
+    const status = await (await ctx.get(`${ADMIN}/admin/api/orders/${number}`)).json();
+    expect(status.data.status).toBe('preparing');
     await ctx.dispose();
   });
 });

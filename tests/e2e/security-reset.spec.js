@@ -79,3 +79,44 @@ test.describe('Lien de reinitialisation du mot de passe', () => {
     if (before) await before.dispose();
   });
 });
+
+// D-7.a (revue adverse, contre-audit 30/09) : ne depend pas d'un jeton REEL
+// (contrairement au describe ci-dessus, phase "reset" uniquement) -- l'en-tete
+// Referrer-Policy est pose pour TOUT GET /reset_password, jeton valide ou non
+// -- donc joue en phase "main" comme le reste des specs security-*.
+test.describe('Referrer-Policy sur la page de reinitialisation (D-7.a)', () => {
+  test('en-tete no-referrer, et aucune requete de la page (ressources, envoi du formulaire) ne porte le jeton en Referer', async ({ page }) => {
+    // Jeton de forme valide (64 caracteres hexadecimaux) mais fictif : la page
+    // se rend (formulaire vide-la-valeur, "Lien invalide" possible a l'envoi),
+    // ce qui suffit -- l'en-tete et le Referer ne dependent pas de la validite
+    // du jeton en base.
+    const token = 'd7a'.padEnd(64, '0');
+    const url = `${ADMIN}/reset_password?token=${token}`;
+
+    const seenReferers = [];
+    page.on('request', (req) => {
+      const referer = req.headers()['referer'];
+      if (referer) {
+        seenReferers.push({ url: req.url(), referer });
+      }
+    });
+
+    const response = await page.goto(url);
+    expect(response.headers()['referrer-policy']).toBe('no-referrer');
+
+    // Laisse le temps aux ressources de la page (feuille de style, script,
+    // logo) de partir : c'est EXACTEMENT le canal que D-7.a ferme.
+    await page.waitForLoadState('networkidle');
+
+    // L'envoi du formulaire poste vers /reset_password (meme origine, meme
+    // page) : mots de passe valides en longueur (passe la validation cote
+    // navigateur) mais differents (refus cote serveur, sans consommer le
+    // jeton) -- ce qui compte ici est la requete elle-meme, pas son issue.
+    await page.fill('#password', 'longenough1');
+    await page.fill('#password_confirm', 'different01');
+    await page.click('form[action="/reset_password"] button[type="submit"]');
+    await page.waitForLoadState('networkidle');
+
+    expect(seenReferers, JSON.stringify(seenReferers)).toEqual([]);
+  });
+});

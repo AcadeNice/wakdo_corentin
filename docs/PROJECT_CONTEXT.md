@@ -227,7 +227,7 @@ Reseaux :
 - Envoi POST JSON de la commande vers l'API
 - Ecran de confirmation avec le numero de commande genere par le serveur
 - Responsive cible 1920x1080 portrait (borne) **+ adaptatif** autres resolutions
-- **Accessibilite RGAA** : police OpenDys pour dyslexiques, navigation clavier, contrastes, alts, pas d'info via couleur seule
+- **Accessibilite RGAA** : police OpenDyslexic pour dyslexiques, navigation clavier, contrastes, alts, pas d'info via couleur seule
 - **SEO / semantique** : balises HTML5 (`article`, `aside`, `nav`), schema.org, meta tags uniques, canonical, favicon
 
 **OUT scope :**
@@ -256,7 +256,7 @@ Reseaux :
 - `GET /api/products/{id}`, `GET /api/menus/{id}` (avec ses emplacements et leur disponibilite par format), `GET /api/allergens`
 - `POST /api/orders` — creer une commande (body JSON, retour `{id, order_number, status, total_ttc_cents}`)
 - `POST /api/orders/{number}/pay` — paiement simule
-- `GET /api/orders/{number}` — recuperer statut commande
+- `GET /api/orders/{number}` — statut d'une commande borne uniquement (`order_number`, `status` ; une commande d'un autre canal rend `404 ORDER_NOT_FOUND`, meme reponse qu'un numero inconnu)
 - `GET /api/health` — sonde publique (10 routes publiques au total, `src/app/Core/routes.php`)
 - Middleware CORS present en defense en profondeur (origine exacte, sans wildcard) ; la borne consomme en realite `/api/*` en meme origine via le proxy du vhost kiosk, pas via CORS (section 5)
 - Reponses JSON standardisees : `{data: [...], total: N}` pour une liste, `{data: {...}}` pour un element, `{data: null, error: {code, message}}` en echec
@@ -322,7 +322,7 @@ Reseaux :
 | Cr 1.a.4 | Code commente, indente | Conventions de code appliquees partout |
 | Cr 1.a.5 | Balises semantiques | `<article>`, `<aside>`, `<nav>`, `<header>`, `<main>`, `<section>` |
 | Cr 1.b.1-3 | Responsive + multi-navigateurs | Media queries + @supports + tests Chrome/FF/Safari |
-| Cr 1.c.1-4 | Accessibilite RGAA/OpenDys | alt, aria-label, navigation clavier, police OpenDys, pas d'info via couleur seule |
+| Cr 1.c.1-4 | Accessibilite RGAA/OpenDyslexic | alt, aria-label, navigation clavier, police OpenDyslexic, pas d'info via couleur seule |
 | Cr 1.d.1-4 | Classes CSS reutilisables | Convention BEM ou similaire, regroupe par theme, sans repetition |
 | Cr 1.e.1-11 | SEO + meta + semantique | hierarchie titres, schema.org, canonical, alt images, favicon, temps chargement |
 | Cr 2.a.1-5 | JS ES6+ + DOM + animations | Modules ES6, classes, async/await, pas de jQuery |
@@ -584,7 +584,7 @@ Buffer : ~8 h pour imprevus. Cible effective : ~264 h sur 20 semaines = **~13 h/
 | **PDO** | Abstraction BDD PHP avec prepared statements (anti-SQLi) |
 | **BEM** | Convention naming CSS Block__Element--Modifier |
 | **RGAA** | Referentiel General d'Amelioration de l'Accessibilite (France) |
-| **OpenDys** | Police de caractere pour personnes dyslexiques |
+| **OpenDyslexic** | Police de caractere pour personnes dyslexiques |
 
 ---
 
@@ -743,7 +743,10 @@ d'entree analyses ci-dessous :
 - **E2 — Back-office admin (staff authentifie, poste partage + PIN par equipier)** : CRUD
   catalogue/menus/ingredients, RBAC, gestion utilisateurs, stock, annulation de commande,
   stats. Session partagee par poste pour le flux courant ; un PIN par equipier
-  (`user.pin_hash`) re-autorise l'ensemble sensible (RG-T13).
+  (`user.pin_hash`) re-authentifie l'acteur pour l'ensemble sensible (RG-T13). Le PIN
+  identifie QUI agit (l'acteur inscrit dans `audit_log`) ; il ne verifie pas que cet
+  acteur detient la permission de l'action, qui reste verifiee sur la session, avant
+  la demande de PIN (ADR-0004, encadre « Precision »).
 - **E3 — Surface d'authentification** : login (`AUTHENTICATE_USER`, op 25, `mlt.md` 12.1) et
   reinitialisation de mot de passe (`RESET_PASSWORD`, op 28, `mlt.md` 12.3, throttlee par
   adresse et par IP depuis le 2026-09-29). La garde de session (`SessionGuard::check()`, RG-T02)
@@ -768,14 +771,14 @@ et/ou une entite reelle du modele.
 |---|---|---|---|---|---|---|
 | R1 | Recette (cash) sur commande payee | Un equipier annule une commande `paid` pour detourner l'encaissement (fraude interne) | Fort | Moyenne | `CANCEL_ORDER` (`mlt.md` 7.1) PIN-gated (RG-T13) + ecriture `audit_log` dans la meme transaction (RG-T14, RG-T11) ; acteur capture via `audit_log.actor_user_id` | Faible — l'annulation reste possible mais devient nominative et tracee ; dissuasion plus que blocage |
 | R2 | `product.price_cents` / `vat_rate` / `role_id` | Falsification via un champ de formulaire injecte (mass-assignment) | Fort | Moyenne | Allowlist de colonnes par operation (RG-T16) sur `UPDATE_PRODUCT` (`mlt.md` 8.2) et `UPDATE_USER` (10.2) ; seules les colonnes autorisees sont bindees | Faible — les champs hors allowlist sont ignores ; un changement de prix reste audite (RG-T14) |
-| R3 | Comptes back-office (`user.password_hash`) | Brute-force sur le login staff | Moyen | Haute | Backoff degressif par compte (`user.failed_login_attempts` / `lockout_until`) + par IP (`login_throttle`, entite 21) ; gate avant verification (`mlt.md` 12.1 PRE-3, RG-8) | Faible — ralentissement sans lock indefini ; un service de 15h n'est pas bloque par une saisie maladroite |
+| R3 | Comptes back-office (`user.password_hash`) | Brute-force sur le login staff | Moyen | Haute | Backoff degressif par compte (`user.failed_login_attempts` / `lockout_until`) + par IP (`login_throttle`, entite 21) ; gate avant verification (`mlt.md` 12.1 PRE-3, RG-8). Une revue adversariale du 30/09 a trouve trois contournements du compteur par compte, tous corriges le meme jour : la re-verification du mot de passe sur `/admin/profile/pin` ne comptait sur aucun verrou (compte desormais sur le MEME budget que la connexion) ; une connexion reussie remettait a zero le compteur IP (ne remet plus que le compteur du compte) ; le compteur par compte s'incrementait hors transaction (increment SQL atomique desormais, comme la dimension IP) | Faible — ralentissement sans lock indefini ; un service de 15h n'est pas bloque par une saisie maladroite. Limite assumee : sur poste partage, un collegue peut desormais faire verrouiller la CONNEXION du titulaire en accumulant des echecs sur `/admin/profile/pin` (pas pire qu'avant depuis `/login`, meme budget de mots de passe essayables, chaque essai trace) ; le compteur IP est partage par tout un restaurant derriere un meme NAT (SECURITY.md, « Limites connues ») |
 | R4 | Vues kiosk et admin (texte stocke) | XSS stocke via `product.name` / `ingredient.name` / `user.first_name` | Moyen | Moyenne | Echappement au rendu (RG-T15) : `htmlspecialchars(..., ENT_QUOTES)` cote admin, cote borne, gabarits `innerHTML` dont chaque valeur de catalogue passe par `escHtml()` (`src/public/borne/assets/js/state.js`) | Faible — l'echappement reduit le risque d'execution de script injecte |
 | R5 | `ingredient.stock_quantity` | Survente (oversell) sous concurrence multi-borne | Moyen | Moyenne | Decrement atomique auto-verrouillant (RG-T20) sans read-gate + disponibilite calculee (RG-T21 : un article dont un ingredient requis, non retirable, est sous le seuil critique est refuse en `422`) ; `stock_quantity` signe, la magnitude de survente est remontee aux managers | Moyen accepte — au-dessus du seuil critique, une survente sous concurrence reste possible ; elle est mesuree, pas empechee (decision metier) |
 | R6 | Commande payee | Double-charge sur retry reseau de `POST /api/orders` | Moyen | Moyenne | Idempotence (RG-T19) : `customer_order.idempotency_key` UNIQUE ; un retry renvoie la commande existante au lieu d'en creer une seconde | Faible — la cle UNIQUE deduplique les rejeux ; depend d'une cle client correctement generee |
 | R7 | PII utilisateur (`user.email`/`first_name`/`last_name`) | Demande d'effacement RGPD non honoree, ou rupture de l'integrite referentielle a la suppression | Fort (conformite) | Faible | Anonymisation (`ERASE_USER_PII`, `mlt.md` 10.5) : la ligne est conservee, PII remplacees par un placeholder `anon-<id>@wakdo.invalid`, credentials invalides, `anonymized_at` pose ; `audit_log` retient sa propre fenetre | Faible — effacement et tracabilite coexistent ; les FK (`audit_log.actor_user_id`, `customer_order.acting_user_id`, `stock_movement.user_id`) restent valides |
-| R8 | Matrice RBAC (`role_permission`) | Elevation de privilege via modification de role non controlee | Fort | Faible | `MANAGE_RBAC` (`mlt.md` 10.4) PIN-gated (RG-T13) + `audit_log` du diff de permissions (RG-T14, RG-6) ; `role_id` derriere l'allowlist (RG-T16) | Faible — tout gain/perte de capacite est nominatif et trace |
+| R8 | Matrice RBAC (`role_permission`) | Elevation de privilege via modification de role non controlee ; `user.update`/`user.create` permettent d'affecter n'importe quel role actif, y compris `admin` | Fort | Faible | `MANAGE_RBAC` (`mlt.md` 10.4) PIN-gated (RG-T13) + `audit_log` du diff de permissions (RG-T14, RG-6) ; `role_id` derriere l'allowlist (RG-T16). Corrige le 2026-09-30 (revue adversariale) : affecter un role, ou modifier/desactiver/reinitialiser le PIN d'un compte dont le role deborde celui de l'acteur, exige desormais que l'ACTEUR detienne lui-meme toutes les permissions du role vise (ou `role.manage`) — `UserController::roleExceedsActorPermissions()`, meme garde cote API ; verifiee y compris si le role vise est desactive | Faible — sans cette garde, un role personnalise dote de `user.update` pouvait s'affecter `admin` ; aucun role du jeu de demonstration n'est concerne (seul `admin` porte `user.*` au seed). Une 2e revue adversariale le meme jour a etendu la garde a la portee des sources de commande visibles (`role_visible_source`, `c5a8fc4`) : un role limite a un canal ne peut plus affecter ni garder un role qui voit davantage de canaux, meme a permissions identiques par ailleurs |
 | R9 | `stock_movement` (demarque) | Correction d'inventaire masquant une demarque | Moyen | Moyenne | `INVENTORY_COUNT` (`mlt.md` 9.2) PIN-gated (RG-T13) ; le `user_id` capture par PIN est ecrit dans `stock_movement.user_id` (append-only) | Faible — la correction devient attribuable a une personne meme sur poste partage |
-| R10 | `ingredient.stock_quantity` / disponibilite catalogue | Deni de service : une commande anonyme (`POST /api/orders`, sans session) porte une quantite demesuree sur une seule ligne, ou un nombre de lignes arbitraire, et vide le stock d'un ingredient en deux requetes | Fort | Moyenne (avant correctif) | **Corrige dans le code le 2026-09-29, en production apres la release du 29/09** (commit `fce3085`, branche `fix/sec-order`, fusionnee par `86306ef`) : quantite bornee 1-20 par ligne (`INVALID_QUANTITY`, `OrderRepository::resolveQuantity`), 50 lignes au plus par commande (`TOO_MANY_ITEMS`) ; avant cette borne, `max(1, ...)` ne relevait en silence que les valeurs inferieures a 1 : une quantite demesuree passait telle quelle jusqu'a l'ecriture SQL (`order_item.quantity` etant un `SMALLINT UNSIGNED`). Une borne complementaire sur le TOTAL d'articles par commande (`OrderRepository::MAX_ITEMS_PER_ORDER` = 50, code `ORDER_TOO_LARGE`) est corrigee le 2026-09-29 (commit `33538c6`) : sans elle, 50 lignes a 20 articles chacune (les deux bornes individuelles respectees) restaient possibles dans UNE commande anonyme. | Faible mais assume : ces bornes limitent ce qu'UNE commande consomme, pas le nombre de commandes successives depuis la meme source. Une limitation par IP a ete ECARTEE (des bornes reelles d'un meme restaurant partagent la meme adresse ; la fiabilite de l'IP derriere le proxy releve de Traefik, non verifie ici). En production reelle, l'API kiosk serait reservee au reseau du restaurant ou a des bornes identifiees (hors perimetre code) ; en demonstration, la remise a zero quotidienne restaure le stock. |
+| R10 | `ingredient.stock_quantity` / disponibilite catalogue | Deni de service : une commande anonyme (`POST /api/orders`, sans session) porte une quantite demesuree sur une seule ligne, ou un nombre de lignes arbitraire, et vide le stock d'un ingredient en deux requetes | Fort | Moyenne (avant correctif) | **Corrige dans le code le 2026-09-29, en production depuis la release du 29/09** (`aab4e96` ; commit `fce3085`, branche `docs/contre-audit` ; sur `main` : squash `9e22a21`, PR #197) : quantite bornee 1-20 par ligne (`INVALID_QUANTITY`, `OrderRepository::resolveQuantity`), 50 lignes au plus par commande (`TOO_MANY_ITEMS`) ; avant cette borne, `max(1, ...)` ne relevait en silence que les valeurs inferieures a 1 : une quantite demesuree passait telle quelle jusqu'a l'ecriture SQL (`order_item.quantity` etant un `SMALLINT UNSIGNED`). Une borne complementaire sur le TOTAL d'articles par commande (`OrderRepository::MAX_ITEMS_PER_ORDER` = 50, code `ORDER_TOO_LARGE`) est corrigee le 2026-09-29 (commit `33538c6`, meme branche) : sans elle, 50 lignes a 20 articles chacune (les deux bornes individuelles respectees) restaient possibles dans UNE commande anonyme. | Faible mais assume : ces bornes limitent ce qu'UNE commande consomme, pas le nombre de commandes successives depuis la meme source. Une limitation par IP a ete ECARTEE (des bornes reelles d'un meme restaurant partagent la meme adresse ; la fiabilite de l'IP derriere le proxy releve de Traefik, non verifie ici). En production reelle, l'API kiosk serait reservee au reseau du restaurant ou a des bornes identifiees (hors perimetre code) ; en demonstration, la remise a zero quotidienne restaure le stock. |
 | R11 | Session back-office (autorisation) | Elevation de privilege : un role retire ou change en base (`user.role_id`) ne s'appliquait qu'a la PROCHAINE connexion, pas a une session deja ouverte — `SessionGuard::check()` ne relisait que `is_active`, le `role_id` utilise pour l'autorisation venait de la session posee a la connexion | Fort | Faible | **Corrige le 2026-09-29** (commit `ef7fd37`) : `SessionGuard::check()` relit desormais `is_active`, `role_id` ET `session_epoch` en base, dans la MEME requete SQL, a chaque requete authentifiee (RG-T02) ; un changement/retrait de role s'applique des la requete suivante | Faible — la fenetre d'exposition est bornee au temps de propagation d'une requete, plus de fenetre "jusqu'a la prochaine connexion" |
 
 ### 19.3 Analyse STRIDE par element
@@ -818,7 +821,7 @@ actions sensibles non-stock avec `actor_user_id` (capture par PIN, RG-T13), `act
 `summary` non-personnel ; pas d'UPDATE/DELETE applicatif. Ceci inclut l'echec de PIN
 (`pin.failed`) : `PinGate::auditFailedPin()` ecrit un `summary` de contexte fixe, sans
 l'adresse saisie au formulaire (corrige le 2026-09-29, RGPD art. 5.1.c, migration
-`0019_pin_failed_audit_minimisation.sql`, un `UPDATE` qui retire l'adresse des lignes deja ecrites ; dans le code, en production apres la release du 29/09). L'attribution
+`0019_pin_failed_audit_minimisation.sql`, un `UPDATE` qui retire l'adresse des lignes deja ecrites ; dans le code, en production depuis la release du 29/09, `aab4e96`). L'attribution
 des commandes comptoir/drive passe par `customer_order.acting_user_id` (`mlt.md` 4.1 RG-5) et
 celle du stock par `stock_movement.user_id` (`mlt.md` 9.1/9.2). Les actions stock ne sont pas
 doublement journalisees : `stock_movement` (append-only) fournit deja la piste.
@@ -847,8 +850,8 @@ ingredient ; la commande elle-meme (`customer_order`, `order_item`, `order_item_
 concurrentes qui partagent des ingredients. Une commande anonyme pouvait neanmoins porter une
 quantite demesuree sur une seule ligne (ou un nombre de lignes arbitraire) et vider le stock
 d'un ingredient en deux requetes (voir R10, 19.2) — **corrige le 2026-09-29** (commit
-`fce3085`, branche `fix/sec-order`, fusionnee par `86306ef` : quantite bornee 1-20, 50
-lignes au plus par commande). Residuel assume : ces bornes ne couvrent que le contenu
+`fce3085`, branche `docs/contre-audit` ; sur `main` : squash `9e22a21`, PR #197) : quantite
+bornee 1-20, 50 lignes au plus par commande. Residuel assume : ces bornes ne couvrent que le contenu
 d'UNE commande, pas le nombre de commandes successives depuis la meme source (R10, 19.2).
 
 **Elevation of privilege.** Le RBAC est permission-driven : le code teste une permission, pas
@@ -873,9 +876,9 @@ PII).
 
 | Niveau | Definition | Entites / colonnes | Regle de manipulation |
 |---|---|---|---|
-| **RESTRICTED** (secrets / credentials) | Secrets d'authentification ; tenus hors de toute exposition | Colonnes de `user` (14) : `password_hash`, `pin_hash`, `password_reset_token_hash` | Hors logs et hors reponses API ; argon2id ; invalides a l'anonymisation (`mlt.md` 10.5 RG-1) ; exclus de `audit_log.details` qui ne retient que des noms de champs (RG-T14) |
+| **RESTRICTED** (secrets / credentials) | Secrets d'authentification ; tenus hors de toute exposition | Colonnes de `user` (14) : `password_hash`, `pin_hash`, `password_reset_token_hash` | Hors logs et hors reponses API ; `password_hash`/`pin_hash` en argon2id ; `password_reset_token_hash` en SHA-256 (jeton aleatoire de 256 bits genere par le serveur, un hachage lent n'apporte rien face a un secret deja a forte entropie) ; invalides a l'anonymisation (`mlt.md` 10.5 RG-1) ; exclus de `audit_log.details` qui ne retient que des noms de champs (RG-T14) |
 | **CONFIDENTIAL** (PII, RGPD) | Donnees a caractere personnel d'un staff identifiable | Colonnes de `user` (14) : `email`, `first_name`, `last_name` | Sujet a l'anonymisation a l'effacement (`ERASE_USER_PII`, op 27) ; `audit_log` stocke les noms de champs, pas les valeurs ; echappement au rendu (RG-T15) |
-| **INTERNAL** (sensible metier) | Donnees d'exploitation, non publiques, a acces restreint par RBAC | `customer_order` (10), `order_item` (11), `order_item_selection` (12), `order_item_modifier` (13), `stock_movement` (19), `audit_log` (20), `login_throttle` (21, contient l'IP source), `pin_throttle` (22, contient l'identifiant de l'utilisateur agissant), `role` (15), `permission` (17), `role_permission` (18), `role_visible_source` (16), `category_ingredient_family` (23, parametrage du constructeur de recette), `password_reset_throttle` (24, contient l'adresse demandee ou l'IP source, ajoutee le 2026-09-29) ; sorties de stats (`READ_STATS`, op 24) | Acces filtre par permission (RG-T03) ; attribution stock visible manager/admin seulement (`mlt.md` 9.3 RG-4) ; integrite par snapshots (RG-T05) et transactions (RG-T08/RG-T11) |
+| **INTERNAL** (sensible metier) | Donnees d'exploitation, non publiques, a acces restreint par RBAC | `customer_order` (10), `order_item` (11), `order_item_selection` (12), `order_item_modifier` (13), `stock_movement` (19), `audit_log` (20), `login_throttle` (21, contient l'IP source), `pin_throttle` (22, contient l'identifiant de l'utilisateur agissant), `role` (15), `permission` (17), `role_permission` (18), `role_visible_source` (16), `category_ingredient_family` (23, parametrage du constructeur de recette), `password_reset_throttle` (24, contient l'empreinte SHA-256 non salee de l'adresse demandee — migration 0021, une pseudonymisation : elle se retrouve en hachant une adresse deja connue, ce n'est pas une anonymisation — ou l'IP source en clair, ajoutee le 2026-09-29) ; sorties de stats (`READ_STATS`, op 24) | Acces filtre par permission (RG-T03) ; attribution stock visible manager/admin seulement (`mlt.md` 9.3 RG-4) ; integrite par snapshots (RG-T05) et transactions (RG-T08/RG-T11) |
 | **PUBLIC** (catalogue, face kiosk) | Donnees servies a la borne anonyme | `category` (1), `product` (2), `menu` (3), `menu_slot` (4), `menu_slot_option` (5), `ingredient` (6, nom + dispo calculee), `product_ingredient` (7), `allergen` (8), `ingredient_allergen` (9) | Lecture publique via `LOAD_CATALOGUE` (op 1) ; ecriture reservee admin/manager (RG-T03) ; texte echappe au rendu (RG-T15) ; disponibilite calculee (RG-T21) |
 
 **Couverture** : 24/24 entites classifiees (9 PUBLIC, 14 INTERNAL incluant les cinq entites
@@ -888,12 +891,20 @@ colonne.
 
 ---
 
-*Document vivant — version 1.9 — 2026-09-29 apres-midi (revue adversariale des correctifs :
+*Document vivant — version 1.10 — 2026-09-30 (BYAN, contre-audit independant de la
+documentation securite : R3 precise trois contournements du throttle de connexion corriges
+le meme jour (re-verification du mot de passe du profil, remise a zero du compteur IP,
+increment non atomique) et leurs limites residuelles ; R8 precise le correctif d'elevation de
+privilege (`user.update`/`user.create` bornes aux permissions de l'acteur) ; PIN reformule en
+« re-authentifie » plutot que « re-autorise » (le PIN identifie l'acteur, il ne verifie pas sa
+permission, ADR-0004) ; matrice de classification corrigee (`password_reset_token_hash` en
+SHA-256, pas argon2id ; `password_reset_throttle` en empreinte SHA-256 non salee, une
+pseudonymisation). Version 1.9 — 2026-09-29 apres-midi (revue adversariale des correctifs :
 purge et empreinte SHA-256 de `password_reset_throttle`, migration 0021, `680820f` ; sessions
 fermees quand l'admin change un mot de passe ; appariement des emplacements de menu par type et
 nom, `e9f00d8` ; disponibilite d'option par format, quantite stricte au comptoir, plafond de 20 a
-la borne, `186c5d7` ; tout le 29/09 est dans le code de la branche `docs/contre-audit`, en
-production apres la release du 29/09). Version 1.8 — 2026-09-29 (quatre correctifs de securite : R10/R11
+la borne, `186c5d7` ; tout le 29/09 est dans le code de la branche `docs/contre-audit` (squash
+`9e22a21` sur `main`), en production depuis la release du 29/09, `aab4e96`). Version 1.8 — 2026-09-29 (quatre correctifs de securite : R10/R11
 ajoutes au registre des risques, STRIDE Spoofing/Denial of service/Elevation of privilege
 precisees, entite `password_reset_throttle` (24e) classifiee INTERNAL, commits
 `08d7a96`/`ef7fd37`/`fce3085`/`33538c6` ; residuel assume sur R10 precise (pas de limitation

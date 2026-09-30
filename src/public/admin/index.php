@@ -16,6 +16,7 @@ use App\Core\Autoloader;
 use App\Core\Config;
 use App\Core\Cors;
 use App\Core\Database;
+use App\Core\DeferredActions;
 use App\Core\ErrorDisplay;
 use App\Core\ErrorResponse;
 use App\Core\Request;
@@ -97,4 +98,17 @@ try {
     // doit rester lisible par le navigateur de la borne (RG enveloppe d'erreur).
     $cors->applyTo($request, $errorResponse);
     $errorResponse->send();
+} finally {
+    // D-5 (contre-audit 30/09, durci D-5.a revue adverse) : la reponse est deja
+    // PARTIE (try et catch se terminent tous deux par un send()) -- c'est ICI,
+    // et seulement ici, qu'un travail differe (ex. l'envoi SMTP du lien de
+    // reinitialisation, cf. PasswordResetService::requestReset()) peut
+    // s'executer sans retarder le client. DeferredActions::finishRequest()
+    // ferme D'ABORD la session PHP (libere son verrou de fichier AVANT que le
+    // travail differe ne s'execute -- sans ca, une 2e requete portant le meme
+    // cookie restait bloquee sur ce verrou jusqu'a la fin de l'envoi SMTP,
+    // rouvrant le canal par le temps que D-5 devait fermer), PUIS rend la main
+    // au client (fastcgi_finish_request(), quand la SAPI la fournit), PUIS vide
+    // la file.
+    DeferredActions::finishRequest();
 }

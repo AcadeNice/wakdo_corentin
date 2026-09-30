@@ -8,6 +8,7 @@ use PHPUnit\Framework\TestCase;
 use App\Auth\PasswordHasher;
 use App\Auth\PasswordResetService;
 use App\Core\Config;
+use App\Core\DeferredActions;
 use App\Tests\Support\FakeDatabase;
 use App\Tests\Support\SpyMailer;
 
@@ -36,10 +37,15 @@ final class PasswordResetServiceTest extends TestCase
         $this->db = new FakeDatabase();
         $this->mailer = new SpyMailer();
         $this->hasher = new PasswordHasher(new Config());
+        // D-5 (contre-audit 30/09) : la file est un etat STATIQUE par processus
+        // (partage entre tests dans le meme run PHPUnit) -- la vider avant chaque
+        // test isole les tests entre eux.
+        DeferredActions::reset();
     }
 
     protected function tearDown(): void
     {
+        DeferredActions::reset();
         foreach ($this->touchedKeys as $key) {
             putenv($key);
         }
@@ -78,6 +84,13 @@ final class PasswordResetServiceTest extends TestCase
 
         $this->service()->requestReset('admin@wakdo.local', 'https://admin.wakdo.test', self::NOW);
 
+        // D-5 (contre-audit 30/09) : l'envoi n'est plus synchrone -- requestReset()
+        // ne fait que STOCKER le token et METTRE EN FILE l'appel au mailer ; le
+        // mail ne part qu'au flush (fait par le front controller APRES la reponse
+        // HTTP, cf. testRequestActiveUserDefersMailSendUntilFlush ci-dessous).
+        self::assertCount(0, $this->mailer->sent, 'l\'envoi ne doit pas etre synchrone (D-5).');
+        DeferredActions::flush();
+
         self::assertCount(1, $this->mailer->sent);
         $url = $this->mailer->sent[0]['resetUrl'];
         self::assertStringStartsWith('https://admin.wakdo.test/reset_password?token=', $url);
@@ -93,6 +106,30 @@ final class PasswordResetServiceTest extends TestCase
         self::assertSame(hash('sha256', $rawToken), $storedHash);
         self::assertNotSame($rawToken, $storedHash);
         self::assertSame(date('Y-m-d H:i:s', self::NOW + 3600), $write['params']['exp'] ?? null);
+    }
+
+    /**
+     * D-5 (contre-audit 30/09) : le canal par le temps ("une adresse connue
+     * repond plus lentement, a cause de l'envoi SMTP synchrone") est ferme en
+     * deferant l'appel mailer -- requestReset() DOIT avoir fini d'ecrire le
+     * token AVANT que le mailer ne soit appele, jamais l'inverse : c'est
+     * precisement cet ordre qui permet au front controller d'emettre la reponse
+     * HTTP (deja construite a ce stade) avant de vider la file.
+     */
+    public function testRequestActiveUserDefersMailSendUntilFlush(): void
+    {
+        $this->db->emailLookupRow = ['id' => 7];
+
+        $this->service()->requestReset('admin@wakdo.local', 'https://admin.wakdo.test', self::NOW);
+
+        // Le token EST deja stocke (le travail necessaire a la reponse est fait)...
+        self::assertNotEmpty($this->db->writes);
+        // ...mais le mailer n'a PAS encore ete appele.
+        self::assertSame([], $this->mailer->sent);
+
+        DeferredActions::flush();
+
+        self::assertCount(1, $this->mailer->sent);
     }
 
     public function testConfirmShortPasswordIsRejectedBeforeAnyWrite(): void

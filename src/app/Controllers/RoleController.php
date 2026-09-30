@@ -11,6 +11,7 @@ use App\Auth\PasswordHasher;
 use App\Auth\PinGate;
 use App\Auth\PinThrottle;
 use App\Auth\PinVerifier;
+use App\Auth\RedirectPath;
 use App\Auth\RoleRepository;
 use App\Core\DatabaseInterface;
 use App\Core\Response;
@@ -357,6 +358,13 @@ class RoleController extends AdminController
         $route = trim($form['default_route'] ?? '');
         if (mb_strlen($route) > 120) {
             $errors['default_route'] = 'Route par défaut trop longue (120 max).';
+        } elseif ($route !== '' && !RedirectPath::isLocal($route)) {
+            // D-6 (redirection ouverte) : cette valeur sert de redirection AUTOMATIQUE
+            // apres connexion (AuthService::authenticate()) -- une adresse externe ou
+            // relative au protocole enverrait tout le role hors du site a la connexion.
+            // Message sans jargon (revue adverse, D-6 mineur) : le champ est une LISTE
+            // ("Page d'accueil après connexion"), pas une saisie de chemin technique.
+            $errors['default_route'] = "Page d'accueil après connexion invalide : choisissez une page de la liste.";
         }
 
         $source = trim($form['order_source'] ?? '');

@@ -6,11 +6,13 @@ namespace App\Tests\Integration;
 
 use PHPUnit\Framework\TestCase;
 use Throwable;
+use App\Auth\AccountLockout;
 use App\Auth\AuthService;
 use App\Auth\PasswordHasher;
 use App\Auth\SessionManager;
 use App\Core\Config;
 use App\Core\Database;
+use App\Core\DatabaseInterface;
 use App\Tests\Support\SpyPasswordHasher;
 
 /**
@@ -95,6 +97,46 @@ final class AuthServiceDbTest extends TestCase
         self::assertSame('auth.login_success', $this->lastAuditAction());
     }
 
+    /**
+     * D-2 (contre-audit 30/09) : preuve de bout en bout, contre une vraie
+     * MariaDB, qu'un succes ne remet PLUS a zero le compteur IP. Avant ce
+     * correctif, `recordSuccess()` executait le MEME reset que pour le compte
+     * sur `login_throttle` -- avec des identifiants valides connus, alterner 19
+     * echecs et 1 succes empechait le plafond IP (20) de jamais s'atteindre.
+     */
+    public function testSuccessfulLoginDoesNotResetIpThrottleCounter(): void
+    {
+        // Seed une ligne login_throttle deja porteuse d'echecs anterieurs (comme
+        // apres plusieurs tentatives ratees), SANS verrou actif (lockout_until
+        // NULL) pour que la connexion reussisse.
+        $this->db->execute(
+            'INSERT INTO login_throttle (ip_address, failed_attempts, window_started_at, last_attempt_at) '
+            . 'VALUES (:ip, 19, NOW(), NOW())',
+            ['ip' => self::TEST_IP],
+        );
+
+        $result = $this->service()->authenticate($this->email(), self::PASSWORD, self::TEST_IP);
+
+        self::assertTrue($result->success);
+
+        $throttle = $this->db->fetch(
+            'SELECT failed_attempts, lockout_until FROM login_throttle WHERE ip_address = :ip',
+            ['ip' => self::TEST_IP],
+        );
+        self::assertNotNull($throttle);
+        self::assertSame(19, (int) ($throttle['failed_attempts'] ?? -1), 'le compteur IP ne doit pas etre remis a zero par un succes (D-2).');
+        self::assertNull($throttle['lockout_until']);
+
+        // Le compte, lui, EST remis a zero (RG-9 revise : seul le compteur du
+        // COMPTE l'est au succes).
+        $user = $this->db->fetch(
+            'SELECT failed_login_attempts FROM user WHERE id = :id',
+            ['id' => $this->userId],
+        );
+        self::assertNotNull($user);
+        self::assertSame(0, (int) ($user['failed_login_attempts'] ?? -1));
+    }
+
     public function testFailedLoginIncrementsAccountAndCreatesThrottleAndAuditFailure(): void
     {
         $result = $this->service()->authenticate($this->email(), 'WRONG-PASSWORD', self::TEST_IP);
@@ -163,6 +205,101 @@ final class AuthServiceDbTest extends TestCase
         // soit polluer la base partagee de tests d'integration, soit supprimer des
         // lignes NULL potentiellement ecrites par un autre test concurrent. Le
         // compteur IP ci-dessus suffit a prouver le comportement.
+    }
+
+    /**
+     * D-3 (contre-audit 30/09, durci par la revue adverse) : preuve
+     * d'atomicite avec DEUX VRAIES connexions PDO contre la meme MariaDB, sans
+     * `proc_open`/`pcntl_fork` (indisponibles dans l'image PHP de ce depot,
+     * `docker/php-fpm/php.ini:78` ; verifie : `function_exists()` renvoie faux
+     * pour les deux -- un vrai test MULTI-PROCESSUS n'est pas possible avec les
+     * outils du depot).
+     *
+     * La revue adverse a releve, a raison, que la version precedente de ce
+     * test appelait `recordFailure()` deux fois DE SUITE : deux appels
+     * sequentiels s'additionnent avec N'IMPORTE QUELLE implementation (meme
+     * l'ancienne, non atomique), donc ce test ne prouvait rien de plus qu'une
+     * addition ordinaire.
+     *
+     * Cette version construit une VRAIE lecture perimee : la connexion B ouvre
+     * sa transaction et LIT `failed_login_attempts` (0, instantane REPEATABLE
+     * READ) ; PENDANT que cette transaction reste ouverte, la connexion A (un
+     * VRAI `AuthService`, sur SA PROPRE connexion PDO) execute un echec de
+     * connexion COMPLET et le VALIDE (commit), portant le compteur a 1 ; B,
+     * TOUJOURS DANS SA TRANSACTION DEJA OUVERTE AVANT LE COMMIT DE A, execute
+     * ENSUITE son propre increment atomique. Si cet increment relisait la
+     * valeur AVANT de calculer (comme le faisait le code d'origine,
+     * `$currentAttempts + 1` calcule en PHP a partir d'une lecture HORS
+     * transaction), B ecraserait le compteur de A avec 0+1=1 (l'echec de A
+     * serait perdu). Avec l'increment SQL atomique
+     * (`failed_login_attempts = failed_login_attempts + 1`), une UPDATE lit
+     * toujours la derniere valeur VALIDEE, jamais l'instantane de la
+     * transaction qui l'execute [CLAIM L2, MySQL Reference Manual, chapitre
+     * "InnoDB Locking and Transaction Model", section "Consistent Nonlocking
+     * Reads" : l'instantane s'applique aux lectures SELECT, jamais aux
+     * ecritures UPDATE/DELETE, qui verrouillent et lisent toujours la version
+     * la plus recente -- comportement herite par MariaDB/InnoDB] : B lit et
+     * incremente la valeur COMMISE la plus recente (1, apres A), quel que soit
+     * ce que sa PROPRE lecture anterieure avait vu -- le resultat final DOIT
+     * etre 2.
+     *
+     * Depuis la deduplication du motif SQL (2e revue adverse), B appelle
+     * directement `AccountLockout::recordFailureWithin()` -- LE MEME code
+     * qu'utilise desormais `AuthService::recordFailure()` (dimension compte)
+     * -- plutot que de le recopier : ce test exerce donc du code applicatif
+     * REEL, pas seulement un gabarit SQL recopie. `recordFailureWithin()`
+     * n'ouvre pas sa propre transaction (elle prend `$db` en parametre),
+     * donc elle s'imbrique sans probleme dans la transaction de B deja
+     * ouverte sur la MEME connexion PDO (`recordFailure()`, elle, ouvrirait
+     * la sienne et ne pourrait pas s'imbriquer ici, cf. son propre
+     * commentaire). Verifie aussi `lockout_until` : a 2 echecs (sous le seuil
+     * de 5, `ACCOUNT_LOCKOUT_THRESHOLD`), il doit rester NULL -- preuve que le
+     * calcul du verrou, pas seulement l'incrementation, s'est correctement
+     * execute sur la valeur commise par A.
+     */
+    public function testAccountCounterIncrementSurvivesAStaleReadUnderARealConcurrentTransaction(): void
+    {
+        $connectionB = new Database($this->config);
+        $accountLockoutB = new AccountLockout($connectionB, $this->config);
+
+        $connectionB->transaction(function (DatabaseInterface $db) use ($accountLockoutB): void {
+            // B lit un instantane qui va devenir PERIME : la transaction reste
+            // ouverte pendant tout le bloc, donc cette lecture (et l'instantane
+            // REPEATABLE READ qu'elle etablit) precede le travail de A ci-dessous.
+            $before = $db->fetch(
+                'SELECT failed_login_attempts FROM user WHERE id = :id',
+                ['id' => $this->userId],
+            );
+            self::assertNotNull($before);
+            self::assertSame(0, (int) ($before['failed_login_attempts'] ?? -1));
+
+            // A : un VRAI echec de connexion, VRAI AuthService, SA PROPRE
+            // connexion PDO (this->db, distincte de $db=$connectionB) -- s'execute
+            // et se valide ENTIEREMENT ici, alors que la transaction de B est
+            // TOUJOURS OUVERTE.
+            $resultA = $this->service()->authenticate($this->email(), 'WRONG-PASSWORD', self::TEST_IP);
+            self::assertFalse($resultA->success);
+
+            $afterA = $this->db->fetch(
+                'SELECT failed_login_attempts FROM user WHERE id = :id',
+                ['id' => $this->userId],
+            );
+            self::assertSame(1, (int) ($afterA['failed_login_attempts'] ?? -1), 'precondition : le commit de A doit etre visible en dehors de sa propre transaction.');
+
+            // B, dans sa transaction ouverte AVANT le commit de A, execute
+            // MAINTENANT son propre increment atomique -- via le MEME code
+            // (AccountLockout::recordFailureWithin()) que AuthService::
+            // recordFailure() (D-3, dedupplique en 2e revue adverse).
+            $accountLockoutB->recordFailureWithin($db, $this->userId);
+        });
+
+        $after = $this->db->fetch(
+            'SELECT failed_login_attempts, lockout_until FROM user WHERE id = :id',
+            ['id' => $this->userId],
+        );
+        self::assertNotNull($after);
+        self::assertSame(2, (int) ($after['failed_login_attempts'] ?? -1), 'les deux echecs (A et B) doivent s\'additionner : B ne doit PAS ecraser le commit de A avec sa propre lecture perimee.');
+        self::assertNull($after['lockout_until'], '2 echecs restent sous le seuil (5) : le verrou ne doit pas etre pose.');
     }
 
     /**

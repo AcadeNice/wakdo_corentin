@@ -26,8 +26,18 @@ PIN d'action sensible. Pas d'auth cote borne (front public).
 
 ## Regles metier
 - RG-6 / RG-T02 : session valide (idle + absolu + compte actif, role et epoch de session
-  relus en base a chaque requete) sinon 302 `/login`.
-- RG-8 / RG-9 : throttle login par compte (`user.failed_login_attempts` / `lockout_until`) + par IP (`login_throttle`), backoff degressif.
+  relus en base a chaque requete) sinon 302 `/login`. Un role desactive retire les
+  permissions des la requete suivante, mais NE FERME PAS la session : les pages sans
+  permission dediee (tableau de bord, `/admin/me`, `/admin/profile/pin`, `/admin/privacy`,
+  `App\Health\RouteSecurity`) restent accessibles sur une session deja ouverte.
+- RG-8 / RG-9 : throttle login par compte (`user.failed_login_attempts` / `lockout_until`) + par IP (`login_throttle`), backoff degressif. Corrige le 2026-09-30 (revue adversariale) :
+  une connexion reussie ne remet plus a zero le compteur IP (seul le compteur du compte
+  l'est) ; l'increment du compteur par compte se fait desormais par une instruction SQL
+  atomique (`failed_login_attempts = failed_login_attempts + 1`), relue sous le verrou de
+  ligne qu'elle prend, comme la dimension IP. La re-verification du mot de passe sur
+  `/admin/profile/pin` (`App\Auth\AccountLockout`) compte desormais sur ce MEME budget
+  (limite assumee : un collegue peut y faire verrouiller la connexion du titulaire, pas pire
+  qu'avant depuis `/login`, voir `SECURITY.md`).
 - RESET_PASSWORD (12.3) : throttle par adresse et par IP (`password_reset_throttle`,
   migration `0020_session_invalidation.sql`) avant tout travail ; la confirmation
   incremente `user.session_epoch`, ce qui invalide immediatement les sessions ouvertes
