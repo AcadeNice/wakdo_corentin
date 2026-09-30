@@ -37,6 +37,9 @@ class UserController extends AdminController
 {
     private const ENTITY = 'user';
 
+    /** @var list<string> ENUM role_visible_source.source / customer_order.source (voir visibleSourcesOfRole()) */
+    private const ALL_ORDER_SOURCES = ['kiosk', 'counter', 'drive'];
+
     /**
      * D-4 (elevation de privilege, generalise en revue adverse) : `user.update`/
      * `user.create` seuls ne doivent jamais permettre de donner, ou de laisser en
@@ -558,13 +561,52 @@ class UserController extends AdminController
         return $rolePermissions !== [] && array_diff($rolePermissions, $actorPermissions) !== [];
     }
 
+    /**
+     * Sources de commande visibles par le role $roleId (`role_visible_source`),
+     * ligne vide normalisee en vue GLOBALE (D-4, portee des donnees releve en 2e
+     * revue adverse) : l'ABSENCE de ligne signifie "toutes les sources" (seed 0001
+     * l.25-26 : admin/manager n'ont aucune ligne et voient tout), pas "aucune
+     * source" -- meme convention que `OrderQueryRepository::visibleSources()`.
+     * `RoleRepository::visibleSources()` elle-meme n'est PAS touchee (l'ecran RBAC
+     * doit continuer d'afficher les cases telles qu'enregistrees) : cette
+     * normalisation ne vit que dans cette garde.
+     *
+     * @return list<string>
+     */
+    private function visibleSourcesOfRole(int $roleId): array
+    {
+        $sources = (new RoleRepository($this->db()))->visibleSources($roleId);
+
+        return $sources === [] ? self::ALL_ORDER_SOURCES : $sources;
+    }
+
+    /**
+     * D-4, portee des donnees (2e revue adverse) : $roleId deborde-t-il l'ACTEUR sur
+     * la portee des commandes visibles, MEME sans deborder sur les permissions ?
+     * Un role limite au drive dote de `user.update` ne doit pas pouvoir affecter,
+     * ni laisser en place, un role qui voit PLUS de canaux (jusqu'a la vue
+     * globale) : il ne gagne aucune permission, mais il elargit ce qu'il peut
+     * faire voir a un tiers compte (ou reprendre lui-meme en s'y connectant).
+     *
+     * @param list<string> $actorSources
+     */
+    private function roleExceedsVisibleSources(int $roleId, array $actorSources): bool
+    {
+        return $roleId > 0 && array_diff($this->visibleSourcesOfRole($roleId), $actorSources) !== [];
+    }
+
     private function roleExceedsActorPermissions(GuardResult $guard, int $roleId): bool
     {
         if ($this->may($guard, 'role.manage')) {
             return false;
         }
 
-        return $this->roleExceedsPermissions($roleId, $this->authorizer()->permissionsFor($guard->roleId ?? 0));
+        $actorRoleId = $guard->roleId ?? 0;
+        if ($this->roleExceedsPermissions($roleId, $this->authorizer()->permissionsFor($actorRoleId))) {
+            return true;
+        }
+
+        return $this->roleExceedsVisibleSources($roleId, $this->visibleSourcesOfRole($actorRoleId));
     }
 
     /**
@@ -815,12 +857,17 @@ class UserController extends AdminController
     {
         $rows = $this->db()->fetchAll('SELECT id, label FROM role WHERE is_active = 1 ORDER BY label');
         $hasRoleManage = $this->may($guard, 'role.manage');
-        $actorPermissions = $hasRoleManage ? [] : $this->authorizer()->permissionsFor($guard->roleId ?? 0);
+        $actorRoleId = $guard->roleId ?? 0;
+        $actorPermissions = $hasRoleManage ? [] : $this->authorizer()->permissionsFor($actorRoleId);
+        $actorSources = $hasRoleManage ? [] : $this->visibleSourcesOfRole($actorRoleId);
 
         $roles = [];
         foreach ($rows as $r) {
             $id = (int) ($r['id'] ?? 0);
-            if (!$hasRoleManage && $id !== $currentRoleId && $this->roleExceedsPermissions($id, $actorPermissions)) {
+            if (
+                !$hasRoleManage && $id !== $currentRoleId
+                && ($this->roleExceedsPermissions($id, $actorPermissions) || $this->roleExceedsVisibleSources($id, $actorSources))
+            ) {
                 continue;
             }
             $roles[] = ['id' => $id, 'label' => (string) ($r['label'] ?? '')];

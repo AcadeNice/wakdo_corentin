@@ -303,6 +303,30 @@ final class UserApiControllerTest extends TestCase
     }
 
     /**
+     * D-4, portee des donnees (2e revue adverse) : role_visible_source n'etait pas
+     * comparee. Meme cout HTML/API (UserApiControllerTest miroir de UserControllerTest
+     * pour cette regle). Absence de ligne = vue GLOBALE (seed 0001 l.25-26), pas
+     * "aucune source" -- voir UserController::visibleSourcesOfRole().
+     */
+    public function testUpdateBlocksModifyingAccountWhoseCurrentRoleHasBroaderVisibleSourcesWithoutRoleManage(): void
+    {
+        $db = $this->permittedDb();
+        $db->userManageRow = ['id' => 5, 'email' => 'e@wakdo.fr', 'first_name' => 'E', 'last_name' => 'Q', 'role_id' => 2, 'is_active' => 1];
+        // Memes permissions des deux cotes (repli $permissionCodes par defaut) ;
+        // seule la portee differe : l'acteur (role 0 dans ces tests) ne voit que
+        // drive, le role COURANT de la cible (2) n'a AUCUNE ligne -> vue globale.
+        $db->visibleSourcesByRole = ['0' => ['drive'], '2' => []];
+        $request = $this->jsonRequest('PUT', '/admin/api/users/5', $this->validBody(['email' => 'e@wakdo.fr']));
+
+        $response = $this->controller($request, $db)->apiUpdate(['id' => '5']);
+        $body = json_decode($response->body(), true);
+
+        self::assertSame(403, $response->status());
+        self::assertSame('FORBIDDEN', $body['error']['code'] ?? null);
+        self::assertFalse($db->wrote('UPDATE user SET'));
+    }
+
+    /**
      * D-4, limite du role desactive (revue adverse) : la garde doit lire les
      * permissions du role CIBLE independamment de son etat actif (RoleRepository::
      * permissionCodesFor(), sans jointure sur `role.is_active`), sans changer

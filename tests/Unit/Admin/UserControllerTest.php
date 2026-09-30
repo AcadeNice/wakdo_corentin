@@ -344,6 +344,97 @@ final class UserControllerTest extends TestCase
         self::assertSame([], $db->auditActions());
     }
 
+    // --- D-4, portee des donnees (2e revue adverse) : role_visible_source n'etait
+    // pas comparee. Un role sans permission en trop peut quand meme voir PLUS de
+    // canaux de commande que l'acteur ; l'absence de ligne role_visible_source
+    // signifie une vue GLOBALE (seed 0001 l.25-26, meme convention que
+    // OrderQueryRepository::visibleSources()), pas "aucune source". ---
+
+    public function testUpdateBlocksModifyingAccountWhoseCurrentRoleHasBroaderVisibleSourcesWithoutRoleManage(): void
+    {
+        $db = $this->permittedDb();
+        // Memes permissions des deux cotes (aucun ecart de ce cote) ; seule la
+        // PORTEE differe : l'acteur ne voit que drive, le role COURANT de la cible
+        // n'a AUCUNE ligne role_visible_source -> vue globale (kiosk+counter+drive).
+        $db->guardUserRow = ['is_active' => 1, 'role_id' => 1];
+        $db->canByRole = ['1:role.manage' => false, '4:role.manage' => false];
+        $db->permissionCodesByRole = [
+            '1' => ['user.read', 'user.create', 'user.update', 'user.deactivate'],
+            '4' => ['user.read', 'user.create', 'user.update', 'user.deactivate'],
+        ];
+        $db->visibleSourcesByRole = ['1' => ['drive'], '4' => []];
+        $db->userManageRow = $this->target(['id' => 5, 'role_id' => 4]);
+
+        $form = $this->createForm(['email' => 'staff@wakdo.local', 'first_name' => 'Renamed', 'is_active' => '1']);
+        $response = $this->controller($this->post($form, '/admin/users/5'), $db)->update(['id' => '5']);
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($db->wrote('UPDATE user SET'));
+        self::assertSame([], $db->auditActions());
+    }
+
+    public function testStoreBlocksAssigningRoleWithBroaderVisibleSourcesWithoutRoleManage(): void
+    {
+        $db = $this->permittedDb();
+        // Role vise (9) : memes permissions que l'acteur, mais voit drive ET
+        // counter contre drive seul pour l'acteur -- pas une vue globale, un
+        // simple canal en plus suffit a etre "plus dote" en portee de donnees.
+        $db->guardUserRow = ['is_active' => 1, 'role_id' => 1];
+        $db->canByRole = ['1:role.manage' => false, '9:role.manage' => false];
+        $db->permissionCodesByRole = [
+            '1' => ['user.read', 'user.create', 'user.update', 'user.deactivate'],
+            '9' => ['user.read', 'user.create', 'user.update', 'user.deactivate'],
+        ];
+        $db->visibleSourcesByRole = ['1' => ['drive'], '9' => ['drive', 'counter']];
+
+        $response = $this->controller($this->post($this->createForm(['role_id' => '9']), '/admin/users'), $db)->store();
+
+        self::assertSame(403, $response->status());
+        self::assertFalse($db->wrote('INSERT INTO user'));
+        self::assertSame([], $db->auditActions());
+    }
+
+    public function testStoreAllowsAssigningRoleWithVisibleSourcesSubsetOfActor(): void
+    {
+        $db = $this->permittedDb();
+        $db->guardUserRow = ['is_active' => 1, 'role_id' => 1];
+        $db->canByRole = ['1:role.manage' => false, '9:role.manage' => false];
+        $db->permissionCodesByRole = [
+            '1' => ['user.read', 'user.create', 'user.update', 'user.deactivate'],
+            '9' => ['user.read', 'user.update'],
+        ];
+        // Role vise (9) : SOUS-ENSEMBLE strict des sources de l'acteur -> autorise.
+        $db->visibleSourcesByRole = ['1' => ['drive', 'counter'], '9' => ['drive']];
+        $this->actingPin($db);
+        $db->lastInsertId = 44;
+
+        $response = $this->controller($this->post($this->createForm(['role_id' => '9']), '/admin/users'), $db)->store();
+
+        self::assertSame(302, $response->status());
+        self::assertTrue($db->wrote('INSERT INTO user'));
+    }
+
+    public function testCreateFormHidesRoleWithBroaderVisibleSources(): void
+    {
+        $db = $this->permittedDb();
+        $db->guardUserRow = ['is_active' => 1, 'role_id' => 1];
+        $db->canByRole = ['1:role.manage' => false];
+        $db->rolesRows = [
+            ['id' => 4, 'label' => 'Counter Staff'],
+            ['id' => 9, 'label' => 'Vue Globale'],
+        ];
+        // Memes permissions pour les deux roles (celles par defaut de permittedDb(),
+        // aucun recouvrement necessaire) ; seule la portee differe pour le role 9.
+        $db->visibleSourcesByRole = ['1' => ['drive'], '4' => ['drive'], '9' => []];
+
+        $response = $this->controller($this->get('/admin/users/new'), $db)->create();
+
+        self::assertSame(200, $response->status());
+        $body = $response->body();
+        self::assertStringContainsString('value="4"', $body);
+        self::assertStringNotContainsString('value="9"', $body);
+    }
+
     /**
      * D-4, limite du role desactive (revue adverse) : Authorizer::can()/permissionsFor()
      * filtrent `role.is_active = 1`, donc un role cible DESACTIVE ne remontait plus
